@@ -23,6 +23,7 @@ import {
 } from '../../tools/dev-env.mjs';
 import { manifest } from '../../tools/env-manifest.mjs';
 import { selectNames } from '../../tools/env-share.mjs';
+import { ribbonLabel } from './env-ribbon.js';
 import { REQUIRED, OPTIONAL, isPlaceholder } from '../../tools/env-check.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
@@ -244,5 +245,30 @@ describe('the drift warning stays silent when nothing is wrong', () => {
     const raw = {};
     for (const m of EXAMPLE_TEXT.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)) raw[m[1]] = m[2];
     expect(describeDrift(envDrift(EXAMPLE_TEXT, raw))).toMatch(/placeholder/);
+  });
+});
+
+describe('the dev server and the ribbon agree that localhost is not production', () => {
+  // A differential test across two files that only meet at runtime:
+  // dev-env.mjs SETS the variable, env-ribbon.js READS it. Neither file's own
+  // tests can see the join, and docs/start/where-it-runs.md was stale about it
+  // for exactly that reason.
+  it('a local dev run paints a ribbon', () => {
+    const env = {};
+    applyDevDatabaseEnv(env, join(ROOT, '.env.local'));
+    expect(env.VITE_ENV_NAME, 'dev-env stopped setting VITE_ENV_NAME, so a local '
+      + 'run now looks identical to production in the browser').toBeTruthy();
+    expect(ribbonLabel(env.VITE_ENV_NAME, 'localhost'),
+      'the value dev-env sets does not make the ribbon paint').toBeTruthy();
+  });
+
+  it('control: without it, localhost paints nothing — the pre-2026-09-06 state', () => {
+    expect(ribbonLabel(undefined, 'localhost')).toBe(null);
+  });
+
+  it('and it never claims to be production', () => {
+    const env = {};
+    applyDevDatabaseEnv(env, join(ROOT, '.env.local'));
+    expect(env.VITE_ENV_NAME).not.toBe('production');
   });
 });

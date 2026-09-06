@@ -95,6 +95,16 @@ If an address ends in `samo.md.kku.ac.th`, you are on the live site and the real
 
 **A preview also says so on the page**: every `*.pages.dev` build paints a `PREVIEW` ribbon, and that signal comes from the address itself, so it cannot be forgotten when a machine is rebuilt.
 
-Read that ribbon in one direction only. **A ribbon means you are not on production. No ribbon does not mean you are.** A local run usually shows nothing at all, because the ribbon is switched on by a setting that a plain `npm run dev` does not set — and that polarity is deliberate: the alternative would paint `PREVIEW` across the live site the first time somebody forgot a variable on the server. So the address bar remains the thing you trust.
+Read that ribbon in one direction only. **A ribbon means you are not on production. No ribbon does not mean you are.** That polarity is deliberate: the alternative would paint `PREVIEW` across the live site the first time somebody forgot a variable on the server. So the address bar remains the thing you trust.
+
+::: tip A local run shows a ribbon too, since 2026-09-06
+`npm run dev` now sets the environment name itself, so you get a **DEVELOPMENT**
+ribbon on `localhost` as well as on previews. It used to show nothing, and this
+page said so. The terminal says the same thing in words when the server starts:
+
+```
+  database: samo-dev (xxxxxxxx) — safe to click anything
+```
+:::
 
 Next — [Your first change](/start/first-change)

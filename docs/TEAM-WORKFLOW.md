@@ -263,9 +263,17 @@ any write and against the env rather than a hardcoded ref.
 
 ⛔ **Do NOT reuse production's OAuth client for dev.** It is the tempting
 shortcut and it is the wrong trade: `samo-dev`'s credentials are deliberately
-**shareable with the whole team** (`.claude/rules/security.md`, D7), so putting
+**shareable with the dev team** (`.claude/rules/security.md`, D7), so putting
 production's client secret there hands five people a credential that can
-impersonate the real site's Google sign-in. A second client costs two minutes
+impersonate the real site's Google sign-in.
+
+📌 **Refinement, 2026-09-06 — D7 STANDS, this is not a re-litigation.** D7's
+reason (a PAT the five can run migrations and proofs with) is unchanged and the
+PAT is still theirs. What changed is the DEFAULT for people outside that five:
+`SUPABASE_DEV_ACCESS_TOKEN` and `SUPABASE_DEV_DB_URL` are no longer sent to
+every contributor, because a volunteer changing a colour does not run
+migrations. The two remaining values are the pair the built site already
+publishes. `.claude/rules/security.md` has the tiers. A second client costs two minutes
 and keeps the blast radius where it belongs.
 
 

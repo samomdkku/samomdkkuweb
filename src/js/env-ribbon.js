@@ -30,6 +30,13 @@
 // for every student, caused by forgetting an env var on a VM rebuild. Here an
 // absent var paints nothing, and signal 2 still catches every real preview. The
 // failure mode is a missing ribbon on a preview, seen only by developers.
+//
+// 📌 A LOCAL `npm run dev` DOES paint one, since 2026-09-06 — not because this
+// file changed (it did not; `ribbonLabel(undefined, 'localhost')` is still
+// null), but because `tools/dev-env.mjs` now SETS `VITE_ENV_NAME=development`
+// when it points the dev server at samo-dev. Reading this file alone would
+// suggest localhost shows nothing, which is why the cross-file behaviour is
+// named here and asserted in `dev-env.test.js`.
 // ==============================================
 
 /**
