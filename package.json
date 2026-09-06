@@ -48,7 +48,7 @@
     "check:tool-boundary": "node tools/check-tool-boundary.mjs"
   },
   "devDependencies": {
-    "@google/clasp": "^3.3.0",
+    "@google/clasp": "^3.4.1",
     "vite": "^6.3.5",
     "vitepress": "^1.6.4",
     "vitest": "^4.1.7"
