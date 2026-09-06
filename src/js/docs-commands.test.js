@@ -20,7 +20,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..', '..');
-const SKIP = new Set(['node_modules', '.git', 'dist', '.vitepress', 'package', 'state-archive']);
+// ⚠️ `mistakes` and `state-archive` are RECORDS, not instructions. A bug
+// write-up must be able to QUOTE the broken command it is about — this guard
+// went red on its own write-up within a minute of being written, which is the
+// good version of that failure. Nobody copies a command out of a post-mortem.
+const SKIP = new Set(['node_modules', '.git', 'dist', '.vitepress', 'package', 'state-archive', 'mistakes']);
 
 function markdownFiles(dir = ROOT, out = []) {
   for (const name of readdirSync(dir)) {
@@ -41,6 +45,10 @@ describe('npm commands printed in documentation', () => {
   it('control: the sweep actually reads this repo\'s markdown', () => {
     expect(FILES.length, 'found no markdown files at all').toBeGreaterThan(20);
     expect(FILES.join(' ')).toContain('README.md');
+    expect(FILES.join(' '), 'the getting-started pages must be in scope — they '
+      + 'are the ones people copy from').toContain('docs/start/install.md');
+    expect(FILES.join(' '), 'the write-ups are records and must NOT be swept')
+      .not.toContain('docs/mistakes/');
     // And it can SEE the pattern it hunts — proved on a synthetic line, so an
     // empty result means "clean", not "the regex is broken".
     expect('npm run migrate:status --dev'.match(BAD)).not.toBeNull();
