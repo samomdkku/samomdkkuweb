@@ -34,9 +34,9 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `28e550b` (2026-09-06)** — v4.7.0 still. ~30 s,
-  `<== exit 0 — ran to the end`; roots 12 s apart. Verified from SERVED pages and
-  against the VM's own `git rev-parse HEAD`. Previous: `9f20bc4`.
+- ✅ **DEPLOYED = `d16a5da` (2026-09-06)** — v4.7.0 still. ~30 s,
+  `<== exit 0 — ran to the end`; roots seconds apart. Verified from SERVED pages
+  and against the VM's own `git rev-parse HEAD`. Previous: `28e550b`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
