@@ -134,7 +134,7 @@ RLS behaves identically on dev, or the whole design (`docs/TEAM-WORKFLOW.md`
 - One ALLOW and one DENY over the same rows with the **anon key**. A deny-only
   probe cannot tell a working guard from a broken service.
 - `npm run dev:check` — the grant/RLS parity check above. Run it every refresh.
-- `npm run migrate:status --dev` — **confirmed 2026-08-27: after a schema-only
+- `npm run migrate:status -- --dev` (⚠️ the `--` is REQUIRED — npm swallows the flag otherwise and you get PRODUCTION's answer) — **confirmed 2026-08-27: after a schema-only
   restore the table EXISTS and is EMPTY, so all 169 migrations read as
   PENDING.** Run `node tools/migrate-status.mjs --dev --backfill` once. Both
   tools take `--dev`; the DEFAULT IS PRODUCTION on purpose, and each prints

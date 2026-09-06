@@ -162,7 +162,7 @@ handed over (`docs/SUCCESSION.md`).
    and the VM sudo password. Start with ฝ่าย leads; every extra holder is another
    laptop, another phone, another graduation.
 5. **Create the `Dev` collection** (2026-09-06). The contributor onboarding docs
-   now send people to the vault for the four `SUPABASE_DEV_*` lines
+   now send people to the vault for the two `SUPABASE_DEV_*` lines
    (`docs/start/prerequisites.md`, `skills/onboard-a-contributor.md`), and the
    split is the point: `Dev` holds a key to a COPY, `Infra` holds production
    and this box's own sudo password. ⚠️ **The collection does not exist yet** —

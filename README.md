@@ -253,7 +253,9 @@ have the maintainer credentials, use the tooling instead of the SQL editor:
 
 ```bash
 npm run migrate:status        # what does production have, what is pending?
-npm run migrate:status --dev  # the same question, against samo-dev
+npm run migrate:status -- --dev   # the same question, against samo-dev
+# ⚠️ the `--` is REQUIRED. Without it npm swallows the flag and this answers
+#    about PRODUCTION while looking like it answered about dev.
 npm run migrate:new "<slug>"  # take the next number without colliding
 ```
 
@@ -281,7 +283,7 @@ Authorized JavaScript origins.
 | `npm run release` | Cut a release — derives the version bump from the commits since the last tag and drafts the changelog stub. Dry run unless `--write`; never pushes. See `docs/VERSIONING.md`. |
 | `npm run proofs` | Run every live database proof (RLS boundaries, column guards, definer-function authorization) against the real project in rolled-back transactions, and print one verdict each. Needs `SUPABASE_ACCESS_TOKEN` in `.env.local`, so it is a maintainer step, not a CI one. `npm run proofs <substring>` runs a subset. |
 | `npm run dev:refresh` | Rebuild `samo-dev` from production — schema, data and permissions — then verify the two match. Needs `CONFIRM=1`; refuses to run against production. Maintainer step. |
-| `npm run env:check` | **Contributors start here.** Checks your own `.env.local`: the four `SUPABASE_DEV_*` values are present, filled in rather than left as placeholders, and the dev database answers. Needs nothing but your own keys. |
+| `npm run env:check` | **Contributors start here.** Checks your own `.env.local`: the two `SUPABASE_DEV_*` values needed to run the site are present and filled in rather than left as placeholders, and the dev database answers. Reports the two database-work values without requiring them. |
 | `npm run dev:check` | **Maintainers.** Ask production and `samo-dev` the same questions with the anon key and compare the answers. Both directions: subjects that must be allowed AND subjects that must be denied. ⚠️ Needs PRODUCTION credentials, so it fails for a contributor in a way that looks like their own keys are wrong — that is what `env:check` is for. |
 | `npm run migrate:status` | What migrations this database has, and what is pending. `--dev` targets `samo-dev`; the default is production, on purpose. |
 | `npm run migrate:new "<slug>"` | Create the next migration file, numbering from the higher of your working tree and `origin/main` so two branches cannot take one number. |

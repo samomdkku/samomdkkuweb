@@ -38,16 +38,21 @@ page while you wait for the values to arrive.
 ::: tip How they will reach you — one of two ways, and neither is a chat message
 **A link that stops working.** Expect a URL that opens once, or expires after a
 day, and possibly a password sent separately by another route. **Open it, copy
-all four lines somewhere safe, and finish the setup the same day** — come back
+the lines somewhere safe, and finish the setup the same day** — come back
 tomorrow and the link may be dead and you will have to ask again. That is the
 system working, not a mistake.
 
 **Or an invitation to SAMO's password vault** at
 `https://samo.md.kku.ac.th/vault/`, if you are going to be around for a while.
-You get an account, and the four lines sit in a shared folder you can re-open
-whenever you rebuild your machine. It is the better road for anyone who will
-contribute more than once: when a key is replaced, it changes in one place
-instead of being re-sent to everybody.
+Then you do not wait for anybody at all — you fetch your own with one command:
+
+```bash
+npm run env:pull
+```
+
+It is the better road for anyone who will contribute more than once: when a key
+is replaced, it changes in one place and your next `env:pull` has it, instead of
+being re-sent to everybody.
 
 ⚠️ **The vault's one difficult step** is telling the app where our server is —
 in the Bitwarden app or extension, press the **⚙ gear on the login screen** and

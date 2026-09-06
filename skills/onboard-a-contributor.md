@@ -163,7 +163,7 @@ PERSON, not about the secret.**
 `https://samo.md.kku.ac.th/vault/` — Vaultwarden, self-hosted on the KKU VM,
 free, ours. Full operations in `skills/vaultwarden.md`.
 
-Put the four `SUPABASE_DEV_*` lines in a collection named **`Dev`**, share that
+Put the two `SUPABASE_DEV_*` lines in a collection named **`Dev`**, share that
 collection with them as a plain **User** (not Manager), and you are done. What
 that buys, and why it beats re-sending a link every time:
 
@@ -192,8 +192,8 @@ have already merged something.
 
 #### A first contact, or somebody passing through → a link that self-destructs
 
-Paste the four lines in, get a URL, send the URL, and it stops working after one
-view or after a set time. No account for anyone, nothing to offboard.
+Paste the block `npm run env:share` prints, get a URL, send the URL, and it
+stops working after one view or after a set time. No account for anyone, nothing to offboard.
 
 | Option | Cost | Good to know |
 |---|---|---|

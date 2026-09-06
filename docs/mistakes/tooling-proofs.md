@@ -2052,3 +2052,59 @@ the envelope — and then delete the step where a human retypes what is inside i
 COMMAND against a realistic input, or the half you did not extract stays
 unproven. **And the most realistic input to a paste-parser is the output of your
 own tool** — the one shape nine hand-written cases all missed.
+
+---
+
+## `npm run migrate:status --dev` answered about PRODUCTION for months
+
+**Symptom.** Found on 2026-09-06 when the owner said *"i want you to write docs
+properly, check if you've write properly"* — an instruction to VERIFY rather
+than assert, which is the only reason this was looked at.
+
+`README.md` told people to run:
+
+```bash
+npm run migrate:status --dev
+```
+
+**Cause.** npm treats `--dev` as its OWN flag and never passes it to the script.
+Measured, same line, one difference:
+
+```
+npm run migrate:status --dev      → project fheueuowbchsnsvbcgil [PRODUCTION]
+                                    PENDING: 0
+npm run migrate:status -- --dev   → project xibugtlsphcfuvstnxxh [samo-dev]
+                                    PENDING: 3
+```
+
+A wrong answer wearing the right question — and not a quiet one: it reports
+**PRODUCTION is in step** to somebody who believes they asked about samo-dev,
+while dev really has three pending migrations. The tool is innocent; it prints
+`[PRODUCTION]` precisely so this is catchable, which is exactly the guard
+`docs/state/HANDOFF.md` §7 already told readers to rely on. The DOC handed them
+the broken command.
+
+The same shape had just been introduced by me in three fresh places
+(`npm run env:share --db`, `--only`, `--copy`), where the failure is quieter
+still: `--db` silently yields the two-value block, so a maintainer would believe
+they had sent four values and sent two.
+
+**Fix.** Every `npm run <script> --flag` in the repo's markdown rewritten as
+`npm run <script> -- --flag`, with the reason inline at the two places a reader
+is most likely to copy from. `src/js/docs-commands.test.js` sweeps all markdown
+for the broken form, and separately asserts that every `npm run <name>` on a
+getting-started page names a script that actually exists in `package.json`.
+Both were reintroduced and each failed on its own assertion before restoring.
+
+**Where it lives now.** `README.md`, `skills/build-the-dev-database.md`,
+`skills/onboard-a-contributor.md`, `docs/start/sharing-credentials.md`; guarded
+by `src/js/docs-commands.test.js`.
+
+**The general rule.** *A command in a document is code, and nobody ever runs
+it.* Prose is reviewed by reading; a command is only ever verified by execution,
+and the gap between "this looks right" and "this does what it says" is where a
+`--` lives. **Run every command you put in a doc, and diff its output against
+what the sentence around it claims** — here the claim was "the same question,
+against samo-dev" and the output said `[PRODUCTION]` in the first line. Same
+lesson as the deploy pipeline that discarded its failing step: the instrument
+was printing the answer all along and nobody was made to look at it.
