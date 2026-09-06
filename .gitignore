@@ -22,6 +22,12 @@ externaldata/
 # Environment files — secrets live here
 .env
 .env.local
+# `npm run setup` copies .env.local here before changing it. On a
+# maintainer's machine that copy holds PRODUCTION credentials and the VM sudo
+# password. Named exactly, not as `.env.local.*`, because that wildcard would
+# also swallow `.env.local.example` — which must stay TRACKED
+# (env-example.test.js asserts both halves of this).
+.env.local.backup
 .env.*.local
 
 # Supabase CLI working dir

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { applyDevDatabaseEnv, describeDevDatabase } from './tools/dev-env.mjs';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -180,7 +181,7 @@ const passportDirIndex = {
   },
 };
 
-export default defineConfig({
+const config = {
   root: '.',
   plugins: [passportDirIndex, notifyDevStub(), buildIdPlugin(), htmlPartials(), spaFallback()],
   build: {
@@ -226,4 +227,19 @@ export default defineConfig({
       },
     },
   },
+};
+
+export default defineConfig(({ command }) => {
+  // ⛔ `serve` ONLY. On `build` the Supabase values must come from the VM's own
+  // .env.local and nothing else — tools/dev-env.mjs says what goes wrong
+  // otherwise. This gate IS the safety property, and dev-env.test.js asserts
+  // that both vite configs still have it.
+  if (command === 'serve') {
+    const decision = applyDevDatabaseEnv();
+    // Vitest loads this config too, and its `command` is also 'serve'. The
+    // mapping is still wanted there; the banner is not — it is a line for
+    // somebody starting a dev server, not for a test run.
+    if (!process.env.VITEST) process.stdout.write(describeDevDatabase(decision));
+  }
+  return config;
 });

@@ -1,6 +1,7 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import htmlIncludes from './vite-plugin-html-includes.js';
+import { applyDevDatabaseEnv } from '../tools/dev-env.mjs';
 
 // Passport's build, run from the samoweb repo root as a SECOND vite pass:
 //   npm run build:passport   →   vite build --config passport/vite.config.js
@@ -9,7 +10,7 @@ import htmlIncludes from './vite-plugin-html-includes.js';
 // passport/ no matter where the command is run from — index.html, html/*.html
 // and publicDir (passport/public: moved.html, qr-poster-template.png). Without
 // it vite would take the repo root as its root and find samoweb's index.html.
-export default defineConfig({
+const config = {
   root: __dirname,
 
   // ⚠️ THE BASE IS NOW ALWAYS '/passport/', AND THAT IS THE POINT OF THE MERGE.
@@ -46,4 +47,15 @@ export default defineConfig({
       }
     }
   }
+};
+
+// ⛔ `serve` ONLY — see tools/dev-env.mjs. Passport needs this MORE than the
+// portal does: passport/js/app.js falls back to a HARDCODED production URL and
+// anon key when VITE_SUPABASE_URL is unset, so before this existed a
+// contributor running `npm run dev` reached the real student database at
+// /passport/ while the portal half showed nothing at all. Unset must not mean
+// production.
+export default defineConfig(({ command }) => {
+  if (command === 'serve') applyDevDatabaseEnv();
+  return config;
 });

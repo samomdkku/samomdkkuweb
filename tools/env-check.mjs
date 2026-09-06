@@ -25,7 +25,9 @@
 //
 // This one asks only what a contributor can answer:
 //   1. does the file exist, in the right place
-//   2. are the four names present, and not still the placeholders
+//   2. are the two names you need to RUN the site present, and not still the
+//      placeholders (the two database-work ones are reported, never required —
+//      see REQUIRED below for why that split matters)
 //   3. does the dev database actually answer
 // and it says what to do about each failure rather than only that it failed.
 // ============================================================
@@ -37,10 +39,28 @@ import { loadEnvLocal } from './migrations-lib.mjs';
 const ROOT = join(import.meta.dirname, '..');
 const ENV_PATH = join(ROOT, '.env.local');
 
-/** The four a contributor is sent. Their one home is .env.local.example. */
+/**
+ * What everybody needs to RUN the site. Their one home is .env.local.example.
+ *
+ * ⛔ IT WAS FOUR UNTIL 2026-09-06, and that was the real security problem here.
+ * These two are the pair the built website already publishes — an address and a
+ * visitor key that RLS gates. The other two are not more of the same:
+ * SUPABASE_DEV_ACCESS_TOKEN can delete the samo-dev project, and
+ * SUPABASE_DEV_DB_URL is a direct database login that ignores every permission
+ * rule, over an UNMASKED copy of real student records. Requiring all four meant
+ * every volunteer changing a colour was handed both.
+ *
+ * The split is not cosmetic: `inspect()` FAILS on a missing one of these and
+ * only NOTES a missing one of OPTIONAL, so a contributor who has been sent two
+ * lines gets a green check instead of being told their setup is broken.
+ */
 export const REQUIRED = [
   'SUPABASE_DEV_URL',
   'SUPABASE_DEV_ANON_KEY',
+];
+
+/** Needed only for database work — migrations, proofs, dev:check, dev:google. */
+export const OPTIONAL = [
   'SUPABASE_DEV_ACCESS_TOKEN',
   'SUPABASE_DEV_DB_URL',
 ];
@@ -123,7 +143,22 @@ async function main() {
     console.error('\n  One NAME=value per line. No spaces around the =, no quotes.\n');
     process.exit(1);
   }
-  console.log('✓ all four SUPABASE_DEV_* values are present and filled in');
+  console.log('✓ the two values you need to run the site are present and filled in');
+
+  // Reported, never required. A contributor who has correctly been sent only
+  // two lines must not be told their setup is incomplete — that is the
+  // "fails on a CORRECT setup" trap this whole script was written to avoid.
+  const extras = OPTIONAL.filter((n) => env[n] && env[n].trim() && !isPlaceholder(n, env[n]));
+  if (extras.length === OPTIONAL.length) {
+    console.log('✓ the database-work values are set too (migrations, proofs)');
+  } else if (extras.length === 0) {
+    console.log('· no database-work values — normal, and all you need for');
+    console.log('  pages, styling, text and behaviour. Ask only if you take on');
+    console.log('  a migration.');
+  } else {
+    console.log(`· ${extras.length} of ${OPTIONAL.length} database-work values set —`);
+    console.log('  migrations and proofs will fail until the other is added.');
+  }
 
   let status;
   try {

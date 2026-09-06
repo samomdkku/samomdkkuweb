@@ -259,7 +259,17 @@ it is the part that generalises to code not yet written.
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
    assertion you expect, restore.** Never write a guard from the SAME LIST the
    code came from — assert the PROPERTY that list was meant to produce, or a
-   wrong list passes itself. A centralised flag is that list: `wantsSilence`
+   wrong list passes itself. **A LIST-VS-LIST GUARD PROVES ONLY THAT THE LISTS
+   AGREE**: the contributor guide named four env vars, `.env.local.example`
+   declared the same four, the guard compared them and was green — while
+   NOTHING mapped them to the two names `db.js` actually reads, so a correct
+   setup produced a dead portal and a passport pointed at PRODUCTION (its
+   fallback is hardcoded live). Both lists were right; the thing BETWEEN them
+   did not exist. Feed in the artefact a real person creates and assert what
+   must come out. Same entry, the other half: **ask what each credential in a
+   named "block" OPENS** — two of those four were an address and a public key,
+   two could delete the project and bypass every permission rule over real
+   student data (`tooling-proofs.md`). A centralised flag is that list: `wantsSilence`
    knew two spellings and its test asserted ONE of them, taken from the
    function itself, while the only caller of `notifyVSConsult` sent a third
    (`isSilent`) from the OTHER build target — the Silent toggle pinged the ฝ่าย
@@ -337,7 +347,7 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(28)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(22)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(41)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(42)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

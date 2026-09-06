@@ -22,10 +22,16 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 if (!url || !anonKey) {
   // Hard-fail at module load. The site can't function without these and
   // a clear error is better than mysterious "fetch failed" later.
+  // ⚠️ THIS MESSAGE USED TO NAME THE WRONG FILE AND THE WRONG VARIABLES.
+  // It said "copy .env.example" — the VM's file, which a contributor must not
+  // fill in — and named the two VITE_* names, which a contributor is never
+  // sent. Somebody hitting this is a contributor, and the only useful thing to
+  // tell them is the one command that diagnoses it (tools/env-check.mjs).
   console.error(
-    '[db] Missing Supabase env vars. Set VITE_SUPABASE_URL and '
-    + 'VITE_SUPABASE_ANON_KEY in .env.local — copy .env.example and ask a '
-    + 'maintainer for the values. (In production they are baked in on the VM.)'
+    '[db] No Supabase credentials. If you are running this locally, run '
+    + '`npm run env:check` — it says which of SUPABASE_DEV_URL / '
+    + 'SUPABASE_DEV_ANON_KEY is missing from .env.local and what to do. '
+    + '(In production these are baked in on the VM.)'
   );
 }
 

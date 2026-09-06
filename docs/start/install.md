@@ -197,111 +197,74 @@ anywhere, as long as that is where you cloned it in step 2.
 
 ## 4. Add the database credentials
 
-This is the step people get stuck on, so it is spelled out in full.
-
-### 4a. What the file is
-
-You are creating one file called **`.env.local`**, directly inside
-`samomdkkuweb/` — the same folder that contains `package.json`. Not in `src/`,
-not in `docs/`.
-
-**Check you are in the right folder before you create anything:**
+One command. **Do not create or edit any file by hand** — that step used to
+exist and it was where every setup problem came from.
 
 ```bash
-ls package.json
+npm run setup
 ```
 
-**You should see** the name echoed back, and nothing else:
+It asks you to paste the lines a maintainer sent you. **Paste the whole message,
+exactly as it arrived** — greeting, code fence, quotes and all. It finds the
+values inside, writes the file for you, and tells you what it set.
 
 ```
-package.json
+  Setting up .env.local
+  ─────────────────────
+
+  Paste the lines a maintainer sent you — the whole thing, exactly
+  as it arrived. Extra lines, quotes and stray text are fine.
+
+  Then press Enter on an empty line.
 ```
 
-If instead you get `ls: package.json: No such file or directory`, you are
-somewhere else — run `pwd` and go back to the end of step 3.
+Paste, then press Enter on an empty line. You should see:
 
-::: danger The leading dot is the single most common mistake on this page
-The file is `.env.local`, **not** `env.local`. A filename that starts with `.`
-is **hidden by default** on both macOS and Windows, so after you create it you
-will look in Finder or Explorer, not see it, assume it did not work, and make a
-second one with the wrong name. It is there. Both systems are just refusing to
-show it to you.
+```
+✓ .env.local written — 2 value(s) set:
 
-**To make hidden files visible:**
+      SUPABASE_DEV_URL
+      SUPABASE_DEV_ANON_KEY
 
-- **macOS Finder** — press `⌘ + Shift + .` (command, shift, full stop). Press it
-  again to hide them. Hidden files show up greyed out.
-- **Windows 11 File Explorer** — the **View** button in the toolbar → **Show** →
-  tick **Hidden items**.
-- **Windows 10 File Explorer** — the **View** tab on the ribbon → tick
-  **Hidden items**.
-- **VS Code** — no setting needed. Its file sidebar shows `.env.local` already,
-  which is the easiest way to confirm it exists.
+  No database-work values, which is normal.
+```
+
+::: tip You do not have to tidy the message first
+It copes with a covering note around the values, a ``` code fence, `export` in
+front, quotes around a value, spaces around the `=`, Windows line endings, and a
+long key that your chat app wrapped onto two lines. That last one used to be one
+of the three most common ways this step failed, and now it is not a way at all.
 :::
 
-### 4b. Create it
-
-The project ships an example with the right names already in it. Copy that, from the terminal, in the project folder:
-
-```bash
-cp .env.local.example .env.local     # macOS / Linux
-```
-
-```powershell
-Copy-Item .env.local.example .env.local    # Windows PowerShell
-```
-
-Then open your new file in an editor:
-
-```bash
-code .env.local         # VS Code
-open -e .env.local      # macOS TextEdit
-notepad .env.local      # Windows
-```
-
-**Confirm both files are there before you edit** — `ls` hides dotfiles unless
-you ask for them:
-
-```bash
-ls -a | grep env        # macOS / Linux
-```
-
-```powershell
-Get-ChildItem -Force -Filter "*env*"        # Windows PowerShell
-```
-
-**You should see** two names, the example you copied and your new file:
-
-```
-.env.local
-.env.local.example
-```
-
-Only `.env.local.example`? The copy did not happen — you were in the wrong
-folder, or the command errored above where you are looking. Scroll up.
-
-### 4c. Replace the placeholders with the values you were given
-
-Either from the one-time link somebody sent you, or from the `Dev` folder in
-[SAMO's password vault](/start/prerequisites#_1-ask-for-the-database-credentials-now)
-if you have an account there.
-
-The file you copied already has the four names in it, each with an obvious placeholder value. Replace the values, keeping the names exactly as they are:
-
-- `SUPABASE_DEV_URL` — the address of the development database
-- `SUPABASE_DEV_ANON_KEY` — the public key the browser uses
-- `SUPABASE_DEV_ACCESS_TOKEN` — used by the migration tools
-- `SUPABASE_DEV_DB_URL` — the direct database connection
-
-One `NAME=value` per line. **No spaces around the `=`, and no quotation marks** — a value in quotes is read as a value that includes the quotes. Save the file. Nothing else has to be told about it — the project reads it automatically the next time it starts.
-
-::: danger Two rules, both non-negotiable
-**`.env.local` is already listed in `.gitignore`, so git ignores it. Never change that**, and never move these values into a file that is tracked. A key committed once stays in the history for ever, and this repository is public.
-
-**`samo-dev` is a copy of real student data, not fake data.** Click, submit, and delete freely — that is what it is for. But never publish its URL, never copy records out of it, and never paste its contents into a chat or an issue.
+::: danger If it says **STOP. You were sent something you should not have been sent**
+You have been given a key to the **live** site instead of the practice copy.
+Nothing was written to disk. Tell whoever sent it, today — replacing one takes
+about two minutes, and saying nothing is the only expensive option.
 :::
 
-### 4d. Check it worked
+::: tip What it made, if you are curious
+A file called `.env.local` in the project folder — the same folder as
+`package.json`.
+
+**The leading dot means it is hidden.** After running the command you will look
+in Finder or Explorer, not see it, and think it failed. It is there. To show
+hidden files: **macOS Finder** `⌘ + Shift + .` · **Windows 11** View → Show →
+Hidden items · **Windows 10** the View tab → Hidden items · **VS Code** shows it
+already.
+
+`.env.local` is listed in `.gitignore`, so git ignores it. **Never change that**,
+and never move these values into a file that is tracked — a key committed once
+stays in the history for ever, and this repository is public.
+:::
+
+::: warning `samo-dev` is a copy of real student data, not fake data
+Click, submit and delete freely — that is what it is for, and nothing you do
+there reaches a real student. But never publish its address, never copy records
+out of it, and never paste its contents into a chat or an issue. The names,
+รหัสนักศึกษา and photographs in it belong to real people.
+:::
+
+### 4a. Check it worked
 
 ```bash
 npm run env:check
@@ -310,13 +273,19 @@ npm run env:check
 **You should see:**
 
 ```
-✓ all four SUPABASE_DEV_* values are present and filled in
+✓ the two values you need to run the site are present and filled in
+· no database-work values — normal, and all you need for
+  pages, styling, text and behaviour. Ask only if you take on
+  a migration.
 ✓ the development database answered
 
 You are set up. Run `npm run dev` and open the address it prints.
 ```
 
-Anything else names the problem and what to do about it. The three that actually happen: the file is in the wrong folder, one line got wrapped in two when you pasted it, or one value is still the placeholder because you pasted three of the four.
+**The middle line starting with `·` is not a warning.** It is telling you the
+two powerful values are absent, which is the state you want.
+
+Anything else names the problem and what to do about it.
 
 ::: warning Not `npm run dev:check` — the two names look almost the same
 `env:check` is yours. `dev:check` is a different command with a different job:
@@ -329,9 +298,62 @@ Run it anyway and it stops with `✗ PRODUCTION: URL or anon key missing`, which
 reads like *your* keys are wrong when they are perfectly fine.
 :::
 
-### 4e. If you do not have the credentials yet
+### 4b. Two more values exist. You almost certainly do not want them
 
-`npm run dev` still starts and the site still loads. You will get the layout, the styling and the navigation, and **empty lists wherever data would be**, sometimes with an error in the browser console. That is enough for a pure CSS or copy change. It is not enough to test a form, a login, or anything that saves.
+`SUPABASE_DEV_ACCESS_TOKEN` and `SUPABASE_DEV_DB_URL` are **not more of the same
+thing**. The first can delete the practice database entirely; the second is a
+direct login that ignores every permission rule, so it can read every real name,
+รหัสนักศึกษา and photograph in one go.
+
+You need them only to change the database's own structure — `npm run migrate:*`,
+`npm run proofs -- --dev`, `dev:check` or `dev:google`. If you take on that work,
+ask then, and run `npm run setup` again with the new lines; it adds them without
+disturbing anything.
+
+⛔ **Do not ask for them just to have the full set.** Two is not an incomplete
+setup, it is the normal one.
+
+### 4c. Doing it by hand instead
+
+If `npm run setup` will not run for any reason:
+
+```bash
+cp .env.local.example .env.local     # macOS / Linux
+```
+
+```powershell
+Copy-Item .env.local.example .env.local    # Windows PowerShell
+```
+
+Open it, replace the two placeholder values keeping the names exactly as they
+are, and save. **One `NAME=value` per line, no spaces around the `=`, no
+quotation marks** — a value in quotes is read as a value that includes the
+quotes. Then run `npm run env:check`.
+
+### 4d. If you do not have the credentials yet
+
+`npm run dev` still starts and the site still loads. You will get the layout, the styling and the navigation, and **empty lists wherever data would be**, plus a line in the browser console telling you to run `npm run env:check`. That is enough for a pure CSS or copy change. It is not enough to test a form, a login, or anything that saves.
+
+::: tip `npm run dev` tells you which database it is using — read that line
+Every start prints one line before the address:
+
+```
+  database: samo-dev (xxxxxxxx) — safe to click anything
+
+  ➜  Local:   http://localhost:5174/
+```
+
+If it says **NONE configured**, your `.env.local` is not being read — run
+`npm run env:check`. The page also wears a coloured ribbon whenever it is not
+production, so you can tell at a glance from the browser as well.
+
+⚠️ **This is new on 2026-09-06 and it fixed a real trap.** Before it, filling in
+`.env.local` correctly did nothing at all: the guide had you set one pair of
+names and the site read a different pair, with nothing joining them. The portal
+came up empty — indistinguishable from having pasted nothing — while
+`/passport/` quietly fell back to the **live** database. If you followed this
+guide before that date, `npm run dev` was not doing what you thought.
+:::
 
 ## 5. Run it
 
@@ -407,6 +429,7 @@ Leave `npm run dev` running in one window and type everything else in a second. 
 
 | Command | What it does |
 |---|---|
+| `npm run setup` | Writes `.env.local` from a pasted credential block. Run it again any time you are sent new values |
 | `npm run dev` | Runs the site on your machine, usually at `localhost:5174` |
 | `npm test` | Runs the test suite. CI runs this exact one on your pull request |
 | `npm run build` | Builds the production files — proves nothing is broken before you push |

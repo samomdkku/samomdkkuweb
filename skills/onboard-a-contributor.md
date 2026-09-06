@@ -37,18 +37,41 @@ never that trigger.
 The one thing a contributor genuinely cannot get for themselves. Everything else
 in this repository is public.
 
-### What to send — exactly four lines, no more
+### What to send — exactly TWO lines, no more
 
 ```
 SUPABASE_DEV_URL=…
 SUPABASE_DEV_ANON_KEY=…
-SUPABASE_DEV_ACCESS_TOKEN=…
-SUPABASE_DEV_DB_URL=…
 ```
+
+⛔ **IT WAS FOUR UNTIL 2026-09-06, AND THAT WAS THE REAL PROBLEM HERE.** The
+pair above is what the built website already publishes: an address and a visitor
+key that RLS gates. The other two are a different kind of thing entirely —
+
+- `SUPABASE_DEV_ACCESS_TOKEN` can **delete the samo-dev project**;
+- `SUPABASE_DEV_DB_URL` is a **direct database login that ignores every
+  permission rule**, over an UNMASKED copy of real student records.
+
+Sending all four meant every volunteer fixing a colour carried both on their
+laptop. Send them **only** when someone actually takes on a migration, a proof
+run, `dev:check` or `dev:google` — and say what they are when you do.
+⚠️ People will ask for "the full set" because two feels incomplete. It is not:
+`npm run env:check` prints a line saying their two-value setup is normal.
 
 Copy the values from your own `.env.local`. The names have ONE home,
 `.env.local.example`, which is checked in and guarded by `env-example.test.js` —
 so do not retype the list from here or from memory.
+
+📌 **Send it however is convenient — they do not transcribe it.** They run
+`npm run setup` and paste your whole message, covering note and all; it finds
+the values, tolerates quotes / `export` / a code fence / a key your chat app
+wrapped onto two lines, and writes `.env.local` itself. So do NOT spend effort
+formatting the block, and do NOT tell them to edit a file by hand — that step
+was removed on 2026-09-06 because it was where every setup failure came from.
+
+⛔ **`npm run setup` REFUSES a paste containing a production name** and writes
+nothing, telling them to come back to you. That is a backstop, not permission to
+be careless: it can only recognise the names listed in `.env.local.example`.
 
 ⛔ **Never send anything else.** Not the production keys, not
 `SAMO_VM_SUDO_PASSWORD`, not the Google client secret. A contributor with a

@@ -206,6 +206,34 @@ handed over (`docs/SUCCESSION.md`).
 
 ---
 
+## 8. Contributor setup — fixed 2026-09-06, but two things are owner-only
+
+**Status: VERIFIED 2026-09-06 — how:** built a contributor's `.env.local` from
+`.env.local.example` and asked Vite's own loader what it exposed (`{}` before,
+the samo-dev URL after); started the dev server and read the served `db.js`
+(`xibugtlsphcfuvstnxxh`, not production); ran `npm run build` and confirmed
+`dist/` still carries production ONLY and the dev ref appears nowhere; piped
+nine realistic paste shapes through `npm run setup` end to end, including a
+maintainer's file that must not lose its production keys. Both bugs were
+reintroduced and each failed on its own assertion before restoring.
+
+`docs/mistakes/tooling-proofs.md` has the full write-up. What is left:
+
+1. **Re-send the two lines to anyone already onboarded.** Nobody has been
+   walked through this yet (§4), so the likely answer is nobody — but if you
+   sent anyone the four-value block, they hold `SUPABASE_DEV_DB_URL`, which
+   reads every real student record. Ask them to delete it; rotate if unsure.
+2. **The `Dev` vault collection (§7 item 5) is now smaller and easier.** It
+   holds two lines that the built website already publishes, not four. That
+   changes the risk of handing out vault accounts, and it is worth revisiting
+   §7 item 4 with that in mind.
+
+⚠️ **NOT verified:** whether `npm run dev` behaves the same on Windows. Every
+measurement above was on macOS. The paste path is plain stdin so it should, but
+nobody has run it there.
+
+---
+
 ## Where to look for anything else
 
 **Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.

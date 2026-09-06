@@ -31,6 +31,7 @@
     "migrate:new": "node tools/migrate-new.mjs",
     "deploy:owed": "node tools/deploy-owed.mjs",
     "dev:check": "node tools/dev-check.mjs",
+    "setup": "node tools/setup-env.mjs",
     "env:check": "node tools/env-check.mjs",
     "dev:grants": "node tools/dev-grants.mjs",
     "dev:refresh": "node tools/dev-refresh.mjs",

@@ -1897,3 +1897,93 @@ clothes: the reader cannot tell an explanation from a measurement, so they
 believe it and stop measuring. And a guide that explains a failure the system
 cannot produce is worse than one that says nothing, because it hands the reader
 a confident wrong answer at the exact moment they are least able to judge it.
+
+---
+
+## The setup guide's four keys: two the app never read, two nobody should have had
+
+**Symptom.** Reported as a plain question — *"so how should i send them the
+credentials of .env.local"* — while asking whether SOPS was the right tool.
+Tracing what those credentials actually did answered a different question.
+
+**Cause, part 1 — the app never read them.** `docs/start/install.md` had a
+contributor fill in `SUPABASE_DEV_URL` / `SUPABASE_DEV_ANON_KEY`.
+`src/js/db.js` reads `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`. **Nothing
+mapped one to the other** — not `vite.config.js`, not `tools/dev-all.mjs`.
+Measured by building the file the guide produces and asking Vite's own loader:
+
+```
+loadEnv('development', dir, 'VITE_')   ->   {}
+```
+
+So the traced sequence was: paste the values → `npm run env:check` prints
+**"✓ You are set up"** → `npm run dev` starts an app with no database. Identical
+to §4e's *failure* state. Worse on the passport half: `passport/js/app.js` falls
+back to a **hardcoded production URL and anon key** when the variable is unset,
+so a volunteer following the guide was reading the real student database.
+
+**Why nobody saw it for weeks.** A maintainer's own `.env.local` carries
+`VITE_*` pointing at **production**, so `npm run dev` worked on the only machine
+it was ever run on — by talking to the live site. Both halves of that are wrong,
+and the working case hid the broken one.
+
+**Cause, part 2 — the guard could not see it.** `env-example.test.js` asserted
+that the example declares four names and that the docs name the same four: a
+list against a list, both derived from the same decision. The hazard lived in
+the GAP between the example and the app, which no list comparison can reach.
+
+**Cause, part 3 — the four were not four of a kind.** Two are the pair the built
+website already publishes (an address and a visitor key RLS gates). The other
+two are `SUPABASE_DEV_ACCESS_TOKEN`, which can delete the project, and
+`SUPABASE_DEV_DB_URL`, a direct login that ignores every permission rule over an
+UNMASKED copy of real student records. Every consumer of those two is migration
+tooling; a contributor editing `src/` needs neither. They were handed to
+everyone because they arrived in the same block and the guard asserted all four.
+
+**Fix.** `tools/dev-env.mjs` maps the dev pair into what the app reads, prints
+which database it chose, and sets `VITE_ENV_NAME` so the existing ribbon paints.
+Both vite configs call it **only on `command === 'serve'`** — a production build
+must never be repointed, and that gate is asserted. `.env.local.example` now
+ships the powerful pair commented out; `env-check.mjs` REQUIRES two and merely
+reports the other two, so a correctly-provisioned contributor gets a green
+check instead of being told their setup is broken.
+
+**Where it lives now.** `tools/dev-env.mjs`, `vite.config.js`,
+`passport/vite.config.js`, `tools/env-check.mjs` (`REQUIRED` / `OPTIONAL`), and
+`src/js/dev-env.test.js` — which asserts the PROPERTY: feed in the file the
+guide tells a person to create, and a real database must come out. Both bugs
+were reintroduced and each failed on its own assertion before restoring.
+
+**A third fix, from the owner, the same day.** Told about the split, they went
+straight past it: *"i think making the contributor cp .env.example, input each
+key manually is bug prone, i thought of handling the file, or someway automate"*.
+Right, and it makes the first two fixes cheap to hold: `npm run setup`
+(`tools/setup-env.mjs`) takes the message a maintainer sent, pasted whole —
+greeting, code fence, `export`, quotes, CRLF, and a key a chat client wrapped
+onto two lines — and writes the file. **The transcription step is gone, so the
+three failures the guide used to list cannot happen.** It MERGES rather than
+overwrites (a maintainer's `.env.local` holds production credentials and the VM
+sudo password), backs the file up first, never prints a value, and REFUSES a
+paste containing a production name.
+
+⚠️ **And its own first bug was in the half the unit tests could not see.** Nine
+`parsePaste` cases were green while the real command was broken: the READ loop
+ended the paste at the first blank line after any non-empty line, and people
+send a covering note — so "hey, here you go" + blank closed input before one
+credential arrived, and it then told the reader they had pasted nothing. Found
+by piping a realistic message through the actual command, not by reading it.
+`opensAssignment` is now the terminating condition and is asserted directly.
+
+**The general rule.** *A guard that compares a list to a list proves the two
+lists agree, not that either one works.* Here both lists were right and the
+thing between them did not exist. Ask what the lists were meant to PRODUCE and
+assert that instead — the property, end to end, from the artefact a real person
+creates. And **when a setup hands over N credentials, ask what each one opens**:
+"the SUPABASE_DEV_* block" is a name for a group, and a group name is how a
+project-deleting token and an RLS-bypassing database login end up on a
+volunteer's laptop because they wanted to change a colour. The corollary for
+deciding how to DELIVER secrets: settle what is in the envelope before choosing
+the envelope — and then delete the step where a human retypes what is inside it.
+**A pure function's tests do not cover the loop that feeds it**: exercise the
+COMMAND against a realistic input, or the half you did not extract stays
+unproven.

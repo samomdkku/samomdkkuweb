@@ -6,22 +6,34 @@ Two kinds of thing: **software you install yourself**, and **access you have to 
 
 The project cannot run without them, and they are not in the repository — they never will be, because a public repository is readable by everybody.
 
-**Message a maintainer and ask for "the `SUPABASE_DEV_*` block for `.env.local`".** That sentence is enough; they will know what you mean.
+**Message a maintainer and ask for "the two `SUPABASE_DEV_*` lines for `.env.local`".** That sentence is enough; they will know what you mean.
 
 ::: tip What you are asking for, in plain terms
 The site is a shop window; the database is the stockroom behind it. The code is public, the stockroom is not. What you are asking for is a key to the **practice** stockroom (`samo-dev`) — a copy of the real one that you can rearrange without anyone noticing.
 :::
 
-You will be sent four lines that look like this — real values, not these:
+You will be sent two lines that look like this — real values, not these:
 
 ```
 SUPABASE_DEV_URL=https://xxxxxxxxxxxx.supabase.co
 SUPABASE_DEV_ANON_KEY=eyJhbGciOi…
-SUPABASE_DEV_ACCESS_TOKEN=sbp_…
-SUPABASE_DEV_DB_URL=postgresql://…
 ```
 
-[Install and run](/start/install) shows exactly where to put them. Read the rest of this page while you wait.
+::: tip Why two and not four — and why you should not ask for the other two
+Until 2026-09-06 everybody was sent four. Two of those were a mistake to hand
+out by default: `SUPABASE_DEV_ACCESS_TOKEN` can delete the practice database,
+and `SUPABASE_DEV_DB_URL` is a direct login that ignores every permission rule
+— real names, real รหัสนักศึกษา, real photographs, in one connection.
+
+They are needed only for changing the database's own structure. If you take on
+that work, ask then. Everything else — pages, styling, wording, buttons, forms,
+what a page shows and to whom — needs only the two lines above.
+:::
+
+You do not type these in anywhere by hand. [Install and run](/start/install)
+has one command, `npm run setup`, that takes the message you were sent — paste
+it whole, greeting and all — and writes the file for you. Read the rest of this
+page while you wait for the values to arrive.
 
 ::: tip How they will reach you — one of two ways, and neither is a chat message
 **A link that stops working.** Expect a URL that opens once, or expires after a

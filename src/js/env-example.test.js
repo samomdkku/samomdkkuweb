@@ -17,6 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { REQUIRED, OPTIONAL } from '../../tools/env-check.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const EXAMPLE = readFileSync(join(ROOT, '.env.local.example'), 'utf8');
@@ -30,14 +31,14 @@ const declared = new Set(
 );
 
 describe('.env.local.example', () => {
-  it('declares the four development-database names (control)', () => {
-    // If this list is ever narrowed, the sweep below stops proving anything.
-    expect([...declared].sort()).toEqual([
-      'SUPABASE_DEV_ACCESS_TOKEN',
-      'SUPABASE_DEV_ANON_KEY',
-      'SUPABASE_DEV_DB_URL',
-      'SUPABASE_DEV_URL',
-    ]);
+  it('declares the run-the-site names as fill-in lines (control)', () => {
+    // ⚠️ THIS ASSERTED ALL FOUR UNTIL 2026-09-06, which is how every volunteer
+    // came to be handed SUPABASE_DEV_DB_URL — a connection that ignores every
+    // permission rule over an unmasked copy of real student records. The split
+    // now comes from env-check's own REQUIRED/OPTIONAL rather than a list
+    // retyped here, so the two cannot drift; src/js/dev-env.test.js asserts the
+    // powerful pair stays commented out.
+    expect([...declared].sort()).toEqual([...REQUIRED].sort());
   });
 
   it('carries no real value — it is checked in, and .env.local is not', () => {
@@ -54,6 +55,12 @@ describe('.env.local.example', () => {
 
   it('is TRACKED while .env.local is ignored — the whole point of the pair', () => {
     expect(GITIGNORE).toMatch(/^\.env\.local$/m);
+    // `npm run setup` writes this before changing an existing file, and on a
+    // maintainer's machine it is a copy of every production credential they
+    // hold. It must be ignored by NAME — a `.env.local.*` wildcard would work
+    // and would also untrack the example, which is asserted below.
+    expect(GITIGNORE, 'npm run setup writes .env.local.backup and git can see it')
+      .toMatch(/^\.env\.local\.backup$/m);
     expect(GITIGNORE, '.env.local.example must not be swept up by a wildcard')
       .not.toMatch(/^\.env\.local\.\*$/m);
     expect(GITIGNORE).not.toMatch(/^\.env\.local\.example$/m);
@@ -70,14 +77,27 @@ describe('.env.local.example', () => {
 });
 
 describe('the getting-started pages and the example agree', () => {
-  it('every env name the pages name is one the example declares', () => {
+  it('every env name the pages name is one the example knows about', () => {
+    // The example MENTIONS all four; only the required pair is an active line.
+    // So the pages are checked against both lists, and dev-env.test.js is what
+    // keeps the optional pair commented out.
+    const known = [...REQUIRED, ...OPTIONAL];
     const named = new Set(
       [...`${INSTALL}\n${PREREQ}`.matchAll(/\bSUPABASE_DEV_[A-Z_]+/g)].map((m) => m[0]),
     );
     expect(named.size, 'the pages stopped naming any variable at all').toBeGreaterThan(0);
     for (const n of named) {
-      expect(declared, `install.md/prerequisites.md tell a contributor to set ${n}, `
-        + 'which is not in .env.local.example — one of the two is stale').toContain(n);
+      expect(known, `install.md/prerequisites.md tell a contributor to set ${n}, `
+        + 'which env-check does not know about — one of the two is stale').toContain(n);
+    }
+  });
+
+  it('the pages tell a contributor the required pair, and do not demand the rest', () => {
+    // The consequence being guarded: a page that lists all four as "what you
+    // need" undoes the split in the file, because people follow the page.
+    for (const n of REQUIRED) {
+      expect(`${INSTALL}\n${PREREQ}`, `the pages never name ${n}, which is `
+        + 'needed to run the site').toContain(n);
     }
   });
 
