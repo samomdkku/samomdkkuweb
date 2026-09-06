@@ -668,15 +668,31 @@ list comes from `public.list_passport_departments()` because
 `passport.departments` / `sub_departments` have RLS enabled with **no policy**
 (0056), so a direct client read returns zero rows. Proof: `tools/pass0087-scope.mjs`.
 
-⚠️ **0087 is identity + scope ONLY — it enforces nothing yet.** The `passport`
-schema still carries 0056's `using (true)` / `with check (true)` policies for
-`anon` on activities/scans/seasons/certificates. Verified live (rolled back): the
-bare `anon` role can insert an activity, `update passport.scans set points_awarded
-= 999999` across all 845 rows, and read all 593 profiles (name + email). Until
-`passport/SECURITY-HARDENING-PLAN.md` is applied — close those policies, move
-stamping to a definer RPC, gate admin writes on `passport_admin_context()` — any
-per-department filtering in the passport UI is cosmetic. Do not describe this
-grant as securing passport.
+✅ **CORRECTED 2026-09-06 — the write side is CLOSED.** This paragraph used to
+say the bare `anon` role could insert activities, rewrite all 845 scan scores and
+read all 593 profiles, and that per-department filtering was therefore cosmetic.
+**All three claims are now false**, measured against the live database:
+
+| Asked | Answer |
+|---|---|
+| write policies (`INSERT`/`UPDATE`/`DELETE`/`ALL`) open to `anon`/`public` with a `true` check | **0** |
+| `profiles` rows readable by an unauthenticated caller | **0** — no `true` policy |
+| passport tables with RLS enabled | 11 of 12 |
+
+What remains open to `public` is **SELECT on the board data** — activities,
+seasons, scans, certificates, account_migrations — which is the public
+activity board and is intended.
+
+⚠️ It also pointed at `passport/SECURITY-HARDENING-PLAN.md`, which has never
+existed at that path; the hardening it described was delivered as migrations.
+**A stale vulnerability notice is not harmless**: it misdirects design ("filtering
+is cosmetic, so why bother") and it published an alarm about a hole that was
+already shut. Re-derive the current answer with `pg_policies` rather than
+trusting this table — it is a snapshot, not a guarantee.
+
+⛔ **One gap is open and is deliberately not described here** — the repository is
+public. It is recorded in `docs/state/HANDOFF.md` §11 with the query that finds
+it in one line.
 
 **TWO VIEWS, TWO PARENTAGES, ONE ORDERING.** The public page offers แผนผัง (a
 page of nesting ฝ่าย panels, `org-chart.js` + `org-chart.css`) and ผังรวม (one
@@ -1575,7 +1591,8 @@ change.
   currently — there's no separate dev branch)", and that stopped being true the
   day a dev project was built.** There is now a separate Supabase project on a
   separate account, holding a full copy of production — same schema, same data,
-  same permissions, same RLS. Credentials are the `SUPABASE_DEV_*` block in
+  same permissions, same RLS. Credentials are the two shareable `SUPABASE_DEV_*`
+  lines (the ACCESS_TOKEN and DB_URL are migration-only since 2026-09-06) in
   `.env.local`. `CONFIRM=1 npm run dev:refresh` rebuilds it from production;
   `npm run dev:check` proves it still answers the way production does.
   ⚠️ **It holds REAL student data** (a deliberate decision — `docs/TEAM-WORKFLOW.md`

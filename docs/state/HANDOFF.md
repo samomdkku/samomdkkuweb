@@ -391,6 +391,46 @@ concluding you cannot reach a signed-in page.
 
 ---
 
+## 11. One passport RLS gap — found 2026-09-06, details deliberately withheld
+
+**Status: VERIFIED 2026-09-06 — how:** `pg_policies` and `pg_class.relrowsecurity`
+read from the LIVE database via `tools/db-query.mjs`, plus `has_table_privilege`
+for the `anon` role.
+
+⛔ **This repository is PUBLIC, so the mechanism is NOT written down** — that is
+the standing rule in `.claude/rules/security.md`, and it has been broken here
+before. One line re-derives it:
+
+```sql
+select t.tablename from pg_tables t join pg_class c on c.relname = t.tablename
+ where t.schemaname = 'passport' and not c.relrowsecurity;
+```
+
+**What it is, in the safe amount of detail:** one small passport lookup table —
+**4 rows, no personal data, theming only** — kept the grants it had before the
+monorepo merge but lost the row-level protection its old project's
+`0011_passport_rls_lockdown.sql` had given it. Everything else in the schema is
+covered (11 of 12 tables).
+
+**Severity, judged honestly: LOW.** No student data is reachable through it and
+nothing is exposed that was not already public. The worst case is defacement of
+a colour/name that shows in the UI, visible immediately and reverted by one
+`update`. **It is not urgent and it should not be rushed at the end of a
+session** — which is why it was recorded rather than patched on 2026-09-06.
+
+**The fix, when someone picks it up:** a numbered migration enabling RLS with a
+read-only policy, mirroring the `*_read` policies the sibling tables already
+carry — then `skills/ship-a-migration.md`'s ordering. ⚠️ **Check nothing writes
+to it first**; a grep of `passport/js` and `src/js` on 2026-09-06 found only
+reads and a foreign key.
+
+**The wider lesson, already paid for:** the old project had this locked and the
+merge silently dropped it. **A schema move does not carry RLS with it** — after
+any merge, ask `pg_class.relrowsecurity` for every table rather than assuming the
+policies came along.
+
+---
+
 ## Where to look for anything else
 
 **Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.

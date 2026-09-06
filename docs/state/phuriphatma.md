@@ -607,6 +607,14 @@ so nobody re-derives it.
 
 ### 1. PASSPORT ON THE DEV SERVER — 1 of 5 steps done
 
+⛔ **OBSOLETE, corrected 2026-09-06 — do not work from this section.** It was
+written when Passport lived in a separate repo and previews had no `/passport/`.
+The monorepo merge (`dc84164`) made `/passport/` real everywhere and DELETED
+`public/passport-elsewhere.html`, so steps naming that file cannot be done and
+should not be. `npm run dev` has served both apps on one address since
+2026-09-04 (`docs/start/install.md`). Kept for its evidence about samo-dev
+holding passport's data, which is still true.
+
 **Why anyone wants this:** the dev site (`preview.samomdkkuweb.pages.dev`) has
 no `/passport/`, so Passport cannot be tested there. `public/passport-elsewhere.html`
 explains that honestly instead of silently serving the wrong app.
@@ -732,10 +740,12 @@ errors, and the calendar returns real data.
 Its header says so in Thai and names what is safe to change. `id="gpCalendar"`
 and the `.gp-tab` class are the two things that must not move.
 
-⚠️ **`dept-tool-mirror.test.js` is new** — every ฝ่าย tool must be findable in
-the launcher, because `DEPT_DEFS` and `tab-tools.html` are still two
-hand-maintained copies. The real fix remains the single registry
-(`docs/DEPT-TOOLS.md` §2).
+⚠️ ~~**`dept-tool-mirror.test.js` is new**~~ — **SUPERSEDED. That test no longer
+exists** (corrected 2026-09-06): the single registry it was waiting for shipped
+on 2026-08-31 and `src/js/tools-registry.test.js` replaced it, keeping both of
+its properties. `DEPT_DEFS` and `tab-tools.html` are no longer two
+hand-maintained copies. ⛔ This paragraph contradicted a *later* one in this same
+file for six days — when you supersede something, strike the older mention too.
 
 ## ▶ SESSION 2026-08-28 — WHAT I DID, AND WHAT WOULD MISLEAD YOU
 
@@ -827,6 +837,11 @@ payload comes from `analytics_overview(30)` under an impersonated JWT
 - The Mailpit trap is withdrawn AND its need is met.
 
 ## ▶ PHASE 6 — the proofs now run against samo-dev (2026-08-29)
+
+⚠️ **Half of this is stale (corrected 2026-09-06): `.github/workflows/proofs.yml`
+WAS DELETED** in `8b46ade` when CI was fixed, so proofs no longer run in CI at
+all. `npm run proofs:dev` still exists and still works — run it by hand.
+Original note follows.
 
 ✅ **`npm run proofs:dev`** and `.github/workflows/proofs.yml` (PRs touching
 `supabase/**`). **All 23 database proofs pass against `samo-dev`** — that is the
@@ -1154,6 +1169,7 @@ Long session, four themes. What would mislead the next reader:
 - ✅ **`samo-dev` is BUILT, LOADED and PROVEN** (the ref in `SUPABASE_DEV_URL`).
   Rebuild any time with `CONFIRM=1 npm run dev:refresh`; check it with
   `npm run dev:check`. Credentials are the `SUPABASE_DEV_*` block in
+  (⚠️ split 2026-09-06: only URL + ANON_KEY are a default share)
   `.env.local` and are safe to share with the team — that account holds nothing
   but disposable projects.
 - ~~**The one-source tool registry is un-started**~~ — **DONE 2026-08-31**,

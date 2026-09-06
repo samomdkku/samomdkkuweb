@@ -266,6 +266,17 @@ if (cfAccount && cfToken) {
 // configuration, it asserts the REASONING — a required status check is only
 // legitimate once something exists to report it.
 // ---------------------------------------------------------------------------
+// ⚠️ SAY WHEN THIS SECTION IS INERT. `SIBLING_REPOS` is deliberately empty (the
+// passport repo is archived; repo-identity.mjs explains why), so both loops
+// below iterate nothing and the script still prints "all N pass". That is
+// correct, and it took a later reader four commands to establish — the count
+// dropped from 27 to 18 and nothing in the OUTPUT said why. A guard whose
+// subject list is empty must say so out loud, or its silence reads as coverage.
+if (SIBLING_REPOS.length === 0) {
+  console.log('— sibling-repo checks: none to run (SIBLING_REPOS is empty by '
+    + 'design — the passport repo is archived; see tools/repo-identity.mjs)');
+}
+
 for (const name of SIBLING_REPOS) {
   const sib = `${OWNER}/${name}`;
   let sp;

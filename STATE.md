@@ -117,7 +117,9 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 its restructure (02 above). ⛔ **No polling timer for the docs** — one was
 built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
-0. ✅ **ORG MOVE DONE** (2026-08-31); `node tools/repo-protection.mjs` — 27 pass.
+0. ✅ **ORG MOVE DONE** (2026-08-31); `node tools/repo-protection.mjs` — 18 pass
+   (was 27; the sibling-repo loops are inert BY DESIGN since the passport repo
+   was archived, and the script now says so — corrected 2026-09-06).
    Traps: `skills/move-the-repo-to-an-organisation.md`. Org 2FA OFF by OWNER
    DECISION. Last box (a non-owner team add) is `HANDOFF` §3; the `*.pages.dev`
    rules moved to `docs/INVARIANTS.md`, their one home.
