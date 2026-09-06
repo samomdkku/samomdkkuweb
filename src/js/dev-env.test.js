@@ -18,12 +18,17 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { decideDevDatabase, applyDevDatabaseEnv, PROD_OVERRIDE } from '../../tools/dev-env.mjs';
+import {
+  decideDevDatabase, applyDevDatabaseEnv, PROD_OVERRIDE, envDrift, describeDrift,
+} from '../../tools/dev-env.mjs';
+import { manifest } from '../../tools/env-manifest.mjs';
+import { selectNames } from '../../tools/env-share.mjs';
 import { REQUIRED, OPTIONAL, isPlaceholder } from '../../tools/env-check.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 const EXAMPLE = read('.env.local.example');
+const EXAMPLE_TEXT = EXAMPLE;
 
 /**
  * The file a contributor ends up with, built FROM the example rather than
@@ -97,6 +102,37 @@ describe('the two names the app reads and the two we set are the same two', () =
   });
 });
 
+describe('what vite.config.js is allowed to import', () => {
+  // ⛔ PAID FOR ON 2026-09-06. Vite BUNDLES its config plus everything the
+  // config imports into one module. A `#!/usr/bin/env node` shebang that is no
+  // longer on line 1 is a syntax error, so importing a CLI tool from the config
+  // made the entire test suite fail to START with:
+  //
+  //     tools/env-check.mjs:1:396: ERROR: Syntax error "!"
+  //
+  // Loud, but it names a column in a file whose line 1 is 19 characters, and it
+  // says nothing about shebangs. This turns that into a sentence.
+  it('nothing in the config import graph carries a shebang', () => {
+    const seen = new Set();
+    const walk = (rel) => {
+      if (seen.has(rel)) return;
+      seen.add(rel);
+      const src = read(rel);
+      expect(src.startsWith('#!'), `${rel} starts with a shebang and is reachable `
+        + 'from vite.config.js. Vite bundles the config, so the shebang lands '
+        + 'mid-file and esbuild refuses it — move the shared part into a file '
+        + 'with no shebang, as tools/env-manifest.mjs was').toBe(false);
+      for (const m of src.matchAll(/^import[^']*'(\.[^']+)'/gm)) {
+        const dir = rel.split('/').slice(0, -1).join('/');
+        walk(join(dir, m[1]).replace(`${ROOT}/`, '').replace(/^\/+/, ''));
+      }
+    };
+    for (const entry of ['vite.config.js', 'passport/vite.config.js']) walk(entry);
+    expect(seen.size, 'the walk found no files — it is not looking at anything')
+      .toBeGreaterThan(2);
+  });
+});
+
 describe('a production build must never be repointed', () => {
   // The one way this change could do real damage: if the mapping ran during
   // `vite build`, the VM would ship a bundle wired to samo-dev while every
@@ -153,5 +189,60 @@ describe('the split between "run the site" and "work on the database"', () => {
       expect([...REQUIRED, ...OPTIONAL], `${name} is read by a tool but appears in `
         + 'neither REQUIRED nor OPTIONAL').toContain(name);
     }
+  });
+});
+
+describe('a variable added LATER reaches everyone, with no code change', () => {
+  // ⛔ THE OWNER'S ACTUAL QUESTION: *"incase in the future there's more key, or
+  // key is changed, it would be tiresome to manually copy paste each key"*.
+  // The answer is that `.env.local.example` is the only place that decides, so
+  // one edit there is the whole change. These assert that, by ADDING a variable
+  // to a copy of the example and checking each tool notices — rather than
+  // trusting that they all read the same function.
+  const FUTURE = 'SUPABASE_DEV_STORAGE_KEY';
+  const grown = () => `${EXAMPLE_TEXT}\n${FUTURE}=paste-the-storage-key-here\n`;
+
+  it('control: nothing warns about it before it is added', () => {
+    expect(envDrift(EXAMPLE_TEXT, contributorEnv()).missing).toEqual([]);
+  });
+
+  it('an existing contributor is told, by name, on their next npm run dev', () => {
+    const drift = envDrift(grown(), contributorEnv());
+    expect(drift.missing).toContain(FUTURE);
+    expect(describeDrift(drift)).toContain(FUTURE);
+    expect(describeDrift(drift)).toContain('npm run setup');
+  });
+
+  it('env:share offers it without being told about it', () => {
+    expect(selectNames(grown(), {}).names).toContain(FUTURE);
+  });
+
+  it('npm run setup accepts it without being told about it', () => {
+    expect(manifest(grown()).required).toContain(FUTURE);
+  });
+
+  it('a COMMENTED addition is optional, not required — the split still holds', () => {
+    const optionalAdd = `${EXAMPLE_TEXT}\n# ${FUTURE}=paste-me\n`;
+    expect(manifest(optionalAdd).optional).toContain(FUTURE);
+    expect(envDrift(optionalAdd, contributorEnv()).missing).not.toContain(FUTURE);
+  });
+});
+
+describe('the drift warning stays silent when nothing is wrong', () => {
+  // A warning that fires on the healthy case is worse than no warning, and one
+  // a contributor cannot act on is worse still (`.claude/rules/mistakes.md`).
+  it('says nothing to a correct two-value contributor', () => {
+    expect(describeDrift(envDrift(EXAMPLE_TEXT, contributorEnv()))).toBe('');
+  });
+
+  it('never nags about the database-work values they are right not to have', () => {
+    const drift = envDrift(EXAMPLE_TEXT, contributorEnv());
+    for (const n of OPTIONAL) expect(drift.missing).not.toContain(n);
+  });
+
+  it('does speak up when a placeholder was left behind', () => {
+    const raw = {};
+    for (const m of EXAMPLE_TEXT.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)) raw[m[1]] = m[2];
+    expect(describeDrift(envDrift(EXAMPLE_TEXT, raw))).toMatch(/placeholder/);
   });
 });

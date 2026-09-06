@@ -58,9 +58,32 @@ run, `dev:check` or `dev:google` — and say what they are when you do.
 ⚠️ People will ask for "the full set" because two feels incomplete. It is not:
 `npm run env:check` prints a line saying their two-value setup is normal.
 
-Copy the values from your own `.env.local`. The names have ONE home,
-`.env.local.example`, which is checked in and guarded by `env-example.test.js` —
-so do not retype the list from here or from memory.
+**Do not open your `.env.local` and select lines out of it by hand.** That file
+also holds `SUPABASE_DB_URL` and `SAMO_VM_SUDO_PASSWORD`; hand-picking from it
+is a copy-paste operation performed on production credentials, repeated every
+time somebody joins or a key rotates. There is a command:
+
+```bash
+npm run env:share                                  # the two everyone needs
+npm run env:share --db                             # + database-work values, when asked for
+npm run env:share --only SUPABASE_DEV_ANON_KEY     # just the one that rotated
+```
+
+It prints the exact block to send. It **cannot emit a name that
+`.env.local.example` does not offer a contributor**, so no flag combination can
+leak a production value, and it refuses to run into a pipe or a file unless you
+force it — the likeliest accident is redirecting secrets somewhere that keeps
+them.
+
+⚠️ **Rotating a key does not mean re-onboarding anyone.** Send the one changed
+line; `npm run setup` updates that value and leaves the rest of their file
+alone. And when the PROJECT gains a variable, nobody has to be told: every
+contributor's next `npm run dev` names it and tells them to ask.
+
+The names have ONE home, `.env.local.example` — active lines are what everybody
+needs, commented lines are database-work only. Adding a variable there is the
+whole change; `env:check`, `setup`, `env:share` and the `npm run dev` warning
+all derive from it (`tools/env-manifest.mjs`).
 
 📌 **Send it however is convenient — they do not transcribe it.** They run
 `npm run setup` and paste your whole message, covering note and all; it finds

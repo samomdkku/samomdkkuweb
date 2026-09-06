@@ -192,7 +192,9 @@ async function main() {
     process.exit(1);
   }
 
-  const known = new Set([...REQUIRED, ...OPTIONAL, 'GOOGLE_DEV_CLIENT_ID', 'GOOGLE_DEV_CLIENT_SECRET']);
+  // Derived from the example via REQUIRED/OPTIONAL, so a variable added there
+  // is accepted here with no second edit — the whole point of the manifest.
+  const known = new Set([...REQUIRED, ...OPTIONAL]);
   const write = {};
   for (const n of names) if (known.has(n)) write[n] = parsed[n];
   const ignored = names.filter((n) => !known.has(n));

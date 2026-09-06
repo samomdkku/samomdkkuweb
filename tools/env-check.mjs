@@ -32,54 +32,42 @@
 // and it says what to do about each failure rather than only that it failed.
 // ============================================================
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnvLocal } from './migrations-lib.mjs';
+import { manifest, isPlaceholder } from './env-manifest.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 const ENV_PATH = join(ROOT, '.env.local');
 
+const MANIFEST = manifest(readFileSync(join(ROOT, '.env.local.example'), 'utf8'));
+
 /**
- * What everybody needs to RUN the site. Their one home is .env.local.example.
+ * What everybody needs to RUN the site — the example's ACTIVE lines.
  *
- * ⛔ IT WAS FOUR UNTIL 2026-09-06, and that was the real security problem here.
- * These two are the pair the built website already publishes — an address and a
- * visitor key that RLS gates. The other two are not more of the same:
- * SUPABASE_DEV_ACCESS_TOKEN can delete the samo-dev project, and
- * SUPABASE_DEV_DB_URL is a direct database login that ignores every permission
- * rule, over an UNMASKED copy of real student records. Requiring all four meant
- * every volunteer changing a colour was handed both.
+ * ⛔ IT WAS A HAND-WRITTEN LIST OF FOUR UNTIL 2026-09-06, and that was the real
+ * security problem here. The two active lines are the pair the built website
+ * already publishes — an address and a visitor key that RLS gates. The
+ * commented ones are not more of the same: SUPABASE_DEV_ACCESS_TOKEN can delete
+ * the samo-dev project, and SUPABASE_DEV_DB_URL is a direct database login that
+ * ignores every permission rule, over an UNMASKED copy of real student records.
+ * Requiring all four meant every volunteer changing a colour was handed both.
  *
- * The split is not cosmetic: `inspect()` FAILS on a missing one of these and
- * only NOTES a missing one of OPTIONAL, so a contributor who has been sent two
- * lines gets a green check instead of being told their setup is broken.
+ * The split is not cosmetic: `inspect()` FAILS on a missing REQUIRED and only
+ * NOTES a missing OPTIONAL, so a contributor who has been sent two lines gets a
+ * green check instead of being told their setup is broken.
+ *
+ * Both lists come from `tools/env-manifest.mjs`, which reads the example. See
+ * its header for why that file exists and why it has no shebang.
  */
-export const REQUIRED = [
-  'SUPABASE_DEV_URL',
-  'SUPABASE_DEV_ANON_KEY',
-];
+export const REQUIRED = MANIFEST.required;
 
 /** Needed only for database work — migrations, proofs, dev:check, dev:google. */
-export const OPTIONAL = [
-  'SUPABASE_DEV_ACCESS_TOKEN',
-  'SUPABASE_DEV_DB_URL',
-];
+export const OPTIONAL = MANIFEST.optional;
 
-/**
- * Is this value still the example's placeholder?
- *
- * Checked because pasting three of four lines is the common slip, and a
- * leftover placeholder is INDISTINGUISHABLE from a real value to every other
- * check — it is present, it is non-empty, and it is wrong.
- */
-export function isPlaceholder(name, value) {
-  if (!value) return false;
-  const v = value.trim();
-  return /^paste-/.test(v)
-    || /^sbp_paste-/.test(v)
-    || v.includes('your-dev-project-ref')
-    || v === 'postgresql://user:password@host:5432/postgres';
-}
+// Re-exported so the many callers that already import it from here keep working
+// and there is still exactly one implementation.
+export { isPlaceholder, manifest };
 
 /** Problems with the VALUES, in the order a reader should fix them. */
 export function inspect(env) {

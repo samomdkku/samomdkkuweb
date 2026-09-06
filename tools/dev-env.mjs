@@ -31,7 +31,10 @@
 // `.claude/rules/mistakes.md` class 7, "a guard that cannot SEE the hazard".
 // dev-env.test.js now asserts the PROPERTY instead.
 // ============================================================
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadEnvLocal } from './migrations-lib.mjs';
+import { manifest, isPlaceholder } from './env-manifest.mjs';
 
 /** Set only when the caller deliberately wants the live database in dev. */
 export const PROD_OVERRIDE = 'SAMO_DEV_USE_PROD';
@@ -102,4 +105,63 @@ export function describeDevDatabase(decision) {
   }
   return '  ⚠️  database: NONE configured — lists will be empty. '
     + 'Run `npm run env:check` to find out why.\n';
+}
+
+/**
+ * HAS `.env.local` FALLEN BEHIND `.env.local.example`?
+ *
+ * ⛔ THE QUESTION THIS ANSWERS, asked by the owner on 2026-09-06: *"incase in
+ * the future there's more key, or key is changed, it would be tiresome to
+ * manually copy paste each key"*. The tiresome part is not the typing — it is
+ * that NOTHING TOLD ANYONE. A variable added to the project reached a
+ * contributor's machine only when something broke in a way that did not mention
+ * it, weeks later, and then they had to work out which of their values was
+ * stale by reading a diff of a file they had never opened.
+ *
+ * The example is the contract, so the comparison is mechanical: anything it
+ * declares as an active line and `.env.local` lacks is a value this person has
+ * not been sent yet. They find out at the only moment it is cheap to fix — the
+ * moment they start the dev server — and are told exactly what to ask for.
+ *
+ * Returns names, never values. Pure, so the test can hand it any pair.
+ */
+export function envDrift(exampleText, fileEnv = {}) {
+  const { required, optional } = manifest(exampleText);
+  const missing = required.filter((n) => !fileEnv[n] || !String(fileEnv[n]).trim());
+  const stale = required.filter((n) => fileEnv[n] && isPlaceholder(n, fileEnv[n]));
+  const extraOptional = optional.filter((n) => fileEnv[n] && String(fileEnv[n]).trim());
+  return { missing, stale, extraOptional };
+}
+
+/**
+ * The drift, as a line for the terminal — or '' when there is nothing to say.
+ *
+ * ⚠️ SILENCE ON THE HEALTHY CASE IS THE POINT. A warning that fires when
+ * nothing is wrong is worse than no warning (`.claude/rules/mistakes.md`
+ * class 6), and a contributor with a correct two-value setup must never be
+ * nagged about the two they are right not to have.
+ */
+export function describeDrift(drift) {
+  const lines = [];
+  if (drift.missing.length) {
+    lines.push(`  ⚠️  .env.local is missing ${drift.missing.length} value(s) this`);
+    lines.push('      project now needs — you have not been sent them yet:');
+    for (const n of drift.missing) lines.push(`        ${n}`);
+    lines.push('      Ask a maintainer for those line(s), then: npm run setup');
+  }
+  if (drift.stale.length) {
+    lines.push(`  ⚠️  still the example placeholder: ${drift.stale.join(', ')}`);
+    lines.push('      Run `npm run setup` and paste what you were sent.');
+  }
+  return lines.length ? `${lines.join('\n')}\n` : '';
+}
+
+/** Read the example and the local file, and report the gap. */
+export function driftNow(root, path = '.env.local') {
+  try {
+    const example = readFileSync(join(root, '.env.local.example'), 'utf8');
+    return describeDrift(envDrift(example, loadEnvLocal(path)));
+  } catch {
+    return '';   // No example to compare against is not a contributor's problem.
+  }
 }

@@ -1974,6 +1974,34 @@ credential arrived, and it then told the reader they had pasted nothing. Found
 by piping a realistic message through the actual command, not by reading it.
 `opensAssignment` is now the terminating condition and is asserted directly.
 
+**A fourth fix, from the owner pressing the same point further.** *"incase in
+the future there's more key, or key is changed, it would be tiresome to manually
+copy paste each key"* — the toil is not the typing, it is that **nothing told
+anyone**. A variable added to the project reached a contributor's machine only
+when something broke in a way that did not mention it.
+
+`REQUIRED` and `OPTIONAL` were two hand-written arrays beside the file they
+described — class 6, and the reason a new variable was invisible. They are now
+DERIVED from `.env.local.example` (`tools/env-manifest.mjs`): an active `NAME=`
+line is required, a commented `# NAME=` line is database-work only. One edit to
+that file and `env:check` starts asking, `setup` starts accepting, `env:share`
+starts offering, and every contributor's next `npm run dev` names it and says
+what to ask for — silent when nothing is wrong. Proved by adding a variable to
+the example and watching all four react with no code change.
+
+`npm run env:share` closes the sending side: the maintainer stops hand-picking
+lines out of a file that also holds `SUPABASE_DB_URL` and
+`SAMO_VM_SUDO_PASSWORD`. It cannot emit a name the example does not offer a
+contributor, and refuses to run into a pipe without `--force`.
+
+⚠️ **And that refactor broke the whole suite in a way that named no cause.**
+Importing `env-check.mjs` from `vite.config.js` put its `#!/usr/bin/env node`
+mid-bundle — Vite bundles its config — and esbuild answered
+`tools/env-check.mjs:1:396: ERROR: Syntax error "!"` for a file whose line 1 is
+19 characters. Fixed by moving the shared part into a shebang-free
+`env-manifest.mjs`; `dev-env.test.js` now walks the config's import graph and
+fails with a sentence instead.
+
 **The general rule.** *A guard that compares a list to a list proves the two
 lists agree, not that either one works.* Here both lists were right and the
 thing between them did not exist. Ask what the lists were meant to PRODUCE and

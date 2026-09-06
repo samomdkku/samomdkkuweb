@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { applyDevDatabaseEnv, describeDevDatabase } from './tools/dev-env.mjs';
+import { applyDevDatabaseEnv, describeDevDatabase, driftNow } from './tools/dev-env.mjs';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -239,7 +239,13 @@ export default defineConfig(({ command }) => {
     // Vitest loads this config too, and its `command` is also 'serve'. The
     // mapping is still wanted there; the banner is not — it is a line for
     // somebody starting a dev server, not for a test run.
-    if (!process.env.VITEST) process.stdout.write(describeDevDatabase(decision));
+    if (!process.env.VITEST) {
+      process.stdout.write(describeDevDatabase(decision));
+      // Says nothing when nothing is wrong. This is how a contributor learns
+      // that the project gained a variable since they were onboarded, at the
+      // one moment it is cheap to fix.
+      process.stdout.write(driftNow(__dirname));
+    }
   }
   return config;
 });

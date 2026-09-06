@@ -298,7 +298,25 @@ Run it anyway and it stops with `✗ PRODUCTION: URL or anon key missing`, which
 reads like *your* keys are wrong when they are perfectly fine.
 :::
 
-### 4b. Two more values exist. You almost certainly do not want them
+### 4b. Later, when a key changes or a new one appears
+
+You will not have to hunt for it. **`npm run dev` tells you**, by name, the
+moment your file falls behind:
+
+```
+  ⚠️  .env.local is missing 1 value(s) this
+      project now needs — you have not been sent them yet:
+        SUPABASE_DEV_…            (whatever the new one is called)
+      Ask a maintainer for those line(s), then: npm run setup
+```
+
+Ask for those lines, run `npm run setup`, paste them. It **updates just those**
+and leaves everything else alone — you never redo the whole file, and you never
+have to work out which of your values went stale.
+
+When nothing is wrong it says nothing at all.
+
+### 4c. Two more values exist. You almost certainly do not want them
 
 `SUPABASE_DEV_ACCESS_TOKEN` and `SUPABASE_DEV_DB_URL` are **not more of the same
 thing**. The first can delete the practice database entirely; the second is a
@@ -313,7 +331,7 @@ disturbing anything.
 ⛔ **Do not ask for them just to have the full set.** Two is not an incomplete
 setup, it is the normal one.
 
-### 4c. Doing it by hand instead
+### 4d. Doing it by hand instead
 
 If `npm run setup` will not run for any reason:
 
@@ -330,7 +348,7 @@ are, and save. **One `NAME=value` per line, no spaces around the `=`, no
 quotation marks** — a value in quotes is read as a value that includes the
 quotes. Then run `npm run env:check`.
 
-### 4d. If you do not have the credentials yet
+### 4e. If you do not have the credentials yet
 
 `npm run dev` still starts and the site still loads. You will get the layout, the styling and the navigation, and **empty lists wherever data would be**, plus a line in the browser console telling you to run `npm run env:check`. That is enough for a pure CSS or copy change. It is not enough to test a form, a login, or anything that saves.
 
@@ -429,7 +447,7 @@ Leave `npm run dev` running in one window and type everything else in a second. 
 
 | Command | What it does |
 |---|---|
-| `npm run setup` | Writes `.env.local` from a pasted credential block. Run it again any time you are sent new values |
+| `npm run setup` | Writes `.env.local` from a pasted credential block. Run it again any time you are sent new values — it updates only what you paste |
 | `npm run dev` | Runs the site on your machine, usually at `localhost:5174` |
 | `npm test` | Runs the test suite. CI runs this exact one on your pull request |
 | `npm run build` | Builds the production files — proves nothing is broken before you push |

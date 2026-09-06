@@ -33,6 +33,7 @@
     "dev:check": "node tools/dev-check.mjs",
     "setup": "node tools/setup-env.mjs",
     "env:check": "node tools/env-check.mjs",
+    "env:share": "node tools/env-share.mjs",
     "dev:grants": "node tools/dev-grants.mjs",
     "dev:refresh": "node tools/dev-refresh.mjs",
     "webhook:id": "node tools/discord-webhook-identify.mjs",

@@ -228,9 +228,24 @@ reintroduced and each failed on its own assertion before restoring.
    changes the risk of handing out vault accounts, and it is worth revisiting
    §7 item 4 with that in mind.
 
-⚠️ **NOT verified:** whether `npm run dev` behaves the same on Windows. Every
-measurement above was on macOS. The paste path is plain stdin so it should, but
-nobody has run it there.
+⚠️ **NOT verified:** whether `npm run dev` and `npm run setup` behave the same
+on Windows. Every measurement above was on macOS. The paste path is plain stdin
+so it should, but nobody has run it there.
+
+**The ongoing-change story is now closed without any new infrastructure**
+(2026-09-06): `.env.local.example` is the single contract, so adding a variable
+is one edit and every tool derives from it. A rotated key is one line sent and
+one `npm run setup`, not a re-onboarding.
+
+⚠️ **A `bw`-based `npm run env:pull` from the vault was CONSIDERED and NOT
+built.** The Bitwarden CLI expects a bare HTTPS root, and our vault is at a
+SUBPATH (`/vault/`, because KKU issues no subdomain), so it would need the
+`bw config server --api / --identity / --web-vault` form — plausible, unverified
+here, and pointless until the `Dev` collection exists (§7 item 5) and somebody
+other than the owner has a vault account. **Do not build it on the assumption
+that the plain `bw config server https://samo.md.kku.ac.th/vault/` works; test
+that first.** `@bitwarden/cli` is 17 MB unpacked, so run it with `npx` rather
+than adding a dependency everyone downloads.
 
 ---
 

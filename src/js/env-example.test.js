@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REQUIRED, OPTIONAL } from '../../tools/env-check.mjs';
+import { REQUIRED, OPTIONAL, inspect } from '../../tools/env-check.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const EXAMPLE = readFileSync(join(ROOT, '.env.local.example'), 'utf8');
@@ -138,12 +138,29 @@ describe('the contributor-facing setup check', () => {
     }
   });
 
-  it('checks every name the example declares (control: the two lists agree)', () => {
-    // Written from the EXAMPLE, not from a list retyped here — a guard built
-    // from the same list as the code cannot see a name missing from both.
-    const checked = [...ENVCHECK.matchAll(/'(SUPABASE_DEV_[A-Z_]+)'/g)].map((m) => m[1]);
-    for (const name of declared) {
-      expect(checked, `env-check never looks at ${name}`).toContain(name);
+  it('flags a missing REQUIRED name and stays quiet about a missing OPTIONAL', () => {
+    // ⚠️ THIS USED TO SCRAPE 'SUPABASE_DEV_*' STRING LITERALS OUT OF
+    // env-check.mjs and check they covered the example. Those literals are gone
+    // — REQUIRED is now derived from the example itself — so that assertion
+    // would either be a tautology or, worse, go red on a correct refactor and
+    // be "fixed" by weakening it. Assert the BEHAVIOUR the split means instead
+    // (`.claude/rules/mistakes.md` class 7: never assert today's SHAPE).
+    const full = {};
+    for (const n of [...REQUIRED, ...OPTIONAL]) full[n] = 'https://real1234.supabase.co';
+    expect(inspect(full), 'a complete file reported problems').toEqual([]);
+
+    for (const n of REQUIRED) {
+      const { [n]: _drop, ...without } = full;
+      expect(inspect(without).map((p) => p.name),
+        `${n} is required to run the site, and env-check does not notice it missing`)
+        .toContain(n);
+    }
+    for (const n of OPTIONAL) {
+      const { [n]: _drop, ...without } = full;
+      expect(inspect(without).map((p) => p.name),
+        `${n} is database-work only, but env-check FAILS without it — that tells `
+        + 'a correctly-provisioned contributor their setup is broken')
+        .not.toContain(n);
     }
   });
 
