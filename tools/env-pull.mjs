@@ -39,7 +39,7 @@
 // step failed, rather than pretending. The first person to run it end to end
 // should update HANDOFF.
 // ============================================================
-import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { REQUIRED, OPTIONAL } from './env-check.mjs';
@@ -53,12 +53,32 @@ const ENV_PATH = join(ROOT, '.env.local');
 /** Pinned on purpose — an unpinned `npx` is a different program each week. */
 const BW = ['--yes', '@bitwarden/cli@2026.8.0'];
 
+/**
+ * ⛔ NEVER TOUCH THE USER'S GLOBAL BITWARDEN CONFIG.
+ *
+ * `bw config server` writes to `~/Library/Application Support/Bitwarden CLI/`
+ * (or the OS equivalent) by default — so the first version of this tool
+ * SILENTLY REPOINTED a personal Bitwarden CLI at the SAMO vault. Measured
+ * 2026-09-06 by running it and finding the file it had just created. Anyone who
+ * uses `bw` for their own passwords would have found it talking to us, with
+ * nothing to say why.
+ *
+ * `BITWARDENCLI_APPDATA_DIR` keeps every byte inside the project, gitignored.
+ * A contributor's own vault setup is none of this project's business.
+ */
+const BW_DIR = join(ROOT, '.bw');
+
 function bw(args, { session, input } = {}) {
+  mkdirSync(BW_DIR, { recursive: true });
   return execFileSync('npx', [...BW, ...args], {
     encoding: 'utf8',
     stdio: input === undefined ? ['inherit', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
     input,
-    env: { ...process.env, ...(session ? { BW_SESSION: session } : {}) },
+    env: {
+      ...process.env,
+      BITWARDENCLI_APPDATA_DIR: BW_DIR,
+      ...(session ? { BW_SESSION: session } : {}),
+    },
   }).trim();
 }
 

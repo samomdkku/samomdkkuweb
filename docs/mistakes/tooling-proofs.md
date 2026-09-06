@@ -2108,3 +2108,51 @@ what the sentence around it claims** — here the claim was "the same question,
 against samo-dev" and the output said `[PRODUCTION]` in the first line. Same
 lesson as the deploy pipeline that discarded its failing step: the instrument
 was printing the answer all along and nobody was made to look at it.
+
+---
+
+## `env:pull` repointed the user's personal Bitwarden CLI, and its guard was satisfied by a comment
+
+**Symptom.** None — nothing failed. Found on 2026-09-06 during an audit the
+owner asked for (*"keep checking until you find no error"*), by RUNNING a
+command whose failure path had only ever been reasoned about.
+
+**Cause 1 — a project tool wrote outside the project.** `tools/env-pull.mjs`
+called `bw config server <our vault>` with no appdata override, so the Bitwarden
+CLI wrote to `~/Library/Application Support/Bitwarden CLI/data.json` and
+**silently repointed a personal `bw` at the SAMO vault**. Confirmed by finding
+the file the run had just created, with `"base": "https://samo.md.kku.ac.th/vault"`
+in it. Anyone who uses `bw` for their own passwords would have found it talking
+to us, with nothing anywhere to say why.
+
+**Fix 1.** `BITWARDENCLI_APPDATA_DIR` pinned to a gitignored `.bw/` inside the
+project, set in the ONE helper every invocation goes through, so it cannot be
+forgotten at one call site. The file the audit itself created was deleted, so
+the machine was left as it was found.
+
+**Cause 2 — and this is the more useful half.** The guard written for Fix 1
+asserted `expect(SRC).toMatch(/BITWARDENCLI_APPDATA_DIR/)` against the RAW file.
+The fix ships with a JSDoc paragraph explaining the hazard, and that paragraph
+contains the name. So **deleting the actual override left the test GREEN** —
+verified: reintroduced the bug, ran the test, `14 passed`.
+
+That is "satisfied by PROSE" in `.claude/rules/mistakes.md` class 7 — the same
+shape as `confirm-modal.test.js` matching a comment — and the only reason it was
+caught is the ritual: reintroduce the bug and watch it fail *on the assertion you
+expect*. It did not fail, so the guard was wrong.
+
+**Fix 2.** Read through `stripComments()`, the shared instrument, plus a control
+asserting the stripper is actually removing the explanatory comment — so if the
+stripper ever stops working, the guard says so instead of quietly reading prose
+again.
+
+**Where it lives now.** `tools/env-pull.mjs` (the `bw()` helper and `BW_DIR`),
+`.gitignore`, `src/js/env-pull.test.js`.
+
+**The general rule.** *A guard that greps a source file is reading the comments
+too, and comments describe the fix in the fix's own words* — which is exactly the
+vocabulary the assertion uses. Strip comments before asserting on source, and
+control that the stripping happened. And the wider one: **the failure path you
+have only reasoned about is not tested.** Running `npm run env:pull` once, in the
+state every contributor is actually in, took under a minute and found a side
+effect on somebody else's machine that no amount of reading would have shown.

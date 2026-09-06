@@ -33,6 +33,7 @@ features:
 | Fixing a typo, and you have never written code | [What you can change](/contributing) — you can edit it on GitHub, with nothing installed |
 | Wanting to run the site on your own machine | [Prerequisites](/start/prerequisites) |
 | In a ฝ่าย and want your own tool page | [Department tools](/DEPT-TOOLS) |
+| Giving someone else access, or replacing a key | [Giving someone the credentials](/start/sharing-credentials) |
 | Maintaining the system, or taking it over | [How the system works](/CONTEXT), then [Invariants](/INVARIANTS) |
 
 ## About this site

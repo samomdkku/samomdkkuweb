@@ -28,6 +28,11 @@ externaldata/
 # also swallow `.env.local.example` — which must stay TRACKED
 # (env-example.test.js asserts both halves of this).
 .env.local.backup
+
+# `npm run env:pull` keeps the Bitwarden CLI's state HERE rather than in the
+# user's global config, so it can never repoint a personal `bw` at our vault.
+# It holds a server URL and an encrypted local cache — never commit it.
+.bw/
 .env.*.local
 
 # Supabase CLI working dir

@@ -32,16 +32,15 @@ Supabase project: `fheueuowbchsnsvbcgil`.
 - **Discord**: GAS proxy actions `notifyPROnly` / `notifyVSOnly` / `notifyVSConsult`
 - **Hosting**: KKU VM (nginx), deployed by `server/deploy.sh` over ssh.
   Cloudflare Pages is retired.
-- **Env vars**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` baked in at build
-  time on the VM. `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ACCESS_TOKEN` /
-  `SAMO_VM_SUDO_PASSWORD` only in local `.env.local`.
+- **Env vars**: `VITE_*` baked in at build time on the VM. Every secret, and
+  which tier it belongs to, is in `.claude/rules/security.md`, already loaded.
 
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server on :5174
-npm run build        # production build → dist/
-npm run preview      # serve dist locally on :4173
+npm run dev      # :5174 — uses samo-dev, NOT production, and says so on start
+npm run build    # production build → dist/ (takes VITE_* from .env.local)
+npm run setup    # write .env.local from a pasted block (env:share sends one)
 ```
 
 ## File placement

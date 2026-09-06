@@ -261,8 +261,11 @@ The vault publishes the same shape itself at `/vault/api/config`
 via `npx` at a pinned version, so nobody downloads 17 MB who does not use it.
 
 ⚠️ **Verified up to authentication ONLY.** An authenticated `bw get item` has
-never run, because of the two owner-only steps below. The tool fails loudly and
-names the step that failed rather than pretending.
+never run, because of the owner-only steps below. ✅ **The failure path HAS now
+been run** (2026-09-06): with no account it exits 1 and names the step, and
+running it is what found that it was writing to the user's GLOBAL Bitwarden
+config — now pinned to a gitignored `.bw/` inside the project
+(`docs/mistakes/tooling-proofs.md`). **It does not touch a personal `bw` setup.**
 
 **⛔ THE ONE THING BLOCKING ALL OF THIS, and only the owner can do it:**
 

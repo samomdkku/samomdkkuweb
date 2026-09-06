@@ -20,6 +20,7 @@ import { blockFromItem } from '../../tools/env-pull.mjs';
 import { VAULT_URL, VAULT_ITEM } from '../../tools/vault-config.mjs';
 import { parsePaste, productionNames } from '../../tools/setup-env.mjs';
 import { REQUIRED } from '../../tools/env-check.mjs';
+import { stripComments } from './strip-comments.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -101,5 +102,43 @@ describe('env:pull never prints a value', () => {
     const locks = (src.match(/'lock'/g) || []).length;
     expect(locks, 'a path unlocks the vault and never locks it again')
       .toBeGreaterThanOrEqual(unlocks);
+  });
+});
+
+describe('it must not touch a contributor\'s own Bitwarden setup', () => {
+  // ⛔ FOUND BY RUNNING IT, 2026-09-06. The first version called `bw config
+  // server` with no appdata override, so it wrote to
+  // `~/Library/Application Support/Bitwarden CLI/` and SILENTLY REPOINTED a
+  // personal Bitwarden CLI at the SAMO vault. Anyone using `bw` for their own
+  // passwords would have found it talking to us, with nothing to say why.
+  // A project tool has no business writing outside the project.
+  // ⚠️ READ THROUGH stripComments. The first version of this guard asserted
+  // against the raw file, so it matched the JSDoc paragraph ABOVE the code
+  // explaining the hazard — deleting the actual override left it GREEN. That is
+  // "satisfied by PROSE" in `.claude/rules/mistakes.md` class 7, and it was
+  // caught only by reintroducing the bug and watching the test not fail.
+  const SRC = stripComments(read('tools/env-pull.mjs'));
+
+  it('pins the CLI state inside the project', () => {
+    expect(SRC, 'env-pull runs `bw` without BITWARDENCLI_APPDATA_DIR, so it '
+      + 'writes to the user\'s GLOBAL Bitwarden config and repoints their CLI')
+      .toMatch(/BITWARDENCLI_APPDATA_DIR/);
+    // Control: the stripper must actually be removing the comment that would
+    // otherwise satisfy the assertion above.
+    expect(SRC, 'stripComments is not removing the explanatory comment, so this '
+      + 'guard is reading prose again').not.toContain('NEVER TOUCH THE USER');
+    // Every invocation goes through one helper, so the override cannot be
+    // forgotten on one call site.
+    expect((SRC.match(/execFileSync\(/g) || []).length,
+      'more than one place spawns bw — the override can now be missed on one')
+      .toBe(1);
+  });
+
+  it('that directory is gitignored — it holds a server URL and a local cache', () => {
+    expect(read('.gitignore')).toMatch(/^\.bw\/$/m);
+  });
+
+  it('pins the CLI version — an unpinned npx is a different program each week', () => {
+    expect(SRC).toMatch(/@bitwarden\/cli@\d{4}\.\d+\.\d+/);
   });
 });
