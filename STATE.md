@@ -34,11 +34,13 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e966e28` (2026-09-06)** — v4.7.0 still. Run took ~35 s and
-  ended `<== exit 0 — ran to the end`; roots 12 s apart so docs published.
-  Verified from the SERVED `/docs/start/install`: three strings added today
-  present, an untouched one present as control, and both sentences this commit
-  DELETED absent. Previous: `0214e13`.
+- ✅ **DEPLOYED = `9aab626` (2026-09-06)** — v4.7.0 still. ~31 s,
+  `<== exit 0 — ran to the end`; roots 12 s apart so docs published.
+  Verified from SERVED pages: `/docs/start/install` carries today's strings, an
+  untouched one as control, and the deleted ones are gone — **and the served
+  production bundle still reads `fheueuowbchsnsvbcgil`**, which is the check
+  that matters this time (`tools/dev-env.mjs` repoints the DEV server only).
+  Previous: `e966e28`.
   The passport MERGE stays live — `/passport/` serves the real app and
   `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
   ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
