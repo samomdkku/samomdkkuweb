@@ -23,15 +23,32 @@ SUPABASE_DEV_DB_URL=postgresql://…
 
 [Install and run](/start/install) shows exactly where to put them. Read the rest of this page while you wait.
 
-::: tip You will probably get a link that stops working — that is on purpose
-A maintainer should send these through a **self-destructing link** rather than
-pasting them into a chat. So expect a URL that opens once, or expires after a
-day, and possibly a password sent separately by another route.
+::: tip How they will reach you — one of two ways, and neither is a chat message
+**A link that stops working.** Expect a URL that opens once, or expires after a
+day, and possibly a password sent separately by another route. **Open it, copy
+all four lines somewhere safe, and finish the setup the same day** — come back
+tomorrow and the link may be dead and you will have to ask again. That is the
+system working, not a mistake.
 
-**Open it, copy all four lines somewhere safe, and finish the setup** — if you
-leave it and come back tomorrow the link may be dead and you will have to ask
-again. That is the system working, not a mistake.
+**Or an invitation to SAMO's password vault** at
+`https://samo.md.kku.ac.th/vault/`, if you are going to be around for a while.
+You get an account, and the four lines sit in a shared folder you can re-open
+whenever you rebuild your machine. It is the better road for anyone who will
+contribute more than once: when a key is replaced, it changes in one place
+instead of being re-sent to everybody.
+
+⚠️ **The vault's one difficult step** is telling the app where our server is —
+in the Bitwarden app or extension, press the **⚙ gear on the login screen** and
+set the server to `https://samo.md.kku.ac.th/vault/` *before* you type your
+email. Skip it and the app talks to `bitwarden.com`, where your account does not
+exist, and it looks like your password is wrong.
 :::
+
+⛔ **Nobody should send these to you over LINE, Discord, Messenger, email or a
+shared Google Doc**, and you should not forward them on that way either. Those
+keep the value for ever, in a place nobody controls, readable by whoever later
+gets that account. If someone does send them to you in a chat, say so — the fix
+is two minutes and the alternative is a key nobody knows is loose.
 
 ::: danger Do not paste them into a public place
 Not into a GitHub issue, not into a pull request, not into a group chat with people outside the team. If you think a key has been seen by the wrong people, say so immediately — replacing one takes a maintainer about two minutes, and saying nothing is the only expensive option.
@@ -41,7 +58,7 @@ Not into a GitHub issue, not into a pull request, not into a group chat with peo
 
 Because it is a copy of **real student records** — real names, real รหัสนักศึกษา, real photographs. It was copied so you could click Delete without a person losing anything, not because it is fake. Treat what you can see there exactly as you would treat the live site.
 
-## 2. Software to install
+## 2. Software to install {#software}
 
 | What | Why | Where |
 |---|---|---|
@@ -55,7 +72,7 @@ Because it is a copy of **real student records** — real names, real รหั�
 `npm test` fails immediately on Node 20 — the database library needs a WebSocket that Node 20 does not have. Check with `node -v` before anything else. If it prints `v20.x`, install 22 and check again.
 :::
 
-## 3. The terminal — where every command in these pages goes
+## 3. The terminal — where every command in these pages goes {#terminal}
 
 Everything written in a grey box on these pages is typed into the **terminal**, one line at a time, pressing Enter after each. It is not typed into your editor, and not into a browser.
 
@@ -83,7 +100,7 @@ gh --version     # skip this line if you did not install gh
 Some guides prefix commands with `$` or `%`. That is the terminal's own prompt, printed by the terminal — **not something you type.** The boxes on these pages never include it, so you can copy them whole.
 :::
 
-## 4. Nobody has to add you to the project
+## 4. Nobody has to add you to the project {#two-roads}
 
 You do need one thing from a person — the database key in step 1. What you do **not** need is to be added to the project as a member before you may propose a change.
 

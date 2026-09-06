@@ -1850,3 +1850,50 @@ reading `permissions` alone would have agreed the account was an ordinary
 student. And **an explanation that dismisses a failure needs the same proof as
 one that reports it** — "it's just an artefact" was accepted for weeks while the
 script's own anon block sat three lines above, contradicting it.
+
+---
+
+## The install guide explained a permission failure that a public repo cannot have
+
+**Symptom** (reported by the owner, reading the guide as a newcomer would):
+*"is this can occur?? isn't it public repo — If it says `Repository not found`
+or `permission denied`"*.
+
+`docs/start/install.md` step 2 carried a prominent warning box:
+
+> **If it says `Repository not found` or `permission denied`** — that means you
+> have not been invited to the project yet.
+
+**Cause.** `samomdkku/samomdkkuweb` is **public** (`gh repo view --json
+visibility` → `PUBLIC`), so `gh repo clone` succeeds for anyone with a GitHub
+account and there is no invitation to lack. The sentence was never measured; it
+was written by analogy with private repositories, in the voice of a finding.
+
+Two costs, and the second is the expensive one:
+
+1. It **misdiagnoses**. The failures that actually happen there are a typo in
+   the slug and `gh` not being signed in — neither of which the box mentions, so
+   the reader stops looking at the two things it really is.
+2. It sends the reader down the **fork** road, which is real and correct but
+   loses the automatic preview site, to solve a problem they do not have. The
+   guide's own [Prerequisites §4](../start/prerequisites.md) already said nobody
+   has to be invited. **Two homes, one corrected** — class 6.
+
+Permission does bite in this flow; it bites one step later, at `git push` into
+the repository, which is where the fork advice belongs.
+
+**Fix.** The box now states the repository is public, names the two failures
+that do occur, and moves the fork route to the sentence about sending a change
+back, linking to the side-by-side table rather than restating it.
+
+**Where it lives now.** `docs/start/install.md` step 2.
+
+**The general rule.** *Prose about an ACCESS failure must name the access it
+tested.* "Permission denied means you were not invited" reads as a finding and
+is really an assumption about a repository's visibility — a fact one command
+answers. This is the "`X cannot do Y` hides an unstated direction, endpoint or
+credential" trap in `.claude/rules/mistakes.md` class 7, wearing documentation's
+clothes: the reader cannot tell an explanation from a measurement, so they
+believe it and stop measuring. And a guide that explains a failure the system
+cannot produce is worse than one that says nothing, because it hands the reader
+a confident wrong answer at the exact moment they are least able to judge it.

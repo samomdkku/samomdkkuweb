@@ -64,6 +64,17 @@ const THIRD_PARTY = new Map([
  */
 const GENERATED_LOCKFILES = new Set(['package-lock.json']);
 
+/**
+ * First path segments on github.com that are GITHUB'S OWN, not an account.
+ * `github.com/login/device` is the device-flow page `gh auth login` prints, and
+ * it will never be owned by this project or by a third party — it is a product
+ * URL that happens to share the shape of a repo slug. Kept separate from
+ * THIRD_PARTY, which means "another ACCOUNT we deliberately cite"; putting a
+ * reserved word in there would read as a person and rot the list's meaning.
+ * GitHub reserves these names, so none can ever become a real owner.
+ */
+const GITHUB_RESERVED_PATHS = new Set(['login', 'settings', 'features', 'apps', 'orgs', 'sponsors']);
+
 // SIBLING_REPOS now lives in tools/repo-identity.mjs — imported above, because
 // repo-protection.mjs needs the same list and two copies would drift.
 
@@ -101,7 +112,7 @@ describe('the repository identity has exactly one home', () => {
       if (GENERATED_LOCKFILES.has(f)) continue;
       const text = read(f);
       for (const m of text.matchAll(/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/g)) {
-        if (m[1] === OWNER || THIRD_PARTY.has(m[1])) continue;
+        if (m[1] === OWNER || THIRD_PARTY.has(m[1]) || GITHUB_RESERVED_PATHS.has(m[1])) continue;
         stale.push(`${f}: github.com/${m[1]}/${m[2]}`);
       }
       for (const m of text.matchAll(/([A-Za-z0-9_-]+)\.github\.io/g)) {

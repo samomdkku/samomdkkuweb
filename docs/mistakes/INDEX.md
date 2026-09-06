@@ -300,7 +300,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A subpath in `DOMAIN` re-prefixes the routes INSIDE the container too
 - Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(40)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(41)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -344,6 +344,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - "Unset is SAFE" — a guard that would have called a preview pointed at production a PASS
 - A proof that was written, run by hand, committed
 - `pass-hardening` reported 9 failures and the database was innocent every time
+- The install guide explained a permission failure that a public repo cannot have
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -389,4 +390,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_327 entries across 10 files._
+_328 entries across 10 files._
