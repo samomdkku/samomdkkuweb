@@ -98,6 +98,14 @@ TRUE. That is what the grep is for.
 
 ---
 
+### CONTRIBUTOR CREDENTIALS — rebuilt 2026-09-06
+
+`npm run dev` now uses **samo-dev, not production**, and says so on every start.
+`.env.local.example` is the contract; adding a variable is ONE edit there.
+⚠️ **samo-dev has 3 PENDING migrations** (production 0) — hidden until now by
+the npm flag trap (`docs/INVARIANTS.md`). Nobody has looked at why.
+Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
+
 ### What is owed
 
 ⛔ **START HERE: `docs/state/HANDOFF.md` is the full list of what is NOT done, with reasons and owners. Read it first; below is detail.**
@@ -110,12 +118,8 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 0. ✅ **ORG MOVE DONE** (2026-08-31); `node tools/repo-protection.mjs` — 27 pass.
    Traps: `skills/move-the-repo-to-an-organisation.md`. Org 2FA OFF by OWNER
-   DECISION. ❌ **Last box, §10: someone who is NOT the owner must add a person
-   to a team once.** ⛔ **NOTHING on `*.pages.dev` may reach the production
-   database** — the guard once asserted this of ONE project of THREE
-   (`deploy-hosting.md`). ⛔ **Open, OWNER + destructive: the two retired Pages
-   projects still serve the old bundle at `<hash>.<project>.pages.dev`;
-   deleting them is the only complete fix.**
+   DECISION. Last box (a non-owner team add) is `HANDOFF` §3; the `*.pages.dev`
+   rules moved to `docs/INVARIANTS.md`, their one home.
 
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
@@ -148,21 +152,10 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    `npm ci`, one build. Old repo ARCHIVED. ⛔ **The `samomdkkupassport` Cloudflare project stays EXACTLY as it is — never delete it, and do not replace it either** (82% of printed QR posters depend on it; reasoning in `docs/PASSPORT-MONOREPO.md`). The
    two-preview-URL steps in `docs/state/phuriphatma.md` are dead: a session is
    per-ORIGIN, so two Pages projects = two logins whatever the dashboard says.
-   ⛔ **NEVER delete the `samomdkkupassport` Pages project** — 82% of activities
-   have PRINTED QR posters pointing at it; replace it with redirects (§3 there).
-### B. OWNER ONLY — these need accounts/credentials nobody else has
+### B. OWNER ONLY
 
-1. **The dev Apps Script deployment under its own Google account** — the last
-   item of dev-system phase 2, plus a `DEV` folder in Drive (parent id in
-   `docs/state/phuriphatma.md`).
-2. **The GitHub project board** — phase 0's last piece; `gh` here lacks the
-   `project` scope.
-3. **Reset the Discord bot token** *"Role assignment bot for SAMO69"* (app
-   `1492541609445949465`) — it has Administrator and was pasted into a chat
-   transcript on 2026-08-28. Nothing built here needs it.
-4. **Confirm the dev-channel test landed** — all 12 ฝ่าย notifications must be
-   in `#developer-server-notify` and none in a real `#vs-*`. Delivery is
-   confirmed (16×204); the DESTINATION needs human eyes.
+⛔ **One home: `docs/state/HANDOFF.md` §1 and §3.** This section used to restate
+those four items and drifted from them; do not re-add a copy here.
 
 - ✅ **Nothing owed on Claude measurement, the `claude` grant, or ประกาศ.** Ask
   the DATABASE for runtime state; this file must not carry it.

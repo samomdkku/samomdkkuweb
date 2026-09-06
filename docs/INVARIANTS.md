@@ -686,3 +686,41 @@ unresolvable reference otherwise answers "allowed".
 
 **Where the proof is**: `tools/passport0180-season-gate.sql`, both directions
 plus a control, green on samo-dev and production.
+
+## `npm run <script> --flag` silently drops the flag
+
+Always `npm run <script> -- --flag`. npm treats a bare `--flag` as its own and
+never passes it on, so the script runs with its DEFAULTS while the command reads
+as though you asked for something else.
+
+Measured 2026-09-06, same line, one difference:
+
+```
+npm run migrate:status --dev     (WRONG) → fheueuowbchsnsvbcgil [PRODUCTION]
+npm run migrate:status -- --dev           → xibugtlsphcfuvstnxxh [samo-dev]
+```
+
+*(`(WRONG)` is not decoration — `docs-commands.test.js` sweeps every markdown
+file for the broken form, and that marker is the per-LINE opt-out that lets this
+page show it. It labels the example for the reader at the same time.)*
+
+A wrong answer wearing the right question. It had been in `README.md` for
+months, reporting production's migration state to anyone asking about dev.
+
+`src/js/docs-commands.test.js` sweeps every markdown file for the broken form
+and separately checks that each `npm run <name>` on a getting-started page is a
+real script. Bug write-ups and the state archive are exempt — they must be able
+to QUOTE the broken form — which is why a command in a post-mortem is a record,
+never an instruction.
+
+## Nothing on `*.pages.dev` may reach the PRODUCTION database
+
+Both retired Cloudflare projects are pinned to `samo-dev`, and
+`tools/repo-protection.mjs` asserts it. ⚠️ **The guard once asserted this of ONE
+project of THREE** — a sweep that checks the instance you were looking at proves
+nothing about the two you were not (`docs/mistakes/deploy-hosting.md`).
+
+⛔ **Open, owner-only and destructive:** the two retired projects still serve
+their old bundle at `<hash>.<project>.pages.dev`. Deleting them is the only
+complete fix. ⛔ **But NEVER delete `samomdkkupassport`** — 82% of printed QR
+posters point at it (`docs/PASSPORT-MONOREPO.md` §3).

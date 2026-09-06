@@ -53,6 +53,9 @@ describe('npm commands printed in documentation', () => {
     // empty result means "clean", not "the regex is broken".
     expect('npm run migrate:status --dev'.match(BAD)).not.toBeNull();
     expect('npm run migrate:status -- --dev'.match(BAD)).toBeNull();
+    // The opt-out must be narrow: it exempts a LINE, never a file.
+    expect(FILES.some((f) => readFileSync(join(ROOT, f), 'utf8').includes('(WRONG)')),
+      'nothing uses the (WRONG) marker, so this control proves nothing').toBe(true);
   });
 
   it('always pass flags after `--`, or npm silently drops them', () => {
@@ -60,6 +63,12 @@ describe('npm commands printed in documentation', () => {
     for (const f of FILES) {
       const text = readFileSync(join(ROOT, f), 'utf8');
       for (const line of text.split('\n')) {
+        // A doc explaining the trap has to SHOW the broken form. `(WRONG)` on
+        // the same line is the opt-out — it labels the example for the reader
+        // as well as for this sweep, so the exemption cannot be silent. Bug
+        // write-ups get a whole-directory exemption; a RULE page does not,
+        // because it also carries commands people really run.
+        if (line.includes('(WRONG)')) continue;
         for (const hit of line.match(BAD) || []) offenders.push(`${f}: ${hit.trim()}`);
       }
     }

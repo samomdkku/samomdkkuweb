@@ -16,6 +16,83 @@ path named here must resolve.
 
 ---
 
+## ▶ SESSION 2026-09-06 — contributor credentials, end to end
+
+Started as *"how should I send the .env credentials, should I use SOPS"*.
+Tracing what those credentials actually did answered a different question, and
+the session ended four commits later with the whole flow rebuilt. **What is NOT
+done is in `docs/state/HANDOFF.md` §8** — this is the reasoning, so the next
+session does not re-derive it.
+
+### The three bugs, in the order they were found
+
+1. **The setup guide never worked.** It had contributors fill in
+   `SUPABASE_DEV_*`; `src/js/db.js` reads `VITE_SUPABASE_*`; nothing joined
+   them. `env:check` printed "✓ You are set up" and `npm run dev` came up with
+   no database — while `/passport/` fell back to its HARDCODED PRODUCTION url
+   and key, so a volunteer following the guide was reading real student records.
+   Invisible because a maintainer's own `.env.local` has `VITE_*` pointing at
+   production, so it worked on the one machine it was tried on, by talking to
+   the live site. `tools/dev-env.mjs` maps them, prints which database it chose,
+   and is gated on `command === 'serve'` so a build can never be repointed.
+
+2. **Two of the four values should never have gone out.**
+   `SUPABASE_DEV_ACCESS_TOKEN` can delete the project; `SUPABASE_DEV_DB_URL`
+   bypasses every permission rule over an unmasked copy of real student data.
+   Only migration tooling reads them. Now commented out in the example, and
+   `env:check` reports rather than requires them.
+
+3. **`migrate:status` with `--dev` but no `--` separator answers about
+   PRODUCTION.** npm eats the flag. Pre-existing, in README. Measured
+   `[PRODUCTION] PENDING: 0` against `[samo-dev] PENDING: 3` for the same line
+   with the separator added. (Written descriptively here on purpose:
+   `docs-commands.test.js` sweeps this file too, and rightly — HANDOFF §9 holds
+   commands people really do run.)
+   ⚠️ **samo-dev really does have 3 pending migrations** — nobody knew, because
+   the documented command was hiding it. Not investigated; pick it up.
+
+### The design that replaced it
+
+**`.env.local.example` is the contract.** An active `NAME=` line is required, a
+commented `# NAME=` line is database-work only, and `tools/env-manifest.mjs`
+derives everything from it — `env:check`, `setup`, `env:share`, `env:pull` and
+the `npm run dev` drift warning. **Adding a variable is ONE edit to that file**;
+every contributor is told by name on their next `npm run dev`.
+
+Four commands: `setup` (paste, it parses), `env:check`, `env:share [-- --copy]`
+(maintainer, cannot emit a production name), `env:pull` (from the vault).
+
+### Owner decisions recorded this session — do not re-litigate
+
+- **Vault collections are `Infra` · `Dev` · `Team`**, split by what a leak
+  COSTS. ⛔ NOT `IT` — `ฝ่าย IT` is a real SAMO department, so that name reads
+  as "the IT department's logins" and the VM password follows it. `Comms` and
+  `Handover` were dropped with reasons. One home: `skills/vaultwarden.md`.
+- **SOPS was considered and rejected**, reasoning in the chat and summarised in
+  `skills/onboard-a-contributor.md`. Short version: the repo is public, so
+  ciphertext there is permanent and unrevocable, and it moves key distribution
+  rather than solving it.
+
+### Things I got wrong, so nobody trusts them
+
+- I wrote in HANDOFF that the Bitwarden CLI could not work with our `/vault/`
+  subpath. **False, from a search result rather than a test.** One command
+  disproved it. Corrected in place.
+- I committed once with `npm test` RED, because I piped it to `grep` and read
+  the pipeline's exit code. That trap is in `.claude/rules/mistakes.md` and I
+  did it anyway.
+- One unexplained test failure (1 of 1838) that I could not reproduce, because
+  I re-ran instead of capturing the output. HANDOFF §9 says what to do if it
+  recurs.
+
+### Not done, deliberately
+
+- **Windows is unverified.** Every measurement was on macOS.
+- **`env:pull` is verified up to authentication only** — no `Dev` collection
+  exists yet, so an authenticated fetch has never run.
+
+---
+
 ## ▶ HANDOFF 2026-09-02, END OF SESSION — read this before anything else
 
 **Everything below in this file is history. This block is the state.**
@@ -1079,12 +1156,15 @@ Long session, four themes. What would mislead the next reader:
   `npm run dev:check`. Credentials are the `SUPABASE_DEV_*` block in
   `.env.local` and are safe to share with the team — that account holds nothing
   but disposable projects.
-- **The one-source tool registry is un-started** — `src/data/tools.js`,
-  `docs/DEPT-TOOLS.md` §13. (This bullet used to read "Golden Period is
-  un-started", contradicting the top of this same file; the PAGE shipped, the
-  REGISTRY did not.) `DEPT_DEFS` in `src/js/departments.js` and
-  `src/html/tab-tools.html` are still two hand-maintained copies of one list,
-  held in step only by `dept-tool-mirror.test.js`.
+- ~~**The one-source tool registry is un-started**~~ — **DONE 2026-08-31**,
+  `docs/DEPT-TOOLS.md` §6. One renderer (`src/js/tool-card.js`) serves both
+  consumers, `tab-tools.html` ships an empty grid, and `dept-tool-mirror.test.js`
+  is GONE — replaced by `src/js/tools-registry.test.js`, which keeps both of its
+  properties and additionally ratchets that no card is hand-written beside the
+  registry. ⚠️ **This bullet stayed stale for six days and named a test that no
+  longer exists**; corrected 2026-09-06. It is the third time this file has
+  carried a "un-started" claim about something already shipped — when you finish
+  something, come back here and strike the bullet.
 
 ## Next time I have an hour
 

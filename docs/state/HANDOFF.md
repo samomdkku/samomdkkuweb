@@ -11,6 +11,15 @@ shipped, verified state. These are choices and errands, not loose ends.
 
 ## 0. How to read this file
 
+⚠️ **RENUMBERED 2026-09-06.** This file had two sections numbered 7 and two
+numbered 8, and "Where to look for anything else" sat in the middle. It is now
+**0–10 in order**, with that table at the end. A section number quoted in an
+older note or memory may be stale.
+
+📌 **The most recent session's REASONING is in `docs/state/phuriphatma.md`**
+(2026-09-06, contributor credentials). This file holds only what is NOT done.
+
+
 **Every section carries a `Status:` line, and it changes what you should DO.**
 `handoff-guard` in `src/js/state-handoff.test.js` fails the build if one is
 missing, so you can trust that the marker is present — not that it is right.
@@ -161,14 +170,11 @@ handed over (`docs/SUCCESSION.md`).
    members need a handful of shared logins, not a vault holding `SUPABASE_DB_URL`
    and the VM sudo password. Start with ฝ่าย leads; every extra holder is another
    laptop, another phone, another graduation.
-5. **Create the `Dev` collection** (2026-09-06). The contributor onboarding docs
-   now send people to the vault for the two `SUPABASE_DEV_*` lines
-   (`docs/start/prerequisites.md`, `skills/onboard-a-contributor.md`), and the
-   split is the point: `Dev` holds a key to a COPY, `Infra` holds production
-   and this box's own sudo password. ⚠️ **The collection does not exist yet** —
-   the docs describe the intended shape, not a measured one. Until you make it,
-   the one-time-link road is the only one that works. Bitwarden **Send** from
-   our instance is likewise untested.
+5. **Create the three collections and the `samo-dev env` item.** ⛔ Its ONE home
+   is **§8 below** — do not restate the steps here. It is the single thing
+   blocking `npm run env:pull`, and it changes item 4 above: `Dev` holds two
+   values the built website already publishes, so handing out a vault account is
+   a much smaller decision than it was when this list was written.
 
 **NOT DONE, and nobody is blocked on it — the survival work:**
 
@@ -206,7 +212,7 @@ handed over (`docs/SUCCESSION.md`).
 
 ---
 
-## 8. Contributor setup — fixed 2026-09-06, but two things are owner-only
+## 8. Contributor credentials — rebuilt 2026-09-06; ONE owner-only step left
 
 **Status: VERIFIED 2026-09-06 — how:** built a contributor's `.env.local` from
 `.env.local.example` and asked Vite's own loader what it exposed (`{}` before,
@@ -223,10 +229,9 @@ reintroduced and each failed on its own assertion before restoring.
    walked through this yet (§4), so the likely answer is nobody — but if you
    sent anyone the four-value block, they hold `SUPABASE_DEV_DB_URL`, which
    reads every real student record. Ask them to delete it; rotate if unsure.
-2. **The `Dev` vault collection (§7 item 5) is now smaller and easier.** It
-   holds two lines that the built website already publishes, not four. That
-   changes the risk of handing out vault accounts, and it is worth revisiting
-   §7 item 4 with that in mind.
+2. **Handing out a vault account is now a smaller decision** than §7 item 4
+   assumed: `Dev` holds two values the built website already publishes, not
+   four. Worth re-reading that item with this in mind.
 
 ⚠️ **NOT verified:** whether `npm run dev` and `npm run setup` behave the same
 on Windows. Every measurement above was on macOS. The paste path is plain stdin
@@ -285,21 +290,7 @@ item name; changing the item name means changing it there.
 
 ---
 
-## Where to look for anything else
-
-**Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.
-
-| | |
-|---|---|
-| what is true now | `STATE.md` |
-| rules that outlive a session | `docs/INVARIANTS.md` |
-| the passport merge, start to finish | `docs/PASSPORT-MONOREPO.md` |
-| bugs already paid for | `docs/mistakes/*.md` — `grep -rin "<symptom>" docs/mistakes/` |
-| what production serves | `npm run deploy:owed` — **the only authority** |
-
----
-
-## 7. Tooling that WILL bite you — learned the hard way on 2026-09-04
+## 9. Tooling that WILL bite you — learned the hard way on 2026-09-04
 
 **Status: VERIFIED 2026-09-04** — how: every item cost real time in-session and is reproduced from that run.
 
@@ -376,7 +367,7 @@ concluding you cannot reach a signed-in page.
 
 ---
 
-## 8. How this owner works — worth knowing on day one
+## 10. How this owner works — worth knowing on day one
 
 **Status: VERIFIED 2026-09-05** — how: observed across this and prior sessions; each bullet cites the moment it came from.
 
@@ -397,3 +388,17 @@ concluding you cannot reach a signed-in page.
   This repo has been burned by confident prose more than by bad code.
 
 ---
+
+---
+
+## Where to look for anything else
+
+**Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.
+
+| | |
+|---|---|
+| what is true now | `STATE.md` |
+| rules that outlive a session | `docs/INVARIANTS.md` |
+| the passport merge, start to finish | `docs/PASSPORT-MONOREPO.md` |
+| bugs already paid for | `docs/mistakes/*.md` — `grep -rin "<symptom>" docs/mistakes/` |
+| what production serves | `npm run deploy:owed` — **the only authority** |
