@@ -34,13 +34,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `9aab626` (2026-09-06)** — v4.7.0 still. ~31 s,
-  `<== exit 0 — ran to the end`; roots 12 s apart so docs published.
-  Verified from SERVED pages: `/docs/start/install` carries today's strings, an
-  untouched one as control, and the deleted ones are gone — **and the served
-  production bundle still reads `fheueuowbchsnsvbcgil`**, which is the check
-  that matters this time (`tools/dev-env.mjs` repoints the DEV server only).
-  Previous: `e966e28`.
+- ✅ **DEPLOYED = `b3fac06` (2026-09-06)** — v4.7.0 still. ~31 s,
+  `<== exit 0 — ran to the end`; roots 11 s apart so docs published.
+  Verified from SERVED pages, and **the served production bundle still reads
+  `fheueuowbchsnsvbcgil`** — the check that matters while `tools/dev-env.mjs`
+  exists, since it repoints the DEV server only. Previous: `9aab626`.
   The passport MERGE stays live — `/passport/` serves the real app and
   `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
   ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
