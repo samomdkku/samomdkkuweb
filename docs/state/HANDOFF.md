@@ -161,6 +161,14 @@ handed over (`docs/SUCCESSION.md`).
    members need a handful of shared logins, not a vault holding `SUPABASE_DB_URL`
    and the VM sudo password. Start with ฝ่าย leads; every extra holder is another
    laptop, another phone, another graduation.
+5. **Create the `Dev` collection** (2026-09-06). The contributor onboarding docs
+   now send people to the vault for the four `SUPABASE_DEV_*` lines
+   (`docs/start/prerequisites.md`, `skills/onboard-a-contributor.md`), and the
+   split is the point: `Dev` holds a key to a COPY, `IT-Core` holds production
+   and this box's own sudo password. ⚠️ **The collection does not exist yet** —
+   the docs describe the intended shape, not a measured one. Until you make it,
+   the one-time-link road is the only one that works. Bitwarden **Send** from
+   our instance is likewise untested.
 
 **NOT DONE, and nobody is blocked on it — the survival work:**
 

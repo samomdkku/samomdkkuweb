@@ -61,25 +61,66 @@ paste.
 names, real รหัสนักศึกษา, real photographs. Safe to *click*, not safe to
 *publish*. Say that when you send them; it is in the docs, but people skim.
 
-### How to send it — a one-time link, not a message
+### How to send it — never as a message, and the road depends on the person
 
 ⛔ **Not by LINE, Discord, Messenger, email, or a shared Google Doc.** Those keep
 the value for ever, in a place you do not control, readable by anyone who later
 gets that account or that document. This is the whole reason the values are not
 simply in the repository.
 
-**Use a link that self-destructs.** Paste the four lines in, get a URL, send the
-URL, and it stops working after one view or after a set time.
+**There are two correct roads, and which one you take is a judgement about the
+PERSON, not about the secret.**
+
+#### Someone who will be back → the vault (SAMO's own, since 2026-09-06)
+
+`https://samo.md.kku.ac.th/vault/` — Vaultwarden, self-hosted on the KKU VM,
+free, ours. Full operations in `skills/vaultwarden.md`.
+
+Put the four `SUPABASE_DEV_*` lines in a collection named **`Dev`**, share that
+collection with them as a plain **User** (not Manager), and you are done. What
+that buys, and why it beats re-sending a link every time:
+
+- **Rotating a key becomes one edit**, not a message to every person who ever
+  received it — and today nobody can even list who that is.
+- **Offboarding becomes removing one member**, and you know exactly what they
+  could read, which is the short list in that one collection.
+- They can rebuild a laptop without asking anybody for anything.
+
+⛔ **Never put a contributor in `IT-Core`.** That collection holds
+`SUPABASE_DB_URL`, `SAMO_VM_SUDO_PASSWORD` and the vault's own admin password —
+production, and the machine the vault itself runs on. A contributor there can
+write to real student records and log in to the VM. **Separate collections are
+the entire reason the vault is better than a shared file**; one careless share
+throws away the whole benefit.
+
+⚠️ **Tell them about the ⚙ gear.** In the Bitwarden app or browser extension they
+must set the server to `https://samo.md.kku.ac.th/vault/` on the login screen
+*before* typing their email. Everybody misses this, and the symptom — talking to
+`bitwarden.com`, where the account does not exist — reads as "my password is
+wrong". It is the single most common support question this vault will generate.
+
+⚠️ **Do not hand out vault accounts by default.** Every holder is another
+laptop, another phone, another graduation. Start with ฝ่าย leads and people who
+have already merged something.
+
+#### A first contact, or somebody passing through → a link that self-destructs
+
+Paste the four lines in, get a URL, send the URL, and it stops working after one
+view or after a set time. No account for anyone, nothing to offboard.
 
 | Option | Cost | Good to know |
 |---|---|---|
-| **A one-time-secret service** (onetimesecret.com and similar) | free | Nobody needs an account — not you, not them. Simplest thing that is correct, and the right default here |
-| **Bitwarden Send** | free tier | ⚠️ **The free plan allows only ONE active text Send at a time**, so onboarding several people means deleting each before creating the next. Set the expiry down from its 7-day default. Sensible if the team already uses Bitwarden |
-| **1Password / Bitwarden shared vault** | paid | Worth it only once the same people need the values repeatedly and you want to rotate in one place. Overkill for occasional volunteers |
-| **A secrets manager** (Doppler, Vault) | paid/complex | The right answer for a company with staff and audit requirements. Not for this |
+| **A one-time-secret service** (onetimesecret.com and similar) | free | Nobody needs an account — not you, not them. The right default for a first send |
+| **Bitwarden Send**, from our own vault | free | ⚠️ **Untested on our instance.** Vaultwarden does not apply bitwarden.com's free-plan "one text Send at a time" limit, so it should be unrestricted — but nobody has created a Send on `/vault/` yet. Try it once before relying on it, and set the expiry down from its 7-day default |
+| **A secrets manager** (Doppler, HashiCorp Vault) | paid/complex | The right answer for a company with staff and audit requirements. Not for this |
 
 **Send the link and any password on two different channels** — the link in
 Discord, the password by phone — so one compromised account is not enough.
+
+⚠️ **A one-time link is delivery, not storage.** Once sent, you no longer know
+who holds the value or where they put it. That is acceptable for `samo-dev` keys
+and for nothing else — and it is why the second person to ask should probably
+just get a vault account.
 
 ### Best practice this project already follows
 

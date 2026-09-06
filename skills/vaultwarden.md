@@ -231,7 +231,17 @@ sudo /opt/vaultwarden/signup-window.sh 15 kkumail.com
 
 It verifies the close by attempting a full registration and requiring a 400.
 Then: `/vault/` → **New organization** → `SAMO MDKKU` → Collections `IT-Core`,
-`Comms`, `Handover` → Members → Invite → Confirm.
+`Comms`, `Handover`, `Dev` → Members → Invite → Confirm.
+
+**`Dev` is the contributor collection** and it exists to keep contributors OUT of
+`IT-Core`. It holds exactly the four `SUPABASE_DEV_*` lines from
+`.env.local.example` — a key to a *copy* of the database. `IT-Core` holds
+`SUPABASE_DB_URL`, `SAMO_VM_SUDO_PASSWORD` and this vault's own admin password,
+which is production and the machine the vault runs on. Share `Dev` with a
+contributor as a plain **User**, never Manager, and never share `IT-Core` with
+anyone who is not already trusted with production.
+`skills/onboard-a-contributor.md` is the other half of this and says when to
+hand out an account at all.
 
 ## The backup FAILS until someone registers — by design
 
