@@ -230,18 +230,51 @@ sudo /opt/vaultwarden/signup-window.sh 15 kkumail.com
 ```
 
 It verifies the close by attempting a full registration and requiring a 400.
-Then: `/vault/` → **New organization** → `SAMO MDKKU` → Collections `IT-Core`,
-`Comms`, `Handover`, `Dev` → Members → Invite → Confirm.
+Then: `/vault/` → **New organization** → `SAMO MDKKU` → Collections (below) →
+Members → Invite → Confirm.
 
-**`Dev` is the contributor collection** and it exists to keep contributors OUT of
-`IT-Core`. It holds exactly the four `SUPABASE_DEV_*` lines from
-`.env.local.example` — a key to a *copy* of the database. `IT-Core` holds
-`SUPABASE_DB_URL`, `SAMO_VM_SUDO_PASSWORD` and this vault's own admin password,
-which is production and the machine the vault runs on. Share `Dev` with a
-contributor as a plain **User**, never Manager, and never share `IT-Core` with
-anyone who is not already trusted with production.
-`skills/onboard-a-contributor.md` is the other half of this and says when to
-hand out an account at all.
+## The collections — THREE, split by what a leak COSTS
+
+⛔ **A collection is a unit of SHARING, not a unit of topic.** The question is
+never "what kinds of secret are there" but "which distinct groups of people need
+distinct sets". Every collection is a sharing relationship somebody re-does at
+every yearly handover; every collection you DON'T have is a secret shared too
+widely. Decided 2026-09-06 after the owner asked for the layout.
+
+| Collection | What is in it | Who | What a leak costs |
+|---|---|---|---|
+| **`Infra`** | VM sudo password · `SUPABASE_DB_URL` · Supabase PATs · this vault's admin password · clasp/GAS credentials · KKU SSO client secret · Discord webhook URLs · the role account's Gmail password | **1–3 people.** Owners only | The site, the database and the box it runs on. Rotating any of these is a real operation |
+| **`Dev`** | the two `SUPABASE_DEV_*` lines, in an item called `samo-dev env` | anyone writing code | Embarrassing, not an incident — that is the stated design of `samo-dev`. But it is UNMASKED student data, so not nothing |
+| **`Team`** | the ฝ่าย shared accounts, social media, Canva, Drive — what a normal SAMO member needs | most of SAMO | Change a password |
+
+### ⛔ Do NOT name the first one `IT`
+
+It is the obvious name and it is a trap here: **`ฝ่าย IT` is a real SAMO
+department** (`src/data/changelog.js` — *"หัวหน้าฝ่าย IT"*, and the ฝ่าย IT
+panel). A collection called `IT` reads as *the IT department's shared logins*,
+so the next person to maintain this shares it with ฝ่าย IT — a whole department
+of students that turns over every year — and the VM sudo password goes with it.
+`Admin` is out for the same reason (`ฝ่ายบริหาร`, `--dept-admin`). `Infra` names
+the blast radius and collides with nothing.
+
+### Two collections that were planned and are deliberately NOT here
+
+- **`Comms`** — a topic, not an audience. Folds into `Team`. Split it out only
+  if you would genuinely refuse another ฝ่าย lead the Instagram password.
+- **`Handover`** — succession is not a different AUDIENCE, it is the same `Infra`
+  secrets handed to the next Owner. A `Handover` collection is a SECOND COPY of
+  facts that live in `Infra`, and a credential with two homes drifts exactly
+  like a fact with two homes (`.claude/rules/mistakes.md` class 6) — except the
+  stale copy is a password somebody trusts. Succession is: make them an Owner,
+  rotate, and the sealed envelope. `docs/SUCCESSION.md` already says so.
+
+### Not one collection per ฝ่าย
+
+Ten collections is ten sharing relationships to re-do at every handover, and the
+person doing it is the owner — who is the bottleneck this whole design exists to
+remove. The benefit (ฝ่าย A cannot see ฝ่าย B's Canva login) is small in an
+organisation that already shares one account per ฝ่าย. Revisit if a specific
+ฝ่าย asks for it, not before.
 
 ## The backup FAILS until someone registers — by design
 

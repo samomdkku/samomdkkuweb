@@ -2,9 +2,16 @@
 // ============================================================
 // env-share.mjs — `npm run env:share`. Produce the block to send a contributor.
 //
-//   npm run env:share            # what everyone needs (2 lines today)
-//   npm run env:share --db       # + the database-work values, when asked for
-//   npm run env:share --only SUPABASE_DEV_ANON_KEY    # just the one that rotated
+//   npm run env:share             # what everyone needs (2 lines today)
+//   npm run env:share -- --copy   # same, straight to the clipboard, printing nothing
+//   npm run env:share -- --db     # + the database-work values, when asked for
+//   npm run env:share -- --only SUPABASE_DEV_ANON_KEY   # just the one that rotated
+//
+// ⭐ `--copy` EXISTS SO THE VALUES NEVER CROSS A SCREEN. Asked for on
+// 2026-09-06, when the owner wanted the block pasted into the vault for them:
+// the shortest safe path is clipboard → vault, with nothing in a terminal
+// transcript, a scrollback buffer, or a chat window on the way. It is also the
+// answer to "I keep having to re-derive this block" — one command, one paste.
 //
 // THE OTHER HALF OF THE TOIL, and the dangerous half. `npm run setup` removed
 // the retyping on the RECEIVING side; this removes the hand-assembly on the
@@ -25,6 +32,7 @@
 // ============================================================
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { loadEnvLocal } from './migrations-lib.mjs';
 import { manifest, isPlaceholder } from './env-check.mjs';
 
@@ -47,9 +55,31 @@ export function selectNames(exampleText, { db = false, only = [] } = {}) {
   return { names: db ? [...required, ...optional] : required, refused: [], shareable };
 }
 
+/**
+ * Put text on the system clipboard. Returns the tool that took it, or null.
+ *
+ * Not a dependency — every platform ships one, and a clipboard package is a
+ * strange thing to add to a project that would use it once a term.
+ */
+export function copyToClipboard(text) {
+  const tools = process.platform === 'darwin'
+    ? [['pbcopy', []]]
+    : process.platform === 'win32'
+      ? [['clip', []]]
+      : [['wl-copy', []], ['xclip', ['-selection', 'clipboard']], ['xsel', ['--clipboard', '--input']]];
+  for (const [cmd, args] of tools) {
+    try {
+      execFileSync(cmd, args, { input: text, stdio: ['pipe', 'ignore', 'ignore'] });
+      return cmd;
+    } catch { /* try the next one */ }
+  }
+  return null;
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const db = argv.includes('--db');
+  const copy = argv.includes('--copy');
   const force = argv.includes('--force');
   const only = [];
   for (let i = 0; i < argv.length; i += 1) {
@@ -70,7 +100,8 @@ function main() {
   }
 
   // The most likely accident is `npm run env:share > somewhere-it-persists`.
-  if (!process.stdout.isTTY && !force) {
+  // --copy is exempt: it prints no values at all, so there is nothing to catch.
+  if (!process.stdout.isTTY && !force && !copy) {
     console.error('\n⛔ Not a terminal. This prints real secrets, and redirecting');
     console.error('  them into a file or a pipe is how they end up somewhere');
     console.error('  nobody meant. If you truly want that, pass --force.\n');
@@ -85,14 +116,32 @@ function main() {
     process.exit(1);
   }
 
+  const block = names.map((n) => `${n}=${env[n]}`).join('\n');
+
   console.log('');
-  console.log('  Send everything between the lines. They paste it whole into');
-  console.log('  `npm run setup` — no editing, no formatting, greeting and all.');
-  console.log('');
-  console.log('  ─────────────────────────────────────────────');
-  for (const n of names) console.log(`${n}=${env[n]}`);
-  console.log('  ─────────────────────────────────────────────');
-  console.log('');
+  if (copy) {
+    const via = copyToClipboard(`${block}\n`);
+    if (!via) {
+      console.error('✗ No clipboard tool found. On Linux install wl-clipboard or');
+      console.error('  xclip, or drop --copy to print the block instead.\n');
+      process.exit(1);
+    }
+    console.log(`  ✓ ${names.length} line(s) copied to the clipboard — nothing printed.`);
+    console.log(`    ${names.join('\n    ')}`);
+    console.log('');
+    console.log('  Paste it into the Notes field of the vault item `samo-dev env`');
+    console.log('  (Dev collection), or into a one-time link. Then clear your');
+    console.log('  clipboard by copying anything else.');
+    console.log('');
+  } else {
+    console.log('  Send everything between the lines. They paste it whole into');
+    console.log('  `npm run setup` — no editing, no formatting, greeting and all.');
+    console.log('');
+    console.log('  ─────────────────────────────────────────────');
+    console.log(block);
+    console.log('  ─────────────────────────────────────────────');
+    console.log('');
+  }
   if (names.some((n) => manifest(example).optional.includes(n))) {
     console.log('  ⚠️  This block includes DATABASE-WORK values. They can delete');
     console.log('      the practice project and read every real student record.');

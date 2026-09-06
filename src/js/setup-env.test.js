@@ -17,6 +17,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parsePaste, mergeEnvFile, productionNames, opensAssignment } from '../../tools/setup-env.mjs';
+import { copyToClipboard } from '../../tools/env-share.mjs';
 import { REQUIRED } from '../../tools/env-check.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
@@ -154,5 +155,34 @@ describe('a paste containing production credentials is refused', () => {
     // Control: the names a contributor is SUPPOSED to receive must not be here,
     // or setup would refuse every correct paste.
     for (const n of REQUIRED) expect(names).not.toContain(n);
+  });
+});
+
+describe('`--copy` — the values never cross a screen', () => {
+  // Asked for on 2026-09-06: the owner wanted the block put into the vault for
+  // them. Nobody but they can do that (Vaultwarden encrypts item contents in
+  // the browser), so the next best thing is clipboard → vault with nothing in a
+  // terminal transcript, a scrollback buffer or a chat window on the way.
+  it('prints NO value in copy mode — that is the whole point', () => {
+    const src = readFileSync(join(ROOT, 'tools', 'env-share.mjs'), 'utf8');
+    const copyBranch = src.slice(src.indexOf('if (copy) {'), src.indexOf('} else {'));
+    expect(copyBranch, 'the --copy branch prints the block it just copied')
+      .not.toMatch(/console\.log\([^)]*\bblock\b/);
+    expect(copyBranch, 'the --copy branch should confirm by NAME').toMatch(/names\.join/);
+  });
+
+  it('is exempt from the not-a-TTY refusal, and only it is', () => {
+    const src = readFileSync(join(ROOT, 'tools', 'env-share.mjs'), 'utf8');
+    // Piping is refused because it persists secrets; --copy persists nothing to
+    // stdout, so the refusal would only push people toward --force, which does.
+    expect(src).toMatch(/!process\.stdout\.isTTY && !force && !copy/);
+  });
+
+  it('returns the tool that took it, or null — never a false success', () => {
+    // Runs for real. On this machine it either finds pbcopy/clip/xclip or it
+    // does not; both are correct answers, and `undefined` would be neither.
+    const got = copyToClipboard('');
+    expect(got === null || typeof got === 'string',
+      'copyToClipboard returned something that is not a tool name or null').toBe(true);
   });
 });

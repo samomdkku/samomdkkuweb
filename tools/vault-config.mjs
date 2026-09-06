@@ -24,7 +24,7 @@ export const VAULT_URL = 'https://samo.md.kku.ac.th/vault';
  * prints. One item, not one per value — whoever maintains it edits it in a
  * phone app, and anything cleverer is something to get wrong at 11pm.
  *
- * It belongs to the `Dev` collection. ⛔ NEVER `IT-Core`, which holds
+ * It belongs to the `Dev` collection. ⛔ NEVER `Infra`, which holds
  * production and this VM's own sudo password.
  */
 export const VAULT_ITEM = 'samo-dev env';

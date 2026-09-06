@@ -164,7 +164,7 @@ handed over (`docs/SUCCESSION.md`).
 5. **Create the `Dev` collection** (2026-09-06). The contributor onboarding docs
    now send people to the vault for the four `SUPABASE_DEV_*` lines
    (`docs/start/prerequisites.md`, `skills/onboard-a-contributor.md`), and the
-   split is the point: `Dev` holds a key to a COPY, `IT-Core` holds production
+   split is the point: `Dev` holds a key to a COPY, `Infra` holds production
    and this box's own sudo password. ⚠️ **The collection does not exist yet** —
    the docs describe the intended shape, not a measured one. Until you make it,
    the one-time-link road is the only one that works. Bitwarden **Send** from
@@ -261,10 +261,22 @@ names the step that failed rather than pretending.
 
 **⛔ THE ONE THING BLOCKING ALL OF THIS, and only the owner can do it:**
 
-1. Create the **`Dev`** collection in org `samomdkku` (never `IT-Core`).
+1. Create the collections. **Three, decided 2026-09-06 — `Infra` · `Dev` ·
+   `Team`**, split by what a leak COSTS rather than by topic. The full table and
+   the reasoning (including why NOT to call the first one `IT`, why `Comms` and
+   `Handover` were dropped, and why not one per ฝ่าย) is in
+   `skills/vaultwarden.md`, its one home. This step creates `Dev`.
 2. Create an item in it called **`samo-dev env`** whose **Notes** field holds the
-   output of `npm run env:share`, pasted whole.
+   output of `npm run env:share -- --copy` — that flag puts it straight on the
+   clipboard and prints nothing, so the values never cross a screen.
 3. Share `Dev` with each contributor's account as a plain **User**.
+
+⛔ **Nobody can do steps 1–2 for the owner, and it is not a permissions
+problem.** Vaultwarden encrypts item contents in the browser before they reach
+the server, so the server holds only ciphertext; the `/vault/admin` password on
+the VM manages accounts and organisations and **cannot read or create an item**.
+It needs somebody signed in with a master password. Do not go looking for a
+back door — there is not one, by design.
 
 After that, contributors run `npm run env:pull` and the owner is out of the loop
 permanently — no laptop, no per-person send, and a rotated key is one edit to
@@ -336,6 +348,18 @@ was found; check your proof's name appears in the run output.
 - **`CLAUDE.md` is at 100% of its 12,000-byte budget.** Any addition needs an
   equal deletion. Thai is 3 bytes/char, so trimming English frees less than it
   looks.
+
+### One unexplained test failure, 2026-09-06 — evidence destroyed by re-running
+
+`npm test` reported **1 failed / 1832 passed** once, on a run that also took
+17 s against a 7 s baseline. I then ran the suite AGAIN to see which test it
+was — so the failing output was gone, and the new run passed. Eight consecutive
+clean runs since; the identity of the failing test is unknown.
+
+⚠️ **If this recurs, capture the output BEFORE re-running** (`npm test > /tmp/t
+2>&1`). Re-running to investigate a flake destroys the only evidence there was,
+which is the same shape as the deploy pipeline that discarded its failing step's
+output for six runs (`docs/mistakes/deploy-hosting.md`).
 
 ### `head -N` on a grep is not a search
 

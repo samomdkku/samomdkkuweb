@@ -65,15 +65,28 @@ That is the wrong shape and the owner said so on 2026-09-06: *"i have to be
 access to my computer"*, *"i would have to send it many times for each person"*.
 
 **Do it once instead.** Put the block in a vault item called **`samo-dev env`**
-in the **`Dev`** collection — the whole `npm run env:share` output pasted into
-its **Notes** field. Then:
+in the **`Dev`** collection. Get it onto your clipboard without it crossing a
+screen, then paste into the item's **Notes** field:
+
+```bash
+npm run env:share -- --copy
+```
+
+⛔ **Only you can do this step, and not because of permissions.** Vaultwarden
+encrypts item contents in the BROWSER before they reach the server, so the
+server never holds the plaintext — the `/vault/admin` password on the VM manages
+accounts and organisations and cannot read or create an item. Creating it needs
+somebody signed in with a master password. That is the vault working correctly,
+and it is the reason nobody can do it on your behalf.
+
+Then:
 
 - a contributor with a vault account runs **`npm run env:pull`** and fetches
   their own, today and every time a key changes;
 - **you are never asked again**, and you never need your laptop;
 - a rotated key is ONE edit to that item — including from the phone app.
 
-⛔ **`Dev`, never `IT-Core`.** IT-Core holds production and this VM's own sudo
+⛔ **`Dev`, never `Infra`.** `Infra` holds production and this VM's own sudo
 password.
 
 📌 **This is the only part still owed** (`docs/state/HANDOFF.md` §7): the
@@ -91,9 +104,10 @@ is a copy-paste operation performed on production credentials, repeated every
 time somebody joins or a key rotates. There is a command:
 
 ```bash
-npm run env:share                                  # the two everyone needs
-npm run env:share --db                             # + database-work values, when asked for
-npm run env:share --only SUPABASE_DEV_ANON_KEY     # just the one that rotated
+npm run env:share                                     # the two everyone needs
+npm run env:share -- --copy                           # same, to the clipboard, printing nothing
+npm run env:share -- --db                             # + database-work values, when asked for
+npm run env:share -- --only SUPABASE_DEV_ANON_KEY     # just the one that rotated
 ```
 
 It prints the exact block to send. It **cannot emit a name that
@@ -159,7 +173,7 @@ that buys, and why it beats re-sending a link every time:
   could read, which is the short list in that one collection.
 - They can rebuild a laptop without asking anybody for anything.
 
-⛔ **Never put a contributor in `IT-Core`.** That collection holds
+⛔ **Never put a contributor in `Infra`.** That collection holds
 `SUPABASE_DB_URL`, `SAMO_VM_SUDO_PASSWORD` and the vault's own admin password —
 production, and the machine the vault itself runs on. A contributor there can
 write to real student records and log in to the VM. **Separate collections are
