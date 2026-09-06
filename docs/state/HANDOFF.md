@@ -237,15 +237,39 @@ so it should, but nobody has run it there.
 is one edit and every tool derives from it. A rotated key is one line sent and
 one `npm run setup`, not a re-onboarding.
 
-⚠️ **A `bw`-based `npm run env:pull` from the vault was CONSIDERED and NOT
-built.** The Bitwarden CLI expects a bare HTTPS root, and our vault is at a
-SUBPATH (`/vault/`, because KKU issues no subdomain), so it would need the
-`bw config server --api / --identity / --web-vault` form — plausible, unverified
-here, and pointless until the `Dev` collection exists (§7 item 5) and somebody
-other than the owner has a vault account. **Do not build it on the assumption
-that the plain `bw config server https://samo.md.kku.ac.th/vault/` works; test
-that first.** `@bitwarden/cli` is 17 MB unpacked, so run it with `npx` rather
-than adding a dependency everyone downloads.
+✅ **`npm run env:pull` IS BUILT (2026-09-06) — and my earlier note here was
+WRONG.** I wrote that the Bitwarden CLI "expects a bare HTTPS root" and could
+not work with our `/vault/` subpath. That came from a search result, not a test.
+Measured against the LIVE vault:
+
+```
+bw config server https://samo.md.kku.ac.th/vault   → Saved setting `config`.
+bw login <nonexistent user>                        → "Username or password is
+                                                      incorrect" — it REACHED
+                                                      the identity endpoint
+bw status  → {"serverUrl":"https://samo.md.kku.ac.th/vault", ...}
+```
+
+The vault publishes the same shape itself at `/vault/api/config`
+(`"api":".../vault/api"`, `"identity":".../vault/identity"`), which is exactly
+`<base>/api` and `<base>/identity`. No special configuration needed. `bw` is run
+via `npx` at a pinned version, so nobody downloads 17 MB who does not use it.
+
+⚠️ **Verified up to authentication ONLY.** An authenticated `bw get item` has
+never run, because of the two owner-only steps below. The tool fails loudly and
+names the step that failed rather than pretending.
+
+**⛔ THE ONE THING BLOCKING ALL OF THIS, and only the owner can do it:**
+
+1. Create the **`Dev`** collection in org `samomdkku` (never `IT-Core`).
+2. Create an item in it called **`samo-dev env`** whose **Notes** field holds the
+   output of `npm run env:share`, pasted whole.
+3. Share `Dev` with each contributor's account as a plain **User**.
+
+After that, contributors run `npm run env:pull` and the owner is out of the loop
+permanently — no laptop, no per-person send, and a rotated key is one edit to
+that item from the phone app. `tools/vault-config.mjs` holds the address and the
+item name; changing the item name means changing it there.
 
 ---
 

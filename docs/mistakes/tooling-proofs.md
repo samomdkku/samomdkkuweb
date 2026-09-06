@@ -2002,6 +2002,42 @@ mid-bundle — Vite bundles its config — and esbuild answered
 `env-manifest.mjs`; `dev-env.test.js` now walks the config's import graph and
 fails with a sentence instead.
 
+**A fifth fix — the owner asking the question that invalidated my answer.**
+*"but then i have to be access to my computer to can do it"* and *"i would have
+to send it many times for each person isn't it"*. Both true. `env:share`
+automated the maintainer's TYPING and left them as the DELIVERY MECHANISM —
+once per person, for ever, laptop required. `npm run env:pull` removes them:
+values live in one vault item, each contributor fetches their own.
+
+⛔ **AND I HAD TOLD THEM THAT WAS IMPOSSIBLE, from a search result rather than a
+test.** I wrote in HANDOFF that the Bitwarden CLI "expects a bare HTTPS root" so
+our `/vault/` subpath ruled it out. One command disproved it:
+
+```
+bw config server https://samo.md.kku.ac.th/vault   → Saved setting `config`.
+bw login <nonexistent user>                        → "Username or password is
+                                                      incorrect"  (it REACHED
+                                                      the identity endpoint; a
+                                                      wrong URL gives a
+                                                      CONNECTION error)
+```
+
+The vault had been publishing the answer at `/vault/api/config` the whole time.
+**A search result about a tool is not a measurement of that tool against YOUR
+deployment**, and writing it into the handoff as a constraint would have closed
+off the right design for however long the note survived.
+
+⚠️ **A REAL BUG, found only because a test for the new tool exercised the old
+one.** `parsePaste` continued a wrapped value onto any line without whitespace —
+so the `─────────────` rules that `env:share` prints around its block got glued
+onto the end of the anon key. **Pasting exactly what you were shown** produced a
+key wrong by thirteen invisible characters, surfacing later as "the database
+refused the key (401)". Fixed by requiring a continuation line to be token
+characters AND to contain at least one alphanumeric — `*` and `-` are legal
+inside a password, so the charset alone could not do it, but a line of PURE
+punctuation is never half of a credential. Nine earlier `parsePaste` cases were
+green throughout: none of them pasted the tool's own output.
+
 **The general rule.** *A guard that compares a list to a list proves the two
 lists agree, not that either one works.* Here both lists were right and the
 thing between them did not exist. Ask what the lists were meant to PRODUCE and
@@ -2014,4 +2050,5 @@ deciding how to DELIVER secrets: settle what is in the envelope before choosing
 the envelope — and then delete the step where a human retypes what is inside it.
 **A pure function's tests do not cover the loop that feeds it**: exercise the
 COMMAND against a realistic input, or the half you did not extract stays
-unproven.
+unproven. **And the most realistic input to a paste-parser is the output of your
+own tool** — the one shape nine hand-written cases all missed.

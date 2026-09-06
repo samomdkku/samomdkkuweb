@@ -58,6 +58,23 @@ export function productionNames(exampleText) {
  * chat client wraps a 200-character key onto a second line — the last of which
  * the guide currently asks a person to notice and fix by hand.
  */
+/**
+ * Characters a wrapped credential can be made of — base64url, URLs, postgres
+ * connection strings. Deliberately does NOT include box drawing, Thai, emoji or
+ * spaces, all of which appear in the prose around a pasted block.
+ */
+const CONTINUATION = /^[A-Za-z0-9+/=._~:@%?&#!$'()*,;[\]-]+$/;
+
+/**
+ * ...AND it must contain something a credential is actually made of. `*` and
+ * `-` are legal inside a real password, so they cannot be banned from the
+ * charset — but a line of PURE punctuation (`***`, `─────`, `---`, `===`) is
+ * never the second half of a key. This one rule covers every decoration a
+ * person's message might carry, including Thai and emoji, which contain no
+ * ASCII alphanumerics either.
+ */
+const HAS_SUBSTANCE = /[A-Za-z0-9]/;
+
 export function parsePaste(text) {
   const out = {};
   let last = null;
@@ -68,9 +85,17 @@ export function parsePaste(text) {
     const eq = line.indexOf('=');
     const name = eq === -1 ? null : line.slice(0, eq).trim();
     if (eq === -1 || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-      // No `NAME=` here. If the previous line opened one, this is the rest of a
-      // value a chat client wrapped; anything else is prose and is ignored.
-      if (last && !/\s/.test(line)) out[last] += line;
+      // No `NAME=` here. If the previous line opened one, this MAY be the rest
+      // of a value a chat client wrapped.
+      //
+      // ⛔ THE CHARSET TEST CAME FROM AN ACTUAL BUG, not from caution. The first version
+      // continued on any line without whitespace, so the `─────────────` rule
+      // that `npm run env:share` prints around its block got glued onto the end
+      // of the anon key — and pasting that whole block is the single most
+      // likely thing a person does, because it is what they were shown. The
+      // result would be a key that is wrong by thirteen invisible characters.
+      // Continue only on characters a token can actually contain.
+      if (last && CONTINUATION.test(line) && HAS_SUBSTANCE.test(line)) out[last] += line;
       continue;
     }
     let v = line.slice(eq + 1).trim();

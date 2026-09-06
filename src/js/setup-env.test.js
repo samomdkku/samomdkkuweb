@@ -51,6 +51,30 @@ describe('the shapes a pasted credential block actually arrives in', () => {
     });
   }
 
+  it('the separator rules env:share prints do not get glued onto a key', () => {
+    // ⛔ A REAL BUG, found by a test written for env:pull. The continuation rule
+    // (for keys a chat client wraps) fired on the `─────` rule that
+    // `npm run env:share` draws around its block — so pasting exactly what you
+    // were shown produced a key wrong by thirteen invisible characters, and the
+    // failure would have surfaced as "the database refused the key (401)".
+    const block = `  ─────────────\nSUPABASE_DEV_URL=${URL}\nSUPABASE_DEV_ANON_KEY=${KEY}\n  ─────────────\n  Not by LINE, Discord...`;
+    const got = parsePaste(block);
+    expect(got.SUPABASE_DEV_ANON_KEY).toBe(KEY);
+    expect(got.SUPABASE_DEV_URL).toBe(URL);
+  });
+
+  it('still joins a genuinely wrapped key, which is why the rule exists', () => {
+    const got = parsePaste(`SUPABASE_DEV_ANON_KEY=${KEY.slice(0, 15)}\n${KEY.slice(15)}`);
+    expect(got.SUPABASE_DEV_ANON_KEY).toBe(KEY);
+  });
+
+  it('does not continue on Thai, emoji, box drawing or a rule of punctuation', () => {
+    for (const junk of ['─────', 'ส่งให้แล้วนะ', '🎉', '***', '---', '===', '...']) {
+      const got = parsePaste(`SUPABASE_DEV_URL=${URL}\n${junk}`);
+      expect(got.SUPABASE_DEV_URL, `continued onto ${junk}`).toBe(URL);
+    }
+  });
+
   it('control: prose with no NAME=value yields nothing', () => {
     // Without this, a parser that returned junk for everything would pass all
     // nine cases above by accident.

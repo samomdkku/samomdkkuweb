@@ -200,6 +200,18 @@ anywhere, as long as that is where you cloned it in step 2.
 One command. **Do not create or edit any file by hand** — that step used to
 exist and it was where every setup problem came from.
 
+::: tip If you have a SAMO vault account, use this instead — nobody has to send you anything
+```bash
+npm run env:pull
+```
+
+It signs you in to [the SAMO vault](https://samo.md.kku.ac.th/vault) and fetches
+your own credentials. Run it again whenever a key changes; it is always current,
+and nobody has to be at their laptop to help you.
+
+No vault account? That is normal — carry on below.
+:::
+
 ```bash
 npm run setup
 ```
@@ -447,6 +459,7 @@ Leave `npm run dev` running in one window and type everything else in a second. 
 
 | Command | What it does |
 |---|---|
+| `npm run env:pull` | Fetches your credentials from the SAMO vault, if you have an account there |
 | `npm run setup` | Writes `.env.local` from a pasted credential block. Run it again any time you are sent new values — it updates only what you paste |
 | `npm run dev` | Runs the site on your machine, usually at `localhost:5174` |
 | `npm test` | Runs the test suite. CI runs this exact one on your pull request |

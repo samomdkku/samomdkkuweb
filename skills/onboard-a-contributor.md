@@ -58,6 +58,33 @@ run, `dev:check` or `dev:google` — and say what they are when you do.
 ⚠️ People will ask for "the full set" because two feels incomplete. It is not:
 `npm run env:check` prints a line saying their two-value setup is normal.
 
+### ⭐ The road that removes YOU from this entirely
+
+Everything below assumes you are at a laptop, awake, once per person, for ever.
+That is the wrong shape and the owner said so on 2026-09-06: *"i have to be
+access to my computer"*, *"i would have to send it many times for each person"*.
+
+**Do it once instead.** Put the block in a vault item called **`samo-dev env`**
+in the **`Dev`** collection — the whole `npm run env:share` output pasted into
+its **Notes** field. Then:
+
+- a contributor with a vault account runs **`npm run env:pull`** and fetches
+  their own, today and every time a key changes;
+- **you are never asked again**, and you never need your laptop;
+- a rotated key is ONE edit to that item — including from the phone app.
+
+⛔ **`Dev`, never `IT-Core`.** IT-Core holds production and this VM's own sudo
+password.
+
+📌 **This is the only part still owed** (`docs/state/HANDOFF.md` §7): the
+collection and the item do not exist yet, and only the owner can make them. The
+tooling is written and waiting.
+
+Everything below is the road for someone who does NOT have a vault account —
+which today is everyone.
+
+---
+
 **Do not open your `.env.local` and select lines out of it by hand.** That file
 also holds `SUPABASE_DB_URL` and `SAMO_VM_SUDO_PASSWORD`; hand-picking from it
 is a copy-paste operation performed on production credentials, repeated every

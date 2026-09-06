@@ -294,6 +294,14 @@ it is the part that generalises to code not yet written.
    **Check the PROBE SUBJECT**, derived from the gate's own predicate:
    `current_user_has_permission()` reads the UNION of `permissions` AND
    `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
+   **A SEARCH RESULT ABOUT A TOOL IS NOT A MEASUREMENT OF IT AGAINST YOUR
+   DEPLOYMENT.** "The Bitwarden CLI expects a bare root, so our `/vault/`
+   subpath rules it out" was written into the HANDOFF as a constraint, from a
+   blog post; one command disproved it (`bw config server <subpath>` → saved;
+   `bw login` → *auth* error, so it REACHED the endpoint — a wrong URL gives a
+   CONNECTION error), and the vault had been publishing `"api":"…/vault/api"`
+   at its own `/api/config` the whole time. An untested constraint in a doc
+   closes off the right design for as long as it survives (`tooling-proofs.md`).
    **A PROBE ANSWERS THE QUESTION ITS DIRECTION ASKS, not the sentence you write
    around it.** An inbound port scan of the VM's public address proved nothing
    could connect IN, and that was written up as "the VM cannot do mail" — it
