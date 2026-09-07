@@ -1,0 +1,68 @@
+# ============================================================
+# Can this repo rebuild its own database?
+#
+# Replays every migration, in order, onto a Postgres that is created and
+# destroyed inside this job. Nothing here touches samo-dev or production, and
+# THE JOB NEEDS NO SECRET — which is what lets it run on pull requests from a
+# public repository. (A dev token was briefly put in Actions secrets on
+# 2026-08-29 and removed within minutes: secrets are withheld from FORK pull
+# requests but readable by any workflow pushed on a BRANCH.)
+#
+# What a green run proves: the schema can be rebuilt from this repo alone, and
+# a new migration applies cleanly from nothing. What it does not prove:
+# behaviour — `auth.uid()` is null on this database, so no policy is exercised.
+# That is `npm run proofs -- --dev`, against a real Supabase project.
+# ============================================================
+name: migrations
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'tools/replay-migrations.mjs'
+      - 'tools/ci/supabase-platform.sql'
+      - '.github/workflows/migrations.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'tools/replay-migrations.mjs'
+      - 'tools/ci/supabase-platform.sql'
+      - '.github/workflows/migrations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: replay every migration onto an empty database
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Matches what the real projects run — samo-dev reports 17.6 via the
+        # Management API. A replay on a different major version would be
+        # answering a question nobody asked.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `npm ci`: the script uses only Node builtins and tools/migrations-lib.mjs.
+      - name: Replay
+        run: node tools/replay-migrations.mjs
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
