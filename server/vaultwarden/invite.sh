@@ -8,8 +8,8 @@
 # works — an admin invite bypasses SIGNUPS_DOMAINS_WHITELIST by design, which is
 # how the @gmail.com role accounts get in.
 #
-# WHAT IT DOES NOT DO: put anyone in a collection. Deciding who sees IT-Core
-# versus Comms is the one step that should stay a human decision, so it is left
+# WHAT IT DOES NOT DO: put anyone in a collection. Deciding who sees Infra
+# versus Team is the one step that should stay a human decision, so it is left
 # in the web vault: Members -> the person -> Collections.
 set -Eeuo pipefail
 cd "$(dirname "$0")/../.."
@@ -40,4 +40,11 @@ echo
 echo "Next, in the web vault — this part is deliberately manual:"
 echo "  https://samo.md.kku.ac.th/vault/  ->  samomdkku  ->  Members"
 echo "  1. Confirm each person once they have set their master password"
-echo "  2. Give each one their collections (IT-Core / Comms / Handover)"
+echo "  2. Give each one their collections (Infra / Dev / Team)"
+echo
+echo "     Infra = the VM, the database, this vault's own admin password."
+echo "             1-3 people, never a whole department."
+echo "     Dev   = the samo-dev credentials anyone writing code needs."
+echo "     Team  = the shared logins most of SAMO uses."
+echo
+echo "  Full guide: docs/start/vault.md"

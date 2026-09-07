@@ -161,7 +161,9 @@ PERSON, not about the secret.**
 #### Someone who will be back → the vault (SAMO's own, since 2026-09-06)
 
 `https://samo.md.kku.ac.th/vault/` — Vaultwarden, self-hosted on the KKU VM,
-free, ours. Full operations in `skills/vaultwarden.md`.
+free, ours. Full operations in `skills/vaultwarden.md`; the **contributor-facing
+tutorial**, including the invite → master password → confirm → collections flow,
+is `docs/start/vault.md` — send people that link rather than explaining it again.
 
 Put the two `SUPABASE_DEV_*` lines in a collection named **`Dev`**, share that
 collection with them as a plain **User** (not Manager), and you are done. What

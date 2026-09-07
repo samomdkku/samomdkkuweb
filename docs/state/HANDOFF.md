@@ -331,6 +331,53 @@ item name; changing the item name means changing it there.
 
 ---
 
+## 8a. Letting the team run SQL on samo-dev — DECIDE, not yet done (2026-09-07)
+
+**Status: VERIFIED 2026-09-07** — how: `GET /v1/projects` and
+`/v1/organizations/<slug>/members` on the Management API with each PAT in turn,
+and the dev DB URL parsed for its role. ⚠️ The table below is measured; the
+recommendation under it is a PROPOSAL nobody has decided yet.
+
+The owner wants contributors able to run and test SQL against samo-dev (not
+production). Measured before recommending anything:
+
+| | Result |
+|---|---|
+| `SUPABASE_DEV_ACCESS_TOKEN` → `/v1/projects` | **`samo-dev` only** (1 project) |
+| `SUPABASE_ACCESS_TOKEN` → `/v1/projects` | `samomdkkuweb` + `samomembermanager`, **not** samo-dev — the control that proves the two accounts are separate |
+| dev org `vrsptgvvbrijcvgpxgsr` (`samomdkkuaiorg`) members | **1** — Owner `samomdkkuai` |
+| `SUPABASE_DEV_DB_URL` connects as | **`postgres`** — the superuser |
+
+So the account split is real and the blast radius of dev credentials is dev.
+**Neither existing value may be handed out**: the PAT can delete the project,
+and the DB URL is a superuser that bypasses every RLS policy.
+
+**Recommended, in order:**
+
+1. **Supabase dashboard members** — invite each person to the *dev org* as
+   `Developer`; they use the SQL Editor signed in as themselves. That org holds
+   only samo-dev, so org-level access is already dev-only. No new secret exists,
+   nothing goes in the vault, and removing someone is one click instead of a
+   rotation. ⚠️ **Unverified: the free plan's member limit** — the Management
+   API does not report it; check the dashboard before promising seats. This is
+   the same wall that pushed the password manager off Bitwarden's free org.
+2. **A least-privilege Postgres role** (`dev_sql`: `NOSUPERUSER NOCREATEDB
+   NOCREATEROLE`) — only if people need `psql` or the repo's own tooling rather
+   than the browser. Its URL becomes a second item in the vault's `Dev`. ⚠️ A
+   plain role is SUBJECT to RLS with `auth.uid()` null, so most tables read
+   empty and the console feels broken; `BYPASSRLS` is what makes it usable, and
+   that is the trade to make deliberately — it exposes the same unmasked data
+   the project already accepts on samo-dev, while still not being able to drop
+   the project.
+3. **Never** `SUPABASE_DEV_ACCESS_TOKEN` or the `postgres` URL.
+
+**Related trap:** `tools/db-query.mjs` runs on PRODUCTION and ignores `--dev`
+(§9 below). Harmless for a contributor, who has no production credentials — but
+if SQL becomes a normal team activity, that tool should require an explicit
+target rather than defaulting to the live database.
+
+---
+
 ## 9. Tooling that WILL bite you — learned the hard way on 2026-09-04
 
 **Status: VERIFIED 2026-09-04** — how: every item cost real time in-session and is reproduced from that run.

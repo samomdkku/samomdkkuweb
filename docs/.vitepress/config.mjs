@@ -101,7 +101,7 @@ export const SIDEBAR = [
     // prerequisites, troubleshooting — which hands a newcomer the hardest page
     // first and the setup page fourth. Anything under start/ that is missing
     // here still appears, at the end, so a new page is never lost.
-    order: ['prerequisites.md', 'install.md', 'where-it-runs.md', 'first-change.md', 'dependent-work.md', 'troubleshooting.md', 'sharing-credentials.md'],
+    order: ['prerequisites.md', 'vault.md', 'install.md', 'where-it-runs.md', 'first-change.md', 'dependent-work.md', 'troubleshooting.md', 'sharing-credentials.md'],
   },
   {
     text: 'Contributing',

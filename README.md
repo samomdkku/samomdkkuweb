@@ -244,11 +244,14 @@ VITE_SUPABASE_ANON_KEY=<anon key from Supabase Settings → API>
 ```
 
 Contributors should point these at **`samo-dev`**, the shared development
-database — a full copy of production on a separate Supabase account. Ask the
-maintainer for the two shareable `SUPABASE_DEV_*` lines (`npm run env:share`;
-the other two are migration-only — `.claude/rules/security.md`). It means you
-never have to test
-against the live student data.
+database — a full copy of production on a separate Supabase account. Ask a
+maintainer for **an account on the [SAMO vault](https://samo.md.kku.ac.th/vault/)
+with the `Dev` collection**, then `npm run env:pull` writes your `.env.local` and
+keeps it current ([how to use the vault](docs/start/vault.md)). If that is not
+an option, a maintainer can send the two shareable `SUPABASE_DEV_*` lines
+directly (`npm run env:share`) and `npm run setup` takes them; the other two
+values are migration-only — `.claude/rules/security.md`. Either way you never
+have to test against the live student data.
 
 Apply the SQL migrations in `supabase/migrations/` to your project — or, if you
 have the maintainer credentials, use the tooling instead of the SQL editor:

@@ -200,26 +200,34 @@ anywhere, as long as that is where you cloned it in step 2.
 One command. **Do not create or edit any file by hand** — that step used to
 exist and it was where every setup problem came from.
 
-::: tip If you have a SAMO vault account, use this instead — nobody has to send you anything
+### The normal way — from the vault
+
+If you have a SAMO vault account, this is the whole step:
+
 ```bash
 npm run env:pull
 ```
 
-It signs you in to [the SAMO vault](https://samo.md.kku.ac.th/vault) and fetches
-your own credentials. Run it again whenever a key changes; it is always current,
-and nobody has to be at their laptop to help you.
+It signs you in to [the SAMO vault](https://samo.md.kku.ac.th/vault) and writes
+your credentials. Run it again whenever a key changes; it is always current, and
+nobody has to be at their laptop to help you.
 
-The first run downloads the Bitwarden CLI (about 17 MB) and takes roughly half a
-minute including typing your password; later runs are a few seconds.
+The first run downloads the Bitwarden command-line tool (about 17 MB) and takes
+roughly half a minute including typing your password; later runs take a few
+seconds. **→ [How to use the SAMO vault](/start/vault)** if you have not been
+invited yet, or the sign-in is not behaving.
 
-**In a hurry, or on a machine where you would rather not install anything?**
-Open the vault in your browser, open the item `samo-dev env`, copy its Notes
-field, and run `npm run setup` and paste. Same result, no download. `env:pull` is
-the better habit — it cannot mis-paste and it is always current — but the two
-end in exactly the same `.env.local`.
-
-No vault account? That is normal — carry on below.
+::: tip No command line, or you only need this once
+Open `samo-dev env` in the web vault, copy the whole **Notes** field, then run
+`npm run setup` below and paste it. Same result, nothing downloaded.
 :::
+
+Then skip to [step 5](#_5-run-it).
+
+### The fallback — from a message someone sent you
+
+No vault account yet, or the vault is not cooperating? A maintainer can send you
+the two values directly, and this command takes them:
 
 ```bash
 npm run setup
@@ -328,10 +336,12 @@ moment your file falls behind:
   ⚠️  .env.local is missing 1 value(s) this
       project now needs — you have not been sent them yet:
         SUPABASE_DEV_…            (whatever the new one is called)
-      Ask a maintainer for those line(s), then: npm run setup
+      Run: npm run env:pull   (or ask a maintainer, then: npm run setup)
 ```
 
-Ask for those lines, run `npm run setup`, paste them. It **updates just those**
+If you have a vault account, `npm run env:pull` already has it — that is the
+whole point of it. Otherwise ask for those lines and run `npm run setup`. It
+**updates just those**
 and leaves everything else alone — you never redo the whole file, and you never
 have to work out which of your values went stale.
 

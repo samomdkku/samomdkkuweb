@@ -58,6 +58,15 @@ database. The three collections and why they are what they are:
 **3. Share `Dev`** with each person's vault account as a plain **User** — not a
 Manager.
 
+Inviting someone, confirming them, and giving them collections is three steps
+and one of them is easy to forget: **[How to use the SAMO vault](/start/vault)**
+has the whole flow, including why you cannot confirm a person before they have
+created their own master password.
+
+```bash
+./server/vaultwarden/invite.sh somchai@kkumail.com nattaya@kkumail.com
+```
+
 After that, they run:
 
 ```bash
@@ -68,7 +77,11 @@ npm run env:pull
 
 ## If they have no vault account
 
-The manual road still works, and is right for someone passing through once.
+**Give them one** — it is two minutes and it is the last time you are involved:
+[inviting people](/start/vault#for-maintainers-inviting-people).
+
+The manual road below still works, and is right for someone passing through
+once, or when the invitation is stuck and they need to start today.
 
 ```bash
 npm run env:share
@@ -108,8 +121,11 @@ Every contributor's next `npm run dev` says:
 ⚠️  .env.local is missing 1 value(s) this
     project now needs — you have not been sent them yet:
       SUPABASE_DEV_…
-    Ask a maintainer for those line(s), then: npm run setup
+    Run: npm run env:pull   (or ask a maintainer, then: npm run setup)
 ```
+
+Anyone with a vault account needs nothing from you at all — you edit the item,
+their next `env:pull` has it.
 
 ## Someone needs database access
 

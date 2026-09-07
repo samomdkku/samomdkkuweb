@@ -2,24 +2,65 @@
 
 Two kinds of thing: **software you install yourself**, and **access you have to ask a person for**. Get the asking started first, because it is the only part that waits on somebody else.
 
-## 1. Ask for the database credentials now
+## 1. Ask for a vault account now
 
-The project cannot run without them, and they are not in the repository — they never will be, because a public repository is readable by everybody.
+The project cannot run without database credentials, and they are not in the
+repository — they never will be, because a public repository is readable by
+everybody.
 
-**Message a maintainer and ask for "the two `SUPABASE_DEV_*` lines for `.env.local`".** That sentence is enough; they will know what you mean.
+**Message a maintainer and ask for "an account on the SAMO vault, with the Dev
+collection".** That sentence is enough; they will know what you mean. Give them
+the email address you want it on.
 
 ::: tip What you are asking for, in plain terms
-The site is a shop window; the database is the stockroom behind it. The code is public, the stockroom is not. What you are asking for is a key to the **practice** stockroom (`samo-dev`) — a copy of the real one that you can rearrange without anyone noticing.
+The site is a shop window; the database is the stockroom behind it. The code is
+public, the stockroom is not. What you are asking for is a key to the
+**practice** stockroom (`samo-dev`) — a copy of the real one that you can
+rearrange without anyone noticing.
+
+The vault is where SAMO keeps that key, at
+[samo.md.kku.ac.th/vault](https://samo.md.kku.ac.th/vault/). You get your own
+account and your own master password, and you fetch your own credentials
+whenever you need them.
 :::
 
-You will be sent two lines that look like this — real values, not these:
+**→ [How to use the SAMO vault](/start/vault)** — accepting the invitation,
+creating your master password, and the one setting the phone app needs. Read it
+while you wait for the email.
+
+Once you are in, one command writes your credentials and you never have to ask
+again:
+
+```bash
+npm run env:pull
+```
+
+When a key is replaced it changes in one place, and your next `env:pull` has it.
+Nobody has to be at their laptop, and nothing has to be sent to you.
+
+::: details If the vault cannot work for you — the fallback
+Sometimes the vault is not an option: the invitation is stuck, you are helping
+for one afternoon, or something is broken. Then a maintainer sends you two lines
+directly, by whatever private route you both trust:
 
 ```
 SUPABASE_DEV_URL=https://xxxxxxxxxxxx.supabase.co
 SUPABASE_DEV_ANON_KEY=eyJhbGciOi…
 ```
 
-::: tip Why two and not four — and why you should not ask for the other two
+You do not type these anywhere by hand. [Install and run](/start/install) has
+`npm run setup` — paste the message whole, greeting and all, and it writes the
+file for you.
+
+**Expect the link to expire.** If they send a URL that opens once or dies after
+a day, open it, finish your setup the same day, and do not plan to come back to
+it. That is the system working.
+
+This route works, but it puts a person in the loop for every key change for
+ever. Ask for the vault account anyway.
+:::
+
+::: tip Why two values and not four — and why you should not ask for the other two
 Until 2026-09-06 everybody was sent four. Two of those were a mistake to hand
 out by default: `SUPABASE_DEV_ACCESS_TOKEN` can delete the practice database,
 and `SUPABASE_DEV_DB_URL` is a direct login that ignores every permission rule
@@ -27,38 +68,7 @@ and `SUPABASE_DEV_DB_URL` is a direct login that ignores every permission rule
 
 They are needed only for changing the database's own structure. If you take on
 that work, ask then. Everything else — pages, styling, wording, buttons, forms,
-what a page shows and to whom — needs only the two lines above.
-:::
-
-You do not type these in anywhere by hand. [Install and run](/start/install)
-has one command, `npm run setup`, that takes the message you were sent — paste
-it whole, greeting and all — and writes the file for you. Read the rest of this
-page while you wait for the values to arrive.
-
-::: tip How they will reach you — one of two ways, and neither is a chat message
-**A link that stops working.** Expect a URL that opens once, or expires after a
-day, and possibly a password sent separately by another route. **Open it, copy
-the lines somewhere safe, and finish the setup the same day** — come back
-tomorrow and the link may be dead and you will have to ask again. That is the
-system working, not a mistake.
-
-**Or an invitation to SAMO's password vault** at
-`https://samo.md.kku.ac.th/vault/`, if you are going to be around for a while.
-Then you do not wait for anybody at all — you fetch your own with one command:
-
-```bash
-npm run env:pull
-```
-
-It is the better road for anyone who will contribute more than once: when a key
-is replaced, it changes in one place and your next `env:pull` has it, instead of
-being re-sent to everybody.
-
-⚠️ **The vault's one difficult step** is telling the app where our server is —
-in the Bitwarden app or extension, press the **⚙ gear on the login screen** and
-set the server to `https://samo.md.kku.ac.th/vault/` *before* you type your
-email. Skip it and the app talks to `bitwarden.com`, where your account does not
-exist, and it looks like your password is wrong.
+what a page shows and to whom — needs only the two values above.
 :::
 
 ⛔ **Nobody should send these to you over LINE, Discord, Messenger, email or a

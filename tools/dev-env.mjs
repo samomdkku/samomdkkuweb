@@ -147,11 +147,14 @@ export function describeDrift(drift) {
     lines.push(`  ⚠️  .env.local is missing ${drift.missing.length} value(s) this`);
     lines.push('      project now needs — you have not been sent them yet:');
     for (const n of drift.missing) lines.push(`        ${n}`);
-    lines.push('      Ask a maintainer for those line(s), then: npm run setup');
+    // The vault is the route that does not need a person: `env:pull` already
+    // has whatever was added. Naming `setup` second keeps the answer correct
+    // for someone who has no vault account yet.
+    lines.push('      Run: npm run env:pull   (or ask a maintainer, then: npm run setup)');
   }
   if (drift.stale.length) {
     lines.push(`  ⚠️  still the example placeholder: ${drift.stale.join(', ')}`);
-    lines.push('      Run `npm run setup` and paste what you were sent.');
+    lines.push('      Run `npm run env:pull`, or `npm run setup` and paste what you were sent.');
   }
   return lines.length ? `${lines.join('\n')}\n` : '';
 }

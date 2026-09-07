@@ -190,7 +190,8 @@ async function main() {
     console.error('✗ Nothing that looked like NAME=value was pasted.\n');
     console.error('  Expected at least these two lines:\n');
     for (const n of REQUIRED) console.error(`      ${n}=...`);
-    console.error('\n  Ask a maintainer for "the two SUPABASE_DEV_* lines".\n');
+    console.error('\n  Get them from the vault with `npm run env:pull`, or ask a');
+    console.error('  maintainer for "the two SUPABASE_DEV_* lines".\n');
     process.exit(1);
   }
 
