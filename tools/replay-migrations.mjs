@@ -139,6 +139,19 @@ function main() {
     }
   }
 
+  // Print the refusals FIRST, on every path. They were previously shown only on
+  // success, so a later real failure hid the fact that something was skipped —
+  // and a skipped migration is exactly the context you want when reading one.
+  if (skipped.length) {
+    console.log(`\n  ⊘ ${skipped.length} migration(s) refused because this database has no data.`);
+    console.log('    Each raised its own exception (P0001), which is a data check,');
+    console.log('    not a schema problem. What they said:\n');
+    for (const sk of skipped) {
+      console.log(`    ${sk.name}`);
+      console.log(`      ${sk.msg.find((l) => /ERROR:/.test(l)) || sk.msg[0]}`);
+    }
+  }
+
   if (failure) {
     console.error(`\n✗ ${failure.name} could not be applied to an empty database.\n`);
     for (const line of failure.msg.slice(-8)) console.error(`  ${line}`);
@@ -148,17 +161,6 @@ function main() {
     console.error('  or in tools/ci/supabase-platform.sql if the gap is a Supabase');
     console.error('  feature this replay does not provide.\n');
     process.exit(1);
-  }
-
-  if (skipped.length) {
-    console.log(`\n  ⊘ ${skipped.length} migration(s) refused because this database has no data.`);
-    console.log('    Each raised its own exception (P0001), which is a data check,');
-    console.log('    not a schema problem. What they said:\n');
-    for (const sk of skipped) {
-      console.log(`    ${sk.name}`);
-      const said = sk.msg.find((l) => /ERROR:/.test(l)) || sk.msg[0];
-      console.log(`      ${said}`);
-    }
   }
 
   const tables = psql(['-tAc',

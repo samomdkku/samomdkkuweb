@@ -30,9 +30,25 @@
 
 -- The three roles every policy and grant in this repo is written against.
 -- NOLOGIN: nothing connects as them here; they exist to be granted to.
-create role anon nologin noinherit;
-create role authenticated nologin noinherit;
-create role service_role nologin noinherit bypassrls;
+--
+-- ⚠️ IDEMPOTENT ON PURPOSE. Postgres has no `create role if not exists`, and
+-- roles are CLUSTER-level — `drop schema public cascade` does not remove them.
+-- So a second run against the same local database failed on "role already
+-- exists", reported as "the platform bootstrap failed". Harmless in CI, where
+-- the container is new every time, and a confusing wall for the contributor
+-- this tool exists to serve.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin noinherit bypassrls;
+  end if;
+end $$;
 
 -- Supabase puts extensions in their own schema and our 0026 says so explicitly.
 create schema if not exists extensions;
@@ -65,4 +81,10 @@ grant usage on schema auth, extensions to anon, authenticated, service_role;
 grant select on auth.users to anon, authenticated, service_role;
 
 -- 0048 adds two tables to this. `alter publication` cannot create it.
-create publication supabase_realtime;
+-- Same idempotency point as the roles: a publication is not in `public`.
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end $$;
