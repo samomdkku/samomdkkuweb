@@ -32,6 +32,19 @@
 // concurrently`, `vacuum` or anything else that cannot run inside a
 // transaction block — `replay-migrations.test.js` keeps that true.
 //
+// ⛔ A DATA MIGRATION'S OWN ASSERTION IS NOT A SCHEMA FAILURE. 0166 backfills
+// timelines and then checks its work: `if events < 300 then raise exception`.
+// On an empty database there are 0, so it refuses — correctly. It is a data
+// migration and this database has no data; that says nothing about the schema.
+//
+// The discriminator is NOT a list of file names, which would rot the first time
+// one was renamed and would quietly cover a real failure. It is the SQLSTATE
+// Postgres reports: **P0001 is `raise exception`** — a human deliberately
+// refusing — while a missing column is 42703, a missing table 42P01, and so on.
+// So: P0001 is reported as SKIPPED and the run continues; every other code is a
+// failure and stops it. Skipped files are listed in full at the end, with what
+// they said, because an exemption nobody reads is how a guard dies.
+//
 // ⛔ REFUSES TO RUN AGAINST ANYTHING THAT LOOKS REAL. Its first act is dropping
 // the public schema. Pointed at a Supabase host by accident that is a
 // catastrophe, so such a URL is rejected before a statement runs.
@@ -51,6 +64,16 @@ function die(msg, ...more) {
   process.exit(1);
 }
 
+/**
+ * Did the migration REFUSE (a deliberate `raise exception`, SQLSTATE P0001), or
+ * did it BREAK? Exported so the distinction can be tested without a database.
+ */
+export function classify(stderr) {
+  const m = /ERROR:\s+([0-9A-Z]{5}):/.exec(String(stderr));
+  const code = m ? m[1] : null;
+  return { code, refused: code === 'P0001' };
+}
+
 /** A deny that costs nothing and one day saves everything. Exported to be tested. */
 export function isHostedUrl(url) {
   return /supabase\.(co|com)|amazonaws|\.rds\./i.test(String(url));
@@ -59,7 +82,11 @@ export function isHostedUrl(url) {
 function psql(args) {
   // --single-transaction: see the header. This is the difference between
   // testing the migrations and testing psql's autocommit.
-  return execFileSync(PSQL, [URL_, '-v', 'ON_ERROR_STOP=1', '-q', '--single-transaction', ...args], {
+  // VERBOSITY=verbose puts the SQLSTATE in the message, which is what tells a
+  // deliberate refusal apart from a broken statement. Without it both are
+  // just the word ERROR.
+  return execFileSync(PSQL, [URL_, '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=verbose',
+    '-q', '--single-transaction', ...args], {
     encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1 << 28,
   });
 }
@@ -87,13 +114,25 @@ function main() {
   }
 
   let failure = null;
+  const skipped = [];
   for (const m of files) {
     try {
       psql(['-f', m.path]);
       process.stdout.write(`  ✓ ${m.name}\n`);
     } catch (err) {
-      process.stdout.write(`  ✗ ${m.name}\n`);
-      failure = { name: m.name, msg: String(err.stderr || err.message).trim().split('\n').filter(Boolean) };
+      const stderr = String(err.stderr || err.message).trim();
+      const { code, refused } = classify(stderr);
+      const msg = stderr.split('\n').filter(Boolean);
+      if (refused) {
+        // The file rolled back whole, so the schema is as if it had not run.
+        // If a later migration needed something from it, that one fails for a
+        // real reason and stops the run — which is the right outcome.
+        process.stdout.write(`  ⊘ ${m.name}  (refused — needs data)\n`);
+        skipped.push({ name: m.name, msg });
+        continue;
+      }
+      process.stdout.write(`  ✗ ${m.name}  (${code || 'no SQLSTATE'})\n`);
+      failure = { name: m.name, msg };
       // Stop at the first: everything after fails for ITS reasons, and a wall
       // of consequent errors hides the one that started it.
       break;
@@ -109,6 +148,17 @@ function main() {
     console.error('  or in tools/ci/supabase-platform.sql if the gap is a Supabase');
     console.error('  feature this replay does not provide.\n');
     process.exit(1);
+  }
+
+  if (skipped.length) {
+    console.log(`\n  ⊘ ${skipped.length} migration(s) refused because this database has no data.`);
+    console.log('    Each raised its own exception (P0001), which is a data check,');
+    console.log('    not a schema problem. What they said:\n');
+    for (const sk of skipped) {
+      console.log(`    ${sk.name}`);
+      const said = sk.msg.find((l) => /ERROR:/.test(l)) || sk.msg[0];
+      console.log(`      ${said}`);
+    }
   }
 
   const tables = psql(['-tAc',
