@@ -256,6 +256,14 @@ it is the part that generalises to code not yet written.
    assert it · it ERRORS rather than fails, and
    an aborted script is silence (`house0116`: 0 assertions for 23 migrations —
    when a migration drops a function or column, grep `tools/` in that commit).
+   **A GUARD THAT NEEDS A SECRET CANNOT RUN WHERE GUARDS ARE ENFORCED** —
+   three assertions read the maintainer's gitignored `.env.local`, so they were
+   green on every laptop and red on CI for 19 consecutive pushes, unread,
+   because local `npm test` kept saying 1848 passed; one of the three was green
+   ON CI for the state it exists to catch (`not.toBe('production')` passes on
+   `undefined`). Synthesise the artefact a real person creates; never read the
+   one your machine happens to have. When CI names tests that pass locally, ask
+   how long it has been red, not what you broke.
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
    assertion you expect, restore.** Never write a guard from the SAME LIST the
    code came from — assert the PROPERTY that list was meant to produce, or a
@@ -355,7 +363,7 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(28)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(22)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(45)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(46)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

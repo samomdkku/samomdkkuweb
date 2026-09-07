@@ -2227,3 +2227,55 @@ QUESTIONS and the streams that carry DIAGNOSTICS are not the same set, and
 `stdio` is one decision for both. Class 7's "the instrument can delete the
 witness", moved one step earlier: here the deleted witness was not the evidence
 of a failure but the prompt that would have prevented it.
+
+## CI was red for 19 consecutive pushes, and the 20th was a real change
+
+**Symptom.** A push comes back `Status: Failure` — `2 failures · 1842 passes`.
+The two are in `dev-env.test.js`, and locally the same suite says `1848
+passed`. The obvious reading is that the commit just pushed broke something.
+
+It did not. **`build.yml` had failed on every push since 2026-09-06 04:53** —
+nineteen runs across 33 hours, `9aab626` through `e90bbc8` — and the twentieth
+was indistinguishable from them.
+
+**Cause.** Three assertions passed the maintainer's OWN `.env.local`:
+
+```js
+applyDevDatabaseEnv(procEnv, join(ROOT, '.env.local'));
+```
+
+That file is gitignored *because it holds production secrets*, so it exists on
+every maintainer's laptop and can never exist on a CI runner. The guards were
+green where nothing was at stake and red where the check is actually enforced.
+
+Two things made it worse than an ordinary red build:
+
+- **One of the three was green on CI for the reason it exists to catch.**
+  `expect(env.VITE_ENV_NAME).not.toBe('production')` passes on `undefined`, and
+  `undefined` is precisely "no ribbon, looks like production". So the CI signal
+  was two failures where the honest count was three.
+- **A build that is red for a reason nobody can fix stops being read.** Nothing
+  was ignored on purpose; local `npm test` — the repo's standing check before
+  every commit — kept answering `1848 passed`, which is the answer to a
+  different question than the one CI asks.
+
+**Fix.** `contributorEnvFile()` writes the existing in-memory `contributorEnv()`
+fixture — built FROM `.env.local.example`, so it tracks the contract — into a
+temp dir, and the three assertions take that path. The guards now assert the
+same property with no secret present, which means they assert it everywhere.
+
+**The ratchet.** A sweep over every `*.test.js` in the repo asserting none of
+them reads this repo's real `.env.local`, with a control that fails if the walk
+finds no files. It runs in the normal suite, so the next instance is caught on
+the laptop rather than 19 pushes later. Reintroduced one of the three original
+call sites, watched it go red, restored.
+
+**Where it lives now.** `src/js/dev-env.test.js`.
+
+**The general rule.** *A guard that needs a secret cannot run where guards are
+enforced.* Anything a test reads must be either committed or synthesised — feed
+it the artefact a real person creates, never the one your own machine happens to
+have. And the meta-rule this cost 19 runs to learn: **`npm test` passing locally
+is not the same claim as CI passing**, so when a CI failure names tests that
+pass locally, the first question is not "what did I break" but "how long has
+this been red" — `gh run list --workflow=build.yml` answers it in one command.

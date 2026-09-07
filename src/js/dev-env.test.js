@@ -16,14 +16,16 @@
 // to create, and a real database must come out.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   decideDevDatabase, applyDevDatabaseEnv, PROD_OVERRIDE, envDrift, describeDrift,
 } from '../../tools/dev-env.mjs';
 import { manifest } from '../../tools/env-manifest.mjs';
 import { selectNames } from '../../tools/env-share.mjs';
 import { ribbonLabel } from './env-ribbon.js';
+import { stripComments } from './strip-comments.js';
 import { REQUIRED, OPTIONAL, isPlaceholder } from '../../tools/env-check.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
@@ -44,6 +46,31 @@ function contributorEnv(overrides = {}) {
   env.SUPABASE_DEV_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInBsYXVzaWJsZSI6dHJ1ZX0';
   return { ...env, ...overrides };
 }
+
+/**
+ * The same file, ON DISK — because `applyDevDatabaseEnv` takes a PATH.
+ *
+ * ⛔ THREE TESTS USED TO READ THE MAINTAINER'S OWN `.env.local`, which is
+ * gitignored because it holds production secrets. So they were green on a
+ * laptop and red on CI, where no such file can ever exist — and CI stayed red
+ * for 19 consecutive runs (2026-09-06 04:53 → 2026-09-07) with nobody reading
+ * it, because `npm test` locally kept saying everything passed.
+ *
+ * One of the three was WORSE than red: `expect(env.VITE_ENV_NAME).not.toBe(
+ * 'production')` passes on `undefined`, so on CI it was GREEN for exactly the
+ * state it exists to catch.
+ *
+ * A guard must not need a secret to run. This writes the artefact the guide
+ * tells a person to create, into a temp dir, and asserts against that.
+ */
+function contributorEnvFile(overrides = {}) {
+  const env = contributorEnv(overrides);
+  const dir = mkdtempSync(join(tmpdir(), 'samo-env-fixture-'));
+  const path = join(dir, '.env.local');
+  writeFileSync(path, `${Object.entries(env).map(([k, v]) => `${k}=${v}`).join('\n')}\n`);
+  return path;
+}
+
 
 describe('the file the guide tells a contributor to create', () => {
   it('gives the dev server a database (the bug, asserted directly)', () => {
@@ -90,7 +117,7 @@ describe('the two names the app reads and the two we set are the same two', () =
     // What applyDevDatabaseEnv actually writes, observed rather than declared:
     // give it a real file and see which keys appear on the env object.
     const procEnv = {};
-    applyDevDatabaseEnv(procEnv, join(ROOT, '.env.local'));
+    applyDevDatabaseEnv(procEnv, contributorEnvFile());
     const set = Object.keys(procEnv).filter((k) => k.startsWith('VITE_SUPABASE_'));
     expect(set.length, 'applyDevDatabaseEnv set no VITE_SUPABASE_* at all — either '
       + 'there is no .env.local here, or the mapping is gone').toBeGreaterThan(0);
@@ -255,7 +282,7 @@ describe('the dev server and the ribbon agree that localhost is not production',
   // for exactly that reason.
   it('a local dev run paints a ribbon', () => {
     const env = {};
-    applyDevDatabaseEnv(env, join(ROOT, '.env.local'));
+    applyDevDatabaseEnv(env, contributorEnvFile());
     expect(env.VITE_ENV_NAME, 'dev-env stopped setting VITE_ENV_NAME, so a local '
       + 'run now looks identical to production in the browser').toBeTruthy();
     expect(ribbonLabel(env.VITE_ENV_NAME, 'localhost'),
@@ -268,7 +295,39 @@ describe('the dev server and the ribbon agree that localhost is not production',
 
   it('and it never claims to be production', () => {
     const env = {};
-    applyDevDatabaseEnv(env, join(ROOT, '.env.local'));
+    applyDevDatabaseEnv(env, contributorEnvFile());
     expect(env.VITE_ENV_NAME).not.toBe('production');
+  });
+});
+
+describe('the suite must be runnable where it is CHECKED', () => {
+  // ⛔ CI WAS RED FOR 19 CONSECUTIVE RUNS AND NOBODY LOOKED, because the only
+  // failures were guards reading a gitignored file that exists on every
+  // maintainer's laptop and on no CI runner. A CI that is red for a reason
+  // nobody can fix stops being read at all — and the 20th run, which carried a
+  // real change, was indistinguishable from the 19 before it.
+  //
+  // The property: a test may assert ABOUT `.env.local`, but must never READ the
+  // one in this repo. Fixtures go through contributorEnvFile().
+  const files = [];
+  (function walk(dir) {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name === '.git' || name === 'dist') continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (name.endsWith('.test.js')) files.push(full);
+    }
+  })(ROOT);
+
+  it('no test depends on a secret file that CI cannot have', () => {
+    // Control first: a sweep that found nothing would pass silently.
+    expect(files.length, 'the sweep found no test files — it is asserting about '
+      + 'an empty set, which is green for the wrong reason').toBeGreaterThan(50);
+    for (const f of files) {
+      expect(stripComments(readFileSync(f, 'utf8')),
+        `${f.slice(ROOT.length + 1)} reads this repo's real .env.local, so it `
+        + 'passes only on a machine that has one. Use contributorEnvFile().')
+        .not.toMatch(/ROOT,\s*'\.env\.local'/);
+    }
   });
 });

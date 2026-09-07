@@ -34,7 +34,7 @@ confirm the failing rows are the finding, then apply and re-run. `0147` went
 
 ---
 
-## The five ways a guard lies
+## The six ways a guard lies
 
 ### 1. It cannot see the hazard
 
@@ -122,6 +122,24 @@ still looked like coverage in `STATE.md`.
 > word FAIL scores an aborted script as silence. When a migration drops a
 > function or a column, `grep tools/` for it **in the same commit**.
 
+### 6. It needs something the enforcing machine cannot have
+
+Three assertions in `dev-env.test.js` passed `join(ROOT, '.env.local')` — the
+maintainer's own file, gitignored *because it holds production secrets*. Green
+on every laptop, red on every CI runner. **`build.yml` failed on 19 consecutive
+pushes** (2026-09-06 → 2026-09-07) and nobody read run 20, which carried a real
+change; local `npm test` kept answering `1848 passed`, which is a different
+question. One of the three was worse than red — `expect(env.VITE_ENV_NAME)
+.not.toBe('production')` passes on `undefined`, so on CI it was GREEN for the
+exact state it exists to catch.
+
+> **A guard that needs a secret cannot run where guards are enforced.** Anything
+> a test reads is committed or synthesised — feed it the artefact a real person
+> creates (`contributorEnvFile()` writes one from `.env.local.example`), never
+> the one your machine happens to have. And when CI names tests that pass
+> locally, the first question is *how long has this been red*
+> (`gh run list --workflow=build.yml`), not *what did I break*.
+
 ---
 
 ## Checklist before you commit a guard
@@ -136,6 +154,8 @@ still looked like coverage in `STATE.md`.
 - [ ] It reads code, not comments — and the STRIPPER it reads through is the
       shared `strip-comments.js`, not a fresh regex.
 - [ ] If it errors, that is distinguishable from passing.
+- [ ] It runs with nothing on the machine but the repo — no `.env.local`, no
+      credential, no network. Check by hiding the file and running the suite.
 
 ## Shapes worth copying
 
