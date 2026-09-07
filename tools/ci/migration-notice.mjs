@@ -24,6 +24,12 @@
 //
 // It never fails the build: a migration that must be applied is normal work,
 // not an error. It just refuses to let it be invisible.
+//
+// ✅ THE PULL-REQUEST PATH IS VERIFIED (2026-09-07, PR #21, opened and closed
+// for this). It had only ever run on `push` before, and a notice that quietly
+// answers "no new migrations" on every PR is a guard that fails green. The run
+// passed real base/head shas (`pull_request.base.sha` / `head.sha`), and those
+// exact shas reproduce the notice naming the added file.
 // ============================================================
 import { execFileSync } from 'node:child_process';
 
