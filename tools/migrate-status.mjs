@@ -15,7 +15,9 @@
 // a real timestamp. The two are never merged into one word.
 // ============================================================
 
-import { listMigrationFiles, checksumOf, sqlLit, runSql, credentials } from './migrations-lib.mjs';
+import {
+  listMigrationFiles, checksumOf, sqlLit, runSql, credentials, pendingMigrations,
+} from './migrations-lib.mjs';
 
 const backfill = process.argv.includes('--backfill');
 const { ref, token, label } = credentials();
@@ -64,14 +66,12 @@ async function main() {
     return;
   }
 
-  const pending = files.filter((f) => !byVersion.has(f.version));
+  // `pending` and `changed` come from the shared helper, so the warning
+  // deploy-owed prints and the report here can never disagree.
+  const { pending, changed } = await pendingMigrations({ ref, token });
   const applied = files.filter((f) => byVersion.get(f.version)?.source === 'applied');
   const backfilled = files.filter((f) => byVersion.get(f.version)?.source === 'backfilled');
   const orphans = rows.filter((r) => !files.some((f) => f.version === r.version));
-  const changed = files.filter((f) => {
-    const r = byVersion.get(f.version);
-    return r && r.checksum && r.checksum !== checksumOf(f.path);
-  });
 
   console.log(`project ${ref}  [${label}]`);
   console.log(`  files:      ${files.length}`);

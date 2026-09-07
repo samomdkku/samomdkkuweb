@@ -128,3 +128,31 @@ export async function recordApplied(file, { ref, token, by }) {
     return { ok: false, why: e.message };
   }
 }
+
+/**
+ * What does a database NOT have yet?
+ *
+ * ⛔ ONE HOME. `migrate-status.mjs` reports this and `deploy-owed.mjs` warns
+ * about it; two copies of "pending means a file with no row" would drift, and
+ * the copy that drifts is the one that says everything is fine
+ * (`.claude/rules/mistakes.md` class 6). Both call this.
+ *
+ * Returns `{ pending, changed }` — files never recorded, and files whose
+ * content no longer matches what was recorded.
+ */
+export async function pendingMigrations({ ref, token }) {
+  const files = listMigrationFiles();
+  const rows = await runSql(
+    'select version, checksum from public.schema_migrations order by version;',
+    { ref, token },
+  );
+  const byVersion = new Map(rows.map((r) => [r.version, r]));
+  return {
+    files,
+    pending: files.filter((f) => !byVersion.has(f.version)),
+    changed: files.filter((f) => {
+      const r = byVersion.get(f.version);
+      return r && r.checksum && r.checksum !== checksumOf(f.path);
+    }),
+  };
+}

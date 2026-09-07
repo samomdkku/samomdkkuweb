@@ -24,6 +24,7 @@
 // ============================================================
 
 import { readFileSync } from 'node:fs';
+import { credentials, pendingMigrations } from './migrations-lib.mjs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -96,6 +97,57 @@ function deployedSha() {
   return found[0];
 }
 
+
+/**
+ * ⛔ THE FAILURE THIS CATCHES, and it is not about files.
+ *
+ * Someone asks Claude for a feature; Claude writes the code AND a migration.
+ * They do not notice the migration, it is reviewed, merged — and never applied.
+ * Then a deploy ships code that reads a column production does not have.
+ *
+ * Nothing else in the chain can see it: the tests pass, the CI replay passes
+ * (it proves the SQL is VALID, not that any real database ran it), and a git
+ * diff cannot know what a database contains. Only the database can answer, so
+ * this asks it — at the one moment somebody is about to ship.
+ *
+ * Best effort on purpose: no network, no credentials, or a database that
+ * cannot be reached must not stop a deploy that may be urgent. It says it
+ * could not check rather than implying everything is fine.
+ */
+async function reportPendingMigrations() {
+  let creds;
+  try {
+    creds = credentials([]);   // no --dev: PRODUCTION, which is what deploys reach
+  } catch {
+    console.log('   (migrations not checked — no credentials on this machine)');
+    console.log('');
+    return;
+  }
+  try {
+    const { pending, changed } = await pendingMigrations(creds);
+    if (pending.length) {
+      console.log(`⛔ ${pending.length} MIGRATION(S) ARE NOT APPLIED TO PRODUCTION:`);
+      console.log('');
+      for (const f of pending) console.log(`     ${f.name}`);
+      console.log('');
+      console.log('   Deploying now ships code against a database that does not have');
+      console.log('   these. Apply them FIRST if they ADD something; if one REMOVES');
+      console.log('   something, deploy first and drop after — skills/ship-a-migration.md.');
+      console.log('');
+      console.log('     node tools/apply-migration.mjs supabase/migrations/<file>');
+      console.log('');
+    } else if (changed.length) {
+      console.log('⚠️  A migration file no longer matches what production recorded:');
+      for (const f of changed) console.log(`     ${f.name}`);
+      console.log('   Write a NEW migration rather than editing one that ran.');
+      console.log('');
+    }
+  } catch (err) {
+    console.log(`   (migrations not checked — ${String(err.message).split('\n')[0]})`);
+    console.log('');
+  }
+}
+
 let sha;
 try {
   sha = deployedSha();
@@ -152,6 +204,11 @@ const changed = git('diff', '--name-only', sha, '--', ...SHIPPED)
 const untracked = git('ls-files', '--others', '--exclude-standard', '--', ...SHIPPED)
   .split('\n')
   .filter(Boolean);
+
+// BEFORE the verdict, not after: a pending migration matters most when no
+// deploy is owed — merged, never applied, and "✅ NO DEPLOY OWED" is exactly
+// where a reader stops.
+await reportPendingMigrations();
 
 if (changed.length === 0 && untracked.length === 0) {
   const behind = git('rev-list', '--count', `${sha}..HEAD`);
