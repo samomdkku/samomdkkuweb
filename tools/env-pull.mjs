@@ -32,12 +32,12 @@
 //   "api":".../vault/api", "identity":".../vault/identity"
 // which is exactly `<base>/api` and `<base>/identity`. Nothing special needed.
 //
-// ⚠️ WHAT IS STILL UNVERIFIED. Everything up to authentication is measured; an
-// actual authenticated `bw get item` has NOT been run, because that needs a
-// vault account and the `Dev` collection, neither of which existed when this
-// was written (docs/state/HANDOFF.md §7). So this fails LOUDLY and says which
-// step failed, rather than pretending. The first person to run it end to end
-// should update HANDOFF.
+// ✅ VERIFIED END TO END 2026-09-07 by the owner, on a clean clone with no
+// `.env.local`: sign-in, `get item`, two values written, and `npm run env:check`
+// answering "the development database answered". The path is real; what is
+// below is no longer a hypothesis.
+//
+// ⚠️ Still unmeasured: Windows, and any account with two-step login enabled.
 // ============================================================
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -51,7 +51,8 @@ const ROOT = join(import.meta.dirname, '..');
 const ENV_PATH = join(ROOT, '.env.local');
 
 /** Pinned on purpose — an unpinned `npx` is a different program each week. */
-const BW = ['--yes', '@bitwarden/cli@2026.8.0'];
+const PKG = '@bitwarden/cli@2026.8.0';
+const BW = ['--yes', PKG];
 
 /**
  * ⛔ NEVER TOUCH THE USER'S GLOBAL BITWARDEN CONFIG.
@@ -96,11 +97,17 @@ export function stdioFor(args, { input } = {}) {
   return ['inherit', 'pipe', PROMPTING.has(args[0]) ? 'inherit' : 'pipe'];
 }
 
-function bw(args, { session, input } = {}) {
+/**
+ * ⛔ ONE PLACE SPAWNS ANYTHING. Every call must carry
+ * BITWARDENCLI_APPDATA_DIR (see BW_DIR above) — a second `execFileSync`
+ * anywhere is a second chance to forget it, and forgetting it repoints a
+ * contributor's personal Bitwarden CLI at us. `env-pull.test.js` counts them.
+ */
+function spawn(cmd, args, { session, input, stdio } = {}) {
   mkdirSync(BW_DIR, { recursive: true });
-  return execFileSync('npx', [...BW, ...args], {
+  return execFileSync(cmd, args, {
     encoding: 'utf8',
-    stdio: stdioFor(args, { input }),
+    stdio,
     input,
     env: {
       ...process.env,
@@ -108,6 +115,62 @@ function bw(args, { session, input } = {}) {
       ...(session ? { BW_SESSION: session } : {}),
     },
   }).trim();
+}
+
+/**
+ * WHY THIS EXISTS: `npx` RE-RESOLVES THE PACKAGE ON EVERY CALL, and this tool
+ * makes six. Measured 2026-09-07 on a warm cache, after the owner said it was
+ * slow:
+ *
+ *   npx --yes @bitwarden/cli@2026.8.0 status   2.7 s
+ *   <the same binary, called directly>         1.5 s
+ *
+ * So ~1.2 s per call is npx deciding, again, where a package it already has
+ * lives — about 7 s of the run, spent six times over on the same answer. The
+ * 1.5 s that remains is the CLI's own startup and is not ours to fix.
+ *
+ * ⚠️ NOT a local install: `npm install @bitwarden/cli` into the project takes
+ * 15 s and 85 MB per clone (measured the same day), which is a worse first run
+ * and a worse disk. npx's shared cache is the right store; we only stop asking
+ * it the same question repeatedly.
+ *
+ * The path is noted in `.bw/` and re-verified every run, because an npm cache
+ * clean deletes it and a stale path would be an ENOENT nobody could read.
+ */
+const BIN_NOTE = join(BW_DIR, 'bin-path');
+
+export function chooseBin(noted, exists) {
+  return noted && exists(noted) ? noted : null;
+}
+
+let BIN_CACHE;
+function bwBin() {
+  if (BIN_CACHE !== undefined) return BIN_CACHE;
+  let noted = null;
+  try { noted = readFileSync(BIN_NOTE, 'utf8').trim(); } catch { /* first run */ }
+  BIN_CACHE = chooseBin(noted, existsSync);
+  if (BIN_CACHE) return BIN_CACHE;
+  try {
+    // `npx -c` runs a command with the package's bin on PATH, so the shell can
+    // simply say where it landed. One npx call, then never again.
+    const ask = process.platform === 'win32' ? 'where bw' : 'command -v bw';
+    const found = spawn('npx', ['--yes', '-p', PKG, '-c', ask],
+      { stdio: ['inherit', 'pipe', 'pipe'] }).split('\n')[0].trim();
+    if (found && existsSync(found)) {
+      mkdirSync(BW_DIR, { recursive: true });
+      writeFileSync(BIN_NOTE, found);
+      BIN_CACHE = found;
+    }
+  } catch { /* fall back to npx per call — slower, still correct */ }
+  return BIN_CACHE ?? null;
+}
+
+function bw(args, { session, input } = {}) {
+  const stdio = stdioFor(args, { input });
+  const bin = bwBin();
+  return bin
+    ? spawn(bin, args, { session, input, stdio })
+    : spawn('npx', [...BW, ...args], { session, input, stdio });
 }
 
 function die(what, ...advice) {
@@ -145,22 +208,32 @@ async function main() {
   console.log('');
   console.log(`  Fetching your credentials from ${VAULT_URL}`);
   console.log('');
-  console.log('  (First run on this machine downloads the Bitwarden CLI,');
-  console.log('   about 17 MB. Give it a moment.)');
-  console.log('');
-
-  try {
-    bw(['config', 'server', VAULT_URL]);
-  } catch (err) {
-    die('could not configure the Bitwarden CLI.',
-      'This needs Node and network access. The error was:',
-      String(err.stderr || err.message).split('\n')[0]);
+  if (!existsSync(BIN_NOTE)) {
+    console.log('  First run on this machine: downloading the Bitwarden CLI,');
+    console.log('  about 17 MB. Every run after this one skips it.');
+    console.log('');
   }
 
+  // ⛔ STATUS FIRST, CONFIG ONLY IF IT DISAGREES. `bw config server` is a whole
+  // 1.5 s process to write a value that is already there on every run but the
+  // first — and this tool's whole complaint was that it is slow.
   let status;
   try {
     status = JSON.parse(bw(['status']));
   } catch {
+    status = {};
+  }
+
+  if (status.serverUrl !== VAULT_URL) {
+    try {
+      bw(['config', 'server', VAULT_URL]);
+    } catch (err) {
+      die('could not configure the Bitwarden CLI.',
+        'This needs Node and network access. The error was:',
+        String(err.stderr || err.message).split('\n')[0]);
+    }
+    // Whatever session existed belonged to a DIFFERENT server, so it cannot be
+    // used here — treat it as signed out rather than trusting the old status.
     status = { status: 'unauthenticated' };
   }
 
@@ -202,7 +275,10 @@ async function main() {
 
   let raw;
   try {
+    console.log('  Syncing the vault…');
     bw(['sync'], { session });
+    console.log(`  Reading "${VAULT_ITEM}"…`);
+    console.log('');
     raw = bw(['get', 'item', VAULT_ITEM], { session });
   } catch (err) {
     const msg = String(err.stderr || err.stdout || err.message).split('\n').filter(Boolean).pop();

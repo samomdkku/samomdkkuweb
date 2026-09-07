@@ -267,6 +267,19 @@ running it is what found that it was writing to the user's GLOBAL Bitwarden
 config — now pinned to a gitignored `.bw/` inside the project
 (`docs/mistakes/tooling-proofs.md`). **It does not touch a personal `bw` setup.**
 
+✅ **THE WHOLE PATH IS VERIFIED END TO END (2026-09-07).** The owner ran it on a
+clean clone with no `.env.local`: sign-in, `bw get item`, two values written, and
+`npm run env:check` answering *"the development database answered"*. This section
+is no longer a hypothesis — `npm run env:pull` works, and the last unknown named
+below is closed. Steps 1–3 of the owner-only list are done. **Still unmeasured:
+Windows, and an account with two-step login enabled.**
+
+⚡ **It was also slow, and that was ours.** `npx` re-resolves the package on
+every call (2.7 s against 1.5 s for the same binary direct, measured) and the
+tool made six calls. It now notes the resolved path in `.bw/` and skips
+`bw config server` when the server is already right: 5.3 s → 1.75 s on the
+start-to-prompt segment, A/B'd against the previous commit.
+
 ✅ **THE INTERACTIVE SIGN-IN WAS BROKEN AND IS FIXED (2026-09-07).** The first
 real run of the path never got as far as a password: the tool piped `bw`'s
 stderr, which is the stream `bw` prompts on, so it printed "Signing in." and

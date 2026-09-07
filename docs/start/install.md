@@ -209,6 +209,15 @@ It signs you in to [the SAMO vault](https://samo.md.kku.ac.th/vault) and fetches
 your own credentials. Run it again whenever a key changes; it is always current,
 and nobody has to be at their laptop to help you.
 
+The first run downloads the Bitwarden CLI (about 17 MB) and takes roughly half a
+minute including typing your password; later runs are a few seconds.
+
+**In a hurry, or on a machine where you would rather not install anything?**
+Open the vault in your browser, open the item `samo-dev env`, copy its Notes
+field, and run `npm run setup` and paste. Same result, no download. `env:pull` is
+the better habit — it cannot mis-paste and it is always current — but the two
+end in exactly the same `.env.local`.
+
 No vault account? That is normal — carry on below.
 :::
 

@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { blockFromItem, stdioFor } from '../../tools/env-pull.mjs';
+import { blockFromItem, stdioFor, chooseBin } from '../../tools/env-pull.mjs';
 import { VAULT_URL, VAULT_ITEM } from '../../tools/vault-config.mjs';
 import { parsePaste, productionNames } from '../../tools/setup-env.mjs';
 import { REQUIRED } from '../../tools/env-check.mjs';
@@ -195,5 +195,25 @@ describe('a question must reach the person who has to answer it', () => {
     expect(stripComments(read('tools/env-pull.mjs')),
       'nothing checks that a session actually came back from login/unlock')
       .toMatch(/if \(!session\)/);
+  });
+});
+
+describe('the CLI is located once, not six times', () => {
+  // The owner, on the first successful run: *"is this the best way ... it's
+  // slow"*. Measured on a warm cache, 2026-09-07: `npx` costs 2.7 s per call
+  // against 1.5 s for the same binary called directly, and this tool makes six
+  // calls — so ~7 s of the run was npx re-deciding where a package it already
+  // had lives. The path is noted in `.bw/` after the first run.
+  it('a noted path that no longer exists is refused, not handed to spawn', () => {
+    // An `npm cache clean` deletes it. Using it anyway would be an ENOENT with
+    // nothing in it a contributor could act on; null falls back to npx, which
+    // is slower and correct.
+    expect(chooseBin('/gone/bw', () => false)).toBe(null);
+    expect(chooseBin('', () => true)).toBe(null);
+    expect(chooseBin(null, () => true)).toBe(null);
+  });
+
+  it('a path that is still there is used', () => {
+    expect(chooseBin('/npx/cache/bw', (p) => p === '/npx/cache/bw')).toBe('/npx/cache/bw');
   });
 });
