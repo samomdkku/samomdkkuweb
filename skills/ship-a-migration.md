@@ -52,6 +52,32 @@ column**. So:
 
 That is the ordering 0129 got backwards.
 
+## CI replays every migration from empty — read what it says
+
+Since 2026-09-07, opening a PR that touches `supabase/migrations/` runs
+`.github/workflows/migrations.yml`: a throwaway Postgres 17 inside the job, all
+migrations applied in order from nothing. **It needs no credential**, which is
+why it can run on a public repo's pull requests, and it takes about 9 seconds.
+
+What it proves: your migration applies to an empty database, and the whole
+schema still rebuilds from this repo alone — the assumption every recovery plan
+rests on and which nobody had ever tested before that date.
+
+What it does NOT prove: behaviour. `auth.uid()` is null on that database, so no
+policy is exercised. Behaviour is still `npm run proofs -- --dev`.
+
+Two results that are not failures:
+
+- **`⊘ refused — needs data`.** Your migration raised its own exception because
+  the database is empty (0166 does this: it backfills timelines, then checks it
+  did not lose any). That is a data check and the run continues. Only a
+  deliberate `raise exception` (SQLSTATE P0001) is treated this way; a missing
+  column or table stops the run.
+- **A red run on a migration you did not touch.** Then something earlier in the
+  chain broke, or the platform stub in `tools/ci/supabase-platform.sql` is
+  missing a Supabase feature a migration started using. ⛔ **Do not edit an
+  applied migration to make it green** — the fix is a new migration, or the stub.
+
 ## Traps this loop exists to avoid
 
 - **A write and the check that reads it back must be SEPARATE statements**, or

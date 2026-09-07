@@ -2279,3 +2279,72 @@ have. And the meta-rule this cost 19 runs to learn: **`npm test` passing locally
 is not the same claim as CI passing**, so when a CI failure names tests that
 pass locally, the first question is not "what did I break" but "how long has
 this been red" — `gh run list --workflow=build.yml` answers it in one command.
+
+## The first migration replay condemned 27 healthy migrations, then found the truth
+
+**Symptom.** A new CI job replays all 180 migrations onto an empty Postgres. Its
+first run stopped at `0153` with:
+
+```
+ERROR:  relation "_flatten" does not exist
+```
+
+0153 has been live in production for weeks. Read as written, the job was saying
+the database cannot be rebuilt from this repo — and it would have said the same
+about the 27 migrations after it, none of which it ever reached.
+
+**Cause 1 — the instrument, not the subject.** 0153 does the honest thing for a
+data conversion:
+
+```sql
+create temp table _flatten on commit drop as ...
+update public.team_nodes n ... from _flatten f ...
+```
+
+`on commit drop` means *the temp table dies when the transaction ends*.
+`tools/apply-migration.mjs` POSTs a whole file as **one** query, so the file is
+one transaction and `_flatten` survives to the last statement. `psql` in its
+default autocommit makes **every statement** its own transaction — so the table
+was dropped the instant it was created. The replay was faithfully testing psql's
+transaction semantics and calling the answer a migration bug.
+`--single-transaction` makes it test the path that actually runs in production.
+
+**Cause 2 — a refusal is not a break.** With that fixed it reached `0166`, which
+backfills timelines and then checks its own work: `if events < 300 then raise
+exception '0166: only % timeline events left'`. An empty database has 0, so it
+refused. Correctly — it is a *data* migration and there is no data, which says
+nothing about the schema.
+
+The tempting fix is a list of file names to skip. That is the exemption that
+outlives its reason (class 7): it rots on the first rename, and it covers every
+future failure of that file, including real ones. The discriminator used instead
+is structural — **the SQLSTATE**. `P0001` is `raise exception`, a human refusing
+on purpose; a missing column is `42703`, a missing table `42P01`, a syntax error
+`42601`. P0001 is reported as refused and the run continues; everything else
+stops it. It needs `VERBOSITY=verbose`, or psql prints no SQLSTATE and every
+error looks alike.
+
+**The guard that matters is the control.** `classify()` is asserted in both
+directions: P0001 refuses, and 42703 / 42P01 / 42601 / a message with no
+SQLSTATE at all are NOT waved through. Without that second half, "refused" could
+quietly widen to mean "any error" and the job would go green on a broken schema —
+which is worse than not having it.
+
+**The result, and how it was checked.** 180 migrations apply to an empty
+database in ~9 s, producing **65 tables**, with 0166 refused. The real samo-dev
+reports **66** (53 public + 13 passport) — and the extra one is
+`_timeline_backup_0166`, the table the refused migration creates. The counts
+close exactly, which is the difference between "the job exited 0" and "the
+schema it built is the schema we have".
+
+**Where it lives now.** `.github/workflows/migrations.yml`,
+`tools/replay-migrations.mjs`, `tools/ci/supabase-platform.sql`,
+`src/js/replay-migrations.test.js`.
+
+**The general rule.** *Before believing a proof's verdict about your code, check
+that the harness runs your code the way production does.* Transaction boundaries
+are the classic gap — the same SQL is correct in one and broken in the other,
+and neither the file nor the error mentions the difference. And when a proof
+must forgive something, forgive a **property** the database reports (a SQLSTATE,
+a class of error), never a **name** you typed in: a name list is a second copy of
+a decision, and it goes stale the way every second copy does.

@@ -371,6 +371,21 @@ and the DB URL is a superuser that bypasses every RLS policy.
    the project.
 3. **Never** `SUPABASE_DEV_ACCESS_TOKEN` or the `postgres` URL.
 
+✅ **PART OF THIS IS NOW BUILT (2026-09-07): CI replays every migration onto an
+empty database on any PR touching `supabase/migrations/`** —
+`.github/workflows/migrations.yml`. It needs **no credential**, so it runs on
+pull requests from a public repo, and it answers the question nobody had ever
+asked: 180 migrations apply to an empty Postgres 17 in ~9 s, producing 65
+tables against the real samo-dev's 66 — the difference being
+`_timeline_backup_0166`, created by the one migration that refuses on an empty
+database. **So the schema CAN be rebuilt from this repo alone**, which is also
+the recovery answer. It does not prove behaviour (`auth.uid()` is null there);
+that stays `npm run proofs -- --dev`. Two instrument bugs found on the way are
+in `docs/mistakes/tooling-proofs.md`.
+
+This changes the contributor question: someone can now be told their migration
+is broken without holding any credential at all.
+
 **Related trap:** `tools/db-query.mjs` runs on PRODUCTION and ignores `--dev`
 (§9 below). Harmless for a contributor, who has no production credentials — but
 if SQL becomes a normal team activity, that tool should require an explicit

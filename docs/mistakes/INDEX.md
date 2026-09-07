@@ -300,7 +300,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A subpath in `DOMAIN` re-prefixes the routes INSIDE the container too
 - Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(46)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(47)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -350,6 +350,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `env:pull` repointed the user's personal Bitwarden CLI, and its guard was satisfied by a comment
 - `npm run env:pull` printed "Signing in." and then nothing, for ever
 - CI was red for 19 consecutive pushes, and the 20th was a real change
+- The first migration replay condemned 27 healthy migrations, then found the truth
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -395,4 +396,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_333 entries across 10 files._
+_334 entries across 10 files._
