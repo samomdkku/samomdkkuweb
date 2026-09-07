@@ -68,11 +68,39 @@ const BW = ['--yes', '@bitwarden/cli@2026.8.0'];
  */
 const BW_DIR = join(ROOT, '.bw');
 
+/**
+ * The `bw` subcommands that ASK THE HUMAN A QUESTION.
+ *
+ * ⛔ MEASURED 2026-09-07, after `npm run env:pull` appeared to hang forever on
+ * its very first real run: **the Bitwarden CLI writes its prompts to STDERR**,
+ * not stdout. This function used to pipe BOTH streams, so `? Email address:`
+ * went into a buffer nobody read while stdin sat inherited and waiting. The
+ * terminal showed "Signing in." and then nothing, for ever, with the program
+ * healthy and the cursor blocked on an invisible question.
+ *
+ *   $ bw login --raw </dev/null 1>out 2>err
+ *     out: (empty)          ← --raw would put the session key here
+ *     err: ? Email address:  ← the prompt
+ *
+ * So the stream that carries a QUESTION must reach the person who has to
+ * answer it. Only stdout is captured, because that is where `--raw` puts the
+ * session key. `stdioFor` is exported so a test can assert this property
+ * rather than a comment asking the next editor to remember it.
+ */
+const PROMPTING = new Set(['login', 'unlock']);
+
+export function stdioFor(args, { input } = {}) {
+  if (input !== undefined) return ['pipe', 'pipe', 'pipe'];
+  // stderr: 'inherit' for anything that prompts — otherwise 'pipe', because a
+  // non-prompting command's stderr is the diagnostic that die() quotes.
+  return ['inherit', 'pipe', PROMPTING.has(args[0]) ? 'inherit' : 'pipe'];
+}
+
 function bw(args, { session, input } = {}) {
   mkdirSync(BW_DIR, { recursive: true });
   return execFileSync('npx', [...BW, ...args], {
     encoding: 'utf8',
-    stdio: input === undefined ? ['inherit', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
+    stdio: stdioFor(args, { input }),
     input,
     env: {
       ...process.env,
@@ -117,6 +145,9 @@ async function main() {
   console.log('');
   console.log(`  Fetching your credentials from ${VAULT_URL}`);
   console.log('');
+  console.log('  (First run on this machine downloads the Bitwarden CLI,');
+  console.log('   about 17 MB. Give it a moment.)');
+  console.log('');
 
   try {
     bw(['config', 'server', VAULT_URL]);
@@ -147,13 +178,26 @@ async function main() {
       session = bw(['unlock', '--raw']);
     }
   } catch (err) {
-    const msg = String(err.stderr || err.stdout || err.message).split('\n').filter(Boolean).pop();
-    die(`could not sign in to the vault: ${msg}`,
+    // Its stderr went straight to the terminal (see stdioFor), so the CLI has
+    // already said what was wrong in its own words — do not swallow that under
+    // a paraphrase of `Command failed: npx …`.
+    const own = String(err.stderr || '').split('\n').filter(Boolean).pop();
+    die(own ? `could not sign in to the vault: ${own}` : 'could not sign in to the vault (its own message is above).',
       'If you do not have an account yet, ask for an invitation — this',
       'command cannot create one.',
       '',
       'If you DO have one and it still refuses, check you are using the',
       `SAMO vault at ${VAULT_URL} and not bitwarden.com.`);
+  }
+
+  // ⚠️ `bw login` EXITS 0 WITH NO SESSION when its prompt reaches end-of-input
+  // — measured, `</dev/null` → exit 0, empty stdout. Without this the run
+  // carries on with BW_SESSION='' and fails four steps later saying the item
+  // cannot be read, which is a lie about which step went wrong.
+  if (!session) {
+    die('sign-in did not complete — no session came back.',
+      'If you were not asked anything, this command had no terminal to ask',
+      'in. Run it directly in a terminal, not through a pipe or a wrapper.');
   }
 
   let raw;

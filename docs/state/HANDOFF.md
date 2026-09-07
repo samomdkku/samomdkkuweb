@@ -267,6 +267,16 @@ running it is what found that it was writing to the user's GLOBAL Bitwarden
 config — now pinned to a gitignored `.bw/` inside the project
 (`docs/mistakes/tooling-proofs.md`). **It does not touch a personal `bw` setup.**
 
+✅ **THE INTERACTIVE SIGN-IN WAS BROKEN AND IS FIXED (2026-09-07).** The first
+real run of the path never got as far as a password: the tool piped `bw`'s
+stderr, which is the stream `bw` prompts on, so it printed "Signing in." and
+then blocked for ever on an invisible `? Email address:`. Fixed with a
+`stdioFor()` that inherits stderr for `login`/`unlock` only, guarded both ways in
+`src/js/env-pull.test.js`, written up in `docs/mistakes/tooling-proofs.md`. A
+sign-in that cannot ask now fails at the step that failed instead of four steps
+later. **Still NOT run: an authenticated `bw get item`** — that needs somebody
+with a vault account to run it in a real terminal, and it is the last unknown.
+
 **⛔ THE ONE THING BLOCKING ALL OF THIS, and only the owner can do it:**
 
 1. Create the collections. **Three, decided 2026-09-06 — `Infra` · `Dev` ·
@@ -278,6 +288,21 @@ config — now pinned to a gitignored `.bw/` inside the project
    output of `npm run env:share -- --copy` — that flag puts it straight on the
    clipboard and prints nothing, so the values never cross a screen.
 3. Share `Dev` with each contributor's account as a plain **User**.
+
+✅ **Steps 1–2 were done by the owner on 2026-09-07.** ⚠️ With `Dev` created
+**nested under a collection named `IT`** — so the collection's real name is
+`IT/Dev`. Two things follow, neither of which the tooling cares about
+(`bw get item` matches the ITEM name, so the fetch works either way):
+
+- **Bitwarden nesting is a NAME containing `/`, not a hierarchy.** Access is not
+  inherited in either direction, so step 3 must share **`IT/Dev`** itself.
+  Sharing the `IT` parent grants nothing and produces "could not read
+  samo-dev env" from a clean login.
+- **`IT` is the name this layout was explicitly designed to avoid** — `ฝ่าย IT`
+  is a real SAMO department that turns over yearly, so the name invites a future
+  maintainer to share it with them (`skills/vaultwarden.md`, "Do NOT name the
+  first one `IT`"). Renaming costs one edit while nothing is shared yet, and a
+  re-share with every contributor afterwards. Owner's call; raised 2026-09-07.
 
 ⛔ **Nobody can do steps 1–2 for the owner, and it is not a permissions
 problem.** Vaultwarden encrypts item contents in the browser before they reach

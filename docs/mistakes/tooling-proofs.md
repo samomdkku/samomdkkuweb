@@ -2156,3 +2156,74 @@ control that the stripping happened. And the wider one: **the failure path you
 have only reasoned about is not tested.** Running `npm run env:pull` once, in the
 state every contributor is actually in, took under a minute and found a side
 effect on somebody else's machine that no amount of reading would have shown.
+
+## `npm run env:pull` printed "Signing in." and then nothing, for ever
+
+**Symptom** (owner, 2026-09-07, the first real run of the whole path):
+
+> *"i only see these text, nothing happens"*
+
+```
+  Fetching your credentials from https://samo.md.kku.ac.th/vault
+
+  Signing in. Use your SAMO vault email and master password.
+  (Nothing is stored in this project — the session ends when
+   this command does.)
+```
+
+and then the cursor sat there. No error, no timeout, no CPU. Every theory it
+invites is about the network or the vault — a slow TLS handshake, the `/vault/`
+subpath, a 17 MB `npx` download — and all of them are wrong.
+
+**Cause.** `bw` writes its prompts to **stderr**, and `bw()` piped stderr.
+stdin was inherited, so the CLI was genuinely waiting for an answer to a
+question that had been captured into a buffer nobody read. Measured, which is
+the only reason this took minutes instead of an afternoon:
+
+```
+$ bw login --raw </dev/null 1>out 2>err
+  out: (empty)            ← --raw puts the SESSION KEY here, which is why
+                            stdout was captured in the first place
+  err: ? Email address:   ← the prompt
+```
+
+The capture was not careless: `--raw` prints the session key on stdout and the
+tool must read it. stderr was piped alongside it out of symmetry, and because
+`die()` quotes stderr to say what went wrong. Both are right for the six
+subcommands that never ask anything, and fatal for the two that do.
+
+Second, smaller cause found in the same run: **`bw login` exits 0 with empty
+stdout when its prompt reaches end-of-input.** So the run continued with
+`BW_SESSION=''` and died four steps later at `get item`, blaming the vault for
+a sign-in that had never happened — the failure naming the wrong step.
+
+**Fix.** `stdioFor(args)`, exported so it can be asserted: stderr is
+`'inherit'` for `login`/`unlock`, `'pipe'` for everything else, stdout always
+captured. Plus an explicit `if (!session)` that fails at the step that actually
+failed, and a line before the first call saying the first run downloads ~17 MB —
+that call's progress is piped away too, and it is the other silent wait.
+
+**The guard, and what it caught on the way.** `src/js/env-pull.test.js` asserts
+the property both ways: prompting commands must inherit stderr, non-prompting
+commands must capture it (that half is not decoration — inheriting everywhere
+would throw away the diagnostic `die()` quotes). Reintroduced the bug, watched
+it fail on that assertion, restored.
+
+Writing it turned an OLDER guard red: "locks the vault on every exit path"
+counted occurrences of the STRING `--raw` in the raw file, so three sentences of
+a new comment *explaining what `--raw` does* broke it while the code was
+correct. Same file, same lesson as the entry above, one entry later — and the
+fastest way to green was to edit a number. It now counts CALL SITES in the
+stripped source, with a control that fails if it has no subject.
+
+**Where it lives now.** `tools/env-pull.mjs` (`stdioFor`, the `!session`
+guard), `src/js/env-pull.test.js`.
+
+**The general rule.** *A tool that asks a question on a stream it has captured
+is a hang, and it looks exactly like a network stall* — which is what everyone
+debugs first, away from the code. Before capturing a child process's output, ask
+whether that child ever needs to ask the human something; the streams that carry
+QUESTIONS and the streams that carry DIAGNOSTICS are not the same set, and
+`stdio` is one decision for both. Class 7's "the instrument can delete the
+witness", moved one step earlier: here the deleted witness was not the evidence
+of a failure but the prompt that would have prevented it.

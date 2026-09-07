@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { blockFromItem } from '../../tools/env-pull.mjs';
+import { blockFromItem, stdioFor } from '../../tools/env-pull.mjs';
 import { VAULT_URL, VAULT_ITEM } from '../../tools/vault-config.mjs';
 import { parsePaste, productionNames } from '../../tools/setup-env.mjs';
 import { REQUIRED } from '../../tools/env-check.mjs';
@@ -97,9 +97,18 @@ describe('env:pull never prints a value', () => {
   });
 
   it('locks the vault again on every exit path it opens one', () => {
-    const src = read('tools/env-pull.mjs');
-    const unlocks = (src.match(/--raw/g) || []).length;
-    const locks = (src.match(/'lock'/g) || []).length;
+    // ⚠️ THIS GUARD READ PROSE UNTIL 2026-09-07. It counted the STRING `--raw`
+    // in the raw file, so three sentences of a new comment explaining what
+    // `--raw` does took it red while the code was correct — and the fast way to
+    // green is to edit a number, which is how a guard stops meaning anything
+    // (`.claude/rules/mistakes.md` class 7). It now counts CALL SITES in the
+    // stripped source: every place that obtains a session, against every place
+    // that gives one back.
+    const src = stripComments(read('tools/env-pull.mjs'));
+    const unlocks = (src.match(/bw\(\['(?:login|unlock)'/g) || []).length;
+    const locks = (src.match(/bw\(\['lock'\]/g) || []).length;
+    expect(unlocks, 'no session is obtained at all — this guard has no subject')
+      .toBeGreaterThan(0);
     expect(locks, 'a path unlocks the vault and never locks it again')
       .toBeGreaterThanOrEqual(unlocks);
   });
@@ -140,5 +149,51 @@ describe('it must not touch a contributor\'s own Bitwarden setup', () => {
 
   it('pins the CLI version — an unpinned npx is a different program each week', () => {
     expect(SRC).toMatch(/@bitwarden\/cli@\d{4}\.\d+\.\d+/);
+  });
+});
+
+describe('a question must reach the person who has to answer it', () => {
+  // ⛔ FOUND BY THE OWNER RUNNING IT, 2026-09-07 — the first real run of the
+  // whole path. The terminal printed "Signing in." and then nothing, for ever.
+  // Nothing had crashed: `bw` writes its prompts to STDERR, this tool piped
+  // stderr into a buffer nobody read, and stdin was inherited — so the cursor
+  // was blocked on `? Email address:` that no one could see. Measured:
+  //
+  //   $ bw login --raw </dev/null 1>out 2>err
+  //     out: (empty)            ← --raw puts the session key here
+  //     err: ? Email address:   ← the prompt
+  //
+  // A tool that asks a question on a stream it has captured is a hang, and it
+  // looks exactly like a network stall — which is what everyone debugs first.
+  it('leaves stderr alone for the commands that PROMPT', () => {
+    for (const cmd of ['login', 'unlock']) {
+      expect(stdioFor([cmd, '--raw'])[2],
+        `bw ${cmd} asks for a master password on stderr; capturing it hangs `
+        + 'the run with an invisible prompt').toBe('inherit');
+    }
+  });
+
+  it('still captures stderr where it is DIAGNOSTIC, not a question', () => {
+    // The mirror image: die() quotes stderr for the non-prompting commands, so
+    // inheriting everywhere would throw away the message that says what broke.
+    for (const cmd of ['config', 'status', 'sync', 'get', 'lock']) {
+      expect(stdioFor([cmd])[2],
+        `bw ${cmd} never prompts — its stderr is the diagnostic die() quotes`)
+        .toBe('pipe');
+    }
+  });
+
+  it('keeps stdout captured — that is where --raw puts the session key', () => {
+    expect(stdioFor(['login', '--raw'])[1]).toBe('pipe');
+    expect(stdioFor(['get', 'item', 'x'])[1]).toBe('pipe');
+  });
+
+  it('a prompt with nowhere to ask fails LOUDLY, not four steps later', () => {
+    // `bw login` exits 0 with empty stdout when its prompt hits end-of-input
+    // (measured). Carrying on with BW_SESSION='' makes the run die at `get
+    // item` instead, blaming the vault for a sign-in that never happened.
+    expect(stripComments(read('tools/env-pull.mjs')),
+      'nothing checks that a session actually came back from login/unlock')
+      .toMatch(/if \(!session\)/);
   });
 });
