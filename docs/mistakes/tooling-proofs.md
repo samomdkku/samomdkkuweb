@@ -2228,15 +2228,16 @@ QUESTIONS and the streams that carry DIAGNOSTICS are not the same set, and
 witness", moved one step earlier: here the deleted witness was not the evidence
 of a failure but the prompt that would have prevented it.
 
-## CI was red for 19 consecutive pushes, and the 20th was a real change
+## CI was red for 19 consecutive runs, and nobody read the last one
 
 **Symptom.** A push comes back `Status: Failure` — `2 failures · 1842 passes`.
 The two are in `dev-env.test.js`, and locally the same suite says `1848
 passed`. The obvious reading is that the commit just pushed broke something.
 
 It did not. **`build.yml` had failed on every push since 2026-09-06 04:53** —
-nineteen runs across 33 hours, `9aab626` through `e90bbc8` — and the twentieth
-was indistinguishable from them.
+`9aab626` through `e90bbc8` is eighteen runs across 33 hours, and the push that
+prompted this was the nineteenth, indistinguishable from the eighteen before
+it.
 
 **Cause.** Three assertions passed the maintainer's OWN `.env.local`:
 

@@ -82,8 +82,10 @@ jobs:
       # against a database that does not have one.
       #
       # Merging is not applying, and nothing about a green tick says so. This
-      # writes it on the pull request itself, where the author and the reviewer
-      # both have to walk past it.
+      # writes it into the check's own summary — one click from the pull
+      # request's Checks tab, not in the PR conversation. See the script's
+      # header for why that is the honest description and what would be
+      # stronger.
       - name: Say what still has to happen by hand
         if: always()
         run: node tools/ci/migration-notice.mjs >> "$GITHUB_STEP_SUMMARY"

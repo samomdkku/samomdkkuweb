@@ -41,8 +41,11 @@ done is `docs/state/HANDOFF.md` §8 and §8a**; this is why.
   data. So the schema demonstrably rebuilds from this repo alone, which is also
   the recovery answer. It cost two instrument bugs to get there (a transaction
   boundary, and refusal-vs-break) — `docs/mistakes/tooling-proofs.md`.
-- **A migration nobody noticed can no longer reach students quietly**: the PR
-  gets a panel naming every migration it adds and the commands still owed, and
+- **A migration nobody noticed can no longer reach students quietly**: the
+  migrations check writes a summary naming every migration the change adds and
+  the commands still owed — on the run's summary page, one click from the PR's
+  Checks tab, NOT in the conversation (a bot comment would be stronger; §8a) —
+  and
   `npm run deploy:owed` asks PRODUCTION before printing its verdict. `pending`
   has one definition, in `tools/migrations-lib.mjs`.
 - **samo-dev brought in step** — 0174–0176 applied, 0177 re-recorded.

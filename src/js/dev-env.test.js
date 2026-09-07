@@ -304,8 +304,8 @@ describe('the suite must be runnable where it is CHECKED', () => {
   // ⛔ CI WAS RED FOR 19 CONSECUTIVE RUNS AND NOBODY LOOKED, because the only
   // failures were guards reading a gitignored file that exists on every
   // maintainer's laptop and on no CI runner. A CI that is red for a reason
-  // nobody can fix stops being read at all — and the 20th run, which carried a
-  // real change, was indistinguishable from the 19 before it.
+  // nobody can fix stops being read at all — and the 19th run, which carried a
+  // real change, was indistinguishable from the 18 before it.
   //
   // The property: a test may assert ABOUT `.env.local`, but must never READ the
   // one in this repo. Fixtures go through contributorEnvFile().

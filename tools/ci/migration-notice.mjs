@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================
-// migration-notice.mjs — write, on the pull request, the part CI cannot do.
+// migration-notice.mjs — say, in the check's own summary, what CI cannot do.
 //
 // ⛔ THE FAILURE. Someone asks Claude for a feature. Claude writes the code and
 // a migration. They do not notice the migration — it was one file among several
@@ -13,9 +13,14 @@
 // which a reader hears as "this migration is done". Those are different claims.
 //
 // So this prints the names of the migrations the change ADDS, and the commands
-// somebody with credentials must run afterwards. It goes into the job summary,
-// which renders on the pull request where both the author and the reviewer see
-// it without opening a log.
+// somebody with credentials must run afterwards, into `$GITHUB_STEP_SUMMARY`.
+//
+// ⚠️ BE HONEST ABOUT WHERE THAT LANDS: a job summary renders on the workflow
+// RUN's summary page — one click from the pull request's Checks tab — NOT in
+// the pull request conversation. So it is seen by someone who opens the check,
+// which is better than a buried log line and weaker than a comment on the PR
+// itself. A bot comment would be stronger and needs `pull-requests: write`;
+// noted in `docs/state/HANDOFF.md` §8a rather than built at speed.
 //
 // It never fails the build: a migration that must be applied is normal work,
 // not an error. It just refuses to let it be invisible.

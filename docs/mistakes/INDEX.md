@@ -349,7 +349,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run migrate:status --dev` answered about PRODUCTION for months
 - `env:pull` repointed the user's personal Bitwarden CLI, and its guard was satisfied by a comment
 - `npm run env:pull` printed "Signing in." and then nothing, for ever
-- CI was red for 19 consecutive pushes, and the 20th was a real change
+- CI was red for 19 consecutive runs, and nobody read the last one
 - The first migration replay condemned 27 healthy migrations, then found the truth
 
 ## `passport.md` — The Passport app's own write-ups *(39)*

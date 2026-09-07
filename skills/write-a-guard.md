@@ -127,8 +127,8 @@ still looked like coverage in `STATE.md`.
 Three assertions in `dev-env.test.js` passed `join(ROOT, '.env.local')` — the
 maintainer's own file, gitignored *because it holds production secrets*. Green
 on every laptop, red on every CI runner. **`build.yml` failed on 19 consecutive
-pushes** (2026-09-06 → 2026-09-07) and nobody read run 20, which carried a real
-change; local `npm test` kept answering `1848 passed`, which is a different
+pushes** (2026-09-06 → 2026-09-07) and nobody read the last of them, which
+carried a real change; local `npm test` kept answering `1848 passed`, which is a different
 question. One of the three was worse than red — `expect(env.VITE_ENV_NAME)
 .not.toBe('production')` passes on `undefined`, so on CI it was GREEN for the
 exact state it exists to catch.

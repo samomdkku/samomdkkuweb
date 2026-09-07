@@ -389,8 +389,13 @@ in `docs/mistakes/tooling-proofs.md`.
 This changes the contributor question: someone can now be told their migration
 is broken without holding any credential at all.
 
-**Offered, not built, no answer yet (2026-09-07):** a CI check reporting *"N
-migrations are merged but not applied to dev"*. samo-dev drifted 3 behind
+**Offered, not built, no answer yet (2026-09-07):** (a) a CI check reporting
+*"N migrations are merged but not applied to dev"*; (b) turning the migration
+notice into a **comment on the pull request**. Today it writes to
+`$GITHUB_STEP_SUMMARY`, which renders on the workflow RUN's summary page — one
+click from the Checks tab, and invisible to anyone who only reads the
+conversation. A comment needs `pull-requests: write` and does not work from
+fork PRs, so it is a real choice rather than a strict upgrade. Item (a): samo-dev drifted 3 behind
 production without anyone noticing, and one of the three was 0176 — so anyone
 testing on dev was seeing a bug production had already fixed. Read-only and
 needs no credential, same as the replay. The production side of this is already
