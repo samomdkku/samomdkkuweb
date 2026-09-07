@@ -2349,3 +2349,41 @@ and neither the file nor the error mentions the difference. And when a proof
 must forgive something, forgive a **property** the database reports (a SQLSTATE,
 a class of error), never a **name** you typed in: a name list is a second copy of
 a decision, and it goes stale the way every second copy does.
+
+## A throwaway branch deleted two files' worth of work, and the commit message covered it up
+
+**Symptom.** `docs.yml` had not run for a commit whose message described changes
+to two files under `docs/`. The workflow triggers on `docs/**`, so either the
+trigger was broken or the commit did not contain what it said.
+
+**Cause.** The commit contained one file. The two documentation edits had been
+made, verified (`docs:build`, full suite) and left **uncommitted** while a
+throwaway branch was created to test something unrelated:
+
+```
+git checkout -b ci/probe-…      # working tree was dirty
+git add -A && git commit        # swept the doc edits in with the probe
+…
+git branch -D ci/probe-…        # and deleted them
+```
+
+`git add -A` does not distinguish the change you are testing from the change you
+happened to be holding. The later commit's message was written from the session's
+memory of the work rather than from its diff, so it confidently described files
+that were no longer in the tree.
+
+**Fix.** The dangling commit was still in the object store, so
+`git checkout <sha> -- <paths>` recovered the exact reviewed text rather than
+retyping it, and the probe's own file did not come back with it. The message of
+the commit that lied is corrected in the message of the one that restores it —
+history is not rewritten here.
+
+**Where it lives now.** Nothing to guard in code; the discipline is below.
+
+**The general rule.** *A throwaway branch created from a dirty working tree
+takes the dirt with it, and deleting the branch deletes it.* Commit or stash
+BEFORE branching for an experiment. And the detection lesson, which is the more
+transferable half: **a commit message that names files is a claim, and
+`--stat` is the check** — this one was caught only because a path-filtered
+workflow did not fire, which is a strange thing to notice and easy to miss.
+When a message says "also changed X", read the diffstat before believing it.
