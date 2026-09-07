@@ -13,7 +13,7 @@ because it held three lifetimes at once. It now holds one: **status**.
 | architecture, RLS, schema, deploy | `docs/CONTEXT.md` |
 | the backlog | `docs/NEXT.md` |
 
-## WHAT CHANGED MOST RECENTLY (2026-09-01)
+## HOW TO EDIT THIS FILE
 
 Everything older was drained on 2026-09-01 (and the 09-01 "settled" list on
 09-05, after confirming each pointer resolves) — reasoning in

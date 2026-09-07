@@ -22,6 +22,29 @@ Started at *"how does a contributor receive `.env.local`"* and ended in the
 database. Everything below is either shipped or explicitly open. **What is NOT
 done is `docs/state/HANDOFF.md` §8 and §8a**; this is why.
 
+### ⛔ Six things that are easy to get wrong — read these before anything else
+
+1. **Migrations do NOT apply themselves.** CI rehearses every migration on a
+   blank database that is created and deleted inside the job. Nothing reaches
+   samo-dev or production until a person runs
+   `node tools/apply-migration.mjs <file>` — add `--dev` for the practice one.
+   A green check means *the SQL is valid*, never *a database has it*.
+2. **That CI check cannot judge behaviour.** Its database has no accounts, so
+   `auth.uid()` is null and no permission rule is exercised. Behaviour is
+   `npm run proofs -- --dev`, which needs credentials.
+3. **Do not re-open the credential decisions.** `docs/TEAM-WORKFLOW.md` §0 is
+   headed DO NOT RE-LITIGATE. **D7**: the dev PAT *is* shareable with whoever
+   does migration work — `npm run env:share -- --db`. **D1**: masking student
+   data in the dev copy was proposed and declined twice. I contradicted both on
+   2026-09-07 and gave two turns of confident wrong advice. Read §0 first.
+4. **Do not raise the vault collection naming a third time.** It is written up
+   below and in HANDOFF §8. It has been put to the owner twice. It is their call.
+5. **`npm run env:pull` works.** Verified end to end on 2026-09-07. Any sentence
+   anywhere saying an authenticated fetch has never run is older than that.
+6. **samo-dev is in step with production** as of 2026-09-07. Check with
+   `npm run migrate:status` and `npm run migrate:status -- --dev` — **the `--`
+   matters**, npm eats a bare flag and answers about production either way.
+
 ### Shipped
 
 - **`npm run env:pull` works end to end** — the owner ran it on a clean clone:
@@ -53,6 +76,13 @@ done is `docs/state/HANDOFF.md` §8 and §8a**; this is why.
   nobody had looked: three guards read the maintainer's gitignored `.env.local`.
   Green since `ba2099a`. **If CI names tests that pass locally, ask how long it
   has been red before asking what you broke.**
+
+One small thing changed in `STATE.md` itself: its second heading said **"WHAT
+CHANGED MOST RECENTLY (2026-09-01)"**, so on 2026-09-07 the second thing a cold
+session read told it nothing had happened for a week. It is "HOW TO EDIT THIS
+FILE" now, which is what the section actually is. A date in a heading decays the
+moment anything else happens; `git log --oneline` is the answer to "what
+changed".
 
 ### Open — nobody is blocked, but these are real
 
