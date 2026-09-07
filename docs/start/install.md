@@ -212,10 +212,9 @@ It signs you in to [the SAMO vault](https://samo.md.kku.ac.th/vault) and writes
 your credentials. Run it again whenever a key changes; it is always current, and
 nobody has to be at their laptop to help you.
 
-The first run downloads the Bitwarden command-line tool (about 17 MB) and takes
-roughly half a minute including typing your password; later runs take a few
-seconds. **→ [How to use the SAMO vault](/start/vault)** if you have not been
-invited yet, or the sign-in is not behaving.
+The first run downloads a small command-line tool and tells you it is doing so;
+later runs skip it. **→ [How to use the SAMO vault](/start/vault)** if you have
+not been invited yet, or the sign-in is not behaving.
 
 ::: tip No command line, or you only need this once
 Open `samo-dev env` in the web vault, copy the whole **Notes** field, then run

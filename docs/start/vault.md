@@ -85,8 +85,9 @@ It signs you in, reads the item `samo-dev env`, and writes your `.env.local`.
 Run it again any time a key changes — it is always current, and nobody has to
 send you anything.
 
-The first run downloads the Bitwarden command-line tool (about 17 MB) and takes
-half a minute or so. Later runs take a few seconds.
+The first run downloads the Bitwarden command-line tool — it says so while it
+happens, and prints the size — so give it a moment. Every run after that skips
+the download.
 
 ::: tip No command line, or you only need it once
 Open `samo-dev env` in the web vault, copy the whole **Notes** field, then run
