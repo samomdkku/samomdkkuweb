@@ -40,11 +40,11 @@ done is `docs/state/HANDOFF.md` §8 and §8a**; this is why.
   being `_timeline_backup_0166` from the one migration that refuses on empty
   data. So the schema demonstrably rebuilds from this repo alone, which is also
   the recovery answer. It cost two instrument bugs to get there (a transaction
-  boundary, and refusal-vs-break) — `tooling-proofs.md`.
+  boundary, and refusal-vs-break) — `docs/mistakes/tooling-proofs.md`.
 - **A migration nobody noticed can no longer reach students quietly**: the PR
   gets a panel naming every migration it adds and the commands still owed, and
   `npm run deploy:owed` asks PRODUCTION before printing its verdict. `pending`
-  has one definition, in `migrations-lib.mjs`.
+  has one definition, in `tools/migrations-lib.mjs`.
 - **samo-dev brought in step** — 0174–0176 applied, 0177 re-recorded.
 - **CI was red for 19 consecutive pushes** (2026-09-06 04:53 → 09-07) and
   nobody had looked: three guards read the maintainer's gitignored `.env.local`.

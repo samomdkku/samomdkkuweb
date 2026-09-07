@@ -109,6 +109,13 @@ Three collections, split by **what a leak would cost** rather than by topic:
 You see only the collections you were given. If you need something that is in
 one you do not have, ask — that is a decision, not an oversight.
 
+::: tip A name with a slash in it, like `IT/Dev`
+Bitwarden draws a collection whose name contains `/` as if it were nested. It is
+not a hierarchy — that IS the name, and access is not inherited from the part
+before the slash. So `Dev` and `IT/Dev` are the same collection to you, and
+being given the parent alone would give you nothing.
+:::
+
 ## Rules that are not negotiable
 
 - **Your master password is yours alone.** Not shared with your ฝ่าย, not
@@ -165,8 +172,9 @@ while they were in. The operational detail lives in `skills/vaultwarden.md`.
 ## FAQ
 
 **Can I invite several people at once?**
-Yes — `invite.sh` takes a list or a file, and the web vault's invite box takes
-several addresses separated by commas.
+Yes — `invite.sh` takes any number of addresses, or `--file` with one per line.
+(The web vault's own invite box may also accept several at once; that has not
+been tested against our install, so use the script if you have a list.)
 
 **Can I confirm someone before they have created their master password?**
 No, and it is not a policy — it is arithmetic. Confirming re-encrypts the

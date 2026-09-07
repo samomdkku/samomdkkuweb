@@ -287,10 +287,12 @@ then blocked for ever on an invisible `? Email address:`. Fixed with a
 `stdioFor()` that inherits stderr for `login`/`unlock` only, guarded both ways in
 `src/js/env-pull.test.js`, written up in `docs/mistakes/tooling-proofs.md`. A
 sign-in that cannot ask now fails at the step that failed instead of four steps
-later. **Still NOT run: an authenticated `bw get item`** — that needs somebody
-with a vault account to run it in a real terminal, and it is the last unknown.
+later. (That was written when an authenticated `bw get item` had never run. It
+has — see the ✅ block above; this paragraph is kept for the BUG, not its
+status.)
 
-**⛔ THE ONE THING BLOCKING ALL OF THIS, and only the owner can do it:**
+**⛔ ONLY THE OWNER CAN DO THESE. Steps 1 and 2 are DONE (2026-09-07);
+step 3 is the one still outstanding — nothing is shared with anybody yet:**
 
 1. Create the collections. **Three, decided 2026-09-06 — `Infra` · `Dev` ·
    `Team`**, split by what a leak COSTS rather than by topic. The full table and
@@ -375,8 +377,9 @@ and the DB URL is a superuser that bypasses every RLS policy.
 empty database on any PR touching `supabase/migrations/`** —
 `.github/workflows/migrations.yml`. It needs **no credential**, so it runs on
 pull requests from a public repo, and it answers the question nobody had ever
-asked: 180 migrations apply to an empty Postgres 17 in ~9 s, producing 65
-tables against the real samo-dev's 66 — the difference being
+asked. Measured 2026-09-07: all 180 migrations then in the repo applied to an
+empty Postgres 17 in ~9 s, producing 65 tables against the real samo-dev's 66
+— the difference being
 `_timeline_backup_0166`, created by the one migration that refuses on an empty
 database. **So the schema CAN be rebuilt from this repo alone**, which is also
 the recovery answer. It does not prove behaviour (`auth.uid()` is null there);
@@ -385,6 +388,13 @@ in `docs/mistakes/tooling-proofs.md`.
 
 This changes the contributor question: someone can now be told their migration
 is broken without holding any credential at all.
+
+**Offered, not built, no answer yet (2026-09-07):** a CI check reporting *"N
+migrations are merged but not applied to dev"*. samo-dev drifted 3 behind
+production without anyone noticing, and one of the three was 0176 — so anyone
+testing on dev was seeing a bug production had already fixed. Read-only and
+needs no credential, same as the replay. The production side of this is already
+covered: `npm run deploy:owed` asks before it gives a verdict.
 
 **Related trap:** `tools/db-query.mjs` runs on PRODUCTION and ignores `--dev`
 (§9 below). Harmless for a contributor, who has no production credentials — but

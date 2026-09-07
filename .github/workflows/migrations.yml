@@ -21,6 +21,7 @@ on:
       - 'supabase/migrations/**'
       - 'tools/replay-migrations.mjs'
       - 'tools/ci/supabase-platform.sql'
+      - 'tools/ci/migration-notice.mjs'
       - '.github/workflows/migrations.yml'
   push:
     branches: [main]
@@ -28,6 +29,7 @@ on:
       - 'supabase/migrations/**'
       - 'tools/replay-migrations.mjs'
       - 'tools/ci/supabase-platform.sql'
+      - 'tools/ci/migration-notice.mjs'
       - '.github/workflows/migrations.yml'
   workflow_dispatch:
 
