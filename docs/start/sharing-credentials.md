@@ -129,6 +129,16 @@ their next `env:pull` has it.
 
 ## Someone needs database access
 
+**First, check they actually do.** Since 2026-09-07 a pull request that touches
+`supabase/migrations/` is checked by CI: every migration is replayed onto a
+blank database created and destroyed inside the job. So writing a migration and
+finding out whether it applies needs **no credential at all** — that used to be
+the main reason to ask.
+
+What still needs the two values is testing **behaviour**: whether a permission
+rule does the right thing for a real signed-in person. The CI database has no
+accounts, so it cannot answer that.
+
 ```bash
 npm run env:share -- --db
 ```
