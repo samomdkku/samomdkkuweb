@@ -103,8 +103,10 @@ TRUE. That is what the grep is for.
 
 `npm run dev` now uses **samo-dev, not production**, and says so on every start.
 `.env.local.example` is the contract; adding a variable is ONE edit there.
-⚠️ **samo-dev has 3 PENDING migrations** (production 0) — hidden until now by
-the npm flag trap (`docs/INVARIANTS.md`). Nobody has looked at why.
+✅ **samo-dev is IN STEP with production (2026-09-07)** — the 3 pending were
+applied (0174–0176) plus 0177 re-recorded; both report `PENDING: 0`. A merged
+migration nobody applies is now visible in two places: the pull request itself,
+and `npm run deploy:owed`, which asks PRODUCTION before it gives its verdict.
 Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 
 ### What is owed

@@ -16,6 +16,83 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-07, END OF SESSION — read this before anything else
+
+Started at *"how does a contributor receive `.env.local`"* and ended in the
+database. Everything below is either shipped or explicitly open. **What is NOT
+done is `docs/state/HANDOFF.md` §8 and §8a**; this is why.
+
+### Shipped
+
+- **`npm run env:pull` works end to end** — the owner ran it on a clean clone:
+  sign-in, `bw get item`, `.env.local` written, `env:check` green. The file
+  header and HANDOFF no longer say an authenticated fetch has never happened.
+  Two bugs on the way, both written up in `docs/mistakes/tooling-proofs.md`:
+  it asked for an email on a stream it had captured (silent hang), and `npx`
+  re-resolved the CLI on all six calls (5.3 s → 1.75 s, A/B measured).
+- **The docs start at the vault now** — `docs/start/vault.md` is the tutorial
+  (invite → master password → confirm → collections, plus the maintainer half
+  and the FAQ). `prerequisites` §1 asks for an account; `install` §4 is "the
+  normal way" and "the fallback". The pasted block is the backup, as asked.
+- **CI replays every migration onto an empty database** on any PR touching
+  `supabase/migrations/` — `.github/workflows/migrations.yml`, no credential of
+  any kind, ~9 s. **180 apply, 65 tables against samo-dev's 66**, the difference
+  being `_timeline_backup_0166` from the one migration that refuses on empty
+  data. So the schema demonstrably rebuilds from this repo alone, which is also
+  the recovery answer. It cost two instrument bugs to get there (a transaction
+  boundary, and refusal-vs-break) — `tooling-proofs.md`.
+- **A migration nobody noticed can no longer reach students quietly**: the PR
+  gets a panel naming every migration it adds and the commands still owed, and
+  `npm run deploy:owed` asks PRODUCTION before printing its verdict. `pending`
+  has one definition, in `migrations-lib.mjs`.
+- **samo-dev brought in step** — 0174–0176 applied, 0177 re-recorded.
+- **CI was red for 19 consecutive pushes** (2026-09-06 04:53 → 09-07) and
+  nobody had looked: three guards read the maintainer's gitignored `.env.local`.
+  Green since `ba2099a`. **If CI names tests that pass locally, ask how long it
+  has been red before asking what you broke.**
+
+### Open — nobody is blocked, but these are real
+
+1. **The vault's step 3 is not done: no collection is shared with anybody yet.**
+   The owner created `Dev` **nested under a collection named `IT`**, so its real
+   name is `IT/Dev`. Bitwarden nesting is a name containing `/`, not a
+   hierarchy — sharing the `IT` parent grants nothing, and step 3 must share
+   `IT/Dev` itself. ⛔ `IT` is the name `skills/vaultwarden.md` says never to
+   use (ฝ่าย IT is a real department that turns over yearly). Renaming is one
+   edit while nothing is shared; afterwards it is a re-share with everyone.
+   **Raised twice, owner's call, do not raise it a third time.**
+2. **`env:pull` is unverified on Windows, and on any account with two-step
+   login.** The owner's has neither. The first contributor with 2FA is the test.
+3. **`tools/db-query.mjs` runs on PRODUCTION and ignores `--dev`** (HANDOFF §9).
+   Harmless for contributors, who have no production credentials; a live trap
+   for the maintainer's own agent, and more dangerous the more normal SQL work
+   becomes. Not fixed.
+4. **Offered, not built, no answer yet:** a CI check that reports "N migrations
+   are merged but not applied to dev". Read-only, needs no credential.
+
+### What I got wrong, because it will save the next session the same detour
+
+**I invented a credential policy that contradicted one the owner had already
+made.** I recommended that `SUPABASE_DEV_ACCESS_TOKEN` and `SUPABASE_DEV_DB_URL`
+should never be shared, and proposed per-person sandbox projects seeded with
+fake data. `docs/TEAM-WORKFLOW.md` §0 — the section headed **DO NOT
+RE-LITIGATE** — already says the opposite in D7 (the separate account exists
+partly so its PAT *is* shareable for migration work) and in D1 (masking was
+proposed and declined twice). My "fake data" argument was D1 for the third time.
+
+The scrutinize pass caught it, but only after two turns of confident wrong
+advice. **Read `docs/TEAM-WORKFLOW.md` §0 before recommending anything about
+credentials, access or data handling.** The answer to "can the team change the
+database on dev" was always yes, with a mechanism that already exists:
+`npm run env:share -- --db` to whoever takes on the work.
+
+Measured while answering, worth keeping: the dev PAT sees **only** samo-dev, the
+production PAT does **not** see samo-dev (that control is what makes the first
+fact mean something), the dev org has one member, and `SUPABASE_DEV_DB_URL`
+connects as the `postgres` superuser.
+
+---
+
 ## ▶ SESSION 2026-09-06 — contributor credentials, end to end
 
 Started as *"how should I send the .env credentials, should I use SOPS"*.
@@ -48,8 +125,11 @@ session does not re-derive it.
    with the separator added. (Written descriptively here on purpose:
    `docs-commands.test.js` sweeps this file too, and rightly — HANDOFF §9 holds
    commands people really do run.)
-   ⚠️ **samo-dev really does have 3 pending migrations** — nobody knew, because
-   the documented command was hiding it. Not investigated; pick it up.
+   ⚠️ **samo-dev really did have 3 pending migrations** — nobody knew, because
+   the documented command was hiding it. ✅ **CLOSED 2026-09-07**: applied, both
+   report `PENDING: 0`. The lesson stays — a flag npm ate hid a real drift for
+   an unknown length of time, and the drift included 0176, so anyone testing on
+   dev was seeing a bug production had already fixed.
 
 ### The design that replaced it
 
