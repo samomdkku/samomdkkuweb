@@ -552,7 +552,119 @@ system can ask *"what is in Drive that we have no row for?"*. A read-only
 `listProjectFolderFiles` GAS handler was written for the repair and then
 REVERTED, because it needs a production Apps Script redeploy (an ask-first
 operation) and the owner's links made it unnecessary. If orphan detection is
-ever wanted, that handler is the shape — see this commit's parent for the code.
+ever wanted, §13 below carries the design. ⛔ It is NOT in git — it was reverted
+before it was ever committed, so `git log -S listProjectFolderFiles` finds
+nothing. An earlier draft of this section said "see this commit's parent", which
+was simply false.
+
+## 13. Owner asked for three things on 2026-09-09 — none of them started
+
+**Status: OWED — asked for explicitly at the end of the 0181 session, after the
+repair had shipped. Nothing here is begun; all three are greenfield.**
+
+### 13a. Orphan detection — "what is in Drive that we have no row for?"
+
+**This is the gap that let 0181 hide for six days, and it is still open.** The
+signed PDFs existed in Drive the whole time; no screen, query or job in this
+system could notice. The OWNER found them by opening Drive by hand.
+
+The design, written and tested by hand during the repair and then deliberately
+NOT committed (it needs a production Apps Script redeploy, which is an ask-first
+operation, and the owner's links made it unnecessary that day):
+
+* `appscript/prform.gs` — a read-only `listProjectFolderFiles` action beside
+  `getProjectFileData`, allow-listed to `Projects/` like every other handler,
+  using the existing `walkProjectsPathByCode_` + `canonTopFolder_` helpers.
+  Returns per file: `fileId, fileName, mimeType, sizeBytes, createdAt, trashed,
+  url`. **`createdAt` is the point** — a repair that re-attaches an orphan must
+  date it when the work really happened, and its absence is why the 2026-09-09
+  repair had to fall back to the approval time and say so.
+  ⚠️ It must NOT create the folder if missing: a listing call with a side effect
+  is a trap, and `walkProjectsPathByCode_` creates by default.
+* A sweep script under `tools/` (name it when you write it — this file does not
+  pre-book paths, because an exemption for a not-yet-written file outlives the
+  absence and then hides a REAL broken pointer) that walks every หนังสือ's folder
+  and reports Drive files with no `project_files` row, and rows whose
+  `drive_file_id` no longer resolves (the other direction; a deny-only sweep
+  cannot tell a healthy tree from a broken listing call).
+* ⚠️ Its CONTROL: the sweep must go red if it examined nothing. "0 orphans" and
+  "the listing failed" must never print the same verdict — that failure mode is
+  what `tools/asset-mime-check.mjs` guards against and is worth copying.
+
+Adding the handler requires `npm run deploy:gas` (`skills/deploy-gas.md`) — ASK
+FIRST, per CLAUDE.md.
+
+### 13b. Give Claude read access to Google Drive
+
+Wanted so a future session can check Drive itself instead of asking the owner to
+paste links. **Read the security implications before designing this**: per
+`.claude/rules/security.md`, `clasp`/Drive OAuth for this account is NOT
+folder-scopeable — because `prform.gs` uses `DriveApp`, re-authorising yields a
+token that reaches the **entire Drive of the SAMO account, exam keys included**,
+and Google has no folder-scoped Drive scope. The row in that table already names
+the only real containment: move the app tree to a **Shared Drive with its own
+identity**. 13a is the cheaper 80% and does not need any of this — it reaches
+Drive through the existing public GAS webhook and never hands Claude a token.
+
+### 13c. More rigorous tests
+
+Asked for in general terms, no specific target named. What this session's
+failures suggest, in order of what actually bit:
+* Every guard written here had to be broken and watched to fail before it could
+  be trusted — three of them were green over the live bug first
+  (`tools/proj0181-prof-upload.sql` header, `docs/mistakes/tooling-proofs.md`).
+  Any new test work should adopt that ritual as the default, not the exception.
+* **The e-sign flow has still never been driven end to end by a human.** See §14.
+* No test in this repo exercises a PostgREST write the way the browser makes it.
+  Every 0181 assertion is either a live SQL proof or a source-shape check; the
+  seam between them — `Prefer: return=representation` — is exactly where the bug
+  lived, and nothing covers it.
+
+## 14. e-sign works now, and nobody has ever completed it
+
+**Status: HYPOTHESIS — every PIECE is measured, the WHOLE has never run.**
+
+The in-app **ลงนาม** button was dead from the day it shipped (nginx served
+pdf.js's `.mjs` worker as `application/octet-stream`;
+`docs/mistakes/deploy-hosting.md`). It was fixed and deployed 2026-09-09.
+
+Measured on production that day: the module worker LOADS and posts back (it
+answered `ERROR: worker error` hours earlier), the dynamic-import fallback
+resolves, GAS `getProjectFileData` returns a real 241 KB PDF from a page-origin
+fetch, and pdf-lib is in the same chunk.
+
+**But draw → place → ทุกหน้า → ยืนยันลงนาม → upload has never been completed by
+anyone, on any environment.** It is months-old code executing for the first
+time. One bug behind it was already found and fixed by reading
+(`frontend-ui.md`, the zero-height signature) — that one produced a PDF marked
+ลงนามแล้ว with nothing visible on it, i.e. the same symptom as the original
+report, and it would have been diagnosed as a relapse.
+
+**Next session: have อ.ประกาศิต (the `prof` seat) sign one real หนังสือ with the
+button while someone watches, and open the resulting PDF.** Until then, treat
+e-sign as untested and keep the upload path as the documented route.
+
+⚠️ A master holder cannot do this from the UI, deliberately — `projectSeatRole()`
+lets an explicit seat beat the master floor, so a master with the ผู้ส่ง seat
+gets the ผู้ส่ง screen. Change the seat to **อาจารย์ (ลงนาม)** in ทีม SAMO to
+test. Do not widen the UI gate; `src/js/projects/index.js` §MASTER_SEATS explains
+why under-showing relative to RLS is the safe direction.
+
+## 15. Two loose ends from the 0181 session
+
+**Status: OWED — small, unblocked, neither urgent.**
+
+* **อ.ภูริภัทร has two accounts**: `phuriphat.ma@kkumail.com` (the real one —
+  ผู้ส่ง seat + `master`) and `pmphuriphat@gmail.com` (empty: no seat, no
+  permission, never used). Merging is governed by `docs/mistakes` one-person
+  registry rules — kkumail identifies the person, so the gmail row is the one to
+  retire. Check `public.people` linkage before deleting anything.
+* **`logSignToDoc` / `appendSignTimeline` swallow their failures to
+  `console.warn`.** Deliberate — a log line must not fail an upload — but that
+  silence is what made 0181 take six days: the doc timeline showed NO upload
+  event, and its absence was taken as proof no upload had been attempted. It was
+  not. If this is ever changed, the requirement is a visible non-fatal signal,
+  not a throw.
 
 ## 11. One passport RLS gap — found 2026-09-06, details deliberately withheld
 
