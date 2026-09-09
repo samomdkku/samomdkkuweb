@@ -509,6 +509,46 @@ concluding you cannot reach a signed-in page.
 
 ---
 
+## 12. Three signed PDFs are in Drive but not in the system — OWED (2026-09-09)
+
+**Status: OWED — a data repair, not a code fix. The code fault is closed (0181,
+deployed `8660736`).**
+
+Three หนังสือโครงการ were approved on 2026-09-03 with no signed file, because
+the professor's upload was refused by RLS *after* the PDF had already reached
+Google Drive. The signed PDFs are still sitting in these folders, shared
+`ANYONE_WITH_LINK`, referenced by no row in `project_files`:
+
+```
+Projects/โครงการประดับช่อ-2569_PRJ-N7VU/เกียรติบัตร-โครงการประดับช่อ-2569_DOC-QZPSM
+Projects/โครงการ-hyrox101_PRJ-UD33/หนังสือโครงการ-hyrox101_DOC-U4PRU
+Projects/โครงการประกวดการออกแบบสื่อสร้างสรรค์…_PRJ-86NK/หนังสือโครงการประกวด…_DOC-NUQTT
+```
+
+**What to do, and who can do it.** The cleanest repair is for the อาจารย์
+(Prakasit, `managed_project_seats={prof}`) to open each หนังสือ and use
+**อัปโหลดไฟล์ที่เซ็น** again — it works now, on hidden โครงการ too, proven by
+`tools/proj0181-prof-upload.sql`. Doing it that way writes the row, the
+sign-request timeline and the doc timeline together, which no manual DB insert
+would. Then delete the older orphan from Drive.
+
+⛔ **Do NOT hand-insert the rows.** `project_files` rows carry `sign_request_id`
+and `signs_file_id`, and the หนังสือ are already `completed`; a hand-written row
+would be invisible to the sign section's own scoping and would leave the
+timeline saying the file never arrived.
+
+⚠️ **A master holder cannot do this from the UI, and that is deliberate** —
+`projectSeatRole()` lets an explicit seat win over the master floor, so a master
+with the ผู้ส่ง seat gets the ผู้ส่ง screen. To work the อาจารย์ desk, change
+the seat to **อาจารย์ (ลงนาม)** in ทีม SAMO. The DATABASE would accept the write
+(master folds into all three seats); the UI deliberately under-shows. Do not
+"fix" that by widening the UI gate — `src/js/projects/index.js` §MASTER_SEATS
+explains why under-showing relative to RLS is the safe direction.
+
+Full write-up: `docs/mistakes/authz-rls.md` (0181) and
+`docs/mistakes/deploy-hosting.md` (the `.mjs` MIME half, which is why the
+in-app ลงนาม button had never worked and signing was a manual errand at all).
+
 ## 11. One passport RLS gap — found 2026-09-06, details deliberately withheld
 
 **Status: VERIFIED 2026-09-06 — how:** `pg_policies` and `pg_class.relrowsecurity`

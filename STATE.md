@@ -34,11 +34,13 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `3278637` (2026-09-07)** — v4.7.0 still. ~90 s,
-  `<== exit 0 — ran to the end` AND `DEPLOY_EXIT=0` (both, which is the
-  complete-run signature). Verified from the SERVED pages: `/docs/start/vault`
-  200 with its own text, `/docs/start/prerequisites` showing the rewritten step,
-  portal 200, `build.json` 4.7.0. Previous: `9e91b5b`.
+- ✅ **DEPLOYED = `8660736` (2026-09-09)** — v4.7.0 still. 32 s, `<== exit 0 —
+  ran to the end` AND `DEPLOY_EXIT=0`; roots stamped 12 s apart, so docs ran.
+  **nginx config installed SEPARATELY** (`deploy.sh` never does it) via
+  `nginx -t` + auto-rollback, backup `default.bak-0181`. Verified from the
+  SERVED artifact: `npm run check:asset-mime` PASS (7 .js + 1 .mjs), pdf.js's
+  module worker LOADS in a real browser (was `ERROR: worker error`), five 0181
+  strings in the served chunk beside an old control. Previous: `3278637`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
