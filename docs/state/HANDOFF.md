@@ -509,45 +509,50 @@ concluding you cannot reach a signed-in page.
 
 ---
 
-## 12. Three signed PDFs are in Drive but not in the system — OWED (2026-09-09)
+## 12. ✅ CLOSED 2026-09-09 — the three signed PDFs are re-attached
 
-**Status: OWED — a data repair, not a code fix. The code fault is closed (0181,
-deployed `8660736`).**
+**Status: VERIFIED 2026-09-09 — how: `node tools/proj0181-repair-orphans.mjs --apply` wrote rows 391/392/393; a follow-up query shows each request with signed=1 dated 2026-09-03 and one `signed_file` doc-timeline entry; re-running the tool prints "No accepted sign request is missing its signed file". Kept because the REASONING is the reusable part, not because anything is owed.**
 
-Three หนังสือโครงการ were approved on 2026-09-03 with no signed file, because
-the professor's upload was refused by RLS *after* the PDF had already reached
-Google Drive. The signed PDFs are still sitting in these folders, shared
-`ANYONE_WITH_LINK`, referenced by no row in `project_files`:
+Three หนังสือโครงการ were approved 2026-09-03 with no signed file: the
+professor's upload reached Google Drive and the database row was refused (0181).
+The PDFs sat in Drive, shared, referenced by nothing.
 
-```
-Projects/โครงการประดับช่อ-2569_PRJ-N7VU/เกียรติบัตร-โครงการประดับช่อ-2569_DOC-QZPSM
-Projects/โครงการ-hyrox101_PRJ-UD33/หนังสือโครงการ-hyrox101_DOC-U4PRU
-Projects/โครงการประกวดการออกแบบสื่อสร้างสรรค์…_PRJ-86NK/หนังสือโครงการประกวด…_DOC-NUQTT
-```
+**The first plan was wrong and the owner rejected it, rightly.** It was "ask
+อ.ประกาศิต to upload them again". That bills our defect to the person who had
+already done the work correctly, creates a SECOND Drive file while orphaning the
+first, and stamps the history with today's date — losing the fact that he signed
+on 3 September. **When our bug destroys a record, we repair the record.** Asking
+the user to redo it is only acceptable when the artefact is genuinely gone; here
+it never was.
 
-**What to do, and who can do it.** The cleanest repair is for the อาจารย์
-(Prakasit, `managed_project_seats={prof}`) to open each หนังสือ and use
-**อัปโหลดไฟล์ที่เซ็น** again — it works now, on hidden โครงการ too, proven by
-`tools/proj0181-prof-upload.sql`. Doing it that way writes the row, the
-sign-request timeline and the doc timeline together, which no manual DB insert
-would. Then delete the older orphan from Drive.
+**What was done**: `tools/proj0181-repair-orphans.mjs --apply`, which re-attaches
+the EXISTING Drive file, dated the approval instant, attributed to the อาจารย์
+the request named, with a timeline entry on both the request and the document
+saying plainly that this was a system repair and why. Rows 391/392/393.
 
-⛔ **Do NOT hand-insert the rows.** `project_files` rows carry `sign_request_id`
-and `signs_file_id`, and the หนังสือ are already `completed`; a hand-written row
-would be invisible to the sign section's own scoping and would leave the
-timeline saying the file never arrived.
+**Two judgements worth keeping.**
+· *The timestamp.* Drive's own creation time is not exposed by any handler this
+  project has, so the repair uses the APPROVAL time and the note SAYS that is
+  what it is. Inventing a plausible upload time would have put a false statement
+  in an audit trail that nobody would ever have questioned.
+· *The evidence.* The owner supplied three Drive links; they were not taken on
+  trust. Each was read back through GAS and had to pass five checks — is a PDF,
+  not already attached, not the original itself, LARGER than the original, and
+  the same filename. All three are bigger than their originals and carry a
+  different PDF producer version (1.6 vs 1.3/1.5), which is what signing and
+  re-exporting produces and a stray copy would not. The returned filenames also
+  independently confirmed which orphan belonged to which หนังสือ, so the mapping
+  never rested on the order they were pasted in.
 
-⚠️ **A master holder cannot do this from the UI, and that is deliberate** —
-`projectSeatRole()` lets an explicit seat win over the master floor, so a master
-with the ผู้ส่ง seat gets the ผู้ส่ง screen. To work the อาจารย์ desk, change
-the seat to **อาจารย์ (ลงนาม)** in ทีม SAMO. The DATABASE would accept the write
-(master folds into all three seats); the UI deliberately under-shows. Do not
-"fix" that by widening the UI gate — `src/js/projects/index.js` §MASTER_SEATS
-explains why under-showing relative to RLS is the safe direction.
+**Re-running the tool is a no-op** (it matches on `drive_file_id`), and it now
+reports "No accepted sign request is missing its signed file."
 
-Full write-up: `docs/mistakes/authz-rls.md` (0181) and
-`docs/mistakes/deploy-hosting.md` (the `.mjs` MIME half, which is why the
-in-app ลงนาม button had never worked and signing was a manual errand at all).
+⚠️ **The gap that let this hide for six days is still open**: nothing in this
+system can ask *"what is in Drive that we have no row for?"*. A read-only
+`listProjectFolderFiles` GAS handler was written for the repair and then
+REVERTED, because it needs a production Apps Script redeploy (an ask-first
+operation) and the owner's links made it unnecessary. If orphan detection is
+ever wanted, that handler is the shape — see this commit's parent for the code.
 
 ## 11. One passport RLS gap — found 2026-09-06, details deliberately withheld
 

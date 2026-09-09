@@ -2430,3 +2430,42 @@ miss. And the second half, which is the one that nearly got away: **a sweep whos
 result MATCHES YOUR EXPECTATION is the hardest kind to doubt** — plant the thing
 it is supposed to find and watch it go red, because "it returned what I thought"
 is not evidence that it looked.
+
+---
+
+## Repairing our own damage: the fix that bills the user is the wrong fix
+
+**Symptom**: three signed PDFs reached Google Drive while the database row was
+refused (0181), so the app showed อนุมัติแล้ว with no signature. The first
+remedy proposed was *"ask the อาจารย์ to upload them again"*. The owner rejected
+it: **"it's web fault… it isn't client fault, do it the best practice way."**
+
+**Why it was wrong.** The artefact was never lost — only our record of it. Asking
+the person who already did the work correctly to redo it bills our defect to
+them, creates a SECOND Drive file while orphaning the first, and stamps the
+history with today's date, erasing the fact that they signed on 3 September.
+
+**Fix**: `tools/proj0181-repair-orphans.mjs` re-attaches the EXISTING file,
+dated the approval instant, attributed to the อาจารย์ the request named, with a
+timeline entry on both request and document saying plainly that a system repair
+happened and why. Dry-run by default; idempotent on `drive_file_id`.
+
+Two things it does that a quicker script would not:
+
+*It refuses to invent a timestamp.* Drive's own creation time is exposed by no
+handler this project has, so it uses the APPROVAL time and the note says that is
+what it is. A plausible invented time would have sat in the audit trail forever,
+unquestioned.
+
+*It does not trust the ids it was given.* Each file is read back through GAS and
+must pass five checks — is a PDF, not already attached, not the original itself,
+LARGER than the original, same filename. All three were bigger than their
+originals with a different PDF producer version (1.6 vs 1.3/1.5), which is what
+signing and re-exporting produces. The filenames independently confirmed the
+mapping, so it never rested on the order they were pasted in.
+
+**The general rule.** *When a bug of ours destroys a record, repairing the record
+is our job, not the user's* — and a data repair is held to a HIGHER evidentiary
+bar than a feature, because it writes history that nobody will re-derive.
+Verify every input against the system of record, never invent a value to fill a
+column, and say in the data itself that a repair happened.
