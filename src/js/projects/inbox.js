@@ -2215,6 +2215,32 @@ async function onDocStatusClick(btn) {
     returned:    'ส่งกลับเพื่อแก้',
   })[next] || `เปลี่ยนสถานะเป็น ${next}`;
   const note = isRevert ? `ย้อนสถานะกลับเป็น "${baseNote}"` : baseNote;
+  // Closing a หนังสือ whose signing request was APPROVED but never got a signed
+  // file is how the three ICEM / HYROX / ประดับช่อ หนังสือ shipped: อนุมัติแล้ว
+  // at 03:02, closed เสร็จสิ้น at 07:42, nobody told. This is the last gate
+  // before the หนังสือ leaves the workflow, so it is the right place to ask.
+  if (next === 'completed' && !isRevert) {
+    const accepted = (docCached?.sign_requests || []).filter((r) => r.status === 'accepted');
+    if (accepted.length > 0) {
+      let unsigned = [];
+      try {
+        const files = await listFiles(docId, { includeSuperseded: false });
+        const signedReqIds = new Set(files.filter((f) => f.is_signed)
+          .map((f) => String(f.sign_request_id)));
+        unsigned = accepted.filter((r) => !signedReqIds.has(String(r.id)));
+      } catch { unsigned = []; }   // a failed lookup must not invent a warning
+      if (unsigned.length > 0) {
+        const ok = await openProjectConfirm({
+          title: 'ปิดเรื่องทั้งที่ยังไม่มีไฟล์ลงนาม?',
+          body: 'อาจารย์อนุมัติหนังสือนี้แล้ว แต่ยังไม่มีไฟล์ที่ลงนามแนบอยู่ในระบบ '
+              + 'หากปิดเรื่องตอนนี้ หนังสือจะเสร็จสิ้นโดยไม่มีฉบับลงนาม',
+          okLabel: 'ปิดเรื่อง',
+          okVariant: 'warning',
+        });
+        if (!ok) return;
+      }
+    }
+  }
   const patch = { status: next };
   // Stamp received_at on the forward path only; on revert we leave the
   // historical timestamps alone so the audit trail in `timeline` is the
@@ -2615,7 +2641,7 @@ async function onDocAddFiles(e, docId) {
     showFilesBusy(docId, 'กำลังอัปโหลด…');
     for (const f of files) {
       const uploaded = await uploadProjectFile(f, folder);
-      await createFile({
+      await createFileOrUndo({
         document_id: docId,
         file_name: f.name,
         drive_file_id: uploaded.fileId,
@@ -2623,7 +2649,7 @@ async function onDocAddFiles(e, docId) {
         mime_type: uploaded.mimeType,
         size_bytes: uploaded.sizeBytes,
         uploaded_by: user?.id || null,
-      });
+      }, uploaded.url);
     }
     await appendDocTimeline(docId, {
       by: user?.id || null,
@@ -2721,7 +2747,7 @@ async function onReplaceFile(e, oldFileId, docId) {
   try {
     showFilesBusy(docId, 'กำลังแทนที่ไฟล์…');
     const uploaded = await uploadProjectFile(f, folder);
-    await createFile({
+    await createFileOrUndo({
       document_id: docId,
       file_name: f.name,
       drive_file_id: uploaded.fileId,
@@ -2729,7 +2755,7 @@ async function onReplaceFile(e, oldFileId, docId) {
       mime_type: uploaded.mimeType,
       size_bytes: uploaded.sizeBytes,
       uploaded_by: user?.id || null,
-    });
+    }, uploaded.url);
     // Replace = drop the old version entirely. The supersede/version-
     // history pattern looked nice but the UX cost (extra row, "v2"
     // label, "เวอร์ชันก่อนหน้า" disclosure) outweighed the audit
@@ -2906,7 +2932,10 @@ function renderFileCard(f, { canManage, role, docId, myId, seenAt, persistIds, r
     chip = `<span class="projects-file-sign-chip is-signed"><i class="bi bi-patch-check-fill me-1"></i>ลงนามแล้ว</span>`;
   } else if (request) {
     if (request.status === 'pending')       chip = `<span class="projects-file-sign-chip is-pending"><i class="bi bi-hourglass-split me-1"></i>รอลงนาม</span>`;
-    else if (request.status === 'accepted') chip = `<span class="projects-file-sign-chip is-signed"><i class="bi bi-patch-check me-1"></i>อนุมัติแล้ว</span>`;
+    // Accepted with NO signed version is the case that shipped three หนังสือ
+    // reading "อนุมัติแล้ว" with a green tick over an unsigned PDF. Say the
+    // missing half out loud — this chip is the only place a reader sees it.
+    else if (request.status === 'accepted') chip = `<span class="projects-file-sign-chip is-unsigned"><i class="bi bi-exclamation-triangle me-1"></i>อนุมัติแล้ว · ยังไม่มีไฟล์ลงนาม</span>`;
     else if (request.status === 'rejected') chip = `<span class="projects-file-sign-chip is-rejected"><i class="bi bi-x-octagon me-1"></i>ตีกลับ</span>`;
   }
 
@@ -3091,10 +3120,33 @@ function onSendSignClick(btn) {
  *  an is_signed project_files row tagged to the request. `signsFileId` links
  *  the signed output to the ORIGINAL file it signs (e-sign knows it; reupload
  *  leaves it null → shown at request level). */
+/** Record an already-uploaded Drive file as a project_files row, and UNDO the
+ *  Drive upload if the row is refused.
+ *
+ *  Drive is always written BEFORE the row, so without this a refused row leaves
+ *  a PDF in Drive — shared ANYONE_WITH_LINK — that no screen in this app can
+ *  see. That is what 0181 produced: three signed หนังสือ whose files sat in
+ *  Drive for six days while every screen said ยังไม่ลงนาม, and the only way
+ *  anyone found them was opening Drive by hand.
+ *
+ *  ONE HOME for the rule: all three upload paths (attach, replace, sign) go
+ *  through it, because the hazard is in the ORDER, which they all share. */
+async function createFileOrUndo(row, driveUrl) {
+  try {
+    return await createFile(row);
+  } catch (err) {
+    if (driveUrl) {
+      await deleteProjectFile(driveUrl)
+        .catch((e) => console.warn('[projects] orphan Drive cleanup failed:', e?.message || e));
+    }
+    throw err;
+  }
+}
+
 async function uploadSignedFile({ doc, project, reqId, fileLike, user, signsFileId = null }) {
   const folder = buildDocFolderPath(project.id, project.name, doc.id, doc.title);
   const up = await uploadProjectFile(fileLike, folder);
-  await createFile({
+  return createFileOrUndo({
     document_id: doc.id,
     file_name: fileLike.name,
     drive_file_id: up.fileId,
@@ -3105,18 +3157,28 @@ async function uploadSignedFile({ doc, project, reqId, fileLike, user, signsFile
     sign_request_id: reqId,
     is_signed: true,
     signs_file_id: signsFileId,
-  });
+  }, up.url);
 }
 
-/** Delete any existing signed output(s) for one original file — used to give
- *  e-sign / reupload REPLACE semantics (so re-signing edits rather than piling
- *  up duplicates). The prof may delete his own signed files (migration 0053). */
-async function removeExistingSignedFor(docId, originalId) {
+/** Retire the PREVIOUS signed output(s) for one original file — this is what
+ *  gives e-sign / reupload REPLACE semantics (re-signing edits rather than
+ *  piling up duplicates). The prof may delete his own signed files (0053).
+ *
+ *  ⚠️ CALL THIS AFTER THE NEW FILE IS SAVED, NEVER BEFORE. Until 0181 both
+ *  callers ran it first, so a re-sign deleted the existing signature — the row
+ *  AND its Drive object — and a refused upload then left the หนังสือ with no
+ *  signature at all. `exceptId` is the row uploadSignedFile just created: it
+ *  carries the same signs_file_id, so without excluding it this would delete
+ *  the replacement it was called to make room for.
+ */
+async function removeExistingSignedFor(docId, originalId, { exceptId = null } = {}) {
   if (!originalId) return 0;
   let removed = 0;
   try {
     const files = await listFiles(docId, { includeSuperseded: false });
-    const existing = files.filter((s) => s.is_signed && String(s.signs_file_id) === String(originalId));
+    const existing = files.filter((s) => s.is_signed
+      && String(s.signs_file_id) === String(originalId)
+      && (exceptId == null || String(s.id) !== String(exceptId)));
     for (const s of existing) {
       await deleteFile(s.id).catch((err) => console.warn('[projects] old signed delete failed:', err?.message || err));
       if (s.drive_view_url) deleteProjectFile(s.drive_view_url).catch(() => {});
@@ -3171,9 +3233,10 @@ async function onSignEsignClick(btn) {
     const base = (fileRow.file_name || 'document.pdf').replace(/\.pdf$/i, '');
     const signedName = `${base} (ลงนาม).pdf`;
     showFilesBusy(docId, 'กำลังบันทึกไฟล์ที่ลงนาม…');
-    const replaced = await removeExistingSignedFor(docId, fileRow.id);   // re-sign replaces
     const signedFile = new File([signedBlob], signedName, { type: 'application/pdf' });
-    await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user, signsFileId: fileRow.id });
+    // Save the new signature FIRST, retire the old one only once it has landed.
+    const saved = await uploadSignedFile({ doc, project, reqId, fileLike: signedFile, user, signsFileId: fileRow.id });
+    const replaced = await removeExistingSignedFor(docId, fileRow.id, { exceptId: saved?.id });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
       note: `ลงนามไฟล์ "${fileRow.file_name}" (e-sign)`,
@@ -3210,8 +3273,9 @@ async function onSignReupload(e) {
   }
   try {
     showFilesBusy(docId, 'กำลังอัปโหลดไฟล์ที่ลงนาม…');
-    const replaced = await removeExistingSignedFor(docId, fileId);   // reupload replaces
-    await uploadSignedFile({ doc, project, reqId, fileLike: f, user, signsFileId: fileId ? Number(fileId) : null });
+    // Save the new signature FIRST, retire the old one only once it has landed.
+    const saved = await uploadSignedFile({ doc, project, reqId, fileLike: f, user, signsFileId: fileId ? Number(fileId) : null });
+    const replaced = await removeExistingSignedFor(docId, fileId, { exceptId: saved?.id });
     await appendSignTimeline(reqId, {
       by: user?.id || null, role: 'sa_prof', action: 'signed_file',
       note: `อัปโหลดไฟล์ที่ลงนาม "${f.name}"`,
@@ -3230,9 +3294,17 @@ async function onSignReupload(e) {
 
 /** Notify the requester (uni_staff) + VP-Admin of the professor's decision.
  *  Both are pinged — sastaff acts on it, and vpa "sees all progress". */
-function notifySignDecision({ project, document, accepted, body }) {
+function notifySignDecision({ project, document, accepted, hasSigned, body }) {
   const kind = accepted ? 'sign_accepted' : 'sign_rejected';
-  const head = accepted ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์ส่งกลับ';
+  // `head` is the SUBJECT LINE and the VP-Admin notification title — the two
+  // places staff read before deciding to close the หนังสือ. It used to be
+  // derived from `accepted` while `body` was derived from `hasSigned`: two
+  // claims about one event, from one function, disagreeing. For three หนังสือ
+  // the subject said "อาจารย์ลงนามแล้ว" over an unsigned PDF, which is why
+  // nobody downstream looked. Both halves now read the same fact.
+  const head = accepted
+    ? (hasSigned ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์อนุมัติแล้ว (ยังไม่มีไฟล์ลงนาม)')
+    : 'อาจารย์ส่งกลับ';
   notifyUniStaff({ kind, project, document, body, subject: `[MDKKU SAMO] ${head} — ${project?.name || ''}` }).catch(() => {});
   notifyVpAdmin({ kind, project, document, body, title: `${head} — ${document?.title || ''}` }).catch(() => {});
 }
@@ -3244,13 +3316,29 @@ async function onSignAcceptClick(btn) {
   if (!found) return;
   const { doc, project } = found;
   // Accepting is an APPROVAL — attaching a signed file (e-sign / reupload)
-  // is optional, so don't require one. Whether a signed file is present
-  // only changes the wording of the decision note + notification.
+  // is optional, so don't BLOCK one without a file. But it is the unusual
+  // case and it used to pass in silence: three หนังสือ were approved with no
+  // signature, then labelled ลงนามแล้ว and closed เสร็จสิ้น by staff who had
+  // no way to know. Ask once, and say what will be recorded.
   let hasSigned = false;
+  let couldCheck = true;
   try {
     const files = await listFiles(docId, { includeSuperseded: false });
     hasSigned = files.some((f) => f.is_signed && String(f.sign_request_id) === String(reqId));
-  } catch {}
+  } catch { couldCheck = false; }
+  // Only ask when we actually KNOW there is no file. A failed lookup must not
+  // accuse the professor of skipping a step he may well have completed.
+  if (couldCheck && !hasSigned) {
+    const ok = await openProjectConfirm({
+      title: 'อนุมัติโดยยังไม่มีไฟล์ลงนาม?',
+      body: 'หนังสือนี้จะถูกบันทึกว่า "อนุมัติแล้ว · ยังไม่มีไฟล์ลงนาม" '
+          + 'และเจ้าหน้าที่จะเห็นข้อความนี้ หากต้องการแนบไฟล์ที่เซ็นแล้ว '
+          + 'ให้กดยกเลิก แล้วใช้ปุ่ม "ลงนาม" หรือ "อัปโหลดไฟล์ที่เซ็น" ที่ไฟล์ด้านบนก่อน',
+      okLabel: 'อนุมัติโดยไม่มีไฟล์',
+      okVariant: 'warning',
+    });
+    if (!ok) return;
+  }
   const user = getUser();
   try {
     await appendSignTimeline(reqId, {
@@ -3272,8 +3360,8 @@ async function onSignAcceptClick(btn) {
     onChanged();
     const docRef = `หนังสือ #${doc.sequence_no || ''} "${doc.title || ''}"`;
     notifySignDecision({
-      project, document: doc, accepted: true,
-      body: `${hasSigned ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์ยอมรับ (อนุมัติ)'} — ${docRef}`,
+      project, document: doc, accepted: true, hasSigned,
+      body: `${hasSigned ? 'อาจารย์ลงนามแล้ว' : 'อาจารย์อนุมัติแล้ว แต่ยังไม่มีไฟล์ลงนามแนบมา'} — ${docRef}`,
     });
   } catch (err) { alert(err.message || 'ยอมรับไม่สำเร็จ'); }
 }

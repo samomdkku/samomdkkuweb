@@ -268,9 +268,19 @@ export async function createFile(row) {
     '/project_files',
     { method: 'POST', body: row, prefer: 'return=representation' },
   );
-  if (error) throw new Error(error.message || 'บันทึกไฟล์ไม่สำเร็จ');
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('บันทึกไฟล์ไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+  // The file is ALREADY in Drive by the time this runs (the caller uploads
+  // first), so the message has to tell a human that — 0181 put the raw
+  // PostgREST sentence `new row violates row-level security policy for table
+  // "project_files"` into an alert() in front of an อาจารย์, which is the exact
+  // shape rest-error.js was written to stop. Say what happened and what to do;
+  // keep the machine's own words after it for whoever is reading a screenshot.
+  const detail = (error?.message || '').trim();
+  if (error || !Array.isArray(data) || data.length === 0) {
+    throw new Error(
+      'บันทึกไฟล์ไม่สำเร็จ — ระบบไม่มีสิทธิ์บันทึกไฟล์นี้ ไฟล์จึงยังไม่ถูกแนบ '
+      + 'กรุณาแจ้งผู้ดูแลระบบ'
+      + (detail ? `\n\n[${detail}]` : ''),
+    );
   }
   return data[0];
 }

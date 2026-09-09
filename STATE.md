@@ -77,7 +77,7 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- **Migrations through 0180. 30 of 32 LIVE PROOFS GREEN** (2026-09-05).
+- **Migrations through 0181. 31 of 33 LIVE PROOFS GREEN** (2026-09-09).
   ⚠️ Red: `claude0154-quota-guard`, `claude0155-free-now` — **neither a code
   fault**. Both must BOOK a slot; the live 5-hour window is already claimed so
   `claude_booking_guard` refuses — the "SCENARIO needs live geometry that RAN

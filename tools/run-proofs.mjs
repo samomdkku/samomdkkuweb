@@ -61,6 +61,7 @@ const PROOFS = [
   ['proj0176-master-desk.sql', 'a master works the ผู้ส่ง desk, and the professor guard still guards'],
   ['dept0177-page-scope.sql', 'a ฝ่าย edits its OWN page and nobody else\'s'],
   ['dept0179-kinds.sql', 'each ฝ่าย content kind carries the body it renders'],
+  ['proj0181-prof-upload.sql', 'an อาจารย์ saves a signed file on a หนังสือ that is NOT published'],
   ['pass-hardening.mjs', 'passport RLS: five real principals, 0011 applied in a rolled-back txn'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],

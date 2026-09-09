@@ -1205,3 +1205,86 @@ enumerate the RESTRICTIONS, not the grants: `pg_get_functiondef ~ 'raise
 exception'` over every trigger, and read which side of the `if` the raise is on.
 The tell that you are on the wrong side is a guard whose condition is an
 identity rather than "the caller has no other way in".
+
+---
+
+## 0181 — a read rule that LOOKS THE ROW UP cannot see the row being created, and a public-site flag had been covering for it
+
+**Symptom** (as reported): *"some หนังสือโครงการ has been อนุมัติแล้ว but there
+isn't signature sign on the pdf … i check the log, the teacher just อนุมัติ"* —
+เกียรติบัตร ประดับช่อ, หนังสือโครงการ HYROX101, and the ICEM
+ประกวดสื่อสร้างสรรค์ หนังสือ, all approved on 2026-09-03 between 02:59 and 03:02
+with no signed file attached. Three more หนังสือ handled in the same seven
+minutes, by the same อาจารย์, were fine. The owner then found the signed PDFs
+**sitting in Google Drive**, referenced by nothing.
+
+**Cause.** `project_files_read` was
+`current_user_is_project_actor() OR prof_can_see_file(id)`, and
+`prof_can_see_file(id)` answers by SELECTing `project_files` for that id. On
+`insert … returning` — which is exactly what PostgREST issues for
+`Prefer: return=representation`, and what `api.js createFile()` uses — the row
+is not in the table yet, the lookup finds nothing, the SELECT policy fails, and
+Postgres rejects the whole statement. Drive is written BEFORE the row, so each
+refusal left a publicly-shared PDF that no screen in this app could see.
+
+It should have broken every professor upload since the feature shipped. It did
+not, because 0114 had added a second, unrelated policy —
+`project_files_read_public using (project_doc_is_public(document_id))` — which
+reads the DOCUMENT's flags and never touches the new row. It passes whenever the
+โครงการ and the หนังสือ are both public, which is the default. **A public-WEBSITE
+feature was the only thing letting an อาจารย์ save his signature**, and all 18
+signed uploads in history were on public โครงการ. Hide either flag and signing
+dies — while reading, commenting, ยอมรับ, the doc timeline, "seen" and
+notifications all keep working. Measured across all three visibility states:
+exactly one step of the professor's path ever fails.
+
+**Why it read as human error for six days.** Four things pointed the wrong way.
+The professor's own habit was accept-then-upload, so "he forgot" fitted. The
+three failures were the three OLDEST requests in a backlog-clearing session, so
+"he rushed the tail" fitted. `logSignToDoc` swallows its failure to
+`console.warn`, so the append-only doc timeline showed **no upload event** — and
+that absence was taken as proof no upload was attempted. And the error he
+actually saw was `new row violates row-level security policy for table
+"project_files"`, in an `alert()`, in English: `createFile` threw
+`error.message` straight through, which is the exact shape `rest-error.js` was
+written to stop after 0176. Only the Drive orphans falsified all of it.
+
+**Fix.** Migration 0181. The RULE moves into a two-argument
+`prof_can_see_file(id, sign_request_id)` that reads only values the caller
+already has; the one-argument form becomes a thin lookup wrapper that delegates
+to it, so `tools/prof0095-seat-parity.mjs` and any other caller keep working and
+the two cannot drift. The policy passes the ROW's own columns, which exist
+during `returning`. In the frontend: one `createFileOrUndo()` deletes the Drive
+file when the row is refused (all three upload paths go through it, because the
+hazard is in the ORDER they share); both sign handlers now upload BEFORE
+retiring the previous signature, excluding the row they just created; the
+`accepted` label is `อนุมัติแล้ว`, the no-file chip is a warning that says
+`ยังไม่มีไฟล์ลงนาม`, `notifySignDecision`'s subject line is derived from
+`hasSigned` like its body already was; approving with no file asks first, and so
+does closing เสร็จสิ้น.
+
+**Where it lives now.** `supabase/migrations/0181_*.sql` ·
+`tools/proj0181-prof-upload.sql` (registered in `run-proofs.mjs`; ALLOW × 4
+visibility states, DENY, a CONTROL that re-runs them with
+`project_files_read_public` dropped, and a DIFFERENTIAL over every existing row)
+· `src/js/projects/signed-file-integrity.test.js` (12 assertions, each watched
+to fail with its bug reintroduced).
+
+**The proof needed three fixes before it could see the bug**, and all three were
+green-over-broken: (1) `set local role authenticated` inside the plpgsql helper
+that did the insert never took effect, so every case ran as the superuser with
+RLS bypassed; (2) the helper scored sqlstate `42501` as "RLS refused", which
+also matches a missing GRANT on its own temp fixtures; (3) `returning 1` reads
+no column of the new row, so **Postgres never applies the SELECT policy** and
+the case passes while the feature is broken. PostgREST issues `RETURNING *`.
+
+**The general rule.** *A policy that identifies a row by LOOKING IT UP in the
+table it protects cannot answer for a row being created* — so `insert …
+returning` is refused even though the INSERT itself is allowed. Write the prof/
+owner branch against the NEW row's own columns. And when a permissive policy set
+contains one member that does not depend on the new row (a public flag, an
+`is_active`, anything derived from a PARENT), it will mask a broken sibling for
+as long as its condition happens to hold: **a proof of a grant must drop the
+other policies and re-run, or it is only proving that SOMETHING let the write
+through.** The tell that you are exposed is a write that works for most rows and
+fails for the ones with an unrelated flag turned off.

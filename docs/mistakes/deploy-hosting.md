@@ -1010,3 +1010,66 @@ shape of the failure: the application did not reject the mangled input, it
 QUIETLY ACCEPTED A WEAKER FORM of it — a security control that downgrades on
 malformed input fails silently by design, so the log line saying so is the only
 witness. Grep the logs after changing a credential, not just the behaviour.
+
+---
+
+## `.mjs` served as `application/octet-stream` — the in-browser e-sign button was dead from the day it shipped
+
+**Symptom**: the professor's **ลงนาม** button on a หนังสือโครงการ opens its
+modal, spins, then shows an English error. Nobody reported it; it surfaced only
+while investigating why three หนังสือ were อนุมัติแล้ว with no signature. The
+database settles it: `logSignToDoc` stamps `[e-sign]` into the doc timeline for
+that path, and **the number of e-sign events in the entire production history is
+zero**. All 18 signatures ever recorded were uploaded by hand.
+
+**Cause**: `pdfjs-dist/build/pdf.worker.min.mjs?url` is the only `.mjs` Vite
+emits. This box's `mime.types` has no entry for `.mjs`, so nginx fell through to
+`default_type application/octet-stream`, and browsers **refuse a module script
+served with a non-JavaScript type**. pdf.js 4.10 loads it as
+`new Worker(url, {type:'module'})`, and its fallback is
+`import(this.workerSrc)` — the SAME blocked URL — so `getDocument()` rejects and
+the modal shows `Setting up fake worker failed: …`.
+
+Measured on production 2026-09-09, in a real browser, with a control:
+
+```
+module worker (.mjs) : ERROR: worker error
+dynamic import (.mjs): IMPORT FAIL: Failed to fetch dynamically imported module
+CONTROL (.js worker) : ERROR: Uncaught ReferenceError: document is not defined
+```
+
+The control is the whole point — the `.js` worker **loaded and executed** (it
+got far enough to throw a real error inside the worker); the `.mjs` one never
+loaded. A deny-only probe could not have told those apart.
+
+**Why nothing caught it.** `npm run build` is green — the file is emitted
+correctly. `npm test` is green — nothing in the repo is wrong. `vite dev` and
+`vite preview` both serve `.mjs` as JavaScript, so it works on every developer
+machine and fails only on the VM. And `smoke-browser.mjs` loads the logged-out
+landing page, which never touches a module only the professor's modal pulls in.
+The fault lives BETWEEN the build and the host.
+
+**Fix**: a regex location above `location /assets/` in `server/nginx-samo.conf`
+with `default_type application/javascript`, restating `Cache-Control` because a
+regex location wins over the prefix one. `default_type` and not a `types` block:
+a `types` block at server or location level REPLACES the inherited map rather
+than extending it. `application/javascript` is already in
+`gzip_types`/`brotli_types`, so the 1.3 MB worker also stops shipping raw.
+
+**Where it lives now**: `server/nginx-samo.conf` · `tools/asset-mime-check.mjs`
+(`npm run check:asset-mime -- <url>`), which crawls the served HTML through its
+chunks — the worker is three hops down, so no shallower crawl reaches it — HEADs
+every `/assets/*.{js,mjs}` and asserts a JavaScript Content-Type. Its control is
+that the run FAILS unless it actually checked at least one `.js` AND one `.mjs`,
+so an empty crawl or a renamed directory can never print the same verdict as a
+healthy site. A path that 404s is IGNORED, not failed: pdf.js carries a literal
+`/assets/pdf.worker.mjs` that is never emitted, and going red on that would make
+the check red for a reason it cannot diagnose.
+
+**The general rule.** *A build artefact is not shipped until the HOST agrees
+what it is.* Content-Type is part of the contract for anything the browser loads
+as a module — a worker, a dynamic import, an ES module script — and the dev
+server is not evidence, because it maps extensions the production host has never
+heard of. When you add a dependency that emits a NEW file extension, ask what
+the server will call it. And the failure is silent by construction: the browser
+refuses the script without a network error, so the feature is simply absent.

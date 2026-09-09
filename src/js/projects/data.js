@@ -30,7 +30,12 @@ export const DOC_STATUS_META = {
 // Professor signing-request statuses (sastaff → saprof).
 export const SIGN_STATUS_META = {
   pending:  { label: 'รอลงนาม',   cls: 'is-pending',  icon: 'bi-hourglass-split' },
-  accepted: { label: 'ลงนามแล้ว', cls: 'is-accepted', icon: 'bi-patch-check' },
+  // "accepted" is an APPROVAL, and attaching a signed file is optional
+  // (inbox.js onSignAcceptClick). Labelling it ลงนามแล้ว claimed a signature
+  // that may not exist — three หนังสือ shipped อนุมัติแล้ว with an unsigned PDF
+  // and nothing downstream had a reason to look. Whether a signature EXISTS is
+  // a per-file fact, so the request-level chip states only what it knows.
+  accepted: { label: 'อนุมัติแล้ว', cls: 'is-accepted', icon: 'bi-patch-check' },
   rejected: { label: 'ปฏิเสธ',    cls: 'is-rejected', icon: 'bi-x-octagon' },
 };
 

@@ -1681,6 +1681,10 @@
 .projects-tab .projects-file-sign-chip.is-pending  { background: rgba(13,148,136,0.12); color: #0d7a70; }
 .projects-tab .projects-file-sign-chip.is-signed   { background: var(--p-ok-soft); color: var(--p-ok); }
 .projects-tab .projects-file-sign-chip.is-rejected { background: var(--p-danger-soft); color: var(--p-danger); }
+/* อนุมัติแล้ว but no signed file attached — approved, and still owed something.
+   Warn, not OK: this chip used to be .is-signed (green tick) over an unsigned
+   PDF, which is what let three หนังสือ close with no signature. */
+.projects-tab .projects-file-sign-chip.is-unsigned { background: var(--p-warn-soft); color: var(--p-warn); }
 
 .projects-tab .projects-file-signed {
   border: 1px solid var(--p-line); border-top: none;

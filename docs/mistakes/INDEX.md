@@ -36,7 +36,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(28)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(29)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -68,6 +68,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - Every signed-in account could read all 531 rows of `public.users`
 - "someone could just book 16.40-20.00 kick me out"
 - A column guard keyed on "is a professor" locked out everyone who is ALSO a professor
+- 0181 — a read rule that LOOKS THE ROW UP cannot see the row being created, and a public-site flag had been covering for…
 
 ## `authz-grants.md` — The permission / seat / scope channel *(19)*
 
@@ -273,7 +274,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(22)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(23)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -299,6 +300,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "Delete this Cloudflare Pages project" is not one call
 - A subpath in `DOMAIN` re-prefixes the routes INSIDE the container too
 - Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
+- `.mjs` served as `application/octet-stream`
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(48)*
 
@@ -397,4 +399,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_335 entries across 10 files._
+_337 entries across 10 files._

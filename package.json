@@ -26,6 +26,7 @@
     "proofs": "node tools/run-proofs.mjs",
     "proofs:dev": "node tools/run-proofs.mjs --dev",
     "smoke:browser": "node tools/smoke-browser.mjs",
+    "check:asset-mime": "node tools/asset-mime-check.mjs",
     "preview:url": "node tools/preview-url.mjs",
     "migrate:status": "node tools/migrate-status.mjs",
     "migrate:new": "node tools/migrate-new.mjs",

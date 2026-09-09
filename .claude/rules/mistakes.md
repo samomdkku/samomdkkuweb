@@ -28,6 +28,13 @@ it is the part that generalises to code not yet written.
 2. **An unresolvable reference fails OPEN.** `coalesce(flag, false)`, a `left
    join`, `if not found then` and `null in (...)` all answer "allowed" for an id
    that no longer resolves. A DELETE on reference data first creates that input.
+   **MIRROR IMAGE — IT FAILS CLOSED WHEN THE ROW DOES NOT EXIST YET.** A SELECT
+   policy that identifies a row by LOOKING IT UP in its own table cannot answer
+   for a row being created, so `insert … returning` (PostgREST
+   `return=representation`) is refused while the INSERT is allowed —
+   `prof_can_see_file(id)` did, and Drive is written first, so every refusal left
+   a public PDF nothing referenced (0181). Write the branch against the NEW row's
+   own columns.
 3. **Scoped is not full.** A narrow branch added *beside* an unconditional one
    (`has_permission('x')`, `using (true)`, a role list) is decorative — permissive
    policies are OR'd — the broad grant wins. Make them exclusive.
@@ -296,6 +303,15 @@ it is the part that generalises to code not yet written.
    PRODUCTION credentials they must never be sent, so it failed on a CORRECT
    setup and blamed the reader (`tooling-proofs.md`).
 
+   **A PERMISSIVE SIBLING MASKS A BROKEN POLICY FOR AS LONG AS ITS CONDITION
+   HOLDS.** 0114's `project_files_read_public` needs no new row, so it carried
+   every professor upload for three months while the prof branch was dead — the
+   ONE หนังสือ whose โครงการ was hidden lost its signature. A proof of a grant
+   must DROP the other policies and re-run, or it only proves something let the
+   write through. Fidelity too: `returning 1` reads no column, so Postgres never
+   applies the SELECT policy and the case passes while the feature is broken
+   (PostgREST issues `RETURNING *`); and `set local role` inside the plpgsql
+   helper that does the write never takes effect — set it at TOP LEVEL.
    Pair every DENY with an ALLOW over the same rows — a table with policies but
    no GRANT denies everyone and reads like the policy working (0138); a deny-only
    probe cannot tell a working guard from a broken service.
@@ -356,13 +372,13 @@ shaving the classes, which are the only part that generalises.
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
-- `authz-rls.md` *(28)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
+- `authz-rls.md` *(29)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(19)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(87)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(28)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
-- `deploy-hosting.md` *(22)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
+- `deploy-hosting.md` *(23)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(48)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
