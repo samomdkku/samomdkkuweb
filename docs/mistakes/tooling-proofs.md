@@ -2387,3 +2387,46 @@ transferable half: **a commit message that names files is a claim, and
 `--stat` is the check** — this one was caught only because a path-filtered
 workflow did not fire, which is a strange thing to notice and easy to miss.
 When a message says "also changed X", read the diffstat before believing it.
+
+
+---
+
+## A registry sweep that reported CLEAN over a policy planted in the same transaction
+
+**Symptom**: `proj0181-prof-upload.sql` grew a section E — "which SELECT/ALL
+policies can only answer by consulting the table they protect?" — and it printed
+the one expected entry, PASS. It looked authoritative for an hour. Then the
+break-it ritual planted a second, deliberately self-referential policy inside the
+same rolled-back transaction, and **E1 still said PASS**.
+
+**Cause**: `pg_get_expr()` renders a policy's expression with SQL keywords in
+UPPERCASE and the schema qualifier stripped —
+
+```
+(EXISTS ( SELECT 1
+   FROM shop_orders o
+  WHERE ((o.id = shop_order_items.order_id) AND …)))
+```
+
+— and the sweep matched `expr ~ ('from\s+(public\.)?'||tbl)`. `~` is
+case-SENSITIVE, so the inline half of the sweep had never matched anything, ever.
+The one entry it did report came from the OTHER half (a function whose body reads
+the table), which happened to work. Half a working instrument reads exactly like
+a whole one when the answer it gives is the answer you expect.
+
+**Fix**: `~*` for both halves, and the ritual repeated until the planted policy
+made E1 go red. The corrected sweep still returns the same single entry on
+production — but that conclusion is now earned rather than assumed.
+
+**Where it lives now**: `tools/proj0181-prof-upload.sql` §E, with the reason
+written at the regex.
+
+**The general rule.** *When you grep a DATABASE's own rendering of something,
+grep what the database PRINTS, not what you typed.* `pg_get_expr`,
+`pg_get_functiondef` and `pg_get_triggerdef` all re-render from the parse tree:
+keywords upper-cased, schema qualifiers dropped, whitespace normalised, `!=`
+rewritten to `<>`. A pattern written from the migration source will silently
+miss. And the second half, which is the one that nearly got away: **a sweep whose
+result MATCHES YOUR EXPECTATION is the hardest kind to doubt** — plant the thing
+it is supposed to find and watch it go red, because "it returned what I thought"
+is not evidence that it looked.

@@ -231,6 +231,62 @@ select 'D2 · that comparison saw rows (D1 is not vacuous)',
   from public.project_files;
 reset role;
 
+-- ============================================================
+-- E · THE CLASS, not just this bug. A REGISTRY sweep: which SELECT/ALL policies
+--     in public + passport can only answer by consulting the table they protect
+--     — at ANY function depth, plus inline subqueries? Such a policy cannot see
+--     a row being INSERTed, so `insert … returning` is refused while the INSERT
+--     is allowed. A one-level sweep would miss a helper that delegates.
+--
+--     The expected set is ONE entry, and it is a NAME COLLISION, not a fault:
+--     prof_can_see_file has two overloads sharing a name, the live policy calls
+--     the 2-arg form (which reads no table), and A/C above prove the behaviour.
+--     A guard cannot see the difference from the name, so this asserts the SET
+--     — like master-mirrors.test.js. A new member is not necessarily a bug, but
+--     it is always a decision somebody has to make deliberately instead of
+--     discovering it from a professor months later.
+-- ============================================================
+with recursive fns as (
+  select p.proname, pg_get_functiondef(p.oid) as def
+  from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+  where n.nspname in ('public','passport') and p.prokind='f'
+), pol as (
+  select c.relname tbl, p.polname,
+         coalesce(pg_get_expr(p.polqual,p.polrelid),'')||' '||
+         coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'') expr
+  from pg_policy p join pg_class c on c.oid=p.polrelid
+  join pg_namespace n on n.oid=c.relnamespace
+  where n.nspname in ('public','passport') and p.polcmd::text in ('r','*')
+), reach(tbl, polname, proname, def, depth) as (
+  select pol.tbl, pol.polname, f.proname, f.def, 1
+    from pol join fns f on pol.expr like '%'||f.proname||'(%'
+  union
+  select r.tbl, r.polname, f2.proname, f2.def, r.depth+1
+    from reach r join fns f2 on r.def like '%'||f2.proname||'(%'
+   where r.depth < 4 and f2.proname <> r.proname
+), selfref as (
+  -- ⚠️ `~*`, NOT `~`. pg_get_expr renders `FROM` in UPPERCASE and strips the
+  -- schema qualifier, so the first version of this — `expr ~ 'from\s+…'` —
+  -- matched NOTHING and reported the registry clean while a deliberately
+  -- injected self-referential policy sat in the same transaction. Caught only
+  -- by the break-it ritual; the sweep had looked authoritative for an hour.
+  select distinct tbl||'.'||polname as who from reach where def ~* ('\m'||tbl||'\M')
+  union
+  select distinct tbl||'.'||polname from pol
+   where expr ~* ('from\s+(public\.|passport\.)?'||tbl||'\M')
+)
+insert into probe
+select 'E1 · only the known self-referential policy exists',
+       'project_files.project_files_read',
+       coalesce(string_agg(who, ' + ' order by who), '(none)')
+  from selfref;
+-- E1's control: an empty registry would also match a typo'd expectation.
+insert into probe
+select 'E2 · the sweep examined policies at all (E1 not vacuous)',
+       'saw policies',
+       case when count(*) > 20 then 'saw policies' else 'TOO FEW — sweep broken' end
+  from pg_policy;
+
 -- ── verdict ────────────────────────────────────────────────────────────────
 select step,
        case when got = expected then 'PASS' else 'FAIL' end as verdict,
