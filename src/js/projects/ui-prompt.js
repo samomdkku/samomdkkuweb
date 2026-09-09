@@ -157,8 +157,17 @@ export function openProjectPrompt(opts = {}) {
  *    title?: string,
  *    body: string,
  *    okLabel?: string,
- *    okVariant?: 'danger' | 'success' | 'primary',
+ *    okVariant?: 'danger' | 'success' | 'primary' | 'warning',
  * }} ProjectConfirmOpts */
+
+/** The variants the OK button may wear. ONE home: the reset below is derived
+ *  from this list, never hand-written beside it. It used to be a literal
+ *  `remove('btn-danger','btn-success','btn-primary')`, so adding a fourth
+ *  variant left the old one ON the button — the modal is a SINGLETON reused by
+ *  every caller, so the next `danger` confirm would carry both classes and
+ *  render in whichever colour the stylesheet happened to define last. Adding a
+ *  variant must not require remembering a second place (mistakes class 6). */
+export const CONFIRM_VARIANTS = ['danger', 'success', 'primary', 'warning'];
 
 /**
  * Open the universal confirm modal. Returns true on confirm, false on
@@ -180,8 +189,9 @@ export function openProjectConfirm(opts) {
   if (bodyEl)  bodyEl.textContent  = opts.body  || 'คุณแน่ใจหรือไม่?';
   if (okLabel) okLabel.textContent = opts.okLabel || 'ยืนยัน';
   if (okBtn) {
-    okBtn.classList.remove('btn-danger', 'btn-success', 'btn-primary');
-    okBtn.classList.add(`btn-${opts.okVariant || 'danger'}`);
+    okBtn.classList.remove(...CONFIRM_VARIANTS.map((v) => `btn-${v}`));
+    const variant = CONFIRM_VARIANTS.includes(opts.okVariant) ? opts.okVariant : 'danger';
+    okBtn.classList.add(`btn-${variant}`);
   }
 
   const modal = bs.Modal.getOrCreateInstance(modalEl);

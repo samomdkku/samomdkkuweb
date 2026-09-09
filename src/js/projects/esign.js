@@ -34,6 +34,17 @@ let pdf = null;             // pdfjs document
 let numPages = 0;
 let currentPage = 1;
 let sigDataUrl = null;      // trimmed signature PNG (data URL)
+// The signature's height/width, taken from the TRIMMED BITMAP at the moment it
+// is created — never measured off the DOM. currentRatios() used to read
+// `overlay.clientHeight / clientWidth`, and useSignature() captures a placement
+// in the same tick it assigns `overlay.src`, before the image has loaded: at
+// that instant clientHeight is 0, so the placement was stored with aspect 0.
+// "ทุกหน้า" copies whichever placement it finds, so one aspect-0 capture puts a
+// ZERO-HEIGHT image on every page — a PDF the system then marks ลงนามแล้ว with
+// no visible signature, which is the exact symptom that opened this whole
+// investigation. An image's proportions are a property of the IMAGE; measuring
+// them through layout makes them a race.
+let sigAspect = 0;
 // Per-page placements: pageNum -> { xRatio, yRatio, wRatio, aspect } (page-
 // relative ratios so they're render-scale independent). A page is "signed"
 // iff it has an entry — the prof can stamp the signature on as many pages as
@@ -218,6 +229,7 @@ function trimmedSignature() {
   const out = document.createElement('canvas');
   out.width = w; out.height = h;
   out.getContext('2d').putImageData(padCtx.getImageData(minX, minY, w, h), 0, 0);
+  sigAspect = h / w;   // known here, exactly, and never again in doubt
   return out.toDataURL('image/png');
 }
 
@@ -258,7 +270,7 @@ function currentRatios() {
     xRatio: o.offsetLeft / cw,
     yRatio: o.offsetTop / ch,
     wRatio: o.clientWidth / cw,
-    aspect: o.clientHeight / o.clientWidth,
+    aspect: sigAspect,
   };
 }
 
@@ -434,7 +446,14 @@ async function onConfirm() {
       if (!page) continue;
       const { width: pw, height: ph } = page.getSize();
       const w = p.wRatio * pw;
-      const h = w * p.aspect;
+      // Last line of defence. Even with sigAspect there must be no path that
+      // draws a zero-height signature, because the result is a PDF that looks
+      // signed to every downstream check and to nobody's eyes. pdf-lib knows
+      // the embedded PNG's real proportions, so fall back to those.
+      const aspect = (Number.isFinite(p.aspect) && p.aspect > 0)
+        ? p.aspect
+        : (png.height / png.width);
+      const h = w * aspect;
       const x = p.xRatio * pw;
       const yTop = p.yRatio * ph;
       page.drawImage(png, { x, y: ph - yTop - h, width: w, height: h });
@@ -457,6 +476,7 @@ function resetState() {
   numPages = 0;
   currentPage = 1;
   sigDataUrl = null;
+  sigAspect = 0;
   placements = new Map();
   padHasInk = false;
   if (els.overlay) { els.overlay.classList.add('d-none'); els.overlay.removeAttribute('src'); }

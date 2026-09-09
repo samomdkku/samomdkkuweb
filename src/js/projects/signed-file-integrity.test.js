@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { stripComments } from '../strip-comments.js';
 import { SIGN_STATUS_META } from './data.js';
+import { CONFIRM_VARIANTS } from './ui-prompt.js';
 
 const inbox = stripComments(
   readFileSync(new URL('./inbox.js', import.meta.url), 'utf8'));
@@ -158,5 +159,60 @@ describe('a refused save says what happened, in Thai', () => {
       expect(t).toMatch(/บันทึกไฟล์ไม่สำเร็จ/);
       expect(t).not.toMatch(/^\s*error\??\.message/);
     }
+  });
+});
+
+describe('a signed PDF must actually show the signature', () => {
+  // Reachable ONLY since the nginx .mjs fix: e-sign had never run in
+  // production, so this was latent. It produces the SAME symptom as the report
+  // that started all this — a หนังสือ marked ลงนามแล้ว whose PDF shows nothing.
+  const esign = stripComments(
+    readFileSync(new URL('./esign.js', import.meta.url), 'utf8'));
+
+  it('the placement aspect comes from the bitmap, not from layout', () => {
+    // useSignature() captures a placement in the same tick it assigns
+    // overlay.src, so clientHeight is still 0 — and "ทุกหน้า" copies whatever
+    // placement it finds, stamping a ZERO-HEIGHT image on every page.
+    const ratios = esign.slice(esign.indexOf('function currentRatios'));
+    const block = ratios.slice(0, ratios.indexOf('}\n'));
+    expect(block).toMatch(/aspect:\s*sigAspect/);
+    expect(block, 'aspect must not be measured through the DOM')
+      .not.toMatch(/aspect:.*client(Height|Width)/);
+  });
+
+  it('sigAspect is set where the bitmap is cropped', () => {
+    const trim = esign.slice(esign.indexOf('function trimmedSignature'));
+    expect(trim.slice(0, trim.indexOf('\n}'))).toMatch(/sigAspect\s*=\s*h\s*\/\s*w/);
+  });
+
+  it('the embed refuses to draw a zero-height signature', () => {
+    // Belt and braces: no path may reach drawImage with a non-positive height,
+    // because the result looks signed to every downstream check and to nobody's
+    // eyes. pdf-lib knows the PNG's real proportions.
+    const confirm = esign.slice(esign.indexOf('async function onConfirm'));
+    expect(confirm).toMatch(/Number\.isFinite\(p\.aspect\)\s*&&\s*p\.aspect\s*>\s*0/);
+    expect(confirm).toMatch(/png\.height\s*\/\s*png\.width/);
+  });
+});
+
+describe('the confirm modal is a singleton — its variant must not leak', () => {
+  // The OK button is ONE element reused by every caller. The reset list was
+  // hand-written beside the add, so a new variant stayed on the button and the
+  // next confirm wore two colour classes at once.
+  it('the reset is derived from CONFIRM_VARIANTS, not hand-written', () => {
+    const prompt = stripComments(
+      readFileSync(new URL('./ui-prompt.js', import.meta.url), 'utf8'));
+    expect(prompt).toMatch(/classList\.remove\(\.\.\.CONFIRM_VARIANTS\.map/);
+    expect(prompt, 'a literal remove() list is how the leak happened')
+      .not.toMatch(/classList\.remove\('btn-/);
+  });
+
+  it('every okVariant passed anywhere is one the reset knows about', () => {
+    // The list and its users, checked against each other — a variant nobody
+    // resets is exactly the bug.
+    const used = [...inbox.matchAll(/okVariant:\s*'([a-z]+)'/g)].map((m) => m[1]);
+    expect(used.length, 'no okVariant found — has the option been renamed?')
+      .toBeGreaterThan(0);
+    for (const v of used) expect(CONFIRM_VARIANTS).toContain(v);
   });
 });

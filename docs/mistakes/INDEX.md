@@ -124,7 +124,7 @@ Open when: writing a migration.
 - A carried passport student would have signed in to 0 km
 - A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(87)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(88)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -215,6 +215,7 @@ Open when: markup, modals, layout, touch, icons.
 - "the orange highlight box is not aligned"
 - A block styled with Bootstrap looked perfect in the editor and unstyled on the page
 - GrapesJS hid its own block panel, and the empty canvas WAS the complaint
+- Fixing the transport made a latent bug REACHABLE
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
@@ -399,4 +400,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_337 entries across 10 files._
+_338 entries across 10 files._

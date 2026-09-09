@@ -3180,7 +3180,15 @@ async function removeExistingSignedFor(docId, originalId, { exceptId = null } = 
       && String(s.signs_file_id) === String(originalId)
       && (exceptId == null || String(s.id) !== String(exceptId)));
     for (const s of existing) {
-      await deleteFile(s.id).catch((err) => console.warn('[projects] old signed delete failed:', err?.message || err));
+      // Count only what was actually retired. `removed` decides whether the log
+      // line reads "ลงนามใหม่ (แทนที่ฉบับเดิม)", so incrementing on a FAILED
+      // delete writes a history entry claiming a replacement that did not
+      // happen — and the leftover row is still on screen contradicting it.
+      const gone = await deleteFile(s.id).then(() => true).catch((err) => {
+        console.warn('[projects] old signed delete failed:', err?.message || err);
+        return false;
+      });
+      if (!gone) continue;
       if (s.drive_view_url) deleteProjectFile(s.drive_view_url).catch(() => {});
       removed++;
     }

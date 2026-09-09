@@ -3504,3 +3504,49 @@ your least technical user* — and the gap is only visible in a screenshot. This
 was found by rendering the editor and looking at it, after unit tests, a build,
 and a bundle-isolation check had all passed. **A UI you have not looked at is a
 UI you have not tested**, and that is now three separate entries in this file.
+
+---
+
+## Fixing the transport made a latent bug REACHABLE — a signature drawn at zero height
+
+**Symptom** (not yet reported by a person — found by scrutinising the fix that
+enabled it): the e-sign modal produces a PDF the system records as ลงนามแล้ว,
+uploads to Drive and shows a green tick for, and the signature is **not visible
+on any page**. Identical to the symptom of the 0181 report, by a different
+mechanism, so it would have been diagnosed as a relapse.
+
+**Cause**. `currentRatios()` took the signature's proportions from layout —
+`overlay.clientHeight / overlay.clientWidth`. `useSignature()` assigns
+`overlay.src` and calls `capturePlacement()` **in the same tick**, before the
+image has loaded, so `clientHeight` is 0 and the placement is stored with
+`aspect: 0`. An `onload` handler re-captures with the right value, so the window
+is short — but `signAllPages()` copies whichever placement it finds and stamps
+it on EVERY page, and at embed time `h = w * aspect` is then 0. `drawImage` with
+`height: 0` succeeds silently.
+
+**Why it was dormant, and why that matters.** The in-app ลงนาม button had never
+worked in production — nginx served pdf.js's `.mjs` worker as
+`application/octet-stream` (`deploy-hosting.md`), so `getDocument()` always
+rejected and nobody reached this code. Fixing the MIME **un-shielded it**, in
+the same session, silently.
+
+**Fix**. `sigAspect` is captured from the TRIMMED BITMAP inside
+`trimmedSignature()`, where the crop's `h / w` is known exactly, and
+`currentRatios()` reads that instead of the DOM. Plus a floor at embed time:
+if `p.aspect` is not a positive finite number, fall back to
+`png.height / png.width`, which pdf-lib knows — no path may draw a zero-height
+signature, because the result satisfies every downstream check and no human eye.
+
+**Where it lives now**: `src/js/projects/esign.js` ·
+`src/js/projects/signed-file-integrity.test.js` ("a signed PDF must actually
+show the signature", 3 assertions, each watched to fail with its bug back).
+
+**The general rule.** *An image's proportions are a property of the IMAGE;
+measuring them through layout turns a constant into a race.* Read
+`naturalWidth`/`naturalHeight` or the source bitmap, never `clientHeight` on an
+element whose `src` you set in the same tick. And the wider one, which is the
+reason this entry exists at all: **when you repair the transport that was
+keeping a feature dead, every bug BEHIND it becomes reachable in the same
+commit.** A fix that turns a feature on for the first time is not a fix, it is a
+launch — re-read the code it just enabled, because it has never executed in
+production and nothing about "it was already merged" means it works.
