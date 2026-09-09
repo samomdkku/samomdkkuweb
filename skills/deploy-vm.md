@@ -242,6 +242,10 @@ it is safe" — `publish()` is an rsync, so a kill during the mirror step CAN
 leave a half-written root, and the nginx reload never happening means a config
 change silently does not take effect.
 
+⚠️ **If you changed `server/nginx-samo.conf`, `deploy.sh` did NOT install it.**
+That is a separate step, every time — see the header of that file. Test with
+`nginx -t` BEFORE reloading and keep a `.bak` so a bad config can be put back.
+
 **Always verify from outside afterwards**, VPN or no VPN — the public host is
 reachable without it:
 
@@ -260,6 +264,15 @@ printed `==> done`. The deploy is bounded by `timeout`, not by the sleep — and
 **do not restate its duration here**; the measured figure has ONE home, the
 paragraph above, and the "~90 s" that used to sit on this line was the very
 figure that paragraph was written to correct. Reported by the owner: *"you take too long timeout sleep"*.
+
+Also run the asset MIME check, which asks the SERVED host what type each script
+is. It exists because the VM served pdf.js's `.mjs` worker as
+`application/octet-stream` for months and every browser silently refused it —
+build, tests and the browser smoke were all green throughout:
+
+```bash
+npm run check:asset-mime -- https://samo.md.kku.ac.th
+```
 
 Then verify — **from the served artifact, never the local file**:
 

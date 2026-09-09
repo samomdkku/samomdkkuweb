@@ -391,8 +391,24 @@ every หนังสือ and file under it whatever their own flag says. The 
 is `true` because the mirror was already total; that is the opposite of
 the safe default for a NEW public projection. Actors are unaffected —
 `projects_read` / `project_documents_read` / `project_files_read` OR in
-and ignore the flag, so a hidden row stays fully workable for staff and
-for the prof it was sent to. Flipping the flag is sender-only
+and ignore the flag, so a hidden row stays fully workable for staff.
+⚠️ **This paragraph said "and for the prof it was sent to" until 0181, and
+that was FALSE for three months.** `project_files_read`'s prof branch was
+`prof_can_see_file(id)`, which answered by looking the row up in
+`project_files` — so it could not see a row being INSERTed, and
+`insert … returning` (PostgREST `return=representation`, which
+`api.js createFile` uses) was refused. `project_files_read_public` was
+covering for it on every published โครงการ, which is the only reason any
+professor upload had ever worked: all 18 signed uploads in history were on
+public โครงการ. Hide either flag and the อาจารย์ could still read, comment,
+ยอมรับ and be notified — but not attach the signed file, after the PDF had
+already reached Drive. **0181** moves the rule into
+`prof_can_see_file(id, sign_request_id)`, which reads only the NEW ROW's own
+columns; the 1-arg form is now a lookup wrapper that delegates to it so the
+two cannot drift. Proof: `tools/proj0181-prof-upload.sql` (10 checks —
+allow across four visibility states, deny, a CONTROL that re-runs them with
+`project_files_read_public` DROPPED, and a differential over every existing
+row). Write-up: `docs/mistakes/authz-rls.md`. Flipping the flag is sender-only
 (`current_user_can_publish_project()` = role vp_admin/dev or the `vpa`
 seat, now also the single authority behind the four insert/delete
 policies); the BEFORE UPDATE trigger `project_public_flag_guard` on both
@@ -1316,6 +1332,23 @@ sample the board hides that strip rather than showing a zero.
 | `samomdkkuweb.pages.dev` | ⚠️ RETIRED **apex** — resolves, splash-redirects to the VM. **FROZEN since 2026-09-04**: production deployments are disabled on the Pages project, so pushing `main` no longer rebuilds it. A tombstone should not churn |
 | `preview.samomdkkuweb.pages.dev` | ✅ **LIVE and useful** — the stable preview of `main`, rebuilt on every push by the `preview` mirror branch. Points at **samo-dev**, never production |
 | `refactorsamomdkkuweb.pages.dev` | ❌ **DELETED 2026-09-04** (project and its 952 deployments). Does not resolve |
+
+⚠️ **nginx must be told that `.mjs` is JavaScript, and `deploy.sh` does NOT
+install nginx config — that is always a separate step** (`sudo cp
+server/nginx-samo.conf /etc/nginx/sites-available/default && sudo nginx -t &&
+sudo systemctl reload nginx`). The VM's `mime.types` has no `.mjs` entry, so it
+fell through to `application/octet-stream`, and a browser REFUSES a module
+script served with a non-JS type. The only `.mjs` Vite emits is pdf.js's worker,
+loaded as `new Worker(url, {type:'module'})` — so the หนังสือโครงการ e-sign modal
+was dead in every browser from the day it shipped until 2026-09-09, with zero
+e-sign events ever recorded. The rule is a REGEX location above
+`location /assets/` using `default_type` (a `types` block at that level REPLACES
+the inherited map rather than extending it) and restating `Cache-Control`,
+because a regex location wins over the prefix one. Guard:
+`npm run check:asset-mime -- https://samo.md.kku.ac.th` — crawls the served HTML
+through its chunks (the worker is three hops down) and fails unless it actually
+checked at least one `.js` AND one `.mjs`. Write-up:
+`docs/mistakes/deploy-hosting.md`.
 
 ⛔ **The `samomdkkuweb` PROJECT is alive; only its apex is retired.** Deleting it
 would remove every preview, including the stable one above — the apex being a
