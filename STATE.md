@@ -80,7 +80,7 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- **Migrations through 0182. 32 of 34 LIVE PROOFS GREEN** (2026-09-10). 0182 gave `passport.continents` row security; **HANDOFF §11 is CLOSED**.
+- **Migrations through 0182. 33 of 35 LIVE PROOFS GREEN** (2026-09-10). 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
   ⚠️ Red: `claude0154-quota-guard`, `claude0155-free-now` — **neither a code
   fault**. Both must BOOK a slot; the live 5-hour window is already claimed so
   `claude_booking_guard` refuses — the "SCENARIO needs live geometry that RAN

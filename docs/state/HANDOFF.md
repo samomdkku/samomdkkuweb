@@ -591,6 +591,22 @@ operation, and the owner's links made it unnecessary that day):
   "the listing failed" must never print the same verdict — that failure mode is
   what `tools/asset-mime-check.mjs` guards against and is worth copying.
 
+⚠️ **Do NOT try to do this with the EXISTING handler instead — measured
+2026-09-10.** The tempting shortcut is to skip the redeploy and sweep the other
+direction (every `project_files` row, does its `drive_file_id` still resolve?)
+using `getProjectFileData`, which is already deployed. Two reasons it is a poor
+substitute, both read from `appscript/prform.gs`:
+* **It returns the file's BYTES**, base64-encoded, not metadata. Answering a
+  metadata question about all **123** Drive-backed rows would download every PDF
+  through the webhook.
+* **It cannot see `trashed`.** `DriveApp.getFileById` succeeds on a trashed
+  file and the handler returns no trashed flag — and this repo already knows a
+  trashed Drive file still serves publicly
+  (`docs/mistakes/integrations.md`). So the sweep would report a trashed file as
+  healthy, which is the single most likely real state.
+The metadata handler in the design above is what makes this cheap AND able to
+answer; that is the argument for spending the redeploy, not a reason to skip it.
+
 Adding the handler requires `npm run deploy:gas` (`skills/deploy-gas.md`) — ASK
 FIRST, per CLAUDE.md.
 
@@ -606,19 +622,46 @@ the only real containment: move the app tree to a **Shared Drive with its own
 identity**. 13a is the cheaper 80% and does not need any of this — it reaches
 Drive through the existing public GAS webhook and never hands Claude a token.
 
-### 13c. More rigorous tests
+### 13c. More rigorous tests — the named gap is CLOSED; the rest is open
 
-Asked for in general terms, no specific target named. What this session's
-failures suggest, in order of what actually bit:
+**Status: the third bullet below is DONE (2026-09-10).** `Prefer:
+return=representation` — "the seam between them, exactly where the bug lived,
+and nothing covers it" — is now covered by
+`tools/authz0182-insert-returning-seam.sql` (11/11, registered in
+`run-proofs.mjs`). It does three things:
+
+* **Reproduces 0181's mechanism live, from nothing.** A synthetic table with a
+  self-looking-up SELECT policy: the bare INSERT is ALLOWED and the same
+  `INSERT … RETURNING *` is REFUSED, same principal, same transaction — then the
+  policy is rewritten against the new row's own columns and `RETURNING` starts
+  working. So the pattern is demonstrated to cause the failure, not asserted to.
+* **Sweeps EVERY SELECT policy in `public`** for that shape, reading the exact
+  function each policy calls from `pg_depend`. ✅ **Measured result: no real
+  table has a self-lookup SELECT policy** — all 23 representation-insert tables
+  are clean, and 0181's fix is confirmed from the live predicate
+  (`prof_can_see_file(bigint,text)`) rather than from the migration. It also
+  asserts no policy reaches the hazardous 1-arg wrapper 0181 kept for other
+  callers — **the assertion that would have caught 0181 on the day it shipped.**
+* **Proves the detector is not blind**, both directions, because a green sweep
+  otherwise cannot be told apart from a sweep that sees nothing.
+
+⚠️ **It follows ONE level.** A self-lookup inside a function called BY a
+policy's function is not detected: these have string bodies, so Postgres records
+no dependency for what they call. 0181 lived at level one. Stated in the file.
+
+⚠️ **A regex on `pg_policies.qual` is NOT good enough and was tried first** — it
+reported `project_files_read` as broken, because it matched the body of the
+1-arg overload while the policy calls the 2-arg one. A Postgres function's name
+is not its identity; `pg_depend` gives the identity.
+
+**Still open from the original ask:**
 * Every guard written here had to be broken and watched to fail before it could
   be trusted — three of them were green over the live bug first
   (`tools/proj0181-prof-upload.sql` header, `docs/mistakes/tooling-proofs.md`).
   Any new test work should adopt that ritual as the default, not the exception.
 * **The e-sign flow has still never been driven end to end by a human.** See §14.
-* No test in this repo exercises a PostgREST write the way the browser makes it.
-  Every 0181 assertion is either a live SQL proof or a source-shape check; the
-  seam between them — `Prefer: return=representation` — is exactly where the bug
-  lived, and nothing covers it.
+* ✅ DONE — see above. (Kept here as the ORIGINAL wording, because it is the
+  clearest statement of what the gap was.)
 
 ## 14. e-sign works now, and nobody has ever completed it
 
@@ -644,6 +687,28 @@ report, and it would have been diagnosed as a relapse.
 button while someone watches, and open the resulting PDF.** Until then, treat
 e-sign as untested and keep the upload path as the documented route.
 
+⏸ **DECIDED 2026-09-10 — the owner was offered this and said "just leave it".**
+Do not push it again; the upload route works, so nothing is blocked. Recorded
+so the next session does not re-raise it as though it were an oversight.
+
+📌 **Measured 2026-09-10, and this is the occasion when someone does want it:
+TWO real หนังสือ are sitting unsigned with อ.ประกาศิต, requested 2026-09-07.**
+`SGN-UE6GR` (หนังสือโครงการ First aid training 2026) and `SGN-7WEMQ`
+(หนังสือ โครงการ Music Therapy) — the only two `pending` sign requests in the
+system. Either is the live test case. Also measured: **21 accepted requests, 21
+signed files, ZERO accepted-with-no-file**, so the 0181 repair holds and no new
+orphan has appeared; and **no signed file has been written since 2026-09-09**
+(newest is 2026-09-03, the repair itself), which is what keeps this section a
+HYPOTHESIS rather than a verified flow.
+
+⚠️ **The seat note below is wrong about อ.ภูริภัทร and was corrected 2026-09-10.**
+`phuriphat.ma@kkumail.com` holds `master` (in `managed_permissions`, which
+`current_user_has_permission()` reads as a union) but has **NO ผู้ส่ง seat** —
+two `team_members` rows, both with a null `project_seat`. Its desk comes from the
+master floor, not from a stored seat. The instruction to change the seat to
+**อาจารย์ (ลงนาม)** in ทีม SAMO still works; the configuration it is described
+against is not the one that account has.
+
 ⚠️ A master holder cannot do this from the UI, deliberately — `projectSeatRole()`
 lets an explicit seat beat the master floor, so a master with the ผู้ส่ง seat
 gets the ผู้ส่ง screen. Change the seat to **อาจารย์ (ลงนาม)** in ทีม SAMO to
@@ -655,10 +720,21 @@ why under-showing relative to RLS is the safe direction.
 **Status: OWED — small, unblocked, neither urgent.**
 
 * **อ.ภูริภัทร has two accounts**: `phuriphat.ma@kkumail.com` (the real one —
-  ผู้ส่ง seat + `master`) and `pmphuriphat@gmail.com` (empty: no seat, no
-  permission, never used). Merging is governed by `docs/mistakes` one-person
+  `master`, and NO stored project seat: see the correction in §14) and
+  `pmphuriphat@gmail.com`. Merging is governed by `docs/mistakes` one-person
   registry rules — kkumail identifies the person, so the gmail row is the one to
-  retire. Check `public.people` linkage before deleting anything.
+  retire.
+  ⏸ **DECIDED 2026-09-10 — DO NOT delete it on its own.** The owner's reason:
+  *"there's many things to clean with problematic accounts that left on the db"*
+  — so this belongs to a single deliberate problematic-account cleanup, not a
+  one-off deletion. Do not raise it as an isolated errand again.
+  ✅ **Measured 2026-09-10 so the cleanup does not have to re-derive it**, and
+  it is inert on every axis checked: `permissions` and `managed_permissions`
+  both empty, **no `public.people` row** (the kkumail one owns
+  `people.id=4d024bf7…`), 0 sign requests as either prof or requester, and 0
+  uploaded files. Nothing references it, so whenever the cleanup happens this
+  row costs nothing to remove — the caution is about doing account deletions as
+  a considered batch, not about this row being risky.
 * **`logSignToDoc` / `appendSignTimeline` swallow their failures to
   `console.warn`.** Deliberate — a log line must not fail an upload — but that
   silence is what made 0181 take six days: the doc timeline showed NO upload

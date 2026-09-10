@@ -2469,3 +2469,48 @@ is our job, not the user's* — and a data repair is held to a HIGHER evidentiar
 bar than a feature, because it writes history that nobody will re-derive.
 Verify every input against the system of record, never invent a value to fill a
 column, and say in the data itself that a repair happened.
+
+## A control reported the detector blind, and the detector was fine — an earlier step of the same proof had deleted its subject
+
+**Symptom.** `authz0182-insert-returning-seam.sql`, first run: `20. detector
+FLAGS the deliberately bad policy → (nothing — DETECTOR IS BLIND)`. Ten other
+assertions passed, including the whole live reproduction of the bug above it. The
+obvious reading — the `pg_depend` detector cannot see a self-lookup policy, so
+the sweep in §30 is worthless — was wrong.
+
+**Cause.** The proof has two jobs and used one table for both. §A demonstrates
+the mechanism: create a table with a self-looking-up SELECT policy, show that a
+bare INSERT is allowed while the same `INSERT … RETURNING *` is refused, **then
+drop that policy and install the fixed one** to show `RETURNING` start working.
+§B then ran the detector and asked it to find… the policy §A had just dropped.
+The detector answered correctly about a database that no longer contained the
+thing it was asked about.
+
+**Fix.** A second table, `_seam_detect`, that carries the bad shape and is never
+rewritten, so the mechanism demonstration and the detector's control do not share
+a subject. Both are created and rolled back inside the same transaction.
+
+**Where it lives now.** `tools/authz0182-insert-returning-seam.sql` §A2, whose
+comment says why the table exists, because the reason is not guessable from the
+code. The detector now flags it (§20) and still does not flag the healthy
+two-argument `prof_can_see_file` (§21) — the two directions that separate "no
+policy is broken" from "this cannot see a broken one".
+
+**Two general rules, and the first one is the reason to keep writing controls.**
+
+*A control that fires is doing its job even when the thing it indicts is
+innocent.* This one read as an indictment of the detector and was really an
+indictment of the proof's own setup. The instinct on seeing `DETECTOR IS BLIND`
+is to go and fix the detector; the correct first question is whether the
+scenario still contains what the assertion is looking for. A proof with no
+control would have printed ten greens and shipped a sweep that had never been
+shown to see anything.
+
+*A proof that MUTATES its own fixtures needs one fixture per claim.* The moment a
+file both demonstrates a broken state and demonstrates the repair, any later
+assertion about the broken state is reading a world that was edited out from
+under it. This is the same shape as the entry above where a proof deleted only
+its own samples and went green while the reporter was paused: the setup and the
+assertion disagreed about which world they were in, and only the ORDER of the
+statements said which one won. Give each claim its own subject, or assert it
+before you repair anything.

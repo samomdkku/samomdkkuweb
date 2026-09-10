@@ -304,7 +304,7 @@ Open when: deploy.sh, nginx, cache headers.
 - Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
 - `.mjs` served as `application/octet-stream`
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(50)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(51)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -358,6 +358,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A throwaway branch deleted two files' worth of work, and the commit message covered it up
 - A registry sweep that reported CLEAN over a policy planted in the same transaction
 - Repairing our own damage: the fix that bills the user is the wrong fix
+- A control reported the detector blind, and the detector was fine
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -403,4 +404,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_341 entries across 10 files._
+_342 entries across 10 files._
