@@ -58,6 +58,25 @@ import { readFileSync } from 'node:fs';
 import { buildDocFolderPath } from '../src/js/projects/data.js';
 
 const JSON_OUT = process.argv.includes('--json');
+const ROWS_ONLY = process.argv.includes('--rows-only');
+const FOLDERS_ONLY = process.argv.includes('--folders-only');
+
+// ⛔ THIS TOOL SHARES ONE PUBLIC ENDPOINT WITH EVERY REAL DRIVE UPLOAD IN THE
+// APP, AND CALLING IT HARD DEGRADES THAT ENDPOINT FOR STUDENTS. Measured
+// 2026-09-10, same probe (`uploadTeamFile` with no argument) throughout:
+//
+//   while this sweep was running flat out   2 of 3 replies were Google's HTML page
+//   with the sweep stopped, 10 s apart      1 of 4
+//   with the sweep stopped, 3 s apart       4 of 5 JSON  (both bare and with a
+//                                            browser User-Agent + Origin — so it
+//                                            tracks RATE, not client identity)
+//
+// `src/js/uploads.js` does `await res.json()` with no retry and no content-type
+// check, so an HTML reply surfaces to a student as a parse error on a real
+// upload. That is why this paces itself and why an HTML reply backs off HARD
+// rather than retrying promptly: the polite thing and the reliable thing are the
+// same thing here. Run it when nobody is submitting, and prefer --rows-only.
+const PACE_MS = 2500;
 
 // ⚠️ SMALL ON PURPOSE, and the numbers are measured (2026-09-10, production):
 //
@@ -132,12 +151,19 @@ async function gas(body, { tries = 4, timeoutMs = 30000 } = {}) {
         body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
       });
       const t = await r.text();
-      if (t.trim().startsWith('{')) return JSON.parse(t);
+      if (t.trim().startsWith('{')) { await pace(); return JSON.parse(t); }
+      htmlReplies++;
     } catch { /* timeout or network — retry */ }
-    await new Promise((res) => setTimeout(res, 3000 * (i + 1)));
+    // An HTML reply means we are pushing too hard, and pushing harder is what
+    // breaks a student's upload. Back off well past the pace, not just past the
+    // last attempt.
+    await new Promise((res) => setTimeout(res, 8000 * (i + 1)));
   }
   return null;
 }
+
+let htmlReplies = 0;
+const pace = () => new Promise((res) => setTimeout(res, PACE_MS));
 
 // ── the two sides ───────────────────────────────────────────────────────────
 const rows = await sql(`
@@ -159,11 +185,11 @@ if (rows.length === 0) {
 log(`→ ${rows.length} Drive-backed rows across ${new Set(rows.map((r) => r.document_id)).size} หนังสือ\n`);
 
 // ── direction 1: DB → Drive ─────────────────────────────────────────────────
-log('── every row: is its file still there? ───────────────────────────────');
+if (!FOLDERS_ONLY) log('── every row: is its file still there? ───────────────────────────────');
 const byId = new Map(rows.map((r) => [r.drive_file_id, r]));
 const stats = new Map();
 const ids = [...byId.keys()];
-for (let i = 0; i < ids.length; i += STAT_BATCH) {
+for (let i = 0; !FOLDERS_ONLY && i < ids.length; i += STAT_BATCH) {
   const batch = ids.slice(i, i + STAT_BATCH);
   const res = await gas({ action: 'statProjectFiles', fileIds: batch }, { timeoutMs: 90000 });
   if (!res || !res.success) {
@@ -183,7 +209,7 @@ const sizeDrift = [...stats.values()].filter((f) => {
 });
 
 // ── direction 2: Drive → DB (the 0181 question) ─────────────────────────────
-log('\n── every หนังสือ folder: is there a file we have no row for? ──────────');
+if (!ROWS_ONLY) log('\n── every หนังสือ folder: is there a file we have no row for? ──────────');
 const docs = new Map();
 for (const r of rows) {
   if (!docs.has(r.document_id)) docs.set(r.document_id, { rows: [], ...r });
@@ -193,7 +219,7 @@ const orphans = [];
 const notFound = [];
 const unreachable = [];
 let listed = 0;
-for (const [docId, d] of docs) {
+for (const [docId, d] of (ROWS_ONLY ? [] : docs)) {
   const path = buildDocFolderPath(d.project_id, d.project_name, docId, d.doc_title);
   const known = d.rows.find((r) => stats.get(r.drive_file_id)?.resolves)?.drive_file_id;
   if (!known) { unreachable.push({ docId, path, why: 'no resolvable row to unlock the folder' }); continue; }
@@ -210,11 +236,10 @@ for (const [docId, d] of docs) {
     }
   }
   if (listed % 10 === 0) log(`   ${listed}/${docs.size} folders listed…`);
-  await new Promise((res2) => setTimeout(res2, 700));
 }
 
 // CONTROL 1b — listing nothing is a failure, never "no orphans".
-if (listed === 0) {
+if (!ROWS_ONLY && listed === 0) {
   console.error(`\n✗ CONTROL FAILED: 0 of ${docs.size} folders could be listed.`);
   console.error('  "No orphans found" and "the listing never worked" must not look the same.');
   process.exit(1);
@@ -227,6 +252,7 @@ if (JSON_OUT) {
 } else {
   console.log(`\n── examined ─────────────────────────────────────────────────────────`);
   console.log(`   ${stats.size}/${ids.length} rows stat'd · ${listed}/${docs.size} folders listed`);
+  console.log(`   ${htmlReplies} HTML reply/replies from GAS (rate pressure — see PACE_MS)`);
   const show = (name, arr, fmt) => {
     console.log(`\n   ${arr.length ? '⚠' : '✓'} ${name}: ${arr.length}`);
     for (const x of arr.slice(0, 20)) console.log(`      ${fmt(x)}`);

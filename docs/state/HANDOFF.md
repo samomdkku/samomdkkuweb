@@ -614,6 +614,29 @@ minutes across four retries, which is how a sweep becomes a tool nobody runs.
 **The original design note is kept below, because its reasoning is what the
 implementation was checked against.**
 
+⚠️ **RUNNING IT HARD DEGRADES THE ENDPOINT REAL UPLOADS USE — measured, and it
+is the most important operational fact about this tool.** Same probe throughout
+(`uploadTeamFile` with no argument, so a fast validation error):
+
+| condition | Google's HTML page instead of JSON |
+|---|---|
+| sweep running flat out | **2 of 3** |
+| sweep stopped, 10 s apart | 1 of 4 |
+| sweep stopped, 3 s apart | **1 of 5** (i.e. 4/5 healthy) |
+
+A browser `User-Agent` + `Origin` made **no** difference (4/5 either way), so it
+tracks **request RATE, not client identity**, and it recovered as soon as the
+sweep stopped. Normal use — a student making one upload — is unaffected. The tool
+now paces itself (`PACE_MS`), backs off HARD on an HTML reply rather than
+retrying promptly, reports how many it got, and takes `--rows-only` /
+`--folders-only`. **Run it when nobody is submitting, and prefer `--rows-only`.**
+
+📌 **A SMALL FIX THIS EXPOSED, NOT DONE, NOT MINE TO DECIDE.** `src/js/uploads.js`
+does `await res.json()` with no retry and no content-type check, so if a real
+upload draws that HTML page the student gets a JSON parse error on work they just
+did — the same class of loss as 0181, from the other end. One retry on a
+non-JSON reply would cover it. Offered, not built.
+
 ### 13a-original. The design as written on 2026-09-09
 
 **This is the gap that let 0181 hide for six days, and it is still open.** The
