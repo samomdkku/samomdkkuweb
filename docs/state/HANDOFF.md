@@ -588,7 +588,8 @@ over all 123 Drive-backed rows in 63 หนังสือ.
 * `listProjectFolderFiles` — Drive→database, with `createdAt`, so a future
   repair can date an orphan when the work really happened instead of falling
   back to the approval time as the 2026-09-09 repair had to.
-* `tools/proj0183-drive-orphans.mjs` — both directions, **writes nothing, ever**
+* `tools/proj0183-drive-orphans.mjs` — CAN do both directions (only the
+  database→Drive one has actually been RUN — see below), **writes nothing, ever**
   (no `--apply`): which of two files is the real signature is not a script's
   judgement. Controls: zero rows or zero folders examined is a FAILURE, not
   "0 orphans"; `folderFound:false` for a folder we hold rows for is a FINDING;
@@ -833,6 +834,31 @@ is not its identity; `pg_depend` gives the identity.
 
 **Status: HYPOTHESIS — every PIECE is measured, the WHOLE has never run.**
 
+⛔ **A PENDING RELEASE NOTE ALREADY TELLS STAFF THIS BUTTON WORKS — and `npm run
+release` will publish it.** Found 2026-09-10 while auditing the handoff.
+`src/data/changelog.js` PENDING carries, from the 0181 session:
+
+> *หนังสือโครงการ: ปุ่ม "ลงนาม" ที่ให้อาจารย์เซ็นบนหน้าจอได้เลย **ใช้งานได้จริงแล้ว***
+
+That says "it really works now", and this section says nobody has ever completed
+the flow on any environment. **Both cannot be true.** The note is defensible —
+every piece was measured and the thing that broke it was genuinely fixed — but it
+is a claim to STAFF about a path no human has finished, and if it is wrong the
+people who read it are the ones who find out.
+
+**This is the owner's call, not a silent edit** (it is user-facing Thai copy from
+another session's fix, and the owner has decided to leave e-sign untested for
+now). Two ways to resolve it, whichever the owner prefers:
+
+* **Test it before releasing** — one signature on one of the two pending
+  requests, and the note becomes simply true; or
+* **Soften the note** to say the error was fixed rather than that the button is
+  proven — e.g. *"…แก้ข้อความผิดพลาดที่ทำให้กดไม่ได้แล้ว"* — and keep the
+  stronger wording for after someone has actually signed with it.
+
+⚠️ **Do not just delete the note.** The underlying fix is real and a person WAS
+affected by the bug; the problem is only the strength of the claim.
+
 The in-app **ลงนาม** button was dead from the day it shipped (nginx served
 pdf.js's `.mjs` worker as `application/octet-stream`;
 `docs/mistakes/deploy-hosting.md`). It was fixed and deployed 2026-09-09.
@@ -861,7 +887,8 @@ so the next session does not re-raise it as though it were an oversight.
 TWO real หนังสือ are sitting unsigned with อ.ประกาศิต, requested 2026-09-07.**
 `SGN-UE6GR` (หนังสือโครงการ First aid training 2026) and `SGN-7WEMQ`
 (หนังสือ โครงการ Music Therapy) — the only two `pending` sign requests in the
-system. Either is the live test case. Also measured: **21 accepted requests, 21
+system. ⚠️ **This decays — do not quote it, ask:**
+`select id, status, requested_at from public.project_sign_requests where status = 'pending';` Either is the live test case. Also measured: **21 accepted requests, 21
 signed files, ZERO accepted-with-no-file**, so the 0181 repair holds and no new
 orphan has appeared; and **no signed file has been written since 2026-09-09**
 (newest is 2026-09-03, the repair itself), which is what keeps this section a

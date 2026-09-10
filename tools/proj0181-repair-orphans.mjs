@@ -31,12 +31,25 @@
 // history that hides that a repair happened — 0166 is this repo's lesson that a
 // silent rewrite costs more than it saves.
 //
-// WHERE THE FILE IDS COME FROM. The owner read them out of Drive by hand: this
-// system has NO way to ask "what is in Drive that we have no row for?", which is
-// precisely why the fault hid for six days. They are pinned in ORPHANS below
-// rather than discovered, and every one is re-verified against Drive at run time
-// — a pinned id that rots is this repo's `proj0092` trap, so the run FAILS
-// rather than proceeding if a check does not hold.
+// WHERE THE FILE IDS COME FROM. The owner read them out of Drive by hand,
+// because in September 2026 this system had NO way to ask "what is in Drive that
+// we have no row for?" — which is precisely why the fault hid for six days. They
+// are pinned in ORPHANS below rather than discovered, and every one is
+// re-verified against Drive at run time — a pinned id that rots is this repo's
+// `proj0092` trap, so the run FAILS rather than proceeding if a check does not
+// hold.
+//
+// ✅ **THAT IS NO LONGER TRUE, AND A FUTURE REPAIR SHOULD NOT ASK THE OWNER FOR
+// LINKS.** `tools/proj0183-drive-orphans.mjs` answers the question now (Apps
+// Script v12 added the read-only handlers it needs), so the next repair of this
+// shape should FIND its orphans with that sweep and paste the ids it reports
+// here. Two things it gives you that the 2026-09-09 repair did not have: the
+// file's real `createdAt`, so the row can be dated when the work actually
+// happened instead of falling back to the approval instant, and `trashed`, so a
+// binned file is not mistaken for a healthy one. This paragraph is kept because
+// the PINNING and its re-verification are still the right shape — discovery and
+// trust are different problems, and a sweep telling you an id exists is not a
+// reason to skip the five checks below.
 //
 // SAFETY
 //   · DRY RUN by default. `--apply` is the only thing that writes.
