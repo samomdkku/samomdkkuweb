@@ -372,6 +372,35 @@ looking like a working permission check. Scoped grants were invisible to four
 readers once already; this is the fifth, still unfixed, deliberately recorded
 rather than half-fixed.
 
+## A schema move carries the GRANTS and drops the ROW SECURITY
+
+**After any schema merge, rename or restore, ask `pg_class.relrowsecurity` for
+every table.** Do not assume the policies came with it, and do not read the
+app's continued working as evidence.
+
+GRANTs, defaults and column types survive a move because they are applied
+wholesale; **row security, policies and triggers are enumerated table by table,
+so a move preserves exactly the ones somebody retyped.** The passport merge
+retyped `enable row level security` as a list of ten tables in `0056` and the
+schema had eleven, leaving `passport.continents` writable by the public anon
+key for three months. Nothing revealed it, because nothing reads that table —
+**the table nothing reads is the one whose missing protection nothing can
+reveal.** Fixed by 0182; the write-up is `docs/mistakes/authz-rls.md`.
+
+The guard is `tools/passport0182-continents-lockdown.sql` §50, which keeps the
+query that found it as an assertion: **assert the PROPERTY ("no table in this
+schema lacks RLS"), never the list of tables you happen to have.** A list
+retyped from the code it guards passes itself.
+
+⚠️ **`passport.departments` and `passport.sub_departments` are RLS-on with ZERO
+policies ON PURPOSE.** They are reached only through the SECURITY DEFINER RPC
+`list_passport_departments`, so deny-all breaks nothing. They sit beside
+`continents` in the same reference-table block, so **"make the passport
+reference tables consistent" is the edit that would silently widen two
+definer-only tables to world-readable.** Consistency is the argument that
+widens; the proof asserts they stay at zero rows AND that they are not empty,
+so it cannot pass by vacuum.
+
 ## Where the reasoning is — `docs/state-archive/`, newest first
 
 Annotated, because the annotation is the useful part. This list lived in

@@ -36,7 +36,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(29)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(30)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -69,6 +69,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - "someone could just book 16.40-20.00 kick me out"
 - A column guard keyed on "is a professor" locked out everyone who is ALSO a professor
 - 0181 — a read rule that LOOKS THE ROW UP cannot see the row being created, and a public-site flag had been covering for…
+- 0182 — a schema move carried the GRANTS and dropped the ROW SECURITY, and the table it happened to was the one nothing…
 
 ## `authz-grants.md` — The permission / seat / scope channel *(19)*
 
@@ -402,4 +403,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_340 entries across 10 files._
+_341 entries across 10 files._

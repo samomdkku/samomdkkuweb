@@ -79,7 +79,7 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- **Migrations through 0181. 31 of 33 LIVE PROOFS GREEN** (2026-09-09).
+- **Migrations through 0182. 32 of 34 LIVE PROOFS GREEN** (2026-09-10). 0182 gave `passport.continents` row security; **HANDOFF §11 is CLOSED**.
   ⚠️ Red: `claude0154-quota-guard`, `claude0155-free-now` — **neither a code
   fault**. Both must BOOK a slot; the live 5-hour window is already claimed so
   `claude_booking_guard` refuses — the "SCENARIO needs live geometry that RAN
@@ -156,9 +156,8 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    formed without one.** Status, tally and how to read a log live in ONE place,
    the CURRENT DEPLOY block above; do not restate them here.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE.** Passport is `passport/`; one pull, one
-   `npm ci`, one build. Old repo ARCHIVED. ⛔ **The `samomdkkupassport` Cloudflare project stays EXACTLY as it is — never delete it, and do not replace it either** (82% of printed QR posters depend on it; reasoning in `docs/PASSPORT-MONOREPO.md`). The
-   two-preview-URL steps in `docs/state/phuriphatma.md` are dead: a session is
-   per-ORIGIN, so two Pages projects = two logins whatever the dashboard says.
+   `npm ci`, one build. Old repo ARCHIVED. ⛔ **Never delete OR replace the
+   `samomdkkupassport` Cloudflare project** — `docs/INVARIANTS.md` is its home.
 ### B. OWNER ONLY
 
 ⛔ **One home: `docs/state/HANDOFF.md` §1 and §3.** This section used to restate

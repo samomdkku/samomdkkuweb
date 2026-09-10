@@ -666,45 +666,52 @@ why under-showing relative to RLS is the safe direction.
   not. If this is ever changed, the requirement is a visible non-fatal signal,
   not a throw.
 
-## 11. One passport RLS gap — found 2026-09-06, details deliberately withheld
+## 11. ✅ CLOSED 2026-09-10 — the last passport table has row security
 
-**Status: VERIFIED 2026-09-06 — how:** `pg_policies` and `pg_class.relrowsecurity`
-read from the LIVE database via `tools/db-query.mjs`, plus `has_table_privilege`
-for the `anon` role.
+**Status: VERIFIED 2026-09-10 — how:** `tools/passport0182-continents-lockdown.sql`
+run against PRODUCTION **before** the migration, where it failed 6 assertions
+with update/insert/delete each answering `allow` — the live bug read by the
+assertions that exist to catch it — then applied to samo-dev, re-run 16/16, then
+applied to production and re-run **16/16**. Kept because the REASONING and the
+two things deliberately NOT done are the reusable part; nothing is owed.
 
-⛔ **This repository is PUBLIC, so the mechanism is NOT written down** — that is
-the standing rule in `.claude/rules/security.md`, and it has been broken here
-before. One line re-derives it:
+The gap was `passport.continents` — 4 rows of theming, no personal data — which
+kept its GRANTs across the monorepo merge and lost the row security its old
+project's `0011_passport_rls_lockdown.sql` had given it. `anon` could rewrite or
+delete all four rows. Severity was judged LOW and it held up: nothing reads the
+table (`grep -rni continent passport/ src/js` → one CSS comment, no query) and
+`activities.continent_id` is non-null on 0 rows.
 
-```sql
-select t.tablename from pg_tables t join pg_class c on c.relname = t.tablename
- where t.schemaname = 'passport' and not c.relrowsecurity;
-```
+**Fixed by `0182_the_last_passport_table_without_row_security.sql`** — RLS on
+plus one `continents_read` policy `for select using (true)`, the exact shape its
+ten siblings carry. The absence of a write policy is what closes it; the GRANTs
+were deliberately left alone. Write-up: `docs/mistakes/authz-rls.md`. The rule it
+produced is in `docs/INVARIANTS.md` ("A schema move carries the GRANTS and drops
+the ROW SECURITY") — **that pointer used to be a claim this file made and the
+file did not contain; it does now.**
 
-**What it is, in the safe amount of detail:** one small passport lookup table —
-**4 rows, no personal data, theming only** — kept the grants it had before the
-monorepo merge but lost the row-level protection its old project's
-`0011_passport_rls_lockdown.sql` had given it. Everything else in the schema is
-covered (11 of 12 tables).
+**Two things were deliberately NOT done. Read these before "tidying up":**
 
-**Severity, judged honestly: LOW.** No student data is reachable through it and
-nothing is exposed that was not already public. The worst case is defacement of
-a colour/name that shows in the UI, visible immediately and reverted by one
-`update`. **It is not urgent and it should not be rushed at the end of a
-session** — which is why it was recorded rather than patched on 2026-09-06.
+1. ⛔ **`departments` / `sub_departments` stay RLS-on with ZERO policies.** That
+   is on purpose (0056 says so): they are reached only through the definer RPC
+   `list_passport_departments`. Giving all three reference tables a read policy
+   for consistency would widen two definer-only tables to world-readable. The
+   proof asserts they stay at 0 rows **and** that they are not empty.
+2. **`anon` holds `TRUNCATE` on nearly every table in `public` and `passport`**
+   (the Supabase schema default), and TRUNCATE is **not** subject to RLS, so
+   0182 does not restrain it. It is *unreachable* rather than restrained: both
+   `anon` and `authenticated` are `NOLOGIN` (read from `pg_roles`), so nothing
+   can connect as them, and PostgREST never emits a TRUNCATE. **That containment
+   is asserted by the proof**, so making either a login role turns it red.
+   A schema-wide grant sweep is its own piece of work with its own blast radius
+   and is NOT owed — recorded so the next reader does not rediscover it as a
+   panic.
 
-**The fix, when someone picks it up:** a numbered migration enabling RLS with a
-read-only policy, mirroring the `*_read` policies the sibling tables already
-carry — then `skills/ship-a-migration.md`'s ordering. ⚠️ **Check nothing writes
-to it first**; a grep of `passport/js` and `src/js` on 2026-09-06 found only
-reads and a foreign key.
-
-**The wider lesson, already paid for:** the old project had this locked and the
-merge silently dropped it. **A schema move does not carry RLS with it** — after
-any merge, ask `pg_class.relrowsecurity` for every table rather than assuming the
-policies came along.
-
----
+**Also learned while measuring, so nobody re-investigates it:** the one-line
+query in the old version of this section could only see tables with RLS *off*.
+Running it with the policy count beside it is what surfaced the two deliberate
+deny-all siblings, which is the thing most likely to be broken by a well-meaning
+edit. `select relrowsecurity, (policy count)` — ask for both.
 
 ## Where to look for anything else
 

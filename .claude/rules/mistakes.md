@@ -103,7 +103,14 @@ it is the part that generalises to code not yet written.
    an export and its import, a guard and its call sites. Write the differential
    test in the same commit — "keep in step" in a comment is not a mechanism.
    Also a hand-written list beside a shared constant (main.js's admin links vs
-   `ADMIN_FEATURES`, 0113). Also TWO WRITABLE TABLES holding one fact: `students`
+   `ADMIN_FEATURES`, 0113). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
+   OBJECT AND DROPS WHAT IS WRITTEN PER OBJECT** — GRANTs came across wholesale,
+   `enable row level security` was RETYPED as a list of ten and the schema had
+   eleven, so `passport.continents` sat anon-writable (0182). The table NOTHING
+   READS is the one whose missing protection nothing can reveal. After any merge
+   or restore ask `pg_class.relrowsecurity` per table, and assert the PROPERTY
+   ("no table lacks RLS"), never the list. ⚠️ Its neighbours were deny-all ON
+   PURPOSE: "make them consistent" is the argument that widens. Also TWO WRITABLE TABLES holding one fact: `students`
    and `team_members` each carried a person's identity, each editor writing its
    own copy — fixed by `public.people` (0132–0134).
    **A bidirectional mirror needs `is distinct from` on BOTH sides — that guard
@@ -372,7 +379,7 @@ shaving the classes, which are the only part that generalises.
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
-- `authz-rls.md` *(29)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
+- `authz-rls.md` *(30)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(19)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(88)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.

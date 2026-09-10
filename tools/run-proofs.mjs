@@ -62,6 +62,7 @@ const PROOFS = [
   ['dept0177-page-scope.sql', 'a ฝ่าย edits its OWN page and nobody else\'s'],
   ['dept0179-kinds.sql', 'each ฝ่าย content kind carries the body it renders'],
   ['proj0181-prof-upload.sql', 'an อาจารย์ saves a signed file on a หนังสือ that is NOT published'],
+  ['passport0182-continents-lockdown.sql', 'the anon key reads the passport theming and cannot change it'],
   ['pass-hardening.mjs', 'passport RLS: five real principals, 0011 applied in a rolled-back txn'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],

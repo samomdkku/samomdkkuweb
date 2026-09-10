@@ -1,0 +1,62 @@
+-- 0182 — the one passport table the monorepo merge left unprotected
+--
+-- FOUND (2026-09-06, recorded in docs/state/HANDOFF.md §11 and deliberately
+-- NOT patched that day because it was the end of a session):
+--   select t.tablename from pg_tables t join pg_class c on c.relname = t.tablename
+--    where t.schemaname = 'passport' and not c.relrowsecurity;
+--   → passport.continents
+--
+-- WHAT WAS HAPPENING. `passport.continents` is a 4-row theming table (name +
+-- colour_hex: Novatopia, Empathia, Stellaris, Aerion). In the OLD standalone
+-- passport project it was locked down by that project's
+-- 0011_passport_rls_lockdown.sql. When the schema was moved into this project
+-- (0056), the reference-table block created it and the RLS block below it
+-- enabled row security on TEN tables — every one except this table. It kept the
+-- grants it had (anon and authenticated hold INSERT/UPDATE/DELETE on it, which
+-- is the Supabase default for the schema) and lost the protection, so a holder
+-- of the public anon key could rewrite or delete all four rows.
+--
+-- SEVERITY, judged rather than assumed: LOW. Nothing reads this table.
+-- `grep -rni continent passport/ src/js` finds one CSS comment and no query,
+-- and `select count(*) from passport.activities where continent_id is not null`
+-- is 0 on production — so no activity even points at a continent today. The
+-- worst case was defacement of a colour nobody currently renders. It is fixed
+-- because an unprotected table does not stay harmless; the next feature that
+-- joins it inherits the hole.
+--
+-- THE SHAPE, and why this one.
+--   * RLS on + ONE read policy `using (true)`, named `continents_read`. That is
+--     character-for-character the shape its ten siblings carry
+--     (`samo_years_read`, `seasons_read`, … all SELECT / qual `true`, read from
+--     pg_policies on the live database, not from 0056). Two implementations of
+--     one rule drift; this repo has paid for that repeatedly, so the fix is the
+--     sibling pattern and not a better idea of my own.
+--   * READ-only, with NO insert/update/delete policy — which is what actually
+--     closes the hole. RLS with no write policy denies every write regardless of
+--     the GRANT, so the grants are left alone rather than revoked: revoking them
+--     would make this table the one table in the schema whose privileges differ
+--     from all the others, for no additional protection.
+--   * `departments` and `sub_departments` are NOT touched. They have RLS on and
+--     zero policies ON PURPOSE — 0056 says so, and they are reached through the
+--     SECURITY DEFINER RPC `list_passport_departments`, which is why that denies
+--     everyone without breaking anything. Giving them a read policy here would
+--     silently widen them from "definer-only" to "world-readable".
+--
+-- WHAT IT DOES NOT FIX, so nobody reads more into it than is there: `anon` also
+-- holds TRUNCATE on this table and on nearly every table in `public` and
+-- `passport` (the Supabase schema default). TRUNCATE is NOT subject to RLS, so
+-- this migration does not restrain it. It is unreachable rather than restrained:
+-- `anon` and `authenticated` are both NOLOGIN (pg_roles, read live), so nothing
+-- can connect as them directly, and PostgREST never emits a TRUNCATE. Recorded
+-- in HANDOFF rather than migrated, because a schema-wide grant sweep is its own
+-- piece of work with its own blast radius.
+--
+-- THE WIDER LESSON, already paid for once: a schema move does not carry RLS with
+-- it. After any merge, ask `pg_class.relrowsecurity` for every table instead of
+-- assuming the policies came along. docs/INVARIANTS.md carries this.
+
+alter table passport.continents enable row level security;
+
+drop policy if exists continents_read on passport.continents;
+create policy continents_read on passport.continents
+  for select using (true);

@@ -553,3 +553,12 @@ one commit away.
 - ⛔ **Giving passport's main client its own `storageKey`** "for isolation" —
   that deletes single sign-on, the entire point of the merge.
 - ⛔ **`emptyOutDir: true` on the passport build** — wipes the main app's `dist/`.
+
+## Two Pages projects would mean two logins — a preview trick that does not exist
+
+⛔ **Any plan built on "one Cloudflare Pages project for the portal and another
+for the passport, so a preview gets both" is dead.** A Supabase session is
+per-ORIGIN, so two Pages projects are two separate logins no matter what the
+dashboard offers. Moved here from `STATE.md` on 2026-09-10; the steps it
+invalidates are in `docs/state/phuriphatma.md`, which is one person's notes and
+is never rewritten by others — so this correction lives here instead.

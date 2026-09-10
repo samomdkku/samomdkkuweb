@@ -1288,3 +1288,84 @@ as long as its condition happens to hold: **a proof of a grant must drop the
 other policies and re-run, or it is only proving that SOMETHING let the write
 through.** The tell that you are exposed is a write that works for most rows and
 fails for the ones with an unrelated flag turned off.
+
+## 0182 — a schema move carried the GRANTS and dropped the ROW SECURITY, and the table it happened to was the one nothing reads
+
+**Symptom (as found, 2026-09-06).** Nobody reported this; a sweep did. One line
+run against the live database during the passport monorepo work came back with a
+table name in it:
+
+```sql
+select t.tablename from pg_tables t join pg_class c on c.relname = t.tablename
+ where t.schemaname = 'passport' and not c.relrowsecurity;
+-- → continents
+```
+
+`passport.continents` — 4 rows of theming (name + `color_hex`) — was the only
+table in a 12-table schema with row security switched off, and `anon` and
+`authenticated` held `INSERT`/`UPDATE`/`DELETE` on it. A holder of the public
+anon key, which is in the built bundle by design, could rewrite or delete all
+four rows.
+
+**Cause.** The old standalone passport project had locked this table down in its
+own `0011_passport_rls_lockdown.sql`. When the schema was moved into this
+project, `0056_passport_schema.sql` created the reference tables in one block
+and then enabled row security in another — on **ten** tables, every one except
+`continents`. The GRANTs came across because they are the Supabase schema
+default applied to everything; the protection did not, because it is written out
+table by table. Nothing failed, nothing looked wrong, and the app kept working:
+`grep -rni continent passport/ src/js` finds one CSS comment and no query, and
+`activities.continent_id` is non-null on **0** rows. **The table nothing reads is
+exactly the table whose missing protection nothing can reveal.**
+
+**Fix.** `0182_the_last_passport_table_without_row_security.sql`: `enable row
+level security` plus one `continents_read` policy `for select using (true)` —
+character-for-character the shape its ten siblings carry, read from
+`pg_policies` on the live database rather than from 0056. **No write policy is
+what closes the hole**: RLS with no write policy refuses every write regardless
+of the GRANT, so the grants were left alone rather than revoked — revoking them
+would make this one table's privileges differ from the other eleven for no
+additional protection, which is how the next drift starts.
+
+Two things deliberately NOT done, both recorded in the migration header so the
+next reader does not mistake the fix for more than it is:
+
+- **`departments` / `sub_departments` were not touched.** They have RLS on and
+  **zero** policies on purpose — 0056 says so, and they are reached through the
+  SECURITY DEFINER RPC `list_passport_departments`, which is why deny-all breaks
+  nothing. They sit in the same reference-table block as `continents`, so the
+  tempting tidy-up — "give the three passport reference tables a read policy" —
+  would silently widen two definer-only tables to world-readable. The proof
+  asserts they stay at 0, **and** that they are not empty, so the assertion
+  cannot pass by vacuum.
+- **The TRUNCATE grant.** `anon` holds `TRUNCATE` on nearly every table in both
+  schemas (again the Supabase default), and **TRUNCATE is not subject to RLS**,
+  so 0182 does not restrain it. It is *unreachable* rather than restrained:
+  `anon` and `authenticated` are both `NOLOGIN` (`pg_roles`, read live), so
+  nothing can connect as them directly, and PostgREST never emits a TRUNCATE.
+  That containment is a property, not a note, so the proof **asserts** it —
+  making either role a login role turns the proof red.
+
+**Where it lives now.** `tools/passport0182-continents-lockdown.sql`, registered
+in `run-proofs.mjs`. It has both halves: anon is refused on update/insert/delete
+(`deny-rls` / `deny-check`), and the same anon principal still reads all four
+rows and a specific colour — because "anon cannot write" is equally satisfied by
+a table nobody can touch at all, and `activities.continent_id` is a live foreign
+key, so a future join must be *denied nothing*. **Its §50 keeps the query that
+found the bug as an assertion**, so the next table that lands without row
+security goes red naming itself instead of waiting for someone to run the
+one-liner by hand again. It was run against production BEFORE the migration and
+failed 6 assertions with 10/11/12 answering `allow` — the live bug, read by the
+assertions that exist to catch it — then applied to dev, then production, 16/16.
+
+**The general rule.** *A schema move carries what is attached to every object and
+drops what is written per object.* GRANTs, defaults and column types survive
+because they are applied wholesale; **row security, policies and triggers are
+enumerated table by table, so a move preserves exactly the ones somebody
+retyped.** After any schema merge, rename or restore, ask
+`pg_class.relrowsecurity` for every table and diff the policy list against the
+source project — do not assume the policies came along, and do not take the
+app's continued working as evidence, because the tables it does not read are the
+ones that will not tell you. And when a table turns out to be unprotected, ask
+whether the *adjacent* tables are unprotected too or deliberately deny-all
+before making them consistent: consistency is the argument that widens things.
