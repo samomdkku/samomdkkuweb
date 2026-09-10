@@ -614,6 +614,26 @@ minutes across four retries, which is how a sweep becomes a tool nobody runs.
 **The original design note is kept below, because its reasoning is what the
 implementation was checked against.**
 
+⏳ **OWED: the first FULL run has not completed.** The handlers are deployed and
+each was probed live in BOTH directions (a real `drive_file_id` →
+`resolves:true` with metadata; a bogus id → `resolves:false, "not found"`; the
+gate refuses without `knownFileId`), and the sweep's own database side is
+verified — 123 rows across 63 หนังสือ, and its first run stat'd all 123 in 7
+batches. But **no run has yet printed the verdict**, because by then I had
+degraded the shared `/exec` endpoint (see the table below) and stopping was the
+right call — a student's upload matters more than my report finishing today.
+
+**How to finish it**, when nobody is submitting:
+
+```bash
+node tools/proj0183-drive-orphans.mjs --rows-only     # cheap: 7 paced calls
+node tools/proj0183-drive-orphans.mjs                 # both, ~63 more calls
+```
+
+⚠️ **Do not read a killed run as a clean result.** The tool exits non-zero on any
+finding AND on any control failure, so only a printed verdict counts — and if
+`0 of 63 folders` could be listed it FAILS rather than reporting "no orphans".
+
 ⚠️ **RUNNING IT HARD DEGRADES THE ENDPOINT REAL UPLOADS USE — measured, and it
 is the most important operational fact about this tool.** Same probe throughout
 (`uploadTeamFile` with no argument, so a fast validation error):
