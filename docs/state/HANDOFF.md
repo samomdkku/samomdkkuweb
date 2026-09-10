@@ -562,7 +562,59 @@ was simply false.
 **Status: OWED — asked for explicitly at the end of the 0181 session, after the
 repair had shipped. Nothing here is begun; all three are greenfield.**
 
-### 13a. Orphan detection — "what is in Drive that we have no row for?"
+### 13a. ✅ BUILT AND DEPLOYED 2026-09-10 — orphan detection exists
+
+**Status: VERIFIED 2026-09-10** — how: two read-only handlers deployed to the
+prod Apps Script project as **version 12** (`npm run deploy:gas`, `/exec`
+unchanged), each probed live in both directions — a real `drive_file_id`
+returns `resolves:true` with metadata, a bogus id returns
+`resolves:false, "not found"`, and the enumeration gate refuses without
+`knownFileId`. `tools/proj0183-drive-orphans.mjs` then ran against production
+over all 123 Drive-backed rows in 63 หนังสือ.
+
+**What exists now**
+
+* `statProjectFiles` — database→Drive. Metadata for ids we already hold,
+  including **`trashed`**, which is the state most likely to be real and which a
+  folder listing cannot see (Drive omits trashed files from `getFiles()`, and a
+  trashed file still serves publicly). Safe on an unauthenticated endpoint
+  because it is strictly LESS disclosure than `getProjectFileData`, which
+  already returns the BYTES of any `Projects/` file to anyone with its id.
+* `listProjectFolderFiles` — Drive→database, with `createdAt`, so a future
+  repair can date an orphan when the work really happened instead of falling
+  back to the approval time as the 2026-09-09 repair had to.
+* `tools/proj0183-drive-orphans.mjs` — both directions, **writes nothing, ever**
+  (no `--apply`): which of two files is the real signature is not a script's
+  judgement. Controls: zero rows or zero folders examined is a FAILURE, not
+  "0 orphans"; `folderFound:false` for a folder we hold rows for is a FINDING;
+  and unlistable folders are counted separately, so "no orphans" and "the
+  listing failed" cannot render the same.
+* `src/js/projects/drive-listing-readonly.test.js` — 26 assertions keeping the
+  reader read-only and the gate in place. All three failure modes were
+  reintroduced and watched to fail before being restored.
+
+⛔ **THE ENUMERATION GATE IS SECURITY, NOT ERGONOMICS — do not remove it.**
+`listProjectFolderFiles` requires a `knownFileId` that is really in that folder.
+That `/exec` URL is public, unauthenticated and shipped in the browser bundle,
+and this repo is public; a bare listing would turn a guessed
+`Projects/<PRJ-…>/<DOC-…>` path into every file id inside it, and
+`getProjectFileData` turns an id into a signed หนังสือ carrying student names
+and a professor's signature. Anyone who can already name a file in the folder
+could already read it, so the gate costs nothing real. **Its one cost:** the
+sweep cannot examine a folder we hold ZERO rows for. That is not the 0181 shape,
+where the folder held the unsigned original all along.
+
+⚠️ **Sized by measurement, not guess** (all in the tool's header): 20 ids →
+17.4 s, 100 ids → 83 s and Google's HTML error page, so `STAT_BATCH = 20`. The
+1-id reading of 28.3 s is a COLD START and briefly convinced me batch size did
+not matter — the opposite of the truth. And each call site now carries its own
+timeout: one shared 120 s ceiling made a single stuck folder listing cost 8.5
+minutes across four retries, which is how a sweep becomes a tool nobody runs.
+
+**The original design note is kept below, because its reasoning is what the
+implementation was checked against.**
+
+### 13a-original. The design as written on 2026-09-09
 
 **This is the gap that let 0181 hide for six days, and it is still open.** The
 signed PDFs existed in Drive the whole time; no screen, query or job in this
@@ -610,7 +662,26 @@ answer; that is the argument for spending the redeploy, not a reason to skip it.
 Adding the handler requires `npm run deploy:gas` (`skills/deploy-gas.md`) — ASK
 FIRST, per CLAUDE.md.
 
-### 13b. Give Claude read access to Google Drive
+### 13b. Give Claude read access to Google Drive — MOSTLY ANSWERED by 13a
+
+⚠️ **Re-read this in the light of 13a (2026-09-10) before doing anything.** The
+stated motivation was *"so a future session can check Drive itself instead of
+asking the owner to paste links"* — and that is now true, with **no token, no
+OAuth and no new scope**: `statProjectFiles` and `listProjectFolderFiles` let a
+session ask Drive about any `Projects/` file it can already reach from the
+database. The 2026-09-09 repair needed the owner to paste three links; the same
+repair today would find them itself.
+
+What a real Drive token would ADD is the ability to look outside `Projects/`,
+and to enumerate a folder with no database foothold. Weigh that against the row
+in `.claude/rules/security.md`: re-authorising `clasp` for this account yields a
+token reaching the **entire Drive of the SAMO account, exam keys included**,
+because `prform.gs` uses `DriveApp` and Google has no folder-scoped Drive scope.
+The only real containment is still moving the app tree to a **Shared Drive with
+its own identity**. **So this is now a small gain for a large blast radius —
+recommend NOT doing it unless the Shared Drive move happens first.**
+
+**The original note:**
 
 Wanted so a future session can check Drive itself instead of asking the owner to
 paste links. **Read the security implications before designing this**: per

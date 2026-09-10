@@ -109,14 +109,27 @@ async function sql(query) {
   return JSON.parse(t);
 }
 
-/** POST to GAS, retrying past the HTML interstitial. Returns null if it never
- *  answered JSON — which is UNREACHABLE and must not be read as "empty". */
-async function gas(body, tries = 4) {
+/**
+ * POST to GAS, retrying past the HTML interstitial. Returns null if it never
+ * answered JSON — which is UNREACHABLE and must not be read as "empty".
+ *
+ * ⚠️ THE TIMEOUT IS PER CALL SITE, AND THE FIRST VERSION GOT IT WRONG. One
+ * 120 s timeout was used for everything, because a 20-file stat batch really
+ * does need ~17 s and wants headroom. But a SINGLE-folder listing takes about
+ * two seconds, so a stuck one sat for 120 s and then did it three more times:
+ *
+ *   4 attempts x 120 s + (3+6+9+12) s of backoff = 8.5 MINUTES for one folder,
+ *
+ * across 63 folders. Read-only and harmless, but it turns a five-minute sweep
+ * into something nobody will wait for — and a tool nobody runs guards nothing.
+ * So each call site passes its own ceiling, sized from the measurement above.
+ */
+async function gas(body, { tries = 4, timeoutMs = 30000 } = {}) {
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(GAS, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(body), signal: AbortSignal.timeout(120000),
+        body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
       });
       const t = await r.text();
       if (t.trim().startsWith('{')) return JSON.parse(t);
@@ -152,7 +165,7 @@ const stats = new Map();
 const ids = [...byId.keys()];
 for (let i = 0; i < ids.length; i += STAT_BATCH) {
   const batch = ids.slice(i, i + STAT_BATCH);
-  const res = await gas({ action: 'statProjectFiles', fileIds: batch });
+  const res = await gas({ action: 'statProjectFiles', fileIds: batch }, { timeoutMs: 90000 });
   if (!res || !res.success) {
     console.error(`✗ statProjectFiles failed for batch ${i / STAT_BATCH + 1}: ${res ? res.message : 'UNREACHABLE (HTML after retries)'}`);
     process.exit(1);
@@ -184,7 +197,7 @@ for (const [docId, d] of docs) {
   const path = buildDocFolderPath(d.project_id, d.project_name, docId, d.doc_title);
   const known = d.rows.find((r) => stats.get(r.drive_file_id)?.resolves)?.drive_file_id;
   if (!known) { unreachable.push({ docId, path, why: 'no resolvable row to unlock the folder' }); continue; }
-  const res = await gas({ action: 'listProjectFolderFiles', folderPath: path, knownFileId: known });
+  const res = await gas({ action: 'listProjectFolderFiles', folderPath: path, knownFileId: known }, { timeoutMs: 25000 });
   if (!res) { unreachable.push({ docId, path, why: 'UNREACHABLE (HTML after retries)' }); continue; }
   if (!res.success) { unreachable.push({ docId, path, why: res.message }); continue; }
   // CONTROL 2 — a folder we hold rows for that is not there is a FINDING.
