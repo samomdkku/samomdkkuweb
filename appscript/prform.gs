@@ -389,6 +389,8 @@ function doPost(e) {
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
     if (data.action === 'getProjectFolderInfo') return handleGetProjectFolderInfo(data);
     if (data.action === 'getProjectFileData')   return handleGetProjectFileData(data);
+    if (data.action === 'statProjectFiles')     return handleStatProjectFiles(data);
+    if (data.action === 'listProjectFolderFiles') return handleListProjectFolderFiles(data);
 
     if (data.action === 'notifyProjectEmail') {
       try { sendProjectEmail(data); }
@@ -895,6 +897,201 @@ function handleGetProjectFileData(data) {
 
 function fileLivesUnderProjects_(file) {
   return fileLivesUnderTop_(file, 'Projects');
+}
+
+// ============================================================
+// statProjectFiles — metadata for Drive files we ALREADY have ids for.
+//
+// WHY IT EXISTS. Nothing in this system could ask "is the file behind this row
+// still there?". Migration 0181 lost three signed หนังสือโครงการ to a refused
+// database row while the PDFs sat in Drive, and the fault hid for six days
+// because no screen, query or job could compare the two sides. This is the
+// database→Drive half of that comparison.
+//
+// WHY IT IS SAFE TO ADD TO AN UNAUTHENTICATED ENDPOINT: it is strictly LESS
+// disclosure than `getProjectFileData`, which already returns the full BYTES of
+// any file under `Projects/` to anyone holding its id. This returns only
+// metadata for the same allow-listed set, so it widens nothing.
+//
+// `trashed` IS THE POINT. `DriveApp.getFileById` succeeds on a trashed file and
+// lh3 still serves it (docs/mistakes/integrations.md — "a trashed Drive file is
+// still public"), so "deleted in Drive" and "gone" are different states and the
+// row-vs-file comparison has to be able to tell them apart. A folder listing
+// cannot: Drive omits trashed files from `getFiles()`, which is exactly why the
+// two halves of this sweep need two different calls.
+// ============================================================
+function handleStatProjectFiles(data) {
+  try {
+    var ids = data.fileIds;
+    if (!Array.isArray(ids) || !ids.length) {
+      return createResponse({ success: false, message: 'fileIds (array) is required' });
+    }
+    if (ids.length > 200) {
+      return createResponse({ success: false, message: 'at most 200 fileIds per call' });
+    }
+    var out = [];
+    for (var i = 0; i < ids.length; i++) {
+      var id = String(ids[i] || '').trim();
+      if (!id) continue;
+      var file = null;
+      try { file = DriveApp.getFileById(id); }
+      catch (e) { out.push({ fileId: id, resolves: false, reason: 'not found' }); continue; }
+      // The same allow-list as every other project handler. A file that has
+      // been MOVED out of Projects/ is reported as such rather than described,
+      // because "we cannot see it" and "it is not ours" are different answers.
+      if (!fileLivesUnderProjects_(file)) {
+        out.push({ fileId: id, resolves: false, reason: 'not inside Projects' });
+        continue;
+      }
+      out.push({
+        fileId:    id,
+        resolves:  true,
+        trashed:   file.isTrashed(),
+        fileName:  file.getName(),
+        mimeType:  file.getMimeType(),
+        sizeBytes: file.getSize(),
+        createdAt: file.getDateCreated().toISOString(),
+        url:       file.getUrl()
+      });
+    }
+    return createResponse({ success: true, files: out });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+// ============================================================
+// listProjectFolderFiles — what is in a หนังสือ's Drive folder.
+//
+// The Drive→database half: the question the owner asked on 2026-09-09, "what is
+// in Drive that we have no row for?". `createdAt` is the reason it must be a
+// listing and not a guess — a repair that re-attaches an orphan should date it
+// when the work really happened, and the absence of that field is why the
+// 2026-09-09 repair had to fall back to the approval time and say so.
+//
+// ⛔ IT REQUIRES `knownFileId`, AND THAT IS A SECURITY GATE, NOT A CONVENIENCE.
+// This `/exec` URL is public, unauthenticated and printed in the browser bundle,
+// and this repository is public. A bare folder listing would let anyone who
+// guessed a `Projects/<PRJ-…>/<DOC-…>` path harvest every file id inside it, and
+// `getProjectFileData` turns an id into the bytes of a real signed หนังสือ
+// carrying student names and a professor's signature. So the caller must first
+// name a file it ALREADY knows is in that folder: anyone able to do that could
+// already read that file, so the marginal disclosure is nil, while enumeration
+// with no prior knowledge is impossible.
+//
+// The sweep always has one — it derives the folder path from a `project_files`
+// row and passes that row's own `drive_file_id`. The case it therefore CANNOT
+// examine is a folder in which we hold zero rows; that is stated in the sweep
+// and is not the 0181 shape, where the folder held the unsigned original all
+// along.
+//
+// ⚠️ IT MUST NOT CREATE THE FOLDER. `walkProjectsPathByCode_` get-or-CREATES at
+// every segment, and also renames and moves; a listing call with a side effect
+// is a trap, so this walks with find-only helpers and answers
+// `folderFound: false` instead. That flag is also the sweep's control: "the
+// folder is empty" and "the folder is not there" must never look the same.
+// ============================================================
+function handleListProjectFolderFiles(data) {
+  try {
+    var path = String(data.folderPath || '').trim();
+    if (!path) return createResponse({ success: false, message: 'folderPath is required' });
+    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+    if (canonTopFolder_(firstSegment_(path)) !== 'Projects') {
+      return createResponse({ success: false, message: 'folderPath must be under Projects/' });
+    }
+    var known = String(data.knownFileId || '').trim();
+    if (!known) {
+      return createResponse({ success: false, message: 'knownFileId is required — see the header of this handler' });
+    }
+
+    var folder = findProjectsPathByCode_(path);
+    if (!folder) return createResponse({ success: true, folderFound: false, files: [] });
+
+    // The gate: the named file must really be in THIS folder. Checked by
+    // walking the folder's own children, so a file that merely exists
+    // elsewhere under Projects/ does not unlock an unrelated folder.
+    var isKnownHere = false;
+    var it = folder.getFiles();
+    var files = [];
+    while (it.hasNext()) {
+      var f = it.next();
+      if (f.getId() === known) isKnownHere = true;
+      files.push({
+        fileId:    f.getId(),
+        fileName:  f.getName(),
+        mimeType:  f.getMimeType(),
+        sizeBytes: f.getSize(),
+        createdAt: f.getDateCreated().toISOString(),
+        trashed:   false,   // getFiles() omits trashed files — use statProjectFiles
+        url:       f.getUrl()
+      });
+    }
+    if (!isKnownHere) {
+      return createResponse({ success: false, message: 'knownFileId is not in that folder' });
+    }
+    return createResponse({ success: true, folderFound: true, files: files });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+/**
+ * Find `Projects/<a>/<b>` WITHOUT creating, renaming or moving anything.
+ * Returns the Folder or null.
+ *
+ * The read-only twin of walkProjectsPathByCode_. It is a separate function
+ * rather than a flag on that one because this repo's most repeated bug is one
+ * rule with two implementations that drift — and here the two want genuinely
+ * different answers: the writer's job is to make the path exist, this one's job
+ * is to report whether it does. A flag would have made "create" the default for
+ * a reader.
+ */
+function findProjectsPathByCode_(path) {
+  var parts = String(path || '').split('/').filter(function (p) { return p && p.length; });
+  if (parts.length === 0 || canonTopFolder_(parts[0]) !== 'Projects') return null;
+  var parent = findTopFolder_('Projects');
+  if (!parent) return null;
+  for (var i = 1; i < parts.length; i++) {
+    parent = findProjectSubfolderByCode_(parent, parts[i], extractProjectCode_(parts[i]));
+    if (!parent) return null;
+  }
+  return parent;
+}
+
+/** Find a top-level app folder in any of the places getOrCreateTopFolder_
+ *  would look, in the same order, but never create/rename/move. */
+function findTopFolder_(name) {
+  var canonical = canonTopFolder_(name);
+  var candidates = [canonical].concat(legacyAliases_(canonical));
+  var roots = [getAppRootReadOnly_(), DriveApp.getRootFolder()];
+  for (var r = 0; r < roots.length; r++) {
+    if (!roots[r]) continue;
+    for (var c = 0; c < candidates.length; c++) {
+      var iter = roots[r].getFoldersByName(candidates[c]);
+      if (iter.hasNext()) return iter.next();
+    }
+  }
+  return null;
+}
+
+/** `My Drive / IT Database` if it exists — never created. */
+function getAppRootReadOnly_() {
+  var iter = DriveApp.getRootFolder().getFoldersByName(APP_ROOT_FOLDER_NAME);
+  return iter.hasNext() ? iter.next() : null;
+}
+
+/** Exact-name then by-code match, with no rename and no create. */
+function findProjectSubfolderByCode_(parent, desiredName, code) {
+  var exact = parent.getFoldersByName(desiredName);
+  if (exact.hasNext()) return exact.next();
+  if (code) {
+    var iter = parent.getFolders();
+    while (iter.hasNext()) {
+      var f = iter.next();
+      if (f.getName().indexOf(code) !== -1) return f;
+    }
+  }
+  return null;
 }
 
 // ============================================================

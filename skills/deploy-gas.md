@@ -18,8 +18,17 @@ Google Apps Script project. The `/exec` URL doesn't change between deployments.
 Only `prform.gs` remains. Deploy to the PROD "prform" GAS project (the legacy
 "prform_dev" / the whole "vssound" project are no longer used).
 
-Prod `/exec` URL (set as `GAS_API_URL` in `src/js/config.js`):
-- `https://script.google.com/macros/s/AKfycbw1iHE4ALCO6J7jPTFyiJx5B_9n7Dh7j67ksuWOQW40qkSikBGtVJR3aDPKWYOkm1BX/exec` (prform)
+⛔ **Do not copy a `/exec` URL out of this file — read it from
+`src/js/config.js`, which is the one home.** The URL that used to be written
+here (`AKfycbw1iHE4ALCO…`) was STALE and is not what the app calls; the live one
+is `AKfycbwomKii…`. `tools/deploy-gas.mjs` derives both the endpoint to verify
+and the deployment to roll from that file for exactly this reason, so a stale
+copy here could only ever mislead a human doing it by hand — and probing the
+wrong endpoint looks identical to a deploy that did nothing.
+
+```bash
+grep -A2 'export const GAS_API_URL' src/js/config.js
+```
 
 ## Procedure — automated (preferred)
 
@@ -315,3 +324,21 @@ atomically.
 Apps Script's clasp CLI works but adds another auth surface to maintain.
 For the size of edit traffic this project gets (~weekly tops), copy-paste
 is honest.
+
+## Two things that will make you think the deploy broke, and it did not
+
+⚠️ **The `/exec` endpoint intermittently answers with an HTML page instead of
+JSON** — Google's Thai *"ขออภัย ไม่สามารถเปิดไฟล์ได้ในเวลานี้"* / *"ไม่พบเพจ"*.
+On 2026-09-10, four rapid POSTs in a row got it and the fifth, seconds later,
+returned `HTTP 200` and correct JSON on the first try. It looks exactly like a
+dead deployment. **Never conclude the endpoint is down from one probe** — retry
+with a few seconds between calls, and note that `npm run deploy:gas -- --verify`
+is a SINGLE probe, so it can report a healthy endpoint as broken.
+
+⚠️ **`curl -L` cannot POST to `/exec`.** The redirect turns the POST into a GET
+and you get Google's HTML page, every time — which reads as the same fault as
+the intermittent one above. Use `fetch` from Node, or `curl` WITHOUT `-L`.
+
+⚠️ **The first call after a redeploy carries a cold start**: 28 s for a
+one-file request that takes under 2 s warm. Do not time anything, or set any
+timeout, from that call.

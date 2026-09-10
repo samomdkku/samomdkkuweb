@@ -60,15 +60,26 @@ backend hardcoded strings must agree** — otherwise staff can't log in.
 
 ## Step 2 — Point `config.js` at prod GAS
 
-`src/js/config.js` currently has the dev `/exec` URLs and the prod ones
-in a comment. Before merging:
+⛔ **THIS STEP NO LONGER APPLIES — and both URLs it printed were wrong by
+2026-09-10.** It described `config.js` as holding the DEV `/exec` URLs with prod
+in a comment, which stopped being true long ago: the file exports one live
+`GAS_API_URL` and nothing else. Checked 2026-09-10:
 
-```js
-export const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw1iHE4ALCO6J7jPTFyiJx5B_9n7Dh7j67ksuWOQW40qkSikBGtVJR3aDPKWYOkm1BX/exec';
-export const GAS_VITAL_SOUND_URL = 'https://script.google.com/macros/s/AKfycbzOd7Yp1AHkCL8gApEoZcfVQzP1m6mpQyCLlvNIYaJGTFnH7HqnuIdJTT9JBWw9c0uR/exec';
+* the `GAS_API_URL` written here (`AKfycbw1iHE4ALCO…`) is **not** the endpoint
+  the app calls (`AKfycbwomKii…`), and
+* `GAS_VITAL_SOUND_URL` does not exist — `vssound.gs` was deleted when Discord
+  moved to the `/notify` service, and the name has **0** references in `src/`.
+
+**There is nothing to switch, so do not switch anything.** Read the live value
+from its one home when you need it:
+
+```bash
+grep -A2 'export const GAS_API_URL' src/js/config.js
 ```
 
-(Move the dev URLs into the comment instead.)
+Kept rather than deleted because a checklist step that vanishes looks like one
+somebody forgot. A copied URL is a decaying fact with a second home, and this is
+the third place that bit: `skills/deploy-gas.md` printed the same stale URL.
 
 Better long-term: wire `import.meta.env.VITE_GAS_API_URL` with the
 production URLs configured per-environment in the Cloudflare Pages

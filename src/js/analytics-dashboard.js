@@ -282,6 +282,8 @@ const GAS_ACTIONS = [
   { name: 'deleteTeamFile',        label: 'ลบรูปทีม',                   counted: false },
   { name: 'getProjectFolderInfo',  label: 'อ่านข้อมูลโฟลเดอร์',          counted: false },
   { name: 'getProjectFileData',    label: 'อ่านไฟล์โครงการ',             counted: false },
+  { name: 'statProjectFiles',      label: 'ตรวจไฟล์ที่ยังอยู่',           counted: false },
+  { name: 'listProjectFolderFiles', label: 'อ่านรายชื่อไฟล์ในโฟลเดอร์',   counted: false },
 ];
 
 /** The action table — what uses the shared quota, and what we can see. */
