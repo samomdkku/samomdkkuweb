@@ -2514,3 +2514,54 @@ its own samples and went green while the reporter was paused: the setup and the
 assertion disagreed about which world they were in, and only the ORDER of the
 statements said which one won. Give each claim its own subject, or assert it
 before you repair anything.
+
+## A `--rows-only` flag turned the sweep's own anti-vacuity rule against it: it printed "0 orphans" for a direction it never examined, then said "in both directions"
+
+**Symptom.** `node tools/proj0183-drive-orphans.mjs --rows-only` finished with
+`123/123 rows stat'd · 0/63 folders listed` and then printed:
+
+```
+   ✓ Drive files with NO database row (the 0181 shape): 0
+   …
+✓ Drive and the database agree, in both directions.
+```
+
+Every one of those zeros was true of the half that ran and **meaningless for the
+half that did not**. The last line was simply false.
+
+**Cause.** The tool was written with exactly this hazard in mind — its header
+says *"'No orphans found' and 'the listing failed' must never render the same"* —
+and it guards it with a control that FAILS when `listed === 0`. Then
+`--rows-only` was added so the cheap direction could run without pressuring a
+shared endpoint, and that control had to be suppressed for the deliberate case:
+
+```js
+if (!ROWS_ONLY && listed === 0) { /* fail */ }
+```
+
+**The suppression silenced the CONTROL and left the CLAIM.** Nothing else in the
+reporting knew a half had been skipped, so an un-run direction rendered
+identically to a clean one — which is the precise failure the control existed to
+prevent, now reachable by a supported flag.
+
+**Fix.** `show()` takes a `ran` argument and prints
+`— NOT EXAMINED (this run skipped that half)` instead of a count; the examined
+line says `folders: SKIPPED` rather than `0/63`; and the verdict names the
+directions that actually ran, with an explicit
+`⚠ THE OTHER DIRECTION WAS NOT EXAMINED. This is not a clean bill of health for
+it.` Re-run and read before trusting.
+
+**Where it lives now.** `tools/proj0183-drive-orphans.mjs`, in `show()` and the
+verdict, with the comment explaining why the argument exists.
+
+**The general rule, which is new and worth the entry.** *When you add a flag that
+legitimately skips part of a check, the control you must suppress is the least of
+your problems — every SUMMARY LINE downstream is now able to lie.* A guard's
+output is a claim about a scope, so narrowing the scope invalidates the claim,
+not just the assertion. The tell is a suppression written as `if (!FLAG &&
+<original condition>)`: that edit acknowledges the flag in exactly one place,
+which is proof that the rest of the code still believes the full run happened.
+Grep for everything that reads the same variable the control read — here
+`listed` — and make each of them say "skipped" rather than "zero". **And a tool
+that guards against a vacuous pass is not exempt from producing one**; this one
+had the rule written in its own header, in capitals, and still did it.

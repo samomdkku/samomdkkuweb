@@ -251,28 +251,42 @@ if (JSON_OUT) {
   console.log(JSON.stringify({ examined: { rows: rows.length, folders: docs.size, listed }, findings }, null, 2));
 } else {
   console.log(`\n── examined ─────────────────────────────────────────────────────────`);
-  console.log(`   ${stats.size}/${ids.length} rows stat'd · ${listed}/${docs.size} folders listed`);
+  console.log(`   ${didRows ? `${stats.size}/${ids.length} rows stat'd` : 'rows: SKIPPED'} · ${didFolders ? `${listed}/${docs.size} folders listed` : 'folders: SKIPPED'}`);
   console.log(`   ${htmlReplies} HTML reply/replies from GAS (rate pressure — see PACE_MS)`);
-  const show = (name, arr, fmt) => {
+  // ⚠️ A SKIPPED DIRECTION IS NOT A ZERO, and printing it as one is the exact
+  // fault this tool exists to catch. The first version of --rows-only reported
+  // "✓ Drive files with NO database row: 0" for a half that never ran, and then
+  // concluded "in both directions" — a false clean bill of health, produced by
+  // the tool whose own control says "0 orphans" and "the listing failed" must
+  // never look the same. The flag silenced the CONTROL and left the CLAIM.
+  const show = (name, arr, fmt, ran = true) => {
+    if (!ran) { console.log(`\n   — ${name}: NOT EXAMINED (this run skipped that half)`); return; }
     console.log(`\n   ${arr.length ? '⚠' : '✓'} ${name}: ${arr.length}`);
     for (const x of arr.slice(0, 20)) console.log(`      ${fmt(x)}`);
     if (arr.length > 20) console.log(`      …and ${arr.length - 20} more`);
   };
+  const didRows = !FOLDERS_ONLY;
+  const didFolders = !ROWS_ONLY;
   show('Drive files with NO database row (the 0181 shape)', orphans,
-    (o) => `${o.fileName}  ${o.sizeBytes}B  created ${o.createdAt}\n         in ${o.path}\n         ${o.url}`);
-  show('rows whose file no longer resolves', missing, (m) => `${byId.get(m.fileId)?.file_name} — ${m.reason} (${m.fileId})`);
-  show('rows whose file is TRASHED (still publicly served)', trashed, (t) => `${t.fileName} (${t.fileId})`);
+    (o) => `${o.fileName}  ${o.sizeBytes}B  created ${o.createdAt}\n         in ${o.path}\n         ${o.url}`, didFolders);
+  show('rows whose file no longer resolves', missing, (m) => `${byId.get(m.fileId)?.file_name} — ${m.reason} (${m.fileId})`, didRows);
+  show('rows whose file is TRASHED (still publicly served)', trashed, (t) => `${t.fileName} (${t.fileId})`, didRows);
   show('rows whose size disagrees with Drive', sizeDrift,
-    (s) => `${s.fileName}: db ${byId.get(s.fileId)?.size_bytes} vs drive ${s.sizeBytes}`);
-  show('folders we hold rows for that are NOT in Drive', notFound, (n) => `${n.path} (${n.rows} row(s))`);
-  show('folders that could not be examined', unreachable, (u) => `${u.path} — ${u.why}`);
-  show('ids that came back with no answer at all', unanswered, (i) => i);
+    (s) => `${s.fileName}: db ${byId.get(s.fileId)?.size_bytes} vs drive ${s.sizeBytes}`, didRows);
+  show('folders we hold rows for that are NOT in Drive', notFound, (n) => `${n.path} (${n.rows} row(s))`, didFolders);
+  show('folders that could not be examined', unreachable, (u) => `${u.path} — ${u.why}`, didFolders);
+  show('ids that came back with no answer at all', unanswered, (i) => i, didRows);
 }
 
 const total = Object.values(findings).reduce((n, a) => n + a.length, 0);
 if (!JSON_OUT) {
+  const ran = ROWS_ONLY ? 'database → Drive ONLY (--rows-only)'
+            : FOLDERS_ONLY ? 'Drive → database ONLY (--folders-only)'
+            : 'both directions';
   console.log(total === 0
-    ? '\n✓ Drive and the database agree, in both directions.'
-    : `\n⚠ ${total} finding(s) — read them above. This tool never repairs; see tools/proj0181-repair-orphans.mjs.`);
+    ? `\n✓ Drive and the database agree — ${ran}.${ROWS_ONLY || FOLDERS_ONLY
+        ? '\n  ⚠ THE OTHER DIRECTION WAS NOT EXAMINED. This is not a clean bill of health for it.'
+        : ''}`
+    : `\n⚠ ${total} finding(s) — read them above (${ran}). This tool never repairs; see tools/proj0181-repair-orphans.mjs.`);
 }
 process.exit(total === 0 ? 0 : 1);
