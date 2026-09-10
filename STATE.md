@@ -34,15 +34,15 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `1be93e1` (2026-09-10)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `deaa6dc` (2026-09-10)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`;
-  roots 13 s apart, so docs ran. Third deploy today; it carried the admin
+  roots 13 s apart, so docs ran. FOURTH deploy today; the last carried the admin
   dashboard's two new GAS actions and the day's write-ups. Verified from the
   SERVED artifact BOTH ways — the admin bundle (named from the served HTML, never
   from here) answers `application/javascript` and carries `statProjectFiles`, and
   the served deploy-hosting page carries a string added today; each grep
   controlled by a PRE-EXISTING string in the SAME artefact, which is what caught
-  two bad instruments today (`skills/deploy-vm.md`). Prev `11f5e3d` · `4024a6c`.
+  two bad instruments today (`skills/deploy-vm.md`). Prev `1be93e1` · `11f5e3d` · `4024a6c`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
