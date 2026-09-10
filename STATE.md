@@ -34,14 +34,15 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `11f5e3d` (2026-09-10)** — v4.7.0 still. 32 s, `<== exit 0 —
-  ran to the end` AND `DEPLOY_EXIT=0`; roots stamped 12 s apart, so docs ran.
-  **DOCS ONLY — no bundle changed**: 0182 is a DB migration (live on dev + prod)
-  and the seam proof is a `tools/*.sql`. Verified from the SERVED artifact —
-  `…/docs/mistakes/tooling-proofs` carries a string added today, controlled by a
-  PRE-EXISTING string on the SAME PAGE (one from the wrong page returned 0 first
-  — that trap, and the nginx-is-separate note, live in `skills/deploy-vm.md`).
-  Prev `4024a6c`.
+- ✅ **DEPLOYED = `1be93e1` (2026-09-10)** — v4.7.0 still, and read back from the
+  VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`;
+  roots 13 s apart, so docs ran. Third deploy today; it carried the admin
+  dashboard's two new GAS actions and the day's write-ups. Verified from the
+  SERVED artifact BOTH ways — the admin bundle (named from the served HTML, never
+  from here) answers `application/javascript` and carries `statProjectFiles`, and
+  the served deploy-hosting page carries a string added today; each grep
+  controlled by a PRE-EXISTING string in the SAME artefact, which is what caught
+  two bad instruments today (`skills/deploy-vm.md`). Prev `11f5e3d` · `4024a6c`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
@@ -97,11 +98,10 @@ TRUE. That is what the grep is for.
 - **Claude usage measurement is ON** since 2026-08-25 17:18 UTC, sampling every
   15 min. ⚠️ This block once said OFF, with a procedure to re-enable something
   already enabled — **ask the DATABASE, never this file, for runtime state**:
-  `select monitoring_enabled, monitoring_changed_at from public.claude_settings`.
+  `select monitoring_enabled, … from public.claude_settings` (`db-query.mjs` takes a FILE).
 - `monitoring_note` still holds the old pause reason — not shown while
   measurement is on, used correctly by the monitor-on notice. Leave it.
   `claude_bookings` is deployed and granted but still EMPTY.
-- ⚠️ **Ask the DATABASE for runtime state, never this file.** `db-query.mjs` takes a FILE.
 
 ---
 
