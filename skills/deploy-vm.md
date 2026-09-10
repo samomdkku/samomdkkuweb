@@ -318,3 +318,32 @@ ssh samo-vm 'cd ~/samo-projects/samomdkkuweb && git log --oneline -1
   and a pull that changes the file's length resumes mid-token.
 
 Both are load-bearing. Deploy through the script, not by hand.
+
+## Verifying from the served artefact — and the control is half of it
+
+Two checks, always, after `<== exit 0`:
+
+```bash
+ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'   # must AGREE
+```
+
+then curl-grep a SERVED page for a string added in this deploy, **paired with a
+string that was already on THAT PAGE before it** as the control:
+
+```bash
+U="https://samo.md.kku.ac.th/docs/mistakes/tooling-proofs.html"
+curl -s "$U" | grep -c "<a phrase added today>"      # want 1
+curl -s "$U" | grep -c "<a phrase that was there>"   # want 1 — the CONTROL
+```
+
+⛔ **A control that returns 0 makes the number beside it worthless — including a
+1.** Both readings came from one instrument; if it cannot find something known
+to be present, it has not established anything about the thing you are looking
+for. Re-pick the control and re-run before reading either number.
+
+⚠️ **Take the control from the SAME PAGE.** On 2026-09-10 the control was a
+phrase from `docs/state/HANDOFF.md` §9 while the page being fetched was
+`docs/mistakes/tooling-proofs.html`. It returned 0, which looked briefly like a
+stale docs publish — the deploy was fine and the string had never been on that
+page. A control chosen from the wrong file tests nothing but your memory of
+where a sentence lives.

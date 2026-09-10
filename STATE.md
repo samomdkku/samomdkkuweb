@@ -34,14 +34,14 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `4024a6c` (2026-09-10)** — v4.7.0 still. 32 s, `<== exit 0 —
+- ✅ **DEPLOYED = `11f5e3d` (2026-09-10)** — v4.7.0 still. 32 s, `<== exit 0 —
   ran to the end` AND `DEPLOY_EXIT=0`; roots stamped 12 s apart, so docs ran.
-  **DOCS ONLY — no bundle changed**; 0182 is a DB migration already applied to
-  dev and production. Verified from the SERVED artifact: the docs pages
-  `samo.md.kku.ac.th/docs/INVARIANTS` and `…/docs/mistakes/authz-rls` both 200
-  and both carrying a string added today, each grep controlled by an OLD string.
-  Prev `333dc63`. ⚠️ nginx config is installed SEPARATELY (`deploy.sh` never
-  does it) via `nginx -t` + auto-rollback; not touched today.
+  **DOCS ONLY — no bundle changed**: 0182 is a DB migration (live on dev + prod)
+  and the seam proof is a `tools/*.sql`. Verified from the SERVED artifact —
+  `…/docs/mistakes/tooling-proofs` carries a string added today, controlled by a
+  PRE-EXISTING string on the SAME PAGE (one from the wrong page returned 0 first
+  — that trap, and the nginx-is-separate note, live in `skills/deploy-vm.md`).
+  Prev `4024a6c`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
