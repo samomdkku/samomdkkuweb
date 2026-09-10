@@ -80,6 +80,9 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
+- **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
+  read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
+  real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
 - **Migrations through 0182. 33 of 35 LIVE PROOFS GREEN** (2026-09-10). 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
   ⚠️ Red: `claude0154-quota-guard`, `claude0155-free-now` — **neither a code
   fault**. Both must BOOK a slot; the live 5-hour window is already claimed so
@@ -118,16 +121,13 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
-✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site and
-its restructure (02 above). ⛔ **No polling timer for the docs** — one was
-built, verified and REMOVED the same day; reasoning in the archive named in 02.
+✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02).
+⛔ **No polling timer for the docs** — built, verified and REMOVED the same day.
 
 0. ✅ **ORG MOVE DONE** (2026-08-31); `node tools/repo-protection.mjs` — 18 pass
-   (was 27; the sibling-repo loops are inert BY DESIGN since the passport repo
-   was archived, and the script now says so — corrected 2026-09-06).
-   Traps: `skills/move-the-repo-to-an-organisation.md`. Org 2FA OFF by OWNER
-   DECISION. Last box (a non-owner team add) is `HANDOFF` §3; the `*.pages.dev`
-   rules moved to `docs/INVARIANTS.md`, their one home.
+   (was 27: the sibling-repo loops are inert BY DESIGN since the passport repo
+   was archived, and the script says so). Org 2FA OFF by OWNER DECISION. Traps:
+   `skills/move-the-repo-to-an-organisation.md`; last box is `HANDOFF` §3.
 
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
