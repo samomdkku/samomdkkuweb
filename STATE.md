@@ -37,9 +37,9 @@ TRUE. That is what the grep is for.
 - ✅ **DEPLOYED = `4024a6c` (2026-09-10)** — v4.7.0 still. 32 s, `<== exit 0 —
   ran to the end` AND `DEPLOY_EXIT=0`; roots stamped 12 s apart, so docs ran.
   **DOCS ONLY — no bundle changed**; 0182 is a DB migration already applied to
-  dev and production. Verified from the SERVED artifact: `/docs/INVARIANTS.html`
-  and `/docs/mistakes/authz-rls.html` (200) each carry a string added today,
-  with an OLD string as the control so a 1 means the grep can see both.
+  dev and production. Verified from the SERVED artifact: the docs pages
+  `samo.md.kku.ac.th/docs/INVARIANTS` and `…/docs/mistakes/authz-rls` both 200
+  and both carrying a string added today, each grep controlled by an OLD string.
   Prev `333dc63`. ⚠️ nginx config is installed SEPARATELY (`deploy.sh` never
   does it) via `nginx -t` + auto-rollback; not touched today.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
