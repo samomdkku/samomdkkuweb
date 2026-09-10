@@ -16,6 +16,95 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-10, END OF SESSION — read this before anything else
+
+Started at *"continue work from previous session"*, went to the passport RLS gap,
+then to the owner's three 2026-09-09 asks about หนังสือโครงการ. **What is NOT
+done is `docs/state/HANDOFF.md` §13a (one half), §13b, §14 and §15**; this is why,
+and what will mislead you.
+
+### ⛔ Five things to know before you touch anything
+
+1. **Everything is shipped and verified.** Five deploys, all `<== exit 0` with
+   both roots stamped; `npm run deploy:owed` is the authority, not this file.
+   Apps Script is at **version 12** and the endpoint is healthy (4/4 JSON).
+2. ⛔ **`tools/proj0183-drive-orphans.mjs` shares its endpoint with every real
+   Drive upload in the app, and running it fast BREAKS THOSE UPLOADS.** I did
+   this for a few minutes: 2 of 3 replies became Google's HTML error page, and
+   `src/js/uploads.js` does `await res.json()` with no retry, so a student's
+   upload would have died on work they had just done. It paces itself now.
+   **Prefer `--rows-only`; run the full sweep when nobody is submitting.**
+3. ⛔ **`npm test` DOES NOT RUN THAT TOOL'S REAL PATH**, only its `SELFTEST=1`
+   path. If you change it, RUN it. I shipped a crash into it because
+   `node --check` said "syntax OK" and the suite was green.
+4. **The two new GAS handlers are read-only and one of them is GATED ON PURPOSE.**
+   `listProjectFolderFiles` needs a `knownFileId` that is really in the folder.
+   That is security, not ergonomics — the `/exec` URL is public and
+   unauthenticated, and ungated listing would let a stranger enumerate signed
+   หนังสือ. HANDOFF §13a says why. Do not remove it to make a sweep tidier.
+5. **The owner decided two things on 2026-09-10; do not re-raise either.**
+   e-sign stays untested for now ("just leave it"), and the duplicate
+   `pmphuriphat@gmail.com` account is NOT to be deleted on its own — it belongs
+   to a single deliberate problematic-account cleanup.
+
+### Shipped
+
+- **0182 — the last passport table without row security.** `passport.continents`
+  (4 theming rows) kept its GRANTs across the monorepo merge and lost its RLS,
+  so the public anon key could rewrite or delete all four rows for ~3 months.
+  Proof `tools/passport0182-continents-lockdown.sql` (16/16) was run against
+  production BEFORE the migration and **failed 6 assertions with
+  update/insert/delete each answering `allow`** — the live bug, read by the
+  assertions that exist to catch it. §50 keeps the query that FOUND it as an
+  assertion, so the next table landing without RLS goes red naming itself.
+- **The `return=representation` seam** — HANDOFF §13c's named gap.
+  `tools/authz0182-insert-returning-seam.sql` (11/11) reproduces 0181 live from
+  nothing, then sweeps every SELECT policy in `public` for the shape, reading the
+  exact function each policy calls from `pg_depend`. **No real table has it.**
+- **§13a orphan detection is BUILT AND DEPLOYED** — `statProjectFiles` +
+  `listProjectFolderFiles` in `appscript/prform.gs`, plus the sweep and
+  `src/js/projects/drive-listing-readonly.test.js` (26 assertions).
+  ✅ **Database → Drive is VERIFIED CLEAN: all 123 files resolve, none trashed,
+  none drifted.** ⏳ The Drive → database half (63 folders) has never printed a
+  verdict — that is the one real piece of work left, and it is item 2 above.
+
+### What I got wrong, because it will save you the same detour
+
+**I repeated three lessons that were already written down in this repo**, one of
+them in the very file I was appending to:
+
+1. **A control taken from the wrong page.** Verifying a deploy, my "new string"
+   greped 1 and my control greped 0 — I had taken the control from a different
+   docs page. A control that fails makes the number beside it worthless too.
+2. **`/admin/assets/<bundle>.js` answers 200 with `text/html`** (the SPA
+   fallback), so grepping it reported a shipped deploy as missing. The real path
+   is `/assets/…`. Then I named a content-hashed bundle in `STATE.md` and the
+   dead-pointer guard caught me repeating the same shape an hour later.
+3. **A brand-new guard read `.env.local` at import time**, so it was green on
+   this laptop and red on CI on its first push — the mistake that once kept CI
+   red for **19 consecutive pushes**. The dependency is invisible at the
+   assertion: it lived in a module-level `readFileSync` three files away. **Move
+   the secret aside and run, before pushing a test that spawns a `tools/`
+   script.**
+
+Also: a control in my own proof reported `DETECTOR IS BLIND` and the detector was
+fine — an earlier step of the same proof had dropped the policy it was asked to
+find. **A proof that mutates its own fixtures needs one fixture per claim.** And
+`--rows-only` printed `0` for a half it never ran and then claimed "in both
+directions": **when a flag legitimately skips part of a check, every summary line
+downstream can lie**, because a guard's output is a claim about a SCOPE.
+
+All five are written up in `docs/mistakes/` (`tooling-proofs.md`,
+`deploy-hosting.md`, `authz-rls.md`) with the general rule, and guarded.
+
+### Offered, not built — needs the owner
+
+- **One retry in `src/js/uploads.js`** when Google answers with HTML instead of
+  JSON. Today a student loses the upload and sees a parse error. It is a change
+  to a path students depend on, so I did not make it unasked.
+
+---
+
 ## ▶ HANDOFF 2026-09-07, END OF SESSION — read this before anything else
 
 Started at *"how does a contributor receive `.env.local`"* and ended in the
