@@ -341,6 +341,38 @@ curl -s "$U" | grep -c "<a phrase that was there>"   # want 1 — the CONTROL
 to be present, it has not established anything about the thing you are looking
 for. Re-pick the control and re-run before reading either number.
 
+### Verifying a BUNDLE, not a docs page
+
+⛔ **Take the asset path from the served HTML, and check the `content-type`.**
+The bundle src is ABSOLUTE — `/assets/<name>.js` — so
+`https://samo.md.kku.ac.th/admin/assets/<name>.js` does NOT exist and nginx
+answers it with the SPA fallback: **HTTP 200, `text/html`, index.html**, the same
+335 KB whatever name you ask for. Grepping that for a JS identifier returns 0 and
+reads exactly like a deploy that never landed (it happened on 2026-09-10;
+`docs/mistakes/deploy-hosting.md`).
+
+```bash
+B=$(curl -s https://samo.md.kku.ac.th/admin/ | grep -oE 'src="/assets/[^"]+\.js"' | head -1 | sed 's/.*"\(.*\)"/\1/')
+curl -s -o /dev/null -w '%{content_type} %{size_download}\n' "https://samo.md.kku.ac.th$B"   # want application/javascript
+curl -s "https://samo.md.kku.ac.th$B" | grep -c '<a string added today>'
+curl -s "https://samo.md.kku.ac.th$B" | grep -c '<a string already in that file>'   # CONTROL
+```
+
+⚠️ **Grep a STRING LITERAL or a CSS class, never a module-scope name** —
+minification renames those. A Thai UI label is ideal.
+
+### When the deploy stream is EMPTY but the VM log says exit 0
+
+On 2026-09-10 a third deploy of the day returned **zero bytes** locally while the
+VM's own log ended `<== exit 0 — ran to the end` and the two roots were stamped
+13 s apart. `STATE.md` warns that empty output means a dropped VPN — but that is
+a *possible* cause, not the only one, and here `ssh` was fine seconds later. The
+local pipeline (`grep … | tail -14`) simply captured nothing.
+
+**So do not conclude anything from an empty stream in either direction.** Ask the
+VM: `pgrep -a deploy.sh` (still running?) and `tail ~/samo-deploy-logs/latest.log`
+(how did it end?). The file is the record; the stream is a progress bar.
+
 ⚠️ **Take the control from the SAME PAGE.** On 2026-09-10 the control was a
 phrase from `docs/state/HANDOFF.md` §9 while the page being fetched was
 `docs/mistakes/tooling-proofs.html`. It returned 0, which looked briefly like a

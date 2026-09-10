@@ -1073,3 +1073,40 @@ server is not evidence, because it maps extensions the production host has never
 heard of. When you add a dependency that emits a NEW file extension, ask what
 the server will call it. And the failure is silent by construction: the browser
 refuses the script without a network error, so the feature is simply absent.
+
+## `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never deployed"
+
+**Symptom.** Verifying a deploy that had genuinely shipped: two different admin
+bundles fetched from `https://samo.md.kku.ac.th/admin/assets/<name>.js` both
+returned **exactly 335288 bytes**, the new string counted **0** — and so did the
+control string that had been in that file for months. It looked like the deploy
+had not landed.
+
+**Cause.** The bundle path in the served HTML is **absolute**:
+`<script type="module" src="/assets/admin-BY2ZwWJs.js">`. There is no
+`/admin/assets/` directory, so nginx's SPA fallback answered with `index.html` —
+**HTTP 200, `content-type: text/html`**, the same 335 KB for every name asked
+for. The grep was searching an HTML page for a JavaScript identifier.
+
+**Fix.** Read the path from the served HTML instead of assuming the page's
+directory, and fetch `/assets/<name>.js`. Correctly fetched, the same bundle is
+537136 bytes of `application/javascript` and carries all three markers.
+
+**Where it lives now.** `skills/deploy-vm.md`, in the verify recipe.
+
+**The general rule, and it is the one this repo already had, wearing new
+clothes.** *A 200 is not proof you fetched the thing you named.* An SPA fallback
+turns every wrong asset path into a successful-looking response with the wrong
+body, so a wrong path and a missing deploy produce identical output. Two defences,
+both cheap:
+
+* **Assert the `content-type`.** `application/javascript` versus `text/html` separates
+  "the bundle" from "the fallback" in one field, and no amount of grepping can.
+  A byte count that is *identical across two different names* is the other tell.
+* **Always grep a CONTROL string that you know is already in that file.** This is
+  the rule that saved it: the new strings counting 0 was ambiguous, but the
+  control counting 0 was impossible, which said the instrument was wrong rather
+  than the deploy. A verification whose negative result you would believe needs a
+  positive case in the same breath — and the control must come from **the same
+  artefact**, which is the sibling mistake made twice in one session (a control
+  phrase taken from a different docs page, `tooling-proofs.md`).

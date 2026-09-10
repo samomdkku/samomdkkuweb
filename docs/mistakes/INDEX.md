@@ -276,7 +276,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(23)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(24)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -303,6 +303,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A subpath in `DOMAIN` re-prefixes the routes INSIDE the container too
 - Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
 - `.mjs` served as `application/octet-stream`
+- `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(51)*
 
@@ -404,4 +405,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_342 entries across 10 files._
+_343 entries across 10 files._
