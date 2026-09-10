@@ -2558,9 +2558,10 @@ verdict, with the comment explaining why the argument exists.
 legitimately skips part of a check, the control you must suppress is the least of
 your problems — every SUMMARY LINE downstream is now able to lie.* A guard's
 output is a claim about a scope, so narrowing the scope invalidates the claim,
-not just the assertion. The tell is a suppression written as `if (!FLAG &&
-<original condition>)`: that edit acknowledges the flag in exactly one place,
-which is proof that the rest of the code still believes the full run happened.
+not just the assertion. The tell is a suppression written as
+`if (!FLAG && <original condition>)` — that edit acknowledges the flag in
+exactly one place, which is proof the rest of the code still believes the full
+run happened.
 Grep for everything that reads the same variable the control read — here
 `listed` — and make each of them say "skipped" rather than "zero". **And a tool
 that guards against a vacuous pass is not exempt from producing one**; this one

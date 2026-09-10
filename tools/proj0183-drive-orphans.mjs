@@ -99,13 +99,24 @@ const PACE_MS = 2500;
 // concluding anything about which term dominates.
 const STAT_BATCH = 20;
 
+// ⚠️ SELFTEST EXISTS BECAUSE A CRASH SHIPPED. `node --check` said "syntax OK",
+// `npm test` was green — and the reporting block threw
+// `ReferenceError: Cannot access 'didRows' before initialization` on the next
+// real run, because NOTHING IN THE SUITE RUNS THIS FILE. A parse check is not a
+// run. With SELFTEST=1 the script skips the database and every GAS call, feeds
+// the reporting block synthetic findings, and prints it — so
+// `drive-orphans-report.test.js` can execute all three flag combinations in
+// milliseconds and would have caught both this crash and the false
+// "in both directions" verdict that preceded it.
+const SELFTEST = process.env.SELFTEST === '1';
+
 const env = Object.fromEntries(
   readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
     .split('\n').filter((l) => l.trim() && !l.trim().startsWith('#') && l.includes('='))
     .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, '')]; }),
 );
 const REF = (env.VITE_SUPABASE_URL || '').match(/https:\/\/([a-z0-9]+)\.supabase/)?.[1];
-if (!REF || !env.SUPABASE_ACCESS_TOKEN) {
+if (!SELFTEST && (!REF || !env.SUPABASE_ACCESS_TOKEN)) {
   console.error('need VITE_SUPABASE_URL + SUPABASE_ACCESS_TOKEN in .env.local');
   process.exit(2);
 }
@@ -144,6 +155,23 @@ async function sql(query) {
  * So each call site passes its own ceiling, sized from the measurement above.
  */
 async function gas(body, { tries = 4, timeoutMs = 30000 } = {}) {
+  if (SELFTEST) {
+    // Deliberately returns ONE finding in each direction, so the report is
+    // exercised with content rather than only with zeros — a formatter that
+    // throws on a real finding would otherwise pass a green self-test.
+    if (body.action === 'statProjectFiles') {
+      return { success: true, files: body.fileIds.map((id, i) => (i === 0
+        ? { fileId: id, resolves: true, trashed: false, fileName: 'a.pdf', mimeType: 'application/pdf',
+            sizeBytes: 10, createdAt: '2026-09-01T00:00:00.000Z', url: 'https://example.invalid/a' }
+        : { fileId: id, resolves: false, reason: 'not found' })) };
+    }
+    return { success: true, folderFound: true, files: [
+      { fileId: 'DRIVE_A', fileName: 'a.pdf', mimeType: 'application/pdf', sizeBytes: 10,
+        createdAt: '2026-09-01T00:00:00.000Z', trashed: false, url: 'https://example.invalid/a' },
+      { fileId: 'DRIVE_ORPHAN', fileName: 'orphan.pdf', mimeType: 'application/pdf', sizeBytes: 99,
+        createdAt: '2026-09-03T03:02:00.000Z', trashed: false, url: 'https://example.invalid/o' },
+    ] };
+  }
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(GAS, {
@@ -163,10 +191,15 @@ async function gas(body, { tries = 4, timeoutMs = 30000 } = {}) {
 }
 
 let htmlReplies = 0;
-const pace = () => new Promise((res) => setTimeout(res, PACE_MS));
+const pace = () => (SELFTEST ? Promise.resolve() : new Promise((res) => setTimeout(res, PACE_MS)));
 
 // ── the two sides ───────────────────────────────────────────────────────────
-const rows = await sql(`
+const rows = SELFTEST ? [
+  { id: 1, drive_file_id: 'DRIVE_A', file_name: 'a.pdf', size_bytes: 10, is_signed: true,
+    document_id: 'DOC-1', doc_title: 'หนังสือ ก', project_id: 'PRJ-1', project_name: 'โครงการ ก' },
+  { id: 2, drive_file_id: 'DRIVE_B', file_name: 'b.pdf', size_bytes: 20, is_signed: false,
+    document_id: 'DOC-1', doc_title: 'หนังสือ ก', project_id: 'PRJ-1', project_name: 'โครงการ ก' },
+] : await sql(`
   select f.id, f.drive_file_id, f.file_name, f.size_bytes, f.is_signed,
          f.document_id, d.title as doc_title, d.project_id,
          p.name as project_name
@@ -221,8 +254,15 @@ const unreachable = [];
 let listed = 0;
 for (const [docId, d] of (ROWS_ONLY ? [] : docs)) {
   const path = buildDocFolderPath(d.project_id, d.project_name, docId, d.doc_title);
-  const known = d.rows.find((r) => stats.get(r.drive_file_id)?.resolves)?.drive_file_id;
-  if (!known) { unreachable.push({ docId, path, why: 'no resolvable row to unlock the folder' }); continue; }
+  // The folder listing needs a file we already hold, as proof of prior access.
+  // Prefer one the stat pass CONFIRMED resolves — but fall back to the first row
+  // we have, because --folders-only skips that pass entirely and the preference
+  // is an optimisation, not a requirement. ⚠️ Without the fallback,
+  // --folders-only listed NOTHING and tripped its own control on every run: the
+  // self-test caught that the moment it could actually execute the flag.
+  const known = (d.rows.find((r) => stats.get(r.drive_file_id)?.resolves)
+                 || d.rows[0])?.drive_file_id;
+  if (!known) { unreachable.push({ docId, path, why: 'no row carries a drive_file_id' }); continue; }
   const res = await gas({ action: 'listProjectFolderFiles', folderPath: path, knownFileId: known }, { timeoutMs: 25000 });
   if (!res) { unreachable.push({ docId, path, why: 'UNREACHABLE (HTML after retries)' }); continue; }
   if (!res.success) { unreachable.push({ docId, path, why: res.message }); continue; }
@@ -247,6 +287,11 @@ if (!ROWS_ONLY && listed === 0) {
 
 // ── the verdict ─────────────────────────────────────────────────────────────
 const findings = { orphans, missing, trashed, sizeDrift, notFound, unreachable, unanswered };
+// Which halves actually ran. Declared HERE, before anything reads them: the
+// first version put these next to show() and the `── examined` line above it
+// crashed with "Cannot access 'didRows' before initialization".
+const didRows = !FOLDERS_ONLY;
+const didFolders = !ROWS_ONLY;
 if (JSON_OUT) {
   console.log(JSON.stringify({ examined: { rows: rows.length, folders: docs.size, listed }, findings }, null, 2));
 } else {
@@ -265,8 +310,6 @@ if (JSON_OUT) {
     for (const x of arr.slice(0, 20)) console.log(`      ${fmt(x)}`);
     if (arr.length > 20) console.log(`      …and ${arr.length - 20} more`);
   };
-  const didRows = !FOLDERS_ONLY;
-  const didFolders = !ROWS_ONLY;
   show('Drive files with NO database row (the 0181 shape)', orphans,
     (o) => `${o.fileName}  ${o.sizeBytes}B  created ${o.createdAt}\n         in ${o.path}\n         ${o.url}`, didFolders);
   show('rows whose file no longer resolves', missing, (m) => `${byId.get(m.fileId)?.file_name} — ${m.reason} (${m.fileId})`, didRows);
@@ -278,7 +321,27 @@ if (JSON_OUT) {
   show('ids that came back with no answer at all', unanswered, (i) => i, didRows);
 }
 
-const total = Object.values(findings).reduce((n, a) => n + a.length, 0);
+// ⚠️ ONLY THE HALVES THAT RAN MAY CONTRIBUTE. Third instance of one bug today:
+// under --folders-only, `unanswered` is derived from the SKIPPED stat pass, so
+// it was spuriously 2 and the verdict said "3 finding(s)" while three of the
+// lines above it said NOT EXAMINED. A number that disagrees with the list it
+// summarises is worse than either alone.
+const ROW_KEYS = ['missing', 'trashed', 'sizeDrift', 'unanswered'];
+const FOLDER_KEYS = ['orphans', 'notFound', 'unreachable'];
+const counted = [
+  ...(didRows ? ROW_KEYS : []),
+  ...(didFolders ? FOLDER_KEYS : []),
+];
+// A key added to `findings` and to neither list would be silently uncounted, so
+// prove the partition is complete rather than assuming it.
+const partitioned = new Set([...ROW_KEYS, ...FOLDER_KEYS]);
+for (const k of Object.keys(findings)) {
+  if (!partitioned.has(k)) {
+    console.error(`✗ CONTROL FAILED: finding "${k}" belongs to neither direction, so it could never be counted.`);
+    process.exit(1);
+  }
+}
+const total = counted.reduce((n, k) => n + findings[k].length, 0);
 if (!JSON_OUT) {
   const ran = ROWS_ONLY ? 'database → Drive ONLY (--rows-only)'
             : FOLDERS_ONLY ? 'Drive → database ONLY (--folders-only)'
