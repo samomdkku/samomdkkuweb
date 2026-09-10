@@ -2566,3 +2566,49 @@ Grep for everything that reads the same variable the control read — here
 `listed` — and make each of them say "skipped" rather than "zero". **And a tool
 that guards against a vacuous pass is not exempt from producing one**; this one
 had the rule written in its own header, in capitals, and still did it.
+
+## A brand-new guard was green on the laptop and red on CI within an hour — it read `.env.local` at import time
+
+**Symptom.** `src/js/projects/drive-orphans-report.test.js` passed 13/13 locally,
+was committed and pushed, and CI's `build` job went red with all 13 failing —
+`both does not crash`, `--rows-only stats its rows`, every one. The tool it
+spawns had not changed between the two runs.
+
+**Cause.** `tools/proj0183-drive-orphans.mjs` read the maintainer's gitignored
+`.env.local` **unconditionally at module top**, before anything could branch on
+`SELFTEST`. The self-test needs no credential — `sql()` and `gas()` are both
+stubbed — but the `readFileSync` threw `ENOENT` on CI, where that file does not
+and must not exist, so the process died before the reporting block it exists to
+test could run.
+
+**Fix.** Read the file through a `readEnvFile()` that returns `''` on ENOENT. The
+credential CHECK stays exactly where it was, so a REAL run still refuses with
+`need VITE_SUPABASE_URL + SUPABASE_ACCESS_TOKEN in .env.local`; only the
+self-test path stops needing it. Verified by reproducing CI's condition rather
+than trusting the reasoning:
+
+```bash
+mv .env.local /tmp/ && npx vitest run src/js/projects/drive-orphans-report.test.js   # 13 passed
+node tools/proj0183-drive-orphans.mjs --rows-only                                    # refuses, names the vars
+mv /tmp/.env.local .
+```
+
+**Where it lives now.** The tolerant read carries the reason in a comment, and
+the test file opens with the `mv .env.local` recipe so the next person verifies
+it the way CI will.
+
+**The general rule — and this repo had already paid for it once, in the same
+file.** *A guard that needs a secret cannot run where guards are enforced.* The
+earlier instance kept CI red for **19 consecutive pushes** while local
+`npm test` said 1848 passed. This one was caught in an hour only because CI was
+checked; nothing else would have said so, since the local suite is green by
+construction on the machine that owns the credential.
+
+**What makes it recur is that the dependency is INVISIBLE at the assertion.**
+None of these 13 assertions mentions a credential; the dependency lives in a
+module-level `readFileSync` inside the thing under test, three files away. So the
+question to ask is not "does my test need a secret" but **"does anything my test
+LOADS read one at import time"** — and the only reliable way to answer it is to
+move the secret aside and run. Do that before pushing a test that spawns or
+imports a `tools/` script. **And when a brand-new guard goes red on CI, suspect
+the guard's environment before the code it guards.**

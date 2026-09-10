@@ -23,6 +23,17 @@
 // block synthetic data — ONE finding in each direction, so formatters are
 // exercised with content and not only with zeros — and print. That runs in
 // milliseconds and would have caught all three.
+// ⛔ THIS FILE'S REAL PROVING GROUND IS CI, NOT A LAPTOP. On its first push all
+// 13 assertions were green here and RED on CI, because the tool read the
+// gitignored `.env.local` at import time and CI has none — the mistake
+// `.claude/rules/mistakes.md` class 7 calls "a guard that needs a secret cannot
+// run where guards are enforced", which once kept CI red for 19 consecutive
+// pushes unread. The tool now reads that file tolerantly, and the self-test
+// needs no credential at all. **Verify a change here the way CI does it:**
+//
+//     mv .env.local /tmp/ && npx vitest run src/js/projects/drive-orphans-report.test.js; mv /tmp/.env.local .
+//
+// If any assertion here ever starts needing a secret, it stops being a guard.
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

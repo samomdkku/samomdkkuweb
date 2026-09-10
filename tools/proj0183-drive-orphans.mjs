@@ -110,8 +110,22 @@ const STAT_BATCH = 20;
 // "in both directions" verdict that preceded it.
 const SELFTEST = process.env.SELFTEST === '1';
 
+// ⛔ TOLERATE A MISSING `.env.local`, AND THE REASON IS A 19-PUSH SCAR.
+// `.env.local` is gitignored, so it does not exist on CI — and this file used to
+// read it unconditionally at import time. The self-test needs no credentials
+// (sql() and gas() are stubbed), but the throw happened before either could be
+// reached, so `drive-orphans-report.test.js` was green on the maintainer's
+// laptop and red on CI on its very first push. That is the mistake
+// `.claude/rules/mistakes.md` class 7 calls "a guard that needs a secret cannot
+// run where guards are enforced", which once kept CI red for 19 consecutive
+// pushes. Read tolerantly here; the credential CHECK below is what refuses a
+// real run without them.
+const readEnvFile = () => {
+  try { return readFileSync(new URL('../.env.local', import.meta.url), 'utf8'); }
+  catch { return ''; }
+};
 const env = Object.fromEntries(
-  readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
+  readEnvFile()
     .split('\n').filter((l) => l.trim() && !l.trim().startsWith('#') && l.includes('='))
     .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, '')]; }),
 );
