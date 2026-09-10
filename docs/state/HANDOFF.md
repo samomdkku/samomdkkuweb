@@ -614,25 +614,48 @@ minutes across four retries, which is how a sweep becomes a tool nobody runs.
 **The original design note is kept below, because its reasoning is what the
 implementation was checked against.**
 
-⏳ **OWED: the first FULL run has not completed.** The handlers are deployed and
-each was probed live in BOTH directions (a real `drive_file_id` →
-`resolves:true` with metadata; a bogus id → `resolves:false, "not found"`; the
-gate refuses without `knownFileId`), and the sweep's own database side is
-verified — 123 rows across 63 หนังสือ, and its first run stat'd all 123 in 7
-batches. But **no run has yet printed the verdict**, because by then I had
-degraded the shared `/exec` endpoint (see the table below) and stopping was the
-right call — a student's upload matters more than my report finishing today.
+✅ **THE DATABASE → DRIVE HALF IS VERIFIED CLEAN (2026-09-10).** Ran against
+production, `REAL_EXIT=0`:
 
-**How to finish it**, when nobody is submitting:
-
-```bash
-node tools/proj0183-drive-orphans.mjs --rows-only     # cheap: 7 paced calls
-node tools/proj0183-drive-orphans.mjs                 # both, ~63 more calls
+```
+123/123 rows stat'd · folders: SKIPPED
+0 HTML reply/replies from GAS
+  ✓ rows whose file no longer resolves: 0
+  ✓ rows whose file is TRASHED (still publicly served): 0
+  ✓ rows whose size disagrees with Drive: 0
+  ✓ ids that came back with no answer at all: 0
+✓ Drive and the database agree — database → Drive ONLY (--rows-only).
+  ⚠ THE OTHER DIRECTION WAS NOT EXAMINED. This is not a clean bill of health for it.
 ```
 
-⚠️ **Do not read a killed run as a clean result.** The tool exits non-zero on any
-finding AND on any control failure, so only a printed verdict counts — and if
-`0 of 63 folders` could be listed it FAILS rather than reporting "no orphans".
+So every one of the 123 Drive-backed หนังสือ files still resolves, none is
+trashed, none has drifted in size — the 0181 repair holds and nothing new has
+been lost on that side. **0 HTML replies also proves the pacing works**; the
+degradation described below was entirely the unpaced first version.
+
+⏳ **STILL OWED: the DRIVE → DATABASE half** (the 63-folder listing, i.e. the
+orphan question itself). It has never printed a verdict. It is the half that
+pressures the shared endpoint, so run it when nobody is submitting:
+
+```bash
+node tools/proj0183-drive-orphans.mjs                 # both halves
+node tools/proj0183-drive-orphans.mjs --folders-only  # just the owed one
+```
+
+⚠️ **Do not read a killed run as a clean result**, and do not read a
+single-direction run as covering both — the tool now says so itself on the last
+line. It exits non-zero on any finding AND on any control failure, so only a
+printed verdict counts.
+
+⚠️ **The report itself had three bugs, all shipped green, all now guarded** by
+`src/js/projects/drive-orphans-report.test.js` (13 assertions via `SELFTEST=1`,
+no network, ~200 ms): a skipped half printed `0` and then claimed "in both
+directions"; the fix for that crashed on its next real run because **nothing in
+the suite ran the tool** (`node --check` is not a run); and `--folders-only`
+could never work, while `unanswered` from the skipped pass made the count
+contradict the list above it. Write-up:
+`docs/mistakes/tooling-proofs.md`. **If you extend this tool, run it — the suite
+alone will not tell you it is broken.**
 
 ⚠️ **RUNNING IT HARD DEGRADES THE ENDPOINT REAL UPLOADS USE — measured, and it
 is the most important operational fact about this tool.** Same probe throughout
