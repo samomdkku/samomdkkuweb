@@ -547,19 +547,24 @@ saying plainly that this was a system repair and why. Rows 391/392/393.
 **Re-running the tool is a no-op** (it matches on `drive_file_id`), and it now
 reports "No accepted sign request is missing its signed file."
 
-⚠️ **The gap that let this hide for six days is still open**: nothing in this
-system can ask *"what is in Drive that we have no row for?"*. A read-only
-`listProjectFolderFiles` GAS handler was written for the repair and then
-REVERTED, because it needs a production Apps Script redeploy (an ask-first
-operation) and the owner's links made it unnecessary. If orphan detection is
-ever wanted, §13 below carries the design. ⛔ It is NOT in git — it was reverted
-before it was ever committed, so `git log -S listProjectFolderFiles` finds
-nothing. An earlier draft of this section said "see this commit's parent", which
-was simply false.
+✅ **The gap that let this hide for six days is CLOSED (2026-09-10).** It read
+"still open" until then: nothing in this system could ask *"what is in Drive that
+we have no row for?"*, which is why the owner had to find those three PDFs by
+opening Drive by hand. `listProjectFolderFiles` and `statProjectFiles` are now
+deployed (Apps Script **version 12**) with `tools/proj0183-drive-orphans.mjs` —
+**§13a is the record**. ⚠️ Two sentences that stood here are now wrong and are
+removed rather than left to mislead: the handler is no longer "NOT in git", and
+`git log -S listProjectFolderFiles` no longer "finds nothing".
 
-## 13. Owner asked for three things on 2026-09-09 — none of them started
+## 13. Owner asked for three things on 2026-09-09 — one BUILT, one part-closed, one declined
 
-**Status: OWED — asked for explicitly at the end of the 0181 session, after the
+**Status (2026-09-10): 13a BUILT AND DEPLOYED** (one half of its sweep still
+owed) · **13b answered without building it** — recommend NOT doing it · **13c's
+named gap CLOSED**, the rest of it open. Each subsection carries its own status;
+this heading said "none of them started" until 2026-09-10 and that is the line a
+skimmer would have believed.
+
+**Original framing — asked for explicitly at the end of the 0181 session, after the
 repair had shipped. Nothing here is begun; all three are greenfield.**
 
 ### 13a. ✅ BUILT AND DEPLOYED 2026-09-10 — orphan detection exists
@@ -680,11 +685,33 @@ upload draws that HTML page the student gets a JSON parse error on work they jus
 did — the same class of loss as 0181, from the other end. One retry on a
 non-JSON reply would cover it. Offered, not built.
 
-### 13a-original. The design as written on 2026-09-09
+### 13a-original. The design as written on 2026-09-09 — ⛔ HISTORICAL
 
-**This is the gap that let 0181 hide for six days, and it is still open.** The
-signed PDFs existed in Drive the whole time; no screen, query or job in this
-system could notice. The OWNER found them by opening Drive by hand.
+⛔ **THIS SECTION IS THE 2026-09-09 PLAN, NOT THE BUILT THING. Do not implement
+from it.** It is kept because the implementation was checked against its
+reasoning, and every sentence below was written while the feature did not exist —
+including "it is still open", which stopped being true on 2026-09-10. What was
+actually built is §13a above. **Three places where the build deliberately
+diverged, so nobody "fixes" the code back toward this text:**
+
+1. **It says to use `walkProjectsPathByCode_` + `canonTopFolder_`.** The build
+   does NOT: that helper get-or-CREATEs at every segment, and also renames and
+   moves, so a reader built on it would restructure the Drive tree of whoever ran
+   it — which is the trap this very section warns about two bullets later. There
+   are read-only twins (`findProjectsPathByCode_`, `findTopFolder_`,
+   `findProjectSubfolderByCode_`) and `drive-listing-readonly.test.js` keeps them
+   read-only.
+2. **It expects `trashed` from the folder listing. That is impossible** — Drive
+   omits trashed files from `getFiles()` entirely. `trashed` comes from
+   `statProjectFiles`, which is why the sweep needs TWO calls and not one.
+3. **It does not mention a gate, and the built listing REQUIRES `knownFileId`.**
+   That is a security decision, not an omission: see §13a.
+
+The historical text follows.
+
+**The gap this described** — the signed PDFs existed in Drive the whole time; no
+screen, query or job in this system could notice, and the OWNER found them by
+opening Drive by hand.
 
 The design, written and tested by hand during the repair and then deliberately
 NOT committed (it needs a production Apps Script redeploy, which is an ask-first
@@ -699,9 +726,11 @@ operation, and the owner's links made it unnecessary that day):
   repair had to fall back to the approval time and say so.
   ⚠️ It must NOT create the folder if missing: a listing call with a side effect
   is a trap, and `walkProjectsPathByCode_` creates by default.
-* A sweep script under `tools/` (name it when you write it — this file does not
-  pre-book paths, because an exemption for a not-yet-written file outlives the
-  absence and then hides a REAL broken pointer) that walks every หนังสือ's folder
+* A sweep script under `tools/` (unnamed here on purpose at the time, because an
+  exemption for a not-yet-written file outlives the absence and then hides a REAL
+  broken pointer — **it exists now and is
+  `tools/proj0183-drive-orphans.mjs`; do not write a second one**) that walks
+  every หนังสือ's folder
   and reports Drive files with no `project_files` row, and rows whose
   `drive_file_id` no longer resolves (the other direction; a deny-only sweep
   cannot tell a healthy tree from a broken listing call).

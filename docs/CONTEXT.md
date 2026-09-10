@@ -30,6 +30,11 @@ Browser (SPA served by nginx on the KKU VM)
   │     ↳ uploadShopFile      → writes to Drive at Shop/<nested path>
   │     ↳ uploadProjectFile   → writes to Drive at Projects/<nested path>
   │     ↳ notifyProjectEmail  → MailApp.sendEmail to uni_staff
+  │     ↳ getProjectFileData   → READS a Projects/ file's BYTES (e-sign)
+  │     ↳ statProjectFiles     → reads metadata + `trashed` for ids you hold
+  │     ↳ listProjectFolderFiles → lists a Projects/ folder — GATED on a
+  │                               `knownFileId` that is really in it, because
+  │                               this /exec URL is public and unauthenticated
   │
   └─→ /notify (all Discord) — nginx proxies it to the samo-notify Node
         service on 127.0.0.1:8787 (server/notify-server.mjs)
@@ -683,6 +688,12 @@ already resolved — and must not invent its own admin table. The picker's refer
 list comes from `public.list_passport_departments()` because
 `passport.departments` / `sub_departments` have RLS enabled with **no policy**
 (0056), so a direct client read returns zero rows. Proof: `tools/pass0087-scope.mjs`.
+⛔ **That deny-all is deliberate and must stay** — they are reachable only through
+that definer RPC. `passport.continents`, which sits in the same reference-table
+block of 0056, is the opposite case: it had NO row security at all until 0182 and
+now has a read-only policy. So "make the passport reference tables consistent" is
+an edit that would widen two definer-only tables to world-readable;
+`tools/passport0182-continents-lockdown.sql` asserts both halves stay as they are.
 
 ✅ **CORRECTED 2026-09-06 — the write side is CLOSED.** This paragraph used to
 say the bare `anon` role could insert activities, rewrite all 845 scan scores and
@@ -693,7 +704,7 @@ read all 593 profiles, and that per-department filtering was therefore cosmetic.
 |---|---|
 | write policies (`INSERT`/`UPDATE`/`DELETE`/`ALL`) open to `anon`/`public` with a `true` check | **0** |
 | `profiles` rows readable by an unauthenticated caller | **0** — no `true` policy |
-| passport tables with RLS enabled | 11 of 12 |
+| passport tables with RLS enabled | **12 of 12** since 0182 (was 11 of 12: `continents` kept its GRANTs across the monorepo merge and lost its row security — `docs/mistakes/authz-rls.md`) |
 
 What remains open to `public` is **SELECT on the board data** — activities,
 seasons, scans, certificates, account_migrations — which is the public

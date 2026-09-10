@@ -25,9 +25,18 @@ and what will mislead you.
 
 ### ⛔ Five things to know before you touch anything
 
-1. **Everything is shipped and verified.** Five deploys, all `<== exit 0` with
-   both roots stamped; `npm run deploy:owed` is the authority, not this file.
-   Apps Script is at **version 12** and the endpoint is healthy (4/4 JSON).
+1. **Everything is shipped and verified**, and `npm run deploy:owed` is the
+   authority for that — not this sentence. Several deploys, every one ending
+   `<== exit 0` with both roots stamped; ⛔ **I am deliberately not counting
+   them here.** An earlier draft said "five" while `STATE.md` said "sixth" and
+   the VM's own logs held seven — a decaying number with two homes that
+   disagreed with each other AND with reality, which is this repo's most
+   repeated documentation bug. `ls ~/samo-deploy-logs/20260910T*.log` is the
+   count, if anyone ever needs it.
+   Apps Script is at **version 12**. ⚠️ **Do not trust any sentence about the
+   endpoint's live health**, including one I might have written: ask it —
+   `npm run deploy:gas -- --verify` (a SINGLE probe, so retry before believing
+   a failure; see `skills/deploy-gas.md`).
 2. ⛔ **`tools/proj0183-drive-orphans.mjs` shares its endpoint with every real
    Drive upload in the app, and running it fast BREAKS THOSE UPLOADS.** I did
    this for a few minutes: 2 of 3 replies became Google's HTML error page, and

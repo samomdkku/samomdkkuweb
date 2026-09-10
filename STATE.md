@@ -36,7 +36,7 @@ TRUE. That is what the grep is for.
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
 - ✅ **DEPLOYED = `56dc3d7` (2026-09-10)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`;
-  roots 13 s apart, so docs ran. SIXTH deploy today; one carried the admin
+  roots 13 s apart, so docs ran. Several deploys today; one carried the admin
   dashboard's two new GAS actions and the day's write-ups. Verified from the
   SERVED artifact BOTH ways — the admin bundle (named from the served HTML, never
   from here) answers `application/javascript` and carries `statProjectFiles`, and
@@ -213,15 +213,15 @@ text/html): cold `/vault/` 8.26 MB → 2.26 MB, main bundle 293 KB → 112 KB.
 ## NEXT SESSION — start here
 
 1. **This file**, top to bottom. Read all of it.
-2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
-3. **`docs/state/phuriphatma.md` — its FIRST `## ▶ HANDOFF` block**, whichever
+2. **`docs/state/HANDOFF.md`** — the ONLY list of what is not done, each
+   section carrying a `Status:` saying how far to trust it.
+3. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
+4. **`docs/state/phuriphatma.md` — its FIRST `## ▶ HANDOFF` block**, whichever
    date that is. It names what is owed, what is waiting on the owner, and what
    was deliberately NOT verified. Everything below it is history, including
    older handoff blocks.
-   ⚠️ **Do not name a date here.** This step named "HANDOFF 2026-09-01" and a
-   newer block was inserted above it the same day, so the first thing a new
-   session was told to read was the superseded one.
-4. Only then, the archive file for whatever you are about to touch.
+   ⚠️ **Never name a date here** — one was, and a newer block landed above it.
+5. Only then, the archive file for whatever you are about to touch.
 
 **What waits on the owner is section B above — do not restate it here.** These
 are DECISIONS rather than credentials, and none should be built unprompted. Ask
