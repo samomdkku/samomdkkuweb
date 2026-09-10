@@ -34,13 +34,14 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `333dc63` (2026-09-09)** — v4.7.0 still. 32 s, `<== exit 0 —
-  ran to the end` AND `DEPLOY_EXIT=0`; roots stamped 13 s apart, so docs ran.
-  **nginx config installed SEPARATELY** (`deploy.sh` never does it) via
-  `nginx -t` + auto-rollback, backup `default.bak-0181`. Verified from the
-  SERVED artifact: `npm run check:asset-mime` PASS (7 .js + 1 .mjs), pdf.js's
-  module worker LOADS in a real browser (was `ERROR: worker error`), and the
-  zero-height-signature fallback is in the served esign chunk. Prev `090b26c`.
+- ✅ **DEPLOYED = `4024a6c` (2026-09-10)** — v4.7.0 still. 32 s, `<== exit 0 —
+  ran to the end` AND `DEPLOY_EXIT=0`; roots stamped 12 s apart, so docs ran.
+  **DOCS ONLY — no bundle changed**; 0182 is a DB migration already applied to
+  dev and production. Verified from the SERVED artifact: `/docs/INVARIANTS.html`
+  and `/docs/mistakes/authz-rls.html` (200) each carry a string added today,
+  with an OLD string as the control so a 1 means the grep can see both.
+  Prev `333dc63`. ⚠️ nginx config is installed SEPARATELY (`deploy.sh` never
+  does it) via `nginx -t` + auto-rollback; not touched today.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
