@@ -104,10 +104,46 @@ re-raise — but do NOT weaken the rule to soften the surprise.
 - **Teach two ฝ่าย members the tool flow** (`docs/DEPT-TOOLS.md` §13 step 8).
   The design is built and shipped; nobody has been walked through it.
 - **Test a ฝ่าย page on a real phone** (step 5). Emulated widths are not a phone.
-- **A visual-editor spike awaits a verdict** — "แก้แบบเห็นภาพ" on an html row
-  (GrapesJS, admin-only, lazy). ⛔ Build nothing more on it until the owner
-  answers; if the feel is wrong, delete `dept-visual-editor.js` and the
-  dependency and nothing else knows it existed.
+- ✅ **THE VISUAL EDITOR IS ACCEPTED (owner, 2026-09-11): "i've tested it, do
+  it".** It is no longer a spike. ⏸ **AND IT IS PAUSED AGAIN THE SAME DAY, BY
+  THE OWNER, mid-build** — "pause the work of this หน้าฝ่าย for now". What
+  shipped is below; do not extend it without being asked.
+
+  **Built and deployed 2026-09-11:** the block set went 8 → 21, in five Thai
+  categories (ข้อความ · รูปภาพ · กล่องและการ์ด · ปุ่มและลิงก์ · จัดวาง), adding
+  รายการ · ขั้นตอน · คำพูด · รูปคู่ข้อความ · รูปหลายรูป · การ์ดพร้อมรูป ·
+  กล่องสำคัญ · คำถามที่พบบ่อย · ข้อมูลติดต่อ · ตาราง · หัวข้อย่อย ·
+  ปุ่มหลายปุ่ม · ระยะห่าง. Verified by screenshot at 390px and 900px.
+
+  **Three real bugs were fixed on the way, all found by LOOKING, not reading:**
+  1. **The owner could not find how to set a link** — "i don't even know how to
+     attach link to the button". The field existed as a GrapesJS trait, behind a
+     gear icon, so selecting a button showed the Style Manager and no way to
+     type a URL. A feature that cannot be found is not different from a missing
+     one. The settings panel now opens on selection and the traits are labelled
+     in Thai (`ลิงก์`), not `href`.
+  2. **Every link would have hijacked the ฝ่าย page.** The frame is sandboxed
+     without `allow-same-origin` or `allow-top-navigation`, so a bare `<a href>`
+     loads the target INSIDE the little embedded box. `forceExternalLinks()` now
+     pins `target="_blank" rel="noopener"` on the way out — on SAVE, so it also
+     catches markup an author pastes.
+  3. **The image blocks fetched placeholders from placehold.co** — a third-party
+     request from a student-facing page, broken wherever that host is blocked.
+     Now inline SVG data URIs, which is what "self-contained" required anyway.
+
+  ⚠️ **ONE NEAR-MISS WORTH READING BEFORE ANY LAYOUT WORK HERE** — a screenshot
+  appeared to prove the columns never stack on a phone, and the fix was half
+  written (every block moved to grid `auto-fit`, the header comment rewritten,
+  the guard test rewritten to FORBID the old idiom) before measurement showed
+  the flex idiom had been right the whole time. The capture harness had no
+  `<meta name="viewport">`, so Chrome laid the page out at 980px and scaled it
+  down. All of it was reverted. `docs/mistakes/frontend-ui.md` has the write-up;
+  the rule is that a screenshot is an instrument and gets the same suspicion as
+  a SQL proof.
+
+  **What is NOT done, if this is ever resumed:** nobody has dragged a block and
+  saved through the real editor end to end — the round trip is still verified by
+  composing blocks in code. And the two teaching items above stand.
 
 ---
 

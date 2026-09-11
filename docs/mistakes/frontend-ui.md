@@ -3550,3 +3550,78 @@ keeping a feature dead, every bug BEHIND it becomes reachable in the same
 commit.** A fix that turns a feature on for the first time is not a fix, it is a
 launch — re-read the code it just enabled, because it has never executed in
 production and nothing about "it was already merged" means it works.
+
+---
+
+## "The columns refuse to stack on a phone" — the screenshot was lying, and I nearly wrote the wrong fix into the record
+
+**Symptom**: a capture of all 21 ฝ่าย blocks at 390px showed every multi-column
+block — 2 คอลัมน์, 3 คอลัมน์, รูปคู่ข้อความ — still **side by side**. The module's
+own header promised the opposite: *"the columns stack by `flex-wrap` with a
+flex-basis, so a two-column row becomes one column on a phone"*.
+
+**The wrong conclusion, reached fast and confidently.** `flex: 1 1 260px` has
+`flex-shrink: 1`, so it is easy to argue that two 260px columns in a 374px row
+just *squeeze* to ~187px each and never wrap. That story fits the screenshot
+perfectly. Acting on it, I rewrote every multi-column block to
+`grid-template-columns: repeat(auto-fit, minmax(min(260px,100%), 1fr))`, rewrote
+the header comment to say the flex idiom had shipped broken, and **rewrote the
+guard test to assert the grid idiom and forbid the flex one** — complete with a
+comment explaining that the old assertion "was the bug".
+
+**Cause**: the capture harness had no `<meta name="viewport">`. With Chrome's
+mobile emulation on (`Emulation.setDeviceMetricsOverride`, `mobile: true`) and
+no viewport tag, the page lays out at the **980px fallback viewport and is then
+scaled down**. So every block was rendered at desktop width and photographed
+small. Nothing was ever measured at 390px.
+
+**What settled it** was measuring the thing itself instead of looking at a
+picture of it: the original flex markup, in a page WITH the viewport tag, at a
+364px content width, reading the CHILDREN's rects —
+
+```
+flex2 → rows: 2   kids: [{w:364},{w:364}]
+flex3 → rows: 3   kids: [{w:364},{w:364},{w:364}]
+```
+
+Every child on its own row at full width. **The flex idiom was correct all
+along.** Flex breaks lines on each item's *hypothetical main size*, so
+260+260+16 > 364 wraps BEFORE flex-shrink is applied to anything.
+
+**Fix**: the grid rewrite was reverted whole, and the original assertion
+restored with the measurement recorded above it so the next reader does not
+re-open it. Two real bugs found in the same pass were kept, because those were
+measured rather than inferred: the image blocks fetched placeholders from
+**placehold.co** (a third-party request from a student-facing page that renders
+as a broken-image icon wherever it is blocked — now an inline SVG data URI), and
+flex images had no `min-width: 0`, so `min-width: auto` resolved to their 400px
+intrinsic width and the third gallery image wrapped alone and stretched.
+
+**Where it lives now.** `src/js/dept-visual-editor.js`, whose header carries the
+measurement; `dept-visual-editor.test.js`, whose stacking test carries a "do not
+'fix' this to grid on the strength of a screenshot" note.
+
+**The general rule.** *A layout measurement taken in a page with no
+`<meta name="viewport">` is not a phone measurement.* Emulating a narrow device
+without it reports the 980px desktop layout, shrunk — which is visually
+indistinguishable from "responsive rules are not firing", and it will frame any
+responsive idiom you happen to be looking at.
+
+**And the bigger one, which cost more than the CSS.** This repo's rule is
+"screenshot it, because reading the code will not show you a rendering bug" —
+that rule is right, and it is what found the placehold.co bug in the same pass.
+But a screenshot is an INSTRUMENT, and class 7 applies to it exactly as it does
+to a SQL proof: **before believing an alarming picture, check that the harness
+puts the thing under test in the conditions it claims.** The tell was available
+and I walked past it: the *same* capture showed the block whose whole job is to
+be full-width rendering at a sensible size, which only makes sense if the page
+was wider than 390px.
+
+⚠️ **A wrong diagnosis does not stop at the diagnosis.** By the time it was
+caught, the false story had been written into a header comment, a guard test,
+and the test's own explanation of why the previous assertion was wrong — each
+one reinforcing the others, and all three would have survived review because
+they agreed. **A guard rewritten to match a fresh theory is not a guard; it is
+the theory with a green tick next to it.** When a long-standing assertion
+suddenly looks wrong, suspect today's measurement before rewriting yesterday's
+proof.

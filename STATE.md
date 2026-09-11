@@ -137,11 +137,11 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** (`allow-same-origin`), and
    the three changes that delete it are now a rule in `docs/INVARIANTS.md` —
    with the owner-facing fake-sign-in risk. Read it before touching the frame.
-   🧪 **A VISUAL EDITOR SPIKE IS LIVE AND AWAITS THE OWNER'S VERDICT** —
-   "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6, admin-only, lazy, its own
-   1.15 MB chunk, zero refs from the public entry). ⛔ **Build NOTHING more on
-   it until the owner answers**; if the feel is wrong, delete
-   `dept-visual-editor.js` + the dep and nothing else knows it existed.
+   ✅ **THE VISUAL EDITOR IS ACCEPTED AND BUILT OUT** (owner 2026-09-11, "do
+   it") — 21 blocks in 5 Thai categories, the link field now findable, links
+   pinned to `_blank`, placeholders inlined. ⏸ **PAUSED by the owner the same
+   day; do not extend it unasked.** Still no end-to-end drag-and-save by a
+   human. HANDOFF §4 — read its viewport near-miss before any layout work.
    ⚠️ An earlier note the SAME DAY said a canvas was REJECTED — superseded, and
    `docs/state/phuriphatma.md` says so at both ends. Why GrapesJS and not
    Puck/Craft.js (React-only), plus the block-set work next: same file.
