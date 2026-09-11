@@ -6,8 +6,9 @@ Discord as a bot, and none should be written until §7's owner steps are done.
 
 ⛔ **Do not start building from the middle of this file.** §1 is the goal, §3 is
 why the obvious approach fails, §6 is the build order, §7 is what only the owner
-can do — and §7 blocks §6. A session that starts coding at §5 will build a sync
-that cannot identify anybody.
+can do, and **§8b is a decision nobody has made yet**. §7 and §8b both block §6.
+A session that starts coding at §5 will build a sync that cannot identify
+anybody, in a directory nobody agreed on.
 
 📌 The same material, formatted for reading rather than for agents:
 `https://claude.ai/code/artifact/cfd900a6-3f6b-42ab-a8d4-13cf013065de`
@@ -266,6 +267,8 @@ Roles are for **access**, not for reading the org chart.
 
 **⛔ §7 blocks phase 1. Do not start before it is done.**
 
+0. **Decide where the code lives — §8b.** Undecided, and it determines where
+   every later line gets written. Do this first, it costs one conversation.
 1. **Identity + the tick-box.** `discord_links`, the `/link` command, the
    `team_nodes.discord_role` flag and its checkbox. Nothing syncs yet.
 2. **Report-only reconcile.** For every guild member print: who they are in ทีม
@@ -373,6 +376,28 @@ Verified 2026-09-11 by reading each path, not by assuming:
 - No bot token and no real webhook URL has **ever** been committed to this repo
   — searched at HEAD and across all history. The only match is a dummy
   (`webhooks/1/x…`) in `functions/notify.test.js`.
+
+---
+
+## 8b. ⚠️ UNDECIDED — where does the bot's code live?
+
+§5h says "use a systemd unit with `Restart=always`" and never says **what that
+unit runs, or how the code reaches the VM.** Nothing is decided. The options:
+
+| | Where | Cost |
+|---|---|---|
+| **A — in this repo** *(recommended)* | `discord-bot/` beside `passport/` | `deploy.sh` already pulls and builds this repo on the VM, so the bot ships with everything else and CI sees it. ⚠️ It is **Python in a JS repo** — `npm ci` installs nothing for it, so `deploy.sh` needs a venv step and a `systemctl restart`, and that is real work in the one script this project cannot afford to break |
+| B — its own repo, cloned on the VM | a second checkout | Keeps the toolchains apart, but creates a **second deploy path** nobody will remember exists — and this project has already been bitten by a thing that only updates when somebody remembers it |
+| C — rewrite it in Node | `server/` | Removes the Python problem entirely and matches the notify service, at the cost of rewriting 1,300 lines of working `discord.py` |
+
+**Recommended: A, and decide it BEFORE phase 1**, because it determines where
+the new code gets written. The precedent is the passport merge — the deciding
+argument there was that the two already deploy atomically, and the same is true
+here: a role sync that reads `team_members` should ship with the schema it reads.
+
+⚠️ **This repo is PUBLIC.** That is fine for the bot's source — the token lives
+in the VM's systemd environment file and never in the tree (`§7 step 2`) — but
+it is one more reason no identifier or credential may be written into it.
 
 ---
 

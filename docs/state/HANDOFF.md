@@ -1065,7 +1065,11 @@ is 9 sections and it will drift if it is summarised. What belongs in this file
 is only what is OWED:
 
 1. **The owner's six steps** — `DISCORD-ROLE-SYNC.md` §7. Blocks everything.
-2. **Then phase 1** (identity + the tick-box), §6. This includes portal work —
+2. **Decide where the bot's code lives** — §8b, **undecided**, and it determines
+   where every later line gets written. In this repo beside `passport/` is the
+   recommendation; the cost is Python in a JS repo, so `deploy.sh` grows a venv
+   step. One conversation, and it is phase 0 for a reason.
+3. **Then phase 1** (identity + the tick-box), §6. This includes portal work —
    a migration and a checkbox in the ทีม SAMO editor — not just bot work.
 
 **The three findings a next session must not re-derive**, each measured:
