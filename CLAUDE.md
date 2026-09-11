@@ -112,22 +112,23 @@ now fails the build if it grows back past ~200.
 - `README.md` — human onboarding. Not for agents; open only to verify it.
 - `CONTRIBUTING.md` — human collaborator guide; same rules. Cross-check when
   editing project policy.
-- `docs/TEAM-WORKFLOW.md` — the multi-developer plan (dev env, previews, credentials, review flow). **DESIGN ONLY, nothing built**; its §0 holds owner decisions that must not be re-litigated
+- `docs/TEAM-WORKFLOW.md` — the multi-developer plan (dev env, previews, credentials, review flow). **DESIGN ONLY**; §0 holds owner decisions, do not re-litigate
 - `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10 self-scrutiny, §13 build order
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
 - `docs/EMAIL.md` — who sends mail and the quota ceilings. The VM CAN send via
   a relay (587 out works); it cannot BE or RECEIVE mail (25 blocked out, no
   inbound port, `p=reject`). READ BEFORE touching mail.
-- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase; why the schema
-  is shaped as it is. Not a status.
+- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase. Not a status.
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
   version or adding a release note; `npm run release` does the mechanical half.
-- `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model; shipped and
-  gone past. Its "current state" section is the GAS era.
-- `docs/KKU-SSO.md` — KKU SSO assessment: a login improvement, NOT a data source
-  (no roster endpoint, no สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
-- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
+- `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model. Its "current
+  state" section is the GAS era.
+- `docs/KKU-SSO.md` — a login improvement, NOT a data source (no roster, no
+  สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
+- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED
+- `docs/DISCORD-ROLE-SYNC.md` — ทีม SAMO → Discord roles. **DESIGN ONLY**; §7 is
+  owner-only and blocks the rest. READ BEFORE any Discord bot code.
 - `docs/demos/*/README.md` — built-and-published comparisons the owner is
   choosing between. Not shipped code; each says what is decided and what is not.
 - `skills/*.md` — playbooks for the non-obvious workflows

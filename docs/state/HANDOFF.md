@@ -54,20 +54,24 @@ of readers with a diffstat attached. The guard fails the build on one.
 **Status: OWED 2026-09-11** — leaked a SECOND time, and the reason the owner
 declined the first time no longer holds.
 
-**Reset the Discord bot token** — app `1492541609445949465`, *"Role assignment
-bot for SAMO69"*, **Administrator**.
+**Replace the Discord bot credential.** The bot is the one named *"Role
+assignment bot for SAMO69"* in the server; it is currently over-permissioned.
+
+⛔ **DELIBERATELY VAGUE, AND DO NOT "HELPFULLY" RE-ADD THE DETAIL.** This file is
+SERVED PUBLICLY at `samo.md.kku.ac.th/docs/state/HANDOFF` (verified 2026-09-11,
+HTTP 200) and the repo is public. Naming the application id beside the words
+"compromised credential" and "Administrator" publishes a target while the hole
+is still open. The specifics are the owner's to hold until step 5 below is done.
 
 ⚠️ **The 2026-09-05 "declined to rotate" decision is SUPERSEDED, and it is worth
 saying why rather than just overturning it.** That decision was defensible on
-its own terms: the bot was dead on Render, nothing in this repo used the token,
-so a compromised credential controlled nothing anybody cared about.
+its own terms: the bot was dead on Render and nothing in this repo used it, so
+the credential controlled nothing anybody cared about.
 
-**Both halves of that changed on 2026-09-11.** The owner asked to bring the bot
-back on the VM as the ทีม SAMO → Discord role sync, so the token stops being
-inert and starts being the thing that can add and remove roles for 449 people.
-And the token was pasted into a chat transcript a second time that same day. A
-dormant leaked credential is a risk you can choose to accept; an
-**Administrator** credential about to be handed a live job is not.
+**That changed on 2026-09-11**, when the owner asked to bring the bot back on the
+VM as the ทีม SAMO → Discord role sync. The credential stops being inert and
+becomes the thing that can add and remove roles for 449 people. A dormant risk
+is one you can choose to accept; the same risk attached to a live job is not.
 
 ⛔ **Do not stand the bot up on the old token.**
 
@@ -101,6 +105,12 @@ them itself at `main.py:1138` with `is_bot_managed()`), so a new bot can manage
 every one of them. The bot stores nothing but flat files.
 
 `.claude/rules/security.md` carries the row saying where the new token lives.
+
+📌 **THE STEP-BY-STEP IS `docs/DISCORD-ROLE-SYNC.md` §7** — six numbered steps,
+owner-only, written 2026-09-11 to be followed in a later session. Do not
+reconstruct them from this section; §7 is their one home, and it includes the
+two that fail silently (the SERVER MEMBERS INTENT, and the bot's position in the
+role list).
 
 ✅ **Resetting is safe — verified 2026-09-11, not assumed.** Nothing breaks:
 every SAMO notification uses **webhook URLs**, which are a separate credential
@@ -1042,6 +1052,36 @@ lets an explicit seat beat the master floor, so a master with the ผู้ส�
 gets the ผู้ส่ง screen. Change the seat to **อาจารย์ (ลงนาม)** in ทีม SAMO to
 test. Do not widen the UI gate; `src/js/projects/index.js` §MASTER_SEATS explains
 why under-showing relative to RLS is the safe direction.
+
+## 14b. Discord role sync — designed 2026-09-11, NOTHING BUILT
+
+**Status: DECIDED + OWED.** The owner asked for the dead Render bot to be
+rebuilt on the VM with **ทีม SAMO as the source of truth** for Discord roles.
+It was scanned, designed and scrutinised on 2026-09-11. **No code was written,
+and none should be until §1's owner steps are done.**
+
+⛔ **ONE HOME: `docs/DISCORD-ROLE-SYNC.md`.** Do not restate the design here; it
+is 9 sections and it will drift if it is summarised. What belongs in this file
+is only what is OWED:
+
+1. **The owner's six steps** — `DISCORD-ROLE-SYNC.md` §7. Blocks everything.
+2. **Then phase 1** (identity + the tick-box), §6. This includes portal work —
+   a migration and a checkbox in the ทีม SAMO editor — not just bot work.
+
+**The three findings a next session must not re-derive**, each measured:
+
+- **The old bot never removed a role** (`main.py:183`/`200`, no `remove_roles`).
+  The mismatch is the design working as written, not decay.
+- **The Sheet holds applications, not placements**, and merges duplicate
+  submissions, so multi-applicants wear several ฝ่าย roles.
+- **ตำแหน่ง names are not unique** — `เหรัญญิก` exists 6 times, 11 names collide
+  across 32 nodes, 37 members affected. Matching Discord roles by NAME merges
+  them. This is the finding that breaks the obvious design.
+
+⚠️ **The size of the problem is still unknown.** Every number in the design comes
+from the database and the bot's source; **the live Discord server has never been
+inspected** — there is no bot token in the environment. Phase 2's report is what
+turns that into a number, and it cannot run before the owner's steps.
 
 ## 15. Two loose ends from the 0181 session
 

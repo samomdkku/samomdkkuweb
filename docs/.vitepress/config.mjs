@@ -123,6 +123,7 @@ export const SIDEBAR = [
     collapsed: true,
     files: [
       'TEAM-WORKFLOW.md', 'NEXT.md', 'PROJECT-ARCHITECTURE.md',
+      'DISCORD-ROLE-SYNC.md',
       'KKU-SSO.md', 'KKU-SSO-MANUAL.md', 'AUTH-MODEL.md',
       // The two passport documents sit together on purpose: MERGE is the
       // finished DATABASE cutover, MONOREPO is the planned REPOSITORY merge.

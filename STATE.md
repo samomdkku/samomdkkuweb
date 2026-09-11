@@ -146,17 +146,19 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    Puck/Craft.js (React-only), plus the block-set work next: same file.
    ❌ **What is left is NOT code: §13 step 8, teach two people**, and step 5 on
    a REAL phone. Detail: `docs/state/phuriphatma.md` + `docs/DEPT-TOOLS.md`.
-2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT, and this entry used to say the
-   opposite.** It read "NOT REPRODUCING, treat deploy.sh as working" while the
-   block above it counted four failures; an intermittent fault is never
-   disproven by successes. ✅ The diagnostic it asked for is now PERMANENT:
-   `set -x` inside the script, writing `~/samo-deploy-logs/<stamp>.trace` on the
-   VM. **Read the log before forming any theory — every theory so far was
-   formed without one.** Status, tally and how to read a log live in ONE place,
-   the CURRENT DEPLOY block above; do not restate them here.
+2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT.** An intermittent fault is never
+   disproven by successes; this entry once claimed the opposite. `set -x` now
+   writes `~/samo-deploy-logs/<stamp>.trace` on the VM — **read the log before
+   forming any theory.** Status and tally: the CURRENT DEPLOY block, their one
+   home.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE.** Passport is `passport/`; one pull, one
    `npm ci`, one build. Old repo ARCHIVED. ⛔ **Never delete OR replace the
    `samomdkkupassport` Cloudflare project** — `docs/INVARIANTS.md` is its home.
+4. 🆕 **DISCORD ROLE SYNC — DESIGNED 2026-09-11, NOTHING BUILT.** ⛔ ONE HOME:
+   `docs/DISCORD-ROLE-SYNC.md`; §7 is the owner's setup and BLOCKS all of it.
+   Do not write bot code first — no Discord identity exists in the portal, and
+   role NAMES are not unique (`เหรัญญิก` x6). `HANDOFF` §14b.
+
 ### B. OWNER ONLY
 
 ⛔ **One home: `docs/state/HANDOFF.md` §1 and §3.** This section used to restate
