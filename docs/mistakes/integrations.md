@@ -1181,3 +1181,57 @@ CALLER's spelling.** Centralising a rule collects the spellings visible from
 where you are standing; the caller in the other build target is the one that
 breaks, and a guard built from the central definition will never see it. Assert
 against the SENDERS, and give the sweep a control so an empty result is red.
+
+---
+
+## Google answers /exec with an HTML page, and the student gets "Unexpected token '<'" on the file they just picked
+
+**Symptom**: an upload fails with a JSON parse error —
+`SyntaxError: Unexpected token '<' ... is not valid JSON` — thrown at somebody
+who was submitting a PDF or a payment slip. Measured again on the evening of
+**2026-09-11**: the live `/exec` answered **HTTP 404 with Google's HTML error
+page after 32 s**, twice, with nothing but a read-only sweep touching it.
+
+**Cause**: Apps Script `/exec` intermittently returns Google's own HTML page
+(`<!DOCTYPE html>… lang="th" … ppConfig`) instead of running the script at all.
+It tracks request RATE, not client identity — a browser `User-Agent` and
+`Origin` made no difference when this was measured on 2026-09-10 (HANDOFF §13a).
+Every upload call site did `await res.json()` straight onto that reply, so a
+transport hiccup on Google's side surfaced as a JSON syntax error in the user's
+face. Six call sites across four files had the same line, including
+`pr-form.js` — the PUBLIC form, where the person hitting it is often a guest
+with no account and nobody to ask.
+
+**Fix**: one helper, `src/js/gas-post.js`, and every GAS call site in `src/js`
+now goes through it. It reads the body as TEXT, parses, and:
+
+- **retries a non-JSON reply** (up to `tries`, default 2), then throws Thai the
+  reader can act on — and the message says **"ไฟล์ยังไม่ถูกบันทึก"**, because a
+  student who is not told the file was lost will not send it again;
+- **does NOT retry a timeout or a dropped connection.** This is the whole
+  design decision. An HTML page means the script never ran, so no Drive file
+  exists and a second attempt is safe. A timeout is AMBIGUOUS — the upload may
+  have landed with only the answer lost — and retrying there writes the same
+  file to Drive twice, which is the orphan mess 0181 cost six days. That case
+  gets its own message saying the outcome is unknown;
+- **passes a well-formed `success:false` through untouched**, because
+  `uploadTeamPhoto` reads `"Unknown action"` out of one to drive its fallback.
+
+**Where it lives now.** `src/js/gas-post.js`; guarded by
+`src/js/gas-post.test.js` (8 assertions). All three behaviours were reintroduced
+and watched to fail on their own assertion before being restored.
+
+**The guard that matters is the last one.** It walks `src/js` and asserts that
+**no module reaches the GAS endpoint with a raw `fetch`** — the property — with
+a control asserting the sweep really read files. A list of the six call sites
+that existed the day it was written could not see the seventh
+(`.claude/rules/mistakes.md` class 7: a list-vs-list guard proves only that the
+lists agree). `discord-queue.js` is exempt on purpose: its `callGAS` is
+fire-and-forget, returns `null` and never throws, which is right for a
+notification and wrong for a person who is waiting.
+
+**The general rule.** *A reply you did not parse is not a reply you can trust —
+and "retry it" is a different question from "is it safe to retry".* Before
+adding a retry to anything that WRITES, ask what the ambiguous failure would
+duplicate. Here the safe case and the unsafe case are distinguishable (HTML vs
+timeout) and the code distinguishes them; where they are not, do not retry.

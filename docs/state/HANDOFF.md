@@ -653,6 +653,33 @@ single-direction run as covering both — the tool now says so itself on the las
 line. It exits non-zero on any finding AND on any control failure, so only a
 printed verdict counts.
 
+⛔ **ATTEMPTED 2026-09-11 ~19:56 ICT AND IT FAILED — the folders half is STILL
+OWED, and this is new information about WHEN it can run.** `REAL_EXIT=1`. Batch
+1 of 7 examined 20 files; **batch 2 came back `UNREACHABLE (HTML after retries)`**
+— four attempts, backing off to 8/16/24 s — and the tool aborted before the
+folder listing ever started. The endpoint was degraded independently of the
+pacing that worked the day before: two single probes AFTER the sweep had
+stopped, spaced minutes apart, both got Google's HTML error page (**HTTP 404,
+32 s**), where the 2026-09-10 measurement had it recovering as soon as the sweep
+stopped. Nothing else was touching `/exec`.
+
+**So there is a condition in which this tool cannot run at all, and it is not
+one the pacing controls.** Two things follow for whoever picks this up:
+
+* **Probe first, then decide.** One `uploadTeamFile` call with no argument costs
+  nothing and tells you whether `/exec` is answering JSON. If it is not, the
+  sweep will burn four retries per batch and abort — and every one of those
+  retries is pressure on the endpoint students upload through.
+* ⚠️ **It also means real uploads were failing at that moment**, which is what
+  `src/js/gas-post.js` now exists for (`docs/mistakes/integrations.md`). Before,
+  a student in that window got `SyntaxError: Unexpected token '<'`.
+
+⚠️ **The run reported "exit code 0" to the shell and that was a lie** — the
+command ended in an `echo`, so the pipeline's status was the echo's. The
+`REAL_EXIT=` line the tool writes is the only trustworthy verdict, which is
+exactly why it is written. Same shape as the deploy pipeline whose status was
+`tail`'s (`docs/mistakes/deploy-hosting.md`).
+
 ⚠️ **The report itself had three bugs, all shipped green, all now guarded** by
 `src/js/projects/drive-orphans-report.test.js` (13 assertions via `SELFTEST=1`,
 no network, ~200 ms): a skipped half printed `0` and then claimed "in both
@@ -680,11 +707,22 @@ now paces itself (`PACE_MS`), backs off HARD on an HTML reply rather than
 retrying promptly, reports how many it got, and takes `--rows-only` /
 `--folders-only`. **Run it when nobody is submitting, and prefer `--rows-only`.**
 
-📌 **A SMALL FIX THIS EXPOSED, NOT DONE, NOT MINE TO DECIDE.** `src/js/uploads.js`
-does `await res.json()` with no retry and no content-type check, so if a real
-upload draws that HTML page the student gets a JSON parse error on work they just
-did — the same class of loss as 0181, from the other end. One retry on a
-non-JSON reply would cover it. Offered, not built.
+✅ **THE SMALL FIX THIS EXPOSED IS NOW BUILT (2026-09-11)** — and it was needed
+sooner than expected: the endpoint was serving that HTML page the same evening
+(see the failed run above). It turned out to be SIX call sites across four
+files, not one, including `pr-form.js`, the PUBLIC form a guest uses.
+
+`src/js/gas-post.js` is the one helper they all go through now. It retries a
+non-JSON reply and then throws Thai that says **the file was not saved**; it
+deliberately does **NOT** retry a timeout, because that case is ambiguous — the
+upload may have landed with only the answer lost, and retrying writes the same
+file to Drive twice, which is 0181's orphan mess from the other end. A
+well-formed `success:false` passes through untouched, which `uploadTeamPhoto`'s
+"Unknown action" fallback depends on. Guarded by `src/js/gas-post.test.js`
+(8 assertions, all three behaviours falsified before being trusted), whose last
+test asserts the PROPERTY — no module reaches GAS with a raw `fetch` — so a
+seventh call site cannot quietly appear. Write-up:
+`docs/mistakes/integrations.md`.
 
 ### 13a-original. The design as written on 2026-09-09 — ⛔ HISTORICAL
 

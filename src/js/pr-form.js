@@ -3,6 +3,7 @@
 // ==============================================
 
 import { GAS_API_URL } from './config.js';
+import { postGAS } from './gas-post.js';
 import { getIsPrAccountVerified } from './pr-auth.js';
 import { db } from './db.js';
 import { getUser as authGetUser } from './auth.js';
@@ -497,12 +498,13 @@ async function handlePrFormSubmit(e) {
           reader.onload = (event) => resolve(event.target.result);
           reader.readAsDataURL(file);
         });
-        const uploadRes = await fetch(targetUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'uploadPRFile', fileName: file.name, mimeType: file.type, fileData: base64 }),
+        // postGAS retries the one failure that is safe to retry: Google
+        // answering with an HTML page instead of running the script. This is
+        // the PUBLIC form, so the person hitting it is often a guest with no
+        // account and no way to ask anyone what went wrong.
+        const uploadResult = await postGAS(targetUrl, {
+          action: 'uploadPRFile', fileName: file.name, mimeType: file.type, fileData: base64,
         });
-        const uploadResult = await uploadRes.json();
         if (uploadResult.success) {
           uploadedUrls.push(uploadResult.fileUrl);
         } else {

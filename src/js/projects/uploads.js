@@ -7,6 +7,7 @@
 // ==============================================
 
 import { GAS_API_URL } from '../config.js';
+import { postGAS } from '../gas-post.js';
 import { currentAccessToken } from '../db.js';
 
 function readAsDataURL(file) {
@@ -38,18 +39,16 @@ export async function uploadProjectFile(file, folderPath, opts = {}) {
     throw new Error('folderPath must start with Projects');
   }
   const base64 = await readAsDataURL(file);
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      action: 'uploadProjectFile',
-      folderPath,
-      fileName: opts.fileName || file.name,
-      mimeType: file.type,
-      fileData: base64,
-    }),
+  // postGAS, not res.json(): this is the หนังสือโครงการ path, where a refused
+  // reply already cost three signed PDFs once (0181). An HTML page from Google
+  // must not reach an อาจารย์ as a JSON syntax error.
+  const result = await postGAS(GAS_API_URL, {
+    action: 'uploadProjectFile',
+    folderPath,
+    fileName: opts.fileName || file.name,
+    mimeType: file.type,
+    fileData: base64,
   });
-  const result = await res.json();
   if (!result.success || !result.fileUrl) {
     throw new Error(result.message || 'อัปโหลดไฟล์ไม่สำเร็จ');
   }
@@ -71,12 +70,8 @@ export async function uploadProjectFile(file, folderPath, opts = {}) {
  */
 export async function getProjectFileData(driveFileId) {
   if (!driveFileId) throw new Error('driveFileId is required');
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'getProjectFileData', fileId: driveFileId }),
-  });
-  const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
+  const result = await postGAS(GAS_API_URL, { action: 'getProjectFileData', fileId: driveFileId })
+    .catch((e) => ({ success: false, message: e.message }));
   if (!result.success || !result.base64) {
     throw new Error(result.message || 'โหลดไฟล์จาก Drive ไม่สำเร็จ');
   }
@@ -100,12 +95,9 @@ export async function getProjectFileData(driveFileId) {
 export async function deleteProjectFile(fileUrl) {
   if (!fileUrl) return true;
   try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteProjectFile', fileUrl, accessToken: currentAccessToken() }),
+    const result = await postGAS(GAS_API_URL, {
+      action: 'deleteProjectFile', fileUrl, accessToken: currentAccessToken(),
     });
-    const result = await res.json();
     if (!result.success) {
       console.warn('[projects/uploads] deleteProjectFile failed:', result.message);
       return false;
@@ -142,12 +134,8 @@ export async function getProjectFolderInfo(folderPath, opts = {}) {
     folderPath,
     share: opts.share === true,
   };
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-  });
-  const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
+  const result = await postGAS(GAS_API_URL, body)
+    .catch((e) => ({ success: false, message: e.message }));
   if (!result.success || !result.folderUrl) {
     throw new Error(result.message || 'หา URL โฟลเดอร์ไม่สำเร็จ');
   }
@@ -176,12 +164,9 @@ export async function deleteProjectFolder(folderPath) {
   if (!folderPath.startsWith('Projects')) {
     throw new Error('folderPath must start with Projects');
   }
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'deleteProjectFolder', folderPath, accessToken: currentAccessToken() }),
-  });
-  const result = await res.json().catch(() => ({ success: false, message: 'invalid JSON' }));
+  const result = await postGAS(GAS_API_URL, {
+    action: 'deleteProjectFolder', folderPath, accessToken: currentAccessToken(),
+  }).catch((e) => ({ success: false, message: e.message }));
   if (!result.success) throw new Error(result.message || 'ลบโฟลเดอร์ใน Drive ไม่สำเร็จ');
   return result;
 }

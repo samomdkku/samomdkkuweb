@@ -13,6 +13,7 @@
 // ==============================================
 
 import { GAS_API_URL } from '../config.js';
+import { postGAS } from '../gas-post.js';
 import { currentAccessToken } from '../db.js';
 import { convertDriveUrl } from '../uploads.js';
 
@@ -43,18 +44,15 @@ export async function uploadShopFile(file, folderPath, opts = {}) {
     throw new Error('folderPath must start with Shop');
   }
   const base64 = await readAsDataURL(file);
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      action: 'uploadShopFile',
-      folderPath,
-      fileName: opts.fileName || file.name,
-      mimeType: file.type,
-      fileData: base64,
-    }),
+  // postGAS, not res.json(): a payment slip is the least re-creatable thing a
+  // student uploads here.
+  const result = await postGAS(GAS_API_URL, {
+    action: 'uploadShopFile',
+    folderPath,
+    fileName: opts.fileName || file.name,
+    mimeType: file.type,
+    fileData: base64,
   });
-  const result = await res.json();
   if (!result.success || !result.fileUrl) {
     throw new Error(result.message || 'อัปโหลดไม่สำเร็จ');
   }
@@ -68,12 +66,9 @@ export async function uploadShopFile(file, folderPath, opts = {}) {
 export async function deleteShopFile(fileUrl) {
   if (!fileUrl) return true;
   try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteShopFile', fileUrl, accessToken: currentAccessToken() }),
+    const result = await postGAS(GAS_API_URL, {
+      action: 'deleteShopFile', fileUrl, accessToken: currentAccessToken(),
     });
-    const result = await res.json();
     if (!result.success) {
       console.warn('[shop/uploads] deleteShopFile failed:', result.message);
       return false;

@@ -12,6 +12,7 @@
 // ==============================================
 
 import { GAS_API_URL } from './config.js';
+import { postGAS } from './gas-post.js';
 import { downscaleImage } from './image-resize.js';
 import { currentAccessToken } from './db.js';
 
@@ -35,17 +36,14 @@ function readAsDataURL(file) {
 export async function uploadImageToDrive(file) {
   if (!file) throw new Error('No file');
   const base64 = await readAsDataURL(file);
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      action: 'uploadPRFile',
-      fileName: file.name,
-      mimeType: file.type,
-      fileData: base64,
-    }),
+  // postGAS, not res.json(): Google sometimes answers /exec with an HTML page
+  // instead of running the script, and this is the path a student is watching.
+  const result = await postGAS(GAS_API_URL, {
+    action: 'uploadPRFile',
+    fileName: file.name,
+    mimeType: file.type,
+    fileData: base64,
   });
-  const result = await res.json();
   if (!result.success || !result.fileUrl) {
     throw new Error(result.message || 'อัปโหลดไม่สำเร็จ');
   }
@@ -92,11 +90,9 @@ export async function uploadTeamPhoto(file, { year, dept, order, name } = {}) {
   ].join('/');
 
   const base64 = await readAsDataURL(small);
-  const post = (body) => fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-  }).then((r) => r.json());
+  // A JSON success:false still comes back verbatim, which the "Unknown action"
+  // fallback below depends on — postGAS only retries a NON-JSON reply.
+  const post = (body) => postGAS(GAS_API_URL, body);
 
   let result = await post({
     action: 'uploadTeamFile',
@@ -139,16 +135,13 @@ export async function uploadTeamPhoto(file, { year, dept, order, name } = {}) {
 export async function deleteTeamFile(fileUrl) {
   if (!fileUrl) return true;
   try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      // Parity with deleteShopFile / deleteProjectFile. The GAS session gate is
-      // currently REVERTED (it needed an OAuth scope the owner had not granted —
-      // mistakes.md), so this is ignored server-side today; sending it means
-      // Team is not the one endpoint that breaks if the gate is restored.
-      body: JSON.stringify({ action: 'deleteTeamFile', fileUrl, accessToken: currentAccessToken() }),
+    // Parity with deleteShopFile / deleteProjectFile. The GAS session gate is
+    // currently REVERTED (it needed an OAuth scope the owner had not granted —
+    // mistakes.md), so accessToken is ignored server-side today; sending it means
+    // Team is not the one endpoint that breaks if the gate is restored.
+    const result = await postGAS(GAS_API_URL, {
+      action: 'deleteTeamFile', fileUrl, accessToken: currentAccessToken(),
     });
-    const result = await res.json();
     if (!result.success) {
       // Includes the "Unknown action" case while the Apps Script project is
       // still on the previous version — say so instead of failing silently.
@@ -184,12 +177,9 @@ export async function deleteTeamFile(fileUrl) {
 export async function deletePRFile(fileUrl) {
   if (!fileUrl) return true;
   try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deletePRFile', fileUrl, accessToken: currentAccessToken() }),
+    const result = await postGAS(GAS_API_URL, {
+      action: 'deletePRFile', fileUrl, accessToken: currentAccessToken(),
     });
-    const result = await res.json();
     if (!result.success) {
       // Includes the "Unknown action" case while the Apps Script project is
       // still on the previous version — say so instead of failing silently.
