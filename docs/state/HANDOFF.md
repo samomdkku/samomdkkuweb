@@ -49,16 +49,77 @@ of readers with a diffstat attached. The guard fails the build on one.
 
 ---
 
-## 1. Discord bot token — owner declined, do not re-raise
+## 1. Discord bot token — MUST be reset now; the 09-05 decision is superseded
 
-**Status: DECIDED 2026-09-05** — owner was told and chose not to rotate.
+**Status: OWED 2026-09-11** — leaked a SECOND time, and the reason the owner
+declined the first time no longer holds.
 
 **Reset the Discord bot token** — app `1492541609445949465`, *"Role assignment
-bot for SAMO69"*, Administrator, pasted into a chat transcript on 2026-08-28.
+bot for SAMO69"*, **Administrator**.
 
-⛔ **The owner was told and chose not to rotate it (2026-09-05).** That is a
-recorded decision, not an oversight. Do not raise it again. Nothing in this repo
-uses the token, so nothing here depends on the choice.
+⚠️ **The 2026-09-05 "declined to rotate" decision is SUPERSEDED, and it is worth
+saying why rather than just overturning it.** That decision was defensible on
+its own terms: the bot was dead on Render, nothing in this repo used the token,
+so a compromised credential controlled nothing anybody cared about.
+
+**Both halves of that changed on 2026-09-11.** The owner asked to bring the bot
+back on the VM as the ทีม SAMO → Discord role sync, so the token stops being
+inert and starts being the thing that can add and remove roles for 449 people.
+And the token was pasted into a chat transcript a second time that same day. A
+dormant leaked credential is a risk you can choose to accept; an
+**Administrator** credential about to be handed a live job is not.
+
+⛔ **Do not stand the bot up on the old token.**
+
+✅ **THE OWNER'S CHOSEN PATH (2026-09-11) IS BETTER THAN RESETTING: a NEW bot
+application under a role account.** Resetting fixes the leak. A new bot under a
+role account fixes the leak *and* the thing that would have bitten later —
+**the current app belongs to a personal Discord account**, so when that student
+graduates nobody can reset its token, narrow its permissions, or fix it. That is
+precisely the failure `docs/SUCCESSION.md` exists to prevent, and it applies to
+a Discord application exactly as it applies to a Google account.
+
+📌 **Own it with a Discord Developer TEAM, not a single role account.** Discord
+lets an application be owned by a Team with several members; put BOTH role
+accounts in it (`mdstuddata.beta` and `samomdkku.ai`). Same two-holder shape as
+the Vaultwarden org, and neither a graduation nor a lost phone strands the bot.
+⚠️ Per SUCCESSION.md the durable part is the **recovery settings** on those
+accounts, not the address — so set 2FA on whichever account creates it and put
+the backup codes in the §7 break-glass envelope.
+
+⛔ **AND KICK THE OLD BOT FROM THE SERVER — this is the step that actually closes
+the leak, and it is stronger than a token reset.** A reset invalidates the
+leaked string; kicking removes the old bot's Administrator from the guild
+entirely, so the leaked token logs into an account that can no longer reach
+anything of yours. Do this even if you also reset. Deleting the old application
+afterwards is optional tidying.
+
+✅ **Nothing is lost by replacing rather than reusing.** Roles members already
+hold are untouched — kicking a bot does not revoke what it granted. The ฝ่าย
+roles are ordinary roles, not integration-managed (the old code distinguishes
+them itself at `main.py:1138` with `is_bot_managed()`), so a new bot can manage
+every one of them. The bot stores nothing but flat files.
+
+`.claude/rules/security.md` carries the row saying where the new token lives.
+
+✅ **Resetting is safe — verified 2026-09-11, not assumed.** Nothing breaks:
+every SAMO notification uses **webhook URLs**, which are a separate credential
+(`functions/_discord.js`, `functions/notify.js` and the VM's
+`/etc/samo-notify.env` are all webhooks; the one `Authorization: Bearer` in that
+code is Supabase). Apps Script no longer speaks to Discord at all
+(`appscript/prform.gs:18`). The other Discord bot on the owner's machine is a
+**different application** (`1493879577238568980`, decoded from its own token's
+first segment), so it is unaffected. A reset does not touch the bot's server
+permissions, its place in the role hierarchy, or any role a member holds.
+⚠️ Check the member list first: if the bot shows **offline**, nothing is using
+the token. If it shows online, something still is and will stop.
+
+📌 **While resetting, narrow the permission** — it holds Administrator and needs
+only *Manage Roles* + *Manage Nicknames*. ⚠️ **And then the hierarchy starts to
+matter**: a non-Administrator bot can only manage roles BELOW its own, so its
+role must be dragged above every mirrored ฝ่าย role. Administrator hides that
+rule today, which is why the narrowing must happen BEFORE the bot starts
+removing roles, not after.
 
 ---
 
