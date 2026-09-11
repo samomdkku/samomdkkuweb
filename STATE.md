@@ -34,14 +34,14 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `24d37ba` (2026-09-11)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `61a0192` (2026-09-11)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
-  Four deploys today; this one carries the docs REDACTION, verified in the
+  Five deploys today; this one carries the docs REDACTION, verified in the
   NEGATIVE — the app id once on public `/docs/state/HANDOFF` greps **0** there
   and across every served asset, with a string added today as the control so the
   grep is not blind. ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the
   shared `analytics-*` chunk (NOT the public bundle, 0145), ฝ่าย blocks in
-  `admin-*`. Prev `b6a2c5e` · `e858dbf`.
+  `admin-*`. Prev `24d37ba` · `b6a2c5e`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
