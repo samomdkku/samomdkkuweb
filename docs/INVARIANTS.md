@@ -638,6 +638,24 @@ drag-and-drop editor lowers the skill floor for it.
 `deploy.sh` builds it with `DOCS_BASE=/docs/` and publishes it to `/var/www/docs`.
 Two consequences that keep catching people:
 
+⛔ **EVERYTHING UNDER `docs/` IS PUBLISHED TO THE OPEN INTERNET — `docs/state/`
+INCLUDED.** Verified 2026-09-11: `samo.md.kku.ac.th/docs/state/HANDOFF` answers
+**HTTP 200** to an unauthenticated request. The per-person session notes and the
+cross-session HANDOFF read like private working files and are not one.
+
+This was found the expensive way. `HANDOFF.md` §1 was naming a Discord bot's
+**application id** beside the words "Administrator" and "compromised credential"
+while that bot was still installed in the server — a target published next to a
+weakness, on a page anyone can read, for as long as the hole stays open. The
+repo is public too, so there is no private file anywhere in it; the only private
+homes are `.env.local` and the vault.
+
+**The rule:** an INSTRUCTION is fine in `docs/` ("replace the credential",
+"narrow the permission"); an IDENTIFIER beside a known weakness is not. ⚠️ And a
+redaction is not live until you DEPLOY — editing the source changes nothing
+about what is being served, so verify from the served page, with a control
+string so the grep cannot be blind.
+
 **The old `CONTRIBUTE` and `STEP-BY-STEP` pages were deliberately MERGED AWAY,
 and nginx 301s both.** They were not lost in a refactor — recreating either one
 re-splits the guide that was consolidated on purpose. Reasoning:

@@ -83,7 +83,10 @@ src/js/
 ├── discord-queue.js     ─ shared Discord core: ONE global rate-limit-aware
 │                          queue + logged GAS caller for PR/VS/projects
 ├── notify.js            ─ PR + VS Discord fire-and-forget (rides discord-queue)
-├── uploads.js           ─ Drive upload via GAS uploadPRFile
+├── gas-post.js          ─ THE GAS caller for paths where a person is waiting:
+│                         retries Google's HTML error page, never a timeout
+│                         (a retried upload would double-write to Drive)
+├── uploads.js           ─ Drive upload via GAS uploadPRFile (through gas-post)
 ├── config.js            ─ GAS_API_URL (uploads+email) + NOTIFY_FN_URL (Discord)
 ├── utils.js             ─ formatThaiDate, renderTimeline, decodeJwtResponse,
 │                          escHtml, safeUrl
