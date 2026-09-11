@@ -43,7 +43,7 @@ GitHub. It ran on Render's free tier and is **down**.
 **Discord applications** — there are **two**, and they must not be confused:
 
 - the **role bot**, *"Role assignment bot for SAMO69"*, which is being replaced
-  (`HANDOFF.md` §1);
+  (`docs/state/HANDOFF.md` §1);
 - the owner's separate **file-limit / Telegram bot**, a *different application*,
   unaffected by anything here. Verified by decoding the application id out of
   the first segment of each token and comparing.
@@ -298,7 +298,7 @@ the leaked token. That is the better call: the current app belongs to a
    `samomdkku.ai@gmail.com`. Same two-holder shape as the Vaultwarden org, so no
    graduation or lost phone strands the bot.
 5. Turn on **2FA** for whichever account owns it, and put the backup codes in the
-   break-glass envelope that `HANDOFF.md` §7 already owes.
+   break-glass envelope that `docs/state/HANDOFF.md` §7 already owes.
 
 ### Step 2 — Create the bot and take the token ONCE
 

@@ -34,13 +34,14 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b6a2c5e` (2026-09-11)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `24d37ba` (2026-09-11)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
-  Carries the GAS upload helper and the ฝ่าย visual editor's 21 blocks. Verified
-  from the SERVED artifact BOTH ways — ⚠️ the two live in DIFFERENT artefacts:
-  `postGAS` in the shared `analytics-*` chunk (NOT the public bundle, the 0145
-  trap) and the blocks in `admin-*`; each greped by the name in the SERVED HTML,
-  each controlled by a PRE-EXISTING string in the SAME file. Prev `e858dbf` · `d702d9f` · `56dc3d7`.
+  Four deploys today; this one carries the docs REDACTION, verified in the
+  NEGATIVE — the app id once on public `/docs/state/HANDOFF` greps **0** there
+  and across every served asset, with a string added today as the control so the
+  grep is not blind. ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the
+  shared `analytics-*` chunk (NOT the public bundle, 0145), ฝ่าย blocks in
+  `admin-*`. Prev `b6a2c5e` · `e858dbf`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
@@ -122,10 +123,9 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 ✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02).
 ⛔ **No polling timer for the docs** — built, verified and REMOVED the same day.
 
-0. ✅ **ORG MOVE DONE** (2026-08-31); `node tools/repo-protection.mjs` — 18 pass
-   (was 27: the sibling-repo loops are inert BY DESIGN since the passport repo
-   was archived, and the script says so). Org 2FA OFF by OWNER DECISION. Traps:
-   `skills/move-the-repo-to-an-organisation.md`; last box is `HANDOFF` §3.
+0. ✅ **ORG MOVE DONE** (2026-08-31); `repo-protection.mjs` 18 pass (was 27:
+   sibling-repo loops inert BY DESIGN). Org 2FA OFF by OWNER DECISION. Traps:
+   `skills/move-the-repo-to-an-organisation.md`; last box `HANDOFF` §3.
 
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
@@ -151,9 +151,9 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    writes `~/samo-deploy-logs/<stamp>.trace` on the VM — **read the log before
    forming any theory.** Status and tally: the CURRENT DEPLOY block, their one
    home.
-3. ✅ **PASSPORT REPO MERGE — COMPLETE.** Passport is `passport/`; one pull, one
-   `npm ci`, one build. Old repo ARCHIVED. ⛔ **Never delete OR replace the
-   `samomdkkupassport` Cloudflare project** — `docs/INVARIANTS.md` is its home.
+3. ✅ **PASSPORT REPO MERGE — COMPLETE.** One pull, one `npm ci`, one build. Old
+   repo ARCHIVED. ⛔ **Never delete OR replace the `samomdkkupassport` Cloudflare
+   project** — `docs/INVARIANTS.md` is its home.
 4. 🆕 **DISCORD ROLE SYNC — DESIGNED 2026-09-11, NOTHING BUILT.** ⛔ ONE HOME:
    `docs/DISCORD-ROLE-SYNC.md`; §7 is the owner's setup and BLOCKS all of it.
    Do not write bot code first — no Discord identity exists in the portal, and

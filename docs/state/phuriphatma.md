@@ -16,6 +16,72 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-11, END OF SESSION — read this before anything else
+
+**Status of the code: clean.** 1951 tests, build green, all 35 live proofs
+green, deployed and verified. Four deploys. Nothing is half-finished in the tree.
+
+### What shipped
+
+1. **The two red proofs are fixed — and the recorded cause was WRONG.**
+   `STATE.md` said both could not book a slot because the live 5-hour window was
+   claimed. Running 0154 said otherwise: **19 of 20 passing**, one failing case,
+   the weekly pool. The real cause was the first real booking anybody has ever
+   made (2026-09-07, 70%) landing in the week both proofs had hardcoded as
+   quiet. ⚠️ **And 0155's C3 was passing ON THAT STRANGER'S ROW** — a false green
+   that only appeared once I cleared the week. Write-up:
+   `docs/mistakes/tooling-proofs.md`.
+2. **`src/js/gas-post.js`** — six upload call sites did `await res.json()` on
+   Google's HTML error page, so a student got `Unexpected token '<'`. One helper
+   now, retrying only the safe case. `docs/mistakes/integrations.md`.
+3. **The ฝ่าย visual editor was ACCEPTED by the owner and built out** — 8 → 21
+   blocks. `HANDOFF` §4. ⏸ **Then PAUSED by the owner the same day**; do not
+   extend it unasked.
+4. **Discord role sync: designed, nothing built.** `docs/DISCORD-ROLE-SYNC.md`.
+
+### The three things I got wrong, because they are the reusable part
+
+- ⛔ **A SCREENSHOT IS AN INSTRUMENT AND I TRUSTED IT.** A capture appeared to
+  prove the ฝ่าย blocks never stack on a phone. I had already rewritten every
+  block to grid `auto-fit`, rewritten the header comment to say the flex idiom
+  shipped broken, **and rewritten the guard test to forbid it**, before
+  measuring the children's rects showed flex had been right all along. The
+  harness had no `<meta name="viewport">`, so Chrome laid out at 980px and
+  scaled down. All reverted. `docs/mistakes/frontend-ui.md` — and the lesson
+  that cost most: *a guard rewritten to match a fresh theory is just the theory
+  with a green tick next to it.*
+- ⚠️ **I raised a false security alarm on my own pattern.** A loose regex
+  reported 74 webhook URLs in git history. There are none: `git log -S` over the
+  literal finds only a dummy (`webhooks/1/x…`) in a test. Check the instrument
+  before reporting the finding.
+- ⚠️ **My first Discord rule was wrong and the owner caught it.** "Mirror ฝ่าย,
+  skip the role entries" would have deleted `Frontend developer` — the very
+  `@frontend` they asked for. The tree stores a sub-group two different ways, so
+  no automatic rule works; §5c is a tick-box instead. **Their short questions
+  find real bugs; check before answering.**
+
+### What I found that nobody had looked at
+
+📌 **`docs/` IS SERVED PUBLICLY** — `samo.md.kku.ac.th/docs/state/HANDOFF`
+answers 200, and it was naming the Discord bot's application id beside
+"Administrator" and "compromised credential" while that bot is still in the
+server. Redacted and deployed; verified 0 hits across every served asset with a
+control so the grep is not blind. ⚠️ **Treat everything under `docs/` as
+published** — `docs/state/*` included. I had been writing session notes as if
+they were private. They are not.
+
+### What to pick up
+
+- ⏳ **The Drive → database sweep is STILL OWED** and it FAILED when I tried it:
+  `REAL_EXIT=1`, batch 2 of 7 `UNREACHABLE`. Two probes afterwards showed
+  Google's `/exec` serving an HTML error page (HTTP 404, 32 s) with nothing else
+  touching it. **Probe the endpoint before running the sweep** — `HANDOFF` §13a.
+- ⛔ **Discord: nothing may be built until the owner does
+  `docs/DISCORD-ROLE-SYNC.md` §7.** They said they will do it in a later session.
+- The visual editor has still never had a block dragged and saved end to end.
+
+---
+
 ## ▶ HANDOFF 2026-09-10, END OF SESSION — read this before anything else
 
 Started at *"continue work from previous session"*, went to the passport RLS gap,
