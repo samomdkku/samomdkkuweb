@@ -34,14 +34,13 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e858dbf` (2026-09-11)** — v4.7.0 still, and read back from the
-  VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`;
-  **34 s end to end**, the healthy baseline, and roots 12 s apart so docs ran.
-  Carries the GAS upload helper. Verified from the SERVED artifact BOTH ways —
-  ⚠️ `postGAS` lands in the SHARED `analytics-*` chunk, NOT the public bundle
-  (the 0145 trap), so grep the chunk NAMED IN THE SERVED HTML: it answers
-  `application/javascript` and carries both new Thai strings, controlled by a
-  PRE-EXISTING string in the SAME artefact (5 hits). Prev `d702d9f` · `56dc3d7` · `58fa54e`.
+- ✅ **DEPLOYED = `b6a2c5e` (2026-09-11)** — v4.7.0 still, and read back from the
+  VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
+  Carries the GAS upload helper and the ฝ่าย visual editor's 21 blocks. Verified
+  from the SERVED artifact BOTH ways — ⚠️ the two live in DIFFERENT artefacts:
+  `postGAS` in the shared `analytics-*` chunk (NOT the public bundle, the 0145
+  trap) and the blocks in `admin-*`; each greped by the name in the SERVED HTML,
+  each controlled by a PRE-EXISTING string in the SAME file. Prev `e858dbf` · `d702d9f` · `56dc3d7`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
