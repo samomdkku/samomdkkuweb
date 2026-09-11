@@ -38,10 +38,45 @@ create temp table probe (step text, expected text, got text) on commit drop;
 create temp table subj on commit drop as
   select id as uid from public.users order by created_at limit 1;
 
--- Wed 2026-09-02 16:00 ICT opens a quota week; this Saturday sits well inside
--- it and clear of anything real.
+-- ⚠️ THE SCENARIO IS ANCHORED TO now(), NOT TO A DATE SOMEBODY TYPED.
+-- This was `timestamptz '2026-09-05 00:00+07'` with three comments around it
+-- asserting properties of that date: that it was "clear of anything real", that
+-- its samples were "months after every real row", and that the whole scenario
+-- was "entirely in the future". All three were true the day they were written
+-- and the calendar walked past every one of them, taking seven cases red at
+-- once with NOTHING broken. A date is not a property; derive the property.
+--
+-- A quota week opens Wed 16:00 ICT, so week_start + 2d8h is the Saturday inside
+-- it, exactly as the original hardcoded instant was. Four weeks out keeps the
+-- whole scenario later than every real usage sample (so the probe's own sample
+-- is the one claude_free_now() reads) and later than now (so a still-to-run
+-- block really is still to run) — both for as long as this file exists, rather
+-- than until a particular Tuesday.
 create temp table t on commit drop as
-  select timestamptz '2026-09-05 00:00+07' as d0;
+  select public.claude_week_start(now() + interval '28 days')
+         + interval '2 days 8 hours' as d0;
+
+-- ⚠️ THE SCENARIO NEEDS AN ABSENCE, SO IT CONSTRUCTS ONE AND THEN ASSERTS IT.
+-- Every expectation below is stated in absolute percent — "reserved counts the
+-- block that has not run yet: 70" — which is only true if the ONE booking this
+-- proof writes is the only booking in the week. That held while the table was
+-- empty and stopped holding on 2026-09-07, when the first real booking ever
+-- made landed in exactly this week, also for 70%: C2 then read 140 and five
+-- cases went red together with nothing broken. A claim of "clear of anything
+-- real" in a COMMENT is the tell, and the construction can assert it
+-- (.claude/rules/mistakes.md class 7).
+--
+-- Scoped to the probe week, inside the `begin … rollback` this file ends with —
+-- the same pattern free_at() already uses on claude_usage_samples below.
+delete from public.claude_bookings
+ where starts_at >= public.claude_week_start((select d0 from t))
+   and starts_at <  public.claude_week_start((select d0 from t)) + interval '7 days';
+
+insert into probe select
+  'A0. control — the probe week holds NOTHING but this proof''s own booking', '0',
+  (select coalesce(sum(pct), 0)::text from public.claude_bookings
+    where starts_at >= public.claude_week_start((select d0 from t))
+      and starts_at <  public.claude_week_start((select d0 from t)) + interval '7 days');
 
 -- ── the instrument ─────────────────────────────────────────────────────────
 -- One sample decides both the open-window branch and the weekly remainder, so

@@ -243,7 +243,7 @@ Open when: URL state, per-user "seen", import/export.
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(28)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(29)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -275,6 +275,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
+- Google answers /exec with an HTML page, and the student gets "Unexpected token '<'" on the file they just picked
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(24)*
 
@@ -305,7 +306,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `.mjs` served as `application/octet-stream`
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(53)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(54)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -362,6 +363,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A control reported the detector blind, and the detector was fine
 - A `--rows-only` flag turned the sweep's own anti-vacuity rule against it: it printed "0 orphans" for a direction it nev…
 - A brand-new guard was green on the laptop and red on CI within an hour
+- Two live proofs went red, and STATE.md recorded the wrong cause
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -407,4 +409,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_345 entries across 10 files._
+_347 entries across 10 files._

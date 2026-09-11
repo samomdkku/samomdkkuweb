@@ -2612,3 +2612,70 @@ LOADS read one at import time"** — and the only reliable way to answer it is t
 move the secret aside and run. Do that before pushing a test that spawns or
 imports a `tools/` script. **And when a brand-new guard goes red on CI, suspect
 the guard's environment before the code it guards.**
+
+---
+
+## Two live proofs went red, and STATE.md recorded the wrong cause — the scenario borrowed its geometry instead of building it
+
+**Symptom**: `npm run proofs` reported **33 of 35 green** for days.
+`claude0154-quota-guard` and `claude0155-free-now` were the two red ones, and
+`STATE.md` explained them as *"Both must BOOK a slot; the live 5-hour window is
+already claimed so `claude_booking_guard` refuses"* — the "scenario needs live
+geometry that RAN OUT" trap — with the instruction **"make the proof CREATE the
+geometry"**.
+
+**Cause**: that explanation was a HYPOTHESIS and it was wrong on the mechanism.
+Running 0154 printed **19 of 20 passing** — not a proof that could not book, but
+a single failing case, `A5. a booking that exactly fills the week is allowed`.
+Nothing was refusing a slot; the WEEKLY POOL was short. On 2026-09-07 the first
+real booking anybody has ever made (`แก้ไขระบบActivity score ภายในสาขา`, 70%)
+landed inside the very week both proofs had hardcoded as their quiet stretch.
+0154's arithmetic comment says *"30+70+1+50 = 151 booked so far"* and then
+squeezes `week_pool_pct` to 161 — true only while the week holds nothing else.
+Both files stated the assumption in a COMMENT: *"clear of anything real"*.
+
+**The expensive half is what the same bug was doing in the OTHER direction.**
+0155's `C3. a still-to-run block stays reserved, whenever you ask` was PASSING,
+and it was passing on the real user's booking: it expected `reserved_pct` 70 and
+the probe's own block had already been released at that instant, so the 70 it
+read was the stranger's. Clearing the week turned C3 red — a false green
+exposed by fixing an unrelated case. 0155 had **three** stale assumptions, all
+in comments: "clear of anything real", "sampled_at … months after every real
+row" (real sampling every 15 min had long overtaken the hardcoded date), and
+"the scenario here is entirely in the future" (it was six days past).
+
+**Fix**: each proof now CONSTRUCTS the absence it needs and then ASSERTS it,
+inside the `begin … rollback` both files already end with — the same pattern
+0155 was using on `claude_usage_samples` all along. A `delete` scoped to the
+probe week, then a control case `A0` that fails with the actual number on the
+page. 0155's anchor is no longer a date somebody typed: it is
+`claude_week_start(now() + interval '28 days') + interval '2 days 8 hours'`,
+which is a property (a Saturday in a future quota week, later than every real
+sample and later than now) rather than a date that was briefly that property.
+Both are green: 0154 21/21, 0155 23/23, suite **35/35**. Each control was
+falsified before being trusted — remove the delete and A0 reports `got=70`
+beside A5; inject a stranger's booking into the future week and A0 reports
+`got=25` at the top of the verdict.
+
+**Where it lives now.** `tools/claude0154-quota-guard.sql` and
+`tools/claude0155-free-now.sql`, each with the reasoning above the delete.
+
+**The general rule.** *A scenario that needs an ABSENCE must create it and
+assert it; a comment claiming the environment is empty is the tell.* This repo
+already had that rule from claude0167 and it did not stop the next instance,
+because the assumption reads as scene-setting rather than as a dependency.
+Two sharper tests for the next reader:
+
+- **A date somebody typed is not a property.** "Clear of anything real",
+  "months after every real row" and "entirely in the future" were all TRUE when
+  written and all decayed on their own. If a scenario needs a property, derive
+  it from `now()`.
+- **Suspect a passing case that sits beside a failing one in the same
+  arithmetic.** C3 was green because a stranger's row happened to carry the
+  same number the proof expected. When you fix the environment, re-read what
+  went red — a case that newly fails was never really passing.
+
+**And do not trust a recorded cause over a run.** `STATE.md`'s diagnosis had no
+`— how`, cost nothing to check, and sent the reader at the booking guard
+instead of the weekly pool. One `node tools/db-query.mjs` printed the real
+answer in seconds.

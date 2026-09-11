@@ -58,10 +58,37 @@ end $$;
 create temp table subj on commit drop as
   select id as uid from public.users order by created_at limit 1;
 
--- A quiet stretch: Wed 2026-09-02 16:00 opens the week, and these probes sit
--- on the Saturday inside it, clear of anything real.
+-- Wed 2026-09-02 16:00 opens the week; these probes sit on the Saturday inside
+-- it. This comment used to end "clear of anything real" and that was the bug —
+-- see the block below.
 create temp table t on commit drop as
   select timestamptz '2026-09-05 09:00+07' as t0;
+
+-- ⚠️ THE SCENARIO NEEDS AN ABSENCE, SO IT CONSTRUCTS ONE AND THEN ASSERTS IT.
+-- "Clear of anything real" was true while claude_bookings was empty and stopped
+-- being true on 2026-09-07, when the first real booking ever made landed in
+-- exactly this week and took 70% of the weekly pool the arithmetic below
+-- spends. A5 — "a booking that exactly fills the week is allowed" — then failed
+-- alone, for a reason no reader could get from the verdict, and STATE.md
+-- recorded a WRONG cause for it ("the live 5-hour window is already claimed").
+-- Nothing was broken; the proof had borrowed its geometry instead of building
+-- it. A claim of "clear of anything real" in a COMMENT is the tell, and the
+-- construction can assert it (.claude/rules/mistakes.md class 7).
+--
+-- The delete is scoped to the probe week and sits inside the `begin … rollback`
+-- this file ends with, so it is undone before anyone else can read it — the
+-- same already-established pattern as this file's update of claude_settings
+-- below. Its point is that the arithmetic no longer depends on what production
+-- happens to hold.
+delete from public.claude_bookings
+ where starts_at >= public.claude_week_start((select t0 from t))
+   and starts_at <  public.claude_week_start((select t0 from t)) + interval '7 days';
+
+insert into probe select
+  'A0. control — the probe week is EMPTY before the scenario builds it', '0',
+  (select coalesce(sum(pct), 0)::text from public.claude_bookings
+    where starts_at >= public.claude_week_start((select t0 from t))
+      and starts_at <  public.claude_week_start((select t0 from t)) + interval '7 days');
 
 -- ── §A. The session and week arithmetic ────────────────────────────────────
 

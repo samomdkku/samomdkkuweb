@@ -84,12 +84,11 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0182. 33 of 35 LIVE PROOFS GREEN** (2026-09-10). 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
-  ⚠️ Red: `claude0154-quota-guard`, `claude0155-free-now` — **neither a code
-  fault**. Both must BOOK a slot; the live 5-hour window is already claimed so
-  `claude_booking_guard` refuses — the "SCENARIO needs live geometry that RAN
-  OUT" trap (`.claude/rules/mistakes.md` class 7). ⛔ Do NOT relax the scenario;
-  make the proof CREATE the geometry. The COUNT is guarded, PASSING is not.
+- **Migrations through 0182. ALL 35 LIVE PROOFS GREEN** (2026-09-11). 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
+  ✅ `claude0154` 21/21 + `claude0155` 23/23, fixed 2026-09-11. ⚠️ **The cause
+  recorded here was WRONG**: the first real booking (2026-09-07) landed in the
+  week both hardcoded as quiet, and 0155 had a FALSE GREEN on that stranger's
+  row. Both now CONSTRUCT the absence and assert it (`docs/mistakes/tooling-proofs.md`).
 
 ---
 
@@ -101,7 +100,8 @@ TRUE. That is what the grep is for.
   `select monitoring_enabled, … from public.claude_settings` (`db-query.mjs` takes a FILE).
 - `monitoring_note` still holds the old pause reason — not shown while
   measurement is on, used correctly by the monitor-on notice. Leave it.
-  `claude_bookings` is deployed and granted but still EMPTY.
+  `claude_bookings` holds its FIRST REAL BOOKING (2026-09-07) — not empty. Ask
+  the database, not this line.
 
 ---
 
