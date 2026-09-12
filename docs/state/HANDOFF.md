@@ -1094,7 +1094,17 @@ is only what is OWED:
    nobody is linked, 182 of 183 roles are unmanaged, and the reconcile could not
    remove a single role today. Provisioning plan: **50 adopt · 57 create · 0
    ambiguous · 131 Discord roles no ticked node claims.**
-5. ❌ **NEXT: `/link`** — the one thing everything else waits on. ⛔ **Do NOT
+5. ✅ **LINKING IS BUILT AND DEPLOYED (2026-09-12) — and it is OAuth2, not a
+   slash command.** The owner asked whether a typed code was best practice; it
+   is not. `เชื่อมบัญชี Discord` on ข้อมูลของฉัน → Discord's consent screen →
+   `/discord/callback` on the notify service → `discord_links`. 0185's code
+   became the CSRF **state**, so nothing was wasted. 0186 adds self-read and
+   unlink. ⛔ **UNTESTED BY A HUMAN**: no real person has completed the round
+   trip. That is the next thing to do, and it needs a ทีม SAMO member's account.
+   ⛔ **`/discord/*` locations live ONLY in the VM's `sites-available/default`**,
+   added by hand. `server/nginx-samo.conf` is not what nginx serves; the two
+   have drifted and a reinstall from the repo copy would drop both routes.
+6. ❌ **OLD NEXT, now after linking: `/link` as a slash command** — the one thing everything else waits on. ⛔ **Do NOT
    copy the old `!verify`**: it asks for the last five digits of a
    รหัสนักศึกษา, which is not a secret, and the new consequence is that
    person's roles and channels rather than a nickname. Use a single-use code

@@ -34,12 +34,12 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `62b7c68` (2026-09-12)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `08b48b0` (2026-09-12)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
-  **31 s — the healthy baseline** — and the docs step RAN. Carries the Discord
-  tick-box: `มี role ใน Discord` greps 1 in the served `/admin/`, its JS half
-  and `team-discord-linked` grep 1 in the served `admin-*` bundle and CSS, each
-  beside a string that already shipped as the control. Roots 12 s apart.
+  **30 s — the healthy baseline** — and the docs step RAN. Carries เชื่อมบัญชี
+  Discord: the string greps 3 in the served `public-*` chunk and 1 in shared
+  `analytics-*`, `btn-dlink` 1 in the served CSS, each beside a shipped control.
+  ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
   chunk (NOT the public bundle, 0145), ฝ่าย blocks in `admin-*`.
   ⚠️ Empty output from the pipeline means a DROPPED VPN, not success —
