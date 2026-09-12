@@ -570,6 +570,55 @@ it is one more reason no identifier or credential may be written into it.
 
 ---
 
+## 8e. ⚠️ LINKING SHOULD BE DISCORD OAuth2, NOT A TYPED CODE
+
+**Status: RECOMMENDED 2026-09-12, owner not yet asked.** Raised by the owner:
+*"is that the best practice standard way to do it instead of make people change
+their names"*. The answer is that the typed code is better than the old
+name-matching and is still **not** the standard.
+
+**The standard is Discord OAuth2 with `scope=identify`.** A button in the
+portal → `discord.com/oauth2/authorize` → the person clicks Authorize → Discord
+redirects back with a `code` → the server exchanges it and `GET /users/@me`
+returns the Discord user id. That is what Patreon, Twitch, Ko-fi and every game
+integration do. **One click, nothing typed.**
+
+It is also *stronger* than 0185's code, not merely easier:
+
+| | typed code (0185) | OAuth2 |
+|---|---|---|
+| proves a live portal session | yes | yes |
+| proves control of the **Discord** account | **no** — a code can be pasted to a friend | **yes**, Discord authenticates them |
+| steps for the user | open portal, copy, switch app, type | one click |
+| failure modes | expired, mistyped, already used | none worth naming |
+| **needs a bot process at all** | **yes**, to receive `/link` | **no** |
+
+⛔ **THE LAST ROW IS THE BIG ONE.** With OAuth2, linking is a PORTAL feature. It
+needs no slash command, so it needs no interactions endpoint and no resident
+process — which removes linking from §8b's scope entirely. The bot's first real
+job becomes provisioning and reconciling, both plain REST.
+
+**What it costs:** a `DISCORD_CLIENT_SECRET` on the VM (the notify service
+already holds server-side secrets in a `0600` env file), one callback route
+beside `/notify`, and a redirect URI registered in the Developer Portal — an
+owner step. The callback must carry a `state` bound to the signed-in session, or
+it is a CSRF that links the attacker's Discord to the victim's person.
+
+**What happens to 0185.** The table and both functions stay and become the
+FALLBACK, which is worth keeping for exactly one case: a person who cannot
+complete a redirect. Nothing downstream changes — `discord_links` is the same
+row either way, and `discord_role_targets()` never knew how the link was made.
+⚠️ It is not free to keep: a second path into the same table is a second thing
+to reason about, so if the fallback is never used it should be dropped rather
+than left as decoration.
+
+**Honest note on how this was arrived at.** 0185 was designed carefully against
+the right threat — `!verify`'s five ID digits — and still reached for a
+mechanism the platform already provides. *"Is there a standard way to do this"*
+is a question worth asking BEFORE designing a credential, not after.
+
+---
+
 ## 8c. Who can work on this — and what the docs may ask for
 
 **Status: DECIDED 2026-09-12.** The owner's concern was never their own laptop;
