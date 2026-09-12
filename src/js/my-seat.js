@@ -709,6 +709,12 @@ export function renderMySeat(host, seat, opts = {}) {
            costs nothing for the people it does not apply to. -->
       <div class="myprofile-slot" data-profile-slot="house"></div>
 
+      <!-- เชื่อมบัญชี Discord paints itself in here (discord-link.js), on the
+           same terms: empty — and therefore hidden — for anyone not in ทีม SAMO
+           and whenever the server has no OAuth config. Both emptinesses are
+           deliberate; a button that can only fail is worse than no button. -->
+      <div class="myprofile-slot" data-profile-slot="discord"></div>
+
       <!-- LAST LINE OF THE CARD, deliberately. Everything above answers "what
            am I"; this answers "what if the answer is broken". Points at the two
            channels that already exist rather than inventing a third. -->

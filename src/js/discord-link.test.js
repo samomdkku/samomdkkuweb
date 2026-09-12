@@ -71,7 +71,7 @@ describe('the outcome is consumed, not just read', () => {
 describe('the flow cannot send someone to Discord it cannot finish', () => {
   it('sets the nonce cookie BEFORE minting the code, and checks it stuck', () => {
     const cookieAt = CODE.indexOf('document.cookie =');
-    const rpcAt = CODE.indexOf("supabase.rpc('issue_discord_link_code')");
+    const rpcAt = CODE.indexOf("db.rpc('issue_discord_link_code')");
     expect(cookieAt).toBeGreaterThan(0);
     expect(rpcAt).toBeGreaterThan(0);
     // In the other order, a browser that refuses cookies still gets sent to

@@ -18,7 +18,7 @@
 // browser cannot finish here. The server refuses the mismatch; this is the half
 // that puts the cookie there.
 // ==============================================
-import { supabase } from './db.js';
+import { db } from './db.js';
 
 const NONCE_COOKIE = 'samo_dlink';
 
@@ -85,7 +85,7 @@ export async function startDiscordLink() {
     throw new Error('เบราว์เซอร์ปิดคุกกี้อยู่ จึงเชื่อมบัญชีไม่ได้');
   }
 
-  const { data, error } = await supabase.rpc('issue_discord_link_code');
+  const { data, error } = await db.rpc('issue_discord_link_code');
   if (error) throw new Error(error.message || 'ขอลิงก์เชื่อมบัญชีไม่สำเร็จ');
 
   const url = new URL('https://discord.com/oauth2/authorize');
@@ -103,19 +103,105 @@ export async function startDiscordLink() {
 
 /** The caller's current link, or null. Never throws — this is a card, not a gate. */
 export async function myDiscordLink() {
-  const { data, error } = await supabase.rpc('my_discord_link');
+  const { data, error } = await db.rpc('my_discord_link');
   if (error) return null;
   return Array.isArray(data) ? (data[0] || null) : (data || null);
 }
 
 export async function unlinkDiscord() {
-  const { data, error } = await supabase.rpc('unlink_my_discord');
+  const { data, error } = await db.rpc('unlink_my_discord');
   if (error) throw new Error(error.message || 'ยกเลิกการเชื่อมไม่สำเร็จ');
   // A DELETE that matched nothing answers success. 0186 returns a boolean for
   // exactly this reason, so a stale card cannot report an unlink that never
   // happened.
   if (data !== true) throw new Error('ไม่พบการเชื่อมบัญชีที่จะยกเลิก');
   return true;
+}
+
+/**
+ * Paint the เชื่อมบัญชี Discord card into a slot on ข้อมูลของฉัน.
+ *
+ * ⛔ IT PAINTS NOTHING WHEN THE SERVER IS NOT CONFIGURED, and the slot's
+ * `:empty` rule then hides it entirely. A button that can only fail is worse
+ * than no button: it sends a person to Discord, through a consent screen, and
+ * back to an error that is not their fault.
+ *
+ * ⛔ AND NOTHING WHEN THE PERSON IS NOT IN ทีม SAMO. 469 of 628 accounts are in
+ * that state — ordinary students who are not in the team and have no Discord
+ * roles to receive. Showing them a card whose only outcome is
+ * "ต้องเข้าสู่ระบบด้วยอีเมลที่อยู่ในทะเบียน" invents a problem they do not have.
+ * `my_discord_link()` returning nothing cannot distinguish "not linked" from
+ * "not in the registry", so the membership question is asked separately.
+ */
+export async function renderDiscordCard(slot, opts = {}) {
+  if (!slot) return;
+  const outcome = opts.outcome ?? null;
+
+  let cfg = null;
+  try { cfg = await fetch('/discord/config').then((r) => r.json()); } catch { /* offline */ }
+  if (!cfg?.ready) { slot.innerHTML = ''; return; }
+
+  const [link, inTeam] = await Promise.all([myDiscordLink(), isInTeam()]);
+  if (!link && !inTeam) { slot.innerHTML = ''; return; }
+
+  const esc = (x) => String(x ?? '').replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const when = link?.linked_at
+    ? new Date(link.linked_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+    : '';
+
+  slot.innerHTML = `
+    <section class="myseat-block dlink" data-dlink>
+      <span class="myseat-label"><i class="bi bi-discord" aria-hidden="true"></i> Discord</span>
+      ${outcome ? `<p class="dlink-said dlink-said--${esc(outcome.kind)}" role="status">${esc(outcome.text)}</p>` : ''}
+      ${link ? `
+        <p class="dlink-state">เชื่อมบัญชีแล้ว${when ? ` เมื่อ ${esc(when)}` : ''}</p>
+        <p class="dlink-help">ระบบจะให้ role ตามฝ่ายและตำแหน่งของคุณใน ทีม SAMO โดยอัตโนมัติ</p>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-dlink-unlink>ยกเลิกการเชื่อม</button>
+      ` : `
+        <p class="dlink-help">เชื่อมบัญชี Discord เพื่อรับ role ของฝ่ายและตำแหน่งของคุณโดยอัตโนมัติ</p>
+        <button type="button" class="btn btn-sm btn-dlink" data-dlink-start>
+          <i class="bi bi-discord" aria-hidden="true"></i> เชื่อมบัญชี Discord
+        </button>
+      `}
+      <p class="dlink-err" data-dlink-err hidden></p>
+    </section>`;
+
+  const err = slot.querySelector('[data-dlink-err]');
+  const say = (msg) => { err.textContent = msg || ''; err.hidden = !msg; };
+
+  slot.querySelector('[data-dlink-start]')?.addEventListener('click', async (e) => {
+    // Disable BEFORE the await. A second click while the first is in flight
+    // mints a second code, and issuing invalidates the first — so the person
+    // is sent to Discord carrying a state that was just voided, and comes back
+    // to "รหัสไม่ถูกต้อง" having done nothing wrong.
+    e.currentTarget.disabled = true;
+    say('');
+    try { await startDiscordLink(); }
+    catch (ex) { say(ex?.message || 'เชื่อมบัญชีไม่สำเร็จ'); e.currentTarget.disabled = false; }
+  });
+
+  slot.querySelector('[data-dlink-unlink]')?.addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    say('');
+    try {
+      await unlinkDiscord();
+      await renderDiscordCard(slot);
+    } catch (ex) { say(ex?.message || 'ยกเลิกไม่สำเร็จ'); e.currentTarget.disabled = false; }
+  });
+}
+
+/**
+ * Is the signed-in person in ทีม SAMO at all?
+ *
+ * Asked through the registry the same way `issue_discord_link_code` asks, so
+ * the card and the button cannot disagree about who may link — two
+ * implementations of one rule drift, and the drift here shows as a button that
+ * appears and then refuses.
+ */
+async function isInTeam() {
+  const { data, error } = await db.rpc('my_person_id');
+  return !error && !!data;
 }
 
 export const __test = { SAID, NONCE_COOKIE };

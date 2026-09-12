@@ -370,3 +370,30 @@
    bottom margin of its own — without this the next section's rule sits right on
    top of it. */
 .myprofile-section .myseat-cta { margin-bottom: 0.15rem; }
+
+/* ── เชื่อมบัญชี Discord (0185/0186) ──────────────────────────────────────
+   Lives in the seat card's second slot. Deliberately quiet: it is a utility a
+   person uses once, not a feature competing with their ตำแหน่ง above it. */
+.dlink-state { margin: 0 0 0.2rem; font-weight: 600; }
+.dlink-help  { margin: 0 0 0.6rem; font-size: 0.82rem; color: var(--ink-500, #64748b); line-height: 1.6; }
+
+/* Discord's own blurple, because the button carries their mark. */
+.btn-dlink {
+  background: #5865F2; border-color: #5865F2; color: #fff;
+}
+.btn-dlink:hover, .btn-dlink:focus { background: #4752c4; border-color: #4752c4; color: #fff; }
+
+/* The outcome line. `role="status"` announces it; these three only colour it. */
+.dlink-said {
+  margin: 0 0 0.6rem; padding: 0.45rem 0.6rem; border-radius: 0.4rem;
+  font-size: 0.84rem; line-height: 1.6; border-left: 3px solid;
+}
+.dlink-said--success { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
+.dlink-said--info    { background: #f8fafc; border-color: #94a3b8; color: #334155; }
+.dlink-said--error   { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
+
+/* Hidden until something goes wrong, and `[hidden]` is honoured explicitly —
+   Bootstrap's reboot ships that rule, and a rule you did not write is borrowed,
+   not implemented (docs/mistakes/frontend-ui.md). */
+.dlink-err { margin: 0.5rem 0 0; font-size: 0.82rem; color: #b91c1c; }
+.dlink-err[hidden] { display: none !important; }

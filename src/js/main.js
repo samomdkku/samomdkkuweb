@@ -34,6 +34,7 @@ import { initDepartments } from './departments.js';
 import { initLauncher } from './launcher.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
+import { renderDiscordCard, readDiscordOutcome } from './discord-link.js';
 import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
 // ปีการศึกษา is an admin-set value (0141); every ชั้นปี on the page derives from
 // it, so it is fetched once before anything that renders one.
@@ -796,7 +797,21 @@ document.addEventListener('DOMContentLoaded', () => {
       // itself on every save and that wipes the slot — "a shared render() that
       // repaints a pane another module owns", straight out of mistakes.md. The
       // hook is how the house section gets put back.
+      // The Discord card lives in the seat card's other slot and is subject to
+      // the same wipe: every save on ข้อมูลของฉัน re-renders the whole card. So
+      // it is painted from the SAME hook as ระบบบ้าน rather than once at boot —
+      // "a shared render() that repaints a pane another module owns".
+      //
+      // The OUTCOME is read once, at the top, because reading it CONSUMES it
+      // from the URL: a repaint must not re-show "เชื่อมเรียบร้อย" every time
+      // the person edits their nickname.
+      const dOutcome = readDiscordOutcome();
+      const paintDiscordInto = (seatEl) => {
+        const slot = seatEl?.querySelector?.('[data-profile-slot="discord"]');
+        if (slot) renderDiscordCard(slot, { outcome: dOutcome });
+      };
       const paintHouseInto = (seatEl) => {
+        paintDiscordInto(seatEl);
         const slot = seatEl?.querySelector?.('[data-profile-slot="house"]');
         if (slot) {
           houseHost.hidden = true;
