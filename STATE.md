@@ -34,17 +34,16 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `1f7f4b2` (2026-09-11)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `62b7c68` (2026-09-12)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
-  It carries the docs REDACTION, verified in the NEGATIVE — the app id once on
-  public `/docs/state/HANDOFF` greps **0** there and across every served asset,
-  with a string added today as the control so the grep is not blind.
+  **31 s — the healthy baseline** — and the docs step RAN. Carries the Discord
+  tick-box: `มี role ใน Discord` greps 1 in the served `/admin/`, its JS half
+  and `team-discord-linked` grep 1 in the served `admin-*` bundle and CSS, each
+  beside a string that already shipped as the control. Roots 12 s apart.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
   chunk (NOT the public bundle, 0145), ฝ่าย blocks in `admin-*`.
-  ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
-  the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
-  output from the deploy pipeline is that, not success; check the SERVED page.
-  The passport MERGE stays live — `/passport/` serves the real app and
+  ⚠️ Empty output from the pipeline means a DROPPED VPN, not success —
+  `skills/deploy-vm.md`, its one home. The passport MERGE stays live — `/passport/` serves the real app and
   `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
   ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
   ~5 min per run and **which one alternates**, so it is not either repo's
@@ -82,7 +81,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0184. ALL 37 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 22/22 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **No bot code exists and none may be written until `docs/DISCORD-ROLE-SYNC.md` §7 is done.** 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
+- **Migrations through 0184. ALL 37 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 22/22 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **No bot code exists and none may be written until `docs/DISCORD-ROLE-SYNC.md` §7 is done.** HANDOFF §11 and §13c both CLOSED.
   ✅ `claude0154` 21/21 + `claude0155` 23/23, fixed 2026-09-11. ⚠️ **The cause
   recorded here was WRONG**: the first real booking (2026-09-07) landed in the
   week both hardcoded as quiet, and 0155 had a FALSE GREEN on that stranger's

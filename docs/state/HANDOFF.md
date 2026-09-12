@@ -1087,8 +1087,24 @@ is only what is OWED:
    `is_board` positions — deliberately NOT "every leadership role", because
    matching leadership by NAME is the guess this design exists to avoid. Every
    other ตำแหน่ง starts unticked and is the owner's call in the editor.
-4. **Then phase 2**, the REPORT-ONLY reconcile, §6. It writes nothing and it is
-   what turns "how many people are mismatched?" into a number.
+4. ✅ **Phase 2 is BUILT AND HAS RUN** (`npm run discord:report`, 2026-09-12).
+   The live guild had never been inspected; now it has:
+   **196 people · 183 roles · 107 nodes ticked · 0 provisioned · 0 LINKED.**
+   So "how many are mismatched" is still unanswerable, and that IS the finding —
+   nobody is linked, 182 of 183 roles are unmanaged, and the reconcile could not
+   remove a single role today. Provisioning plan: **50 adopt · 57 create · 0
+   ambiguous · 131 Discord roles no ticked node claims.**
+5. ❌ **NEXT: `/link`** — the one thing everything else waits on. ⛔ **Do NOT
+   copy the old `!verify`**: it asks for the last five digits of a
+   รหัสนักศึกษา, which is not a secret, and the new consequence is that
+   person's roles and channels rather than a nickname. Use a single-use code
+   issued by the signed-in portal — `DISCORD-ROLE-SYNC.md` §5a, rewritten
+   2026-09-12. It adds a small portal screen, so it is phase 1's tail, not bot
+   work.
+6. ⏸ **Owner: review the 192 unticked nodes.** The seed ticked 107 of 299 —
+   every ฝ่าย and every คณะกรรมการ position, both markings the owner had already
+   made. The rest are unanswered, and phase 3 is only as good as those ticks.
+   The tick-box is SERVED as of 2026-09-12.
 
 **The three findings a next session must not re-derive**, each measured:
 

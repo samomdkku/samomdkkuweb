@@ -181,9 +181,42 @@ Add `discord_links` (`person_id`, `discord_user_id`, `linked_at`, `linked_by`).
 A table, not a column on `team_members`, because a person holds several
 placements and the link belongs to the **person**.
 
-Populate with a `/link` slash command that verifies the way `!verify`
-(`main.py:711`) already does, but stores the **user id** — the snowflake, which
-nobody can edit — instead of renaming them.
+⛔ **DO NOT COPY `!verify`'S CHECK. Read 2026-09-12, and it does not survive
+the change of consequence.** `main.py:711` asks for *the last five digits of
+your รหัสนักศึกษา* and matches any Sheet name ending in them. That was
+defensible for what it did — the old bot only ADDED roles and renamed you — but
+a รหัสนักศึกษา is **not a secret**. It is on the ID card, on every form, and
+visible to staff throughout this portal. Under the new design the same check
+grants that person's **roles and their channels**, including leadership ones.
+A control is only as strong as what it now unlocks, and this one's consequence
+just grew by an order of magnitude.
+
+It is also weak in the way that matters least for a brute-forcer and most for a
+colleague: nobody needs to guess. Anyone who can see a classmate's student ID
+can become them.
+
+**Use the identity the portal already proves.** A student signs in with Google
+/ @kkumail.com — that is the registry's whole basis (`people.kkumail`, one
+person, unique). So:
+
+1. signed in on the portal, the person opens **เชื่อมบัญชี Discord** and gets a
+   short single-use code with a few minutes' life;
+2. in Discord they run `/link <code>`;
+3. the bot exchanges the code for the `person_id` that generated it, and writes
+   `discord_links`.
+
+Nothing guessable, no new authentication, no email quota
+(`docs/EMAIL.md` — the VM can send through a relay but it is quota-bound and
+this does not need it), and the code proves a *live signed-in session*, which
+five digits printed on a card never did. It also gives the portal the natural
+place to show **"เชื่อมแล้วกับ @name"** and an unlink button.
+
+⚠️ **This is a change to the plan, not a detail** — it adds a table (or a column
+pair) for pending codes and a small portal screen, both of which belong to
+phase 1's tail rather than to the bot. Decide it before writing `/link`.
+
+Store the **user id** — the snowflake, which nobody can edit — and never a
+display name.
 
 ### 5b. Roles: store a mapping, never match on a name
 
