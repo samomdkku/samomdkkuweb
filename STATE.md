@@ -34,11 +34,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `08b48b0` (2026-09-12)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `a52ba32` (2026-09-12)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
-  **30 s — the healthy baseline** — and the docs step RAN. Carries เชื่อมบัญชี
-  Discord: the string greps 3 in the served `public-*` chunk and 1 in shared
-  `analytics-*`, `btn-dlink` 1 in the served CSS, each beside a shipped control.
+  Docs step RAN; `LINKING IS LIVE` greps 1 on the served `/docs/state/HANDOFF`
+  beside a shipped control. เชื่อมบัญชี Discord shipped in `08b48b0` — the
+  string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
   chunk (NOT the public bundle, 0145), ฝ่าย blocks in `admin-*`.

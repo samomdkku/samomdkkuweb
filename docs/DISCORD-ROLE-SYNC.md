@@ -1,9 +1,14 @@
 # Discord role sync — ทีม SAMO as the source of truth
 
-**Status: PHASE 1's PORTAL HALF IS BUILT (0183, 2026-09-12). NO BOT CODE
-EXISTS.** Written 2026-09-11 from a scan of the existing bot and measurements
-against production. No code in this repo touches Discord as a bot, and none
-should be written until §7's owner steps are done — which is still true.
+**Status: LINKING IS LIVE. NOTHING SYNCS YET (2026-09-12).** A person can
+connect their Discord account and 48 ทีม SAMO nodes are mapped to roles — but
+**no role has ever been added or removed by this system and no code exists that
+can.** That is the apply step, §6 item 3, and it must not be written before its
+blast-radius brake.
+
+⛔ **What is TRUE NOW and what is OWED lives in `docs/state/HANDOFF.md` §14b, not
+here.** This file is the DESIGN; it will drift the moment it also tries to be a
+status. §7's owner steps are done except step 5 (kick the old bot).
 
 ⛔ **Do not start building from the middle of this file.** §1 is the goal, §3 is
 why the obvious approach fails, §6 is the build order, §7 is what only the owner
@@ -347,17 +352,17 @@ Roles are for **access**, not for reading the org chart.
 **⛔ §7 blocks phase 1. Do not start before it is done.**
 
 0. ✅ **DONE 2026-09-12 — §8b is option A**, `discord-bot/` in this repo.
-1. 🟡 **PARTLY DONE — the PORTAL half shipped (0183).** `discord_links`, the
-   `team_nodes.discord_role` flag and its checkbox all exist and are proved.
-   ❌ **Still owed: the `/link` slash command**, which is bot code and therefore
-   blocked on §7. Nothing syncs yet.
-2. **Report-only reconcile.** For every guild member print: who they are in ทีม
-   SAMO, which mirrored roles they should hold, which they hold, what *would* be
-   added, what *would* be removed, and which unmanaged roles were untouched.
-   **Writes nothing.** This is the deliverable that answers "who is mismatched?"
-3. **Apply, with the blast-radius cap.** Only after the owner has read the
-   report. Re-print the diff at apply time rather than trusting the earlier run;
-   pace against Discord's rate limits across 449 members.
+1. ✅ **DONE — identity and the tick-box.** 0183–0186. Linking is **OAuth2**
+   (§8e), not the slash command this list originally imagined, so no resident
+   process was needed for it at all.
+2. ✅ **DONE — report-only reconcile.** `npm run discord:report`, writes nothing
+   (guarded: no HTTP verb but GET leaves the file). Has run against the live
+   guild. 2a ✅ **provisioning** — `tools/discord-provision.mjs`, plan by
+   default; 48 nodes adopted, 0 roles created (§8g.2).
+3. ❌ **NEXT AND LAST BIG PIECE — apply, with the blast-radius cap.** ⛔ The cap
+   is not a follow-up: with 1 person linked and 368 grants already in Discord,
+   an unbraked apply strips 78% of the server. Re-print the diff at apply time
+   rather than trusting the earlier run; pace against Discord's rate limits.
 4. **Live updates.** Realtime, with the periodic reconcile kept underneath.
 
 ⛔ **NO SECOND DISCORD APPLICATION.** A dev app invited without `Manage Roles`
