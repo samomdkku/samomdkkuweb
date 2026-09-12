@@ -751,6 +751,40 @@ two produces a bot that renames an arbitrary one of somebody's accounts.
 
 ---
 
+## 8g. ⛔ THE ROLE CAP — 250, hard, and you would land at 233
+
+**Status: MEASURED 2026-09-12 — how:** `tools/discord-provision.mjs` against the
+live guild.
+
+```
+GUILD roles now:   180 of 250
+after provisioning: 233 of 250   (93%)
+```
+
+**Discord's limit is 250 roles per guild. It is not raised by boosting and
+there is no appeal.** Provisioning the 107 ticked nodes spends 53 of the 70
+remaining, leaving 17 for everything this organisation does from now on — every
+new ฝ่าย, every committee, every one-off.
+
+⚠️ It is also a wall that arrives MID-RUN. Discord refuses role 251 outright, so
+a run that overshoots leaves some nodes mapped and some not, which is the
+messiest state to reason about afterwards. The tool therefore checks the total
+BEFORE creating anything and refuses, rather than catching the failure.
+
+**Where the room is.** 131 Discord roles are claimed by no ticked node. Some are
+load-bearing — moderators, integrations, `Master`, `Waiting room` — and some are
+leftovers the old bot created on renames and never cleaned up, because it had no
+removal path at all (§3a). ⛔ **The BOT may never delete a role** (deleting takes
+its channel overwrites with it, and the role that looks unused is the one
+holding a channel nobody has opened this month) — but a HUMAN can, deliberately,
+having checked what each one grants. That is the cheapest way to buy headroom,
+and it is a decision, not a script.
+
+The other lever is the tick-box: 107 ticked out of 299 nodes is already a
+choice, and every un-tick is a role not spent.
+
+---
+
 ## 9. Open questions the owner has NOT answered
 
 - **Does the Google Sheet survive as the intake form?** The bot reads ทีม SAMO
