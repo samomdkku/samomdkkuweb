@@ -1235,3 +1235,47 @@ and "retry it" is a different question from "is it safe to retry".* Before
 adding a retry to anything that WRITES, ask what the ambiguous failure would
 duplicate. Here the safe case and the unsafe case are distinguishable (HTML vs
 timeout) and the code distinguishes them; where they are not, do not retry.
+
+---
+
+## The Discord app id was redacted from `docs/` and left in `.claude/rules/`
+
+**Symptom.** `docs/DISCORD-ROLE-SYNC.md` says, in bold, that the application ids
+are *"deliberately not written here"* because `docs/` is served publicly at
+`samo.md.kku.ac.th/docs` — and a whole deploy was spent verifying that redaction
+in the negative, grepping the served assets for the id and getting zero. The id
+was in `.claude/rules/security.md` the entire time, in the same sentence as
+"this token leaked into a chat transcript twice". Both files are committed to a
+**public GitHub repo**. Found 2026-09-12 when the owner asked an unrelated
+question about where the token should live.
+
+**Cause.** One claim, two homes, one of them corrected. `24d37ba` — whose commit
+message is literally *"stop advertising an open hole"* — redacted the design
+doc. `df7a5df`, written the same day, had already put the id in the security
+table, where it read as ordinary inventory rather than as a disclosure. The
+sweep that verified the redaction searched the **served** artefacts, which is
+the right instrument for "is it on the public web" and blind to "is it in the
+public repo". Two different publication surfaces, and only one was asked.
+
+**Fix.** The id is gone from the working tree. It remains in git history and
+cannot be removed from it without a force push, which is not authorised — so
+the remedy is the one §7 step 5 already prescribes and which does not depend on
+the id being secret: **kick the old bot from the server and delete its
+application.** A deleted application's id addresses nothing; a kicked bot's
+credential logs into an account with no access to anything of ours. That was
+already the plan for the token, and it closes this too.
+
+**Where it lives now.** `.claude/rules/security.md`, `DISCORD_TOKEN` row —
+which now also answers *why* the token may not live in `.env.local` when that
+file already holds a Postgres superuser URL, because the owner asked and the
+rule had no stated reason to check.
+
+**The general rule.** *Redaction is per-SURFACE, not per-fact, and the grep that
+proves one surface clean says nothing about the others.* This repo publishes
+through at least three: the served `/docs` site, the public GitHub repo, and
+chat transcripts. Before recording that something was withheld, enumerate where
+it could have been written — `grep -rin` the whole tree, not the deploy — and
+prefer a remedy that does not depend on the secret staying secret. It is class 6
+(*a fact with two homes where only one is corrected*) wearing a security
+costume, and class 7's instrument trap underneath it: the sweep was aimed at the
+surface the session happened to be thinking about.

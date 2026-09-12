@@ -244,7 +244,7 @@ Open when: URL state, per-user "seen", import/export.
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(29)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(30)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -277,6 +277,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 - Google answers /exec with an HTML page, and the student gets "Unexpected token '<'" on the file they just picked
+- The Discord app id was redacted from `docs/` and left in `.claude/rules/`
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(24)*
 
@@ -410,4 +411,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_348 entries across 10 files._
+_349 entries across 10 files._
