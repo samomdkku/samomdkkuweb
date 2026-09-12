@@ -117,7 +117,7 @@ async function main() {
   // it refuses it PART WAY THROUGH a run — leaving some nodes mapped and some
   // not, which is the messiest possible state to reason about afterwards. So it
   // is checked BEFORE anything is created, not caught as an error.
-  const after = roles.length + 1 + create.length;
+  const after = roles.length + 1 + (has('--adopt-only') ? 0 : create.length);
   console.log(`\nAFTER CREATING: ${after} of ${ROLE_CAP} roles (${Math.round((after / ROLE_CAP) * 100)}%)`);
   if (after > ROLE_CAP) {
     console.log(`⛔ THAT EXCEEDS DISCORD'S HARD LIMIT OF ${ROLE_CAP}. Untick some nodes, or`);
@@ -128,17 +128,39 @@ async function main() {
     console.log('   server, so spend the remaining ones deliberately.');
   }
 
+  // ⛔ ADOPT AND CREATE ARE NOT TWO HALVES OF ONE ACTION, and treating them as
+  // one is how the role budget gets spent without a decision.
+  //
+  // ADOPT costs ZERO roles — the role already exists — and on this server 49 of
+  // the 50 adoptable roles ALREADY gate a channel. So adopting delivers the
+  // whole feature (membership maintained on the roles that actually control
+  // access) at no cost to a cap that cannot be raised.
+  //
+  // CREATE spends the budget on roles that gate nothing on the day they are
+  // made. 53 of them is 76% of the remaining headroom, buying no access change
+  // for anybody. They are better created WHEN a ฝ่าย asks for a channel or a
+  // ping — the report's PENDING PROVISION bucket is where they wait, by name,
+  // so the intent is not lost.
+  //
+  // Hence --adopt-only, and hence it is the recommendation printed below rather
+  // than a flag somebody has to think of.
+  const adoptOnly = has('--adopt-only');
+  const willCreate = adoptOnly ? [] : create;
+
   if (!has('--apply')) {
-    console.log('\nPLAN ONLY — nothing was written. To apply, pass the counts you just read:');
-    console.log(`  node tools/discord-provision.mjs --apply --adopt ${adopt.length} --create ${create.length}`);
+    console.log('\nPLAN ONLY — nothing was written.');
+    console.log('\n  RECOMMENDED — adopt what already exists, spend no new roles:');
+    console.log(`    node tools/discord-provision.mjs --apply --adopt-only --adopt ${adopt.length} --create 0`);
+    console.log('\n  Everything, including creating new roles:');
+    console.log(`    node tools/discord-provision.mjs --apply --adopt ${adopt.length} --create ${create.length}`);
     return;
   }
 
   // The plan the operator read must be the plan that runs.
-  if (num('--adopt') !== adopt.length || num('--create') !== create.length) {
+  if (num('--adopt') !== adopt.length || num('--create') !== willCreate.length) {
     console.error(`\n✗ REFUSED — the plan changed since you read it.`);
     console.error(`  you passed  --adopt ${num('--adopt')} --create ${num('--create')}`);
-    console.error(`  now         --adopt ${adopt.length} --create ${create.length}`);
+    console.error(`  now         --adopt ${adopt.length} --create ${willCreate.length}`);
     console.error('  Re-read the plan above and pass the new numbers if they are right.');
     process.exit(1);
   }
@@ -150,7 +172,7 @@ async function main() {
     console.log(`  adopted  ${t.name}`);
     n++;
   }
-  for (const t of create) {
+  for (const t of willCreate) {
     // No permissions, no colour, not hoisted. Access comes from CHANNEL
     // overwrites, which a human adds deliberately; a role created with
     // permissions of its own grants them server-wide.

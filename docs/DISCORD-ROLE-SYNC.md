@@ -771,17 +771,55 @@ a run that overshoots leaves some nodes mapped and some not, which is the
 messiest state to reason about afterwards. The tool therefore checks the total
 BEFORE creating anything and refuses, rather than catching the failure.
 
-**Where the room is.** 131 Discord roles are claimed by no ticked node. Some are
-load-bearing — moderators, integrations, `Master`, `Waiting room` — and some are
-leftovers the old bot created on renames and never cleaned up, because it had no
-removal path at all (§3a). ⛔ **The BOT may never delete a role** (deleting takes
-its channel overwrites with it, and the role that looks unused is the one
-holding a channel nobody has opened this month) — but a HUMAN can, deliberately,
-having checked what each one grants. That is the cheapest way to buy headroom,
-and it is a decision, not a script.
+### 8g.1 — measured: there is nothing to reclaim, and nothing to trim
 
-The other lever is the tick-box: 107 ticked out of 299 nodes is already a
-choice, and every un-tick is a role not spent.
+The two obvious levers were checked against the live guild before recommending
+anything, and **both are dead ends**:
+
+```
+171 channels · 179 roles (excl. @everyone and integrations)
+  gate a channel (a permission overwrite names them):  158
+  held by someone but gate nothing:                     17
+  DEAD — nobody holds them AND they gate nothing:        4
+```
+
+**Deleting buys 4 roles.** This server genuinely uses what it has; there is no
+drawer of leftovers. (⛔ The BOT may never delete a role regardless — that takes
+its channel overwrites with it, and the role that looks unused is the one
+holding a channel nobody has opened this month. A human may, deliberately.)
+
+**Trimming the ticks buys nothing either**: 106 of the 107 ticked nodes have
+real people, and the 17 ticked `kind='role'` nodes all hold 1–2 — but those are
+the hardest-working roles on the server (`อุปนายกฝ่ายดิจิทัลฯ` gates 28 channels,
+`หัวหน้าฝ่าย IT` gates 15). **Size is not the test. Gating is.**
+
+### 8g.2 — ✅ THE ANSWER: adopt the 50, do not create the 53
+
+```
+of the 50 nodes that would be ADOPTED:
+  already gate at least one channel:  49
+  exist but gate nothing:              1
+```
+
+| | roles spent | what changes today |
+|---|---|---|
+| **`--adopt-only`** | **0** | the sync starts maintaining membership on 49 roles that ALREADY control channel access |
+| full provision | 53 | …plus 53 roles that gate nothing yet |
+
+Adopting is free — the role already exists — and it lands the entire feature
+exactly where it matters. Creating spends 76% of the remaining headroom on
+groups nobody has asked for a channel for, and changes no one's access on the
+day it runs.
+
+⛔ **THE GENERAL RULE, and it is not about Discord: a role earns its place by
+GATING A CHANNEL or being @MENTIONED. Provision on demand, never in bulk.** This
+server already works that way — 160 of 179 roles gate something — which is
+exactly why there was nothing to reclaim. The 53 wait, by name, in the report's
+PENDING PROVISION bucket, so no intent is lost; they get created when a ฝ่าย
+asks for a channel or a ping.
+
+`--adopt-only` is the recommended command the tool prints first, rather than a
+flag somebody has to think of.
 
 ---
 

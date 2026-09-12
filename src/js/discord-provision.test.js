@@ -44,7 +44,10 @@ describe('it plans by default and refuses a stale plan', () => {
   it('requires the counts the operator read, and compares them', () => {
     // An --apply that recomputes and proceeds can do something nobody saw.
     expect(CODE).toMatch(/num\('--adopt'\) !== adopt\.length/);
-    expect(CODE).toMatch(/num\('--create'\) !== create\.length/);
+    // Compared against what WILL be created, not against the full create list —
+    // --adopt-only makes those two different numbers, and comparing the wrong
+    // one would refuse every correct adopt-only run.
+    expect(CODE).toMatch(/num\('--create'\) !== willCreate\.length/);
     expect(CODE).toMatch(/process\.exit\(1\)/);
   });
 });
@@ -69,7 +72,14 @@ describe('a near match is never adopted automatically', () => {
   it('puts near matches in their own bucket and never writes them', () => {
     expect(CODE).toMatch(/near\.push/);
     const writes = [...CODE.matchAll(/for \(const \[?(\w+)/g)].map((m) => m[1]);
-    expect(writes, 'only `adopt` and `create` may be iterated by the write loop')
+    expect(writes, 'only `adopt` and `willCreate` may be iterated by the write loop')
       .not.toContain('near');
+  });
+
+  // --adopt-only is the recommended path, so the thing that makes it SAFE —
+  // that it creates nothing — is worth pinning rather than trusting.
+  it('--adopt-only creates nothing, and the cap maths follows it', () => {
+    expect(CODE).toMatch(/const willCreate = adoptOnly \? \[\] : create;/);
+    expect(CODE).toMatch(/has\('--adopt-only'\) \? 0 : create\.length/);
   });
 });
