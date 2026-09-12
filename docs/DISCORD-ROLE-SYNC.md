@@ -336,6 +336,11 @@ the leaked token. That is the better call: the current app belongs to a
 1. In the app → **Bot** → **Add Bot**.
 2. Under *Privileged Gateway Intents*, enable **SERVER MEMBERS INTENT**.
    ⚠️ Without it the bot sees no members and every sync silently does nothing.
+   **Leave PRESENCE and MESSAGE CONTENT off.** Nothing in this design reads
+   either: the commands are slash commands (`/link`, `/whois`), which deliver
+   their arguments directly, and only the OLD bot's `!` prefix commands needed
+   message content. Message Content is a read of every message anybody sends in
+   the server — not something to hold because it was one click away.
 3. **Reset Token**, and copy it **straight into the VM**, never into chat:
 
    ```bash
@@ -352,8 +357,25 @@ the leaked token. That is the better call: the current app belongs to a
 1. App → **OAuth2 → URL Generator**.
 2. Scopes: **`bot`** and **`applications.commands`**.
 3. Bot permissions: **Manage Roles**, **Manage Nicknames**, **View Channels**,
-   **Send Messages**. ⛔ **Not Administrator.**
+   **Send Messages**.
 4. Open the generated URL and add it to the SAMO server.
+
+⚠️ **Administrator is not a shortcut, and it does not save a future step.** The
+owner asked for it on 2026-09-12 to avoid ever editing permissions again —
+which is not what it buys, for two reasons:
+
+- **A bot's permissions are editable at any time**, in Server Settings → Roles →
+  the bot's role, with no re-invite. So choosing the narrow set now costs
+  nothing later; the only thing that needs a fresh invite URL is a new OAuth
+  *scope*, and Administrator does not help with that either.
+- **Administrator does NOT exempt a bot from role hierarchy** (see step 4).
+  Only the guild owner is exempt. So the drag in step 4 is mandatory either way,
+  and it is the step that actually determines whether the sync works.
+
+What Administrator does change is the blast radius of the one credential this
+project has already lost twice: an Administrator bot can delete every channel,
+delete every role, and ban every member. The narrow set cannot. That is the
+whole trade — the owner's call, and reversible in both directions.
 
 ### Step 4 — ⛔ THE STEP THAT SILENTLY BREAKS EVERYTHING
 
@@ -362,9 +384,16 @@ Server Settings → **Roles** → drag **SAMO Role Sync** so it sits:
 - **above** every ฝ่าย / ตำแหน่ง role it will manage, and
 - **below** your own staff and admin roles.
 
-A bot without Administrator can only manage roles **below** its own, and it
-fails **quietly** rather than erroring. Administrator hides this rule, which is
-exactly why the narrowing has to happen before the bot ever removes a role.
+A bot can only manage roles **below** its own highest role, and it fails
+**quietly** rather than erroring.
+
+⛔ **ADMINISTRATOR DOES NOT EXEMPT IT.** This was stated backwards here until
+2026-09-12. Role hierarchy is checked for Manage Roles, Kick, Ban and Manage
+Nicknames regardless of Administrator; the only account exempt from it is the
+guild **owner**. So a bot sitting below `ฝ่าย IT` cannot grant or remove
+`ฝ่าย IT` even with every permission in Discord — it will report success and
+change nothing, which is the failure this whole step exists to prevent. Do this
+drag whichever permission set you chose in step 3.
 
 ### Step 5 — Close the old leak
 
