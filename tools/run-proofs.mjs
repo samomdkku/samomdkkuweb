@@ -66,6 +66,7 @@ const PROOFS = [
   ['authz0182-insert-returning-seam.sql', 'an INSERT that asks for the row back can read what it wrote'],
   ['team0183-discord-mapping.sql', 'a Discord identity is not shareable and two same-named ตำแหน่ง cannot claim one role'],
   ['team0184-discord-targets.sql', 'which Discord roles a person is DUE — own ตำแหน่ง plus every ticked ฝ่าย above it'],
+  ['team0185-link-codes.sql', 'a Discord link code proves a live portal session, once, and cannot steal an account'],
   ['pass-hardening.mjs', 'passport RLS: five real principals, 0011 applied in a rolled-back txn'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],
