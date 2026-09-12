@@ -617,6 +617,44 @@ the right threat — `!verify`'s five ID digits — and still reached for a
 mechanism the platform already provides. *"Is there a standard way to do this"*
 is a question worth asking BEFORE designing a credential, not after.
 
+### 8e.1 — Discord Linked Roles does NOT fit, and someone will suggest it
+
+Discord's own first-party answer (2022) is OAuth2 plus **role connection
+metadata**: an app publishes verified attributes and the server admin defines
+roles with requirements over them. It is the right shape for a *"verified
+subscriber"* badge and the wrong shape here, for three reasons that are limits,
+not opinions: metadata is capped at **5 keys** of boolean / integer / datetime,
+so 107 ฝ่าย cannot be expressed; the member **opts into each role themselves**,
+so nothing is ever removed; and the criteria live in Discord's UI, not in ทีม
+SAMO, which puts the source of truth back in the place this whole design moves
+it out of.
+
+### 8e.2 — what the old bot got RIGHT, and how to keep it
+
+Name-matching was cheap — no secret, no callback, no database — and for a
+volunteer server running off a Sheet that was a defensible hack. It failed in
+the four measured ways of §3. But it produced something OAuth2 does not: **a
+member list a human can read.** `ปูปู้_#5_03015` says who somebody is;
+`xX_shadow_Xx` with an anime avatar does not. Across 196 people that is real.
+
+⛔ **The error was not the nickname. It was using the nickname as the KEY.**
+
+| | old bot | correct |
+|---|---|---|
+| identity | the nickname — user-editable, user-supplied | OAuth2; Discord authenticates them |
+| nickname | the **input**: rename yourself and you vanish from the sync | the **output**: the bot writes it FROM ทีม SAMO |
+| who maintains it | every member, forever, and everyone at once each year | nobody |
+
+The bot already carries **Manage Nicknames** in §7 step 3's permission set —
+this is what it is for. After linking, the bot sets the nickname from the
+registry and it stays correct because ทีม SAMO is the source. ⚠️ It cannot
+rename anyone whose top role sits above the bot's (§7 step 4), and it fails
+QUIETLY there, so the reconcile must REPORT the nicknames it could not set
+rather than skipping them silently.
+
+**The whole answer: OAuth2 for identity · bot-set nickname for legibility ·
+`/whois` for the detail neither one shows.**
+
 ---
 
 ## 8c. Who can work on this — and what the docs may ask for
