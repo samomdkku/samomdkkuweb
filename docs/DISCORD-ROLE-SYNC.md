@@ -731,6 +731,26 @@ report-only phase, the blast-radius cap and "link people first" are for.
 
 ---
 
+## 8f. ✅ ONE DISCORD ACCOUNT PER PERSON — decided 2026-09-12
+
+**Status: DECIDED 2026-09-12.** The owner: *"i think 1 account per person for
+now is ok"*. Do not re-litigate; "for now" is noted, and the shape below is what
+makes revisiting it cheap.
+
+Already how it is built, so nothing changes: `discord_links.person_id` is the
+PRIMARY KEY, and `redeem_discord_link_code` upserts on it — so linking a second
+Discord account REPLACES the first rather than adding one. That is also why the
+round trip is idempotent: the owner's own link was redeemed twice on
+2026-09-12 and produced one row.
+
+⚠️ **If it is ever revisited, the change is not "drop the primary key".** Several
+accounts per person means deciding which one the bot writes a NICKNAME to, and
+what `/whois` prints; the reconcile itself is unaffected because it iterates
+guild members and asks per Discord id. Widening the key without answering those
+two produces a bot that renames an arbitrary one of somebody's accounts.
+
+---
+
 ## 9. Open questions the owner has NOT answered
 
 - **Does the Google Sheet survive as the intake form?** The bot reads ทีม SAMO

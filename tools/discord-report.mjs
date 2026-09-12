@@ -152,8 +152,20 @@ function report(guild, db) {
   }
 
   // §3 the diff, per linked person.
+  // ⛔ "CORRECT" AND "NOTHING TO COMPARE" ARE NOT THE SAME ANSWER, and the
+  // first version of this section reported them as one.
+  //
+  // With nothing provisioned, `should` and `has` are both empty for everybody,
+  // so every linked person fell into the exact-match bucket and the report
+  // announced "LINKED AND CORRECT: 1" about a person who is due FOUR roles and
+  // holds none of them. That is the aggregate trap in
+  // docs/mistakes/tooling-proofs.md — an extreme value nobody printed the rows
+  // behind — and it is the worst possible direction for it to fail in, because
+  // "correct" is what somebody reads before deciding to apply.
+  //
+  // A person with ticked-but-unprovisioned nodes is WAITING, not correct.
   let add = 0; let rm = 0; let exact = 0;
-  const lines = [];
+  const lines = []; const waiting = [];
   for (const m of humans) {
     const t = byUser.get(m.id);
     if (!t) continue;
@@ -161,16 +173,32 @@ function report(guild, db) {
     const should = new Set(t.role_ids || []);
     const toAdd = [...should].filter((r) => !has.has(r));
     const toRemove = [...has].filter((r) => !should.has(r));
-    if (!toAdd.length && !toRemove.length) { exact++; continue; }
+    const due = t.pending || [];
+    if (!toAdd.length && !toRemove.length) {
+      if (due.length) {
+        waiting.push(`  ${m.display}  (${t.placements} ตำแหน่ง) — due ${due.length}: ${due.join(' · ')}`);
+      } else {
+        exact++;
+      }
+      continue;
+    }
     add += toAdd.length; rm += toRemove.length;
     lines.push(`  ${m.display}  (${t.placements} ตำแหน่ง)`
       + (toAdd.length ? `\n      + ${toAdd.map((r) => roleName.get(r) || r).join(', ')}` : '')
-      + (toRemove.length ? `\n      − ${toRemove.map((r) => roleName.get(r) || r).join(', ')}` : ''));
+      + (toRemove.length ? `\n      − ${toRemove.map((r) => roleName.get(r) || r).join(', ')}` : '')
+      + (due.length ? `\n      … and ${due.length} more once provisioned: ${due.join(' · ')}` : ''));
   }
-  say(`LINKED AND CORRECT: ${exact}`);
+  say(`LINKED, CORRECT, NOTHING OUTSTANDING: ${exact}`);
   say(`LINKED AND MISMATCHED: ${lines.length}  (${add} role(s) would be added, ${rm} removed)`);
   lines.slice(0, 40).forEach((l) => say(l));
   if (lines.length > 40) say(`  … ${lines.length - 40} more`);
+  if (waiting.length) {
+    say(`LINKED BUT WAITING ON PROVISIONING: ${waiting.length}`);
+    say('  Their ตำแหน่ง are ticked and the Discord role does not exist yet, so');
+    say('  there is nothing to compare. This is NOT "correct".');
+    waiting.slice(0, 20).forEach((l) => say(l));
+    if (waiting.length > 20) say(`  … ${waiting.length - 20} more`);
+  }
   say();
 
   // §4 the bottleneck, stated as a number rather than left to be inferred.
