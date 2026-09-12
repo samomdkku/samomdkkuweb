@@ -15,7 +15,7 @@
 // Class 6: two implementations of one rule drift, and a doc has no compiler.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { REQUIRED, OPTIONAL, inspect } from '../../tools/env-check.mjs';
 
@@ -247,5 +247,72 @@ describe('the stable address for main', () => {
     expect(INDEX, 'the host guard is no longer anchored, so a subdomain preview '
       + 'would bounce to the splash too').toMatch(/\/\^\([a-z|]*samomdkkuweb[a-z|]*\)\\\.pages\\\.dev\$\/i/);
     expect(PREVURL).toMatch(/retired|moved splash/i);
+  });
+});
+
+// ==============================================
+// NO CONTRIBUTOR-FACING PAGE MAY ASK FOR A MAINTAINER-ONLY CREDENTIAL.
+//
+// The sibling above pins one instance of this — `dev:check` needing production
+// keys. This is the PROPERTY that instance was one case of, and it exists
+// because the Discord role sync creates a fresh temptation: the bot token is
+// the one credential a contributor genuinely cannot be given, and the natural
+// way to write "how to work on the bot" is to tell them to set it.
+//
+// ⛔ THE LIST IS NOT WRITTEN HERE. It is read from `.env.local.example`'s
+// maintainers-only block, which is already the contract every other env tool
+// reads. A list retyped into the guard is a list that agrees with itself and
+// with nothing else (.claude/rules/mistakes.md class 7).
+//
+// MENTIONING a credential is fine and often necessary — sharing-credentials.md
+// names the bot token precisely to say "no, and here is why there is no dev
+// copy". What is forbidden is an INSTRUCTION: an assignment, an export, or a
+// shell expansion, which is what a reader copies.
+// ==============================================
+describe('the getting-started pages ask for nothing a contributor cannot have', () => {
+  const MAINTAINER_ONLY = (() => {
+    const block = EXAMPLE.split(/^# ── Maintainers only/m)[1] || '';
+    return [...new Set(block.match(/\b[A-Z][A-Z0-9_]{4,}\b/g) || [])];
+  })();
+
+  const pages = readdirSync(join(ROOT, 'docs', 'start'))
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => [f, readFileSync(join(ROOT, 'docs', 'start', f), 'utf8')]);
+
+  /** An instruction to USE the value, not a mention of its name. */
+  const instructs = (text, name) =>
+    new RegExp(`(^|[^A-Z_])(export\\s+)?${name}\\s*=|\\$\\{?${name}\\b`, 'm').test(text);
+
+  it('found both the list and the pages — a sweep must prove it looked', () => {
+    expect(MAINTAINER_ONLY).toContain('DISCORD_TOKEN');
+    expect(MAINTAINER_ONLY).toContain('SUPABASE_DB_URL');
+    expect(MAINTAINER_ONLY.length).toBeGreaterThan(4);
+    expect(pages.length).toBeGreaterThan(4);
+  });
+
+  // The CONTROL. Without it, a regex that matches nothing at all passes the
+  // real assertion below and reports a clean sweep for ever.
+  it('its detector would actually catch one', () => {
+    expect(instructs('run `DISCORD_TOKEN=abc npm start`', 'DISCORD_TOKEN')).toBe(true);
+    expect(instructs('export SUPABASE_DB_URL=postgres://x', 'SUPABASE_DB_URL')).toBe(true);
+    expect(instructs('echo "$DISCORD_TOKEN"', 'DISCORD_TOKEN')).toBe(true);
+    // …and does not fire on a page that merely NAMES it to refuse it, which is
+    // exactly what sharing-credentials.md does.
+    expect(instructs('The Discord bot token is not on that list.', 'DISCORD_TOKEN')).toBe(false);
+  });
+
+  it('no page tells a contributor to set one', () => {
+    const found = [];
+    for (const [file, text] of pages) {
+      for (const name of MAINTAINER_ONLY) {
+        if (instructs(text, name)) found.push(`docs/start/${file} → ${name}`);
+      }
+    }
+    expect(found, [
+      'A getting-started page is asking for a credential a contributor must never be sent.',
+      'It will fail on a CORRECT setup and blame the reader, which is the one',
+      'failure mode these pages cannot afford. Say what the value is for and who',
+      'holds it — never write the assignment.',
+    ].join('\n')).toEqual([]);
   });
 });

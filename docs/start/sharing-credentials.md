@@ -31,6 +31,34 @@ reaches a real student, so it is safe to *use* — but the names, ID numbers and
 photographs in it belong to real people. Say that when you hand it over.
 :::
 
+### The Discord bot token is not on that list, and there is no contributor version
+
+Somebody will eventually ask for it, because the role sync is the one part of
+this project a contributor cannot fully run. **The answer is no, and it is not
+a judgement about them** — there is no dev copy to send. A second Discord
+application was considered on 2026-09-12 and declined: two apps, two invites,
+two token resets, and a test server whose role tree quietly stops matching the
+real one.
+
+What that leaves a contributor is more than it sounds, because the sync is
+deliberately split in half:
+
+| Half | What it does | Needs a Discord token? |
+|---|---|---|
+| **Deciding** | `public.discord_role_targets()` — which roles a person is due, from their ตำแหน่ง and every ticked ฝ่าย above it | **no.** Runs on `samo-dev` with the two values above |
+| **Reading the guild** | who is actually in the server and which roles they hold | yes — and it runs on the VM |
+
+So a contributor can change the rule, prove it against real-shaped data
+(`node tools/db-query.mjs tools/team0184-discord-targets.sql`), and open a pull
+request — without ever holding a credential that can touch the Discord server.
+That was the reason for putting the rule in Postgres rather than in the bot.
+
+⛔ **Never write a step into these pages that needs the bot token.** A
+getting-started guide here once told contributors to run `npm run dev:check`,
+which needs production credentials they must never be sent — so it failed on a
+*correct* setup and blamed the reader. A page that asks for something a
+contributor may not have is a page that reports their correct setup as broken.
+
 ## Set it up once — then you are out of the loop
 
 This is the part that means you never do this again. **Only you can do it**, and

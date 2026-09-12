@@ -490,6 +490,39 @@ it is one more reason no identifier or credential may be written into it.
 
 ---
 
+## 8c. Who can work on this — and what the docs may ask for
+
+**Status: DECIDED 2026-09-12.** The owner's concern was never their own laptop;
+it was **contributors and the documentation**, and for those the rule is strict
+and unchanged: the bot token is never sent to a contributor, never written into
+a `docs/` page, never in git, never in a chat message.
+
+That is affordable because §5f's function lives in Postgres. The split:
+
+| Half | Needs the token? | Where a contributor works |
+|---|---|---|
+| **Deciding** — `discord_role_targets()` | no | `samo-dev`, with the two shareable values. Proved by `tools/team0184-discord-targets.sql` |
+| **Reading the live guild** | yes | the VM only |
+
+So a contributor can change the rule, prove it against real-shaped data and open
+a pull request without ever holding a credential that can touch Discord.
+
+⛔ **A contributor-facing page may NAME the token to refuse it, and may never
+INSTRUCT its use.** `docs/start/sharing-credentials.md` carries the refusal and
+the reason. The property is guarded in `src/js/env-example.test.js`: the
+forbidden list is read from `.env.local.example`'s maintainers-only block —
+never retyped — the detector distinguishes an assignment or `$expansion` from a
+mention, it has a control so an empty sweep cannot pass silently, and it was
+watched failing on a planted `DISCORD_TOKEN=` before being restored.
+
+**The precedent it generalises:** `docs/start/install.md` once told contributors
+to verify their setup with `npm run dev:check`, which needs PRODUCTION
+credentials they must never be sent. It failed on a *correct* setup and blamed
+the reader at the exact moment they had no way to tell which of the two was
+wrong. The role sync is the next place that mistake is easy to make.
+
+---
+
 ## 9. Open questions the owner has NOT answered
 
 - **Does the Google Sheet survive as the intake form?** The bot reads ทีม SAMO
