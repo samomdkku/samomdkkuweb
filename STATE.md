@@ -156,8 +156,8 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; what is OWED: **`HANDOFF` §14b**,
    rewritten from live state — do not summarise either here.
    **1 linked · 107 ticked · 48 mapped · guild 180/250, unchanged.**
-   ❌ The APPLY step does not exist and must not be written before its brake.
    ⛔ `/discord/*` nginx routes are in the VM's live config ONLY.
+   Mechanics + traps: `skills/discord-role-sync.md`.
 
 ### B. OWNER ONLY
 

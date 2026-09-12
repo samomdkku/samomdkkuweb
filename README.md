@@ -218,6 +218,11 @@ triggered over ssh (needs the KKU VPN).
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
 - **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
 - **Discord**: one `/notify` proxy for PR / Vital Sign / หนังสือโครงการ webhooks.
+  The same Node service also serves `/discord/callback` and `/discord/config`
+  for **เชื่อมบัญชี Discord** — a student links their Discord account from
+  ข้อมูลของฉัน with one click (OAuth2), and their ฝ่าย/ตำแหน่ง roles follow from
+  ทีม SAMO. ⚠️ Those two nginx routes live only in the VM's live config, not in
+  `server/nginx-samo.conf` — see `skills/discord-role-sync.md`.
   In production that is the **`samo-notify` Node service on the KKU VM**, which
   nginx proxies at `/notify`. `functions/notify.js` is its Cloudflare Pages twin,
   kept in the repo because the two must stay behaviourally identical

@@ -1151,7 +1151,7 @@ and no code exists that can. That is the apply step, below.
   with nothing provisioned, every linked person was vacuously correct. Fixed;
   the lesson is in `docs/mistakes/tooling-proofs.md`.
 
-### Tools
+### Tools — and `skills/discord-role-sync.md` is the mechanics
 
 ```
 npm run discord:report                     # read-only; --fetch on the VM, --report here

@@ -36,6 +36,12 @@ Browser (SPA served by nginx on the KKU VM)
   │                               `knownFileId` that is really in it, because
   │                               this /exec URL is public and unauthenticated
   │
+  └─→ /discord/config   — public: the OAuth client id, so the browser has ONE
+  │                        home for it instead of a build-time VITE_ var
+  └─→ /discord/callback — Discord OAuth2 lands here; the ONLY server-side step
+  │                        in เชื่อมบัญชี Discord. Same Node service as /notify.
+  │                        ⚠️ Both nginx locations exist ONLY in the VM's live
+  │                        config, NOT in server/nginx-samo.conf (drifted).
   └─→ /notify (all Discord) — nginx proxies it to the samo-notify Node
         service on 127.0.0.1:8787 (server/notify-server.mjs)
         ↳ notifyPROnly                    → PR-team webhook
@@ -874,6 +880,51 @@ Two SECURITY DEFINER RPCs:
 Tracker: `src/js/analytics.js` (`initAnalytics('public'|'admin')`) sends
 fire-and-forget events on load + tab/section switch; wired in `main.js` and
 `admin-main.js` (the latter also `trackTab()`s from `showAdminSide`).
+
+### Discord role sync (canonical: `0183`–`0186`)
+
+**ทีม SAMO is the source of truth for Discord roles.** Nothing syncs yet — see
+`docs/state/HANDOFF.md` §14b for status and `docs/DISCORD-ROLE-SYNC.md` for the
+design; this is only the schema.
+
+```
+discord_links        person_id PK → people(id)   ONE Discord account per person
+                     discord_user_id TEXT, UNIQUE — the snowflake, never a name
+                     RLS: admin read/write only. No self-branch; 0186's RPCs
+                     serve a person their own link instead, so `linked_by`
+                     (who vouched) stays admin-only.
+
+discord_link_codes   a ten-minute single-use code. Also the OAuth `state`.
+                     RLS deny-all AND ungranted, on purpose: live bearer tokens,
+                     and nobody needs to READ one, not even their own.
+
+team_nodes.discord_role      BOOLEAN — "มี role ใน Discord", a DECISION.
+                             ⛔ No rule can derive it: ฝ่าย sit at depths 1–5,
+                             and ฝ่าย IT's sub-groups are kind='role' while
+                             ฝ่าย 7's are kind='division'.
+team_nodes.discord_role_id   the Discord role snowflake, UNIQUE where not null.
+                             Two nodes may share a NAME (เหรัญญิก exists six
+                             times) but never a role. Its non-null values ARE
+                             the managed set — a role absent from this column
+                             can never be removed from anybody, so Master,
+                             Waiting room and integrations are safe BY
+                             CONSTRUCTION, not by an exclusion list.
+```
+
+**Functions.** `discord_role_targets()` is the ONE place that decides which
+roles a person is due — their own ตำแหน่ง's plus every ticked ANCESTOR's — so
+the realtime path, the reconcile and any future portal screen cannot disagree.
+SECURITY INVOKER, which means an unprivileged caller gets ZERO ROWS; ⛔ a
+reconcile must never read that as "remove everything" (§5e).
+`issue_discord_link_code()` (authenticated) · `redeem_discord_link_code()`
+(**bot only** — a client that could call it could bind a code to a Discord
+account it does not control) · `my_discord_link()` / `unlink_my_discord()`.
+
+**Auth flow.** ข้อมูลของฉัน → `issue_discord_link_code()` → redirect to Discord
+with `state=CODE.NONCE` and a nonce cookie → Discord → `/discord/callback` on
+the notify service → `redeem_discord_link_code()`. The nonce is what makes
+`state` a CSRF defence: a state minted by an attacker and walked through a
+victim's browser has no matching cookie and is refused.
 
 ## RLS policies (canonical: same migration file)
 
