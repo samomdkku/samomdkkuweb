@@ -763,7 +763,7 @@ live guild.
 
 ```
 GUILD roles now:   180 of 250
-after provisioning: 233 of 250   (93%)
+after creating all: 233 of 250   (93%)   ← the path NOT taken
 ```
 
 **Discord's limit is 250 roles per guild. It is not raised by boosting and
@@ -798,7 +798,14 @@ real people, and the 17 ticked `kind='role'` nodes all hold 1–2 — but those 
 the hardest-working roles on the server (`อุปนายกฝ่ายดิจิทัลฯ` gates 28 channels,
 `หัวหน้าฝ่าย IT` gates 15). **Size is not the test. Gating is.**
 
-### 8g.2 — ✅ THE ANSWER: adopt the 50, do not create the 53
+### 8g.2 — ✅ THE ANSWER: adopt what exists, create nothing
+
+⚠️ **The numbers in this section are the plan AS IT WAS on 2026-09-12 morning,
+kept because the REASONING is what matters. The adopt has since been run: 48
+nodes are mapped and 0 roles were created, so the live plan is now `0 adopt · 51
+create` plus the contested and near-match buckets. Ask the tool, never this
+paragraph** — `node tools/discord-provision.mjs` prints the current plan and
+writes nothing.
 
 ```
 of the 50 nodes that would be ADOPTED:
