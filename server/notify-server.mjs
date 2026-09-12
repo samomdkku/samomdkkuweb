@@ -25,12 +25,39 @@
 
 import http from 'node:http';
 import { onRequestPost } from '../functions/notify.js';
+import { handleDiscordCallback } from './discord-oauth.mjs';
 
 const PORT = Number(process.env.NOTIFY_PORT) || 8787;
 const HOST = process.env.NOTIFY_HOST || '127.0.0.1';
 const MAX_BODY = 64 * 1024; // notify payloads are tiny; cap to shrug off abuse
 
 const server = http.createServer((req, res) => {
+  // Discord OAuth2 callback (DISCORD-ROLE-SYNC.md §8e). It lives here rather
+  // than in a service of its own because this process already IS the shape it
+  // needs — Node behind nginx, under systemd, secrets in a 0600 env file — and
+  // a second deploy path is a thing this project has been bitten by before.
+  //
+  // Parsed against a dummy base so a malformed URL cannot throw here; only the
+  // pathname is used, and `searchParams` does the unescaping.
+  {
+    const u = new URL(req.url || '/', 'http://x');
+    if (u.pathname === '/discord/callback') {
+      if (req.method !== 'GET') {
+        res.writeHead(405, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'method not allowed' }));
+        return;
+      }
+      handleDiscordCallback(req, res, process.env, u).catch((e) => {
+        console.error('[samo-notify] discord callback threw:', e?.stack || e);
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'server error' }));
+        }
+      });
+      return;
+    }
+  }
+
   // Only POST /notify is served; a health probe on GET /notify returns 200.
   if (req.method === 'GET' && req.url === '/notify') {
     res.writeHead(200, { 'Content-Type': 'application/json' });

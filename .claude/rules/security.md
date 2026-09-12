@@ -6,7 +6,7 @@
 |---|---|---|
 | `VITE_SUPABASE_URL` | ✅ yes | bundled at build time ON THE VM, public |
 | `VITE_SUPABASE_ANON_KEY` | ✅ yes | bundled at build time, public (RLS gates) |
-| Supabase `service_role` key | ❌ NEVER | not currently used — keep out of repo / browser if ever re-introduced |
+| Supabase `service_role` key (`SUPABASE_SERVICE_ROLE_KEY=…`) | ❌ NEVER in git or the browser | **RE-INTRODUCED 2026-09-12, VM-ONLY**, in `/etc/samo-notify.env` (root, `0600`) beside the Discord webhooks. Why: the Discord OAuth2 callback must spend a link code, and `redeem_discord_link_code` is deliberately ungranted to `authenticated` — a client that could call it could bind a code to a Discord id it does not control (0185 §4). It bypasses EVERY RLS policy, so it is pinned to ONE use: `POST /rest/v1/rpc/redeem_discord_link_code`, asserted by `src/js/discord-oauth.test.js` (`the service key ... never a table`). ⛔ Never in `.env.local`, never in a `VITE_*` var, never under `src/`. Rotate at dashboard → Project Settings → API → service_role → Reset |
 | Google OAuth client secret | ❌ NEVER | Supabase dashboard only |
 | Discord webhook URLs | ❌ NEVER (in frontend code) | embedded in `appscript/*.gs` only |
 | Apps Script `/exec` URLs | ✅ yes (treated as public webhooks) | `src/js/config.js` |
