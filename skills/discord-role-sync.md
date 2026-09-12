@@ -77,3 +77,17 @@ server/check-env-file.sh         inspect a secret env file WITHOUT printing it
 `public.discord_role_targets()` is the ONE function that decides which roles a
 person is due. Never recompute that rule anywhere else — a second copy in the
 bot or the portal is the shape this repo has paid for most.
+
+## ⛔ Clean up after yourself on the VM
+
+Running a tool there means `scp`-ing it to `/tmp` and leaving a copy behind. Two
+reasons that matters: a **stale copy of a tool** can be run by a later session
+that does not know it is out of date, and a **guild dump is data** — member
+snowflakes and nicknames, world-readable in `/tmp` if you chmod'd it to move it.
+
+```bash
+sudo rm -f /tmp/*.mjs /tmp/*.sh /tmp/g*.json
+```
+
+The nginx backups (`/etc/nginx/sites-available/default.bak-*`) are the opposite:
+**leave them.** They are the only way back if a hand edit breaks the config.
