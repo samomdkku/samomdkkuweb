@@ -556,6 +556,47 @@ wrong. The role sync is the next place that mistake is easy to make.
 
 ---
 
+## 8d. A rename before adoption, and why it is not where the loss is
+
+**Status: VERIFIED 2026-09-12 — how:** measured against the live guild with
+`npm run discord:report`. The owner asked: *"if channel attach to role A, if
+role A isn't in the teamsamo because it got renamed, that person would lose
+access"*. Three different cases hide in that sentence and only one is a problem.
+
+**After adoption, a rename is safe.** 0183 stores `discord_role_id`, a
+snowflake. The bot renames that same role OBJECT, and channel overwrites belong
+to the object, so they follow it. This is the entire reason the mapping is an id
+and not a name.
+
+**An unmanaged role is never touched at all.** 131 Discord roles are claimed by
+no ticked node. There is no code path that can remove them, because the managed
+set is derived from non-null `discord_role_id` values — not from an exclusion
+list somebody has to maintain.
+
+**Before adoption, a rename causes a MISS — and that is the real one.** A ทีม
+SAMO name that no longer matches its Discord role falls into CREATE. You get a
+NEW, EMPTY role beside the one that actually holds the channel permission. The
+members given it gain nothing; the old role keeps working, so **nobody is locked
+out** — but it reads as the sync being broken, and it leaves a duplicate for
+somebody to clean up later without knowing which is which.
+
+Measured: **4 of 57 "new" roles are renames, covering 26 people.**
+`ฝ่าย ComArt (Communication Art)` — 16 members — would have been duplicated as
+an empty `ฝ่าย COMART`.
+
+The report now has a **NEAR MATCH** bucket that normalises away emoji, brackets
+and the `ฝ่าย` prefix. ⛔ **It DETECTS, it does not ADOPT.** A heuristic that
+silently binds a role is how the wrong เหรัญญิก gets someone else's channels; it
+goes in front of a human, beside the ambiguous bucket.
+
+⚠️ **THE ACTUAL ACCESS-LOSS RISK IS ELSEWHERE, and it is bigger.** 368 role
+grants across 153 of 196 people exist in DISCORD today. Wherever ทีม SAMO's tree
+is incomplete or out of date relative to that, an apply run removes the
+difference — correctly, by its own rule, and wrongly in fact. That is what the
+report-only phase, the blast-radius cap and "link people first" are for.
+
+---
+
 ## 9. Open questions the owner has NOT answered
 
 - **Does the Google Sheet survive as the intake form?** The bot reads ทีม SAMO

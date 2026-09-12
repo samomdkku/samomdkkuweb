@@ -199,13 +199,52 @@ function report(guild, db) {
     if (!byName.has(r.name)) byName.set(r.name, []);
     byName.get(r.name).push(r);
   }
-  const adopt = []; const ambiguous = []; const create = [];
+  // ⛔ NEAR MATCHES — a rename that an EXACT match cannot see.
+  //
+  // The owner asked the question that found this: "if a channel is attached to
+  // role A and role A isn't in ทีม SAMO because it got renamed, does that person
+  // lose access?" The loss is not where it looks. Adoption stores a snowflake,
+  // so a rename AFTER adoption is safe — the bot renames that same role object
+  // and its channel overwrites follow it. The damage happens BEFORE adoption:
+  // a name that no longer matches falls into CREATE, so a brand-new role with
+  // NO channel permissions is made beside the real one, and the members given it
+  // gain nothing while the old role quietly keeps working.
+  //
+  // Measured on this server: 4 of 57 "new" roles are renames, covering 26
+  // people — `ฝ่าย ComArt (Communication Art)` (16 members) would have been
+  // duplicated as an empty `ฝ่าย COMART`.
+  //
+  // ⛔ THIS DETECTS, IT DOES NOT ADOPT. Normalising away emoji, brackets and
+  // the ฝ่าย prefix is a heuristic, and a heuristic that silently BINDS a role
+  // is how the wrong เหรัญญิก gets somebody else's channels. It goes in front of
+  // a human, in the same bucket as an ambiguous name.
+  const norm = (x) => x
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200B-\u200D]/gu, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/^ฝ่าย\s*/, '')
+    .replace(/\s+/g, '')
+    .toLowerCase().trim();
+  const byNorm = new Map();
+  for (const r of guild.roles) {
+    if (r.name === '@everyone' || r.managed) continue;
+    const k = norm(r.name);
+    if (!byNorm.has(k)) byNorm.set(k, []);
+    byNorm.get(k).push(r);
+  }
+
+  const adopt = []; const ambiguous = []; const create = []; const near = [];
   for (const t of db.ticked) {
     if (t.discord_role_id) continue;
     const hits = byName.get(t.name) || [];
-    if (hits.length === 1) adopt.push(t.name);
-    else if (hits.length > 1) ambiguous.push(`${t.name} ×${hits.length}`);
-    else create.push(t.name);
+    if (hits.length === 1) { adopt.push(t.name); continue; }
+    if (hits.length > 1) { ambiguous.push(`${t.name} ×${hits.length}`); continue; }
+    const close = byNorm.get(norm(t.name)) || [];
+    if (close.length === 1) {
+      const held = humans.filter((m) => m.roles.includes(close[0].id)).length;
+      near.push([t.name, close[0].name, held]);
+    } else {
+      create.push(t.name);
+    }
   }
   say();
   say(`PROVISIONING PLAN for the ${pending.length} pending node(s):`);
@@ -213,6 +252,17 @@ function report(guild, db) {
   say(`  CREATE a new role (no role of that name):          ${create.length}`);
   say(`  AMBIGUOUS — a human must choose:                   ${ambiguous.length}`);
   if (ambiguous.length) say(`      ${ambiguous.join(' · ')}`);
+  say(`  NEAR MATCH — probably a RENAME, confirm by hand:    ${near.length}`);
+  for (const [node, role, held] of near) {
+    say(`      ทีม SAMO "${node}"`);
+    say(`         ≈ Discord "${role}"  (${held} member(s) today)`);
+  }
+  if (near.length) {
+    say('      ⛔ Creating these instead of adopting them makes an EMPTY role');
+    say('         beside the one holding the channel permissions. Nobody is');
+    say('         locked out — the old role keeps working — but the new role');
+    say('         grants nothing, which looks like the sync being broken.');
+  }
   if (create.length) say(`      to create: ${create.slice(0, 10).join(' · ')}${create.length > 10 ? ' …' : ''}`);
 
   // ⛔ ADOPTION IMPACT — the number the owner asks for, and the one moment their
