@@ -497,6 +497,53 @@ Verified 2026-09-11 by reading each path, not by assuming:
 
 ---
 
+## 8b-bis. ⚠️ THE PREMISE OF 8b CHANGED — reopen it before phase 3
+
+**Status: VERIFIED 2026-09-12 — how:** read `server/notify-server.mjs` and
+`server/nginx-samo.conf` on the live VM, and traced what each phase actually
+needs from Discord.
+
+**8b was decided against a cost that may not exist.** Option A was chosen
+knowing it meant "Python in a JS repo, so `deploy.sh` grows a venv step and a
+`systemctl restart`" — real work in the one script this project cannot afford to
+break. That cost was assumed because a bot needs a **gateway connection**, which
+is what `discord.py` is for.
+
+**Check what each piece actually needs:**
+
+| Piece | Discord mechanism | Needs a gateway? |
+|---|---|---|
+| the report (phase 2) | `GET /guilds/…/members` | no — **built, and it is 200 lines of Node** |
+| provisioning (phase 3) | `POST/PATCH /guilds/…/roles` | no |
+| add / remove a role | `PUT/DELETE /guilds/…/members/…/roles/…` | no |
+| `/link`, `/whois` | **an HTTP interactions endpoint** | **no** |
+| live updates (phase 4) | Supabase Realtime → REST | no — the trigger is the DATABASE, not Discord |
+
+⛔ **Nothing in this design requires a persistent gateway connection.** Slash
+commands can arrive as ordinary HTTPS POSTs to a URL registered with Discord,
+Ed25519-signed. **The VM already runs exactly that shape**: nginx
+reverse-proxies `POST /notify` to a Node service on `127.0.0.1:8787` under
+systemd with its secrets in a `0600` env file. A `/discord` location beside it
+is one nginx block and one route — no venv, no second deploy path, no new
+service topology.
+
+**And the argument that made C expensive was wrong.** §8b priced option C as
+"rewriting 1,300 lines of working `discord.py`". There is nothing to port: the
+identity model, the role mapping, the removal rules and the trigger are all
+being replaced, and §3 is four measured reasons the old logic must not be
+carried over. The 1,300 lines are being deleted either way.
+
+**Recommendation: C — `server/`, beside the notify service.** Same language,
+same deploy, same systemd pattern, same secret handling, and the tests already
+cover that directory. Option A remains defensible if a gateway is ever wanted
+(presence, message events, live member joins), but nothing here wants one.
+
+⚠️ **Not re-decided unilaterally — the owner chose A and this is a request to
+look again, before phase 3 writes the first resident process.** Phase 2 is
+unaffected either way: it is a `tools/*.mjs` report and always was.
+
+---
+
 ## 8b. ✅ DECIDED 2026-09-12 — OPTION A: `discord-bot/` in this repo
 
 §5h says "use a systemd unit with `Restart=always`" and never says **what that
