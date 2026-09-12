@@ -25,7 +25,7 @@
 
 import http from 'node:http';
 import { onRequestPost } from '../functions/notify.js';
-import { handleDiscordCallback } from './discord-oauth.mjs';
+import { handleDiscordCallback, handleDiscordConfig } from './discord-oauth.mjs';
 
 const PORT = Number(process.env.NOTIFY_PORT) || 8787;
 const HOST = process.env.NOTIFY_HOST || '127.0.0.1';
@@ -41,6 +41,10 @@ const server = http.createServer((req, res) => {
   // pathname is used, and `searchParams` does the unescaping.
   {
     const u = new URL(req.url || '/', 'http://x');
+    if (u.pathname === '/discord/config' && req.method === 'GET') {
+      handleDiscordConfig(req, res, process.env);
+      return;
+    }
     if (u.pathname === '/discord/callback') {
       if (req.method !== 'GET') {
         res.writeHead(405, { 'Content-Type': 'application/json' });

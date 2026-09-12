@@ -172,4 +172,36 @@ export async function handleDiscordCallback(req, res, env, url) {
   return back(res, origin, 'ok');
 }
 
+/**
+ * Tell the browser the public half of the OAuth config.
+ *
+ * ⛔ WHY THIS EXISTS INSTEAD OF A `VITE_DISCORD_CLIENT_ID`. A build-time var
+ * would give the client id a SECOND home — the VM's build environment — beside
+ * the one in /etc/samo-notify.env that the callback reads. Two homes for one
+ * id is this repo's most expensive shape, and the failure would be silent: the
+ * browser sends users to one application while the callback authenticates
+ * against another, and Discord's error for that is a generic invalid_client.
+ *
+ * It also lets the button HIDE itself when the server is not configured, rather
+ * than sending somebody to Discord for a round trip that cannot succeed.
+ *
+ * The client id is public — it travels in the authorize URL every user opens.
+ * Nothing else from the env goes in this response.
+ */
+export function handleDiscordConfig(req, res, env) {
+  const id = env.DISCORD_CLIENT_ID || null;
+  const ready = Boolean(id && env.DISCORD_CLIENT_SECRET && env.SUPABASE_SERVICE_ROLE_KEY);
+  res.writeHead(200, {
+    'Content-Type': 'application/json',
+    // A client id changes only when the application does. Let a browser keep
+    // it, but not so long that a rotation needs a cache-busting deploy.
+    'Cache-Control': 'public, max-age=300',
+  });
+  res.end(JSON.stringify({
+    ready,
+    client_id: ready ? id : null,
+    redirect_uri: `${env.PUBLIC_ORIGIN || 'https://samo.md.kku.ac.th'}/discord/callback`,
+  }));
+}
+
 export const __test = { splitState, cookie, same };
