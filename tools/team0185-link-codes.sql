@@ -218,6 +218,58 @@ insert into probe select '52. …though it CAN issue', 'true',
   (select has_function_privilege('authenticated',
      'public.issue_discord_link_code()', 'execute')::text);
 
+-- ── §G re-linking to a DIFFERENT account, without unlinking first ──────────
+-- ⛔ THE ONE BRANCH A REAL HUMAN DID NOT REACH. The owner completed the round
+-- trip on 2026-09-12 as link → UNLINK → link, so `on conflict (person_id) do
+-- update` never ran: the surviving row had linked_at = updated_at. People lose
+-- Discord accounts and will re-link without thinking to unlink, and the wrong
+-- behaviour here is not an error — it is a SECOND row, or a silent no-op that
+-- leaves the sync pointing at an account the person no longer has.
+create temporary table before_g on commit drop as
+select discord_user_id, updated_at from public.discord_links where person_id = (select id from who);
+
+insert into probe select '70. the subject is linked to start with', '910000000000000001',
+  (select discord_user_id from before_g);
+
+insert into probe select '71. re-linking to a NEW account succeeds', 'true',
+  (select pg_temp.as_uid((select uid from acct where n = 1),
+                         $q$select issue_discord_link_code()$q$) is not null)::text;
+
+insert into probe select '72. …and the row is REPLACED, not added', 'true',
+  pg_temp.try(format($q$select (public.redeem_discord_link_code(%L, '910000000000000077') is not null)::text$q$,
+    (select code from public.discord_link_codes
+      where person_id = (select id from who) and used_at is null)));
+
+insert into probe select '73. exactly ONE row for that person', '1',
+  (select count(*)::text from public.discord_links where person_id = (select id from who));
+
+insert into probe select '74. …and it points at the NEW account', '910000000000000077',
+  (select discord_user_id from public.discord_links where person_id = (select id from who));
+
+-- ⛔ THE TIMING OF updated_at IS NOT OBSERVABLE FROM IN HERE, and two drafts
+-- tried before that was understood. `now()` is the TRANSACTION timestamp, so an
+-- upsert later in the same transaction writes the value the insert already had;
+-- backdating the row first does not help either, because 0183's
+-- touch_discord_links_updated_at trigger rewrites it to now() on any UPDATE.
+-- Both drafts read "false" as the function forgetting the column. It had not —
+-- the instrument could not see time pass, which is the shape in
+-- docs/mistakes/tooling-proofs.md where a proof needs geometry it cannot have.
+--
+-- So assert the MECHANISM, which is what actually guarantees the behaviour in
+-- production: updated_at belongs to the TABLE, not to each writer remembering
+-- it. A future writer that forgets cannot break it, and a dropped trigger goes
+-- red here instead of silently freezing every link's date.
+insert into probe select '75. updated_at is maintained by a TRIGGER, not by callers', 'touch_updated_at',
+  coalesce((select p.proname from pg_trigger t
+              join pg_proc p on p.oid = t.tgfoid
+             where t.tgrelid = 'public.discord_links'::regclass
+               and not t.tgisinternal
+             limit 1), '(none)');
+
+-- And the old account is genuinely released, so its real owner can claim it.
+insert into probe select '76. the OLD account is free for its real owner', '0',
+  (select count(*)::text from public.discord_links where discord_user_id = '910000000000000001');
+
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
        expected, got
