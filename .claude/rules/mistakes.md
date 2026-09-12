@@ -386,7 +386,7 @@ shaving the classes, which are the only part that generalises.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(30)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(24)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(54)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(55)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

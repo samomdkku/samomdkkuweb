@@ -308,7 +308,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `.mjs` served as `application/octet-stream`
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(54)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(55)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -366,6 +366,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A `--rows-only` flag turned the sweep's own anti-vacuity rule against it: it printed "0 orphans" for a direction it nev…
 - A brand-new guard was green on the laptop and red on CI within an hour
 - Two live proofs went red, and STATE.md recorded the wrong cause
+- A redaction written against the healthy shape prints the secret on the broken one
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -411,4 +412,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_349 entries across 10 files._
+_350 entries across 10 files._

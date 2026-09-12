@@ -2679,3 +2679,53 @@ Two sharper tests for the next reader:
 `— how`, cost nothing to check, and sent the reader at the booking guard
 instead of the weekly pool. One `node tools/db-query.mjs` printed the real
 answer in seconds.
+
+---
+
+## A redaction written against the healthy shape prints the secret on the broken one
+
+**Symptom.** The owner asked *"check if i've done it correctly i think i don't"*
+about `/etc/samo-discord-bot.env` on the VM. The inspection script was written
+to print structure and never the value — mode, byte count, value length, a
+masked first-and-last-four. It printed the entire bot token into the chat
+transcript. **Third leak of a Discord token into a transcript for this project**
+(2026-08-28, 2026-09-11, 2026-09-12), and the first one caused by the tool
+built to prevent it.
+
+**Cause.** Every redaction in that script keyed on the shape it was *testing
+for*. The last line was:
+
+```bash
+sed -n '2,$p' "$f" | sed -E 's/=.*/=<redacted>/'
+```
+
+which redacts everything after an `=`. The file's actual defect was that the
+token had been pasted **bare**, with no `DISCORD_TOKEN=` prefix — so there was
+no `=` on the line, the substitution matched nothing, and `sed` passed the line
+through unchanged. Every other field in the same script reported `0` or empty
+for the same reason and looked like a tidy, safe result; the one field with a
+fallback-to-raw was the one that fired.
+
+The masking was conditional on the file being well-formed. **The whole point of
+running it was that the file might not be.**
+
+**Fix.** The instrument must be incapable of emitting content, not merely
+instructed not to. The replacement reads the file line by line and prints only
+`length`, `blank`, and a `yes/no` for whether the line starts with the expected
+key — there is no code path in it that echoes a line, so no input can make it
+leak. It diagnosed the same file correctly: a 72-character bare value on line 2,
+no key anywhere, four blank lines.
+
+**Where it lives now.** The token was reset. `.claude/rules/security.md`'s
+`DISCORD_TOKEN` row carries the third leak date.
+
+**The general rule.** *A redaction conditional on well-formed input is not a
+redaction — it is a guess that fails open exactly when you are looking at the
+malformed case.* Never write `mask(x)` as "strip the part after the delimiter";
+write the reporter so that raw content has nowhere to go — emit derived facts
+(lengths, counts, booleans, hashes) and never the string. Test it against the
+*broken* input, not the healthy one: a masker verified only on a correct file
+has been verified on the one input that was never going to leak. This is class
+7's instrument trap in its sharpest form — the guard fails green on the healthy
+case and fails *open* on the case it exists for — and class 2 underneath it, an
+unresolvable reference answering "allowed".
