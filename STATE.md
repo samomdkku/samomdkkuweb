@@ -81,7 +81,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0185. ALL 38 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 22/22 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **No bot code exists and none may be written until `docs/DISCORD-ROLE-SYNC.md` §7 is done.** HANDOFF §11 and §13c both CLOSED.
+- **Migrations through 0186. ALL 38 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 22/22 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **No bot code exists and none may be written until `docs/DISCORD-ROLE-SYNC.md` §7 is done.** HANDOFF §11 and §13c both CLOSED.
   ✅ `claude0154` 21/21 + `claude0155` 23/23, fixed 2026-09-11. ⚠️ **The cause
   recorded here was WRONG**: the first real booking (2026-09-07) landed in the
   week both hardcoded as quiet, and 0155 had a FALSE GREEN on that stranger's

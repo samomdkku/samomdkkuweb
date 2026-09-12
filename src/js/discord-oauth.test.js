@@ -84,10 +84,19 @@ describe('the callback renders nothing and spends the nonce', () => {
   });
 
   it('clears the cookie on EVERY outcome, not just success', () => {
-    // back() is the single exit, so clearing there covers cancel, bad nonce,
-    // a refused redeem and success alike. If a second exit path appears this
-    // assertion is what notices.
-    expect(SRC.match(/res\.writeHead\(/g) || []).toHaveLength(1);
+    // back() is the callback's SINGLE exit, so clearing there covers cancel,
+    // bad nonce, a refused redeem and success alike. Asserted as "the callback
+    // never writes a response itself" rather than by counting writeHead in the
+    // whole file — the first version did count, and went red the moment an
+    // unrelated handler (GET /discord/config) was added beside it. A guard
+    // whose subject is the file rather than the function reports a change as a
+    // defect.
+    const fn = SRC.slice(SRC.indexOf('export async function handleDiscordCallback'));
+    const body = fn.slice(0, fn.indexOf('\nexport '));
+    expect(body.match(/res\.writeHead\(/g) || [],
+      'every exit from the callback must go through back(), which clears the nonce')
+      .toHaveLength(0);
+    expect(body.match(/return back\(/g) || []).not.toHaveLength(0);
     expect(SRC).toMatch(/Max-Age=0/);
   });
 });
