@@ -1055,22 +1055,40 @@ why under-showing relative to RLS is the safe direction.
 
 ## 14b. Discord role sync — designed 2026-09-11, NOTHING BUILT
 
-**Status: DECIDED + OWED.** The owner asked for the dead Render bot to be
-rebuilt on the VM with **ทีม SAMO as the source of truth** for Discord roles.
-It was scanned, designed and scrutinised on 2026-09-11. **No code was written,
-and none should be until §1's owner steps are done.**
+**Status: DECIDED + OWED — phase 1's PORTAL half shipped 2026-09-12.** VERIFIED
+2026-09-12 — how: migration 0183 applied to production, then
+`node tools/db-query.mjs tools/team0183-discord-mapping.sql` → 22/22 PASS, the
+same proof having errored on a missing table before the migration went in.
+The owner asked for
+the dead Render bot to be rebuilt on the VM with **ทีม SAMO as the source of
+truth** for Discord roles. Scanned, designed and scrutinised 2026-09-11; the
+database and editor half shipped 2026-09-12 as migration 0183. **No bot code
+was written, and none should be until §1's owner steps are done.**
 
 ⛔ **ONE HOME: `docs/DISCORD-ROLE-SYNC.md`.** Do not restate the design here; it
 is 9 sections and it will drift if it is summarised. What belongs in this file
 is only what is OWED:
 
-1. **The owner's six steps** — `DISCORD-ROLE-SYNC.md` §7. Blocks everything.
-2. **Decide where the bot's code lives** — §8b, **undecided**, and it determines
-   where every later line gets written. In this repo beside `passport/` is the
-   recommendation; the cost is Python in a JS repo, so `deploy.sh` grows a venv
-   step. One conversation, and it is phase 0 for a reason.
-3. **Then phase 1** (identity + the tick-box), §6. This includes portal work —
-   a migration and a checkbox in the ทีม SAMO editor — not just bot work.
+1. **The owner's six steps** — `DISCORD-ROLE-SYNC.md` §7. Still blocks every
+   line of bot code. ⛔ **Step 4 — dragging the bot ABOVE the roles it manages —
+   is the one that fails silently**, and Administrator does NOT exempt it: role
+   hierarchy applies to every member including a bot, so a bot ordered below a
+   ฝ่าย role reports success and changes nothing. Confirm step 4 before any
+   phase-3 apply run.
+2. ✅ **§8b DECIDED** — option A, `discord-bot/` in this repo. ⚠️ The cost is now
+   owed work: `deploy.sh` needs a venv step and a `systemctl restart`, in the
+   one script this project cannot afford to break.
+3. ✅ **Phase 1's PORTAL half is DONE** — migration 0183 (`discord_links`,
+   `team_nodes.discord_role_id`, `team_nodes.discord_role`) plus **มี role ใน
+   Discord** in the ทีม SAMO node editor. Applied to production and proved
+   22/22 by `tools/team0183-discord-mapping.sql`, watched failing first.
+   ❌ **Still owed in phase 1: the `/link` slash command** (bot code, blocked).
+   ❌ **And the owner's review of the tick-boxes**: the seed ticked only ฝ่าย and
+   `is_board` positions — deliberately NOT "every leadership role", because
+   matching leadership by NAME is the guess this design exists to avoid. Every
+   other ตำแหน่ง starts unticked and is the owner's call in the editor.
+4. **Then phase 2**, the REPORT-ONLY reconcile, §6. It writes nothing and it is
+   what turns "how many people are mismatched?" into a number.
 
 **The three findings a next session must not re-derive**, each measured:
 

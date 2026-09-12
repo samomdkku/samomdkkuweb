@@ -36,12 +36,11 @@ TRUE. That is what the grep is for.
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
 - ✅ **DEPLOYED = `1f7f4b2` (2026-09-11)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
-  Seven deploys today; this one carries the docs REDACTION, verified in the
-  NEGATIVE — the app id once on public `/docs/state/HANDOFF` greps **0** there
-  and across every served asset, with a string added today as the control so the
-  grep is not blind. ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the
-  shared `analytics-*` chunk (NOT the public bundle, 0145), ฝ่าย blocks in
-  `admin-*`. Prev `25e8edd` · `61a0192`.
+  It carries the docs REDACTION, verified in the NEGATIVE — the app id once on
+  public `/docs/state/HANDOFF` greps **0** there and across every served asset,
+  with a string added today as the control so the grep is not blind.
+  ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
+  chunk (NOT the public bundle, 0145), ฝ่าย blocks in `admin-*`.
   ⚠️ **The run before this one produced NO OUTPUT AT ALL and had not deployed** —
   the VPN had dropped, and `ssh` to `10.101.111.181` times out silently. Empty
   output from the deploy pipeline is that, not success; check the SERVED page.
@@ -83,7 +82,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0182. ALL 35 LIVE PROOFS GREEN** (2026-09-11). 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
+- **Migrations through 0183. ALL 36 LIVE PROOFS GREEN** (2026-09-12). 0183 is the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, applied and proved 22/22 (`team0183-discord-mapping.sql`, watched fail before apply). **No bot code exists and none may be written until `docs/DISCORD-ROLE-SYNC.md` §7 is done.** 0182 gave `passport.continents` row security (**HANDOFF §11 CLOSED**); the `return=representation` seam is now proved (**§13c's named gap CLOSED**).
   ✅ `claude0154` 21/21 + `claude0155` 23/23, fixed 2026-09-11. ⚠️ **The cause
   recorded here was WRONG**: the first real booking (2026-09-07) landed in the
   week both hardcoded as quiet, and 0155 had a FALSE GREEN on that stranger's
@@ -154,10 +153,11 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE.** One pull, one `npm ci`, one build. Old
    repo ARCHIVED. ⛔ **Never delete OR replace the `samomdkkupassport` Cloudflare
    project** — `docs/INVARIANTS.md` is its home.
-4. 🆕 **DISCORD ROLE SYNC — DESIGNED 2026-09-11, NOTHING BUILT.** ⛔ ONE HOME:
-   `docs/DISCORD-ROLE-SYNC.md`; §7 is the owner's setup and BLOCKS all of it.
-   Do not write bot code first — no Discord identity exists in the portal, and
-   role NAMES are not unique (`เหรัญญิก` x6). `HANDOFF` §14b.
+4. 🟡 **DISCORD ROLE SYNC — PHASE 1's PORTAL HALF BUILT (0183, 2026-09-12).
+   NO BOT CODE EXISTS; §7 still blocks every line of it.** ⛔ ONE HOME:
+   `docs/DISCORD-ROLE-SYNC.md` — §8b decided (option A, `discord-bot/` here).
+   Next = phase 2, report-only, and it needs §7 steps 1–5 CONFIRMED: a bot
+   ordered below the roles it manages succeeds and changes nothing. `HANDOFF` §14b.
 
 ### B. OWNER ONLY
 

@@ -144,6 +144,7 @@ describe('buildExportJson round-trip fidelity', () => {
     permissions: ['pr'], inherit_permissions: false, vs_dept: 'SE',
     project_seat: 'vpa', is_public: true, is_board: true,
     passport_dept_id: 0, passport_sub_dept_id: 7, color: '#2F5F9C', tier: 2,
+    discord_role: true, discord_role_id: '1300000000000000001',
   };
   const MEMBER = {
     id: 'm1', node_id: 'n1', position: 2, full_name: 'ทดสอบ ระบบ',
@@ -158,7 +159,8 @@ describe('buildExportJson round-trip fidelity', () => {
   it('exports every persisted node field', () => {
     const [n] = buildExportJson([NODE], []).nodes;
     expect(Object.keys(n).sort()).toEqual([
-      'color', 'dept_page', 'id', 'inherit_permissions', 'is_board', 'is_public',
+      'color', 'dept_page', 'discord_role', 'discord_role_id', 'id',
+      'inherit_permissions', 'is_board', 'is_public',
       'kind', 'name', 'parent_id', 'passport_dept_id', 'passport_sub_dept_id',
       'permissions', 'position', 'project_seat', 'tier', 'vs_dept',
     ]);
@@ -203,5 +205,21 @@ describe('buildExportJson round-trip fidelity', () => {
   it('keeps passport_dept_id 0 (a real id) rather than nulling it as falsy', () => {
     const [n] = buildExportJson([NODE], []).nodes;
     expect(n.passport_dept_id).toBe(0);
+  });
+
+  // 0183. The Discord snowflake is 19 digits, which is past 2^53 — if this ever
+  // stops being a string somewhere between the column and the file, the id
+  // silently changes VALUE and the export points at a role that does not exist.
+  it('carries the Discord role id as an unrounded STRING', () => {
+    const [n] = buildExportJson([NODE], []).nodes;
+    expect(n.discord_role_id).toBe('1300000000000000001');
+    expect(typeof n.discord_role_id).toBe('string');
+  });
+
+  it('does not turn an absent Discord tick into true', () => {
+    const [n] = buildExportJson(
+      [{ ...NODE, discord_role: undefined, discord_role_id: undefined }], []).nodes;
+    expect(n.discord_role).toBe(false);
+    expect(n.discord_role_id).toBe(null);
   });
 });

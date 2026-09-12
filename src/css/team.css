@@ -535,6 +535,19 @@
    separates "what these are" from the values themselves. */
 .team-perm-inherited-label { font-weight: 600; }
 
+/* 0183 — the Discord tick-box's consequence line. It says one of two things,
+   and the one that matters is "unticking this removes the role from everybody
+   in this ตำแหน่ง", so it must not read as ordinary .form-text help. Amber and
+   a rule down the left: a state, not an instruction. */
+.team-discord-linked {
+  margin-top: 0.45rem;
+  padding-left: 0.55rem;
+  border-left: 3px solid var(--brand-orange, #FF6F30);
+  color: var(--ink-700, #444);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .team-perm-node, .team-move-what {
   font-size: 0.9rem; color: var(--brand-primary); font-weight: 600;
   margin-bottom: 0.8rem; word-break: break-word;

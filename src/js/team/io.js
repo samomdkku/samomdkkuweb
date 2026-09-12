@@ -120,6 +120,25 @@ export function buildExportJson(nodes, members) {
       // re-imports the tree with nobody able to edit their ฝ่าย page, and the
       // loss looks like "nobody was granted it" rather than like a loss.
       dept_page: n.dept_page || null,
+      // 0183, and the two halves do NOT travel together on the way back in.
+      //
+      // `discord_role` is a fact about the ORG — "this group needs its own
+      // channel" — so it round-trips like every grant above; dropped, a restore
+      // comes back with ~90 owner decisions silently reset to false, which
+      // looks like "nobody had ticked any" rather than like a loss.
+      //
+      // `discord_role_id` names ONE Discord role object, and importJson
+      // APPENDS with new ids rather than restoring in place. Carrying it
+      // through an append would have two nodes claiming one role — so the
+      // import deliberately drops it (the unique index would refuse the second
+      // claim anyway, which is the loud failure we want and not a design). It
+      // is exported because an export is also a BACKUP: without it a true
+      // restore re-provisions every role from scratch and orphans the old ones
+      // with all their channel overwrites still attached — the exact fork the
+      // old bot's auto-create produced on every rename. If a restore-in-place
+      // path is ever built, re-attaching this is part of it.
+      discord_role: !!n.discord_role,
+      discord_role_id: n.discord_role_id ?? null,
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,

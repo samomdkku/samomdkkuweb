@@ -1432,6 +1432,39 @@ function stepNodeTier(delta) {
   $('teamNodeTierDown').disabled = next >= TIER_MAX;
 }
 
+/**
+ * Say what the Discord tick-box will actually do to this node.
+ *
+ * Three outcomes, and ALL THREE are written — including the empty one. A
+ * caption a renderer can turn on has to be turned off by every other branch
+ * that reaches it, or it sits there describing the previous node.
+ *
+ * The load-bearing case is the third: unticking a node whose role has already
+ * been PROVISIONED is not a no-op the owner can try out. It takes the role off
+ * every member holding it the next time the sync runs, and with it whatever
+ * channel access that role carried. The Discord role OBJECT survives (the bot
+ * never deletes one — deleting takes its channel overwrites with it,
+ * irreversibly), so this is recoverable by re-ticking; it is still not
+ * something to discover afterwards.
+ */
+function setNodeDiscordState(node) {
+  const el = $('teamNodeDiscordRoleState');
+  if (!el) return;
+  const ticked = !!$('teamNodeDiscordRole')?.checked;
+  const provisioned = !!node?.discord_role_id;
+  const was = !!node?.discord_role;
+
+  let msg = '';
+  if (ticked && !provisioned) {
+    msg = 'ยังไม่ได้สร้าง role นี้ใน Discord — ระบบจะสร้างให้ตอนซิงก์ครั้งถัดไป';
+  } else if (!ticked && provisioned && was) {
+    msg = 'ปิดแล้ว role นี้จะถูกถอดออกจากสมาชิกทุกคนในตำแหน่งนี้ตอนซิงก์ครั้งถัดไป '
+        + '(ตัว role ใน Discord ไม่ถูกลบ เปิดใหม่ได้)';
+  }
+  el.textContent = msg;
+  el.classList.toggle('d-none', !msg);
+}
+
 function wireNodeModal() {
   $('teamNodeForm')?.addEventListener('submit', onNodeSubmit);
   $('teamNodeTierUp')?.addEventListener('click', () => stepNodeTier(-1));
@@ -1441,6 +1474,13 @@ function wireNodeModal() {
   $('teamNodeKind')?.addEventListener('change', () => {
     setNodeTier({ tier: Number($('teamNodeTier').value) || null },
       $('teamNodeParentId').value || null);
+  });
+  // The Discord line has to be re-decided on every toggle, not only on open —
+  // its whole job is to say what UNTICKING will cost, and a caption that can be
+  // turned on by one branch must be turned off by every other one that reaches
+  // it (mistakes class 4).
+  $('teamNodeDiscordRole')?.addEventListener('change', () => {
+    setNodeDiscordState(nodesById.get($('teamNodeId').value) || null);
   });
   // Delegated: the swatches are static markup, but the modal is shared between
   // จัดการทีม and จัดการสิทธิ์ and this runs once either way.
@@ -1469,6 +1509,13 @@ function openNodeModal({ node = null, parentId = null, kind = null, tab = 'info'
   // Board membership is opt-in, so a NEW ตำแหน่ง is never silently promoted into
   // the public headline grid.
   if ($('teamNodeIsBoard')) $('teamNodeIsBoard').checked = !!node?.is_board;
+  // Discord role mirroring (0183). A NEW node starts unticked: a ฝ่าย created
+  // today has no channel yet, and the seed's answer was about the org as it
+  // stood, not a promise about every node added after it.
+  if ($('teamNodeDiscordRole')) {
+    $('teamNodeDiscordRole').checked = !!node?.discord_role;
+    setNodeDiscordState(node || null);
+  }
   $('teamNodeModalTitle').textContent = node ? 'แก้ไขตำแหน่ง' : (parentId ? 'เพิ่มตำแหน่งย่อย' : 'เพิ่มฝ่าย');
   $('teamNodeDelete').classList.toggle('d-none', !node);
   // Both editors live in one modal now (0110). An UNSAVED node has no row for a
@@ -1551,6 +1598,7 @@ async function onNodeSubmit(e) {
     tier: Number($('teamNodeTier').value) > 1 ? Number($('teamNodeTier').value) : null,
     is_public: $('teamNodeIsPublic') ? $('teamNodeIsPublic').checked : true,
     is_board: $('teamNodeIsBoard') ? $('teamNodeIsBoard').checked : false,
+    discord_role: $('teamNodeDiscordRole') ? $('teamNodeDiscordRole').checked : false,
   };
   modalInstance('teamNodeModal')?.hide();
   try {
@@ -4104,6 +4152,11 @@ async function importJson(data) {
       project_seat: n.project_seat || null,
       is_public: n.is_public !== false,
       is_board: !!n.is_board,
+      // The DECISION travels; the MAPPING does not. This import appends with
+      // new ids, so a node created here is a new group that will get its own
+      // Discord role — it may not claim the exported node's. See the note in
+      // io.js buildExportJson.
+      discord_role: !!n.discord_role,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
     });

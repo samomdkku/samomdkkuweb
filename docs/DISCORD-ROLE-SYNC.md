@@ -1,14 +1,20 @@
 # Discord role sync — ทีม SAMO as the source of truth
 
-**Status: DESIGN ONLY. NOTHING IS BUILT.** Written 2026-09-11 from a scan of the
-existing bot and measurements against production. No code in this repo touches
-Discord as a bot, and none should be written until §7's owner steps are done.
+**Status: PHASE 1's PORTAL HALF IS BUILT (0183, 2026-09-12). NO BOT CODE
+EXISTS.** Written 2026-09-11 from a scan of the existing bot and measurements
+against production. No code in this repo touches Discord as a bot, and none
+should be written until §7's owner steps are done — which is still true.
 
 ⛔ **Do not start building from the middle of this file.** §1 is the goal, §3 is
 why the obvious approach fails, §6 is the build order, §7 is what only the owner
-can do, and **§8b is a decision nobody has made yet**. §7 and §8b both block §6.
-A session that starts coding at §5 will build a sync that cannot identify
-anybody, in a directory nobody agreed on.
+can do. A session that starts coding at §5 will build a sync that cannot
+identify anybody.
+
+✅ **§8b is DECIDED (2026-09-12): option A** — the bot lives in `discord-bot/`
+in this repo. ✅ **Phase 1's portal half is APPLIED and PROVED**: migration 0183
+and `tools/team0183-discord-mapping.sql`, 22/22, watched failing before the
+migration went in. ⛔ **§7 still blocks every line of bot code**, and phase 2
+cannot be attempted before §7 step 4 is confirmed.
 
 📌 The same material, formatted for reading rather than for agents:
 `https://claude.ai/code/artifact/cfd900a6-3f6b-42ab-a8d4-13cf013065de`
@@ -166,6 +172,11 @@ works, and it is not written down anywhere.** See §5c.
 
 ### 5a. Identity: store an id, never a name
 
+✅ **BUILT — migration 0183.** `discord_links` exists, is RLS'd to the ทีม SAMO
+editor's audience, unreadable by the anon key, and unique in BOTH directions
+(a person cannot hold two accounts; an account cannot be claimed by two people).
+The `/link` command below is bot work and is NOT written.
+
 Add `discord_links` (`person_id`, `discord_user_id`, `linked_at`, `linked_by`).
 A table, not a column on `team_members`, because a person holds several
 placements and the link belongs to the **person**.
@@ -176,6 +187,12 @@ nobody can edit — instead of renaming them.
 
 ### 5b. Roles: store a mapping, never match on a name
 
+✅ **BUILT — 0183** as `team_nodes.discord_role_id`, uniquely indexed where not
+null, so two same-named ตำแหน่ง can never resolve to one Discord role. Proved
+against the real collision on production, not a synthetic one: the proof first
+asserts that duplicate names still exist, so it goes red rather than quietly
+testing nothing if the org is ever restructured.
+
 Store `node_id → discord_role_id`. The name becomes a label the bot keeps
 updated, never the identity. Then a rename renames the role instead of forking
 it, and the six เหรัญญิก can never merge.
@@ -185,6 +202,16 @@ Qualify a display name **only when the plain one is taken**:
 names; only 11 names out of ~92 collide.
 
 ### 5c. Which nodes get a role: a tick-box, not a rule
+
+✅ **BUILT — 0183** as `team_nodes.discord_role`, with **มี role ใน Discord** in
+the ทีม SAMO node editor. ⚠️ **The seed is narrower than what this section
+asked for, on purpose.** §5c below says "every leadership role" — but
+identifying leadership BY NAME is the same class of guess this design exists to
+avoid (`หัวหน้าฝ่ายวิชาการ` alone exists four times). So the seed used only
+markings a human had already made deliberately: `kind='division'`, and
+`is_board` (0104's "แสดงในกริดคณะกรรมการ", which means exactly "this is a
+leadership position"). Hidden nodes — อาจารย์ / เจ้าหน้าที่คณะ — were excluded.
+**The remaining ตำแหน่ง are unticked and the owner reviews them in the editor.**
 
 ⛔ **Do not invent a heuristic — §4 shows every one of them fails.** Add a
 boolean to `team_nodes` (working name `discord_role`, label *"มี role ใน
@@ -267,10 +294,11 @@ Roles are for **access**, not for reading the org chart.
 
 **⛔ §7 blocks phase 1. Do not start before it is done.**
 
-0. **Decide where the code lives — §8b.** Undecided, and it determines where
-   every later line gets written. Do this first, it costs one conversation.
-1. **Identity + the tick-box.** `discord_links`, the `/link` command, the
-   `team_nodes.discord_role` flag and its checkbox. Nothing syncs yet.
+0. ✅ **DONE 2026-09-12 — §8b is option A**, `discord-bot/` in this repo.
+1. 🟡 **PARTLY DONE — the PORTAL half shipped (0183).** `discord_links`, the
+   `team_nodes.discord_role` flag and its checkbox all exist and are proved.
+   ❌ **Still owed: the `/link` slash command**, which is bot code and therefore
+   blocked on §7. Nothing syncs yet.
 2. **Report-only reconcile.** For every guild member print: who they are in ทีม
    SAMO, which mirrored roles they should hold, which they hold, what *would* be
    added, what *would* be removed, and which unmanaged roles were untouched.
@@ -379,7 +407,7 @@ Verified 2026-09-11 by reading each path, not by assuming:
 
 ---
 
-## 8b. ⚠️ UNDECIDED — where does the bot's code live?
+## 8b. ✅ DECIDED 2026-09-12 — OPTION A: `discord-bot/` in this repo
 
 §5h says "use a systemd unit with `Restart=always`" and never says **what that
 unit runs, or how the code reaches the VM.** Nothing is decided. The options:
@@ -390,8 +418,12 @@ unit runs, or how the code reaches the VM.** Nothing is decided. The options:
 | B — its own repo, cloned on the VM | a second checkout | Keeps the toolchains apart, but creates a **second deploy path** nobody will remember exists — and this project has already been bitten by a thing that only updates when somebody remembers it |
 | C — rewrite it in Node | `server/` | Removes the Python problem entirely and matches the notify service, at the cost of rewriting 1,300 lines of working `discord.py` |
 
-**Recommended: A, and decide it BEFORE phase 1**, because it determines where
-the new code gets written. The precedent is the passport merge — the deciding
+**Chosen: A** (owner, 2026-09-12), before phase 1 as intended, because it
+determines where the new code gets written. ⚠️ **The cost named in the table is
+now OWED work, not a hypothetical**: `deploy.sh` has no venv step and no
+`systemctl restart samo-discord-bot`, so the first bot commit must add both —
+and `server/deploy.sh` is the one script this project cannot afford to break
+(its docs step is already intermittent; see STATE.md). The precedent is the passport merge — the deciding
 argument there was that the two already deploy atomically, and the same is true
 here: a role sync that reads `team_members` should ship with the schema it reads.
 

@@ -64,6 +64,7 @@ const PROOFS = [
   ['proj0181-prof-upload.sql', 'an อาจารย์ saves a signed file on a หนังสือ that is NOT published'],
   ['passport0182-continents-lockdown.sql', 'the anon key reads the passport theming and cannot change it'],
   ['authz0182-insert-returning-seam.sql', 'an INSERT that asks for the row back can read what it wrote'],
+  ['team0183-discord-mapping.sql', 'a Discord identity is not shareable and two same-named ตำแหน่ง cannot claim one role'],
   ['pass-hardening.mjs', 'passport RLS: five real principals, 0011 applied in a rolled-back txn'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],

@@ -246,6 +246,19 @@
             </label>
             <div class="form-text">เปิดเฉพาะตำแหน่งบริหาร เช่น นายกฯ และอุปนายกแต่ละฝ่าย — จะแสดงเป็นการ์ดรูปใหญ่เรียงตามลำดับในผัง</div>
           </div>
+          <!-- Discord role mirroring (0183). A DECISION, not a derivation:
+               neither depth nor kind can say which nodes deserve a role —
+               ฝ่าย sit at depths 1..5, and ฝ่าย IT's sub-groups are stored as
+               kind='role' while ฝ่าย 7's are stored as kind='division'. See
+               docs/DISCORD-ROLE-SYNC.md §4. -->
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="teamNodeDiscordRole" />
+            <label class="form-check-label" for="teamNodeDiscordRole">
+              มี role ใน Discord
+            </label>
+            <div class="form-text">คนในตำแหน่งนี้จะได้ role ของตัวเอง และ role ของทุกฝ่าย/ตำแหน่งที่อยู่เหนือขึ้นไปที่เปิดไว้ด้วย — ใช้สำหรับเปิดห้องเฉพาะกลุ่ม และสำหรับ @ ถึงเฉพาะกลุ่มนั้น</div>
+            <div class="form-text team-discord-linked d-none" id="teamNodeDiscordRoleState"></div>
+          </div>
         </div>
           </form>
         </div>
