@@ -153,11 +153,11 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE.** One pull, one `npm ci`, one build. Old
    repo ARCHIVED. ⛔ **Never delete OR replace the `samomdkkupassport` Cloudflare
    project** — `docs/INVARIANTS.md` is its home.
-4. 🟡 **DISCORD ROLE SYNC — PHASE 1's PORTAL HALF BUILT (0183, 2026-09-12).
-   NO BOT CODE EXISTS; §7 still blocks every line of it.** ⛔ ONE HOME:
-   `docs/DISCORD-ROLE-SYNC.md` — §8b decided (option A, `discord-bot/` here).
-   Next = phase 2, report-only, and it needs §7 steps 1–5 CONFIRMED: a bot
-   ordered below the roles it manages succeeds and changes nothing. `HANDOFF` §14b.
+4. 🟡 **DISCORD ROLE SYNC — PHASE 2 RAN AGAINST THE LIVE GUILD (2026-09-12).**
+   ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`. Bot live, token on the VM, ordered
+   top. **196 people · 183 roles · 107 ticked · 0 provisioned · 0 LINKED** —
+   so the bottleneck is `/link`, not the sync. `npm run discord:report`.
+   ⛔ The OLD bot is STILL in the server; §7 step 5 closes the leak. `HANDOFF` §14b.
 
 ### B. OWNER ONLY
 
