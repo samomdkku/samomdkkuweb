@@ -1140,6 +1140,13 @@ and no code exists that can. That is the apply step, below.
   prevent and it will return in another costume.
 - **`npm test` was GREEN while `npm run build` was BROKEN** (`db.js` exports
   `db`, not `supabase`). Run both.
+- **A PROOF WENT RED BECAUSE THE WORK SUCCEEDED.** `team0184` asserted "exactly
+  2 roles" and was green until 48 nodes were mapped, at which point the
+  subject's ancestry legitimately gained provisioned ancestors. It described the
+  data it happened to see, not the rule. Fixed to assert the PROPERTY — every
+  role returned belongs to a node in that member's own ancestry — which holds
+  however much of the tree is provisioned. **Expect the other proofs to have the
+  same shape somewhere; re-run all three after any provisioning run.**
 - **The report once said "LINKED AND CORRECT" about a person due four roles** —
   with nothing provisioned, every linked person was vacuously correct. Fixed;
   the lesson is in `docs/mistakes/tooling-proofs.md`.

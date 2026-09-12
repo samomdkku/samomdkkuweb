@@ -113,8 +113,23 @@ insert into probe select '20. holds its OWN node''s role', 'true',
 insert into probe select '21. …AND the ticked ฝ่าย above it', 'true',
   (select ('700000000000000001' = any (role_ids))::text from got);
 
-insert into probe select '22. …and nothing else crept in', '2',
-  (select array_length(role_ids, 1)::text from got);
+-- ⛔ NOT A COUNT. The first version asserted "exactly 2" and was green until
+-- 2026-09-12, when 48 real nodes were mapped to Discord roles and the subject's
+-- ancestry legitimately gained more provisioned ancestors. It went red for a
+-- change that was CORRECT — the classic hardcoded-scenario failure: a proof
+-- describing the data it happened to see rather than the rule.
+--
+-- The rule is that every role returned belongs to a node in this member's own
+-- ancestry. That stays true however much of the tree is provisioned.
+insert into probe select '22. …and nothing from OUTSIDE the ancestry crept in', '(none)',
+  coalesce((select string_agg(r, ',') from (
+    select unnest(role_ids) as r from got
+    except
+    select n.discord_role_id from public.team_members tm
+      cross join lateral public.discord_node_ancestry(tm.node_id) a
+      join public.team_nodes n on n.id = a.node_id
+     where tm.person_id = (select id from who) and n.discord_role
+       and n.discord_role_id is not null) x), '(none)');
 
 -- Names travel beside ids, or the phase-2 report is unreadable and gets applied
 -- unread — which is the opposite of what a report-only phase is for.
@@ -140,8 +155,11 @@ insert into probe select '31. the ancestor walk terminates on every node', 'true
 insert into probe select '40. the unprovisioned node is reported as pending', 'true',
   (select ((select name from unprov) = any (pending))::text from got);
 
-insert into probe select '41. …and is NOT in the applicable role_ids', '2',
-  (select array_length(role_ids, 1)::text from got);
+-- Same correction as §22: assert the PROPERTY (an unprovisioned node's role is
+-- not applicable, because it does not exist) rather than a count of everything
+-- else, which the rest of the tree is free to change.
+insert into probe select '41. …and its role is NOT applicable, because there is none', 'false',
+  (select ((select name from unprov) = any (role_names))::text from got);
 
 -- ── §E the empty result is ambiguous, and that is the dangerous part ────────
 -- discord_role_targets is SECURITY INVOKER, so a caller who cannot read

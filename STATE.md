@@ -34,7 +34,7 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `a52ba32` (2026-09-12)** — v4.7.0 still, and read back from the
+- ✅ **DEPLOYED = `adf9168` (2026-09-12)** — v4.7.0 still, and read back from the
   VM's own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`.
   Docs step RAN; `LINKING IS LIVE` greps 1 on the served `/docs/state/HANDOFF`
   beside a shipped control. เชื่อมบัญชี Discord shipped in `08b48b0` — the
