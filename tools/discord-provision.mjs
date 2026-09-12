@@ -94,9 +94,33 @@ async function main() {
     if (!byNorm.has(k)) byNorm.set(k, []); byNorm.get(k).push(r);
   }
 
-  const already = []; const adopt = []; const create = []; const near = []; const ambiguous = [];
+  // ⛔ THE COLLISION HAS TWO SIDES AND THE FIRST DRAFT ONLY CHECKED ONE.
+  //
+  // "exactly one DISCORD role has this name" is half the question. The other
+  // half is "exactly one ทีม SAMO NODE has this name" — and on this data three
+  // separate nodes are called `ฝ่ายวิชาการ` (one top-level, one under
+  // ฝ่ายรังสีเทคนิค, one under ฝ่ายเวชนิทัศน์) and two are called
+  // ฝ่ายประสานงาน. All three tried to adopt the SAME Discord role, which is
+  // precisely the six-เหรัญญิก failure this design exists to prevent, arriving
+  // from the other direction.
+  //
+  // 0183's unique index refused it — the constraint did its job and the tool
+  // did not — and the run had already mapped 30 nodes by then, so the first
+  // version could also leave a half-finished state. A name held by more than
+  // one ticked NODE is AMBIGUOUS: a human must say which node owns the role.
+  const tickedByName = new Map();
+  for (const t of ticked) {
+    if (!tickedByName.has(t.name)) tickedByName.set(t.name, []);
+    tickedByName.get(t.name).push(t);
+  }
+
+  const already = []; const adopt = []; const create = []; const near = [];
+  const ambiguous = []; const contested = [];
   for (const t of ticked) {
     if (t.discord_role_id) { already.push(t); continue; }
+    // Two ticked nodes sharing a name cannot both hold one role, and picking
+    // for them by position or id would hand one ฝ่าย another ฝ่าย's channels.
+    if ((tickedByName.get(t.name) || []).length > 1) { contested.push(t); continue; }
     const exact = byName.get(t.name) || [];
     if (exact.length === 1) { adopt.push([t, exact[0]]); continue; }
     if (exact.length > 1) { ambiguous.push([t, exact]); continue; }
@@ -110,6 +134,8 @@ async function main() {
   console.log(`  CREATE    ${create.length}`);
   console.log(`  NEAR      ${near.length}  (a rename — confirm by hand, never adopted automatically)`);
   console.log(`  AMBIGUOUS ${ambiguous.length}  (the same name on several roles — a human must choose)`);
+  console.log(`  CONTESTED ${contested.length}  (several ทีม SAMO nodes share ONE name — a human must choose)`);
+  for (const t of contested) console.log(`      "${t.name}" is the name of ${tickedByName.get(t.name).length} ticked nodes`);
   for (const [t, rs] of ambiguous) console.log(`      "${t.name}" matches ${rs.length} roles`);
   for (const [t, r] of near) console.log(`      "${t.name}"  ≈  "${r.name}"`);
 
@@ -165,6 +191,19 @@ async function main() {
     process.exit(1);
   }
   if (after > ROLE_CAP) { console.error('\n✗ REFUSED — would exceed the role cap.'); process.exit(1); }
+
+  // ⛔ CHECK FOR A COLLISION BEFORE THE FIRST WRITE, not as an error part way
+  // through. The first run mapped 30 nodes and then hit the unique index, which
+  // is the half-finished state this file already refuses to risk for the role
+  // cap; the same care belongs here.
+  const want = new Map();
+  for (const [t, r] of adopt) {
+    if (want.has(r.id)) {
+      console.error(`\n✗ REFUSED — "${t.name}" and "${want.get(r.id)}" would both take one Discord role.`);
+      process.exit(1);
+    }
+    want.set(r.id, t.name);
+  }
 
   let n = 0;
   for (const [t, r] of adopt) {
