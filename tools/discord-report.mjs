@@ -215,6 +215,37 @@ function report(guild, db) {
   if (ambiguous.length) say(`      ${ambiguous.join(' · ')}`);
   if (create.length) say(`      to create: ${create.slice(0, 10).join(' · ')}${create.length > 10 ? ' …' : ''}`);
 
+  // ⛔ ADOPTION IMPACT — the number the owner asks for, and the one moment their
+  // existing Discord configuration becomes reachable at all.
+  //
+  // Adopting a role changes NOTHING about the role: same name, colour,
+  // position, permissions, and every channel overwrite attached to it. What it
+  // changes is that the sync may now decide WHO HOLDS IT. So the honest measure
+  // of "what am I agreeing to" is not the role count — it is how many role
+  // grants, across how many people, come under management the moment you adopt.
+  //
+  // It is stated here rather than reasoned about later because the first apply
+  // run is exactly when somebody wants this figure and does not have it.
+  const adoptedIds = new Set();
+  for (const t of db.ticked) {
+    if (t.discord_role_id) { adoptedIds.add(t.discord_role_id); continue; }
+    const hits = byName.get(t.name) || [];
+    if (hits.length === 1) adoptedIds.add(hits[0].id);
+  }
+  const heldBy = humans.filter((m) => m.roles.some((r) => adoptedIds.has(r)));
+  const grants = humans.reduce((n, m) => n + m.roles.filter((r) => adoptedIds.has(r)).length, 0);
+  say();
+  say(`ADOPTION IMPACT — what comes under management if you adopt all ${adoptedIds.size}:`);
+  say(`  ${grants} role grant(s) across ${heldBy.length} of ${humans.length} people.`);
+  say('  The ROLES are untouched — name, colour, position, permissions and every');
+  say('  channel overwrite stay exactly as they are, and the bot never deletes a');
+  say('  role object. What becomes managed is WHO HOLDS THEM.');
+  if (db.links === 0 && grants > 0) {
+    say(`  ⛔ AND NOBODY IS LINKED, so a naive apply would read all ${grants} as`);
+    say('     "should not hold this" and strip them. §5e is what forbids that: an');
+    say('     unlinked person is UNKNOWN, never "entitled to nothing". Link first.');
+  }
+
   // Discord roles that no ticked node claims. Some are legitimately unmanaged
   // (moderators, integrations); some are leftovers the old bot created on a
   // rename and never cleaned up, since it had no removal path at all.
