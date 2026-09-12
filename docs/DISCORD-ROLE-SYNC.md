@@ -268,6 +268,25 @@ makes it eventually correct rather than eventually wrong.
 that rule will drift; this repo has paid for that shape more than any other
 (`.claude/rules/mistakes.md` class 6).
 
+✅ **BUILT — 0184, and it lives in POSTGRES, not in the bot.**
+`public.discord_role_targets()` returns one row per linked person: the role ids
+to apply, their names so the report is readable, the ticked-but-unprovisioned
+nodes as `pending`, and how many ตำแหน่ง they hold. In the database "one
+function" is structural rather than a promise — `/whois` and any future portal
+screen ask the same question and cannot answer it differently.
+
+⛔ **IT IS A PREDICTION, NOT AN INSTRUCTION.** It is SECURITY INVOKER, so a
+caller who cannot read `team_nodes` gets ZERO ROWS — which to a reconcile is
+indistinguishable from "nobody should hold anything". That is class 2 exactly,
+and it is why §5e's blast-radius cap is not optional politeness: it is the only
+thing between a misconfigured credential and 449 silent removals. The proof
+asserts the ambiguity EXISTS so nobody mistakes it for a safe default.
+
+⚠️ **A placement grants whether or not it is CONFIRMED** (449 placements, 412
+confirmed) — a decision, not an oversight: `confirmed` is the person
+acknowledging their own ตำแหน่ง, not an admin approving it. One line to flip,
+and `team0184-discord-targets.sql` §F pins the current answer.
+
 ### 5g. Legibility
 
 Roles are for **access**, not for reading the org chart.
@@ -307,6 +326,15 @@ Roles are for **access**, not for reading the org chart.
    report. Re-print the diff at apply time rather than trusting the earlier run;
    pace against Discord's rate limits across 449 members.
 4. **Live updates.** Realtime, with the periodic reconcile kept underneath.
+
+⛔ **NO SECOND DISCORD APPLICATION.** A dev app invited without `Manage Roles`
+was proposed on 2026-09-12 and declined by the owner as not worth the upkeep.
+Do not re-propose it. What replaces it is 0184: everything that DECIDES runs in
+Postgres and is developed and proved against samo-dev with no Discord
+credential, and only the half that reads the live guild needs a token — which
+runs on the VM. Writes stay gated by `--apply` defaulting off, the
+blast-radius cap, and an assertion that the reconcile module contains no
+Discord write call at all.
 
 ---
 
