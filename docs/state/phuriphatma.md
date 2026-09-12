@@ -1466,3 +1466,96 @@ Long session, four themes. What would mislead the next reader:
   and BUILT: per-pull-request, on Cloudflare Pages** (`docs/TEAM-WORKFLOW.md`
   §1, D8), proven end to end on 2026-08-27. Left here struck through because a
   session re-opened it from this very bullet and wasted a round trip.
+
+---
+
+## 2026-09-12 — Discord role sync: linking is live, nothing syncs yet
+
+**Status: VERIFIED 2026-09-12.** Everything below was read from the live system.
+What is OWED is in `docs/state/HANDOFF.md` §14b; the design is
+`docs/DISCORD-ROLE-SYNC.md`. This file is only the reasoning that would
+otherwise be lost.
+
+### What shipped
+
+Migrations **0183–0186**, all applied to production and proved:
+identity + role mapping + the tick-box (0183, 22/22) · `discord_role_targets()`,
+the one function that decides what a person is due (0184, 18/18) · link codes
+(0185, 29/29) · self-read and unlink (0186).
+
+Plus `tools/discord-report.mjs` (read-only, guarded),
+`tools/discord-provision.mjs`, `server/discord-oauth.mjs`, and
+`src/js/discord-link.js` with the card on ข้อมูลของฉัน.
+
+**48 of 107 ticked nodes are mapped to Discord roles. ZERO roles were created.
+The guild is still at 180 of 250.**
+
+### The four decisions that changed during the session, and why
+
+1. **`/link` must NOT copy the old `!verify`.** It asked for the last five
+   digits of a รหัสนักศึกษา. Defensible when the consequence was a nickname;
+   not when the same answer hands over a person's roles and channels. A student
+   ID is on the card and on every form — the attacker is a classmate, not a
+   brute-forcer. **A control is only as strong as what it now unlocks.**
+2. **Then even the typed code was wrong.** The owner asked whether it was the
+   standard, and it is not — Discord OAuth2 is. It is also STRONGER: a typed
+   code proves a portal session and nothing about the Discord account, and can
+   be pasted to a friend. 0185 was not wasted: its code became the OAuth
+   **state**, which is exactly what state should be.
+   ⚠️ **The lesson is not about Discord.** 0185 was designed carefully against
+   the right threat and still reached for a mechanism the platform provides.
+   *"Is there a standard way to do this"* belongs BEFORE designing a credential.
+3. **The nickname was never the problem — using it as the KEY was.** The old bot
+   made 196 people rename themselves, annually. But it bought a readable member
+   list, which OAuth2 does not. Keep both: identity from OAuth2, nickname as an
+   OUTPUT the bot writes from ทีม SAMO. The bot already holds Manage Nicknames.
+4. **§8b's premise was wrong and it is worth re-opening.** Option A was chosen
+   accepting "Python in a JS repo, so deploy.sh grows a venv step". That cost
+   was assumed because a bot needs a gateway connection. **Nothing here does** —
+   report, provisioning, role changes and slash commands are all REST or an HTTP
+   interactions endpoint, and phase 4's trigger is Supabase Realtime. §8b-bis
+   recommends C. Not re-decided; the owner chose A.
+
+### The role cap, and why "adopt only"
+
+Discord allows **250 roles per guild, hard**. The server is at 180. Both obvious
+levers were measured before recommending anything and **both are dead ends**:
+158 of 179 roles gate a channel, only 4 are dead; and 106 of 107 ticked nodes
+have real people. Deleting buys four roles.
+
+What settled it: **49 of the 50 adoptable roles already gate a channel.** So
+adopting costs ZERO and lands the whole feature where access actually happens,
+while creating 53 spends 76% of the remaining headroom on groups that gate
+nothing yet. **A role earns its place by gating a channel or being @mentioned.
+Provision on demand, never in bulk.**
+
+### Mistakes made in this session, each now guarded
+
+- **I leaked the bot token into the transcript** with a script written to
+  prevent exactly that: its mask keyed on `=`, and the file's defect was a bare
+  value with no key, so the substitution matched nothing. Token reset;
+  `server/check-env-file.sh` replaces it and has no code path that can print a
+  line. Write-up: `docs/mistakes/tooling-proofs.md`.
+- **Provisioning checked one side of a name collision.** It verified that one
+  DISCORD ROLE had the name, never that one ทีม SAMO NODE did — three
+  ฝ่ายวิชาการ claimed one role and 0183's unique index refused it mid-run, after
+  30 writes. The constraint did its job; the tool did not.
+- **The report said "LINKED AND CORRECT" about a person due four roles**, because
+  with nothing provisioned everyone is vacuously correct. Worst possible
+  direction: "correct" is what someone reads before applying.
+- **I pushed with two tests red**, and one of those tests was itself wrong — it
+  counted `res.writeHead(` across a FILE when the property was about a FUNCTION.
+- **`npm test` green while `npm run build` broken** (`db.js` exports `db`, not
+  `supabase`). Both, every time.
+- **I typed an invented sha into STATE.md's DEPLOYED line** and caught it only by
+  asking the VM. That line is the sha's one home.
+
+### The thing with no guard on it
+
+`/discord/config` and `/discord/callback` exist **only** in the VM's
+`/etc/nginx/sites-available/default`, added by hand. `server/nginx-samo.conf` in
+this repo is not what nginx serves, the two have drifted, and a reinstall from
+the repo copy would silently drop both routes — เชื่อมบัญชี Discord would stop
+working with nothing in any log. It bit once already mid-session, when
+`/discord/config` was in the repo copy and not the live one and fell through to
+the SPA, returning HTML where the browser wanted JSON.

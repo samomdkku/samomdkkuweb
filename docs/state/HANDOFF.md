@@ -1053,83 +1053,107 @@ gets the ผู้ส่ง screen. Change the seat to **อาจารย์ (
 test. Do not widen the UI gate; `src/js/projects/index.js` §MASTER_SEATS explains
 why under-showing relative to RLS is the safe direction.
 
-## 14b. Discord role sync — designed 2026-09-11, NOTHING BUILT
+## 14b. Discord role sync — LINKING IS LIVE, the apply step is not
 
-**Status: DECIDED + OWED — phase 1's PORTAL half shipped 2026-09-12.** VERIFIED
-2026-09-12 — how: migration 0183 applied to production, then
-`node tools/db-query.mjs tools/team0183-discord-mapping.sql` → 22/22 PASS, the
-same proof having errored on a missing table before the migration went in.
-The owner asked for
-the dead Render bot to be rebuilt on the VM with **ทีม SAMO as the source of
-truth** for Discord roles. Scanned, designed and scrutinised 2026-09-11; the
-database and editor half shipped 2026-09-12 as migration 0183. **No bot code
-was written, and none should be until §1's owner steps are done.**
+**Status: VERIFIED 2026-09-12 — how:** every claim below was read from the live
+system, not from a plan. Migrations 0183–0186 applied to production; proofs
+`team0183` 22/22, `team0184` 18/18, `team0185` 29/29; the OAuth flow completed
+by a real human (the owner); the guild read with `npm run discord:report`; the
+48 mappings written by `tools/discord-provision.mjs --adopt-only`.
 
-⛔ **ONE HOME: `docs/DISCORD-ROLE-SYNC.md`.** Do not restate the design here; it
-is 9 sections and it will drift if it is summarised. What belongs in this file
-is only what is OWED:
+⛔ **ONE HOME FOR THE DESIGN: `docs/DISCORD-ROLE-SYNC.md`.** Do not restate it
+here. This section is only what is TRUE NOW and what is OWED.
 
-1. **The owner's six steps** — `DISCORD-ROLE-SYNC.md` §7. Still blocks every
-   line of bot code. ⛔ **Step 4 — dragging the bot ABOVE the roles it manages —
-   is the one that fails silently**, and Administrator does NOT exempt it: role
-   hierarchy applies to every member including a bot, so a bot ordered below a
-   ฝ่าย role reports success and changes nothing. Confirm step 4 before any
-   phase-3 apply run.
-2. ✅ **§8b DECIDED** — option A, `discord-bot/` in this repo. ⚠️ The cost is now
-   owed work: `deploy.sh` needs a venv step and a `systemctl restart`, in the
-   one script this project cannot afford to break.
-3. ✅ **Phase 1's PORTAL half is DONE** — migration 0183 (`discord_links`,
-   `team_nodes.discord_role_id`, `team_nodes.discord_role`) plus **มี role ใน
-   Discord** in the ทีม SAMO node editor. Applied to production and proved
-   22/22 by `tools/team0183-discord-mapping.sql`, watched failing first.
-   ❌ **Still owed in phase 1: the `/link` slash command** (bot code, blocked).
-   ❌ **And the owner's review of the tick-boxes**: the seed ticked only ฝ่าย and
-   `is_board` positions — deliberately NOT "every leadership role", because
-   matching leadership by NAME is the guess this design exists to avoid. Every
-   other ตำแหน่ง starts unticked and is the owner's call in the editor.
-4. ✅ **Phase 2 is BUILT AND HAS RUN** (`npm run discord:report`, 2026-09-12).
-   The live guild had never been inspected; now it has:
-   **196 people · 183 roles · 107 nodes ticked · 0 provisioned · 0 LINKED.**
-   So "how many are mismatched" is still unanswerable, and that IS the finding —
-   nobody is linked, 182 of 183 roles are unmanaged, and the reconcile could not
-   remove a single role today. Provisioning plan: **50 adopt · 57 create · 0
-   ambiguous · 131 Discord roles no ticked node claims.**
-5. ✅ **LINKING IS BUILT AND DEPLOYED (2026-09-12) — and it is OAuth2, not a
-   slash command.** The owner asked whether a typed code was best practice; it
-   is not. `เชื่อมบัญชี Discord` on ข้อมูลของฉัน → Discord's consent screen →
-   `/discord/callback` on the notify service → `discord_links`. 0185's code
-   became the CSRF **state**, so nothing was wasted. 0186 adds self-read and
-   unlink. ⛔ **UNTESTED BY A HUMAN**: no real person has completed the round
-   trip. That is the next thing to do, and it needs a ทีม SAMO member's account.
-   ⛔ **`/discord/*` locations live ONLY in the VM's `sites-available/default`**,
-   added by hand. `server/nginx-samo.conf` is not what nginx serves; the two
-   have drifted and a reinstall from the repo copy would drop both routes.
-6. ❌ **OLD NEXT, now after linking: `/link` as a slash command** — the one thing everything else waits on. ⛔ **Do NOT
-   copy the old `!verify`**: it asks for the last five digits of a
-   รหัสนักศึกษา, which is not a secret, and the new consequence is that
-   person's roles and channels rather than a nickname. Use a single-use code
-   issued by the signed-in portal — `DISCORD-ROLE-SYNC.md` §5a, rewritten
-   2026-09-12. It adds a small portal screen, so it is phase 1's tail, not bot
-   work.
-6. ⏸ **Owner: review the 192 unticked nodes.** The seed ticked 107 of 299 —
-   every ฝ่าย and every คณะกรรมการ position, both markings the owner had already
-   made. The rest are unanswered, and phase 3 is only as good as those ticks.
-   The tick-box is SERVED as of 2026-09-12.
+### Where it actually is
 
-**The three findings a next session must not re-derive**, each measured:
+```
+linked people          1 of 196 in the guild      (the owner, by OAuth2)
+ticked ทีม SAMO nodes  107 of 299
+mapped to a role        48                        (adopt only; 0 roles created)
+guild roles            180 of 250                 UNCHANGED by any of this
+```
 
-- **The old bot never removed a role** (`main.py:183`/`200`, no `remove_roles`).
-  The mismatch is the design working as written, not decay.
-- **The Sheet holds applications, not placements**, and merges duplicate
-  submissions, so multi-applicants wear several ฝ่าย roles.
-- **ตำแหน่ง names are not unique** — `เหรัญญิก` exists 6 times, 11 names collide
-  across 32 nodes, 37 members affected. Matching Discord roles by NAME merges
-  them. This is the finding that breaks the obvious design.
+✅ **BUILT AND LIVE** — a person signs in, presses **เชื่อมบัญชี Discord** on
+ข้อมูลของฉัน, approves on Discord, and is linked. One account per person
+(§8f, owner-decided). Unlink works. Re-link to a different account works.
 
-⚠️ **The size of the problem is still unknown.** Every number in the design comes
-from the database and the bot's source; **the live Discord server has never been
-inspected** — there is no bot token in the environment. Phase 2's report is what
-turns that into a number, and it cannot run before the owner's steps.
+❌ **NOTHING SYNCS YET.** No role has ever been added or removed by this system,
+and no code exists that can. That is the apply step, below.
+
+### What is OWED, in order
+
+1. **THE APPLY STEP — the whole remaining feature.** A tool that takes the
+   report's diff and actually adds/removes roles. ⛔ It must not be written
+   before its brake: **refuse any run touching more than N roles or X% of
+   members** (§5e). With 1 person linked and 368 role grants already in Discord,
+   an unbraked apply would strip 78% of the server. ⛔ And **never act on
+   absence** — an unlinked person is UNKNOWN, never "entitled to nothing".
+2. **OWNER — five contested ฝ่าย.** Two ticked nodes cannot share one name; the
+   database refuses it. Rename them distinct, or untick the empty ones, in ทีม
+   SAMO admin. Four of the five hold NOBODY, so this is org-chart tidying:
+   ```
+   ฝ่ายประสานงาน  under ฝ่ายบริหารกิจการภายนอก  (0 people)
+   ฝ่ายประสานงาน  under ฝ่ายบริหารกิจการภายใน   (2 people)
+   ฝ่ายวิชาการ    top-level                      (0 people)
+   ฝ่ายวิชาการ    under ฝ่ายรังสีเทคนิค          (0 people)
+   ฝ่ายวิชาการ    under ฝ่ายเวชนิทัศน์           (0 people)
+   ```
+3. **OWNER — four near-matches**, a rename the exact match cannot see. Confirm
+   by hand or the tool will CREATE a duplicate empty role beside the one holding
+   the channel. `ฝ่าย ComArt (Communication Art)` has 16 members.
+   ```
+   ฝ่าย COMART                ≈ ฝ่าย ComArt (Communication Art)
+   ฝ่ายจัดหาทุน                ≈ ฝ่ายจัดหาทุน (Fundraising)
+   ฝ่ายประชาสัมพันธ์ฝ่าย AMSA  ≈ ประชาสัมพันธ์ฝ่าย AMSA
+   หัวหน้าฝ่าย IT (Tech lead)  ≈ หัวหน้าฝ่าย IT
+   ```
+4. **OWNER — what makes someone a LEAVER.** Undecided and it blocks removal
+   design. Removed from the tree? End of ปีการศึกษา? §5e says a leaver keeps a
+   `ศิษย์เก่า SAMO` role rather than being stripped bare.
+5. **OWNER — §8b, worth re-opening.** Decided as option A (`discord-bot/`,
+   Python). ⚠️ **Its premise turned out to be wrong**: nothing in this design
+   needs a Discord gateway connection — the report, provisioning, role changes
+   and even slash commands are all REST or an HTTP interactions endpoint, and
+   phase 4's trigger is Supabase Realtime. §8b-bis recommends **C** (`server/`,
+   Node, beside the notify service). Nothing built depends on either answer yet.
+6. **OWNER — kick the old bot.** `Role assignment bot for SAMO69` is still in
+   the server; the report warns about it every run. This is what closes the old
+   leaked credential, and also the application id that was in the public repo.
+7. **Then: the remaining 51 roles**, on demand only — §8g.2. Adopt was free;
+   creating spends 51 of 70 remaining under Discord's hard 250 cap, on groups
+   that gate no channel yet. Create one when a ฝ่าย asks for a channel or a ping.
+
+### ⛔ Traps a next session must not re-derive
+
+- **`/discord/config` and `/discord/callback` exist ONLY in the VM's
+  `/etc/nginx/sites-available/default`**, added by hand (backed up, `nginx -t`).
+  `server/nginx-samo.conf` in this repo is NOT what nginx serves and the two have
+  drifted. A reinstall from the repo copy silently drops both routes and
+  เชื่อมบัญชี Discord stops working with no error in any log. **No guard exists
+  for this.**
+- **`SUPABASE_SERVICE_ROLE_KEY` is on the VM** (`/etc/samo-notify.env`, 0600),
+  re-introduced after being unused. It bypasses every RLS policy and is pinned
+  to ONE rpc, asserted by `src/js/discord-oauth.test.js`.
+- **Provisioning must check BOTH sides of a name collision.** The first run
+  mapped 30 nodes then hit 0183's unique index because three ฝ่ายวิชาการ nodes
+  claimed one role. Fixed, but the shape is the one this whole design exists to
+  prevent and it will return in another costume.
+- **`npm test` was GREEN while `npm run build` was BROKEN** (`db.js` exports
+  `db`, not `supabase`). Run both.
+- **The report once said "LINKED AND CORRECT" about a person due four roles** —
+  with nothing provisioned, every linked person was vacuously correct. Fixed;
+  the lesson is in `docs/mistakes/tooling-proofs.md`.
+
+### Tools
+
+```
+npm run discord:report                     # read-only; --fetch on the VM, --report here
+node tools/discord-provision.mjs           # plan only; --apply --adopt-only to map
+node tools/db-query.mjs tools/team018{3,4,5}-*.sql
+```
+The report needs the Discord token (VM) and Supabase (here), so it runs in two
+halves and **neither credential ever moves** — copying the token is what leaked
+it three times.
 
 ## 15. Two loose ends from the 0181 session
 
