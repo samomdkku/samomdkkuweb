@@ -2862,3 +2862,53 @@ SHAPE of what it saw — one trigger, two roles, a majority — where the cure i
 assert the property that shape was evidence for. Both are found the same way:
 after any schema change, run **every** proof, not the ones about the thing you
 touched. Both of these were in files nobody had edited.
+
+---
+
+## I "corrected" a number that was already right, because I checked its value and not its UNIT
+
+**Symptom.** `docs/state/HANDOFF.md` §14b item 7 said *"the remaining **51**
+roles"*. Re-measuring `team_nodes` gave 107 ticked, 48 mapped, **59 unmapped**,
+so I changed 51 → 59, wrote a parenthetical saying the old figure predated the
+adoption run, put it in a commit message, and repeated 59 to the owner in a
+role-cap table.
+
+**It was wrong. 51 was correct.** Running the provisioning plan against the live
+guild the next day:
+
+```
+ADOPT 0 · CREATE 51 · NEAR 4 · CONTESTED 4        51 + 4 + 4 = 59
+```
+
+The 59 unmapped ticked nodes **split**: 51 can have a role created, 4 are
+near-matches awaiting a human, 4 are contested names. Item 7 is about roles to
+CREATE — "creating spends 51 of 70 remaining under the cap" — so 51 was exactly
+the right quantity, and 59 is a true number answering a different question.
+
+**Cause.** I verified the value and never verified the unit. "Roles still to
+create" and "ticked nodes without a role" are close enough in English to read as
+synonyms, and the surrounding sentence — the one that says what is being counted
+— was the part I did not re-read. The measurement was real, the arithmetic was
+right, and the correction was still a regression, which is the dangerous shape:
+it arrives with evidence attached.
+
+Worse, it laundered itself. Once written it was quoted in a commit message and
+in a table to the owner, so a wrong number acquired three homes in an hour — the
+same multiplication this repo has already paid for, running in the corrective
+direction for once.
+
+**Fix.** Reverted to 51. The lists it sits beside are now re-measured and dated,
+and the section says explicitly that the plan reports **4** contested where the
+prose says **5**, because a node that already holds a role is counted as
+`already mapped` — both right, counting different things.
+
+**Where it lives now.** `docs/state/HANDOFF.md` §14b items 2, 3 and 7.
+
+**The general rule.** *Before correcting a number, read the sentence that says
+what it counts.* A measurement can be accurate and still be the wrong quantity,
+and a correction carries more authority than the thing it replaces — nobody
+re-checks a figure that has just been "verified". When two counts of the same
+data differ, the answer is usually that they are counting different things and
+BOTH belong, labelled; reach for that before reaching for a fix. The tell here
+was available and ignored: 59 − 51 = 8, and the plan had printed two buckets of
+4 directly underneath.

@@ -84,6 +84,27 @@ describe('a near match is never adopted automatically', () => {
   });
 });
 
+describe('the cap counts every role Discord counts', () => {
+  // Discord's 250 limit counts EVERY role in the guild — @everyone and
+  // integration-managed roles included. This tool filters those out to decide
+  // what it may ADOPT, and the cap maths used the filtered list plus one,
+  // silently dropping the managed roles: 3 on this server, reported as 231 of
+  // 250 where the truth is 234. Harmless at 92% and exactly wrong at the wall,
+  // because Discord refuses role 251 part way through a run.
+  it('measures the cap against the UNFILTERED role list', () => {
+    expect(CODE).toMatch(/const allRoles = await dc\(`\/guilds\/\$\{guildId\}\/roles`\);/);
+    expect(CODE).toMatch(/const after = allRoles\.length \+/);
+    expect(CODE, 'the cap must not be computed from the adoptable subset')
+      .not.toMatch(/const after = roles\.length/);
+  });
+
+  it('…and still adopts only from the filtered one', () => {
+    // The filter is still right for its own job: a managed role belongs to an
+    // integration and cannot be assigned by anybody, so it is not a candidate.
+    expect(CODE).toMatch(/const roles = allRoles\.filter\(\(r\) => r\.name !== '@everyone' && !r\.managed\)/);
+  });
+});
+
 describe('a header value is latin-1, and every reason here is Thai', () => {
   // A non-ASCII HTTP header value makes fetch() throw
   // `Cannot convert argument to a ByteString` BEFORE the request is built, so

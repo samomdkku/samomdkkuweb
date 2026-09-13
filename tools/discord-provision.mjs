@@ -84,7 +84,20 @@ async function main() {
   const guildId = env.DISCORD_GUILD_ID || (guilds.length === 1 ? guilds[0].id : null);
   if (!guildId) throw new Error(`bot is in ${guilds.length} guilds — set DISCORD_GUILD_ID`);
 
-  const roles = (await dc(`/guilds/${guildId}/roles`)).filter((r) => r.name !== '@everyone' && !r.managed);
+  // ⛔ TWO COUNTS, AND CONFUSING THEM UNDERSTATES THE CAP.
+  //
+  // `allRoles` is what Discord's 250 limit actually counts: every role in the
+  // guild, @everyone and integration-managed roles included. `roles` is the
+  // subset this tool may adopt — a managed role belongs to an integration and
+  // cannot be assigned by anyone, so it is not a candidate.
+  //
+  // The cap maths used `roles.length + 1`, adding @everyone back but silently
+  // dropping the managed ones — 3 on this server, so it reported 231 of 250
+  // where the truth is 234. Harmless at 92%; at the wall it is the exact
+  // failure the check exists to prevent, because Discord refuses role 251 PART
+  // WAY THROUGH a run and leaves half the nodes mapped.
+  const allRoles = await dc(`/guilds/${guildId}/roles`);
+  const roles = allRoles.filter((r) => r.name !== '@everyone' && !r.managed);
   const ticked = await pg('team_nodes?select=id,name,discord_role_id&discord_role=is.true&order=name');
 
   const byName = new Map(); const byNorm = new Map();
@@ -128,14 +141,25 @@ async function main() {
     if (close.length === 1) near.push([t, close[0]]); else create.push(t);
   }
 
-  console.log(`GUILD roles: ${roles.length + 1} of ${ROLE_CAP}   (including @everyone)`);
+  console.log(`GUILD roles: ${allRoles.length} of ${ROLE_CAP}   `
+    + `(${roles.length} adoptable; the rest are @everyone and ${allRoles.length - roles.length - 1} integration role(s))`);
   console.log(`TICKED nodes: ${ticked.length}   already mapped: ${already.length}`);
   console.log(`  ADOPT     ${adopt.length}`);
   console.log(`  CREATE    ${create.length}`);
   console.log(`  NEAR      ${near.length}  (a rename — confirm by hand, never adopted automatically)`);
   console.log(`  AMBIGUOUS ${ambiguous.length}  (the same name on several roles — a human must choose)`);
   console.log(`  CONTESTED ${contested.length}  (several ทีม SAMO nodes share ONE name — a human must choose)`);
-  for (const t of contested) console.log(`      "${t.name}" is the name of ${tickedByName.get(t.name).length} ticked nodes`);
+  // One line per NAME, not per node — printing per node repeated
+  // `"ฝ่ายวิชาการ" is the name of 3 ticked nodes` twice and read like two
+  // different problems. And say which sibling ALREADY holds the role, because
+  // that one won the adoption race and it is the fact a human needs: on this
+  // data the ฝ่ายวิชาการ that took the role has 0 people in it.
+  for (const name of new Set(contested.map((t) => t.name))) {
+    const all = tickedByName.get(name) || [];
+    const holder = all.find((t) => t.discord_role_id);
+    console.log(`      "${name}" is the name of ${all.length} ticked nodes`
+      + (holder ? ' — one of them ALREADY holds the Discord role' : ' — none holds a role yet'));
+  }
   for (const [t, rs] of ambiguous) console.log(`      "${t.name}" matches ${rs.length} roles`);
   for (const [t, r] of near) console.log(`      "${t.name}"  ≈  "${r.name}"`);
 
@@ -143,7 +167,7 @@ async function main() {
   // it refuses it PART WAY THROUGH a run — leaving some nodes mapped and some
   // not, which is the messiest possible state to reason about afterwards. So it
   // is checked BEFORE anything is created, not caught as an error.
-  const after = roles.length + 1 + (has('--adopt-only') ? 0 : create.length);
+  const after = allRoles.length + (has('--adopt-only') ? 0 : create.length);
   console.log(`\nAFTER CREATING: ${after} of ${ROLE_CAP} roles (${Math.round((after / ROLE_CAP) * 100)}%)`);
   if (after > ROLE_CAP) {
     console.log(`⛔ THAT EXCEEDS DISCORD'S HARD LIMIT OF ${ROLE_CAP}. Untick some nodes, or`);

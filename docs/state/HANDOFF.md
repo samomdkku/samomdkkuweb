@@ -1151,19 +1151,28 @@ still reaches the guild — §1, and item 6 below.
    item 4 is undecided. `src/js/discord-apply.test.js`, 17 assertions, each
    watched failing first, plus 15 behavioural ones in
    `discord-apply.run.test.js` that run the tool against a stub guild.
-2. **OWNER — five contested ฝ่าย.** Two ticked nodes cannot share one name; the
-   database refuses it. Rename them distinct, or untick the empty ones, in ทีม
-   SAMO admin. Four of the five hold NOBODY, so this is org-chart tidying:
+2. **OWNER — five contested ฝ่าย, and one of them ALREADY TOOK THE ROLE.**
+   Two ticked nodes cannot share one Discord role; 0183's unique index refuses
+   it. Re-measured live 2026-09-13:
    ```
-   ฝ่ายประสานงาน  under ฝ่ายบริหารกิจการภายนอก  (0 people)
-   ฝ่ายประสานงาน  under ฝ่ายบริหารกิจการภายใน   (2 people)
-   ฝ่ายวิชาการ    top-level                      (0 people)
-   ฝ่ายวิชาการ    under ฝ่ายรังสีเทคนิค          (0 people)
-   ฝ่ายวิชาการ    under ฝ่ายเวชนิทัศน์           (0 people)
+   ฝ่ายประสานงาน  under ฝ่ายบริหารกิจการภายนอก  0 people   no role
+   ฝ่ายประสานงาน  under ฝ่ายบริหารกิจการภายใน   2 people   no role
+   ฝ่ายวิชาการ    top-level                      0 people   no role
+   ฝ่ายวิชาการ    under ฝ่ายรังสีเทคนิค          0 people   ⛔ HOLDS THE ROLE
+   ฝ่ายวิชาการ    under ฝ่ายเวชนิทัศน์           0 people   no role
    ```
-3. **OWNER — four near-matches**, a rename the exact match cannot see. Confirm
-   by hand or the tool will CREATE a duplicate empty role beside the one holding
-   the channel. `ฝ่าย ComArt (Communication Art)` has 16 members.
+   ⛔ **The ฝ่ายวิชาการ that won the adoption race has NOBODY in it.** It was
+   not chosen; it sorted first. If a different ฝ่ายวิชาการ was meant to own
+   `ฝ่ายวิชาการ` in Discord, that has to be moved by hand before anyone links.
+   Four of the five hold nobody, so this is mostly org-chart tidying: rename
+   them distinct, or untick the empty ones, in ทีม SAMO admin.
+   ⚠️ The provisioning plan reports **4** contested, not 5 — a node that already
+   holds a role is counted as `already mapped`. Both numbers are right; they
+   count different things.
+3. **OWNER — four near-matches**, a rename the exact match cannot see.
+   Re-measured live 2026-09-13: unchanged, still these four. Confirm by hand or
+   the tool will CREATE a duplicate empty role beside the one holding the
+   channel. `ฝ่าย ComArt (Communication Art)` has 16 members.
    ```
    ฝ่าย COMART                ≈ ฝ่าย ComArt (Communication Art)
    ฝ่ายจัดหาทุน                ≈ ฝ่ายจัดหาทุน (Fundraising)
@@ -1183,10 +1192,7 @@ still reaches the guild — §1, and item 6 below.
    position 181, and it is one of three bot members). The report warns about it
    every run. This is what closes the old
    leaked credential, and also the application id that was in the public repo.
-7. **Then: the remaining 59 roles**, on demand only — §8g.2. (This said **51**
-   until 2026-09-13; re-measured from `team_nodes`: 107 ticked, 48 mapped, 59
-   unmapped. The old figure predated the adoption run and had been quoted in a
-   role-cap argument since.) Adopt was free;
+7. **Then: the remaining 51 roles**, on demand only — §8g.2. Adopt was free;
    creating spends 51 of 70 remaining under Discord's hard 250 cap, on groups
    that gate no channel yet. Create one when a ฝ่าย asks for a channel or a ping.
 
