@@ -5,6 +5,17 @@ OWED. `docs/DISCORD-ROLE-SYNC.md` is the design. This file is only the
 mechanics, because they are non-obvious in three ways that cost time to
 rediscover.
 
+## ⛔ NOTHING HAS EVER BEEN WRITTEN TO DISCORD — keep it that way until asked
+
+No role has been created, assigned or removed by this system. Verified
+2026-09-13 from the guild itself: 183 roles, 48 mappings, newest written by the
+session before. **Every tool here plans by default and that is not an accident —
+do not pass `--apply` without the owner asking for that specific run in words.**
+
+The one thing outstanding is ONE role (`ฝ่าย รพ. ร่วมผลิต`, covers the 27 people
+who would otherwise get nothing). It has been put to the owner and **not
+answered**. `HANDOFF` §14b holds it.
+
 ## ⛔ The two credentials live in different places, and neither may move
 
 | | where | why it cannot move |

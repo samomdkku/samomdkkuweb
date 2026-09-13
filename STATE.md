@@ -154,8 +154,9 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    remove** (the one linked person is already correct); the write path IS
    proved against a STUB guild, which found a defect that killed every write.
    **1 linked · 107 ticked · 48 mapped · 183/250.** ✅ §7 1–4 done, 5 deferred.
-   ⛔ **NOT READY TO OPEN**: 59 ตำแหน่ง grant nothing, so 219 of 342 would link
-   and be short a role — `npm run discord:readiness`.
+   ⛔ **NOT READY TO OPEN — but the fix is ONE role, not 59:**
+   `ฝ่าย รพ. ร่วมผลิต` covers all 27 who would get NOTHING (`discord:readiness`).
+   ⛔ The owner has NOT said yes — do not create it.
    ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED: **`HANDOFF` §14b**. ✅ nginx
    drift CLOSED — `npm run check:routes` asks the SERVED host (a missing route
    answers 200 SPA, not 404). Mechanics: the skill.

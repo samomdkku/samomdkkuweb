@@ -179,7 +179,13 @@ If the owner says yes, on the VM: plan it, read it, then
   prior account is not the gate. Real figure 308. Read the live function body.
 - **Pushed a commit with a red test** — `;` between `npm test` and `git commit`
   instead of `&&`, so the failure printed and was ignored.
-- **FOUR instrument failures, and each first looked like a finding.** Twice a
+- **FIVE instrument failures, and each first looked like a finding.** ⛔ THE FIX
+  IS A METHOD, NOT VIGILANCE: **`grep` is the wrong instrument for prose.**
+  Markdown wraps sentences, and a line-based search cannot see a phrase split
+  across a newline — it returns 0 and reads as "missing". That happened twice
+  here, both times on a SAFETY warning I had actually written, and both times I
+  was one step from "correcting" a file that was already right. Normalise
+  whitespace first (`re.sub(r'\s+', ' ', text)`) and search that. Twice a
   `perl s///` without `/g` took the first of two matches, so a mutation "passed"
   and I read it as a gap in the test. Once, auditing this file, `grep -c` for a
   sentence returned 0 and I nearly reported the consent warning as MISSING — it

@@ -1143,6 +1143,11 @@ still reaches the guild — §1, and item 6 below.
 
 ### ⛔ WHAT IS LEFT BEFORE THIS CAN BE OPENED TO REAL PEOPLE
 
+⛔ **THE OWNER HAS NOT AGREED TO CREATE ANY ROLE. Do not create one.** Nothing
+has ever been written to Discord by this system — no role created, assigned or
+removed — and that is a fact worth keeping true until somebody says otherwise in
+words. Everything below is a measurement, not a task list.
+
 **Status: MEASURED 2026-09-13 — `npm run discord:readiness`, which needs no
 Discord token and re-runs this whole section in two seconds. Do not retype these
 numbers; run it.**
