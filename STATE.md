@@ -153,7 +153,8 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    remove** (the one linked person is already correct); the write path IS
    proved against a STUB guild, which found a defect that killed every write.
    **1 linked · 107 ticked · 48 mapped · 183/250 roles.** ✅ §7 steps 1–4 done;
-   ⛔ step 5 is not — the old bot is still in the server (owner will kick it).
+   step 5 owner-deferred. ⛔ **NOT READY TO OPEN**: 59 ตำแหน่ง grant nothing, so
+   219 of 342 would link and be short a role — `npm run discord:readiness`.
    ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED: **`HANDOFF` §14b**, rewritten
    from live state. ✅ **nginx drift CLOSED** — configs diff equal; `npm run
    check:routes` asks the SERVED host (a missing route answers 200 SPA, not
