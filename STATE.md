@@ -34,10 +34,10 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `e9379f1` (2026-09-13)** — v4.7.0 still, read back from the VM's
+- ✅ **DEPLOYED = `648ccad` (2026-09-13)** — v4.7.0 still, read back from the VM's
   own HEAD, not retyped. `<== exit 0` + `DEPLOY_EXIT=0`, 32 s. Docs step RAN:
-  `unlinking used to keep your` greps 1 on the served `/docs/state/HANDOFF`,
-  beside a shipped control; `npm run check:routes` green against prod. เชื่อมบัญชี Discord shipped in `08b48b0` — the
+  `HOLDS THE ROLE` greps 1 on the served `/docs/state/HANDOFF`, beside a shipped
+  control; `npm run check:routes` green against prod. เชื่อมบัญชี Discord shipped in `08b48b0` — the
   string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
