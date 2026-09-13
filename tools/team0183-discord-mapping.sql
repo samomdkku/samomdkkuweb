@@ -154,7 +154,48 @@ select id, row_number() over (order by id) as n
  where name = (select name from public.team_nodes
                 group by name having count(*) > 1 order by count(*) desc, name limit 1);
 
-insert into probe select '21. …and the worst one is held by 2+ nodes', 'true',
+-- ⛔ THIS SCENARIO CAN RUN OUT, AND IT IS BEING ASKED TO.
+--
+-- §22-24 need two nodes that share a NAME. Until now they were FOUND in
+-- production, which works only while production happens to contain a pair —
+-- and HANDOFF §14b item 2 asks the owner to rename or untick five contested
+-- ฝ่าย for exactly this reason.
+--
+-- ⚠️ MEASURED, not assumed, by forcing the twins query to match no name
+-- (2026-09-13): the old version went RED — 21 false, and 22/23/24 all answering
+-- `deny-rls`. It did NOT pass vacuously; `pg_temp.attempt` scores a zero-row
+-- UPDATE as deny-rls rather than ok, which is the "three answers, not two"
+-- instrument at the top of this file doing its job. (An earlier draft of this
+-- comment claimed a vacuous pass. It was wrong, and the run is what said so.)
+--
+-- That is still the defect, in its other costume: the proof fails, and it fails
+-- SAYING `deny-rls` — pointing the next reader at a row-security problem that
+-- does not exist, when the truth is that the scenario ran out. A misdiagnosis
+-- costs more than a plain failure.
+--
+-- The rule this repo has already paid for: if the thing a proof needs can run
+-- out, CREATE it — do not relax what the scenario asks for. So a real pair is
+-- still preferred (it is the shape the application actually produces), and if
+-- there is none, one is built by copying a node beside itself. Rolled back
+-- either way, and 21 says a pair was available rather than hiding it.
+do $$
+declare n_twins int;
+begin
+  select count(*) into n_twins from twins;
+  if n_twins < 2 then
+    create temporary table twin_seed on commit drop as
+      select * from public.team_nodes order by id limit 1;
+    update twin_seed set id = gen_random_uuid();
+    insert into public.team_nodes select * from twin_seed;
+    delete from twins;
+    insert into twins
+      select id, row_number() over (order by id)
+        from public.team_nodes
+       where name = (select name from twin_seed);
+  end if;
+end $$;
+
+insert into probe select '21. …and a same-named pair is available to test', 'true',
   (select (count(*) > 1)::text from twins);
 
 insert into probe select '22. one of the twins CAN be mapped to a role', 'ok',
@@ -214,15 +255,35 @@ insert into probe select '42. …while the public org chart still answers', 'tru
 
 -- ── §E the seed is a starting point, not a verdict ──────────────────────────
 -- 0183 ticks only ฝ่าย and the คณะกรรมการ positions the owner had already
--- marked — never a name pattern. These two say the seed RAN and that it did not
--- run away with the whole tree; if a later edit turned the seed into "tick
--- everything", 51 would go red.
+-- marked — never a name pattern. These say the seed RAN and that it did not run
+-- away with the whole tree.
 insert into probe select '50. the seed ticked something', 'true',
   (select (count(*) > 0)::text from public.team_nodes where discord_role);
 
-insert into probe select '51. …and left the majority untouched', 'true',
-  (select (count(*) filter (where not discord_role) > count(*) filter (where discord_role))::text
-     from public.team_nodes);
+-- ⛔ 51 USED TO ASSERT A RATIO, AND IT WAS 42 TICKS FROM A FALSE RED.
+--
+-- It read `untouched > ticked` over the LIVE tree. Measured 2026-09-13: 107 of
+-- 299 ticked, so it flips at 150 — and STATE.md says the remaining nodes ARE
+-- THE OWNER'S REVIEW. The owner doing exactly the work asked of them turns this
+-- red while nothing is wrong, and the fastest way back to green is to edit the
+-- number, which is how a guard stops meaning anything.
+--
+-- That is team0184's defect precisely: it asserted "exactly 2 roles" and went
+-- red BECAUSE a provisioning run succeeded — describing the data it happened to
+-- see rather than the rule. The rule the comment above actually states is "the
+-- seed did not run away with the whole tree", so that is what is asserted now,
+-- and no amount of owner review falsifies it.
+insert into probe select '51. …and did not sweep the whole tree', 'true',
+  (select (count(*) filter (where not discord_role) > 0)::text from public.team_nodes);
+
+-- THE CONTROL for 51, over a synthetic tree rather than the real one — a
+-- sweeping seed is the thing it exists to catch, and provoking it for real
+-- would mean updating 299 live rows through a permission-recompute trigger just
+-- to roll them back. Without this, an expression that can never be false would
+-- report a healthy seed for ever.
+insert into probe select '51b. …and its detector would catch a swept tree', 'false',
+  (select (count(*) filter (where not discord_role) > 0)::text
+     from (values (true), (true), (true)) as swept(discord_role));
 
 -- No hidden node got a role. อาจารย์ / เจ้าหน้าที่คณะ are not in the student
 -- Discord, and a ticked hidden node would hand them a channel.

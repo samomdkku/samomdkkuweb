@@ -81,7 +81,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0186. ALL 38 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 22/22 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **The apply tool now exists and has never written anything** — §14b, its one home. HANDOFF §11 and §13c both CLOSED.
+- **Migrations through 0186. ALL 38 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 23/23 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **The apply tool now exists and has never written anything** — §14b, its one home. HANDOFF §11 and §13c both CLOSED.
   ⚠️ A proof can be GREEN WHILE BROKEN because the environment happened to be
   quiet — both Claude quota proofs were, until they CONSTRUCTED the absence
   they assume (`docs/mistakes/tooling-proofs.md`; counts live in the proofs).
@@ -146,9 +146,8 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT.** An intermittent fault is never
    disproven by successes; this entry once claimed the opposite. Read the VM's
    `~/samo-deploy-logs` trace before theorising. Status: CURRENT DEPLOY, above.
-3. ✅ **PASSPORT REPO MERGE — COMPLETE.** One pull, one `npm ci`, one build. Old
-   repo ARCHIVED. ⛔ **Never delete OR replace the `samomdkkupassport` Cloudflare
-   project** — `docs/INVARIANTS.md` is its home.
+3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete or
+   replace the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
 4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; THE APPLY TOOL IS BUILT AND HAS
    NEVER WRITTEN IN THE REAL GUILD (2026-09-13).** Live plan = **0 add, 0
    remove** (the one linked person is already correct); the write path IS
@@ -156,8 +155,9 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    **1 linked · 107 ticked · 48 mapped · 183/250 roles.** ✅ §7 steps 1–4 done;
    ⛔ step 5 is not — the old bot is still in the server (owner will kick it).
    ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED: **`HANDOFF` §14b**, rewritten
-   from live state — do not summarise either here. ⛔ `/discord/*` nginx routes
-   are in the VM's live config ONLY. Mechanics: `skills/discord-role-sync.md`.
+   from live state. ✅ **nginx drift CLOSED** — configs diff equal; `npm run
+   check:routes` asks the SERVED host (a missing route answers 200 SPA, not
+   404). Mechanics: the skill.
 
 ### B. OWNER ONLY
 

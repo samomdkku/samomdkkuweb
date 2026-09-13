@@ -281,7 +281,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The Discord app id was redacted from `docs/` and left in `.claude/rules/`
 - Every Discord role write would have thrown before it was sent
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(24)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(25)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -309,8 +309,9 @@ Open when: deploy.sh, nginx, cache headers.
 - Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
 - `.mjs` served as `application/octet-stream`
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
+- A missing nginx `location` does not 404
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(55)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(56)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -369,6 +370,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A brand-new guard was green on the laptop and red on CI within an hour
 - Two live proofs went red, and STATE.md recorded the wrong cause
 - A redaction written against the healthy shape prints the secret on the broken one
+- `team0183` had the "describes today's data" defect TWICE, and one of them was 42 ticks from a false red
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -414,4 +416,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_352 entries across 10 files._
+_354 entries across 10 files._

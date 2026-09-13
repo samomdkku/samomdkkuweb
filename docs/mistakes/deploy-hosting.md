@@ -1110,3 +1110,68 @@ both cheap:
   positive case in the same breath — and the control must come from **the same
   artefact**, which is the sibling mistake made twice in one session (a control
   phrase taken from a different docs page, `tooling-proofs.md`).
+
+---
+
+## A missing nginx `location` does not 404 — it serves 217 KB of the public SPA with HTTP 200, and the doc warning about it was itself stale
+
+**Symptom (latent, caught before it bit).** `docs/state/HANDOFF.md` §14b carried:
+
+> `/discord/config` and `/discord/callback` exist ONLY in the VM's
+> `/etc/nginx/sites-available/default` … the two have drifted. A reinstall from
+> the repo copy silently drops both routes and เชื่อมบัญชี Discord stops working
+> with no error in any log. **No guard exists for this.**
+
+Two separate problems, in opposite directions.
+
+**Cause 1 — the warning was false, and it discouraged the safe action.** Diffed
+live-vs-repo on 2026-09-13: both files are 267 lines, `server/nginx-samo.conf`
+declares both `/discord/*` routes, and the ONLY difference is comment prose
+(`→` against `->`). Someone had brought the repo copy into step and the trap
+text was never corrected. For as long as it stood it said *never reinstall from
+the repo* — an untested constraint in a doc closing off the right action, the
+same shape as the Bitwarden-subpath claim one command disproved.
+
+**Cause 2 — the underlying hazard is real, and it is silent for a reason nobody
+had written down.** A missing `location` block does **not** 404. nginx falls
+through to `location /` and serves the public SPA index. Measured on this host,
+for a path that has never existed:
+
+```
+HTTP 200   content-type: text/html   217,928 bytes
+```
+
+A page that renders perfectly. So the OAuth callback would return the SPA, the
+browser would show the portal, and nothing anywhere would record a fault. "I
+opened it and the site came up" is the SYMPTOM being read as the check.
+
+**Fix — two guards, because neither can reach the other's half.**
+
+- `src/js/nginx-routes.test.js` asserts the REPO copy still declares every route
+  the app cannot work without, each named with what a person loses if it goes
+  (`/passport/` → "82% of printed QR posters point at it"). That is what makes a
+  reinstall safe. It strips comments before matching, so a route mentioned in
+  prose cannot satisfy it, and it pins the Discord routes as `=` exact matches —
+  `location /discord/` would hand the whole subtree to the Node service. It
+  cannot see the live file; no test can, the VM is behind a VPN.
+- `npm run check:routes` (`tools/check-live-routes.mjs`) asks the SERVED host.
+  **Each route is identified by a marker only it produces** — `/admin/` by the
+  `assets/admin-` bundle its HTML names, `/discord/callback` by being a redirect
+  rather than a page, `/notify` by the service naming itself — never by status,
+  because the failure answers 200, and never by size. It probes a path that has
+  never existed FIRST: if that stops looking like a fall-through, it reports
+  that its verdicts cannot be trusted instead of printing a clean run.
+
+Both were watched failing: four route removals against the repo copy, and the
+live checker pointed at a stub that serves the SPA for everything (7 of 7 red,
+each naming what breaks) and at a stub that 404s everything (control refuses to
+trust the run).
+
+**The general rule.** *Ask what a missing thing LOOKS like before deciding how to
+check for it.* A 404 is a courtesy some systems extend and others do not: nginx
+falls through, and the fall-through is a success page. When a component's
+absence produces a plausible response, the check must key on something only the
+present component emits — and needs a control that would notice if the
+background changed. And when a doc records a constraint ("these have drifted",
+"the CLI needs a bare root"), **it is a measurement with an expiry date**: date
+it, or re-measure it before letting it stop you.

@@ -77,26 +77,65 @@ check and not a one-off confirmation.
 ## ⛔ Re-run the proofs after ANY provisioning run
 
 ```bash
-node tools/db-query.mjs tools/team0183-discord-mapping.sql   # 22
-node tools/db-query.mjs tools/team0184-discord-targets.sql   # 18
-node tools/db-query.mjs tools/team0185-link-codes.sql        # 29
+node tools/db-query.mjs tools/team0183-discord-mapping.sql
+node tools/db-query.mjs tools/team0184-discord-targets.sql
+node tools/db-query.mjs tools/team0185-link-codes.sql
 ```
 
+⛔ **No expected count here on purpose — every row must say PASS.** The counts
+used to be written beside each line, and they had FOUR homes between this file,
+STATE.md, the handoff and the design doc; adding one assertion meant correcting
+all four, which is how one of them goes stale and starts lying.
+
 `team0184` went 18/18 → 16/2 on 2026-09-12 **because a provisioning run
-succeeded** — it asserted an exact role count, which described the data it
-happened to see rather than the rule. Fixed to assert the property, but the
-other two plausibly have the same shape somewhere and nobody has provoked it.
+succeeded** — it asserted an exact role count, describing the data it happened
+to see rather than the rule. This file used to add that the other two "plausibly
+have the same shape and nobody has provoked it". **Provoked 2026-09-13, and
+team0183 had it twice:**
 
-## ⛔ nginx is NOT deployed from this repo
+- **§51 asserted a RATIO** (`untouched > ticked`) over the live tree — 107 of
+  299, so 42 more ticks would have turned it red, and ticking the rest is
+  exactly what the owner is asked to do. Now asserts the rule its own comment
+  states (the seed did not sweep the whole tree), with a control.
+- **§22-24 FOUND their two same-named nodes in production** instead of creating
+  them — and §14b item 2 asks the owner to rename the contested ฝ่าย. Forced
+  into a duplicate-free world it went red with `deny-rls` on three assertions,
+  pointing the reader at a row-security problem that does not exist. It now
+  builds the pair if production has none.
 
-`/discord/config` and `/discord/callback` exist only in the VM's
-`/etc/nginx/sites-available/default`, added by hand. **`server/nginx-samo.conf`
-in this repo is not what nginx serves** and the two have drifted. A reinstall
-from the repo copy silently drops both routes and เชื่อมบัญชี Discord stops
-working with nothing in any log. No guard exists for this.
+`team0185` was read for the same shape and its assertions are properties or its
+own fixtures.
 
-To change nginx: back the live file up, edit it, `nginx -t`, then reload — and
-make the same edit in the repo copy so the drift does not widen.
+## ⛔ nginx is NOT deployed from this repo — but it is no longer UNGUARDED
+
+`deploy.sh` never installs nginx config; that is always a separate step. So the
+live `/etc/nginx/sites-available/default` and `server/nginx-samo.conf` can
+diverge, and `/discord/config` + `/discord/callback` were added to the live one
+by hand.
+
+✅ **Diffed 2026-09-13: they are in step** — same 267 lines, the only difference
+being comment prose. An install from the repo copy is safe today. (This file
+previously said they had drifted and that a reinstall would drop both routes.
+It was stale, and it discouraged the safe action for as long as it stood.)
+
+⛔ **A MISSING `location` DOES NOT 404.** nginx falls through to `location /`
+and serves the public SPA: measured, **200 `text/html`, 217,928 bytes**, a page
+that looks entirely fine. That is why this failure has no log line and why
+"I opened it and it came up" proves nothing.
+
+```bash
+npm run check:routes     # asks the SERVED host; exits 1 if a route fell through
+```
+
+It identifies each route by a marker only that route produces — `/admin/` by
+the `assets/admin-` bundle its HTML names, `/discord/callback` by being a
+redirect rather than a page — and it probes a path that has NEVER existed first,
+so if the host stops falling through it says the verdicts cannot be trusted
+instead of reporting success. `src/js/nginx-routes.test.js` covers the other
+half, which no live probe can: that the repo copy still declares every route.
+
+To change nginx: back the live file up, edit it, `nginx -t`, reload — then make
+the same edit in the repo copy and run both guards.
 
 ## Where each piece lives
 

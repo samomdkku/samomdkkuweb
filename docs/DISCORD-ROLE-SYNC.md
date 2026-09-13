@@ -17,7 +17,7 @@ identify anybody.
 
 ✅ **§8b is DECIDED (2026-09-12): option A** — the bot lives in `discord-bot/`
 in this repo. ✅ **Phase 1's portal half is APPLIED and PROVED**: migration 0183
-and `tools/team0183-discord-mapping.sql`, 22/22, watched failing before the
+and `tools/team0183-discord-mapping.sql`, 23/23, watched failing before the
 migration went in. ⛔ **§7 still blocks every line of bot code**, and phase 2
 cannot be attempted before §7 step 4 is confirmed.
 

@@ -26,6 +26,7 @@
     "discord:report": "node tools/discord-report.mjs",
     "discord:provision": "node tools/discord-provision.mjs",
     "discord:apply": "node tools/discord-apply.mjs",
+    "check:routes": "node tools/check-live-routes.mjs",
     "proofs": "node tools/run-proofs.mjs",
     "proofs:dev": "node tools/run-proofs.mjs --dev",
     "smoke:browser": "node tools/smoke-browser.mjs",

@@ -1057,7 +1057,7 @@ why under-showing relative to RLS is the safe direction.
 
 **Status: VERIFIED 2026-09-13 — how:** every claim below was read from the live
 system, not from a plan. Migrations 0183–0186 applied to production; proofs
-`team0183` 22/22, `team0184` 18/18, `team0185` 29/29; the OAuth flow completed
+`team0183` 23/23, `team0184` 18/18, `team0185` 29/29; the OAuth flow completed
 by a real human (the owner); the guild read with `npm run discord:report`; the
 48 mappings written by `tools/discord-provision.mjs --adopt-only`; and on
 2026-09-13 the apply tool run read-only against the live guild, which is where
@@ -1172,12 +1172,23 @@ still reaches the guild — §1, and item 6 below.
 
 ### ⛔ Traps a next session must not re-derive
 
-- **`/discord/config` and `/discord/callback` exist ONLY in the VM's
-  `/etc/nginx/sites-available/default`**, added by hand (backed up, `nginx -t`).
-  `server/nginx-samo.conf` in this repo is NOT what nginx serves and the two have
-  drifted. A reinstall from the repo copy silently drops both routes and
-  เชื่อมบัญชี Discord stops working with no error in any log. **No guard exists
-  for this.**
+- ✅ **THE NGINX DRIFT IS CLOSED — and this entry was STALE, which is worth
+  saying.** It read "`/discord/config` and `/discord/callback` exist ONLY in the
+  VM's config … the two have drifted … **no guard exists for this**". Diffed on
+  2026-09-13: the repo copy has both routes, both files are 267 lines, and the
+  ONLY difference is comment prose (`→` vs `->`). A reinstall from
+  `server/nginx-samo.conf` is safe today. **An untested constraint in a doc
+  closes off the right action for as long as it survives** — here, "never
+  reinstall from the repo".
+  ⛔ **WHAT MAKES IT SILENT IS WORTH KEEPING**: a missing `location` does not
+  404. nginx falls through to `location /` and serves the public SPA —
+  measured, **200 `text/html`, 217,928 bytes** of a page that renders perfectly.
+  So "I opened it and the site came up" is the symptom, not the check.
+  Two guards now, because neither reaches the other's half:
+  `src/js/nginx-routes.test.js` asserts the REPO copy still declares each route
+  (which is what makes an install safe), and **`npm run check:routes`** asks the
+  SERVED host, identifying each route by a marker only it produces — with a
+  control that refuses to report a clean run if the host stops falling through.
 - **`SUPABASE_SERVICE_ROLE_KEY` is on the VM** (`/etc/samo-notify.env`, 0600),
   re-introduced after being unused. It bypasses every RLS policy and is pinned
   to ONE rpc, asserted by `src/js/discord-oauth.test.js`.

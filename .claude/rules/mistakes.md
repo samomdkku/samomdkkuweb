@@ -320,6 +320,12 @@ it is the part that generalises to code not yet written.
    PRODUCTION credentials they must never be sent, so it failed on a CORRECT
    setup and blamed the reader (`tooling-proofs.md`).
 
+   **A MISSING THING CAN ANSWER 200**: an absent nginx `location` falls through
+   to `location /` and serves the SPA — 217,928 bytes that render. Key on a
+   marker only the PRESENT component emits. And ask WHO may change a proof's
+   subject: 0183 asserted a tick RATIO the owner was ASKED to change, 42 ticks
+   from false red (`deploy-hosting.md`).
+
    **A PERMISSIVE SIBLING MASKS A BROKEN POLICY FOR AS LONG AS ITS CONDITION
    HOLDS.** 0114's `project_files_read_public` needs no new row, so it carried
    every professor upload for three months while the prof branch was dead — the
@@ -398,8 +404,8 @@ shaving the classes, which are the only part that generalises.
 - `frontend-ui.md` *(89)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(31)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
-- `deploy-hosting.md` *(24)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(55)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `deploy-hosting.md` *(25)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
+- `tooling-proofs.md` *(56)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

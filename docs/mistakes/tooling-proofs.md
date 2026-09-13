@@ -2729,3 +2729,75 @@ has been verified on the one input that was never going to leak. This is class
 7's instrument trap in its sharpest form — the guard fails green on the healthy
 case and fails *open* on the case it exists for — and class 2 underneath it, an
 unresolvable reference answering "allowed".
+
+---
+
+## `team0183` had the "describes today's data" defect TWICE, and one of them was 42 ticks from a false red
+
+**Symptom.** None yet — both were provoked deliberately. `skills/discord-role-sync.md`
+carried a standing note that `team0184` had gone `18/18 → 16/2` **because a
+provisioning run succeeded**, and that "the other two plausibly have the same
+shape somewhere and nobody has provoked it". Provoked on 2026-09-13.
+
+**Defect 1 — an assertion that measured a RATIO of live data the owner is being
+asked to change.**
+
+```sql
+insert into probe select '51. …and left the majority untouched', 'true',
+  (select (count(*) filter (where not discord_role) > count(*) filter (where discord_role))::text
+     from public.team_nodes);
+```
+
+Measured: **107 of 299 ticked**, so it flips at 150 — **42 more ticks**. And
+`STATE.md` says in as many words that the remaining nodes *are the owner's
+review*. So the owner doing exactly the work asked of them turns this red while
+nothing is wrong, and the fastest route back to green is to edit the comparison,
+which is how a guard stops meaning anything.
+
+The comment above it stated the real rule — *"if a later edit turned the seed
+into 'tick everything', 51 would go red"* — and the SQL did not implement it. It
+now asserts that rule directly (some node remains unticked), with a control over
+a synthetic all-ticked tree, because provoking the real thing would mean
+updating 299 live rows through a permission-recompute trigger in order to roll
+them back.
+
+**Defect 2 — a scenario FOUND in production rather than created, which
+production is being asked to remove.** §22-24 need two `team_nodes` sharing a
+name, and took them from whatever duplicate production happened to hold. HANDOFF
+§14b item 2 asks the owner to rename or untick five contested ฝ่าย — i.e. the
+proof's subject is on somebody's cleanup list. It now prefers a real pair (the
+shape the application actually produces) and BUILDS one when there is none.
+
+**⚠️ And the claim written into the fix was wrong until the run corrected it.**
+The comment first said a duplicate-free world would make §22-24 pass VACUOUSLY —
+an UPDATE matching no rows raises nothing, so "22 answers ok having changed
+nothing". Forcing that world showed the opposite: **4 FAIL**, with 22/23/24 all
+answering `deny-rls`, because this proof's own `pg_temp.attempt()` scores a
+zero-row UPDATE as `deny-rls` rather than `ok` — the "three answers, not two"
+instrument in its preamble doing precisely its job.
+
+That is still a defect, in its other costume: the proof fails **saying
+`deny-rls`**, sending the next reader after a row-security problem that does not
+exist when the truth is that the scenario ran out. A misdiagnosis costs more
+than a plain failure. But the write-up had to be corrected to what was measured,
+not what was reasoned.
+
+**A third thing the fix exposed: the expected count had FOUR homes.** `22` was
+written in `STATE.md`, `docs/DISCORD-ROLE-SYNC.md`, `docs/state/HANDOFF.md` and
+`skills/discord-role-sync.md`. Adding one assertion meant correcting all four —
+which is how one of them stays stale and starts lying. The skill, the
+operational home where a wrong number does the most damage, now carries **no
+count at all**: every row must say PASS.
+
+**Where it lives now.** `tools/team0183-discord-mapping.sql` §B and §E;
+`skills/discord-role-sync.md`.
+
+**The general rule.** *When a proof's subject is on somebody's to-do list, the
+proof is scheduled to break.* Both defects here read live state that a HUMAN has
+been explicitly asked to change — the tick-box the owner is reviewing, the
+duplicate names the owner is renaming — so "green today" was a statement about
+how far through their task they were. Before trusting an assertion over
+production data, ask **who is allowed to change this, and has someone been asked
+to?** If the answer is yes, assert the rule instead, and construct whatever
+geometry the scenario needs. And never let a proof's expected count live in more
+than one place; better, let it live in none, and require every row to pass.
