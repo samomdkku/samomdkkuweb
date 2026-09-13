@@ -19,7 +19,9 @@ path named here must resolve.
 ## ▶ HANDOFF 2026-09-13, END OF SESSION — read this before anything else
 
 **Status of the code: clean.** 2055 tests, build green, **39 of 39 live proofs
-green**, SEVEN deploys, all verified from the SERVED artifact. Nothing half-finished
+green**, every deploy verified from the SERVED artifact (`git log` has the
+count — it was written here as a number and went stale within the hour, which
+is the whole reason this file must not carry decaying facts). Nothing half-finished
 in the tree. Migration **0187** applied to production.
 
 ⛔ **NOTHING HAS BEEN WRITTEN TO DISCORD. EVER.** Not a role created, not a role
@@ -109,9 +111,13 @@ said yes.**
      owner steps are done except step 5" three paragraphs above "§7 still blocks
      every line of bot code". It also still said nothing could sync and
      presented §8b as settled when §8b-bis had reopened it.
-   - **Two numbers in THIS handoff were wrong**: "six deploys" (seven) and
-     "STATE.md is at 258 of a 260-line ceiling", which reads as two spare when
-     there are ZERO.
+   - **Two numbers in THIS handoff were wrong.** "six deploys" — it was seven,
+     and by the time I corrected it, eight, so the fix was to DELETE the count
+     rather than re-correct it: a tally in a handoff goes stale on the next
+     deploy, and `git log` already has it. And "STATE.md is at 258 of a 260-line
+     ceiling", which reads as two spare when the guard measures
+     `split('\n').length` and the real headroom is ZERO. A wrong safety margin
+     is worse than none.
 
 ### ⛔ THE ONE DECISION WAITING, AND IT IS SMALL
 
