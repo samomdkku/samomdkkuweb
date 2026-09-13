@@ -573,6 +573,42 @@ added today were each compressed twice to fit, and one was folded into a
 neighbouring sentence rather than standing alone. That is the intended pressure
 working; it just means budgeting a few minutes for it.
 
+### ⛔ `passport-link-on-signup.sql` is RED on samo-dev and GREEN on production
+
+`npm run proofs:dev` reports `3 failed — signing in re-keys the carried
+profile`. **You did not break it.** It passes 12/12 on production with the
+identical migrations. It names no Discord object and deletes no `people`, so
+nothing 0183–0187 added is reachable from it; it wants a "carried student" that
+dev's data copy may not have. ⚠️ **Not diagnosed, and not certified harmless** —
+that is reasoning, not proof. Recorded 2026-09-13 so the next session does not
+spend an hour assuming it is their change.
+
+### ⛔ RUN `migrate:status` FOR **BOTH** PROJECTS AFTER ANY MIGRATION
+
+Two failures found on 2026-09-13 that nothing else could see — not tests, not
+the build, not the app:
+
+- **A migration was EDITED after it ran.** `migrate:status` says
+  `EDITED AFTER RECORDING — the file no longer matches what was applied`. It was
+  comments over idempotent DDL, so re-applying fixed the record. ⛔ **If the edit
+  touches DDL, re-applying is the WRONG move** — write a new migration.
+- **samo-dev had drifted four migrations** while `STATE.md` said "in step". Ask
+  `npm run migrate:status -- --dev`, never the sentence.
+
+⚠️ **Read the WHOLE pending list before applying.** A `tail -6` hid 0183, so
+0185 applied without its parent table. A migration that succeeds out of order
+leaves a database no file describes.
+
+### ⛔ `grep` IS THE WRONG INSTRUMENT FOR PROSE
+
+Markdown wraps sentences, so a line-based search cannot see a phrase split
+across a newline. On 2026-09-13 it returned 0 twice for a safety warning that
+WAS present, and both times the next step would have been to "correct" a file
+that was already right. Normalise first — `re.sub(r'\s+', ' ', text)` — then
+search. Same discipline for a mutation test: confirm the edit landed before
+concluding a guard is blind (`perl s///` without `/g` took the first of two
+matches, twice).
+
 ### ⛔ `STATE.md` has ZERO lines of headroom
 
 258 lines, and `state-handoff.test.js` asserts `split('\n').length < 260` — which
