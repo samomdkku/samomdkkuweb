@@ -95,10 +95,29 @@ describe('npm scripts named in documentation exist', () => {
   });
 
   it('every `npm run <name>` in the getting-started pages is a real script', () => {
-    // Scoped to the pages a newcomer follows literally — elsewhere a doc may
-    // discuss a script from another repo or a proposed one.
-    const pages = FILES.filter((f) => f.startsWith('docs/start/') || f === 'README.md');
+    // ⛔ SCOPE WIDENED 2026-09-13, because the narrow version had already let
+    // the exact bug through once. It covered only the pages a NEWCOMER follows,
+    // on the reasoning that elsewhere a doc may discuss a proposed script. But
+    // `skills/`, `STATE.md` and `docs/state/` are not discussion — they are the
+    // instructions a next session follows LITERALLY, and f1be75a exists because
+    // `npm run discord:report` was written into the handoff before the script
+    // existed. A cold session runs what the handoff says; if it is not there,
+    // the session starts by debugging the documentation.
+    //
+    // Measured before widening: 14 more files, zero new failures. `docs/` at
+    // large is still out of scope — a design doc legitimately proposes commands
+    // that are not built, and `docs/mistakes/` must be able to QUOTE a broken
+    // one (see the exclusion at the top of this file).
+    const pages = FILES.filter((f) => f.startsWith('docs/start/')
+      || f.startsWith('skills/')
+      || f.startsWith('docs/state/')
+      || f === 'README.md'
+      || f === 'STATE.md');
     expect(pages.length, 'the getting-started sweep found no pages').toBeGreaterThan(3);
+    expect(pages, 'the handoff must be in scope — it is what a cold session runs')
+      .toContain('docs/state/HANDOFF.md');
+    expect(pages.some((f) => f.startsWith('skills/')),
+      'skills are followed literally and must be in scope').toBe(true);
     const missing = [];
     for (const f of pages) {
       const text = readFileSync(join(ROOT, f), 'utf8');

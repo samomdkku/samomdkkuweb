@@ -1,4 +1,24 @@
-# Skill — Cloudflare Pages Function for Discord notifications (`/notify`)
+# Skill — the `/notify` Discord notification service
+
+⛔ **CLOUDFLARE PAGES IS RETIRED — this skill's TITLE and hosting are stale, its
+CODE pointers are not.** Corrected 2026-09-13 rather than rewritten, because the
+handler really is unchanged.
+
+- **Where it runs now:** `server/notify-server.mjs` on the KKU VM, as the
+  systemd unit `samo-notify`, reached through nginx's `location = /notify`.
+  It imports `functions/notify.js`'s `onRequestPost` **unmodified** — so every
+  code pointer below is still right, and `functions/` is still the one home for
+  the builders and the router.
+- **Where the webhook URLs live now:** `/etc/samo-notify.env` on the VM (root,
+  `0600`). ⛔ **NOT in the Cloudflare dashboard** — env vars set there reach
+  nothing, so a secret "stored" in it is lost, not stored
+  (`.claude/rules/security.md`).
+- **`appscript/vssound.gs` DOES NOT EXIST.** It was deleted in `9686bb2` when
+  Discord moved off GAS, and this file still told you to assemble
+  `DISCORD_VS_WEBHOOKS` from its `WEBHOOK_MAP`. The live values are in
+  `/etc/samo-notify.env`; `appscript/` holds only `prform.gs` now.
+- Reading a secret env file without printing it: `server/check-env-file.sh`.
+
 
 All Discord notifications (PR, Vital Sign, หนังสือโครงการ) are proxied by a
 single Cloudflare Pages Function instead of GAS. GAS still owns Drive uploads
@@ -21,7 +41,7 @@ preview) → Settings → Environment variables → add for **Production** (and
 |---|---|
 | `DISCORD_PR_WEBHOOK` | PR-team webhook (was `DISCORD_WEBHOOK_URL` const in `appscript/prform.gs`) |
 | `DISCORD_PROJECTS_WEBHOOK` | projects/VPA webhook (was GAS Script Property `PROJECT_DISCORD_WEBHOOK_URL`) |
-| `DISCORD_VS_WEBHOOKS` | **JSON** map `{ "<dept>": "<webhook>", ... }` incl. `"SE"` — assemble from the `WEBHOOK_MAP` in `appscript/vssound.gs` |
+| `DISCORD_VS_WEBHOOKS` | **JSON** map `{ "<dept>": "<webhook>", ... }` incl. `"SE"` — read from `/etc/samo-notify.env` on the VM — `appscript/vssound.gs` was DELETED in `9686bb2` |
 
 `DISCORD_VS_WEBHOOKS` shape (keys are the exact Thai dept strings + `SE`):
 
@@ -52,7 +72,7 @@ trigger a redeploy after — env-var changes apply to the next deployment.
 
 ## Rotate the webhooks when you do this
 
-The current webhook URLs (PR const + the 11 VS webhooks in `vssound.gs`)
+The current webhook URLs (PR const + the VS webhooks, now only in `/etc/samo-notify.env`)
 were exposed in chat/repo history. When migrating, regenerate them in
 Discord → Server Settings → Integrations → Webhooks → Edit → Copy new URL,
 and paste the **fresh** URLs into the Cloudflare env vars (not the old ones).

@@ -19,7 +19,7 @@ path named here must resolve.
 ## ▶ HANDOFF 2026-09-13, END OF SESSION — read this before anything else
 
 **Status of the code: clean.** 2055 tests, build green, **39 of 39 live proofs
-green**, six deploys, all verified from the SERVED artifact. Nothing half-finished
+green**, SEVEN deploys, all verified from the SERVED artifact. Nothing half-finished
 in the tree. Migration **0187** applied to production.
 
 ⛔ **NOTHING HAS BEEN WRITTEN TO DISCORD. EVER.** Not a role created, not a role
@@ -84,6 +84,35 @@ said yes.**
 7. **The cap check undercounted by every managed role** (180/250 reported where
    the truth was 183). Harmless at 94%, exactly wrong at the wall.
 
+8. **Found while auditing this handoff, not while working** — the owner asked
+   me to sweep it for gaps and each of these was one:
+   - **`docs/CONTEXT.md` did not know 0187 existed** and its heading still read
+     `0183`–`0186`. The end-of-turn loop requires CONTEXT for a schema change
+     and I had skipped it. Now carries the table, the trigger, the three doors
+     and the no-FK warning.
+   - **The "is this script real?" sweep covered only `docs/start/` and
+     `README.md`** — not `skills/`, `STATE.md` or `docs/state/`. That is exactly
+     the gap `f1be75a` fixed this week (`npm run discord:report` was written
+     into the handoff before the script existed). Widened to the files a session
+     follows LITERALLY; measured first, 14 more files and zero new failures, and
+     watched catching a deliberate typo in a skill.
+   - **`skills/cloudflare-notify-function.md` presented a RETIRED architecture
+     as current** and told you to read webhook values out of a GAS file deleted
+     in `9686bb2` (the skill names it; this line does not, because the
+     dead-pointer sweep over `docs/state/` correctly flagged the path when I
+     first wrote it here — and an exemption list is the wrong fix, since this
+     repo has already had an exemption outlive the absence it excused). Its CODE
+     pointers are still right —
+     `server/notify-server.mjs` imports `functions/notify.js` unmodified — so it
+     was corrected, not rewritten.
+   - **`docs/DISCORD-ROLE-SYNC.md`'s own header contradicted itself**: "§7's
+     owner steps are done except step 5" three paragraphs above "§7 still blocks
+     every line of bot code". It also still said nothing could sync and
+     presented §8b as settled when §8b-bis had reopened it.
+   - **Two numbers in THIS handoff were wrong**: "six deploys" (seven) and
+     "STATE.md is at 258 of a 260-line ceiling", which reads as two spare when
+     there are ZERO.
+
 ### ⛔ THE ONE DECISION WAITING, AND IT IS SMALL
 
 The owner was shown this and has not answered. **Do not act on it without an
@@ -119,9 +148,13 @@ If the owner says yes, on the VM: plan it, read it, then
   prior account is not the gate. Real figure 308. Read the live function body.
 - **Pushed a commit with a red test** — `;` between `npm test` and `git commit`
   instead of `&&`, so the failure printed and was ignored.
-- **Two mutation runs landed on the wrong line and I read them as gaps in the
-  tests.** `perl s///` without `/g` took the first of two matches. Check the
-  mutation applied before concluding the guard is blind.
+- **THREE instrument failures, and each first looked like a finding.** Twice a
+  `perl s///` without `/g` took the first of two matches, so a mutation "passed"
+  and I read it as a gap in the test. Once, auditing this file, `grep -c` for a
+  sentence returned 0 and I nearly reported the consent warning as MISSING — it
+  was there, wrapped across a line break, which a line-based grep cannot see.
+  **When a sweep says something is absent, open the file before believing it**;
+  and check a mutation actually applied before concluding a guard is blind.
 
 ### ⛔ Tooling that will bite the next session
 
@@ -129,7 +162,10 @@ If the owner says yes, on the VM: plan it, read it, then
   will not fit and `npm test` will fail on it. Do not raise the cap and do not
   shave the seven classes — compress recently added SITES. `HANDOFF` §9 has the
   full note.
-- **`STATE.md` is at 258 of a 260-line ceiling.** Same shape.
+- **`STATE.md` has ZERO lines of headroom.** It is 258 lines; the guard is
+  `STATE.split('\n').length < 260`, which on a 258-line file is 259 — so the
+  NEXT line added turns it red. "258 of 260" reads like two spare and there are
+  none; I wrote that here first and corrected it during the handoff audit.
 - Both were hit repeatedly this session; budget a few minutes.
 
 ## ▶ HANDOFF 2026-09-11, END OF SESSION — read this before anything else

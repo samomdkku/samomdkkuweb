@@ -1,10 +1,12 @@
 # Discord role sync — ทีม SAMO as the source of truth
 
-**Status: LINKING IS LIVE. NOTHING SYNCS YET (2026-09-12).** A person can
-connect their Discord account and 48 ทีม SAMO nodes are mapped to roles — but
-**no role has ever been added or removed by this system and no code exists that
-can.** That is the apply step, §6 item 3, and it must not be written before its
-blast-radius brake.
+**Status: LINKING IS LIVE. THE APPLY TOOL EXISTS AND HAS NEVER WRITTEN ANYTHING
+(2026-09-13).** A person can connect their Discord account and 48 ทีม SAMO nodes
+are mapped to roles. `tools/discord-apply.mjs` can now add and remove roles,
+with the blast-radius brake in the same file rather than as a follow-up — but
+**no role has ever been added, removed or created by this system**, verified
+from the guild: 183 roles, 48 mappings, newest written 2026-09-12. Every run so
+far has been plan-only.
 
 ⛔ **What is TRUE NOW and what is OWED lives in `docs/state/HANDOFF.md` §14b, not
 here.** This file is the DESIGN; it will drift the moment it also tries to be a
@@ -15,11 +17,20 @@ why the obvious approach fails, §6 is the build order, §7 is what only the own
 can do. A session that starts coding at §5 will build a sync that cannot
 identify anybody.
 
-✅ **§8b is DECIDED (2026-09-12): option A** — the bot lives in `discord-bot/`
-in this repo. ✅ **Phase 1's portal half is APPLIED and PROVED**: migration 0183
-and `tools/team0183-discord-mapping.sql`, 23/23, watched failing before the
-migration went in. ⛔ **§7 still blocks every line of bot code**, and phase 2
-cannot be attempted before §7 step 4 is confirmed.
+⚠️ **§8b was decided (2026-09-12) as option A** — the bot in `discord-bot/`,
+Python — **but §8b-bis showed its premise was wrong** (nothing here needs a
+gateway connection) and recommends option C, Node beside the notify service.
+⛔ **Treat §8b as REOPENED, not settled**; it is `HANDOFF` §14b item 5 and
+nothing built so far depends on the answer.
+
+✅ **Phases 1, 2, 2a and 3 are BUILT AND PROVED.** 0183–0187 applied, all 39
+live proofs green. ✅ **§7 steps 1–4 are DONE and were verified from the live
+guild, not asked**: the bot is `samomdkkubot`, it holds Manage Roles, and its
+role sits at position 182 of 183 — above everything it manages, so step 4's
+silent failure is not present. ⛔ **Step 5 is NOT done**: the old bot is still a
+member of the server. An earlier version of this header said both "§7's owner
+steps are done except step 5" and "§7 still blocks every line of bot code",
+three paragraphs apart.
 
 📌 The same material, formatted for reading rather than for agents:
 `https://claude.ai/code/artifact/cfd900a6-3f6b-42ab-a8d4-13cf013065de`

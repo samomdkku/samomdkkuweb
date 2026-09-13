@@ -573,6 +573,12 @@ added today were each compressed twice to fit, and one was folded into a
 neighbouring sentence rather than standing alone. That is the intended pressure
 working; it just means budgeting a few minutes for it.
 
+### ⛔ `STATE.md` has ZERO lines of headroom
+
+258 lines, and `state-handoff.test.js` asserts `split('\n').length < 260` — which
+is 259 today. **The next line added makes `npm test` red.** Prune an old block
+first (the file itself says which), do not raise the number.
+
 ### Budgets that trip on almost every edit
 
 - **`STATE.md` must be under 260 lines** and the test counts one more than

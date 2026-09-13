@@ -881,12 +881,15 @@ Tracker: `src/js/analytics.js` (`initAnalytics('public'|'admin')`) sends
 fire-and-forget events on load + tab/section switch; wired in `main.js` and
 `admin-main.js` (the latter also `trackTab()`s from `showAdminSide`).
 
-### Discord role sync (canonical: `0183`–`0186`)
+### Discord role sync (canonical: `0183`–`0187`)
 
 **ทีม SAMO is the source of truth for Discord roles.** No role has ever been
-added or removed by this system — the apply tool exists (`npm run discord:apply`,
-`tools/discord-apply.mjs`, plan by default) and its live diff is currently
-empty, so its write path is unexercised. See `docs/state/HANDOFF.md` §14b for
+added or removed by this system, and no role has ever been CREATED by it —
+verified from the guild 2026-09-13: 183 roles, 48 mapped. Three tools, all
+plan-by-default: `npm run discord:report` (read-only), `discord-provision.mjs`
+(`--only '<ชื่อ>'` narrows to named ตำแหน่ง), `npm run discord:apply` (the only
+one that changes a member's roles). `npm run discord:readiness` needs no Discord
+token and says whether this could be opened to real people. See `docs/state/HANDOFF.md` §14b for
 status and `docs/DISCORD-ROLE-SYNC.md` for the design; this is only the schema.
 
 ```
@@ -900,6 +903,16 @@ discord_link_codes   a ten-minute single-use code. Also the OAuth `state`.
                      RLS deny-all AND ungranted, on purpose: live bearer tokens,
                      and nobody needs to READ one, not even their own.
 
+discord_orphaned_accounts (0187)
+                     Discord accounts that WERE linked and are not now. Keyed on
+                     the ACCOUNT, not the person — the account is what still
+                     holds roles, and one of the three doors deletes the person.
+                     ⛔ NO FK on person_id: the trigger fires mid-cascade when
+                     the people row is gone, so a FK makes DELETING A PERSON FAIL
+                     (measured). The column is allowed to dangle.
+                     RLS on, no policy, ungranted — same stance as the codes.
+                     Maintained ONLY by the trigger below; nothing writes it.
+
 team_nodes.discord_role      BOOLEAN — "มี role ใน Discord", a DECISION.
                              ⛔ No rule can derive it: ฝ่าย sit at depths 1–5,
                              and ฝ่าย IT's sub-groups are kind='role' while
@@ -912,6 +925,15 @@ team_nodes.discord_role_id   the Discord role snowflake, UNIQUE where not null.
                              Waiting room and integrations are safe BY
                              CONSTRUCTION, not by an exclusion list.
 ```
+
+**Trigger.** `discord_links_track_orphans` fires on **insert, update AND
+delete** of `discord_links`, both directions (it withdraws a tombstone when an
+account is claimed again — one that cannot be withdrawn becomes a permanent
+false claim). On the TABLE rather than inside `unlink_my_discord()` because the
+hole has THREE doors and the third is an UPDATE: unlink (`DELETE`), the person
+being deleted (cascade `DELETE`), and **re-linking to a different account**
+(`UPDATE`, which orphans the old one). Any fix shaped around the word "delete"
+closes two of three. ⛔ It RECORDS; removal policy is undecided.
 
 **Functions.** `discord_role_targets()` is the ONE place that decides which
 roles a person is due — their own ตำแหน่ง's plus every ticked ANCESTOR's — so
