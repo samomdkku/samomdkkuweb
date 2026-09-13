@@ -1135,6 +1135,52 @@ mirrored role created later can land above the bot.
 of this server (role position 181). Until it is kicked, the leaked credential
 still reaches the guild — §1, and item 6 below.
 
+### ⛔ WHAT IS LEFT BEFORE THIS CAN BE OPENED TO REAL PEOPLE
+
+**Status: MEASURED 2026-09-13 — `npm run discord:readiness`, which needs no
+Discord token and re-runs this whole section in two seconds. Do not retype these
+numbers; run it.**
+
+```
+ทีม SAMO holds 342 people in a ตำแหน่ง
+  308 can link today          kkumail on file, so signing in resolves them
+   34 cannot                  no kkumail — a sign-in makes a STRANGER
+    1 actually linked
+
+ตำแหน่ง ticked for a role  107
+  48 can grant something today (45%)
+  59 grant nothing — no Discord role exists
+
+IF ALL 342 LINKED TOMORROW
+  313 get at least one role            (92%)
+   27 get NOTHING though owed something
+  219 are short a role that does not exist yet   (64%)
+```
+
+⛔ **ALL TWELVE of the largest unprovisioned ตำแหน่ง have real people under
+them** — 32 under ฝ่ายวิชาการ, 27 under ฝ่าย รพ. ร่วมผลิต, 25 under
+ฝ่าย SMST Syringe, and so on. Each is somebody who links, is told it worked,
+and receives nothing. **Provision before announcing, not after** — the first
+impression of this feature is the one 342 people form at once.
+
+⚠️ **`my_person_id()` matches on EMAIL, not on an account existing beforehand**
+(read from `pg_get_functiondef`). So "has a portal account" is NOT the gate —
+only 28 do, and that number is irrelevant. The gate is a kkumail on the ทีม SAMO
+row. The 34 without one need data entry, and nothing else will fix them: they
+would sign in, match nothing, and be unable to link at all.
+
+**So, in order, before opening:**
+
+1. **Provision the 51** (`--create`), or at least the ones with people under
+   them. Takes the guild to 234 of 250 roles — decide that spend deliberately,
+   it cannot be undone without deleting roles and their channel permissions.
+2. **The 4 near-matches and the contested ฝ่ายวิชาการ** — items 2 and 3 below.
+3. **One real apply run**, `--only <one id>`, watched. The write path has never
+   executed against the guild.
+4. **The 34 missing kkumail**, or accept that those people cannot link.
+5. Only then announce. Linking is self-service and irreversible in perception:
+   somebody who tries it once and gets nothing does not try again.
+
 ### What is OWED, in order
 
 1. ✅ **THE APPLY STEP — BUILT 2026-09-13**, `tools/discord-apply.mjs`, with
@@ -1271,6 +1317,7 @@ is.
 ```
 npm run discord:report                     # read-only; --fetch on the VM, --report here
 node tools/discord-provision.mjs           # plan only; --apply --adopt-only to map
+npm run discord:readiness                  # no token, runs anywhere: are we ready?
 npm run discord:apply                      # plan only; --apply --add N --remove M to write
 npm run check:routes                       # the SERVED nginx routes, incl. /discord/*
 node tools/db-query.mjs tools/team0187-orphaned-accounts.sql

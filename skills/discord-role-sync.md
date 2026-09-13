@@ -86,6 +86,22 @@ different account, which is an UPDATE**), and the plan now prints
 ⛔ **It still does not remove them** — that is the owner's undecided leaver
 policy. Do not "finish the job" by stripping them; read HANDOFF §14b item 4.
 
+## Are we ready to open this to real people?
+
+```bash
+npm run discord:readiness      # no Discord token — runs on a laptop
+```
+
+It answers the question the other two tools cannot: they describe people who ARE
+linked, and one person is, so both are green and neither tells you what happens
+at 342. This asks the portal instead — who can link, who is owed what, which
+ตำแหน่ง can grant anything today.
+
+⚠️ **`my_person_id()` matches on the signed-in EMAIL against `people.kkumail`.**
+So having a portal account is NOT the gate and counting `people.user_id` is
+measuring the wrong thing (28, versus 308 who can actually link). The gate is a
+kkumail on the ทีม SAMO row.
+
 ## ⛔ Re-run the proofs after ANY provisioning run
 
 ```bash
