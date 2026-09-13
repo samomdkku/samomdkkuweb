@@ -97,7 +97,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A "whitelist" that OPENED registration: `SIGNUPS_DOMAINS_WHITELIST` overrides `SIGNUPS_ALLOWED=false`
 - Unlinking your Discord account was a permanent ฝ่าย role grant
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(25)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(26)*
 
 Open when: writing a migration.
 
@@ -126,6 +126,7 @@ Open when: writing a migration.
 - "144 students cannot sign in" — a false alarm from reading the function instead of the trigger list
 - A carried passport student would have signed in to 0 km
 - A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change
+- I edited a migration after applying it, and samo-dev had been four migrations behind while STATE.md said "in step"
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(89)*
 
@@ -420,4 +421,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_358 entries across 10 files._
+_359 entries across 10 files._

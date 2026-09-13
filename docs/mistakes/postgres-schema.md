@@ -1104,3 +1104,58 @@ somewhere a checksum does not cover.* If the lesson is worth writing, it is
 worth writing where the next person will look — a write-up, the setup doc, a
 comment on the live function — never as an edit to the applied file, which
 trades a real integrity check for a paragraph nobody was going to read there.
+
+---
+
+## I edited a migration after applying it, and samo-dev had been four migrations behind while STATE.md said "in step"
+
+**Symptom.** `npm run migrate:status`, run during a handoff audit rather than
+because anything looked wrong:
+
+```
+⚠️  EDITED AFTER RECORDING — the file no longer matches what was applied:
+  0187_a_discord_account_nobody_claims.sql
+  A migration is a record of what ran. Write a NEW one instead of editing this.
+```
+
+and, on the dev project, **`PENDING: 4`** — while `STATE.md` carried
+*"✅ samo-dev is IN STEP with production (2026-09-07)"*.
+
+**Cause 1 — the edit.** 0187 was applied, and then its COMMENTS were improved
+twice in the same session: the measured note that a foreign key on `person_id`
+breaks deleting a person, and the admission that the `is distinct from` guard is
+not the load-bearing line. Both are good comments. Neither belongs in a file
+that has already run — the tool hashes what it applied, and the moment the file
+diverges, nobody can tell which version is in the database.
+
+**Fix, and the condition on it.** Every statement in 0187 is idempotent
+(`create table if not exists`, `create or replace function`,
+`drop trigger if exists` + `create trigger`), so it was **re-applied** and the
+record is true again — `PENDING: 0 · in step`. ⛔ **That is only available
+because the edit was comments over idempotent DDL.** Had it touched the schema,
+re-applying would have been the wrong move and a new migration the only one.
+The rule does not bend: a migration is a record of what ran.
+
+**Cause 2 — the drift, which predates the session.** 0183, 0184, 0186 and 0187
+had never been applied to samo-dev. The STATE.md line went stale on 2026-09-12
+and nobody re-asked, because the sentence reads like a fact rather than like a
+measurement with a date on it. It now says *"ask `npm run migrate:status --
+--dev`, never this sentence"*.
+
+**⚠️ And applying them, I made it worse before better.** I read a `tail -6` of
+the pending list; 0183 was above the cut. 0185 went in without its parent table
+and three others failed on `relation "public.discord_links" does not exist`.
+Re-applying in dependency order fixed it — but a migration that succeeds out of
+order is the dangerous half: it leaves a database no migration file describes.
+
+**Where it lives now.** `STATE.md` (contributor-credentials block);
+`docs/state/phuriphatma.md`.
+
+**The general rule.** *A migration's file and the database are two copies of one
+fact, and the tool that compares them is the only thing that can see them
+disagree — so run it when nothing looks wrong.* Both halves here were invisible
+to tests, to the build and to the app: production was correct, dev was correct
+for everything anybody had run, and the only symptom was a status command nobody
+had reason to type. **Run `migrate:status` for BOTH projects at the end of any
+session that applies a migration** — and read the whole pending list, because
+these files have dependencies and a truncated list applies them out of order.

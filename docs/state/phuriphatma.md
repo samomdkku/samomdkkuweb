@@ -119,6 +119,31 @@ said yes.**
      `split('\n').length` and the real headroom is ZERO. A wrong safety margin
      is worse than none.
 
+9. **Second audit pass — two more, one of them mine.**
+   - ⛔ **I EDITED 0187 AFTER APPLYING IT.** `npm run migrate:status` said
+     *"EDITED AFTER RECORDING — the file no longer matches what was applied"*.
+     The edits were comments only and every statement is idempotent
+     (`if not exists` / `or replace` / `drop … if exists`), so it was RE-APPLIED
+     rather than followed by a pointless 0188, and production now reports
+     `PENDING: 0 · in step`. **The rule stands: a migration is a record of what
+     ran.** If the edit had touched DDL, re-applying would have been the wrong
+     move and a new migration the only one.
+   - ⛔ **samo-dev had drifted FOUR migrations** (0183, 0184, 0186, 0187) while
+     `STATE.md` still said "IN STEP with production (2026-09-07)". Applied; both
+     now `PENDING: 0`. That claim predates this session — it went stale on
+     2026-09-12 and nobody re-asked. **Ask the tool, not the sentence.**
+   - ⚠️ I applied them OUT OF ORDER first, because I read a `tail -6` of the
+     pending list and 0183 was above the cut. 0185 went in without its parent
+     table and three others failed on `relation "public.discord_links" does not
+     exist`. Re-applying in order fixed it. **Read the whole list.**
+   - ⚠️ **`passport-link-on-signup.sql` fails on samo-dev and passes 12/12 on
+     production.** NOT caused by this session as far as I can tell: it names no
+     Discord object (`grep -c discord` = 0) and deletes no `people`, so nothing
+     0183–0187 added is reachable from it. It wants a "carried student" that
+     dev's data copy may not have — the geometry-ran-out shape, on dev. **Not
+     diagnosed, and I am not claiming it is harmless.** `npm run proofs:dev`
+     reports it; production is unaffected.
+
 ### ⛔ THE ONE DECISION WAITING, AND IT IS SMALL
 
 The owner was shown this and has not answered. **Do not act on it without an
@@ -154,13 +179,17 @@ If the owner says yes, on the VM: plan it, read it, then
   prior account is not the gate. Real figure 308. Read the live function body.
 - **Pushed a commit with a red test** — `;` between `npm test` and `git commit`
   instead of `&&`, so the failure printed and was ignored.
-- **THREE instrument failures, and each first looked like a finding.** Twice a
+- **FOUR instrument failures, and each first looked like a finding.** Twice a
   `perl s///` without `/g` took the first of two matches, so a mutation "passed"
   and I read it as a gap in the test. Once, auditing this file, `grep -c` for a
   sentence returned 0 and I nearly reported the consent warning as MISSING — it
   was there, wrapped across a line break, which a line-based grep cannot see.
-  **When a sweep says something is absent, open the file before believing it**;
-  and check a mutation actually applied before concluding a guard is blind.
+  And once I read a proof's rows with a parser expecting a `result` column when
+  it emits `verdict`, so a 12/12 GREEN proof printed as "12 of 12 FAIL" — the
+  same defect `run-proofs.mjs` already guards against by trying all three column
+  names. **When a sweep says something is absent or broken, open the thing
+  before believing it**; and check a mutation actually applied before concluding
+  a guard is blind.
 
 ### ⛔ Tooling that will bite the next session
 

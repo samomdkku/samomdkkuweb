@@ -105,8 +105,9 @@ TRUE. That is what the grep is for.
 
 `npm run dev` now uses **samo-dev, not production**, and says so on every start.
 `.env.local.example` is the contract; adding a variable is ONE edit there.
-✅ **samo-dev is IN STEP with production (2026-09-07)** — the 3 pending were
-applied (0174–0176) plus 0177 re-recorded; both report `PENDING: 0`. A merged
+✅ **samo-dev IN STEP — re-verified 2026-09-13.** ⚠️ It had DRIFTED four
+migrations while this line said otherwise. **Ask `npm run migrate:status --
+--dev`, never this sentence.** A merged
 migration nobody applies is now visible in two places: the pull request itself,
 and `npm run deploy:owed`, which asks PRODUCTION before it gives its verdict.
 Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
@@ -204,9 +205,7 @@ Free self-hosted team password vault. Two Owners of org `samomdkku`: the owner's
 architecture `docs/CONTEXT.md` · what it owes HANDOFF §7.** Do not re-derive any of it here.
 ⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a non-empty value overrides `SIGNUPS_ALLOWED=false`
 and opened public registration to every kkumail at KKU for ~6 h today (`docs/mistakes/authz-grants.md`).
-**Two host-wide wins came with it:** `unattended-upgrades` enabled (the box had NEVER auto-patched —
-~90 pending security updates, applied) and nginx really compresses now (`gzip on` alone covers only
-text/html): cold `/vault/` 8.26 MB → 2.26 MB, main bundle 293 KB → 112 KB.
+**Came with it:** `unattended-upgrades` on, and nginx really compresses now.
 **Owner owes:** break-glass envelope · delete `newtest` org · rotate the Gmail app password.
 **Unverified:** websocket Upgrade through KKU's edge · **restore has never been run**.
 
