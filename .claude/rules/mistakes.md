@@ -352,7 +352,10 @@ it is the part that generalises to code not yet written.
    code that runs unconditionally, and grep a known-shipping control beside it.
    **Re-read a rule's stated JUSTIFICATION, not just its predicate** —
    `users_read_all` carried "needed for staff dashboards"; the need had ended
-   years earlier (0147).
+   years earlier (0147). ⚠️ **AND THE SENTENCE OUTLIVES THE PREDICATE**:
+   `docs/CONTEXT.md` — the file an agent is ROUTED to for RLS — described that
+   grant, with that same justification, for the whole of its absence
+   (`authz-rls.md`).
 
 ---
 
@@ -379,7 +382,7 @@ shaving the classes, which are the only part that generalises.
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
-- `authz-rls.md` *(30)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
+- `authz-rls.md` *(31)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(19)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(89)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.

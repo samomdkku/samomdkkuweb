@@ -883,9 +883,11 @@ fire-and-forget events on load + tab/section switch; wired in `main.js` and
 
 ### Discord role sync (canonical: `0183`–`0186`)
 
-**ทีม SAMO is the source of truth for Discord roles.** Nothing syncs yet — see
-`docs/state/HANDOFF.md` §14b for status and `docs/DISCORD-ROLE-SYNC.md` for the
-design; this is only the schema.
+**ทีม SAMO is the source of truth for Discord roles.** No role has ever been
+added or removed by this system — the apply tool exists (`npm run discord:apply`,
+`tools/discord-apply.mjs`, plan by default) and its live diff is currently
+empty, so its write path is unexercised. See `docs/state/HANDOFF.md` §14b for
+status and `docs/DISCORD-ROLE-SYNC.md` for the design; this is only the schema.
 
 ```
 discord_links        person_id PK → people(id)   ONE Discord account per person
@@ -928,9 +930,15 @@ victim's browser has no matching cookie and is refused.
 
 ## RLS policies (canonical: same migration file)
 
-- **users**: any authenticated user can SELECT all (needed for staff
-  dashboards to render submitter names). UPDATE allowed on own row OR by
-  staff.
+- **users**: SELECT is **SELF ONLY** — `users_read_self`, `id = auth.uid()`.
+  UPDATE on own row (`users_update_self`) or by staff (`users_update_staff`).
+  ⛔ This paragraph said "any authenticated user can SELECT all (needed for
+  staff dashboards to render submitter names)" until 2026-09-13, which had been
+  false since **0147** closed exactly that policy — and it carried the very
+  justification 0147 found had expired years earlier. ⛔ **Never re-add a
+  read-all or role branch here**: `role` and `permissions` share the row, so a
+  full read maps who holds `master`. Read from `pg_policy`, not from this line;
+  `tools/authz-sweep-identity.sql` is the guard.
 - **announcements**: SELECT for everyone (incl. anon) where status =
   'approved'; all writes restricted to `pr_staff` / `dev`.
 - **pr_tickets**: SELECT for submitter OR staff/dev **OR

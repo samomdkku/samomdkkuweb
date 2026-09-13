@@ -1369,3 +1369,60 @@ app's continued working as evidence, because the tables it does not read are the
 ones that will not tell you. And when a table turns out to be unprotected, ask
 whether the *adjacent* tables are unprotected too or deliberately deny-all
 before making them consistent: consistency is the argument that widens things.
+
+---
+
+## `docs/CONTEXT.md` said "any authenticated user can SELECT all" of `public.users` — false since 0147, and it carried the justification 0147 had already disproved
+
+**Symptom.** The architecture map a cold-start agent is told to read for RLS
+said, under **RLS policies**:
+
+> **users**: any authenticated user can SELECT all (needed for staff dashboards
+> to render submitter names). UPDATE allowed on own row OR by staff.
+
+Nothing was broken in the database. `pg_policy` on 2026-09-13 holds exactly
+three policies on `public.users`, and the read one is
+`users_read_self  using (id = auth.uid())`. **The defect was entirely in the
+prose**, which is the reason it survived: no query fails, no test goes red, and
+the sentence reads with the same authority as the twenty correct ones around it.
+
+**Cause.** Two of the shapes this repo already knows, stacked.
+
+- **A decaying fact with more than one home.** 0147 closed `users_read_all` and
+  the change was recorded in the migration, in `docs/INVARIANTS.md` ("nothing
+  may re-add a role branch"), and in the session notes. `docs/CONTEXT.md` — the
+  file CLAUDE.md names for "architecture, RLS, schema" — was not one of the
+  homes that got corrected, and it is the one an agent is routed to first.
+- **The stated JUSTIFICATION was the thing 0147 falsified, and it was left
+  standing.** "needed for staff dashboards to render submitter names" is the
+  same reason `users_read_all` itself carried, and 0147's whole finding was that
+  the need had ended years earlier. So the doc did not merely describe a policy
+  that no longer exists — it preserved the argument for putting it back, in the
+  file most likely to be quoted while doing so. A future session widening a
+  dashboard read would have found a sentence that both permits and motivates it.
+
+It was found while updating the same file for the Discord apply step: the
+paragraph sat four lines below an edit, and checking it cost one query against
+`pg_policy`.
+
+**Fix.** The paragraph now states the live policies by NAME and predicate, says
+the old sentence was false and since when, and repeats why the shape is
+dangerous — `role` and `permissions` share the row, so a full read of
+`public.users` maps who holds `master`. It points at `pg_policy` and
+`tools/authz-sweep-identity.sql` (23/23) as the authorities, so the next reader
+is directed to something that cannot go stale rather than to a better-written
+sentence.
+
+**Where it lives now.** `docs/CONTEXT.md`, the RLS policies list; the rule
+itself is `docs/INVARIANTS.md`, and the guard is
+`tools/authz-sweep-identity.sql`.
+
+**The general rule.** *When a policy is closed, grep for its JUSTIFICATION as
+well as its name.* A predicate that is deleted leaves a sentence behind, and the
+sentence is what the next person reasons from. Deleting `users_read_all` removed
+the grant; it did not remove "needed for staff dashboards", and that clause is
+the reusable half — it will fit whatever the next dashboard wants. **A doc that
+describes an access rule is part of that rule's implementation**, so correcting
+it belongs in the same commit as the migration, and the correction should name
+the authority (`pg_policy`, a sweep) rather than restate the answer, because a
+restated answer is just a fresher copy of the thing that went stale.
