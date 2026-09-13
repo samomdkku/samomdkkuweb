@@ -112,7 +112,17 @@ describe('§5e — the three refusals, all of them before the first write', () =
   // Never act on absence. A guild member with no link is UNKNOWN, never
   // "entitled to nothing" — they must not reach the plan at all.
   it('skips an unlinked member instead of diffing them against nothing', () => {
-    expect(CODE).toMatch(/const t = byUser\.get\(m\.user\.id\);\s*\n\s*if \(!t\) continue;/);
+    // 0187 gave this branch a body — a WITHDRAWN account (one that WAS linked)
+    // is reported before the `continue`. What must stay true is that the branch
+    // ENDS in `continue`: an absent link may never reach the plan, whatever is
+    // now printed on the way past.
+    const at = CODE.indexOf('const t = byUser.get(m.user.id);');
+    expect(at).toBeGreaterThan(0);
+    const branch = CODE.slice(at, CODE.indexOf('const display', at));
+    expect(branch).toMatch(/if \(!t\) \{/);
+    expect(branch).toMatch(/continue;\s*\n\s*\}/);
+    expect(branch, 'an unlinked member must never be given a removal')
+      .not.toMatch(/toRemove|plan\.push|method:/);
   });
 
   // A person with zero placements is the leaver case, and §5e wants them to

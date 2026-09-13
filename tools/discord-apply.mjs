@@ -199,6 +199,14 @@ async function main() {
   const ticked = await pg('team_nodes?select=id,name,discord_role_id&discord_role=is.true&order=name');
   const managed = new Set(ticked.map((t) => t.discord_role_id).filter(Boolean));
   const targets = await pg('rpc/discord_role_targets', { method: 'POST', body: '{}' });
+  // 0187. Accounts that WERE linked and are not any more — by unlink, by the
+  // person being deleted, or by that person moving to a different Discord
+  // account. Without this they are indistinguishable from a stranger, and
+  // `if (!t) continue` below would leave their ฝ่าย roles in place for ever.
+  const orphans = new Map(
+    (await pg('discord_orphaned_accounts?select=discord_user_id,person_id,reason,orphaned_at'))
+      .map((o) => [o.discord_user_id, o]),
+  );
 
   console.log(`GUILD    ${guildId}  ·  ${humans.length} people, ${roles.length} roles`);
   console.log(`BOT      ${me.username} (${me.id})`);
@@ -221,6 +229,7 @@ async function main() {
   // ── The diff ────────────────────────────────────────────────────────────
   const plan = [];       // [member, toAdd[], toRemove[]]
   const leavers = [];    // linked, but zero placements — owner-blocked, see below
+  const withdrawn = [];  // WAS linked, is not now, still holding managed roles
   const waiting = [];    // ticked node with no Discord role yet — nothing to compare
   const missing = new Set(); // mapped to a role id the guild no longer has
   let add = 0; let remove = 0;
@@ -229,7 +238,25 @@ async function main() {
     const t = byUser.get(m.user.id);
     // ⛔ REFUSAL 2 — never act on absence. An unlinked member is UNKNOWN. They
     // are not "entitled to nothing"; they are not in the plan at all.
-    if (!t) continue;
+    //
+    // ⚠️ BUT "NEVER LINKED" AND "NO LONGER LINKED" ARE DIFFERENT STATES, and
+    // until 0187 this line could not tell them apart — both were simply an
+    // absent row. So unlinking was a PERMANENT role grant: nothing here, or
+    // anywhere, could ever take those roles back. They are still not touched
+    // (the policy is the owner's undecided "what makes a leaver"), but they are
+    // now COUNTED and NAMED, because an unreadable state cannot be decided on.
+    if (!t) {
+      const o = orphans.get(m.user.id);
+      if (o) {
+        const held = m.roles.filter((r) => managed.has(r));
+        if (held.length) {
+          withdrawn.push(`  ${m.nick || m.user.global_name || m.user.username}`
+            + ` — ${o.reason}, ${String(o.orphaned_at).slice(0, 10)}`
+            + ` — still holds ${held.map((r) => roleName.get(r) || r).join(', ')}`);
+        }
+      }
+      continue;
+    }
     if (only && m.user.id !== only) continue;
 
     const display = m.nick || m.user.global_name || m.user.username;
@@ -296,9 +323,21 @@ async function main() {
     leavers.slice(0, 20).forEach((l) => console.log(l));
   }
 
+  if (withdrawn.length) {
+    console.log();
+    console.log(`⛔ WITHDRAWN, AND STILL HOLDING ฝ่าย ROLES: ${withdrawn.length}`);
+    console.log('   These accounts WERE linked to a ทีม SAMO person and are not now.');
+    console.log('   NOT TOUCHED — the removal policy is undecided (HANDOFF §14b item 4) —');
+    console.log('   but nothing else will ever remove these roles either, so they are');
+    console.log('   listed rather than left to look like strangers.');
+    withdrawn.slice(0, 20).forEach((l) => console.log(l));
+    if (withdrawn.length > 20) console.log(`  … ${withdrawn.length - 20} more`);
+  }
+
   const unlinked = humans.filter((m) => !byUser.has(m.user.id)).length;
   console.log();
-  console.log(`NOT LINKED: ${unlinked} of ${humans.length} — untouched, and never read as "remove everything".`);
+  console.log(`NOT LINKED: ${unlinked} of ${humans.length} (${withdrawn.length} of them WITHDRAWN, above)`
+    + ' — untouched, and never read as "remove everything".');
 
   // ── The preflight ───────────────────────────────────────────────────────
   const touched = new Set();

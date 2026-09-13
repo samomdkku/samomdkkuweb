@@ -286,6 +286,15 @@ appears in the mapping.*
 - **Never act on absence.** Someone missing from the query result is equally a
   broken join or a dropped link. Only an explicit case counts: a linked person
   who resolves to no current placement.
+  ⛔ **BUT "NEVER LINKED" AND "NO LONGER LINKED" ARE DIFFERENT STATES, and until
+  0187 they were the same observable.** An absent `discord_links` row was
+  produced equally by a stranger and by someone who unlinked after being given
+  roles — so unlinking was a PERMANENT role grant. `discord_orphaned_accounts`
+  (0187) records the second case through all three doors that produce it:
+  unlink (DELETE), person deleted (cascade DELETE) and **re-link to a different
+  account (UPDATE, which orphans the old one)**. It is a RECORD, not an
+  instruction: what to do with those roles is the same undecided question as
+  the rest of this section.
 - A leaver gets their mirrored roles removed and **one `ศิษย์เก่า SAMO` role
   added** — not stripped bare. A person with zero roles is indistinguishable
   from a person the bot failed to match, which destroys the member list as a

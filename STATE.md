@@ -81,7 +81,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0186. ALL 38 LIVE PROOFS GREEN** (2026-09-12). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 23/23 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **The apply tool now exists and has never written anything** — §14b, its one home. HANDOFF §11 and §13c both CLOSED.
+- **Migrations through 0187. ALL 39 LIVE PROOFS GREEN** (2026-09-13). 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 23/23 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **0187 closed a hole where UNLINKING kept your ฝ่าย roles for ever** — §14b, its one home. HANDOFF §11 and §13c both CLOSED.
   ⚠️ A proof can be GREEN WHILE BROKEN because the environment happened to be
   quiet — both Claude quota proofs were, until they CONSTRUCTED the absence
   they assume (`docs/mistakes/tooling-proofs.md`; counts live in the proofs).

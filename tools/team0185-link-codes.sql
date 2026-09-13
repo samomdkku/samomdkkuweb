@@ -259,12 +259,21 @@ insert into probe select '74. …and it points at the NEW account', '91000000000
 -- production: updated_at belongs to the TABLE, not to each writer remembering
 -- it. A future writer that forgets cannot break it, and a dropped trigger goes
 -- red here instead of silently freezing every link's date.
-insert into probe select '75. updated_at is maintained by a TRIGGER, not by callers', 'touch_updated_at',
-  coalesce((select p.proname from pg_trigger t
-              join pg_proc p on p.oid = t.tgfoid
-             where t.tgrelid = 'public.discord_links'::regclass
-               and not t.tgisinternal
-             limit 1), '(none)');
+-- ⛔ THIS ASSERTED "THE FIRST TRIGGER, WHICHEVER THAT IS, IS CALLED
+-- touch_updated_at" — a `limit 1` with no ORDER BY over a list that was one
+-- element long when it was written. 0187 added a second trigger to this table
+-- and the proof went red on 2026-09-13 while nothing it guards had changed.
+--
+-- Its own comment two lines up says "assert the MECHANISM". The mechanism is
+-- that A trigger calling touch_updated_at exists on this table — not that it is
+-- the only one, and not that it sorts first. That holds however many other
+-- triggers the table gains.
+insert into probe select '75. updated_at is maintained by a TRIGGER, not by callers', 'true',
+  (select exists (select 1 from pg_trigger t
+                    join pg_proc p on p.oid = t.tgfoid
+                   where t.tgrelid = 'public.discord_links'::regclass
+                     and not t.tgisinternal
+                     and p.proname = 'touch_updated_at'))::text;
 
 -- And the old account is genuinely released, so its real owner can claim it.
 insert into probe select '76. the OLD account is free for its real owner', '0',

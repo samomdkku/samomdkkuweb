@@ -38,9 +38,30 @@ select u.id as uid from public.users u
  order by u.id
  limit 1;
 
+-- ⛔ THIS COPIED A TEMPLATE ROW THAT NO LONGER EXISTS.
+--
+-- `to_jsonb((select o from shop_orders order by id limit 1))` is NULL when the
+-- table is empty, `NULL || jsonb_build_object(...)` is NULL, and
+-- jsonb_populate_record then builds a row of all nulls — so the proof ERRORED
+-- with `null value in column "id"` and emitted ZERO assertions. Measured
+-- 2026-09-13: shop_orders holds 0 rows. The template was borrowed geometry, and
+-- it ran out.
+--
+-- Same defect as team0183 §22-24 in the same week: if the thing a proof needs
+-- can run out, CREATE it.
+--
+-- ⚠️ AND `jsonb_populate_record` DOES NOT APPLY COLUMN DEFAULTS — a key absent
+-- from the jsonb becomes NULL, it does not become `def=0`. So the floor below
+-- must name EVERY not-null column, not only the three that lack a default;
+-- supplying just those got as far as `null value in column "fee"`. The floor is
+-- on the LEFT, so a real template row still wins (`||` is right-biased) and the
+-- proof's own values override both.
 insert into public.shop_orders
 select * from jsonb_populate_record(null::public.shop_orders,
-  to_jsonb((select o from public.shop_orders o order by o.id limit 1))
+  jsonb_build_object('subtotal', 0, 'fee', 0, 'total', 0, 'timeline', '[]'::jsonb,
+                     'slips', '[]'::jsonb, 'is_preorder', false,
+                     'placed_at', now(), 'updated_at', now())
+  || coalesce(to_jsonb((select o from public.shop_orders o order by o.id limit 1)), '{}'::jsonb)
   || jsonb_build_object(
        'id',       'PROOF-0150',
        'buyer_id', (select uid::text from victim),

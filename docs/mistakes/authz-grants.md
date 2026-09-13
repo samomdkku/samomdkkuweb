@@ -980,3 +980,77 @@ that could actually have detected the hole: a request rejected by the PARSER
 (422) never reached the gate, so it is evidence of nothing. Confirm a gate is
 shut by performing the exact action it is supposed to forbid, in full, and
 watching it fail — then delete what you created.
+
+---
+
+## Unlinking your Discord account was a permanent ฝ่าย role grant — and the hole had three doors, one of them an UPDATE
+
+**Symptom (found by review, before it bit).** Press **ยกเลิกการเชื่อมต่อ** on
+ข้อมูลของฉัน and you keep every mirrored ฝ่าย role for ever. No code path,
+manual or automatic, could remove them.
+
+**Cause.** The sync's central safety rule is §5e *"never act on absence"*,
+implemented in `discord-apply.mjs` as:
+
+```js
+const t = byUser.get(m.user.id);
+if (!t) continue;          // not linked → UNKNOWN → not in the plan at all
+```
+
+That is correct for someone who has **never** linked — an unlinked guild member
+is not "entitled to nothing". It is **wrong** for someone who *was* linked, was
+given roles because of it, and is not linked now. Both states were the same
+observable: an absent row in `discord_links`. `unlink_my_discord()` (0186)
+**deletes** the row, so the person vanishes from `discord_role_targets()` and
+becomes indistinguishable from a stranger.
+
+**Three doors, and a fix-per-statement closes two of them.** The obvious remedy
+is to record the withdrawal inside `unlink_my_discord()`, or with an
+`after delete` trigger. Either would have left the third open:
+
+| | how the link goes away | shape |
+|---|---|---|
+| 1 | the person unlinks | `DELETE` |
+| 2 | the person is deleted from the registry | `DELETE` (`on delete cascade`) |
+| 3 | the person re-links to a **different** Discord account | **`UPDATE`** |
+
+Door 3 is `redeem_discord_link_code`'s `on conflict (person_id) do update` — the
+person moves A → B and account **A is orphaned holding every role it was given**.
+0185 §76 already asserted "the OLD account is free for its real owner", so the
+door is the design working as intended; nobody had asked what happens to the
+roles left behind on it.
+
+**Fix.** One trigger on the TABLE (`0187`), firing on insert, update **and**
+delete, maintaining `discord_orphaned_accounts`. It records; it does not remove
+— the removal policy is the owner's undecided "what makes a leaver", and
+inventing it here would be worse than the gap. `discord-apply.mjs` now names
+those accounts and the roles they still hold.
+
+**Two things measured that contradict what was natural to write.**
+
+- **A foreign key on `person_id` would break deleting a person.** It is the tidy
+  thing to add, and door 2 makes the trigger fire *during* the cascade when the
+  `people` row is already gone: the insert raises `23503 … Key (person_id)=… is
+  not present in table "people"` and the whole DELETE aborts. So the FK does not
+  merely lose the tombstone — it breaks an unrelated operation, and it would be
+  discovered by someone removing a student, not by anyone testing Discord. The
+  column is deliberately allowed to dangle, and the proof asserts that it does.
+- **The `is distinct from` guard on the UPDATE branch is not what protects an
+  unrelated edit.** Removing it leaves the proof fully green, because the
+  withdrawal branch deletes the row the orphan branch just wrote, within the
+  same statement. What actually catches that case is the **withdrawal**; remove
+  both and §33 goes red. Recorded so nobody defends the wrong line.
+
+**Where it lives now.** `supabase/migrations/0187_a_discord_account_nobody_claims.sql`
+· `tools/team0187-orphaned-accounts.sql` (18/18, registered in `run-proofs`)
+· `tools/discord-apply.mjs` · `src/js/discord-apply.run.test.js` — whose new
+cases were watched failing against a tool reduced to the pre-0187 behaviour.
+
+**The general rule.** *"Absent" is not a state — it is the absence of a state,
+and several different histories produce it.* Before writing a rule that keys on
+a missing row, enumerate what can remove that row, and ask whether every one of
+those histories deserves the same answer. Here "never linked" and "withdrew"
+needed opposite treatment and were the same query result. And when you do record
+the difference, **put the mechanism on the TABLE**: this hole's third door was an
+`UPDATE`, so every fix shaped around the word "delete" would have looked complete
+and been two-thirds done.

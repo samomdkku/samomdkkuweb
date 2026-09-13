@@ -51,12 +51,20 @@ export function world() {
       // managed role. §5e: reported, never stripped.
       { user: { id: 'U4', username: 'dave' }, nick: null, roles: ['R2'] },
       { user: { id: 'U5', username: 'erin' }, nick: null, roles: [] },
+      // frank unlinked, and still holds ฝ่าย IT.
+      { user: { id: 'U6', username: 'frank' }, nick: null, roles: ['R1'] },
       { user: { id: 'BOT', username: 'stub', bot: true }, nick: null, roles: ['RB'] },
     ],
     ticked: [
       { id: 'n1', name: 'ฝ่าย IT', discord_role_id: 'R1' },
       { id: 'n2', name: 'ฝ่ายเอกสาร', discord_role_id: 'R2' },
       { id: 'n3', name: 'ฝ่ายใหม่', discord_role_id: null },
+    ],
+    // 0187: accounts that WERE linked and are not now. `frank` holds a mirrored
+    // role and appears in NO target row — before 0187 that was indistinguishable
+    // from a stranger, which is what made unlinking a permanent role grant.
+    orphans: [
+      { discord_user_id: 'U6', person_id: 'p6', reason: 'unlinked-or-person-deleted', orphaned_at: '2026-09-01T00:00:00Z' },
     ],
     targets: [
       { discord_user_id: 'U1', person_id: 'p1', role_ids: ['R1'], role_names: ['ฝ่าย IT'], pending: [], placements: 1 },
@@ -93,6 +101,7 @@ export function serve(w) {
     // ── PostgREST ──
     if (p === '/rest/v1/team_nodes') return json(w.ticked);
     if (p === '/rest/v1/rpc/discord_role_targets') return json(w.targets);
+    if (p === '/rest/v1/discord_orphaned_accounts') return json(w.orphans);
 
     res.writeHead(404); res.end(`no stub route for ${req.method} ${p}`);
   });

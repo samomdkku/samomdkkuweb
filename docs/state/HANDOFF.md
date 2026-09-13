@@ -556,6 +556,23 @@ was found; check your proof's name appears in the run output.
   **twice in one day** by guessing instead of reading. `changelog.test.js`
   catches both; read the constants first.
 
+### ⛔ `.claude/rules/mistakes.md` is FULL — 29,997 of 30,000 bytes
+
+Three bytes of headroom as of 2026-09-13. **The next entry will not fit**, and
+`npm run check:context` (which `npm test` runs) will fail on it.
+
+⛔ **Do not raise the cap** — it is charged to every future session, and the
+index that used to live there reached 18.5k before it blocked a write-up from
+being added at all. Do not shave the seven CLASSES either: they are the only
+part that generalises to code nobody has written yet.
+
+**What to do instead:** compress the most recently added SITES — the one- or
+two-line examples appended to a class — since the write-up in `docs/mistakes/`
+carries the detail and the class only needs enough to be recognised. Two sites
+added today were each compressed twice to fit, and one was folded into a
+neighbouring sentence rather than standing alone. That is the intended pressure
+working; it just means budgeting a few minutes for it.
+
 ### Budgets that trip on almost every edit
 
 - **`STATE.md` must be under 260 lines** and the test counts one more than
@@ -1166,9 +1183,43 @@ still reaches the guild — §1, and item 6 below.
    position 181, and it is one of three bot members). The report warns about it
    every run. This is what closes the old
    leaked credential, and also the application id that was in the public repo.
-7. **Then: the remaining 51 roles**, on demand only — §8g.2. Adopt was free;
+7. **Then: the remaining 59 roles**, on demand only — §8g.2. (This said **51**
+   until 2026-09-13; re-measured from `team_nodes`: 107 ticked, 48 mapped, 59
+   unmapped. The old figure predated the adoption run and had been quoted in a
+   role-cap argument since.) Adopt was free;
    creating spends 51 of 70 remaining under Discord's hard 250 cap, on groups
    that gate no channel yet. Create one when a ฝ่าย asks for a channel or a ping.
+
+### ⛔ 0187 — unlinking used to keep your ฝ่าย roles for ever
+
+**Status: FIXED 2026-09-13, and the removal POLICY is still owed (item 4).**
+
+`discord-apply.mjs` implements §5e "never act on absence" as `if (!t) continue`.
+Right for someone who never linked; **wrong for someone who WAS linked**, was
+given roles for it, and is not now — and both were the same observable, an
+absent `discord_links` row. So pressing ยกเลิกการเชื่อมต่อ was a permanent ฝ่าย
+role grant that nothing could undo.
+
+⛔ **Three doors, and the third is an UPDATE** — a fix written around the word
+"delete" closes two of them and looks complete:
+
+| | how the link goes away | shape |
+|---|---|---|
+| 1 | the person unlinks | `DELETE` |
+| 2 | the person is deleted from the registry | `DELETE` (cascade) |
+| 3 | the person re-links to a **different** account | **`UPDATE`** — the old account keeps every role |
+
+0187 puts one trigger on the TABLE (insert/update/delete) maintaining
+`discord_orphaned_accounts`, and the apply tool now names those accounts and the
+roles they still hold. ⛔ **It RECORDS, it does not remove** — that is item 4,
+undecided. What could not wait is that the information was being DESTROYED:
+before 0187 there was no way, anywhere, to learn an account had ever been ours.
+
+Two things measured that contradict the natural instinct, both in
+`docs/mistakes/authz-grants.md`: a foreign key on `person_id` **breaks deleting
+a person** (the trigger fires mid-cascade and raises), and the `is distinct
+from` guard is *not* what protects an unrelated UPDATE — the withdrawal branch
+is.
 
 ### ⛔ Traps a next session must not re-derive
 
@@ -1215,6 +1266,8 @@ still reaches the guild — §1, and item 6 below.
 npm run discord:report                     # read-only; --fetch on the VM, --report here
 node tools/discord-provision.mjs           # plan only; --apply --adopt-only to map
 npm run discord:apply                      # plan only; --apply --add N --remove M to write
+npm run check:routes                       # the SERVED nginx routes, incl. /discord/*
+node tools/db-query.mjs tools/team0187-orphaned-accounts.sql
 node tools/db-query.mjs tools/team018{3,4,5}-*.sql
 ```
 The report needs the Discord token (VM) and Supabase (here), so it runs in two

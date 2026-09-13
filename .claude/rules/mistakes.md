@@ -28,6 +28,10 @@ it is the part that generalises to code not yet written.
 2. **An unresolvable reference fails OPEN.** `coalesce(flag, false)`, a `left
    join`, `if not found then` and `null in (...)` all answer "allowed" for an id
    that no longer resolves. A DELETE on reference data first creates that input.
+   **"ABSENT" IS NOT A STATE**: an absent `discord_links` row meant BOTH "never
+   linked" (leave alone) and "unlinked holding ฝ่าย roles" (take them back), so
+   unlinking granted for ever. Enumerate what REMOVES a row — door 3 was an
+   UPDATE, so fixes shaped around "delete" were two-thirds done (`authz-grants.md`).
    **MIRROR IMAGE — IT FAILS CLOSED WHEN THE ROW DOES NOT EXIST YET.** A SELECT
    policy that identifies a row by LOOKING IT UP in its own table cannot answer
    for a row being created, so `insert … returning` (PostgREST
@@ -320,11 +324,6 @@ it is the part that generalises to code not yet written.
    PRODUCTION credentials they must never be sent, so it failed on a CORRECT
    setup and blamed the reader (`tooling-proofs.md`).
 
-   **A MISSING THING CAN ANSWER 200**: an absent nginx `location` falls through
-   to `location /` and serves the SPA — 217,928 bytes that render. Key on a
-   marker only the PRESENT component emits. And ask WHO may change a proof's
-   subject: 0183 asserted a tick RATIO the owner was ASKED to change, 42 ticks
-   from false red (`deploy-hosting.md`).
 
    **A PERMISSIVE SIBLING MASKS A BROKEN POLICY FOR AS LONG AS ITS CONDITION
    HOLDS.** 0114's `project_files_read_public` needs no new row, so it carried
@@ -349,6 +348,9 @@ it is the part that generalises to code not yet written.
    CONNECTION error), and the vault had been publishing `"api":"…/vault/api"`
    at its own `/api/config` the whole time. An untested constraint in a doc
    closes off the right design for as long as it survives (`tooling-proofs.md`).
+   **A MISSING THING CAN ANSWER 200** — an absent nginx `location` serves the
+   SPA; key on a marker only the PRESENT component emits, and ask who may change
+   a proof's subject (`deploy-hosting.md`).
    **A PROBE ANSWERS THE QUESTION ITS DIRECTION ASKS, not the sentence you write
    around it.** An inbound port scan of the VM's public address proved nothing
    could connect IN, and that was written up as "the VM cannot do mail" — it
@@ -399,13 +401,13 @@ shaving the classes, which are the only part that generalises.
 
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
 - `authz-rls.md` *(31)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
-- `authz-grants.md` *(19)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
+- `authz-grants.md` *(20)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(89)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(31)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(25)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(56)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(57)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

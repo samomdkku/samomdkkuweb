@@ -74,13 +74,33 @@ it. Measured 2026-09-13: `samomdkkubot` is at position 182 of 183, i.e. the top.
 A mirrored role created LATER can land above it, which is why this is a per-run
 check and not a one-off confirmation.
 
+## ⛔ "Not linked" is two states, and only one may be left alone
+
+`discord-apply.mjs` skips a guild member with no link — §5e, absence is UNKNOWN.
+But a person who UNLINKED is also absent, and before 0187 that meant their ฝ่าย
+roles could never be removed by anything. `discord_orphaned_accounts` records
+the withdrawal through all three doors (unlink · person deleted · **re-link to a
+different account, which is an UPDATE**), and the plan now prints
+**WITHDRAWN, AND STILL HOLDING ฝ่าย ROLES**.
+
+⛔ **It still does not remove them** — that is the owner's undecided leaver
+policy. Do not "finish the job" by stripping them; read HANDOFF §14b item 4.
+
 ## ⛔ Re-run the proofs after ANY provisioning run
 
 ```bash
 node tools/db-query.mjs tools/team0183-discord-mapping.sql
 node tools/db-query.mjs tools/team0184-discord-targets.sql
 node tools/db-query.mjs tools/team0185-link-codes.sql
+node tools/db-query.mjs tools/team0187-orphaned-accounts.sql
 ```
+
+⚠️ **Run ALL of them, not the ones about what you touched.** Adding 0187's
+trigger turned `team0185` §75 red — it asserted `limit 1` over the table's
+trigger list with no ORDER BY, i.e. "the first trigger, whichever that is". And
+`shop0150`, which nobody had edited, was already erroring because it copies a
+template `shop_orders` row and that table is now empty. `npm run proofs` is the
+only thing that finds either.
 
 ⛔ **No expected count here on purpose — every row must say PASS.** The counts
 used to be written beside each line, and they had FOUR homes between this file,

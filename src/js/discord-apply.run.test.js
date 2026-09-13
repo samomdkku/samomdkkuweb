@@ -32,9 +32,9 @@ describe('the plan it computes from a known world', () => {
   it('finds exactly one person to change, and says why the others are not', async () => {
     const r = await run([], stub);
     expect(r.code).toBe(0);
-    expect(r.out).toMatch(/PLAN: 1 role\(s\) to add, 1 to remove, across 1 of 5 people \(20%\)/);
+    expect(r.out).toMatch(/PLAN: 1 role\(s\) to add, 1 to remove, across 1 of 6 people \(17%\)/);
     // carol holds a managed role and is NOT linked. Absence is UNKNOWN.
-    expect(r.out).toMatch(/NOT LINKED: 2 of 5/);
+    expect(r.out).toMatch(/NOT LINKED: 3 of 6 \(1 of them WITHDRAWN/);
     // dave is linked with zero ตำแหน่ง — the leaver case, reported not stripped.
     expect(r.out).toMatch(/LEAVERS — linked, but ZERO ตำแหน่ง in ทีม SAMO: 1/);
     expect(r.out).toContain('dave');
@@ -90,6 +90,7 @@ describe('the write path — the part no source guard can see', () => {
     expect(r.code).toBe(0);
     expect(r.writes).toEqual(CORRECT);
     expect(r.writes.some((x) => x.includes('/U3/'))).toBe(false);
+    expect(r.writes.some((x) => x.includes('/U6/')), 'nor a WITHDRAWN one').toBe(false);
   });
 
   it('never strips a LEAVER while the ศิษย์เก่า rule is undecided', async () => {
@@ -104,6 +105,46 @@ describe('the write path — the part no source guard can see', () => {
     const r = await run(['--only', 'U2'], stub);
     expect(r.out).toMatch(/PLAN: 0 role\(s\) to add, 0 to remove/);
     expect(r.writes).toEqual([]);
+  });
+});
+
+describe('an account that WAS linked is not a stranger (0187)', () => {
+  // Unlinking used to be a permanent role grant: the link row was deleted, so
+  // the person vanished from the target set, so `if (!t) continue` treated them
+  // as never-linked and nothing could ever take their ฝ่าย roles back. 0187
+  // records the withdrawal; this asserts the tool reads it.
+
+  it('names the withdrawn account and the roles it still holds', async () => {
+    const r = await run([], stub);
+    expect(r.out).toMatch(/WITHDRAWN, AND STILL HOLDING ฝ่าย ROLES: 1/);
+    expect(r.out).toContain('frank');
+    expect(r.out).toContain('unlinked-or-person-deleted');
+    expect(r.out).toContain('ฝ่าย IT');
+  });
+
+  it('…and still does NOT touch them — the policy is undecided', async () => {
+    const r = await run(['--apply', ...PLAN], stub);
+    expect(r.code).toBe(0);
+    expect(r.writes).toEqual([
+      'PUT /api/v10/guilds/G/members/U1/roles/R1',
+      'DELETE /api/v10/guilds/G/members/U1/roles/R2',
+    ]);
+    expect(r.writes.some((x) => x.includes('/U6/'))).toBe(false);
+  });
+
+  it('a stranger holding no managed role is not reported as withdrawn', async () => {
+    // carol (U3) holds ฝ่าย IT and never linked. She must stay in NOT LINKED,
+    // never in the withdrawn list — that is the distinction 0187 exists to make,
+    // and a report that blurred it would justify stripping a stranger.
+    const r = await run([], stub);
+    expect(r.out).toMatch(/WITHDRAWN, AND STILL HOLDING ฝ่าย ROLES: 1/);
+    expect(r.out.split('WITHDRAWN')[1].split('NOT LINKED')[0]).not.toContain('carol');
+  });
+
+  it('withdrawn with no managed role left is not worth reporting', async () => {
+    w.members.find((m) => m.user.id === 'U6').roles = [];
+    const r = await run([], stub);
+    expect(r.out).not.toMatch(/WITHDRAWN, AND STILL HOLDING/);
   });
 });
 
@@ -157,7 +198,7 @@ describe('the refusals actually refuse — exit non-zero AND write nothing', () 
 });
 
 describe('the blast-radius cap, measured against the SERVER', () => {
-  // Turn every linked person into a removal: 3 of 5 humans is 60%, over the
+  // Turn every linked person into a removal: 3 of 6 humans is 50%, over the
   // 25% cap, while being only 3 removals — well under the 50-removal cap. The
   // percentage is what catches a small server, and it is measured over HUMANS,
   // not over the linked set, where one person is always 100%.
@@ -172,7 +213,7 @@ describe('the blast-radius cap, measured against the SERVER', () => {
   it('refuses a run over the cap, and writes nothing', async () => {
     turnover(w);
     const r = await run(['--apply', '--add', '0', '--remove', '3'], stub);
-    expect(r.out).toMatch(/BLAST RADIUS: 3 removal\(s\) \(cap 50\) across 60% of the server \(cap 25%\)/);
+    expect(r.out).toMatch(/BLAST RADIUS: 3 removal\(s\) \(cap 50\) across 50% of the server \(cap 25%\)/);
     expect(r.code).toBe(1);
     expect(r.writes).toEqual([]);
   });

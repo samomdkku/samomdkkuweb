@@ -2801,3 +2801,64 @@ production data, ask **who is allowed to change this, and has someone been asked
 to?** If the answer is yes, assert the rule instead, and construct whatever
 geometry the scenario needs. And never let a proof's expected count live in more
 than one place; better, let it live in none, and require every row to pass.
+
+---
+
+## Two more proofs whose SCENARIO had run out — and one that asserted "the first trigger, whichever it is"
+
+**Symptom.** `npm run proofs` on 2026-09-13: **2 of 39 not green**, neither
+caused by the change being made.
+
+```
+shop0150-buyer-contact.sql   ✗ errored: null value in column "id" of relation "shop_orders"
+team0185-link-codes.sql      ✗ 75. updated_at is maintained by a TRIGGER, not by callers
+```
+
+**`shop0150` — borrowed geometry that ran out, and it ERRORED rather than
+failed.** The proof builds its subject by copying an existing order as a
+template:
+
+```sql
+to_jsonb((select o from public.shop_orders o order by o.id limit 1))
+```
+
+`shop_orders` now holds **0 rows** (measured). The subselect is NULL, `NULL ||
+jsonb_build_object(...)` is NULL, and `jsonb_populate_record` returns a row of
+all nulls — so the insert violated NOT NULL and **the transaction aborted before
+a single assertion was emitted**. Zero rows of verdict, an HTTP 400, and only
+the runner's `r.status !== 0 → FAIL` branch stopped that being silence.
+
+Same class as `team0183` §22-24 fixed the same day: *if the thing a proof needs
+can run out, create it.* The floor is now supplied on the left of the `||` so a
+real template still wins when one exists.
+
+⚠️ **And `jsonb_populate_record` does not apply column defaults.** A key absent
+from the jsonb becomes NULL; it does not become `def=0`. Supplying only the
+three columns with no default got as far as `null value in column "fee"`. Every
+NOT NULL column has to be named, defaults included — which is exactly the
+knowledge the template trick existed to avoid needing, and the reason this
+failure mode is easy to write.
+
+**`team0185` §75 — an assertion that described a list one element long.**
+
+```sql
+select p.proname from pg_trigger t … where t.tgrelid = 'public.discord_links'::regclass
+  and not t.tgisinternal limit 1        -- expected 'touch_updated_at'
+```
+
+A `limit 1` with **no ORDER BY**, over a list that happened to hold one trigger
+when it was written. 0187 added a second one and the proof went red while
+nothing it guards had changed. Its own comment three lines above says *"assert
+the MECHANISM"* — and the mechanism is that **a** trigger calling
+`touch_updated_at` exists, not that it is the only one or that it sorts first.
+Now an `exists (… and p.proname = 'touch_updated_at')`, which holds however many
+triggers the table gains.
+
+**The general rule.** *A proof that reads production state is dated the moment
+it is written, and the two ways it expires are different.* One is the scenario
+running out — the template row, the duplicate name, the quota week — and the
+cure is to construct what it needs. The other is an assertion that describes the
+SHAPE of what it saw — one trigger, two roles, a majority — where the cure is to
+assert the property that shape was evidence for. Both are found the same way:
+after any schema change, run **every** proof, not the ones about the thing you
+touched. Both of these were in files nobody had edited.
