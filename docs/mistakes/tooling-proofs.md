@@ -2912,3 +2912,69 @@ data differ, the answer is usually that they are counting different things and
 BOTH belong, labelled; reach for that before reaching for a fix. The tell here
 was available and ignored: 59 − 51 = 8, and the plan had printed two buckets of
 4 directly underneath.
+
+---
+
+## I recommended a cheaper option without measuring it, and it saved one role out of fifty-one
+
+**Symptom.** Having told the owner that 51 Discord roles needed creating, I
+added a recommendation: *"I'd create only the ones with people beneath them
+first — that fixes most of the 219 without committing the whole budget."*
+
+Measured the next message:
+
+```
+59  unprovisioned ตำแหน่ง
+58  have people beneath them
+ 1  empty
+```
+
+**The suggestion saved one role.** There was no middle path in that direction,
+and the sentence had already been read.
+
+**Cause.** The recommendation was derived from the shape of the problem rather
+than from the data. "Some ticked ฝ่าย are empty org-chart tidying" was true of
+the *contested* list — four of five hold nobody — and I carried that intuition
+across to a different population without re-asking. It reads as a measured
+judgement because it sits beside real numbers.
+
+**And the real middle path was 50× better, in a direction I had not looked.**
+Most people who are "short a role" still RECEIVE one, from a ticked ancestor
+that is already provisioned; *short* means missing the specific role, not
+missing everything. Only 27 people had no provisioned ancestor at all — and
+because ancestry is a tree, covering them means creating the node highest in
+their ancestry, which covers everyone beneath it at once:
+
+```
+27 people   ฝ่าย รพ. ร่วมผลิต   (one top-level ฝ่าย)
+```
+
+One role against fifty-one, and 184 of Discord's 250 cap instead of 234. That is
+not a refinement of the advice; it is a different decision, and the owner nearly
+made the expensive one on my say-so.
+
+**Fix.** `npm run discord:readiness` now computes and prints the minimum cover
+itself, so it stays true as ทีม SAMO is edited and nobody has to reason about it
+again. `discord-provision.mjs` gained `--only '<name>'`, because the cheap
+option could be *described* but not *executed* — the tool was all-51-or-none,
+so the recommendation was unimplementable at the moment it was made.
+`skills/discord-role-sync.md` now names the bad suggestion explicitly so it is
+not re-derived.
+
+⚠️ Two bugs were introduced writing that flag and caught before shipping: the
+narrowing ran AFTER the cap arithmetic that consumed it (a temporal dead zone —
+the tool would have thrown), and the write loops still iterated the unnarrowed
+list, so `--only` would have shown a plan of one role and then created all
+fifty-one. That second one is exactly the "what gets applied must be what a
+human read" failure the tool's own count check exists to prevent, arriving
+through a new door.
+
+**The general rule.** *A recommendation is a claim, and it inherits none of the
+credibility of the measurements it is printed beside.* Before offering a cheaper
+or smaller option, run the query that says how much cheaper — a fraction, not an
+adjective. If the tooling cannot execute the option, that is a second reason to
+check it: an unimplementable recommendation has never been tested against
+anything. And when the obvious axis turns out to be worthless, **look along a
+different one before accepting the expensive answer** — here the useful question
+was not "which ฝ่าย are empty" but "who would receive literally nothing", and
+those have wildly different answers on the same data.

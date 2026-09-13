@@ -312,7 +312,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 - A missing nginx `location` does not 404
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(58)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(59)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -374,6 +374,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `team0183` had the "describes today's data" defect TWICE, and one of them was 42 ticks from a false red
 - Two more proofs whose SCENARIO had run out
 - I "corrected" a number that was already right, because I checked its value and not its UNIT
+- I recommended a cheaper option without measuring it, and it saved one role out of fifty-one
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -419,4 +420,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_357 entries across 10 files._
+_358 entries across 10 files._

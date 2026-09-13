@@ -43,7 +43,9 @@ describe('it plans by default and refuses a stale plan', () => {
 
   it('requires the counts the operator read, and compares them', () => {
     // An --apply that recomputes and proceeds can do something nobody saw.
-    expect(CODE).toMatch(/num\('--adopt'\) !== adopt\.length/);
+    // Against the NARROWED list since --only exists: the numbers a human
+    // confirms must describe the run they are about to start.
+    expect(CODE).toMatch(/num\('--adopt'\) !== adoptSel\.length/);
     // Compared against what WILL be created, not against the full create list —
     // --adopt-only makes those two different numbers, and comparing the wrong
     // one would refuse every correct adopt-only run.
@@ -79,8 +81,48 @@ describe('a near match is never adopted automatically', () => {
   // --adopt-only is the recommended path, so the thing that makes it SAFE —
   // that it creates nothing — is worth pinning rather than trusting.
   it('--adopt-only creates nothing, and the cap maths follows it', () => {
-    expect(CODE).toMatch(/const willCreate = adoptOnly \? \[\] : create;/);
-    expect(CODE).toMatch(/has\('--adopt-only'\) \? 0 : create\.length/);
+    expect(CODE).toMatch(/const willCreate = adoptOnly \? \[\] : createSel;/);
+    expect(CODE).toMatch(/has\('--adopt-only'\) \? 0 : createSel\.length/);
+  });
+});
+
+describe('--only narrows what actually runs, not just what is printed', () => {
+  // The cheap path — create ONE role instead of 51 — could be described before
+  // this flag existed but not executed. The danger of a narrowing flag is that
+  // it narrows the PLAN and then writes the unfiltered list, which is the exact
+  // "the thing applied is not the thing a human read" failure the count check
+  // exists to prevent. So the write loops must iterate the narrowed lists.
+  it('the write loops use the narrowed lists, never the raw ones', () => {
+    expect(CODE).toMatch(/for \(const \[t, r\] of adoptSel\)/);
+    expect(CODE, 'a write loop over the unfiltered adopt list ignores --only')
+      .not.toMatch(/for \(const \[t, r\] of adopt\)/);
+    expect(CODE).toMatch(/const willCreate = adoptOnly \? \[\] : createSel;/);
+  });
+
+  it('the confirmed counts compare against the narrowed lists', () => {
+    expect(CODE).toMatch(/num\('--adopt'\) !== adoptSel\.length/);
+  });
+
+  it('the cap maths follows the narrowing too', () => {
+    // Otherwise --only reports the spend of the whole plan and a cheap run
+    // looks as expensive as the full one, which defeats the point of having it.
+    expect(CODE).toMatch(/const after = allRoles\.length \+ \(has\('--adopt-only'\) \? 0 : createSel\.length\)/);
+  });
+
+  it('a name that matches nothing REFUSES', () => {
+    // A typo that provisions zero roles and exits 0 is the "guard that finds
+    // nothing" failure — it looks like a completed run.
+    expect(CODE).toMatch(/const missing = onlyNames\.filter\(\(n\) => !known\.has\(n\)\)/);
+    const at = CODE.indexOf('const missing = onlyNames');
+    expect(CODE.slice(at, at + 700)).toMatch(/process\.exit\(1\)/);
+  });
+
+  it('narrowing happens BEFORE the counts are printed', () => {
+    // The numbers a human is asked to confirm must describe this run.
+    const narrow = CODE.indexOf('const createSel');
+    const capLine = CODE.indexOf('const after = allRoles.length');
+    expect(narrow).toBeGreaterThan(0);
+    expect(narrow).toBeLessThan(capLine);
   });
 });
 

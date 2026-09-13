@@ -16,6 +16,122 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-13, END OF SESSION — read this before anything else
+
+**Status of the code: clean.** 2055 tests, build green, **39 of 39 live proofs
+green**, six deploys, all verified from the SERVED artifact. Nothing half-finished
+in the tree. Migration **0187** applied to production.
+
+⛔ **NOTHING HAS BEEN WRITTEN TO DISCORD. EVER.** Not a role created, not a role
+assigned, not a role removed. Verified from both sides at the end of the session:
+the guild holds **183 roles** and no role matching `ร่วมผลิต`; `team_nodes` holds
+**48 mappings**, newest written 2026-09-12 09:46 by the PREVIOUS session. Every
+command run this session was plan-only. **The owner was asked and has not yet
+said yes.**
+
+### What shipped
+
+1. **The apply step — phase 3, the last big piece.** `tools/discord-apply.mjs`,
+   `npm run discord:apply`. Plans by default; `--apply` must carry the counts
+   just read, recomputed and re-printed every run. Refuses, all before the first
+   write: an empty target set · stale counts · the blast-radius cap
+   (`MAX_REMOVALS 50` / `MAX_PERCENT 25`, `--allow-large`) · **a role at or above
+   the bot** (§7 step 4 fails SILENTLY — Discord answers 204 and changes
+   nothing) · no Manage Roles · a role outside the managed mapping. The only
+   mutable path is `/guilds/{g}/members/{u}/roles/{r}`; it cannot delete a role
+   object.
+
+2. **⛔ EVERY ROLE WRITE WOULD HAVE THROWN.** `X-Audit-Log-Reason` was Thai; an
+   HTTP header value is latin-1, so `fetch` raised
+   `Cannot convert argument to a ByteString` before any request existed.
+   **`discord-provision.mjs` had it too, shipped** — its header is in the CREATE
+   branch and every run so far was `--adopt-only`. Invisible to eight source
+   assertions AND to a live run, because plan mode builds no header. Found by
+   `src/js/discord-apply.run.test.js`, which runs the real file against a stub
+   Discord + PostgREST and asserts the exact requests. **Change the write path
+   and run that test first** — it is the only thing that can see a swapped id or
+   a wrong verb.
+
+3. **⛔ 0187 — UNLINKING WAS A PERMANENT ฝ่าย ROLE GRANT.** `if (!t) continue`
+   cannot tell "never linked" from "no longer linked"; both are an absent row.
+   THREE doors produce it and the third is an **UPDATE** (re-link to another
+   account), so every fix shaped around "delete" is two-thirds done. One trigger
+   on the table now maintains `discord_orphaned_accounts`. **It RECORDS, it does
+   not remove** — that is the owner's undecided leaver policy.
+   ⚠️ A foreign key on `person_id` **breaks deleting a person** (measured: the
+   trigger raises mid-cascade). Do not add one.
+
+4. **The nginx trap in §14b was STALE** — the configs were already in step, and
+   the warning discouraged the safe action. The real hazard, now written down: a
+   missing `location` does NOT 404, it serves the public SPA — **200, 217,928
+   bytes, a page that renders**. Two guards: `nginx-routes.test.js` (the repo
+   copy) and **`npm run check:routes`** (the served host, keyed on a marker only
+   each route emits, with a control that refuses to trust a host that stops
+   falling through).
+
+5. **`npm run discord:readiness`** — needs no Discord token, runs on a laptop.
+   Answers the question the other tools cannot: 342 people hold a ตำแหน่ง, 308
+   can link, 1 has; 59 ตำแหน่ง grant nothing; if all 342 linked, **219 would be
+   short a role and 27 would get NOTHING**.
+
+6. **Three proof defects, two in files nobody had edited.** `team0183` asserted
+   a live tick RATIO (42 ticks from a false red) and FOUND its same-named node
+   pair in production; `team0185` §75 asserted `limit 1` over a trigger list with
+   no ORDER BY; `shop0150` was already erroring because it copies a template
+   `shop_orders` row and that table is now empty. **Run `npm run proofs` — all of
+   them — after any schema change.**
+
+7. **The cap check undercounted by every managed role** (180/250 reported where
+   the truth was 183). Harmless at 94%, exactly wrong at the wall.
+
+### ⛔ THE ONE DECISION WAITING, AND IT IS SMALL
+
+The owner was shown this and has not answered. **Do not act on it without an
+explicit yes** — it writes to the real server.
+
+```
+27 people would link and receive NOTHING.
+ONE role fixes all 27:   ฝ่าย รพ. ร่วมผลิต   (top level)
+
+ 1 role  → 184 of 250    nobody who links gets nothing
+51 roles → 234 of 250    everyone gets every role they are due
+```
+
+⛔ **"Create only the ตำแหน่ง with people in them" is NOT a middle path — it
+saves ONE role** (58 of 59 have people). I recommended it before measuring it;
+do not re-derive it. The real cheap path is the one above, and
+`npm run discord:readiness` recomputes it. `discord-provision.mjs --only '<ชื่อ>'`
+executes it.
+
+If the owner says yes, on the VM: plan it, read it, then
+`--apply --adopt 0 --create 1`, then re-run the plan to confirm it is empty.
+
+### What I got wrong, so it is not repeated
+
+- **Corrected a number that was already right.** Changed "the remaining 51
+  roles" to 59, and repeated 59 in a commit and to the owner. 51 = roles to
+  CREATE; 59 = unmapped ticked nodes, which split 51 + 4 near + 4 contested.
+  I checked the value and never read the sentence saying what it counted.
+- **Recommended a cheaper option without measuring it** (see above). It saved 1
+  of 51, and the genuinely cheap path was in a direction I had not looked.
+- **Nearly reported "only 28 of 342 can link"** — I counted `people.user_id`.
+  `my_person_id()` matches on the signed-in EMAIL against `people.kkumail`, so a
+  prior account is not the gate. Real figure 308. Read the live function body.
+- **Pushed a commit with a red test** — `;` between `npm test` and `git commit`
+  instead of `&&`, so the failure printed and was ignored.
+- **Two mutation runs landed on the wrong line and I read them as gaps in the
+  tests.** `perl s///` without `/g` took the first of two matches. Check the
+  mutation applied before concluding the guard is blind.
+
+### ⛔ Tooling that will bite the next session
+
+- **`.claude/rules/mistakes.md` is at 29,997 of 30,000 bytes.** The next entry
+  will not fit and `npm test` will fail on it. Do not raise the cap and do not
+  shave the seven classes — compress recently added SITES. `HANDOFF` §9 has the
+  full note.
+- **`STATE.md` is at 258 of a 260-line ceiling.** Same shape.
+- Both were hit repeatedly this session; budget a few minutes.
+
 ## ▶ HANDOFF 2026-09-11, END OF SESSION — read this before anything else
 
 **Status of the code: clean.** 1951 tests, build green, all 35 live proofs

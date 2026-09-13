@@ -37,6 +37,23 @@ const API = 'https://discord.com/api/v10';
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const num = (f) => { const i = args.indexOf(f); return i < 0 ? null : Number(args[i + 1]); };
+const val = (f) => { const i = args.indexOf(f); return i < 0 ? null : (args[i + 1] ?? null); };
+
+// ⛔ `--only 'a','b'` NARROWS WHAT THIS RUN TOUCHES, and it exists because the
+// whole-or-nothing choice was hiding a much cheaper one.
+//
+// 59 ตำแหน่ง have no Discord role. Creating all of them spends 51 of the 67
+// roles left under Discord's hard 250 cap. But `npm run discord:readiness`
+// measures that only 27 people would receive NOTHING, and that ONE role —
+// ฝ่าย รพ. ร่วมผลิต — covers all 27, because everyone else already inherits a
+// role from a provisioned ancestor. 1 against 51 is not a detail, and without
+// this flag the cheap option could be described but not executed.
+//
+// Names are matched EXACTLY against ticked node names. A name that matches
+// nothing REFUSES rather than quietly doing less than asked: a typo that
+// provisions zero roles and exits 0 is the "guard that finds nothing" failure.
+const onlyNames = (val('--only') || '')
+  .split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
 
 // Discord's hard cap. Not a soft limit and not raised by boosting.
 const ROLE_CAP = 250;
@@ -141,6 +158,29 @@ async function main() {
     if (close.length === 1) near.push([t, close[0]]); else create.push(t);
   }
 
+  // ⛔ NARROW BEFORE COUNTING, so the --adopt/--create numbers the operator is
+  // asked to confirm describe THIS run and not the unfiltered plan.
+  if (onlyNames.length) {
+    const known = new Set(ticked.map((t) => t.name));
+    const missing = onlyNames.filter((n) => !known.has(n));
+    if (missing.length) {
+      console.error(`\n✗ REFUSED — --only named ${missing.length} ตำแหน่ง that is not ticked:`);
+      missing.forEach((n) => console.error(`    "${n}"`));
+      console.error('  Exact match against ทีม SAMO node names, and a name that matches');
+      console.error('  nothing would provision nothing while exiting 0. Check for a stray');
+      console.error('  space or a different ฝ่าย prefix; `npm run discord:readiness` prints');
+      console.error('  the command with the names already quoted.');
+      process.exit(1);
+    }
+  }
+  const keep = (t) => !onlyNames.length || onlyNames.includes(t.name);
+  const adoptSel = adopt.filter(([t]) => keep(t));
+  const createSel = create.filter(keep);
+  if (onlyNames.length) {
+    console.log(`\nNARROWED by --only to ${onlyNames.length} ตำแหน่ง: `
+      + `adopt ${adoptSel.length}, create ${createSel.length}.`);
+  }
+
   console.log(`GUILD roles: ${allRoles.length} of ${ROLE_CAP}   `
     + `(${roles.length} adoptable; the rest are @everyone and ${allRoles.length - roles.length - 1} integration role(s))`);
   console.log(`TICKED nodes: ${ticked.length}   already mapped: ${already.length}`);
@@ -167,7 +207,7 @@ async function main() {
   // it refuses it PART WAY THROUGH a run — leaving some nodes mapped and some
   // not, which is the messiest possible state to reason about afterwards. So it
   // is checked BEFORE anything is created, not caught as an error.
-  const after = allRoles.length + (has('--adopt-only') ? 0 : create.length);
+  const after = allRoles.length + (has('--adopt-only') ? 0 : createSel.length);
   console.log(`\nAFTER CREATING: ${after} of ${ROLE_CAP} roles (${Math.round((after / ROLE_CAP) * 100)}%)`);
   if (after > ROLE_CAP) {
     console.log(`⛔ THAT EXCEEDS DISCORD'S HARD LIMIT OF ${ROLE_CAP}. Untick some nodes, or`);
@@ -195,22 +235,22 @@ async function main() {
   // Hence --adopt-only, and hence it is the recommendation printed below rather
   // than a flag somebody has to think of.
   const adoptOnly = has('--adopt-only');
-  const willCreate = adoptOnly ? [] : create;
+  const willCreate = adoptOnly ? [] : createSel;
 
   if (!has('--apply')) {
     console.log('\nPLAN ONLY — nothing was written.');
     console.log('\n  RECOMMENDED — adopt what already exists, spend no new roles:');
-    console.log(`    node tools/discord-provision.mjs --apply --adopt-only --adopt ${adopt.length} --create 0`);
+    console.log(`    node tools/discord-provision.mjs --apply --adopt-only --adopt ${adoptSel.length} --create 0`);
     console.log('\n  Everything, including creating new roles:');
-    console.log(`    node tools/discord-provision.mjs --apply --adopt ${adopt.length} --create ${create.length}`);
+    console.log(`    node tools/discord-provision.mjs --apply --adopt ${adoptSel.length} --create ${createSel.length}`);
     return;
   }
 
   // The plan the operator read must be the plan that runs.
-  if (num('--adopt') !== adopt.length || num('--create') !== willCreate.length) {
+  if (num('--adopt') !== adoptSel.length || num('--create') !== willCreate.length) {
     console.error(`\n✗ REFUSED — the plan changed since you read it.`);
     console.error(`  you passed  --adopt ${num('--adopt')} --create ${num('--create')}`);
-    console.error(`  now         --adopt ${adopt.length} --create ${willCreate.length}`);
+    console.error(`  now         --adopt ${adoptSel.length} --create ${willCreate.length}`);
     console.error('  Re-read the plan above and pass the new numbers if they are right.');
     process.exit(1);
   }
@@ -221,7 +261,7 @@ async function main() {
   // is the half-finished state this file already refuses to risk for the role
   // cap; the same care belongs here.
   const want = new Map();
-  for (const [t, r] of adopt) {
+  for (const [t, r] of adoptSel) {
     if (want.has(r.id)) {
       console.error(`\n✗ REFUSED — "${t.name}" and "${want.get(r.id)}" would both take one Discord role.`);
       process.exit(1);
@@ -230,7 +270,7 @@ async function main() {
   }
 
   let n = 0;
-  for (const [t, r] of adopt) {
+  for (const [t, r] of adoptSel) {
     await pg(`team_nodes?id=eq.${t.id}`, { method: 'PATCH', body: JSON.stringify({ discord_role_id: r.id }) });
     console.log(`  adopted  ${t.name}`);
     n++;

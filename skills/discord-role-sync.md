@@ -33,6 +33,7 @@ machine that has the database is the move that leaked it three times.**
 npm run discord:report -- --report <dump>     # read-only, guarded: no verb but GET
 node tools/discord-provision.mjs              # plan only; prints the recommended command
 node tools/discord-provision.mjs --apply --adopt-only --adopt N --create 0
+node tools/discord-provision.mjs --only 'ฝ่าย รพ. ร่วมผลิต'   # plan ONE ตำแหน่ง
 node tools/discord-apply.mjs                  # plan only; the one that changes members
 node tools/discord-apply.mjs --apply --add N --remove M --only <discord-user-id>
 ```
@@ -96,6 +97,12 @@ It answers the question the other two tools cannot: they describe people who ARE
 linked, and one person is, so both are green and neither tells you what happens
 at 342. This asks the portal instead — who can link, who is owed what, which
 ตำแหน่ง can grant anything today.
+
+⛔ **Do not offer "create only the ตำแหน่ง with people in them" as a cheaper
+option — it saves ONE role** (58 of 59 have people). The cheap option is
+different: only the people with NO provisioned ancestor get nothing, and one
+role covers all of them. The readiness report computes it and prints the
+`--only` command; never eyeball this.
 
 ⚠️ **`my_person_id()` matches on the signed-in EMAIL against `people.kkumail`.**
 So having a portal account is NOT the gate and counting `people.user_id` is

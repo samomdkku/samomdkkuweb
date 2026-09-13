@@ -113,6 +113,57 @@ if (!affecting.length) {
   console.log('  nothing. Provision these before announcing, not after.');
 }
 
+// ── The cheapest thing that fixes the worst outcome ────────────────────────
+// ⛔ "CREATE ONLY THE POPULATED ONES" IS NOT A MIDDLE PATH ON THIS DATA — 58 of
+// the 59 unprovisioned ตำแหน่ง have people under them, so it saves ONE role. It
+// was recommended before it was measured.
+//
+// The real middle path is different and much cheaper: most people who are short
+// a role still GET one, from a ticked ancestor that is already provisioned.
+// Only those with NO provisioned ancestor anywhere get zero — and in a tree,
+// covering them means creating the node HIGHEST in their ancestry, which covers
+// everyone beneath it at once. That is a minimum, not a heuristic.
+const cover = await q(`
+  with placed as (select distinct person_id from public.team_members where person_id is not null),
+  anc as (
+    select p.person_id, n.id as node_id, n.name,
+           n.discord_role_id is not null as provisioned
+      from placed p
+      join public.team_members tm on tm.person_id = p.person_id
+      cross join lateral public.discord_node_ancestry(tm.node_id) a
+      join public.team_nodes n on n.id = a.node_id
+     where n.discord_role
+  ),
+  destitute as (
+    select person_id from anc group by person_id having bool_and(not provisioned)
+  ),
+  best as (
+    select d.person_id, a.node_id, a.name,
+           row_number() over (
+             partition by d.person_id
+             order by (select count(*) from public.discord_node_ancestry(a.node_id)) asc, a.name
+           ) as rank
+      from destitute d join anc a on a.person_id = d.person_id
+  )
+  select b.name, count(*)::int as covers
+    from best b where b.rank = 1 group by b.name order by covers desc
+`);
+if (cover.length) {
+  const total = cover.reduce((n, c) => n + Number(c.covers), 0);
+  console.log(`\nCHEAPEST FIX FOR THE ${total} WHO WOULD GET NOTHING: `
+    + `${cover.length} role(s), not ${r.ticked - r.provisioned}.`);
+  for (const c of cover) console.log(`  ${String(c.covers).padStart(4)} people   ${c.name}`);
+  console.log('  Everyone else who is short a role still RECEIVES one, from a ticked');
+  console.log('  ancestor that is already provisioned. Creating the rest buys precision,');
+  console.log('  not access — and it is the difference between spending 1 of the');
+  console.log(`  remaining role budget and spending ${r.ticked - r.provisioned}.`);
+  console.log('\n  On the VM, plan it first:');
+  console.log(`    node tools/discord-provision.mjs --only ${cover.map((c) => `'${c.name}'`).join(',')}`);
+} else {
+  console.log('\nNobody would get nothing — every placed person has at least one');
+  console.log('provisioned ticked ตำแหน่ง in their ancestry.');
+}
+
 console.log('\nWhat this CANNOT see: the guild itself — whether the roles exist, who');
 console.log('holds what, whether the bot sits above them. That is `npm run discord:report`');
 console.log('and `npm run discord:apply`, both of which need the token and run on the VM.');

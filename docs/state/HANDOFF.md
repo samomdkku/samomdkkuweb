@@ -1169,11 +1169,36 @@ only 28 do, and that number is irrelevant. The gate is a kkumail on the ที�
 row. The 34 without one need data entry, and nothing else will fix them: they
 would sign in, match nothing, and be unable to link at all.
 
+⛔ **"CREATE ONLY THE POPULATED ONES" IS NOT A MIDDLE PATH — it saves ONE
+role.** 58 of the 59 unprovisioned ตำแหน่ง have people under them. That was
+recommended to the owner before it was measured; the measurement killed it.
+
+✅ **THE REAL MIDDLE PATH IS ONE ROLE, AND IT IS A 50× DIFFERENCE.** Most people
+who are "short a role" still RECEIVE one, from a ticked ancestor that is already
+provisioned — short means missing the *specific* role, not missing everything.
+Only the 27 with no provisioned ancestor get zero, and in a tree they are covered
+by creating the node highest in their ancestry:
+
+```
+27 people   ฝ่าย รพ. ร่วมผลิต   (top level)
+```
+
+| | roles spent | outcome |
+|---|---|---|
+| 1 role | 183 → **184** of 250 | nobody who links gets nothing |
+| 51 roles | 183 → **234** of 250 | everyone gets every role they are due |
+
+One buys ACCESS for everybody; the other fifty buy PRECISION for people who
+already have a role. `npm run discord:readiness` recomputes this and prints the
+exact command, so it stays true as ทีม SAMO is edited.
+
 **So, in order, before opening:**
 
-1. **Provision the 51** (`--create`), or at least the ones with people under
-   them. Takes the guild to 234 of 250 roles — decide that spend deliberately,
-   it cannot be undone without deleting roles and their channel permissions.
+1. **Provision.** Either the one role above, or all 51 (→ 234 of 250; the cap
+   cannot be raised and the spend is undone only by deleting roles, which takes
+   their channel permissions with them). `--only '<ชื่อ>'` on
+   `discord-provision.mjs` creates a named subset; a name matching nothing
+   REFUSES rather than provisioning zero and exiting 0.
 2. **The 4 near-matches and the contested ฝ่ายวิชาการ** — items 2 and 3 below.
 3. **One real apply run**, `--only <one id>`, watched. The write path has never
    executed against the guild.
