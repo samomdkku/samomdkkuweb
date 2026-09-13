@@ -349,7 +349,10 @@ Roles are for **access**, not for reading the org chart.
 
 ## 6. Build order — each phase earns the next
 
-**⛔ §7 blocks phase 1. Do not start before it is done.**
+**⛔ §7 gates every phase that WRITES. Steps 1–4 are DONE (verified from the
+live guild 2026-09-13 — the bot is `samomdkkubot`, it holds Manage Roles, and
+its role sits at position 182 of 183, above everything it manages). Step 5, the
+kick that closes the old credential, is NOT.**
 
 0. ✅ **DONE 2026-09-12 — §8b is option A**, `discord-bot/` in this repo.
 1. ✅ **DONE — identity and the tick-box.** 0183–0186. Linking is **OAuth2**
@@ -359,10 +362,24 @@ Roles are for **access**, not for reading the org chart.
    (guarded: no HTTP verb but GET leaves the file). Has run against the live
    guild. 2a ✅ **provisioning** — `tools/discord-provision.mjs`, plan by
    default; 48 nodes adopted, 0 roles created (§8g.2).
-3. ❌ **NEXT AND LAST BIG PIECE — apply, with the blast-radius cap.** ⛔ The cap
-   is not a follow-up: with 1 person linked and 368 grants already in Discord,
-   an unbraked apply strips 78% of the server. Re-print the diff at apply time
-   rather than trusting the earlier run; pace against Discord's rate limits.
+3. 🟡 **BUILT 2026-09-13, AND IT HAS NEVER WRITTEN ANYTHING** —
+   `tools/discord-apply.mjs` (`npm run discord:apply`), plan by default, with
+   the cap built in rather than bolted on. It has run against the live guild
+   read-only and the diff is **0 add, 0 remove**: the one linked person already
+   holds both roles they are due, so there has been nothing to apply. ⚠️ **The
+   write path is therefore UNEXERCISED** — the first real run must be
+   `--only <discord-user-id>`, on one person, watched.
+   What it refuses, each before the first write: an **empty target set** (class
+   2 — "no rows" is equally "nobody is linked" and "this credential cannot see
+   `team_nodes`"), a plan whose recomputed counts differ from the ones passed,
+   the **blast-radius cap** (`MAX_REMOVALS = 50`, `MAX_PERCENT = 25`, override
+   `--allow-large`), a role **at or above the bot** in the role list (§7 step 4
+   fails silently — Discord answers 204 and changes nothing), a bot without
+   Manage Roles, and any role outside the managed mapping. An unlinked member
+   never enters the plan; a **leaver** (linked, zero ตำแหน่ง) is reported and
+   never stripped, because §5e's ศิษย์เก่า SAMO rule is still the owner's
+   undecided call. Guarded by `src/js/discord-apply.test.js`, 17 assertions,
+   each watched failing first.
 4. **Live updates.** Realtime, with the periodic reconcile kept underneath.
 
 ⛔ **NO SECOND DISCORD APPLICATION.** A dev app invited without `Manage Roles`
@@ -378,7 +395,16 @@ Discord write call at all.
 
 ## 7. ⛔ OWNER-ONLY, AND IT BLOCKS EVERYTHING — step by step
 
-**Status: OWED. Decided 2026-09-11; the owner will do this in a later session.**
+**Status: STEPS 1–4 DONE, STEP 5 OWED — verified 2026-09-13 by reading the live
+guild, not by asking.** The new bot exists and is invited (`samomdkkubot`,
+created under the owner's chosen path); it holds Manage Roles; and its role is
+at position 182 of 183, i.e. above every mirrored role, so step 4's silent
+failure is not present. ⛔ **Step 5 is NOT done: `Role assignment bot for
+SAMO69` is still a member of the server, at role position 181.** Until it is
+kicked, the leaked credential still reaches this guild. Steps 1 and 4 below are
+kept as the record of what was required and how to check it — re-read them
+before trusting the drag, because a new mirrored role created later can land
+ABOVE the bot.
 
 The owner chose to create a **new bot under a role account** rather than reset
 the leaked token. That is the better call: the current app belongs to a
@@ -481,6 +507,12 @@ them itself at `main.py:1138`), so the new bot can manage every one of them.
 Say which of steps 1–5 are done. Until step 4 is confirmed, **no phase-3 apply
 run may be attempted** — a bot below the roles it manages will report success
 and change nothing.
+
+✅ **This is no longer something a human has to remember.**
+`tools/discord-apply.mjs` computes the bot's highest role position and refuses
+if any role in the plan sits at or above it, naming each one. Step 4 stays the
+fix; the tool is what makes forgetting it a refusal instead of a successful-
+looking run that changed nothing.
 
 ---
 

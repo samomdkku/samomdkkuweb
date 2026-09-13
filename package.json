@@ -25,6 +25,7 @@
     "mistakes:index": "node tools/mistakes-index.mjs",
     "discord:report": "node tools/discord-report.mjs",
     "discord:provision": "node tools/discord-provision.mjs",
+    "discord:apply": "node tools/discord-apply.mjs",
     "proofs": "node tools/run-proofs.mjs",
     "proofs:dev": "node tools/run-proofs.mjs --dev",
     "smoke:browser": "node tools/smoke-browser.mjs",

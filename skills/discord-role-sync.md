@@ -33,11 +33,35 @@ machine that has the database is the move that leaked it three times.**
 npm run discord:report -- --report <dump>     # read-only, guarded: no verb but GET
 node tools/discord-provision.mjs              # plan only; prints the recommended command
 node tools/discord-provision.mjs --apply --adopt-only --adopt N --create 0
+node tools/discord-apply.mjs                  # plan only; the one that changes members
+node tools/discord-apply.mjs --apply --add N --remove M --only <discord-user-id>
 ```
 
 ⚠️ `--apply` requires the counts you just read. If the plan changed since — a
 node ticked, a role renamed — it refuses. That is deliberate: an `--apply` that
-recomputes can do something nobody saw.
+recomputes can do something nobody saw. Both writing tools work this way.
+
+`discord-apply.mjs` needs BOTH credentials, so unlike the report it does not
+split in half — **it only runs on the VM**:
+
+```bash
+scp tools/discord-apply.mjs samo-vm:/tmp/          # it imports nothing — one file
+{ printf '%s\n' "$PW"; sleep 5; } | ssh -tt samo-vm \
+  'sudo -v && sudo bash -c "set -a; . /etc/samo-discord-bot.env; . /etc/samo-notify.env; set +a; node /tmp/discord-apply.mjs"'
+```
+
+⛔ **A 0/0 PLAN IS NOT A GREEN WRITE PATH.** As of 2026-09-13 the plan is 0 add,
+0 remove — one person is linked and already holds both roles they are due — so
+the PUT and the DELETE have never executed. Do not read a clean plan as
+"working"; the first run that writes must be `--only <one discord-user-id>`.
+
+✅ **The step that fails silently is checked by the tool now.** §7 step 4 (the
+bot must sit ABOVE every role it manages; Administrator does not exempt it) was
+a thing a human had to remember. `discord-apply.mjs` reads the bot's highest
+role position and refuses, naming each role in the plan that sits at or above
+it. Measured 2026-09-13: `samomdkkubot` is at position 182 of 183, i.e. the top.
+A mirrored role created LATER can land above it, which is why this is a per-run
+check and not a one-off confirmation.
 
 ## ⛔ Re-run the proofs after ANY provisioning run
 
@@ -69,6 +93,8 @@ make the same edit in the repo copy so the drift does not widen.
 supabase/migrations/0183…0186    identity · the rule · link codes · self-read
 tools/discord-report.mjs         read-only reconcile (phase 2)
 tools/discord-provision.mjs      adopt/create roles (phase 3a)
+tools/discord-apply.mjs          add/remove roles on MEMBERS (phase 3) — the only writer
+src/js/discord-apply.test.js     its five safety properties, each watched failing
 server/discord-oauth.mjs         the OAuth callback, on the notify service
 src/js/discord-link.js           the card on ข้อมูลของฉัน
 server/check-env-file.sh         inspect a secret env file WITHOUT printing it

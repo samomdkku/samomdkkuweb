@@ -1055,11 +1055,14 @@ why under-showing relative to RLS is the safe direction.
 
 ## 14b. Discord role sync — LINKING IS LIVE, the apply step is not
 
-**Status: VERIFIED 2026-09-12 — how:** every claim below was read from the live
+**Status: VERIFIED 2026-09-13 — how:** every claim below was read from the live
 system, not from a plan. Migrations 0183–0186 applied to production; proofs
 `team0183` 22/22, `team0184` 18/18, `team0185` 29/29; the OAuth flow completed
 by a real human (the owner); the guild read with `npm run discord:report`; the
-48 mappings written by `tools/discord-provision.mjs --adopt-only`.
+48 mappings written by `tools/discord-provision.mjs --adopt-only`; and on
+2026-09-13 the apply tool run read-only against the live guild, which is where
+the bot's name, its permission and its position in the role list below come
+from.
 
 ⛔ **ONE HOME FOR THE DESIGN: `docs/DISCORD-ROLE-SYNC.md`.** Do not restate it
 here. This section is only what is TRUE NOW and what is OWED.
@@ -1077,17 +1080,43 @@ guild roles            180 of 250                 UNCHANGED by any of this
 ข้อมูลของฉัน, approves on Discord, and is linked. One account per person
 (§8f, owner-decided). Unlink works. Re-link to a different account works.
 
-❌ **NOTHING SYNCS YET.** No role has ever been added or removed by this system,
-and no code exists that can. That is the apply step, below.
+🟡 **THE APPLY TOOL EXISTS AND HAS NEVER WRITTEN ANYTHING** (2026-09-13).
+`npm run discord:apply` — plan by default, `--apply` required, and every §5e
+refusal checked before the first write. Run against the live guild it reports
+**0 to add, 0 to remove**: the single linked person already holds both roles
+they are due, so there is genuinely nothing to apply until more people link.
+
+⚠️ **So the WRITE PATH IS UNEXERCISED — no role has ever been added or removed
+by this system.** A plan of 0/0 proves the reads, the diff, the refusals and the
+preflight; it proves nothing about the two lines that issue a PUT and a DELETE.
+The first real run must be `--only <discord-user-id>`, on one person, watched.
+
+✅ **§7 STEPS 1–4 ARE DONE, and this was read from the guild rather than
+asked.** The bot is **`samomdkkubot`**, it holds **Manage Roles**, and its role
+sits at **position 182 of 183** — above every mirrored role, so step 4's silent
+failure ("reports success, changes nothing") is not present today. The apply
+tool re-checks it every run and refuses rather than trusting it, because a
+mirrored role created later can land above the bot.
+
+⛔ **§7 STEP 5 IS NOT DONE.** `Role assignment bot for SAMO69` is still a member
+of this server (role position 181). Until it is kicked, the leaked credential
+still reaches the guild — §1, and item 6 below.
 
 ### What is OWED, in order
 
-1. **THE APPLY STEP — the whole remaining feature.** A tool that takes the
-   report's diff and actually adds/removes roles. ⛔ It must not be written
-   before its brake: **refuse any run touching more than N roles or X% of
-   members** (§5e). With 1 person linked and 368 role grants already in Discord,
-   an unbraked apply would strip 78% of the server. ⛔ And **never act on
-   absence** — an unlinked person is UNKNOWN, never "entitled to nothing".
+1. ✅ **THE APPLY STEP — BUILT 2026-09-13**, `tools/discord-apply.mjs`, with
+   the brake in the same file rather than as a follow-up. What is left is the
+   first real run, and it is **waiting on data, not on code**: the diff is 0/0
+   because one person is linked and already correct. ⛔ **Do not treat a green
+   0/0 plan as proof the write path works** — run it `--only <one id>` first,
+   and the run that finally writes should be watched, not scheduled.
+   Its refusals, all before the first write: empty target set · recomputed
+   counts that differ from the ones passed · `MAX_REMOVALS = 50` /
+   `MAX_PERCENT = 25` (`--allow-large` to override) · a role at or above the bot
+   in the role list · no Manage Roles · a role outside the managed mapping. An
+   unlinked member never enters the plan, and a leaver is never stripped while
+   item 4 is undecided. `src/js/discord-apply.test.js`, 17 assertions, each
+   watched failing first.
 2. **OWNER — five contested ฝ่าย.** Two ticked nodes cannot share one name; the
    database refuses it. Rename them distinct, or untick the empty ones, in ทีม
    SAMO admin. Four of the five hold NOBODY, so this is org-chart tidying:
@@ -1116,8 +1145,9 @@ and no code exists that can. That is the apply step, below.
    and even slash commands are all REST or an HTTP interactions endpoint, and
    phase 4's trigger is Supabase Realtime. §8b-bis recommends **C** (`server/`,
    Node, beside the notify service). Nothing built depends on either answer yet.
-6. **OWNER — kick the old bot.** `Role assignment bot for SAMO69` is still in
-   the server; the report warns about it every run. This is what closes the old
+6. **OWNER — kick the old bot. STILL THERE, re-checked 2026-09-13** (role
+   position 181, and it is one of three bot members). The report warns about it
+   every run. This is what closes the old
    leaked credential, and also the application id that was in the public repo.
 7. **Then: the remaining 51 roles**, on demand only — §8g.2. Adopt was free;
    creating spends 51 of 70 remaining under Discord's hard 250 cap, on groups
@@ -1156,6 +1186,7 @@ and no code exists that can. That is the apply step, below.
 ```
 npm run discord:report                     # read-only; --fetch on the VM, --report here
 node tools/discord-provision.mjs           # plan only; --apply --adopt-only to map
+npm run discord:apply                      # plan only; --apply --add N --remove M to write
 node tools/db-query.mjs tools/team018{3,4,5}-*.sql
 ```
 The report needs the Discord token (VM) and Supabase (here), so it runs in two
