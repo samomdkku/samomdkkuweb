@@ -52,8 +52,19 @@ scp tools/discord-apply.mjs samo-vm:/tmp/          # it imports nothing — one 
 
 ⛔ **A 0/0 PLAN IS NOT A GREEN WRITE PATH.** As of 2026-09-13 the plan is 0 add,
 0 remove — one person is linked and already holds both roles they are due — so
-the PUT and the DELETE have never executed. Do not read a clean plan as
-"working"; the first run that writes must be `--only <one discord-user-id>`.
+the PUT and the DELETE have never executed **against the real guild**. The first
+run that writes must be `--only <one discord-user-id>`, watched.
+
+✅ **They HAVE executed against a stub.** `npx vitest run
+src/js/discord-apply.run.test.js` runs the real file as a child process against
+a fake Discord + PostgREST (`src/js/discord-apply.fixture.js`) and asserts the
+exact requests it emits. **Change the tool's write path and run that first** —
+it is the only thing here that can see a swapped id or a wrong verb, and it is
+what caught `X-Audit-Log-Reason` being Thai (a header value is latin-1, so
+`fetch` threw before any request existed and every write died). The same defect
+was shipped in `discord-provision.mjs`'s never-run CREATE branch.
+⚠️ The tool honours `DISCORD_API_BASE` **only** for `127.0.0.1` — that is what
+makes the override safe in a process holding the bot token. Do not widen it.
 
 ✅ **The step that fails silently is checked by the tool now.** §7 step 4 (the
 bot must sit ABOVE every role it manages; Administrator does not exempt it) was

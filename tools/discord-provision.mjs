@@ -218,7 +218,13 @@ async function main() {
     const role = await dc(`/guilds/${guildId}/roles`, {
       method: 'POST',
       body: JSON.stringify({ name: t.name, permissions: '0', mentionable: true, hoist: false }),
-      headers: { 'X-Audit-Log-Reason': 'ทีม SAMO role sync — provisioning' },
+      // ⛔ URL-ENCODED. A header value is a ByteString (latin-1) and both the
+      // Thai and the em dash throw `Cannot convert argument to a ByteString`
+      // in fetch() before the request is made. This branch has NEVER RUN —
+      // every provisioning run so far was --adopt-only, which creates nothing —
+      // so the defect sat here shipped and invisible until the apply tool hit
+      // the identical one against a stub guild.
+      headers: { 'X-Audit-Log-Reason': encodeURIComponent('ทีม SAMO role sync — provisioning') },
     });
     await pg(`team_nodes?id=eq.${t.id}`, { method: 'PATCH', body: JSON.stringify({ discord_role_id: role.id }) });
     console.log(`  created  ${t.name}`);

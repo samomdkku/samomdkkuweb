@@ -1279,3 +1279,91 @@ prefer a remedy that does not depend on the secret staying secret. It is class 6
 (*a fact with two homes where only one is corrected*) wearing a security
 costume, and class 7's instrument trap underneath it: the sweep was aimed at the
 surface the session happened to be thinking about.
+
+---
+
+## Every Discord role write would have thrown before it was sent — `X-Audit-Log-Reason` was Thai, and an HTTP header value is latin-1
+
+**Symptom.**
+
+```
+✗ Cannot convert argument to a ByteString because the character at index 0
+  has a value of 3607 which is greater than 255
+```
+
+printed by `tools/discord-apply.mjs` immediately after `APPLYING…`, with **zero
+requests sent**. 3607 is `ท`. The plan was correct, the refusals were correct,
+the preflight was correct, and then nothing happened.
+
+**Cause.** `fetch()` serialises header values as a **ByteString** — latin-1 — so
+a non-ASCII character throws while the `Headers` object is being built, *before
+any request exists*. Both Discord tools set the audit reason in Thai:
+
+```js
+headers: { 'X-Audit-Log-Reason': 'ทีม SAMO role sync' }                  // apply
+headers: { 'X-Audit-Log-Reason': 'ทีม SAMO role sync — provisioning' }   // provision
+```
+
+Discord's own documentation says this header must be URL-encoded when it is not
+ASCII; nothing in the repo had read that sentence.
+
+**Why neither tool's existing guards, nor a live run, could see it.**
+
+- `discord-apply.test.js` and `discord-provision.test.js` read the source and
+  assert its SHAPE — that the only mutable path is one member's one role, that
+  the cap precedes the write loop, that a near match is never adopted. A header
+  string that throws has exactly the shape of one that does not.
+- **The tool had been run against the real guild and exited 0.** It was a plan
+  run, and the plan path never constructs a header. `0 to add, 0 to remove`
+  followed by exit 0 is what a fully broken writer looks like from outside.
+- `discord-provision.mjs` is **shipped and has run** — 48 nodes adopted — but
+  every run so far was `--adopt-only`, and the header lives only in the CREATE
+  branch. A defect in the one branch nobody has exercised is invisible for as
+  long as that stays true, which here was going to be "until a ฝ่าย asks for a
+  channel", probably months later and under time pressure.
+
+**Fix.** `encodeURIComponent(...)` around both reasons — the encoding Discord
+asks for, which also happens to be ASCII-safe by construction. Then the two
+guards that make it stay fixed:
+
+- `src/js/discord-apply.run.test.js`, which runs the real file as a child
+  process against a stub Discord + PostgREST (`discord-apply.fixture.js`) and
+  asserts the exact list of HTTP requests that comes out. This is what found the
+  bug, and it also pins things no source regex can see: that the PUT and the
+  DELETE name the right member and the right role rather than merely numbering
+  two, that an unlinked member and a leaver appear in no request, that each
+  refusal exits non-zero **and** writes nothing.
+- A source assertion in BOTH tools that every `X-Audit-Log-Reason` value begins
+  `encodeURIComponent(` — a property over every header in the file, with a
+  control, rather than a check of the one call site that exists today.
+
+⚠️ **The mutation run that validated those tests was itself wrong first.** The
+mutation meant to make every role look managed matched `const held = …` — of
+which there are two, and `perl s///` without `/g` took the FIRST, in the leaver
+branch, where the value only feeds a display string. The suite stayed green and
+was briefly recorded as a gap in the test. Anchoring the pattern to the
+following line put it on the real one and nine tests went red. An instrument
+needs a guard too, and "the mutation passed" is a claim about the mutation
+before it is a claim about the code.
+
+**A second, real gap that the same run exposed.** Three assertions were written
+as *"no request mentions this id"*, and one stayed green under a mutation that
+made every role managed — because the mutated tool **refused** (the recomputed
+counts no longer matched what was passed), so nothing was written, so the id was
+absent. A deny-only probe cannot tell a working guard from a broken service.
+Each now asserts `code === 0` and the full expected write list first; the
+absence only means something once the allow half is there.
+
+**Where it lives now.** `tools/discord-apply.mjs` · `tools/discord-provision.mjs`
+· `src/js/discord-apply.run.test.js` + `src/js/discord-apply.fixture.js` · the
+header property in both `discord-apply.test.js` and `discord-provision.test.js`.
+
+**The general rule.** *A tool whose safety is asserted by reading its source has
+not been tested; it has been reviewed.* Source guards catch the shape of a
+mistake and are blind to its content — a transposed id, a wrong verb, a string
+that cannot be encoded. **Once a tool can destroy something, run it for real
+against a stub and assert the requests it emits**, because the cheapest stub is
+far cheaper than the first live run, and *a read-only run of a writing tool
+exercises none of the writing*. And when a string crosses a protocol boundary,
+ask what that protocol's alphabet is: headers are latin-1, and the code will not
+tell you until the moment it matters.

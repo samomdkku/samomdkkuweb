@@ -54,7 +54,27 @@
 //   DISCORD_TOKEN                 /etc/samo-discord-bot.env
 //   SUPABASE_URL + SERVICE_ROLE   /etc/samo-notify.env
 // ============================================================
-const API = 'https://discord.com/api/v10';
+// ⛔ THE BASE IS OVERRIDABLE ONLY TO LOOPBACK, and that restriction is the
+// whole point of the override existing at all.
+//
+// src/js/discord-apply.run.test.js runs this file as a real child process
+// against a stub Discord + PostgREST server and asserts which HTTP calls come
+// out — the only way to prove the PUT and the DELETE name the right member and
+// the right role, which no amount of reading the source can. That test needs to
+// redirect the base.
+//
+// But THIS PROCESS HOLDS THE BOT TOKEN, and an env var that can point it at an
+// arbitrary host is a credential-exfiltration path — a token this project has
+// already lost three times, each one a copy in transit. So the override is
+// honoured only for 127.0.0.1, which cannot leave the machine. Anything else is
+// ignored SILENTLY in favour of the real API: refusing loudly would turn a
+// typo into an outage, and accepting it would turn a typo into a leak.
+const API = (() => {
+  const o = process.env.DISCORD_API_BASE;
+  return o && /^http:\/\/127\.0\.0\.1:\d{2,5}(\/[\w./-]*)?$/.test(o)
+    ? o
+    : 'https://discord.com/api/v10';
+})();
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const val = (f) => { const i = args.indexOf(f); return i < 0 ? null : args[i + 1]; };
@@ -348,7 +368,17 @@ async function main() {
   }
 
   console.log('\nAPPLYING…');
-  const reason = { 'X-Audit-Log-Reason': 'ทีม SAMO role sync' };
+  // ⛔ URL-ENCODED, AND NOT AS TIDINESS. An HTTP header value is a ByteString
+  // (latin-1), so a Thai character makes fetch() throw
+  // `Cannot convert argument to a ByteString` BEFORE the request is built —
+  // every write would have died on the first PUT. Discord's own docs say this
+  // header must be URL-encoded when it is not ASCII.
+  //
+  // ⚠️ Nothing that runs read-only can see this: the plan path never builds a
+  // header. It was found by running the tool against a stub guild
+  // (src/js/discord-apply.run.test.js), which is the whole argument for that
+  // test existing — the live run said "0 to add, 0 to remove" and exit 0.
+  const reason = { 'X-Audit-Log-Reason': encodeURIComponent('ทีม SAMO role sync') };
   let done = 0;
   for (const [m, toAdd, toRemove, display] of plan) {
     for (const r of toAdd) {

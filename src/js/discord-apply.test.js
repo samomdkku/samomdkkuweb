@@ -181,3 +181,53 @@ describe('it never copies the credential it needs', () => {
     expect(RAW).toMatch(/leaked this credential three times/);
   });
 });
+
+describe('a header value is latin-1, and every reason here is Thai', () => {
+  // A non-ASCII HTTP header value makes fetch() throw
+  // `Cannot convert argument to a ByteString` BEFORE the request is built, so
+  // the write does not fail — it never happens. Both Discord tools set
+  // X-Audit-Log-Reason to a Thai string, and both were shipped raw.
+  //
+  // Asserted as a PROPERTY over every header in the file, not as a check of the
+  // one call site that exists today: a second audit reason added later must
+  // also be encoded, and a list of call sites cannot see the next one.
+  it('no header value in this file contains a non-ASCII literal', () => {
+    const headers = [...CODE.matchAll(/'X-Audit-Log-Reason':\s*([^,}\n]+)/g)].map((m) => m[1].trim());
+    expect(headers.length, 'read no audit reason at all — the detector is blind').toBeGreaterThan(0);
+    for (const h of headers) {
+      expect(h, `an audit reason that is not URL-encoded will throw before the request:\n  ${h}`)
+        .toMatch(/^encodeURIComponent\(/);
+    }
+  });
+
+  it('…and its detector would catch a raw one', () => {
+    const raw = "headers: { 'X-Audit-Log-Reason': 'ทีม SAMO role sync' },";
+    const found = [...raw.matchAll(/'X-Audit-Log-Reason':\s*([^,}\n]+)/g)].map((m) => m[1].trim());
+    expect(found).toHaveLength(1);
+    expect(found[0]).not.toMatch(/^encodeURIComponent\(/);
+  });
+});
+
+describe('the API base is overridable ONLY to loopback', () => {
+  // The override exists so discord-apply.run.test.js can point the real tool at
+  // a stub. But this process holds the bot token, so an env var that could
+  // redirect it to an arbitrary host is a credential-exfiltration path — for a
+  // token this project has already lost three times, every leak a copy in
+  // transit. The restriction is the reason the override is acceptable at all.
+  const ALLOW = /^http:\/\/127\.0\.0\.1:\d{2,5}(\/[\w./-]*)?$/;
+
+  it('the file restricts it, and does not simply read the env var', () => {
+    expect(CODE).toMatch(/process\.env\.DISCORD_API_BASE/);
+    expect(CODE).toContain(String(ALLOW).slice(1, -1));
+    expect(CODE).toMatch(/'https:\/\/discord\.com\/api\/v10'/);
+  });
+
+  it('its pattern admits a loopback stub and refuses everything else', () => {
+    expect(ALLOW.test('http://127.0.0.1:54321/api/v10')).toBe(true);
+    expect(ALLOW.test('https://discord.com/api/v10')).toBe(false);
+    expect(ALLOW.test('http://evil.example.com/api/v10')).toBe(false);
+    // The two that look like loopback and are not.
+    expect(ALLOW.test('http://127.0.0.1.evil.com/api/v10')).toBe(false);
+    expect(ALLOW.test('http://127.0.0.1:80@evil.com/api/v10')).toBe(false);
+  });
+});

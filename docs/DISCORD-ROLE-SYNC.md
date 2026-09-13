@@ -368,7 +368,13 @@ kick that closes the old credential, is NOT.**
    read-only and the diff is **0 add, 0 remove**: the one linked person already
    holds both roles they are due, so there has been nothing to apply. ⚠️ **The
    write path is therefore UNEXERCISED** — the first real run must be
-   `--only <discord-user-id>`, on one person, watched.
+   `--only <discord-user-id>`, on one person, watched — **but it is no longer
+   untested**: `src/js/discord-apply.run.test.js` runs the real file against a
+   stub Discord + PostgREST and asserts the exact requests it emits. That test
+   found a defect that would have killed every write (`X-Audit-Log-Reason` in
+   Thai; a header value is latin-1, so `fetch` threw before any request existed)
+   and the same defect **shipped** in `discord-provision.mjs`'s never-run CREATE
+   branch. Both fixed — `docs/mistakes/integrations.md`.
    What it refuses, each before the first write: an **empty target set** (class
    2 — "no rows" is equally "nobody is linked" and "this credential cannot see
    `team_nodes`"), a plan whose recomputed counts differ from the ones passed,

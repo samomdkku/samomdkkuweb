@@ -1086,10 +1086,26 @@ refusal checked before the first write. Run against the live guild it reports
 **0 to add, 0 to remove**: the single linked person already holds both roles
 they are due, so there is genuinely nothing to apply until more people link.
 
-⚠️ **So the WRITE PATH IS UNEXERCISED — no role has ever been added or removed
-by this system.** A plan of 0/0 proves the reads, the diff, the refusals and the
-preflight; it proves nothing about the two lines that issue a PUT and a DELETE.
-The first real run must be `--only <discord-user-id>`, on one person, watched.
+✅ **THE WRITE PATH IS NOW EXERCISED — against a STUB guild, not the real one**
+(2026-09-13). `src/js/discord-apply.run.test.js` runs the real file as a child
+process against a fake Discord + PostgREST and asserts the exact list of HTTP
+requests: the PUT and the DELETE name the right member and the right role, an
+unlinked member and a leaver appear in no request, an unmanaged role is never
+touched, and every refusal exits non-zero **and** writes nothing.
+
+⛔ **IT FOUND A BUG THAT WOULD HAVE KILLED EVERY WRITE.** `X-Audit-Log-Reason`
+was Thai; an HTTP header value is latin-1, so `fetch` threw
+`Cannot convert argument to a ByteString` before any request existed. The live
+read-only run could not see it (plan mode builds no header) and neither could
+eight source assertions. **`tools/discord-provision.mjs` had the identical bug,
+shipped** — its header is in the CREATE branch, and every run so far was
+`--adopt-only`. Both fixed, both pinned. Write-up:
+`docs/mistakes/integrations.md`.
+
+⚠️ **Still NO role has ever been added or removed in the real server.** The
+stub proves the logic and the requests; it cannot prove the credential, the
+permission or the hierarchy. The first live run must be
+`--only <discord-user-id>`, on one person, watched.
 
 ✅ **§7 STEPS 1–4 ARE DONE, and this was read from the guild rather than
 asked.** The bot is **`samomdkkubot`**, it holds **Manage Roles**, and its role
@@ -1116,7 +1132,8 @@ still reaches the guild — §1, and item 6 below.
    in the role list · no Manage Roles · a role outside the managed mapping. An
    unlinked member never enters the plan, and a leaver is never stripped while
    item 4 is undecided. `src/js/discord-apply.test.js`, 17 assertions, each
-   watched failing first.
+   watched failing first, plus 15 behavioural ones in
+   `discord-apply.run.test.js` that run the tool against a stub guild.
 2. **OWNER — five contested ฝ่าย.** Two ticked nodes cannot share one name; the
    database refuses it. Rename them distinct, or untick the empty ones, in ทีม
    SAMO admin. Four of the five hold NOBODY, so this is org-chart tidying:

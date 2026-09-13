@@ -83,3 +83,29 @@ describe('a near match is never adopted automatically', () => {
     expect(CODE).toMatch(/has\('--adopt-only'\) \? 0 : create\.length/);
   });
 });
+
+describe('a header value is latin-1, and every reason here is Thai', () => {
+  // A non-ASCII HTTP header value makes fetch() throw
+  // `Cannot convert argument to a ByteString` BEFORE the request is built, so
+  // the write does not fail — it never happens. Both Discord tools set
+  // X-Audit-Log-Reason to a Thai string, and both were shipped raw.
+  //
+  // Asserted as a PROPERTY over every header in the file, not as a check of the
+  // one call site that exists today: a second audit reason added later must
+  // also be encoded, and a list of call sites cannot see the next one.
+  it('no header value in this file contains a non-ASCII literal', () => {
+    const headers = [...CODE.matchAll(/'X-Audit-Log-Reason':\s*([^,}\n]+)/g)].map((m) => m[1].trim());
+    expect(headers.length, 'read no audit reason at all — the detector is blind').toBeGreaterThan(0);
+    for (const h of headers) {
+      expect(h, `an audit reason that is not URL-encoded will throw before the request:\n  ${h}`)
+        .toMatch(/^encodeURIComponent\(/);
+    }
+  });
+
+  it('…and its detector would catch a raw one', () => {
+    const raw = "headers: { 'X-Audit-Log-Reason': 'ทีม SAMO role sync' },";
+    const found = [...raw.matchAll(/'X-Audit-Log-Reason':\s*([^,}\n]+)/g)].map((m) => m[1].trim());
+    expect(found).toHaveLength(1);
+    expect(found[0]).not.toMatch(/^encodeURIComponent\(/);
+  });
+});

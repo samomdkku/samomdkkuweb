@@ -150,11 +150,11 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
    repo ARCHIVED. ⛔ **Never delete OR replace the `samomdkkupassport` Cloudflare
    project** — `docs/INVARIANTS.md` is its home.
 4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; THE APPLY TOOL IS BUILT AND HAS
-   NEVER WRITTEN ANYTHING (2026-09-13).** Its live plan is **0 add, 0 remove**
-   — the one linked person is already correct — so the write path is
-   UNEXERCISED and a clean plan proves nothing about it.
-   **1 linked · 107 ticked · 48 mapped · guild 183/250 roles.** ✅ §7 steps 1–4
-   done; ⛔ step 5 is not — the old bot is still in the server.
+   NEVER WRITTEN IN THE REAL GUILD (2026-09-13).** Live plan = **0 add, 0
+   remove** (the one linked person is already correct); the write path IS
+   proved against a STUB guild, which found a defect that killed every write.
+   **1 linked · 107 ticked · 48 mapped · 183/250 roles.** ✅ §7 steps 1–4 done;
+   ⛔ step 5 is not — the old bot is still in the server (owner will kick it).
    ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED: **`HANDOFF` §14b**, rewritten
    from live state — do not summarise either here. ⛔ `/discord/*` nginx routes
    are in the VM's live config ONLY. Mechanics: `skills/discord-role-sync.md`.

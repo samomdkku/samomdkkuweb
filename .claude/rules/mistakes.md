@@ -278,8 +278,18 @@ it is the part that generalises to code not yet written.
    `undefined`). Synthesise the artefact a real person creates; never read the
    one your machine happens to have. When CI names tests that pass locally, ask
    how long it has been red, not what you broke.
+   **A SOURCE GUARD IS A REVIEW, NOT A TEST** — it sees a mistake's SHAPE and is
+   blind to its content. Both Discord writers set `X-Audit-Log-Reason` in Thai;
+   a header value is latin-1, so `fetch` threw before any request existed and
+   EVERY role write would have died — invisible to eight source assertions, to a
+   live run (plan mode builds no header) and to 48 shipped adoptions (the header
+   is in the never-run CREATE branch). Found by running the real file against a
+   stub and asserting the REQUESTS (`integrations.md`). Once a tool can destroy
+   something, stub it and assert what comes OUT.
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
-   assertion you expect, restore.** Never write a guard from the SAME LIST the
+   assertion you expect, restore** — and CHECK THE MUTATION LANDED: a `perl
+   s///` without `/g` hit the first of two `const held` and the suite stayed
+   green, which reads exactly like a gap in the test.** Never write a guard from the SAME LIST the
    code came from — assert the PROPERTY that list was meant to produce, or a
    wrong list passes itself. **A LIST-VS-LIST GUARD PROVES ONLY THAT THE LISTS
    AGREE**: the contributor guide named four env vars, `.env.local.example`
@@ -387,7 +397,7 @@ shaving the classes, which are the only part that generalises.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(89)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
-- `integrations.md` *(30)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
+- `integrations.md` *(31)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(24)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(55)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(39)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
