@@ -123,6 +123,30 @@ The last one is the คนละบ้าน check: ten houses, and with ~1,600 
 should hold roughly a tenth. A house that is empty or double is a สาย column
 that moved.
 
+## 4b. Who is still missing something
+
+```bash
+npm run house:gaps                                        # summary
+npm run house:gaps -- --out externaldata/house-import/gaps.md   # per-person
+```
+
+⚠️ The `--` is not optional. Without it npm swallows the flag, and you get the
+summary with no file and no error — the same trap that made `migrate:status`
+answer about PRODUCTION for months (`docs/mistakes/tooling-proofs.md`). Or call
+the script directly: `node tools/house-gaps.mjs --out <file>`.
+
+It splits the answer by **who can act**, because one number invites somebody to
+work through a list that is three-quarters not theirs:
+
+| | who closes it |
+|---|---|
+| no รหัส in the file | ⛔ only an admin or ฝ่ายข้อมูล — there is nothing to match on |
+| ชื่อ disagrees with the file | the person themselves, on their next sign-in |
+| held but has รหัส + ชื่อ | the person themselves — tell them once |
+| no ชื่อเล่น | nobody: they fill it in, or they don't |
+
+Read-only. It never writes.
+
 ## 5. What the held rows carry, and what they cannot
 
 Since 0193 a held row also shows **what the file said in a cell the cleaner
