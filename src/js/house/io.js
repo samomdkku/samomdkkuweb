@@ -219,12 +219,18 @@ export function parseStudentsCsv(text, knownMajors = []) {
   // out WHO — and a skipped row is the one case where a human definitely has to
   // look, because that person simply will not exist in the system afterwards.
   const skipped = [];
-  const skip = (lineNo, cells, reason) => {
+  // `code` is structural and `reason` is the sentence shown to a human. They are
+  // separate because toUnresolvedRow() used to recover the code by testing the
+  // SENTENCE for "ซ้ำ" — so rewording a message, which nobody would think of as a
+  // behaviour change, silently filed every duplicate address under the wrong
+  // reason in the held list. Matching one spelling is how a guard goes blind.
+  const skip = (lineNo, cells, reason, code) => {
     const o = {};
     header.forEach((key, i) => { if (key) o[key] = cells[i] ?? ''; });
     skipped.push({
       _line: lineNo,
       _skip: reason,
+      _skipCode: code,
       kkumail: cleanSpace(o.kkumail),
       student_id: cleanSpace(o.student_id),
       first_name_th: cleanCell(o.first_name_th),
@@ -258,7 +264,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
     if (!mail.ok) {
       problems.push({ line: lineNo, level: 'skip', field: 'kkumail',
         message: `บรรทัด ${lineNo}: ${mail.reason} — ข้ามแถวนี้`, value: cleanSpace(o.kkumail) });
-      skip(lineNo, cells, mail.reason);
+      skip(lineNo, cells, mail.reason, 'no_kkumail');
       return;
     }
     // A blank name no longer skips the row. `first_name_th` is nullable (0126)
@@ -274,7 +280,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
       problems.push({ line: lineNo, level: 'skip', field: 'kkumail',
         message: `บรรทัด ${lineNo}: อีเมล ${mail.value} ซ้ำกับบรรทัด ${seenMail.get(mail.value)} — ข้ามแถวนี้`,
         value: mail.value });
-      skip(lineNo, cells, `อีเมลซ้ำกับบรรทัด ${seenMail.get(mail.value)}`);
+      skip(lineNo, cells, `อีเมลซ้ำกับบรรทัด ${seenMail.get(mail.value)}`, 'duplicate_kkumail');
       return;
     }
     // A valid address at the WRONG domain imports fine and then never matches a
@@ -624,7 +630,10 @@ export function buildStudentsCsv(rows) {
 export function toUnresolvedRow(row) {
   const sid = normalizeStudentId(row.student_id);
   const sai = normalizeSai(row.sai_code);
-  const reason = /ซ้ำ/.test(row._skip || '')
+  // The parser's own code decides, never its message. The two shapes it cannot
+  // know apart — a row with nobody on it, and a person with no รหัส — are
+  // resolved here from the row's CONTENT, which is where that distinction lives.
+  const reason = row._skipCode === 'duplicate_kkumail'
     ? 'duplicate_kkumail'
     : (!sid.value && !cleanCell(row.first_name_th))
       ? 'empty_row'
@@ -640,4 +649,27 @@ export function toUnresolvedRow(row) {
     cohort_year: sid.value ? (cohortFromStudentId(sid.value) ?? null) : null,
     reason,
   };
+}
+
+
+/**
+ * Every สาย this import must seed before it writes anything.
+ *
+ * IT IS A FUNCTION, not an expression at the call site, and that is the whole
+ * point. `students.sai_code` and `student_import_unresolved.sai_code` BOTH carry
+ * a foreign key to `sais`, and สาย are not a seeded range — they come from the
+ * file. The first version of runImport passed `result.rows` only, so a สาย whose
+ * only member in the file has no kkumail was never created and the held-row
+ * insert died with 23503 at the END of the import, after every student row was
+ * already written.
+ *
+ * The first guard written for that bug asserted the UNION and stayed green while
+ * the call site was reverted to one list — it was checking a union the test
+ * built, not the one the importer passes. A rule that lives in an expression at
+ * a call site cannot be tested; moving it here is what makes the assertion below
+ * mean something.
+ */
+export function saiCodesToSeed(rows = [], heldRows = []) {
+  return [...new Set(
+    [...rows, ...heldRows].map((r) => r?.sai_code).filter(Boolean))];
 }

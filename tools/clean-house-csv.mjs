@@ -306,7 +306,8 @@ const rows = data.map((r, i) => {
   // 1. This address has a named owner and it is not this row.
   const owner = MAIL_OWNER[row.kkumail];
   if (owner && row.student_id && owner !== row.student_id) {
-    report.decided.push({ line, what: 'mail_owner', who: `${row.first_name_th} ${row.last_name_th}`,
+    report.decided.push({ line, what: 'mail_owner', key: `mail_owner:${row.kkumail}`,
+      who: `${row.first_name_th} ${row.last_name_th}`,
       detail: `${row.kkumail} เป็นของ ${owner} — เว้นอีเมลของแถวนี้ไว้` });
     row.kkumail = '';
   } else if (row.kkumail && !IDENTITY_DOMAIN.test(row.kkumail)) {
@@ -324,7 +325,8 @@ const rows = data.map((r, i) => {
     for (const [k, v] of Object.entries(fix)) {
       const field = k === 'first_name_th' ? 'first_name_th' : k;
       if (row[field] !== v) {
-        report.decided.push({ line, what: 'name_fix', who: `${row.first_name_th} ${row.last_name_th}`,
+        report.decided.push({ line, what: 'name_fix', key: `name_fix:${row.student_id}`,
+          who: `${row.first_name_th} ${row.last_name_th}`,
           detail: `${field}: “${row[field]}” → “${v}”` });
         row[field] = v;
       }
@@ -334,19 +336,22 @@ const rows = data.map((r, i) => {
   return row;
 });
 
-// A decision that matched NOTHING. Reported, because an override keyed to a
-// รหัสนักศึกษา rots the moment the next handover fixes the row it was about —
-// and one that silently matches nothing is worse than none at all: it reads as
-// a correction still being applied. Delete the entries this names.
+// A decision that CHANGED NOTHING, which is the only definition of stale that
+// matters — and not the one the first version of this check used. It asked
+// whether the named owner was still in the file, which stays true long after the
+// next handover fixes the duplicate the override was written for: the entry then
+// sits there matching a row it no longer alters, reading like a correction still
+// being applied. `report.decided` is written only when a value actually moved,
+// so asking it is asking the right question.
+const fired = new Set(report.decided.map((d) => d.key));
 for (const [mail, owner] of Object.entries(MAIL_OWNER)) {
-  const holders = rows.filter((r) => r.kkumail === mail || MAIL_OWNER[r.kkumail] === owner);
-  if (!rows.some((r) => r.student_id === owner) || holders.length < 1) {
-    report.staleDecisions.push(`MAIL_OWNER ${mail} → ${owner}`);
+  if (!fired.has(`mail_owner:${mail}`)) {
+    report.staleDecisions.push(`MAIL_OWNER ${mail} → ${owner} (ไม่ได้เปลี่ยนอะไรในไฟล์นี้)`);
   }
 }
 for (const sidKey of Object.keys(NAME_FIX)) {
-  if (!rows.some((r) => r.student_id === sidKey)) {
-    report.staleDecisions.push(`NAME_FIX ${sidKey}`);
+  if (!fired.has(`name_fix:${sidKey}`)) {
+    report.staleDecisions.push(`NAME_FIX ${sidKey} (ไม่ได้เปลี่ยนอะไรในไฟล์นี้)`);
   }
 }
 

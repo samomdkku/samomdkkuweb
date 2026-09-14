@@ -2978,3 +2978,46 @@ anything. And when the obvious axis turns out to be worthless, **look along a
 different one before accepting the expensive answer** — here the useful question
 was not "which ฝ่าย are empty" but "who would receive literally nothing", and
 those have wildly different answers on the same data.
+
+---
+
+## A proof whose subjects were "whoever comes back first", three times in one file
+
+**Symptom.** `house0188-unresolved-seat.sql` was 24/24 green. Adding one section
+to it turned two unrelated assertions red and then made the whole script error
+out with `ไม่มีสิทธิ์นำเข้าข้อมูลนักศึกษา` — against code that was correct.
+
+**Cause, the same one three times.** Every subject in the proof was selected as
+`order by id limit N` over a live table, so the proof's SCENARIO was whatever the
+database happened to hold:
+
+1. **§12** asserted the claimed รหัสนักศึกษา landed on the student row. True only
+   for an actor the registry does not already know — and 0189 made the registry
+   win on that column. The first actor turned out to be a real registered person,
+   so a correct fix made the assertion red.
+2. **§50** asserted a claimed seat is dropped from the held list. It was passing
+   for the wrong reason and hid a real bug (0190) until the actor changed.
+3. **§G** called `record_unresolved_rows`, which gates on `current_user_role()` —
+   read from the jwt claims, i.e. **whoever spoke last in the script**. It had
+   been running as the §F outsider and passing only because the first non-kkumail
+   account in the table happens to be an admin. A new section moved a non-admin
+   into that slot and the permission check fired.
+
+**Fix.** The proof now CREATES the state each case needs instead of finding it:
+`pg_temp.set_registry()` puts a known name and รหัส on each actor's `people` row
+(one actor agreeing with the held row, one deliberately diverging), and §G selects
+an `importer` subject asserted to actually hold the house grant before speaking as
+them. Three subjects, each chosen for the property the case is about.
+
+**Where it lives now.** `tools/house0188-unresolved-seat.sql` — the §B registry
+block, `importer` in §G, §H.
+
+**The general rule.** *A proof that SELECTS its subject from live data is testing
+the database's current contents as much as the code.* "It went green" then means
+"the first row happened to have the shape I assumed", and the failure arrives
+later, attached to an unrelated change, pointing at the wrong thing. This repo had
+already written down the neighbouring version — a scenario needing live geometry
+that RAN OUT — and the rule generalises: **if the case needs a particular state,
+create it; never take it as found.** A subject picked by `limit 1` is a subject
+that changes under you, and the tell is an assertion about a subject's attributes
+that the proof never set.

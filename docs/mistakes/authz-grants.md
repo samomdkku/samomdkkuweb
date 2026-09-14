@@ -1054,3 +1054,60 @@ needed opposite treatment and were the same query result. And when you do record
 the difference, **put the mechanism on the TABLE**: this hole's third door was an
 `UPDATE`, so every fix shaped around the word "delete" would have looked complete
 and been two-thirds done.
+
+---
+
+## A claim reached `students` around the gate the importer goes through
+
+**Symptom.** None, and there would not have been one for months. 0188 let a
+student claim the held handover row that names them. Traced on samo-dev with a
+registry row reading `รมิตา` and a held row reading `วรมิตา`: after the claim the
+registry said `วรมิตา`, and `identity_conflicts` was empty. The import path, given
+the same two values, keeps `รมิตา` and records the disagreement.
+
+**Cause.** Both mirror triggers on `students` decide what kind of write this is
+by looking at ONE column:
+
+- `students_link_person` — `v_import := new.last_import_batch is not null`. When
+  true, a value the registry already holds wins over the file's and the
+  disagreement goes to `identity_conflicts`.
+- `student_insert_mirror_up` — returns early when it is non-null; when null it
+  pushes the new row's name UP into `people`.
+
+`claim_my_student_seat` and `promote_unresolved_row` inserted without it. So two
+brand-new doors for handover data into `students` took the opposite branch from
+the door that data had always used, and did it silently — a null read as "this is
+the person's own assertion" for data the person had never seen.
+
+**And the example is not invented.** `653070078-2` in the 2026-09-14 file is
+spelled วรมิตา by the สายรหัส table, รมิตา by ฝ่ายวิชาการ's, and her own kkumail
+is `ramita.si@` — the file is the WRONG source for that name, and the claim path
+was the one that would have let it win.
+
+**Fix.** 0189 carries the held row's `batch_id` into `last_import_batch` on both
+writers. Not a restatement of the precedence rule inside the two RPCs — that is
+two implementations of one rule — but making the existing signal TRUE, because it
+is: the row's data came from that batch. `batch_id` became NOT NULL with
+`on delete restrict` in the same migration, because a null there reads as "not
+import data", which is the wrong answer for a row that exists only because an
+import could not use it.
+
+**The sequel, one migration later.** `record_unresolved_rows` decided a seat was
+settled by asking whether a STUDENT carries that รหัสนักศึกษา. With the registry
+now winning on `student_id`, a claimer whose `people` row carries a different รหัส
+lands under the registry's number — so nobody carries the held row's, and the seat
+they just claimed came straight back on the next import. 0190 asks the resolution
+instead: the `resolved_at` row IS the fact, and the student's รหัส was only ever a
+proxy for it.
+
+**Where it lives now.** `supabase/migrations/0189_*.sql`, `0190_*.sql`;
+`tools/house0188-unresolved-seat.sql` §H (62/63/64) and §G (53/54).
+
+**The general rule.** *A new access channel must be threaded through every gate
+the old one used — and when a gate keys on a FLAG rather than on the caller, the
+new channel has to set the flag, not hope the default is right.* The tell is a
+boolean derived from `<column> is not null`: it answers for rows that were never
+considered when it was written, and it answers with whatever absence happens to
+mean. Ask what a null on that column means for EVERY writer, not just the one it
+was designed around — and when adding a writer, grep for every branch that reads
+the columns you are leaving unset.

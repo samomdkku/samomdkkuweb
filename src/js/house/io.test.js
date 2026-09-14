@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
-  parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, buildStudentsCsv,
+  parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, saiCodesToSeed,
+  buildStudentsCsv,
   buildPreviewRows, PREVIEW_COLUMNS,
   IMPORT_OWNED_COLUMNS, EXPORT_COLUMNS, CSV_COLUMNS,
 } from './io.js';
@@ -568,5 +570,84 @@ describe('diffAgainstExisting — a person the file NAMES is not missing', () =>
     const r = parseStudentsCsv([HEAD, '6599999999,มานี,ใจดี,นก,,MD,017'].join('\n'), ['MD']);
     const d = diffAgainstExisting(r.rows, existing, r.presentColumns, r.skipped);
     expect(d.missing).toHaveLength(0);
+  });
+});
+
+describe('the สาย a HELD row needs are seeded too', () => {
+  // THE BUG, found by review and reproduced against samo-dev as a live 23503.
+  // `student_import_unresolved.sai_code` carries the same foreign key to `sais`
+  // that `students.sai_code` does, but runImport fed ensureSais() only
+  // `result.rows` — so a สาย whose ONLY member in the file has no kkumail was
+  // never seeded, and record_unresolved_rows died at the very END of the import,
+  // after all 1,611 student rows were already written.
+  //
+  // The 2026-09-14 file does not trigger it, purely because รุ่น 49 covers
+  // สาย 001–287 with no gaps. That is luck, not design, and it is exactly the
+  // kind of luck that changes when the next file arrives.
+  const HEAD_ = 'student_id,first_name_th,last_name_th,nickname_th,kkumail,major,sai';
+  const csv = [HEAD_,
+    '659999999-9,มานี,ใจดี,นก,manee.j@kkumail.com,MD,017',   // imported, สาย 017
+    '669999998-8,ปิติ,รักเรียน,ต้น,,MD,099',                  // HELD, สาย 099 — nobody else has it
+  ].join('\n');
+
+  it('the สาย set sent to ensureSais covers held rows, not just imported ones', () => {
+    const r = parseStudentsCsv(csv, ['MD']);
+    expect(r.rows).toHaveLength(1);
+    expect(r.skipped).toHaveLength(1);
+
+    const sent = saiCodesToSeed(r.rows, r.skipped.map(toUnresolvedRow));
+    expect(sent).toContain('017');
+    expect(sent, 'a held row\'s สาย must be seeded or its insert 23503s').toContain('099');
+  });
+
+  it('and the IMPORTER calls that function — not its own inline expression', () => {
+    // The assertion above tests a union this file builds. The bug was at the
+    // CALL SITE, which no unit test can reach without a DOM and a network — so
+    // the rule was moved into saiCodesToSeed() and this reads the source to
+    // confirm runImport goes through it. A source check is a review, not a test;
+    // it is here because the thing it reviews is a single named call, which is
+    // the most a review can reliably see.
+    const src = readFileSync(new URL('./index.js', import.meta.url), 'utf8');
+    const call = src.match(/await ensureSais\(([^;]*)\);/);
+    expect(call, 'runImport no longer calls ensureSais at all').toBeTruthy();
+    expect(call[1], 'ensureSais must be fed saiCodesToSeed(), which includes held rows')
+      .toContain('saiCodesToSeed(');
+  });
+
+  it('…and an unreadable สาย on a held row is not sent at all', () => {
+    // ensure_sais filters to ^[0-9]{3}$ server-side, but sending junk would mean
+    // the row's own sai_code is junk too, and THAT is what hits the foreign key.
+    // toUnresolvedRow nulls it instead, which is the honest answer.
+    const bad = parseStudentsCsv([HEAD_, '659999999-9,มานี,ใจดี,นก,,MD,ZZZ'].join('\n'), ['MD']);
+    const held = bad.skipped.map(toUnresolvedRow);
+    expect(held[0].sai_code).toBeNull();
+    expect(held.map((x) => x.sai_code).filter(Boolean)).toHaveLength(0);
+  });
+});
+
+describe('a skipped row reports its reason by CODE, never by its Thai sentence', () => {
+  // toUnresolvedRow used to recover "this was a duplicate address" by testing
+  // the human-facing message for "ซ้ำ". Rewording a message — which nobody would
+  // think of as a behaviour change — would then file every duplicate under the
+  // wrong reason, silently. Matching one spelling is how a guard goes blind.
+  const HEAD_ = 'student_id,first_name_th,last_name_th,nickname_th,kkumail,major,sai';
+
+  it('the parser stamps a structural code beside the sentence', () => {
+    const dup = parseStudentsCsv([HEAD_,
+      '659999999-9,มานี,ใจดี,นก,same@kkumail.com,MD,017',
+      '669999998-8,ปิติ,รักเรียน,ต้น,same@kkumail.com,MD,003'].join('\n'), ['MD']);
+    expect(dup.skipped[0]._skipCode).toBe('duplicate_kkumail');
+
+    const none = parseStudentsCsv([HEAD_, '659999999-9,มานี,ใจดี,นก,,MD,017'].join('\n'), ['MD']);
+    expect(none.skipped[0]._skipCode).toBe('no_kkumail');
+  });
+
+  it('the reason survives a reworded message', () => {
+    const dup = parseStudentsCsv([HEAD_,
+      '659999999-9,มานี,ใจดี,นก,same@kkumail.com,MD,017',
+      '669999998-8,ปิติ,รักเรียน,ต้น,same@kkumail.com,MD,003'].join('\n'), ['MD']);
+    // The sentence rewritten with no "ซ้ำ" in it — what a copy edit looks like.
+    const reworded = { ...dup.skipped[0], _skip: 'this address belongs to an earlier line' };
+    expect(toUnresolvedRow(reworded).reason).toBe('duplicate_kkumail');
   });
 });

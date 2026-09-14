@@ -40,7 +40,8 @@ import {
   fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
 } from './api.js';
 import {
-  parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, buildStudentsCsv,
+  parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, saiCodesToSeed,
+  buildStudentsCsv,
   buildPreviewRows, PREVIEW_COLUMNS, PREVIEW_COLUMN_LABEL,
   CSV_COLUMN_LABEL,
 } from './io.js';
@@ -1412,12 +1413,25 @@ async function runImport() {
       row_count: result.rows.length,
       problem_count: result.problems.length,
     });
+    // The lines this file NAMED and could not address, built BEFORE the สาย are
+    // seeded because their สาย have to be seeded too — see below.
+    const heldRows = (result.skipped || []).map(toUnresolvedRow);
+
     // สาย FIRST. students.sai_code is a foreign key and สาย are not seeded —
     // the range runs as high as the largest year's headcount, so the set comes
     // from the file. Without this every student on a สาย we have not seen
     // before fails with a 23503 partway through the import.
+    //
+    // ⚠️ BOTH LISTS, and the second one is not optional.
+    // `student_import_unresolved.sai_code` has the same foreign key, so a สาย
+    // whose ONLY member in this file has no kkumail is never seeded — and
+    // `record_unresolved_rows` then dies with 23503 at the very END of the
+    // import, after every student row is already written. The 2026-09-14 file
+    // does not trigger it, purely because รุ่น 49 happens to cover สาย 001–287
+    // with no gaps; one cohort where a สาย's single member is missing an
+    // address is all it takes.
     if (btn) btn.textContent = 'กำลังสร้างสายรหัส…';
-    await ensureSais(result.rows.map((r) => r.sai_code).filter(Boolean));
+    await ensureSais(saiCodesToSeed(result.rows, heldRows));
 
     // Chunked: 1,800 rows in one POST is a large body and an all-or-nothing
     // failure. 200 at a time keeps each request small and makes a partial
@@ -1441,9 +1455,11 @@ async function runImport() {
     // The lines this file NAMED and could not address. Written on EVERY import,
     // including one that skipped nothing — the held list describes the newest
     // file, so a run that resolves everybody clears it by saying so (0188).
+    // NOT named `held`: that is the module-level list this pane renders from,
+    // and a local of the same name inside this function shadows it for the whole
+    // body — which works today only because nothing else in here reads it.
     if (btn) btn.textContent = 'กำลังบันทึกรายชื่อที่ยังนำเข้าไม่ได้…';
-    const held = await recordUnresolved(
-      batch?.id, (result.skipped || []).map(toUnresolvedRow));
+    const heldResult = await recordUnresolved(batch?.id, heldRows);
 
     await finishImportBatch(batch?.id, {
       inserted_count: diff.insert,
@@ -1453,7 +1469,7 @@ async function runImport() {
     pendingImport = null;
     $('houseCsvFile').value = '';
     $('housePreview').innerHTML = `<div class="alert alert-success">นำเข้าเรียบร้อยแล้ว`
-      + `${held?.held ? ` — และพัก ${held.held} คนที่ไฟล์ไม่มี kkumail ไว้ที่ “รายชื่อที่ยังนำเข้าไม่ได้”` : ''}`
+      + `${heldResult?.held ? ` — และพัก ${heldResult.held} คนที่ไฟล์ไม่มี kkumail ไว้ที่ “รายชื่อที่ยังนำเข้าไม่ได้”` : ''}`
       + '</div>';
     await reload();
   } catch (err) {

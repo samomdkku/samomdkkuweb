@@ -72,7 +72,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - 0182 — a schema move carried the GRANTS and dropped the ROW SECURITY, and the table it happened to was the one nothing…
 - `docs/CONTEXT.md` said "any authenticated user can SELECT all" of `public.users`
 
-## `authz-grants.md` — The permission / seat / scope channel *(20)*
+## `authz-grants.md` — The permission / seat / scope channel *(21)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -96,6 +96,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A SIXTH scope dimension — what "thread it through every gate" actually cost, itemised
 - A "whitelist" that OPENED registration: `SIGNUPS_DOMAINS_WHITELIST` overrides `SIGNUPS_ALLOWED=false`
 - Unlinking your Discord account was a permanent ฝ่าย role grant
+- A claim reached `students` around the gate the importer goes through
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(27)*
 
@@ -314,7 +315,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 - A missing nginx `location` does not 404
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(59)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(60)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -377,6 +378,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Two more proofs whose SCENARIO had run out
 - I "corrected" a number that was already right, because I checked its value and not its UNIT
 - I recommended a cheaper option without measuring it, and it saved one role out of fifty-one
+- A proof whose subjects were "whoever comes back first", three times in one file
 
 ## `passport.md` — The Passport app's own write-ups *(39)*
 
@@ -422,4 +424,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_360 entries across 10 files._
+_362 entries across 10 files._

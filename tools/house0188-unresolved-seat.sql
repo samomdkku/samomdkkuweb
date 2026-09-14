@@ -59,12 +59,22 @@ insert into probe select '04. authenticated holds the grant (the policy is what 
 -- student's รหัส spread through the repo's examples.
 insert into public.sais (code) values ('141') on conflict (code) do nothing;
 
+-- A real import batch. Since 0189 `batch_id` is NOT NULL and the reference is
+-- `on delete restrict`: a held row that cannot name the import it came from
+-- reads to both mirror triggers as "not import data", which is the wrong branch
+-- for a row that exists only because an import could not use it (§G2 below).
+create temporary table batch on commit drop as
+  with b as (
+    insert into public.student_import_batches (file_name, row_count)
+    values ('house0188-proof.csv', 0) returning id)
+  select id from b;
+
 insert into public.student_import_unresolved
-  (student_id, first_name_th, last_name_th, major, sai_code, cohort_year, reason)
-values
-  ('689999991-1', 'สมชาย',  'ใจดี',   'MD', '141', 2568, 'no_kkumail'),
-  ('689999992-9', 'สมหญิง', 'ใจงาม',  'MD', '141', 2568, 'no_kkumail'),
-  (null,          'ไม่มีรหัส', 'เลย',  'MD', '141', 2568, 'no_kkumail_no_student_id');
+  (batch_id, student_id, first_name_th, last_name_th, major, sai_code, cohort_year, reason)
+select (select id from batch), * from (values
+  ('689999991-1', 'สมชาย',  'ใจดี',   'MD', '141', 2568::smallint, 'no_kkumail'),
+  ('689999992-9', 'สมหญิง', 'ใจงาม',  'MD', '141', 2568::smallint, 'no_kkumail'),
+  (null,          'ไม่มีรหัส', 'เลย',  'MD', '141', 2568::smallint, 'no_kkumail_no_student_id')) v;
 
 -- Two real auth accounts to speak as. `public.users.email` is what
 -- get_my_student_record and claim_my_student_seat both read, so the subject has
@@ -76,10 +86,48 @@ select u.id, lower(btrim(u.email)) as email,
  where u.email ilike '%@kkumail.com'
    and not exists (select 1 from public.students s
                     where lower(btrim(s.kkumail)) = lower(btrim(u.email)))
- order by u.id limit 2;
+ order by u.id limit 3;
 
-insert into probe select '05. two unused kkumail accounts are available', '2',
+insert into probe select '05. three unused kkumail accounts are available', '3',
   (select count(*)::text from actor);
+
+-- Put each actor's REGISTRY row into a known state, instead of taking whatever
+-- `public.people` happens to hold for them.
+--
+-- WHY THIS IS HERE AT ALL. The first version of this proof took the registry as
+-- found, and §12 asserted that the claimed รหัสนักศึกษา landed on the student
+-- row. That is true only for somebody the registry does not already know — and
+-- 0189 made the registry WIN on that column, so the assertion went red against
+-- correct code the moment the first actor turned out to be a real registered
+-- person. A proof whose subject is "whatever row comes back first" is a proof
+-- whose scenario can change under it. Create the geometry the case needs.
+--
+--   actor 1 — registry AGREES with the held row  → a clean claim (§B)
+--   actor 3 — registry DISAGREES                 → 0189's precedence (§H)
+create or replace function pg_temp.set_registry(
+  p_n integer, p_first text, p_last text, p_sid text) returns void
+language plpgsql as $$
+declare v_mail text; v_id uuid;
+begin
+  select email into v_mail from actor where n = p_n;
+  select id into v_id from public.people where lower(btrim(kkumail)) = v_mail;
+  if v_id is null then
+    insert into public.people (kkumail, first_name_th, last_name_th, student_id)
+    values (v_mail, p_first, p_last, p_sid);
+  else
+    update public.people
+       set first_name_th = p_first, last_name_th = p_last, student_id = p_sid
+     where id = v_id;
+  end if;
+end $$;
+
+select pg_temp.set_registry(1, 'สมชาย', 'ใจดี', '689999991-1');
+-- A DIFFERENT รหัส from the held row's, deliberately. That divergence is the
+-- whole scenario: 0189 lets the registry win on `student_id`, so the claimer
+-- lands under THIS number and nobody in `students` carries the held row's — the
+-- exact state in which "is somebody already a student under this รหัส" stops
+-- being able to see that the seat was dealt with (0190, §53/§54).
+select pg_temp.set_registry(3, 'ภูมิใจ', 'นามเดิม', '659999993-3');
 
 -- Speaking AS one of them. `set local role` at TOP LEVEL — inside a plpgsql
 -- helper it never takes effect, which is how a proof of a policy ends up
@@ -134,6 +182,14 @@ insert into probe select '12. …the student row exists under the CALLER''s addr
   (select exists (select 1 from public.students s join actor a on a.n = 1
                    where lower(btrim(s.kkumail)) = a.email
                      and s.student_id = '689999991-1'))::text;
+
+-- 0189. The row's ชื่อ, รหัส, สาขา and สาย came from an import file, so both
+-- mirror triggers have to treat it as import data. Without the flag the claim
+-- took the OPPOSITE branch from the importer with the same data: it pushed the
+-- file's spelling up over a curated registry name and recorded nothing (§H).
+insert into probe select '14. …and is marked as import-sourced, like the importer''s own rows', 'true',
+  (select (last_import_batch is not null) from public.students s join actor a on a.n = 1
+    where lower(btrim(s.kkumail)) = a.email);
 
 insert into probe select '13. …and the held row is closed as a self-claim', 'self_claim',
   (select resolved_how from public.student_import_unresolved
@@ -220,25 +276,110 @@ insert into probe select '46. a non-kkumail account is refused', 'raised',
 insert into probe select '47. …for the domain, not because the seat was gone', 'true',
   (select (r->>'message' like '%kkumail%')::text from attempt where k = 'outsider');
 
+-- ── §H the file does NOT get to rename somebody the registry already knows ──
+--
+-- THE BUG 0189 FIXED, and it is not a hypothetical: `653070078-2` in the
+-- 2026-09-14 handover is spelled วรมิตา by the สายรหัส table, รมิตา by
+-- ฝ่ายวิชาการ's, and her own kkumail is `ramita.si@` — so the file is the wrong
+-- source for that name, and the claim path was the one that would have let it
+-- win. Before 0189 a claim wrote the file's spelling straight over a curated
+-- registry name and recorded nothing, which is the OPPOSITE of what the
+-- importer does with the same data.
+insert into public.student_import_unresolved
+  (batch_id, student_id, first_name_th, last_name_th, major, sai_code, cohort_year, reason)
+select (select id from batch), '689999993-7', 'ภูมิใจ', 'ชื่อในไฟล์', 'MD', '141', 2568, 'no_kkumail';
+
+insert into probe select '60. the registry name before the claim', 'ภูมิใจ,นามเดิม',
+  (select p.first_name_th || ',' || p.last_name_th
+     from public.people p join actor a on a.n = 3 where lower(btrim(p.kkumail)) = a.email);
+
+select pg_temp.as_actor(3);
+set local role authenticated;
+insert into attempt select 'registry_differs', pg_temp.try_claim('689999993-7', 'ภูมิใจ');
+reset role;
+
+insert into probe select '61. the claim still succeeds', 'true',
+  (select r->>'ok' from attempt where k = 'registry_differs');
+
+insert into probe select '62. …and the REGISTRY name is untouched by the file', 'ภูมิใจ,นามเดิม',
+  (select p.first_name_th || ',' || p.last_name_th
+     from public.people p join actor a on a.n = 3 where lower(btrim(p.kkumail)) = a.email);
+
+-- CONTROL for 62. The file really did carry a different surname, so 62 is not
+-- two identical values agreeing — it is the registry winning a disagreement.
+insert into probe select '63. …over a surname that genuinely differed', 'ชื่อในไฟล์',
+  (select last_name_th from public.student_import_unresolved where student_id = '689999993-7');
+
+-- And the disagreement is not merely discarded. A silent win is indistinguishable
+-- from no disagreement having happened, which is how nobody ever finds out the
+-- two departments disagree about a real person's name.
+insert into probe select '64. …and the disagreement is RECORDED, not dropped', 'true',
+  (select exists (select 1 from public.identity_conflicts c
+                   join public.people p on p.id = c.person_id
+                   join actor a on a.n = 3
+                  where lower(btrim(p.kkumail)) = a.email
+                    and c.field = 'last_name_th'))::text;
+
 -- ── §G the import drops a held row whose person is already a student ────────
+--
+-- RUN AS A CALLER THAT ACTUALLY HOLDS THE GRANT, chosen on purpose.
+-- `record_unresolved_rows` gates on `current_user_role()`, which reads
+-- `auth.uid()` out of the jwt claims — and the claims are still whoever spoke
+-- last. This section used to run straight after §F and passed, which looked like
+-- it was running as the superuser; it was running as the OUTSIDER, and passed
+-- only because the first non-kkumail account in the table happens to be an
+-- admin. Adding §H moved a non-admin into that slot and the whole proof errored.
+-- Same fragility as §B's registry: a subject that is "whoever comes back first"
+-- is a subject that changes under the proof.
+create temporary table importer on commit drop as
+select u.id, lower(btrim(u.email)) as email from public.users u
+ where u.role in ('vp_admin','dev')
+    or 'house' = any (coalesce(u.permissions, '{}') || coalesce(u.managed_permissions, '{}'))
+    or 'master' = any (coalesce(u.permissions, '{}') || coalesce(u.managed_permissions, '{}'))
+ order by u.id limit 1;
+
+insert into probe select '48. an account holding the house grant exists to import as', 'true',
+  (select (count(*) = 1)::text from importer);
+
+select set_config('request.jwt.claims',
+  (select json_build_object('sub', id, 'role', 'authenticated', 'email', email)::text
+     from importer), true);
+
 -- THE LEAK THIS CLOSES. After §B, actor 1 is a student — but the handover file
 -- still has no address for 689999991-1, so the next import would hold them
 -- again, for ever. Both halves are asserted: the resolved person is dropped,
 -- and somebody genuinely still missing is KEPT.
-select public.record_unresolved_rows(null, jsonb_build_array(
+select public.record_unresolved_rows((select id from batch), jsonb_build_array(
   jsonb_build_object('student_id','689999991-1','first_name_th','สมชาย',
                      'sai_code','141','cohort_year',2568,'reason','no_kkumail','source_line',10),
-  jsonb_build_object('student_id','689999993-7','first_name_th','สมศรี',
-                     'sai_code','141','cohort_year',2568,'reason','no_kkumail','source_line',11)
+  jsonb_build_object('student_id','689999993-7','first_name_th','ภูมิใจ',
+                     'sai_code','141','cohort_year',2568,'reason','no_kkumail','source_line',11),
+  jsonb_build_object('student_id','689999995-2','first_name_th','สมศรี',
+                     'sai_code','141','cohort_year',2568,'reason','no_kkumail','source_line',12)
 ));
 
 insert into probe select '50. a held row whose person is now a student is dropped', 'false',
   (select exists (select 1 from public.student_import_unresolved
                    where student_id = '689999991-1' and resolved_at is null))::text;
 
-insert into probe select '51. …and one still missing is kept (the control)', 'true',
+-- 0190. The SAME question asked of the seat 0189 made unanswerable the other
+-- way: actor 3's claim landed under the REGISTRY's รหัส, so no student carries
+-- `689999993-7` and the "is somebody already in ระบบบ้าน under this รหัส" test
+-- finds nothing. The seat was still dealt with, and the row saying so is in this
+-- table with `resolved_at` set.
+insert into probe select '53. …and so is one whose claimer kept their registry รหัส', 'false',
   (select exists (select 1 from public.student_import_unresolved
                    where student_id = '689999993-7' and resolved_at is null))::text;
+
+-- CONTROL for 53: that รหัส really is absent from `students`, so 53 is passing
+-- on the resolution and not on the student lookup that 0190 was added beside.
+insert into probe select '54. …with no student carrying that รหัส at all (the control)', 'false',
+  (select exists (select 1 from public.students
+                   where public.student_id_key(student_id) = public.student_id_key('689999993-7')))::text;
+
+insert into probe select '51. …and one still missing is kept (the control)', 'true',
+  (select exists (select 1 from public.student_import_unresolved
+                   where student_id = '689999995-2' and resolved_at is null))::text;
 
 insert into probe select '52. …while the self-claim record survives the re-import', 'self_claim',
   (select resolved_how from public.student_import_unresolved
