@@ -37,8 +37,7 @@ TRUE. That is what the grep is for.
 - ✅ **DEPLOYED = `9c7cc0f` (2026-09-14)** — v4.7.0 still, read back from the VM's
   own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **32 s**
   (baseline); docs step RAN, roots 13 s apart. SERVED: `ไม่ใช่ข้อมูลของฉัน` greps 1
-  in `public-Dw14D5B4.js`; the 2 remaining `vssound` refs are the BUG links in
-  my-seat.js + my-house.js, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
+  in `public-Dw14D5B4.js`; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
   string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
