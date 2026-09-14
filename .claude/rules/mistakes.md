@@ -1,18 +1,17 @@
 # Mistakes — the recurring classes
 
 Every bug this repo has paid for is written up. **This file is loaded into every
-session, so it holds the recurring CLASSES and nothing else that grows.** The
-write-ups live in `docs/mistakes/*.md`, read on demand.
+session, so it holds the recurring CLASSES and nothing else that grows.**
+Write-ups live in `docs/mistakes/*.md`, read on demand.
 
 **To find one**: `grep -rin "<phrase>" docs/mistakes/` — it searches the
-write-ups themselves, not just their titles, and it is the fastest path once you
-have a symptom. To SCAN headings instead, read `docs/mistakes/INDEX.md`, the
-generated one-line-per-entry list. Read near-matches; most of these recurred
-elsewhere in different clothes.
+write-ups, not just their titles, and is the fastest path once you have a
+symptom. To SCAN headings instead, read the generated `docs/mistakes/INDEX.md`.
+Read near-matches; most of these recurred elsewhere in different clothes.
 
 **Read the matching file BEFORE touching** `auth.js` · `db.js` · anything
-calling supabase-js · any RLS policy, `current_user_*` helper or definer
-function · `server/deploy.sh` · `appscript/*.gs`.
+calling supabase-js · any RLS policy, `current_user_*` helper or definer fn ·
+`server/deploy.sh` · `appscript/*.gs`.
 
 ---
 
@@ -110,7 +109,10 @@ it is the part that generalises to code not yet written.
    `ADMIN_FEATURES`, 0113). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
    OBJECT AND DROPS WHAT IS WRITTEN PER OBJECT** — GRANTs came across wholesale,
    `enable row level security` was RETYPED as a list of ten and the schema had
-   eleven, so `passport.continents` sat anon-writable (0182). The table NOTHING
+   eleven, so `passport.continents` sat anon-writable (0182). **A `create table`
+   INHERITS TOO**: `pg_default_acl` on `public` grants anon `arwdDxtm` to every
+   new table, so 0188's was born anon-writable beside 8 that each revoke it —
+   per object in 8 files, carried to the 9th by none. The table NOTHING
    READS is the one whose missing protection nothing can reveal. After any merge
    or restore ask `pg_class.relrowsecurity` per table, and assert the PROPERTY
    ("no table lacks RLS"), never the list. ⚠️ Its neighbours were deny-all ON
@@ -227,7 +229,7 @@ it is the part that generalises to code not yet written.
    Every DELETE needs `return=representation` + a `data.length` check — RLS
    returns zero rows, not an error (`delete-guard.test.js`). **So does every
    UPDATE whose success triggers something OUTWARD** — a refused PATCH answers
-   204 and would have posted "measurement paused" to Discord having paused
+   204 and would have posted "measurement paused" to Discord, having paused
    nothing (0167).
 
    **Guards fail GREEN — `skills/write-a-guard.md`.** Two quantities in one
@@ -236,12 +238,12 @@ it is the part that generalises to code not yet written.
    block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
    chars before any assertion ran (one shared `strip-comments.js` now).
    Two more in `frontend-ui.md`: never measure a container to size the content
-   that sizes it — **invisible across a FRAME boundary**, where the two halves
-   sit in different documents and neither line looks wrong (a tool reporting
-   `documentElement.scrollHeight` was measuring the iframe the host had just
-   sized, so it could never shrink; tell = dead space that GROWS WITH THE
-   WINDOW, and jsdom has no layout engine to see it); read the RENDERED dialog — a label is unambiguous only beside
-   the other buttons. **An ALERT is a dialog too**: a `detail` composed at the
+   that sizes it — **invisible across a FRAME boundary**, the two halves in
+   different documents and neither line wrong (a tool reporting
+   `documentElement.scrollHeight` measured the iframe the host had just sized, so
+   it could never shrink; tell = dead space GROWING WITH THE WINDOW, and jsdom
+   has no layout engine to see it); read the RENDERED dialog — a label is
+   unambiguous only beside the other buttons. **An ALERT is a dialog too**: a `detail` composed at the
    call site told a human to run `claude setup-token` while the same embed's
    fixed วิธีแก้ said `claude login`, and setup-token is what CAUSES that 403
    (`integrations.md`). Two authors of one instruction, neither able to see the
@@ -249,12 +251,12 @@ it is the part that generalises to code not yet written.
    **AND THE INSTRUMENT CAN DELETE THE WITNESS.** Four skipped-docs deploys
    resisted three theories because the invocation piped the script through
    `grep -E "==>|error"`, discarding everything the failing step said; the
-   documented verdict (`DEPLOY_EXIT=0`) is reachable with the step skipped, and
-   its ABSENCE scored as success because the pipeline's status is `tail`'s.
-   An intermittent fault that survives three theories is usually an EVIDENCE
-   problem: ask what the failing step may say and who is listening, and get a
-   HEALTHY BASELINE — "30 s" showed the two runs that "cleanly" took 7 min were
-   sick too (`deploy-hosting.md`).
+   verdict (`DEPLOY_EXIT=0`) is reachable with the step skipped, and its ABSENCE
+   scored as success because the pipeline's status is `tail`'s. An intermittent
+   fault surviving three theories is usually an EVIDENCE problem: ask what the
+   failing step may say and who is listening, and get a HEALTHY BASELINE —
+   "30 s" showed the two "clean" 7-min runs were sick too
+   (`deploy-hosting.md`).
    The ways, each paid for here: it cannot SEE the hazard (0146 — and
    `deploy-owed` v1, whose `<sha>..HEAD` could not see the WORKING TREE) ·
    its EXEMPTION outlived the absence ("PLANNED, not written" for a file that
@@ -275,13 +277,13 @@ it is the part that generalises to code not yet written.
    an aborted script is silence (`house0116`: 0 assertions for 23 migrations —
    when a migration drops a function or column, grep `tools/` in that commit).
    **A GUARD THAT NEEDS A SECRET CANNOT RUN WHERE GUARDS ARE ENFORCED** —
-   three assertions read the maintainer's gitignored `.env.local`, so they were
-   green on every laptop and red on CI for 19 consecutive pushes, unread,
-   because local `npm test` kept saying 1848 passed; one of the three was green
-   ON CI for the state it exists to catch (`not.toBe('production')` passes on
-   `undefined`). Synthesise the artefact a real person creates; never read the
-   one your machine happens to have. When CI names tests that pass locally, ask
-   how long it has been red, not what you broke.
+   three assertions read the maintainer's gitignored `.env.local`: green on every
+   laptop, red on CI for 19 pushes, unread, because local `npm test` kept saying
+   1848 passed; one was green ON CI for the state it exists to catch
+   (`not.toBe('production')` passes on `undefined`). Synthesise the artefact a
+   real person creates; never read the one your machine happens to have. When CI
+   names tests that pass locally, ask how long it has been red, not what you
+   broke.
    **A SOURCE GUARD IS A REVIEW, NOT A TEST** — it sees a mistake's SHAPE and is
    blind to its content. Both Discord writers set `X-Audit-Log-Reason` in Thai;
    a header value is latin-1, so `fetch` threw before any request existed and
@@ -325,10 +327,10 @@ it is the part that generalises to code not yet written.
    setup and blamed the reader (`tooling-proofs.md`).
 
 
-   **A PERMISSIVE SIBLING MASKS A BROKEN POLICY FOR AS LONG AS ITS CONDITION
-   HOLDS.** 0114's `project_files_read_public` needs no new row, so it carried
-   every professor upload for three months while the prof branch was dead — the
-   ONE หนังสือ whose โครงการ was hidden lost its signature. A proof of a grant
+   **A PERMISSIVE SIBLING MASKS A BROKEN POLICY WHILE ITS CONDITION HOLDS.**
+   0114's `project_files_read_public` needs no new row, so it carried every
+   professor upload for three months while the prof branch was dead — the ONE
+   หนังสือ whose โครงการ was hidden lost its signature. A proof of a grant
    must DROP the other policies and re-run, or it only proves something let the
    write through. Fidelity too: `returning 1` reads no column, so Postgres never
    applies the SELECT policy and the case passes while the feature is broken
@@ -370,10 +372,9 @@ it is the part that generalises to code not yet written.
    code that runs unconditionally, and grep a known-shipping control beside it.
    **Re-read a rule's stated JUSTIFICATION, not just its predicate** —
    `users_read_all` carried "needed for staff dashboards"; the need had ended
-   years earlier (0147). ⚠️ **AND THE SENTENCE OUTLIVES THE PREDICATE**:
+   years earlier (0147). ⚠️ **THE SENTENCE OUTLIVES THE PREDICATE**:
    `docs/CONTEXT.md` — the file an agent is ROUTED to for RLS — described that
-   grant, with that same justification, for the whole of its absence
-   (`authz-rls.md`).
+   grant, same justification, for the whole of its absence (`authz-rls.md`).
 
 ---
 
@@ -381,17 +382,17 @@ it is the part that generalises to code not yet written.
 
 Write it in the matching `docs/mistakes/*.md` as **Symptom → Cause → Fix → Where
 it lives now**, ending with the general rule and LEADING with the symptom as
-REPORTED — that is what the next reader greps for. Run `npm run mistakes:index`
-(never hand-edit the generated parts; if a line reads badly, fix the heading). A
-new instance of one of the seven classes gets its site added to that class above.
+REPORTED — what the next reader greps for. Run `npm run mistakes:index` (never
+hand-edit generated parts; if a line reads badly, fix the heading). A new
+instance of one of the seven classes gets its site added to that class above.
 
 **This file is charged to every session.** The per-entry index used to live here
-and reached 18,533 of 30,000 bytes — bigger than the classes, growing with every
-fix, and it finally blocked a write-up from being added at all. It now lives in
-`docs/mistakes/INDEX.md`; what is left below is a nine-line directory that does
-not grow. When `npm run check:context` fails, compress the CLASSES or move
-detail into `docs/mistakes/` — never raise the budget, and never buy room by
-shaving the classes, which are the only part that generalises.
+and reached 18,533 of 30,000 — bigger than the classes, growing with every fix —
+and finally blocked a write-up from being added. It is now
+`docs/mistakes/INDEX.md`. When `check:context` fails, COMPRESS (same meaning,
+fewer bytes) or move detail to `docs/mistakes/`. Never raise the budget; never
+buy room by DELETING from the classes, the only part that generalises. Tighten
+this paragraph first.
 
 ---
 
@@ -402,7 +403,7 @@ shaving the classes, which are the only part that generalises.
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
 - `authz-rls.md` *(31)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(20)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
-- `postgres-schema.md` *(26)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
+- `postgres-schema.md` *(27)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(89)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(31)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.

@@ -11,6 +11,7 @@ import { parseCsv } from '../team/io.js';
 import {
   normalizeSai, normalizeStudentId, normalizeMajor, normalizeKkumail,
   auditSaiWidths, cleanCell, cleanSpace, houseOf, cohortLabel, studyYearLabel,
+  cohortFromStudentId,
 } from './fields.js';
 
 /**
@@ -389,7 +390,7 @@ const pick = (row, cols) => {
   return out;
 };
 
-export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUMNS) {
+export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUMNS, skipped = []) {
   const byMail = new Map(
     (existing || []).map((s) => [String(s.kkumail || '').toLowerCase(), s]));
   let insert = 0, update = 0, same = 0;
@@ -437,9 +438,28 @@ export function diffAgainstExisting(rows, existing, present = IMPORT_OWNED_COLUM
     };
   });
   // Rows in the DB that this file does NOT mention. Reported, never deleted.
+  // Rows in the DB that this file does NOT mention — but "mention" is about the
+  // PERSON, not about the address.
+  //
+  // THE LEAK. A student who self-claimed a held seat (0188) is in the table
+  // under the address they signed in with, and the handover file still does not
+  // have that address — it never did, which is why their row was held. Matching
+  // on kkumail alone therefore stamps `missing_since` on exactly the people the
+  // claim flow just repaired, every import, for ever: they would be flagged as
+  // "ไม่พบในไฟล์ล่าสุด" in the admin pane for the rest of the system's life, and
+  // the flag would be RIGHT about the address and WRONG about the person.
+  //
+  // So a รหัสนักศึกษา in the file counts as a mention, and the SKIPPED lines
+  // count too. That is the whole point: a skipped line is a person the file
+  // named and could not address, which is the opposite of a person the file
+  // omitted.
   const fileMails = new Set(rows.map((r) => r.kkumail));
+  const sidKey = (v) => String(v ?? '').replace(/\D/g, '') || null;
+  const fileSids = new Set(
+    [...rows, ...(skipped || [])].map((r) => sidKey(r.student_id)).filter(Boolean));
   const missing = (existing || []).filter(
-    (s) => !fileMails.has(String(s.kkumail || '').toLowerCase()));
+    (s) => !fileMails.has(String(s.kkumail || '').toLowerCase())
+        && !fileSids.has(sidKey(s.student_id)));
   // How many rows carry a value the import will NOT be allowed to write. This
   // is the number the person running the import actually needs before pressing
   // the button: it is how many people are about to be asked a question, and if
@@ -578,4 +598,46 @@ export function buildStudentsCsv(rows) {
     )).join(','));
   }
   return lines.join('\r\n');
+}
+
+/**
+ * The lines this file NAMED but could not address, shaped for 0188's
+ * `record_unresolved_rows`.
+ *
+ * WHY THESE ROWS ARE KEPT AT ALL. `students.kkumail` is NOT NULL and is the
+ * upsert's conflict target, so a line without an address cannot become a
+ * student — the parser skips it, correctly. Skipping is where it used to end:
+ * 165 people's ชื่อ, รหัสนักศึกษา and สายรหัส, sent to us by the faculty,
+ * listed in a preview pane and then gone when the tab closed. The line is
+ * evidence, and it is the only evidence that a seat exists at all.
+ *
+ * NOTHING HERE IS INVENTED. `cohort_year` is derived from the รหัสนักศึกษา
+ * through the SAME function the database uses, and is simply absent when there
+ * is no รหัส to derive it from — the alternative, reading the รุ่น off the
+ * block heading the row happens to sit under, would put a guess in a column a
+ * later reader cannot tell apart from a fact.
+ *
+ * A row with an unreadable สาย carries `sai_code: null` rather than its raw
+ * text: the column has a foreign key to `sais`, and inventing a สาย is how a
+ * real student ends up in the wrong บ้าน.
+ */
+export function toUnresolvedRow(row) {
+  const sid = normalizeStudentId(row.student_id);
+  const sai = normalizeSai(row.sai_code);
+  const reason = /ซ้ำ/.test(row._skip || '')
+    ? 'duplicate_kkumail'
+    : (!sid.value && !cleanCell(row.first_name_th))
+      ? 'empty_row'
+      : sid.value ? 'no_kkumail' : 'no_kkumail_no_student_id';
+  return {
+    source_line: row._line ?? null,
+    student_id: sid.value || null,
+    first_name_th: cleanCell(row.first_name_th) || null,
+    last_name_th: cleanCell(row.last_name_th) || null,
+    nickname_imported: cleanCell(row.nickname_imported) || null,
+    major: cleanCell(row.major) || null,
+    sai_code: sai.ok ? sai.value : null,
+    cohort_year: sid.value ? (cohortFromStudentId(sid.value) ?? null) : null,
+    reason,
+  };
 }

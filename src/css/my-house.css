@@ -90,6 +90,24 @@
 }
 .myhouse-warn { color: #b02a37; }
 
+/* The sentence AFTER the claim form — what to do when the form cannot help.
+   Quieter than .myhouse-empty above it on purpose: the form is the action, and
+   a second paragraph at the same weight competes with it. */
+.myhouse-empty--quiet {
+  font-size: 0.75rem;
+  color: var(--ink-400);
+}
+
+/* ── ยืนยันตัวตน (the claim form on the empty card) ─────────────────────── */
+/* It reuses .myseat-edit wholesale, so this adds separation and nothing else —
+   a second set of field rules here would be the same layout implemented twice,
+   and the two would drift the first time either is touched. */
+.myhouse-claim {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--ink-200);
+}
+
 /* ── advisors ───────────────────────────────────────────────────────────── */
 .myhouse-advisors {
   list-style: none; margin: 0; padding: 0;

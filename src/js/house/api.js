@@ -527,3 +527,70 @@ export async function fetchIdentityCheckList({
   if (error) fail(error, 'โหลดรายชื่อการตรวจสอบข้อมูลไม่สำเร็จ');
   return data || { rows: [], total: 0 };
 }
+
+// ============================================================
+// HELD SEATS — the lines the file named and could not address (0188)
+// ============================================================
+
+/**
+ * Replace the open held list with what THIS file could not use.
+ *
+ * Called on every import, including one that held nothing: the table describes
+ * the NEWEST file, so a run that resolves everybody has to be able to say so by
+ * clearing it. An import that skipped this step when the list was empty would
+ * leave last month's held rows standing as a claim about a file that no longer
+ * mentions them.
+ */
+export async function recordUnresolved(batchId, rows) {
+  const { data, error } = await dbRest('/rpc/record_unresolved_rows', {
+    method: 'POST', body: { p_batch: batchId || null, p_rows: rows || [] },
+  });
+  if (error) fail(error, 'บันทึกรายชื่อที่ยังนำเข้าไม่ได้ไม่สำเร็จ');
+  return data || { held: 0, already_in_system: 0 };
+}
+
+export async function fetchUnresolved(includeResolved = false) {
+  const { data, error } = await dbRest('/rpc/list_unresolved_rows', {
+    method: 'POST', body: { p_include_resolved: !!includeResolved },
+  });
+  if (error) throw new Error(error.message || 'โหลดรายชื่อที่ค้างไม่สำเร็จ');
+  return Array.isArray(data) ? data : [];
+}
+
+/** Give a held row the address it was missing, turning it into a student. */
+export async function promoteUnresolved(id, kkumail) {
+  const { data, error } = await dbRest('/rpc/promote_unresolved_row', {
+    method: 'POST', body: { p_id: id, p_kkumail: kkumail },
+  });
+  if (error) fail(error, 'เพิ่มนักศึกษาจากรายการค้างไม่สำเร็จ');
+  return data;
+}
+
+/** Close a held row WITHOUT creating a student. The note is required by the RPC
+ *  — this row is the only record that the person was ever sent to us, and a
+ *  dismissal with no reason is indistinguishable from a mis-click a month on. */
+export async function dismissUnresolved(id, note) {
+  const { data, error } = await dbRest('/rpc/dismiss_unresolved_row', {
+    method: 'POST', body: { p_id: id, p_note: note },
+  });
+  if (error) fail(error, 'ปิดรายการไม่สำเร็จ');
+  return data;
+}
+
+/**
+ * The signed-in student claims the seat the file held for them.
+ *
+ * Returns `{ ok: false, message }` for a miss rather than throwing: a miss is an
+ * ordinary answer ("we do not have you yet"), not an error, and it deliberately
+ * says the same thing whether the รหัส is unknown or the ชื่อ did not match —
+ * otherwise the form becomes a way to test one guess at a time against a list of
+ * 165 real students. A THROW here means something else went wrong (not signed
+ * in, wrong domain, already has a record), and those do say which.
+ */
+export async function claimMySeat(studentId, firstName) {
+  const { data, error } = await dbRest('/rpc/claim_my_student_seat', {
+    method: 'POST', body: { p_student_id: studentId, p_first_name: firstName },
+  });
+  if (error) throw new Error(error.message || 'ยืนยันตัวตนไม่สำเร็จ');
+  return data || { ok: false, message: 'ยืนยันตัวตนไม่สำเร็จ' };
+}

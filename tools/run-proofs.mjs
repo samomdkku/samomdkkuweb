@@ -45,6 +45,7 @@ const PROOFS = [
   ['house0144-delete-impact.sql', 'the delete dialog predicts what a delete does'],
   ['house0145-duplicate-person.sql', 'a second placement links, never duplicates'],
   ['house0146-crest-refcount.sql', 'the crest refcount can see the crest'],
+  ['house0188-unresolved-seat.sql', 'a held seat is claimable by the person it names, and nobody else'],
   ['team0145-one-chan-pi.sql', 'ชั้นปี survives a registry touch'],
   ['team0145-save-as-the-member.sql', 'saving as the member keeps the mirror'],
   ['claude0154-quota-guard.sql', 'the Claude quota caps hold, and the board is gated'],

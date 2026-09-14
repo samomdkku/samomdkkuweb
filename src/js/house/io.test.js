@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
+  parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, buildStudentsCsv,
   buildPreviewRows, PREVIEW_COLUMNS,
   IMPORT_OWNED_COLUMNS, EXPORT_COLUMNS, CSV_COLUMNS,
 } from './io.js';
@@ -476,5 +476,97 @@ describe('buildPreviewRows — the file, one row per line', () => {
     // A preview column the import cannot write would promise something the
     // confirm button does not do.
     for (const c of PREVIEW_COLUMNS) expect(IMPORT_OWNED_COLUMNS).toContain(c);
+  });
+});
+
+// ============================================================
+// THE LINES THE FILE NAMED AND COULD NOT ADDRESS (0188)
+// ============================================================
+//
+// 165 of the 2026-09-14 handover's 1,776 rows carry no kkumail — 111 of them
+// the whole of รุ่น 66. `students.kkumail` is NOT NULL and is the upsert's
+// conflict target, so those rows cannot be students; the parser skips them, and
+// before 0188 that was the end of it. These assert what is kept instead, and
+// what is NOT invented on the way.
+describe('toUnresolvedRow — what a skipped line becomes', () => {
+  const skipOf = (csv) => parseStudentsCsv(csv, ['MD']).skipped;
+
+  it('a line with a รหัส but no address is held as no_kkumail, with its สาย', () => {
+    const [row] = skipOf([HEAD, '659999999-9,มานี,ใจดี,นก,,MD,017'].join('\n'));
+    const u = toUnresolvedRow(row);
+    expect(u.reason).toBe('no_kkumail');
+    expect(u.student_id).toBe('659999999-9');
+    expect(u.sai_code).toBe('017');
+    // Derived through the SAME function the database uses, never read off a
+    // block heading — a รุ่น guessed from the row's position is a value no later
+    // reader could tell apart from a fact.
+    expect(u.cohort_year).toBe(2565);
+  });
+
+  it('a line with neither รหัส nor address says so — the two are different jobs', () => {
+    const [row] = skipOf([HEAD, ',มานี,ใจดี,นก,,MD,017'].join('\n'));
+    const u = toUnresolvedRow(row);
+    // This is the distinction the admin pane sorts on: a row WITH a รหัส can be
+    // closed by the student it names, from the home page, with nobody's help. A
+    // row without one can be closed by an admin and by nobody else, ever.
+    expect(u.reason).toBe('no_kkumail_no_student_id');
+    expect(u.student_id).toBeNull();
+    expect(u.cohort_year).toBeNull();
+  });
+
+  it('a duplicate address is held as duplicate_kkumail, not as a missing one', () => {
+    const rows = skipOf([HEAD,
+      '659999999-9,มานี,ใจดี,นก,same@kkumail.com,MD,017',
+      '669999998-8,ปิติ,รักเรียน,ต้น,same@kkumail.com,MD,003'].join('\n'));
+    expect(rows).toHaveLength(1);
+    expect(toUnresolvedRow(rows[0]).reason).toBe('duplicate_kkumail');
+  });
+
+  it('a row with only a สาย is an empty seat, not a person', () => {
+    const [row] = skipOf([HEAD, ',,,,,MD,017'].join('\n'));
+    expect(toUnresolvedRow(row).reason).toBe('empty_row');
+  });
+
+  it('NEVER carries an unreadable สาย through — sai_code has a foreign key', () => {
+    // The column references `sais`, and a made-up สาย is how a real student ends
+    // up in the wrong บ้าน: บ้าน is the last digit. Null is the honest answer.
+    const [row] = skipOf([HEAD, '659999999-9,มานี,ใจดี,นก,,MD,ABCD'].join('\n'));
+    expect(toUnresolvedRow(row).sai_code).toBeNull();
+  });
+});
+
+describe('diffAgainstExisting — a person the file NAMES is not missing', () => {
+  // THE LEAK. A student who self-claimed a held seat is in the table under the
+  // address they signed in with, and the handover file still does not have that
+  // address — it never did, which is why their row was held in the first place.
+  // Matching on kkumail alone stamps `missing_since` on exactly the people the
+  // claim flow just repaired, on every import, for ever.
+  const existing = [{
+    id: 'u1', kkumail: 'claimed.by.me@kkumail.com', student_id: '659999999-9',
+    first_name_th: 'มานี', sai_code: '017', self_edited: [],
+  }];
+
+  it('does not mark someone missing whose รหัส is on a SKIPPED line', () => {
+    const r = parseStudentsCsv([HEAD, '659999999-9,มานี,ใจดี,นก,,MD,017'].join('\n'), ['MD']);
+    expect(r.rows).toHaveLength(0);
+    expect(r.skipped).toHaveLength(1);
+    const d = diffAgainstExisting(r.rows, existing, r.presentColumns, r.skipped);
+    expect(d.missing).toHaveLength(0);
+  });
+
+  // CONTROL. Without this the assertion above is satisfied by a `missing` that
+  // is always empty, which is exactly how a guard stops meaning anything.
+  it('…but DOES mark someone the file does not mention at all', () => {
+    const r = parseStudentsCsv([HEAD, '669999998-8,ปิติ,รักเรียน,ต้น,piti.r@kkumail.com,MD,003'].join('\n'), ['MD']);
+    const d = diffAgainstExisting(r.rows, existing, r.presentColumns, r.skipped);
+    expect(d.missing.map((m) => m.id)).toEqual(['u1']);
+  });
+
+  it('matches the รหัส with or without its dash, as the handover spec allows', () => {
+    // "รหัสนักศึกษาใส่ขีดหรือไม่ใส่ขีดก็ได้" — the file may write either, and a
+    // comparison that saw them as two people would re-hold a claimed student.
+    const r = parseStudentsCsv([HEAD, '6599999999,มานี,ใจดี,นก,,MD,017'].join('\n'), ['MD']);
+    const d = diffAgainstExisting(r.rows, existing, r.presentColumns, r.skipped);
+    expect(d.missing).toHaveLength(0);
   });
 });

@@ -1159,3 +1159,49 @@ for everything anybody had run, and the only symptom was a status command nobody
 had reason to type. **Run `migrate:status` for BOTH projects at the end of any
 session that applies a migration** — and read the whole pending list, because
 these files have dependencies and a truncated list applies them out of order.
+
+---
+
+## A new table in `public` is born anon-writable, and nothing says so
+
+**Symptom.** None — that is the entry. 0188's `student_import_unresolved` was
+created with RLS on and one admin policy, looked right in the migration, and
+`anon` held `arwdDxtm` on it: SELECT, INSERT, UPDATE and DELETE. It was found
+only because the proof written alongside it happened to assert
+`has_table_privilege('anon', …, 'select') = false`, and went red.
+
+**Cause.** This project carries a `pg_default_acl` on schema `public` granting
+`anon`, `authenticated` and `service_role` **all privileges on every table
+created there**. So `create table` does not produce a closed object that grants
+are then added to; it produces an open one that grants must be taken away from.
+Every other ระบบบ้าน table — `students`, `sais`, `houses`, `advisors`,
+`sai_advisors`, `student_change_requests`, `student_import_batches`, `people` —
+carries an explicit `revoke ... from anon`, so the convention existed and was
+invisible: it is written PER OBJECT, in eight separate migrations, and nothing
+carries it to the ninth.
+
+RLS was the only thing standing between that grant and the rows, and it held —
+`anon` matches no policy, so it reads nothing. That is exactly what makes this
+worth writing down rather than shrugging at: the protection was *one* mechanism
+deep, in a table whose whole purpose is to hold 165 real students' ชื่อ,
+รหัสนักศึกษา and สายรหัส, and the day somebody adds a policy `to public` for an
+unrelated reason, the grant is already there waiting.
+
+**Fix.** `revoke all on public.student_import_unresolved from anon;` in 0188,
+with the reason above it, and `house0188-unresolved-seat.sql` §03 asserting it —
+paired with §04, which asserts that `authenticated` *does* hold the grant, so
+the proof cannot be satisfied by a table nobody can reach at all.
+
+**Where it lives now.** `supabase/migrations/0188_*.sql` §1;
+`tools/house0188-unresolved-seat.sql` §A.
+
+**The general rule.** *Ask what a `create table` INHERITS, because a default
+privilege is attached to the schema and is therefore invisible in the file that
+creates the object.* This is 0182 in a different schema and from the other
+direction: there, `enable row level security` was retyped as a list of ten for
+eleven tables, and `passport.continents` sat anon-writable for three months. Here
+the RLS was right and the GRANT was inherited. Both are the same shape — a
+property that must be written per object, in a place where nothing enumerates the
+objects. The durable answer is never "remember the line"; it is to assert the
+PROPERTY over every table at once. `tools/authz-sweep-identity.sql` is where that
+belongs, and until it enumerates them, each new table's own proof must ask.

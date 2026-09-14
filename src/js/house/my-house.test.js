@@ -513,3 +513,69 @@ describe('one identity, one place — the paired card', () => {
     expect(el.innerHTML).toBe('');
   });
 });
+
+// ============================================================
+// ยืนยันตัวตน — the claim form on the empty card (0188)
+// ============================================================
+//
+// 165 rows of the 2026-09-14 handover carry no kkumail, so those students have
+// no `students` row and land on the empty card. Before this they read
+// "ยังไม่มีข้อมูลของคุณ — แจ้งได้ที่ VitalSound", which is a ticket queue
+// standing in for a feature: they are signed in with an address Google has
+// already verified, and the only thing missing is the link to their seat.
+describe('the empty card offers a way in — to the people it can help', () => {
+  const paint = (account) => {
+    const h = host();
+    renderMyHouse(h, null, { signedIn: true, account });
+    return h.innerHTML;
+  };
+
+  it('a kkumail account gets the claim form', () => {
+    const html = paint('nobody@kkumail.com');
+    expect(html).toContain('data-house-form="claim"');
+    expect(html).toContain('name="student_id"');
+    expect(html).toContain('name="first_name"');
+  });
+
+  it('asks for BOTH facts — one of them is enumerable on its own', () => {
+    // A รหัสนักศึกษา alone is a ~300-wide space per รุ่น behind a known prefix,
+    // and a claimed seat is a place in someone else's บ้าน under someone else's
+    // name. The ชื่อ is what makes an attacker have to know who they are
+    // targeting. If this ever renders one field, the server gate is the only
+    // thing left — and a form that asks for less than the server requires just
+    // fails for everyone instead.
+    const html = paint('nobody@kkumail.com');
+    const fields = [...html.matchAll(/name="(student_id|first_name)"/g)].map((m) => m[1]);
+    expect(new Set(fields)).toEqual(new Set(['student_id', 'first_name']));
+  });
+
+  it('a NON-kkumail account does not get it — the form cannot help them', () => {
+    // ระบบบ้าน matches on kkumail and nothing else, so a claim from a gmail
+    // account would write a row its own owner could never read. The server
+    // refuses it; offering the form anyway would send someone down a path that
+    // ends in an error message, when the actual fix is to sign in again.
+    const html = paint('someone@gmail.com');
+    expect(html).not.toContain('data-house-form="claim"');
+    expect(html).toContain('@kkumail.com');
+  });
+
+  it('the claim form is wired to the nodes THIS paint made, never to the host', () => {
+    // Same rule the rest of this file pins: `host` survives every render, so a
+    // listener on it accumulates one per paint. wireClaim must reach inside.
+    const fn = CODE.slice(CODE.indexOf('function wireClaim'),
+      CODE.indexOf('export function renderMyHouse'));
+    expect(fn).not.toMatch(/host\.addEventListener/);
+    expect(fn).toMatch(/form\.addEventListener\(\s*'submit'/);
+  });
+
+  it('clears the cache before repainting after a successful claim', () => {
+    // The cache holds the "you are nobody" answer this card was painted FROM.
+    // Repainting without clearing it shows the empty card again on top of a
+    // record that now exists — the stale-instrument shape, and the one that
+    // makes a working feature look broken at the exact moment it worked.
+    const fn = CODE.slice(CODE.indexOf('function wireClaim'),
+      CODE.indexOf('export function renderMyHouse'));
+    expect(fn.indexOf('clearMyHouseCache()')).toBeGreaterThan(-1);
+    expect(fn.indexOf('clearMyHouseCache()')).toBeLessThan(fn.indexOf('showMyHouse('));
+  });
+});

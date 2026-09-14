@@ -34,12 +34,13 @@ import {
   addSaiAdvisor, removeSaiAdvisor,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
-  markMissing, ensureSais, fetchMajors,
+  markMissing, ensureSais, fetchMajors, recordUnresolved,
+  fetchUnresolved, promoteUnresolved, dismissUnresolved,
   fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
   fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
 } from './api.js';
 import {
-  parseStudentsCsv, diffAgainstExisting, toUpsertRow, buildStudentsCsv,
+  parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, buildStudentsCsv,
   buildPreviewRows, PREVIEW_COLUMNS, PREVIEW_COLUMN_LABEL,
   CSV_COLUMN_LABEL,
 } from './io.js';
@@ -69,6 +70,12 @@ let students = [];
 let advisors = [];
 let requests = [];
 let majors = [];            // team_majors — the ONE สาขา vocabulary
+// Rows the newest import NAMED and could not address (0188). Loaded with
+// everything else so the sub-nav badge is right on first paint — a count that
+// appears only after someone opens the pane is a count nobody sees.
+let held = [];
+let heldQuery = '';
+let heldShowDone = false;
 let pendingImport = null;   // parsed + diffed, awaiting confirmation
 
 function setStatus(msg, isError = false) {
@@ -105,9 +112,10 @@ async function reload() {
   setStatus('กำลังโหลด…');
   loading = (async () => {
     try {
-      [houses, sais, students, advisors, requests, majors] = await Promise.all([
+      [houses, sais, students, advisors, requests, majors, held] = await Promise.all([
         fetchHouses(), fetchSais(),
         fetchStudents(), fetchAdvisors(), fetchRequests(), fetchMajors(),
+        fetchUnresolved(true),
       ]);
       setStatus('');
       render();
@@ -138,12 +146,102 @@ function render() {
     badge.classList.toggle('d-none', openReqs === 0);
   }
 
+  const openHeld = held.filter((h) => !h.resolved_at).length;
+  const heldBadge = $('houseHeldBadge');
+  if (heldBadge) {
+    heldBadge.textContent = String(openHeld);
+    heldBadge.classList.toggle('d-none', openHeld === 0);
+  }
+
   if (mode === 'overview') renderOverview();
   else if (mode === 'students') renderStudents();
   else if (mode === 'sais') renderSais();
   else if (mode === 'advisors') renderAdvisors();
   else if (mode === 'requests') renderRequests();
+  else if (mode === 'held') renderHeld();
 }
+
+// ---------- ยังนำเข้าไม่ได้ ----------
+//
+// SORTED SO THE ADMIN'S OWN WORK IS AT THE TOP, which is what `claimable` is
+// for. A row WITH a รหัสนักศึกษา can be closed by the student it names, from the
+// home page, without anyone here doing anything — so it is not a task. A row
+// without one can be closed by nobody but an admin, and there is no queue it
+// will ever drain into. Ordering by that difference is the difference between a
+// list of 165 and a worklist of 13.
+// BOTH ACTIONS COLLECT THEIR TEXT IN AN ORDINARY INPUT, never `prompt()`.
+// Chrome's "Prevent this page from creating additional dialogs" makes every
+// later prompt() return null instantly with no UI, for the life of the page —
+// which is what made the ปฏิเสธ button on คำขอแก้ไข look dead, and the handler
+// there read that null as "cancelled" and returned silently. See onDecide's
+// header. A dismissal also REQUIRES its reason (the RPC raises without one), and
+// a mandatory value collected through a dialog the browser may refuse to show is
+// a dead end with no message.
+function renderHeld() {
+  const tbody = $('houseHeldRows');
+  if (!tbody) return;
+  const q = heldQuery.trim().toLowerCase();
+  const rows = held
+    .filter((h) => heldShowDone || !h.resolved_at)
+    .filter((h) => !q || [h.first_name_th, h.last_name_th, h.nickname, h.student_id, h.sai]
+      .some((v) => String(v || '').toLowerCase().includes(q)));
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-muted small py-3">${
+      held.length ? 'ไม่พบรายการที่ตรงกับที่ค้นหา' : 'ไม่มีรายการค้าง — ไฟล์ล่าสุดมี kkumail ครบทุกคน'}</td></tr>`;
+  } else {
+    tbody.innerHTML = rows.map((h) => {
+      const name = [h.first_name_th, h.last_name_th].filter(Boolean).join(' ')
+        || '<span class="text-muted">(ไม่มีชื่อในไฟล์)</span>';
+      const done = !!h.resolved_at;
+      return `<tr data-held-id="${escHtml(h.id)}"${done ? ' class="table-light text-muted"' : ''}>
+        <td>${name}${h.nickname ? ` <span class="text-muted small">(${escHtml(h.nickname)})</span>` : ''}</td>
+        <td>${h.student_id ? escHtml(h.student_id) : '<span class="text-danger small">ไม่มี</span>'}</td>
+        <td>${h.sai ? `${escHtml(h.sai)} · บ้าน ${h.house ?? '—'}` : '—'}</td>
+        <td>${h.cohort_year ? escHtml(cohortLabel({ cohort_year: h.cohort_year })) : '—'}</td>
+        <td class="small">${escHtml(HELD_REASON[h.reason] || h.reason)}</td>
+        <td class="small">${done ? escHtml(HELD_DONE[h.resolved_how] || 'จัดการแล้ว') : `${h.held_days} วัน`}</td>
+        <td class="text-end">${done ? '' : `
+          <div class="held-actions">
+            <div class="input-group input-group-sm">
+              <input type="email" class="form-control" data-held-mail
+                     placeholder="kkumail ของคนนี้" autocomplete="off" />
+              <button type="button" class="btn btn-outline-primary" data-held-act="promote">เพิ่ม</button>
+            </div>
+            <div class="input-group input-group-sm">
+              <input type="text" class="form-control" data-held-note
+                     placeholder="เหตุผลที่ปิด เช่น ลาออก" autocomplete="off" />
+              <button type="button" class="btn btn-outline-secondary" data-held-act="dismiss">ปิด</button>
+            </div>
+          </div>`}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const open = held.filter((h) => !h.resolved_at);
+  const adminOnly = open.filter((h) => !h.claimable).length;
+  $('houseHeldCount').textContent = open.length
+    ? `ค้างอยู่ ${open.length} คน — ${adminOnly} คนไม่มีรหัสนักศึกษา จึงยืนยันตัวตนเองไม่ได้ `
+      + `อีก ${open.length - adminOnly} คนยืนยันเองได้เมื่อเข้าสู่ระบบด้วย kkumail`
+    : 'ไม่มีรายการค้าง';
+}
+
+/** The stored `reason` values, said in the words an admin would use. Kept
+ *  beside the renderer rather than in the database, because the enum is the
+ *  FACT and this is a label — and a label that lived in a check constraint
+ *  could not be reworded without a migration. */
+const HELD_REASON = {
+  no_kkumail: 'ไฟล์ไม่มี kkumail',
+  no_kkumail_no_student_id: 'ไม่มีทั้ง kkumail และรหัสนักศึกษา',
+  duplicate_kkumail: 'kkumail ซ้ำกับคนอื่นในไฟล์',
+  empty_row: 'แถวว่าง — มีแต่สายรหัส',
+};
+const HELD_DONE = {
+  self_claim: 'เจ้าตัวยืนยันเอง',
+  admin: 'แอดมินกรอกอีเมลให้',
+  import: 'ไฟล์รอบถัดไปมีชื่อแล้ว',
+  dismissed: 'ปิดรายการ',
+};
 
 // ---------- ภาพรวม ----------
 function renderOverview() {
@@ -1289,7 +1387,8 @@ async function onCsvPicked(e) {
     // that `md` was a real สาขา, and the hardcoded ['MD','MDI','RT'] was a second
     // copy of a list an admin can edit.
     const result = parseStudentsCsv(text, majors.map((m) => m.code));
-    const diff = diffAgainstExisting(result.rows, students, result.presentColumns);
+    const diff = diffAgainstExisting(
+      result.rows, students, result.presentColumns, result.skipped);
     pendingImport = { result, diff, fileName: file.name };
     renderImportPreview(result, diff);
   } catch (err) {
@@ -1339,6 +1438,13 @@ async function runImport() {
       if (btn) btn.textContent = 'กำลังทำเครื่องหมายรายการที่ไม่อยู่ในไฟล์…';
       await markMissing(missingIds);
     }
+    // The lines this file NAMED and could not address. Written on EVERY import,
+    // including one that skipped nothing — the held list describes the newest
+    // file, so a run that resolves everybody clears it by saying so (0188).
+    if (btn) btn.textContent = 'กำลังบันทึกรายชื่อที่ยังนำเข้าไม่ได้…';
+    const held = await recordUnresolved(
+      batch?.id, (result.skipped || []).map(toUnresolvedRow));
+
     await finishImportBatch(batch?.id, {
       inserted_count: diff.insert,
       updated_count: diff.update,
@@ -1346,7 +1452,9 @@ async function runImport() {
     });
     pendingImport = null;
     $('houseCsvFile').value = '';
-    $('housePreview').innerHTML = '<div class="alert alert-success">นำเข้าเรียบร้อยแล้ว</div>';
+    $('housePreview').innerHTML = `<div class="alert alert-success">นำเข้าเรียบร้อยแล้ว`
+      + `${held?.held ? ` — และพัก ${held.held} คนที่ไฟล์ไม่มี kkumail ไว้ที่ “รายชื่อที่ยังนำเข้าไม่ได้”` : ''}`
+      + '</div>';
     await reload();
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = 'ลองอีกครั้ง'; }
@@ -1983,6 +2091,62 @@ function exportCsv() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * Close one held row — either by giving it the address it was missing, or by
+ * saying it is not a student we will ever have.
+ *
+ * THE WHOLE POINT OF `reload()` AT THE END, rather than patching `held` in
+ * place. A promote writes a `students` row, so the students list, the per-house
+ * counts and the overview are all stale the moment it succeeds — and the
+ * cheapest wrong version of this function is the one that updates the row it can
+ * see and leaves four other panes disagreeing with the database.
+ */
+async function onHeldAction(id, act, tr) {
+  const row = held.find((h) => h.id === id);
+  if (!row) { setStatus('ไม่พบรายการนี้แล้ว — กำลังโหลดใหม่', true); reload(); return; }
+  const who = [row.first_name_th, row.last_name_th].filter(Boolean).join(' ') || 'รายการนี้';
+
+  try {
+    if (act === 'promote') {
+      const mail = (tr.querySelector('[data-held-mail]')?.value || '').trim().toLowerCase();
+      if (!mail) { setStatus('กรอก kkumail ของคนนี้ก่อน', true); return; }
+      // Warned, NOT refused. The spec asks for @kkumail.com and an address at
+      // any other domain will never match a login — but an admin filling this in
+      // by hand may be recording the only address anyone has, and refusing it
+      // would leave the row held for ever with no way to say so.
+      const offDomain = !/@kkumail\.com$/.test(mail);
+      const ok = await askConfirm({
+        title: `เพิ่ม ${who} เข้าระบบบ้าน?`,
+        body: `จะสร้างข้อมูลนักศึกษาด้วยอีเมล ${mail}`
+          + (row.sai ? ` · สาย ${row.sai} · บ้าน ${row.house ?? '—'}` : ' · ยังไม่มีสายรหัส')
+          + (offDomain ? '\n\nอีเมลนี้ไม่ใช่ @kkumail.com — เจ้าตัวจะเข้าสู่ระบบแล้วไม่เห็นข้อมูลตัวเอง' : ''),
+        yes: 'เพิ่ม',
+        danger: offDomain,
+      });
+      if (!ok) return;
+      await promoteUnresolved(id, mail);
+      setStatus(`เพิ่ม ${who} แล้ว`);
+    } else if (act === 'dismiss') {
+      const note = (tr.querySelector('[data-held-note]')?.value || '').trim();
+      // Said HERE as well as in the RPC, because the RPC's raise arrives as a
+      // red banner after a round trip and this one arrives beside the empty box.
+      if (!note) { setStatus('กรอกเหตุผลที่ปิดรายการนี้ก่อน', true); return; }
+      const ok = await askConfirm({
+        title: `ปิดรายการของ ${who}?`,
+        body: 'จะไม่สร้างข้อมูลนักศึกษาให้ และรายการจะหายไปจากรายการค้าง '
+          + 'ถ้าไฟล์รอบหน้ามีชื่อคนนี้พร้อม kkumail ระบบจะนำเข้าให้ตามปกติ',
+        yes: 'ปิดรายการ',
+      });
+      if (!ok) return;
+      await dismissUnresolved(id, note);
+      setStatus(`ปิดรายการของ ${who} แล้ว`);
+    }
+    await reload();
+  } catch (err) {
+    setStatus(err?.message || 'ทำรายการไม่สำเร็จ', true);
+  }
+}
+
 // ============================================================
 // WIRING
 // ============================================================
@@ -2066,6 +2230,24 @@ function wire() {
   });
 
   // สายรหัส pane — filters, and the สาย-first อาจารย์ modal.
+  // ── ยังนำเข้าไม่ได้
+  $('houseHeldSearch')?.addEventListener('input', (e) => {
+    heldQuery = e.target.value; renderHeld();
+  });
+  $('houseHeldShowDone')?.addEventListener('change', (e) => {
+    heldShowDone = e.target.checked; renderHeld();
+  });
+  // Delegated from the TBODY, which this module owns and never replaces — only
+  // its innerHTML changes — so exactly one listener exists for the life of the
+  // page. Attaching per row instead would add a listener per render, which is
+  // the "fires once, then twice, then three times" bug wireCard documents.
+  $('houseHeldRows')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-held-act]');
+    if (!btn) return;
+    const tr = btn.closest('[data-held-id]');
+    if (tr) onHeldAction(tr.dataset.heldId, btn.dataset.heldAct, tr);
+  });
+
   $('houseSaiSearch')?.addEventListener('input', renderSais);
   $('houseSaiFilterHouse')?.addEventListener('change', renderSais);
   $('houseSaiOnlyEmpty')?.addEventListener('change', renderSais);

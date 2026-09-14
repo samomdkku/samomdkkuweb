@@ -21,6 +21,10 @@
         <i class="bi bi-inbox"></i> คำขอแก้ไข
         <span class="badge bg-danger d-none" id="houseReqBadge">0</span>
       </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="held">
+        <i class="bi bi-person-exclamation"></i> ยังนำเข้าไม่ได้
+        <span class="badge bg-warning text-dark d-none" id="houseHeldBadge">0</span>
+      </button>
       <button type="button" class="btn btn-outline-secondary" data-house-mode="import">
         <i class="bi bi-upload"></i> นำเข้าข้อมูล
       </button>
@@ -242,6 +246,47 @@
   </section>
 
   <!-- ---------- นำเข้าข้อมูล ---------- -->
+  <!-- ---------- ยังนำเข้าไม่ได้ ----------
+       Rows the handover file NAMED and could not address. `students.kkumail` is
+       NOT NULL and is the upsert's conflict target, so these cannot be student
+       rows — before 0188 they were listed in the import preview and then gone
+       when the tab closed. They are kept here because they are the faculty's
+       own evidence that a seat exists, and because a student can close most of
+       them without anyone's help by claiming their own record. -->
+  <section data-house-pane="held" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h6 class="card-title">รายชื่อที่ยังนำเข้าไม่ได้</h6>
+        <p class="small text-muted mb-2">
+          ไฟล์จากฝ่ายข้อมูลมีชื่อคนเหล่านี้ แต่<strong>ไม่มี kkumail</strong>
+          ระบบบ้านใช้ kkumail จับคู่ตอนนักศึกษาเข้าสู่ระบบ จึงยังสร้างข้อมูลให้ไม่ได้
+          <br />คนที่มี<strong>รหัสนักศึกษา</strong>ยืนยันตัวตนเองได้จากหน้าแรกเมื่อเข้าสู่ระบบด้วย kkumail
+          ส่วนคนที่<strong>ไม่มีรหัสนักศึกษา</strong>ต้องกรอกอีเมลให้ที่นี่
+        </p>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <input type="search" class="form-control form-control-sm" style="max-width:16rem"
+                 id="houseHeldSearch" placeholder="ค้นหาชื่อ / รหัส / สาย" />
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="houseHeldShowDone" />
+            <label class="form-check-label small" for="houseHeldShowDone">แสดงรายการที่จัดการแล้ว</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle house-table">
+        <thead>
+          <tr>
+            <th>ชื่อ</th><th>รหัสนักศึกษา</th><th>สาย / บ้าน</th><th>รุ่น</th>
+            <th>สาเหตุ</th><th>ค้างมา</th><th class="text-end">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="houseHeldRows"></tbody>
+      </table>
+    </div>
+    <div class="small text-muted" id="houseHeldCount"></div>
+  </section>
+
   <section data-house-pane="import" class="d-none">
     <div class="card mb-3">
       <div class="card-body">

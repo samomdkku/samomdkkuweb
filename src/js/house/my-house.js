@@ -42,6 +42,7 @@ import { convertDriveUrl } from '../uploads.js';
 import { registerProfileCache, clearProfileCaches } from '../profile-cache.js';
 import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
+  claimMySeat,
 } from './api.js';
 import {
   houseLabel, normalizeSai, cohortLabel, normalizeStudentId, saiProblem, safeColor,
@@ -573,9 +574,27 @@ function emptyHouseHtml(account) {
         <span class="myseat-eyebrow"><i class="bi bi-house-heart-fill" aria-hidden="true"></i> บ้านของฉัน</span>
       </div>
       ${isKku ? `
-        <p class="myhouse-empty">ยังไม่มีข้อมูลของคุณในระบบบ้าน — ปกติแปลว่ายังไม่ได้นำเข้าข้อมูลรุ่นของคุณ
-          ถ้าเพื่อนร่วมรุ่นเห็นข้อมูลของตัวเองแล้วแต่คุณยังไม่เห็น
-          แจ้งได้ที่ <a href="/vssound">แจ้งปัญหา (VitalSound)</a></p>`
+        <p class="myhouse-empty">ยังไม่มีข้อมูลของคุณในระบบบ้าน</p>
+        <p class="myhouse-empty">ถ้าคุณเป็นนักศึกษาแพทย์ มข. กรอกรหัสนักศึกษากับชื่อจริงของคุณ
+          ระบบจะจับคู่กับรายชื่อที่คณะส่งมาให้เอง</p>
+        <form class="myseat-edit myhouse-claim" data-house-form="claim">
+          <label class="myseat-edit-field">
+            <span>รหัสนักศึกษา</span>
+            <input type="text" name="student_id" inputmode="numeric" autocomplete="off"
+                   placeholder="659999999-9" required />
+          </label>
+          <label class="myseat-edit-field">
+            <span>ชื่อจริง (ไม่ต้องใส่นามสกุล)</span>
+            <input type="text" name="first_name" autocomplete="off" required />
+          </label>
+          <div class="myseat-edit-actions">
+            <button type="submit" class="myseat-save">ยืนยันตัวตน</button>
+            <span class="myseat-edit-status" data-house-claim-status role="status"></span>
+          </div>
+        </form>
+        <p class="myhouse-empty myhouse-empty--quiet">ถ้ากรอกถูกแล้วยังไม่พบ
+          แปลว่าคณะยังไม่ได้ส่งชื่อของคุณมา แจ้งได้ที่
+          <a href="/vssound">แจ้งปัญหา (VitalSound)</a></p>`
     : `
         <p class="myhouse-empty">ระบบบ้านใช้บัญชี <strong>kkumail</strong> ในการจับคู่ข้อมูลนักศึกษา
           ตอนนี้คุณเข้าสู่ระบบด้วย${mail
@@ -585,6 +604,69 @@ function emptyHouseHtml(account) {
         <p class="myhouse-empty">ออกจากระบบแล้วเข้าสู่ระบบใหม่ด้วย Google
           โดยเลือกบัญชี <strong>@kkumail.com</strong> ของคุณ แล้วข้อมูลจะขึ้นเองอัตโนมัติ</p>`}
     </div>`;
+}
+
+/**
+ * Wire the "ยืนยันตัวตน" form on the empty card.
+ *
+ * SEPARATE FROM wireCard BECAUSE THE EMPTY BRANCH RETURNS BEFORE IT. That early
+ * return is why the form needs its own call rather than a condition inside
+ * wireCard — and, like wireCard, every listener here is attached to a node THIS
+ * paint created, so the next render drops it. Delegating from `host`, which
+ * survives every paint, is what once added one listener per render and made a
+ * button fire twice, then three times (the bug wireCard's header describes).
+ *
+ * A MISS IS NOT AN ERROR. `claim_my_student_seat` answers `{ok:false, message}`
+ * when the two facts do not match a held row, and deliberately says the same
+ * thing whether the รหัส is unknown or the ชื่อ is wrong — so this renders the
+ * server's sentence as-is rather than composing its own. Two authors of one
+ * message is how an alert ends up contradicting the fixed instruction beside it
+ * (docs/mistakes/integrations.md); the server is the author here.
+ */
+function wireClaim(host, opts = {}) {
+  if (typeof host.querySelector !== 'function') return;
+  const form = host.querySelector('[data-house-form="claim"]');
+  if (!form) return;
+  const status = form.querySelector('[data-house-claim-status]');
+  const btn = form.querySelector('.myseat-save');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const sid = form.querySelector('[name="student_id"]').value.trim();
+    const first = form.querySelector('[name="first_name"]').value.trim();
+    if (!sid || !first) {
+      if (status) status.textContent = 'กรอกทั้งรหัสนักศึกษาและชื่อจริง';
+      return;
+    }
+    // Checked HERE as well as on the server, because the server's message for a
+    // malformed รหัส is the same neutral "ไม่พบรายชื่อ" as a genuine miss — it
+    // has to be, or the form becomes a way to test one guess at a time. That
+    // silence is right for the server and useless to someone who simply mistyped.
+    const norm = normalizeStudentId(sid);
+    if (!norm.ok) {
+      if (status) status.textContent = 'รหัสนักศึกษาต้องเป็นตัวเลข 10 หลัก เช่น 659999999-9';
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ…'; }
+    if (status) status.textContent = '';
+    try {
+      const res = await claimMySeat(norm.value, first);
+      if (!res?.ok) {
+        if (status) status.textContent = res?.message || 'ไม่พบรายชื่อที่ตรงกัน';
+        if (btn) { btn.disabled = false; btn.textContent = 'ยืนยันตัวตน'; }
+        return;
+      }
+      // The cache holds the "you are nobody" answer this card was painted from.
+      // Repainting without clearing it would show the empty card again on top of
+      // a record that now exists — the stale-instrument shape.
+      clearMyHouseCache();
+      if (status) status.textContent = 'พบข้อมูลของคุณแล้ว กำลังโหลด…';
+      await showMyHouse(host, opts.uid, opts);
+    } catch (err) {
+      if (status) status.textContent = err?.message || 'ยืนยันตัวตนไม่สำเร็จ';
+      if (btn) { btn.disabled = false; btn.textContent = 'ยืนยันตัวตน'; }
+    }
+  });
 }
 
 export function renderMyHouse(host, rec, opts = {}) {
@@ -602,6 +684,7 @@ export function renderMyHouse(host, rec, opts = {}) {
     if (!opts.signedIn) { host.hidden = true; host.innerHTML = ''; return; }
     host.hidden = false;
     host.innerHTML = emptyHouseHtml(opts.account);
+    wireClaim(host, opts);
     return;
   }
   host.hidden = false;
@@ -856,5 +939,9 @@ function wireCard(host, rec, opts = {}) {
 export async function showMyHouse(host, uid, opts = {}) {
   if (!host) return;
   const rec = await loadMyHouse(uid);
-  renderMyHouse(host, rec, opts);
+  // `uid` travels IN the opts from here on. The empty card's claim form has to
+  // re-show this same card after a successful claim, and it only has `opts` —
+  // reading the uid from a module variable instead is the account-switch trap
+  // this file already carries a cache guard for.
+  renderMyHouse(host, rec, { ...opts, uid });
 }

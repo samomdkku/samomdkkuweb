@@ -84,3 +84,16 @@
 /* The "person is already in the system" panel moved to css/person-match.css
    — ทีม SAMO needed the identical panel, and two copies of one rule is the
    class this repo pays for most. The classes are `.person-match*` now. */
+
+/* ── ยังนำเข้าไม่ได้: the two inline actions on a held row ───────────────── */
+/* Inputs rather than dialogs — see renderHeld()'s header: a `prompt()` the
+   browser has suppressed returns null with no UI, which is what once made an
+   admin button look dead. Stacked so the row stays readable on a laptop; the
+   table's own overflow-x handles anything narrower. */
+.held-actions {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 15rem;
+  margin-left: auto;
+}
+.held-actions .input-group { flex-wrap: nowrap; }
