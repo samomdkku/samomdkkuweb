@@ -111,7 +111,11 @@ export const SIDEBAR = [
     text: 'How the system works',
     files: [
       'CONTEXT.md', 'INVARIANTS.md', 'PERSON-REGISTRY.md', 'EMAIL.md',
-      'HOUSE-SYSTEM.md', 'house-data-spec-th.md', 'TEAM-ROLES-AND-PHOTOS.md',
+      // The three house documents in the order someone actually needs them:
+      // how it works · what to ask ฝ่ายข้อมูล for · what to do when what
+      // arrives is wrong.
+      'HOUSE-SYSTEM.md', 'house-data-spec-th.md', 'HOUSE-DATA-REPAIR.md',
+      'TEAM-ROLES-AND-PHOTOS.md',
     ],
   },
   {

@@ -4,36 +4,35 @@ Slim entry point. Everything else is read on demand.
 
 ## Project
 
-MDKKU SAMO student-portal SPA. Vite + Vanilla JS + Bootstrap, backed by
-Supabase (auth + Postgres + RLS). Apps Script (`appscript/`) survives as a
-thin proxy for Discord webhooks, Drive file uploads and the หนังสือโครงการ
-email (`MailApp`, quota-bound — ceilings and options in `docs/EMAIL.md`).
+MDKKU SAMO student-portal SPA. Vite + Vanilla JS + Bootstrap on Supabase (auth
++ Postgres + RLS). Apps Script (`appscript/`) survives as a thin proxy for
+Discord webhooks, Drive uploads and the หนังสือโครงการ email (`MailApp`,
+quota-bound — ceilings in `docs/EMAIL.md`).
 
 Live URLs:
 - **Production: `https://samo.md.kku.ac.th` — the KKU VM, `main` branch.**
 - `samomdkkuweb.pages.dev` / `samomdkkupassport.pages.dev` are **RETIRED** but
   still RESOLVE and splash-redirect, so a check there looks healthy while the
-  real host is stale. Never verify a deploy on them. ⛔ Never DELETE the passport
+  real host is stale. Never verify a deploy there. ⛔ Never DELETE the passport
   one — 82% of printed QR posters point at it.
 
-**Pushing `main` does NOT deploy.** `server/deploy.sh` runs ON the VM and is
-triggered over ssh — `skills/deploy-vm.md`, needs VPN. Verify from the SERVED
-artifact on `samo.md.kku.ac.th` (the VM builds its own asset hashes, so find the
-bundle name in the served HTML).
+**Pushing `main` does NOT deploy.** `server/deploy.sh` runs ON the VM over ssh —
+`skills/deploy-vm.md`, needs VPN. Verify from the SERVED artifact on
+`samo.md.kku.ac.th` (the VM builds its own hashes — find the bundle name in the
+served HTML).
 
 Supabase project: `fheueuowbchsnsvbcgil`.
 
 ## Tech stack (quick)
 
-- **Frontend**: Vite 6, Vanilla ES modules, Bootstrap 5, Quill (rich text),
-  d3-org-chart, GrapesJS — **DYNAMIC IMPORT ONLY, never an entry bundle**
+- **Frontend**: Vite 6, Vanilla ES modules, Bootstrap 5, Quill, d3-org-chart,
+  GrapesJS — **DYNAMIC IMPORT ONLY, never an entry bundle**
 - **Auth + DB**: Supabase Auth (Google + username/password), Postgres with RLS
-- **Files**: Google Drive via GAS `uploadPRFile` (chosen for 2 TB quota)
+- **Files**: Google Drive via GAS `uploadPRFile` (2 TB quota)
 - **Discord**: GAS proxy actions `notifyPROnly` / `notifyVSOnly` / `notifyVSConsult`
-- **Hosting**: KKU VM (nginx), deployed by `server/deploy.sh` over ssh.
-  Cloudflare Pages is retired.
-- **Env vars**: `VITE_*` baked in at build time on the VM. Every secret, and
-  which tier it belongs to, is in `.claude/rules/security.md`, already loaded.
+- **Hosting**: KKU VM (nginx) via `server/deploy.sh` over ssh. Pages is retired.
+- **Env vars**: `VITE_*` baked in at build time on the VM. Every secret and its
+  tier is in `.claude/rules/security.md`, already loaded.
 
 ## Commands
 
@@ -84,27 +83,26 @@ it is charged to every future session.** The per-entry symptom index lives in
 `docs/mistakes/INDEX.md`; do not move it back (it reached 18.5k of 30k there).
 
 **READ FIRST — `STATE.md`, `docs/INVARIANTS.md`, `docs/state/HANDOFF.md`.**
-HANDOFF is the ONLY list of what is NOT done; every section carries a
-`Status:` (VERIFIED *how* / HYPOTHESIS / DECIDED / OWED) saying how far to
-trust it — a HYPOTHESIS is a theory to TEST, not a fact. Guarded.
-FIVE homes; mixing them is what made the handoff unreadable. **`STATE.md`** =
-true right now (~200 lines, guarded) · **`docs/INVARIANTS.md`** = rules that
-outlive a session · **HANDOFF** = what is NOT done · **`docs/state/<handle>.md`**
-= one person's notes, never rewritten by others · **`docs/state-archive/`** = why.
+HANDOFF is the ONLY list of what is NOT done; every section carries a `Status:`
+(VERIFIED *how* / HYPOTHESIS / DECIDED / OWED) saying how far to trust it — a
+HYPOTHESIS is a theory to TEST, not a fact. Guarded. FIVE homes; mixing them is
+what made the handoff unreadable. **`STATE.md`** = true right now (~200 lines,
+guarded) · **`docs/INVARIANTS.md`** = rules outliving a session · **HANDOFF** =
+what is NOT done · **`docs/state/<handle>.md`** = one person's notes, never
+rewritten by others · **`docs/state-archive/`** = why.
 
-`STATE.md` carries what is in flight, what is deployed, and what is owed —
-the things that change what you do FIRST. Everything else below is genuinely
-fetch-when-needed; these two are not, and skipping them is how a session
-re-derives or re-breaks work that was finished yesterday.
-⛔ **Write to the right home.** Appending a session narrative to `STATE.md` is
-what took it to 1,403 lines against a 200-line target; `state-handoff.test.js`
-now fails the build if it grows back past ~200.
+`STATE.md` carries what is in flight, deployed and owed — the things that change
+what you do FIRST. Everything else below is genuinely fetch-when-needed; these
+two are not, and skipping them is how a session re-breaks yesterday's work.
+⛔ **Write to the right home.** Appending a session narrative to `STATE.md` took
+it to 1,403 lines against a 200-line target; `state-handoff.test.js` now fails
+the build if it grows back past ~200.
 
 **Read on demand** — everything below. Fetch the one you need; don't preload.
 
 - `docs/mistakes/*.md` — the bug write-ups, nine files by area, plus the
-  generated `docs/mistakes/INDEX.md` (one symptom line per entry). The directory
-  in `.claude/rules/mistakes.md` says which file to open, but
+  generated `INDEX.md` (one symptom line per entry). The directory in
+  `.claude/rules/mistakes.md` says which file to open, but
   `grep -rin "<symptom>" docs/mistakes/` is usually faster — it searches the
   write-ups, not their titles. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
@@ -112,25 +110,28 @@ now fails the build if it grows back past ~200.
 - `README.md` — human onboarding. Not for agents; open only to verify it.
 - `CONTRIBUTING.md` — human collaborator guide; same rules. Cross-check when
   editing project policy.
-- `docs/TEAM-WORKFLOW.md` — the multi-developer plan (dev env, previews, credentials, review flow). **DESIGN ONLY**; §0 holds owner decisions, do not re-litigate
-- `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10 self-scrutiny, §13 build order
-- `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
+- `docs/TEAM-WORKFLOW.md` — multi-developer plan (dev env, previews, credentials, review). **DESIGN ONLY**; §0 = owner decisions, do not re-litigate
+- `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10, §13
+- `docs/CONTEXT.md` — architecture map, RLS, schema, deploy plumbing, workflows
+- `docs/HOUSE-DATA-REPAIR.md` — ระบบบ้าน: which broken field a STUDENT fixes, an
+  ADMIN must, or only ฝ่ายข้อมูล can; the one case that fails OPEN. READ BEFORE
+  promising a data fix or touching the claim / held list.
 - `docs/EMAIL.md` — who sends mail and the quota ceilings. The VM CAN send via
   a relay (587 out works); it cannot BE or RECEIVE mail (25 blocked out, no
   inbound port, `p=reject`). READ BEFORE touching mail.
-- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase. Not a status.
+- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase. Not a status
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
-  version or adding a release note; `npm run release` does the mechanical half.
-- `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model. Its "current
-  state" section is the GAS era.
+  version or adding a release note; `npm run release` does the mechanical half
+- `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model; its "current
+  state" section is the GAS era
 - `docs/KKU-SSO.md` — a login improvement, NOT a data source (no roster, no
-  สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
+  สายรหัส, no สาขา). Manual: `KKU-SSO-MANUAL.md`
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED
 - `docs/DISCORD-ROLE-SYNC.md` — ทีม SAMO → Discord roles. **DESIGN ONLY**; §7 is
-  owner-only and blocks the rest. READ BEFORE any Discord bot code.
+  owner-only and blocks the rest. READ BEFORE any Discord bot code
 - `docs/demos/*/README.md` — built-and-published comparisons the owner is
-  choosing between. Not shipped code; each says what is decided and what is not.
+  choosing between. Not shipped code; each says what is decided and what is not
 - `skills/*.md` — playbooks for the non-obvious workflows
 
 ## End-of-turn loop (MANDATORY)

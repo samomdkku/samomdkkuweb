@@ -212,6 +212,7 @@ export function parseStudentsCsv(text, knownMajors = []) {
 
   const seenMail = new Map();
   const seenSid = new Map();
+  const dupSids = new Set();
   const rows = [];
   // Lines that will NOT be imported, kept with enough of their content to be
   // shown. The preview used to report skips only as a count and a sentence in a
@@ -301,9 +302,13 @@ export function parseStudentsCsv(text, knownMajors = []) {
         value: sid.value });
     }
     if (sid.value && seenSid.has(sid.value)) {
-      problems.push({ line: lineNo, level: 'warn', field: 'student_id',
-        message: `บรรทัด ${lineNo}: รหัสนักศึกษา ${sid.value} ซ้ำกับบรรทัด ${seenSid.get(sid.value)}`,
-        value: sid.value });
+      // Recorded here, ACTED ON after the loop — see the dedupe pass below.
+      // Warning was all this used to do, and a warning was the wrong shape:
+      // `students_sid_uniq` is a UNIQUE index, so the second row does not warn
+      // at the database, it raises 23505 and takes its whole 200-row chunk with
+      // it, partway through an import that has already written the chunks before
+      // it. Measured on samo-dev.
+      dupSids.add(sid.value);
     } else if (sid.value) seenSid.set(sid.value, lineNo);
 
     const sai = normalizeSai(o.sai_code);
@@ -340,6 +345,36 @@ export function parseStudentsCsv(text, knownMajors = []) {
       _house: sai.ok ? houseOf(sai.value) : null,
     });
   });
+
+  // ── two people, one รหัสนักศึกษา ──────────────────────────────────────────
+  //
+  // The รหัส is cleared on EVERY row that shares it, and nobody is dropped.
+  //
+  // WHY NOT KEEP THE FIRST. That is what the duplicate-kkumail rule does, and it
+  // is wrong here for the opposite reason: a duplicate address means the two
+  // rows cannot both exist, so one has to go; a duplicate รหัส means one of them
+  // is a typo, and line order cannot say which. Keeping the earlier row awards a
+  // real student's number to whoever the spreadsheet happened to sort first —
+  // and รุ่น is derived from it, so the loser silently changes cohort.
+  //
+  // WHY CLEARING IS SAFE, AND BETTER THAN REFUSING. `student_id` is nullable
+  // (0126) and is one of the fields a student may edit for themselves (0125),
+  // with `students_sid_uniq` arbitrating — so both people import, both see their
+  // บ้าน, and either can put their own number back without an admin. The only
+  // thing lost until they do is their รุ่น, which is derived. Refusing the file
+  // instead would hold 1,600 people for one typo.
+  if (dupSids.size) {
+    for (const row of rows) {
+      if (!row.student_id || !dupSids.has(row.student_id)) continue;
+      problems.push({ line: row._line, level: 'warn', field: 'student_id',
+        message: `บรรทัด ${row._line}: รหัสนักศึกษา ${row.student_id} มีมากกว่าหนึ่งคนในไฟล์นี้ `
+          + '— เว้นว่างไว้ทั้งคู่ เพราะเดาไม่ได้ว่าเป็นของใคร '
+          + 'นำเข้าได้ตามปกติ เจ้าตัวแก้รหัสของตัวเองทีหลังได้ '
+          + '(รุ่นจะยังว่างจนกว่าจะแก้)',
+        value: row.student_id });
+      row.student_id = null;
+    }
+  }
 
   // Which import-owned columns this file actually carried. Everything
   // downstream (the diff, the upsert payload) is scoped to it.

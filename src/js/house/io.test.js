@@ -651,3 +651,57 @@ describe('a skipped row reports its reason by CODE, never by its Thai sentence',
     expect(toUnresolvedRow(reworded).reason).toBe('duplicate_kkumail');
   });
 });
+
+describe('two people, one รหัสนักศึกษา', () => {
+  // `students_sid_uniq` is a UNIQUE index, so the second row does not warn at
+  // the database — it raises 23505 and takes its whole 200-row chunk with it,
+  // partway through an import whose earlier chunks are already written.
+  // Reproduced against samo-dev before this was changed; io.js only warned.
+  const HEAD_ = 'student_id,first_name_th,last_name_th,nickname_th,kkumail,major,sai';
+  const csv = [HEAD_,
+    '659999999-9,มานี,ใจดี,นก,manee.j@kkumail.com,MD,017',
+    '659999999-9,ปิติ,รักเรียน,ต้น,piti.r@kkumail.com,MD,003',
+    '669999998-8,วีระ,ตั้งใจ,,weera.t@kkumail.com,MD,001',
+  ].join('\n');
+
+  it('clears the รหัส on BOTH rows — line order cannot say whose it is', () => {
+    const r = parseStudentsCsv(csv, ['MD']);
+    const byMail = Object.fromEntries(r.rows.map((x) => [x.kkumail, x]));
+    expect(byMail['manee.j@kkumail.com'].student_id).toBeNull();
+    expect(byMail['piti.r@kkumail.com'].student_id).toBeNull();
+  });
+
+  it('imports both people anyway — nobody is dropped for one typo', () => {
+    const r = parseStudentsCsv(csv, ['MD']);
+    expect(r.rows).toHaveLength(3);
+    expect(r.skipped).toHaveLength(0);
+  });
+
+  // CONTROL. Without this the first assertion is satisfied by a parser that
+  // nulls every รหัส in the file, which would pass both tests above and destroy
+  // 1,600 people's numbers.
+  it('…and leaves every UNIQUE รหัส alone', () => {
+    const r = parseStudentsCsv(csv, ['MD']);
+    const byMail = Object.fromEntries(r.rows.map((x) => [x.kkumail, x]));
+    expect(byMail['weera.t@kkumail.com'].student_id).toBe('669999998-8');
+  });
+
+  it('says so on every affected line, not just the second one', () => {
+    const r = parseStudentsCsv(csv, ['MD']);
+    const said = r.problems.filter((p) => p.field === 'student_id'
+      && /มีมากกว่าหนึ่งคน/.test(p.message)).map((p) => p.line).sort();
+    expect(said, 'the innocent row loses its number too and must be told')
+      .toEqual([2, 3]);
+  });
+
+  it('the upsert payload carries the cleared value, not the original', () => {
+    // toUpsertRow reads `row.student_id`, so the clearing has to happen on the
+    // row itself rather than only in the preview — otherwise the preview is
+    // honest and the write still 23505s.
+    const r = parseStudentsCsv(csv, ['MD']);
+    const payload = r.rows.map((x) => toUpsertRow(x, 'b', r.presentColumns));
+    const sids = payload.map((p) => p.student_id).filter(Boolean);
+    expect(new Set(sids).size, 'no รหัส may appear twice in one upsert')
+      .toBe(sids.length);
+  });
+});
