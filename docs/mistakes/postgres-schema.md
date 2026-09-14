@@ -1314,3 +1314,66 @@ row that JOINS to it** — the residue was four rows and one query away the whol
 time. ⚠️ And when someone reports test data, measure before believing the SHAPE of
 their report: "clear everything and reimport" was a reasonable guess about a system
 whose actual residue was in a different table entirely.
+
+---
+
+## "The registry wins" was implemented as "the import never speaks"
+
+**Symptom (as reported).** *"can you update and check information in teamsamo for
+it to be sync with ระบบบ้าน after this. are there mismatch, or some information
+not being filled, you should sync it"* — the owner, after the first real import.
+
+**Measured first, and the answer was not what the question assumed.** Of the 248
+people who are in BOTH ทีม SAMO and ระบบบ้าน, **zero disagree about anything** —
+there was no mismatch to resolve. But 136 of them had a registry row with a NULL
+ชื่อ/นามสกุล while their ระบบบ้าน row had both, 5 had no รหัสนักศึกษา, and 78
+students were missing a photo their own registry row was holding. Not a conflict:
+one side had simply never heard.
+
+**Cause, one line.** `student_insert_mirror_up` opened with
+
+```sql
+if new.person_id is null or new.last_import_batch is not null then return new; end if;
+```
+
+That is 0189's rule — *an import must not overwrite a curated registry name* —
+implemented as *an import never writes up at all*. The two are not the same
+thing, and the difference is exactly those 136 people: **a NULL is not a curated
+value being protected, it is a hole**, and the file is the only thing that has
+ever known what goes in it.
+
+The body could not simply be un-skipped: it coalesces `coalesce(new.x, p.x)`,
+preferring the INCOMING value, so running it on an import row would do precisely
+what 0189 forbade. 0194 gives the import its own branch with the coalesce
+**reversed** — `coalesce(p.x, new.x)` — and the two branches now differ in that
+one thing.
+
+**The second-order effect, which is why it was invisible.** `person_mirror_down`
+fires on an UPDATE of `people`. The import never updated those rows, so the
+down-mirror never ran either — and that is why 78 students had no photo. One
+stalled hop looked like two unrelated gaps in opposite directions.
+
+**Fix.** 0194 for the trigger; `tools/house-sync-registry.mjs` for the 140 rows
+already in the table, because a trigger fires on new rows only. That repair is a
+TOOL and not a migration for a measured reason: each registry write cascades
+through eleven triggers at ~0.9 s per person, and the whole set in one statement
+times out against the Management API. It batches, it is idempotent, and it
+re-selects each pass rather than paging with an offset — the rows drop out of its
+own predicate as they are filled, so an offset would skip the ones that shuffled
+up behind it.
+
+**Where it lives now.** `supabase/migrations/0194_*.sql`,
+`tools/house0194-import-fills-registry.sql` (15/15, watched failing first — six
+assertions go red when the early return is put back),
+`tools/house-sync-registry.mjs`.
+
+**The general rule.** *A precedence rule and a permission to write are different
+things, and collapsing them silently loses data.* "X wins over Y" is a statement
+about what happens **where both have a value**; it says nothing about where X has
+none. The tell is a guard that returns before the body rather than narrowing the
+body — an early `return` cannot express "unless there is nothing there", so
+whoever writes one has quietly answered a question they were not asked. Read
+every `if … then return` at the top of a mirror and ask what it does when the
+protected side is EMPTY. ⚠️ And a stalled mirror hop shows up as gaps in BOTH
+directions, because the write that was skipped is also the event the reverse
+mirror listens for — two symptoms, one cause, and neither one points at it.

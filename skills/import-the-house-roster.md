@@ -169,6 +169,28 @@ healthy system — guarded by `src/js/house/gaps.test.js`.
 
 Read-only. It never writes.
 
+## 4c. Sync the registry — ALWAYS, right after an import
+
+```bash
+node tools/house-sync-registry.mjs            # DRY RUN — counts the holes
+node tools/house-sync-registry.mjs --commit   # fills them, in batches
+```
+
+`public.people` is the registry both ระบบบ้าน and ทีม SAMO hang off. An import
+fills it through `student_insert_mirror_up` — but only for the columns the
+registry has NO opinion about (0189/0194), and only for rows written while that
+trigger is in step. After the 2026-09-14 import 136 people still had a NULL
+ชื่อ in the registry and 78 students were missing a photo the registry held,
+because the trigger returned early for every import row.
+
+⚠️ **It never overwrites.** Every column is `coalesce(REGISTRY, house)`. A person
+whose ทีม SAMO record genuinely DISAGREES with the file is not touched — that is
+an identity conflict, it has its own screen, and it is a question for the person
+rather than a merge.
+
+⚠️ Each registry write cascades through eleven triggers (~0.9 s per person), so
+it batches. Running it on 1,600 people in one statement times out.
+
 ## 5. What the held rows carry, and what they cannot
 
 Since 0193 a held row also shows **what the file said in a cell the cleaner

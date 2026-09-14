@@ -98,7 +98,7 @@ Open when: adding an access channel, a scope, or a seat.
 - Unlinking your Discord account was a permanent ฝ่าย role grant
 - A claim reached `students` around the gate the importer goes through
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(29)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(30)*
 
 Open when: writing a migration.
 
@@ -131,6 +131,7 @@ Open when: writing a migration.
 - A new table in `public` is born anon-writable, and nothing says so
 - A settings flag said `true` and controlled nothing
 - The test data used keys that turned out to be real
+- "The registry wins" was implemented as "the import never speaks"
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(89)*
 
@@ -427,4 +428,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_365 entries across 10 files._
+_366 entries across 10 files._
