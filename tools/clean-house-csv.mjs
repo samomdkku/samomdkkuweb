@@ -307,7 +307,26 @@ data.forEach((r) => { const s = cell(r[RIGHT.sid]).replace(/-/g, ''); if (s) rig
 rows.forEach((r) => {
   const o = rightByS.get(r.student_id.replace(/-/g, ''));
   if (o && r.first_name_th && o[0] && r.first_name_th !== o[0]) {
-    report.nameDiff.push({ line: r.line, sid: r.student_id, left: `${r.first_name_th} ${r.last_name_th}`, right: `${o[0]} ${o[1]}` });
+    // THE LOCAL PART OF THE PERSON'S OWN ADDRESS IS A THIRD WITNESS, and it is
+    // the only one of the three that neither department typed into this
+    // spreadsheet — the university issued it from the name it holds.
+    //
+    // It earned its place immediately: 653070078-2 is `ramita.si@`, not
+    // `woramita.si@`, so the RIGHT table's "รมิตา" is the spelling her own
+    // address was built from and the left table's "วรมิตา" carries a ว nobody
+    // else has. The first version of this report printed the two names alone
+    // and said "ใช้ตารางซ้าย" — a rule that is right three times out of four
+    // here, which is exactly the kind of rule that gets believed.
+    //
+    // Still REPORTED, not acted on: transliteration is not a proof (ณิ/ณ and
+    // น์/ต์ both survive it), so this narrows a human's question instead of
+    // answering it.
+    report.nameDiff.push({
+      line: r.line, sid: r.student_id,
+      left: `${r.first_name_th} ${r.last_name_th}`,
+      right: `${o[0]} ${o[1]}`,
+      mail: (r.kkumail || '').split('@')[0],
+    });
   }
 });
 
@@ -411,11 +430,17 @@ if (report.rightOnly.length) {
   say();
 }
 if (report.nameDiff.length) {
-  say(`**ชื่อไม่ตรงกันระหว่างสองตาราง** — ใช้ตารางซ้าย (ตารางที่ขอไป) ไม่ได้รวมให้:`);
+  say(`**ชื่อไม่ตรงกันระหว่างสองตาราง** — ไฟล์ที่นำเข้าใช้ชื่อจาก**ตารางซ้าย** (ตารางที่ขอไป) `
+    + `ไม่ได้รวมสองตารางให้ ถ้าแถวไหนควรใช้ชื่อจากตารางขวา รบกวนแจ้งกลับมา`);
   say();
-  say(`| บรรทัด | รหัสนักศึกษา | ตารางซ้าย | ตารางขวา |`);
-  say(`|---|---|---|---|`);
-  report.nameDiff.forEach((n) => say(`| ${n.line} | ${n.sid} | ${n.left} | ${n.right} |`));
+  say(`คอลัมน์สุดท้ายคือ**ส่วนหน้า @ ของอีเมลเจ้าตัว** ซึ่งมหาวิทยาลัยตั้งจากชื่อจริง `
+    + `จึงเป็นพยานที่สามที่ไม่ได้มาจากตารางไหนเลย — ใช้ดูประกอบได้ว่าตารางไหนสะกดตรง `
+    + `(แต่ไม่ใช่ข้อพิสูจน์ เพราะการถอดเป็นอังกฤษกลืนสระและตัวสะกดบางตัว)`);
+  say();
+  say(`| บรรทัด | รหัสนักศึกษา | ตารางซ้าย (ที่นำเข้า) | ตารางขวา | อีเมลเจ้าตัว |`);
+  say(`|---|---|---|---|---|`);
+  report.nameDiff.forEach((n) => say(
+    `| ${n.line} | ${n.sid} | ${n.left} | ${n.right} | \`${n.mail}\` |`));
 }
 writeFileSync(out('.report.md'), L.join('\n') + '\n', 'utf8');
 
