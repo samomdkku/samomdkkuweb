@@ -1260,3 +1260,57 @@ query.** A `select monitoring_enabled` is asking the database; a
 `select sai_self_edit_open` looked identical and was asking a fossil. The tell is
 that the flag has no reader: `grep -rn "<flag>" src/ supabase/` returned the
 migration that created it, the migration that retired it, and nothing else.
+
+---
+
+## The test data used keys that turned out to be real
+
+**Symptom (as reported).** *"i forgot that there's some people that have test data
+on ระบบบ้าน before i make you import it, like myself phuriphat.ma@kkumail.com,
+and maybe someother people can you clear everything and reimport it"* — the owner,
+minutes after the first real import of 1,776 students.
+
+**The report was half right and the fix it proposed was wrong.** There was no
+test student: `students` held exactly one row before the import (a real person,
+flagged missing since August), every one of the 1,611 rows afterwards carried the
+new batch id, and the owner's own record was real data — the faculty file itself
+gives their สาย on line 488. Clearing and re-importing would have destroyed the
+165 held seats and the two identity conflicts and fixed nothing, because none of
+the residue was in `students`.
+
+**What WAS wrong, and why nobody could see it until that morning.** Two advisors
+had been created on 2026-08-07 while the feature was being built —
+`อาจารย์สายป่าน` and `ผศ อาจารย์พู่กัน สร้อยสุข`, the second built out of the
+test student's own nickname and surname — and attached to **สาย 100 and สาย 200**.
+Those look like placeholder keys. They are not: the handover file numbers สาย
+001–305, so 100 and 200 are real สาย belonging to real people. The moment 1,611
+students landed, **12 of them — including the owner — had a fake อาจารย์ที่ปรึกษา**,
+rendered from live data by correct code.
+
+For five weeks the rows were invisible: `sai_advisors` joined to a `students`
+table with one row in it, so nothing rendered and nothing looked wrong.
+
+**Fix.** The 2 advisors, their 4 `sai_advisors` links and the orphan สาย `400`
+(which the file's range never reaches) deleted in one transaction, as a real
+admin through RLS, with the rows snapshotted first and the counts read back
+rather than assumed. The `somsak.csv` batch row was KEPT: it is a true record
+that an import happened on 2026-08-08, it is invisible to students, and deleting
+audit history to tidy up is the wrong instinct.
+
+**One more thing it broke, found only by re-reading my own work.** The release
+note written for the import promised students they would see
+"สายรหัส บ้าน **และอาจารย์ที่ปรึกษา**". Deleting the fakes made `advisors` empty,
+so that sentence became a promise the app could not keep — and the note had been
+true when written. The clause was removed.
+
+**The general rule.** *A test row is only recognisable as test data while it sits
+next to nothing.* Seeding one against a key that LOOKS synthetic — a round number,
+`100`, `200`, `test@` — is the trap, because whether a key is synthetic is a fact
+about the data that has not arrived yet, and a round number is exactly the kind a
+real sequence contains. Two defences, both cheap: seed test rows against a key the
+real data provably cannot use (a สาย of `999`, outside any cohort's headcount), and
+**before the first real import into a table, list every row already in it and every
+row that JOINS to it** — the residue was four rows and one query away the whole
+time. ⚠️ And when someone reports test data, measure before believing the SHAPE of
+their report: "clear everything and reimport" was a reasonable guess about a system
+whose actual residue was in a different table entirely.
