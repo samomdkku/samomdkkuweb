@@ -1205,3 +1205,58 @@ property that must be written per object, in a place where nothing enumerates th
 objects. The durable answer is never "remember the line"; it is to assert the
 PROPERTY over every table at once. `tools/authz-sweep-identity.sql` is where that
 belongs, and until it enumerates them, each new table's own proof must ask.
+
+---
+
+## A settings flag said `true` and controlled nothing
+
+**Symptom (as reported).** *"isn't the student can't edit their สาย for all user
+already?"* — the owner, correcting me mid-import. I had just told them that
+`house_settings.sai_self_edit_open` was `true`, therefore students could edit
+their own สายรหัส, therefore importing a possibly-wrong สาย risked students
+self-editing it and blocking a later corrected re-import. Every step after the
+first was wrong, and the first was a lookup that took two seconds.
+
+**Cause.** The flag has been **vestigial since 0125**. Its own column comment, in
+the live database, says so:
+
+> `VESTIGIAL since 0125 — students cannot edit their own สายรหัส at all; the
+> route is request_my_change('sai_code', …) and an admin decides.`
+
+`update_my_student_record` ends with `-- Still NO sai_code branch, deliberately
+(0125).` The column was not dropped because 0117 had just renamed it from
+`sai_edit_until` and dropping a column an older bundle might still SELECT is the
+outage 0129 paid for. So it sits there holding `true`, in a table called
+`house_settings`, named exactly after the behaviour it no longer has.
+
+**What made it convincing.** A settings row is the most authoritative-LOOKING
+thing in a database: it is small, it is named after a behaviour, and reading it
+feels like asking the system rather than guessing. `sai_self_edit_open = true` is
+a *complete sentence* about what the app does. It is also false, and nothing
+about the read says so — the disproof is in a COMMENT and in the absence of a
+branch three functions away.
+
+**Fix.** None in the code — the code is right. The correction is to the method:
+the answer to "can a user do X" is the write PATH, never a flag named after X.
+Here that is four hops and all of them are greppable: the RLS policies on
+`students` (there is exactly one, `students_admin_all`), then the RPC a student
+actually calls (`update_my_identity`), then what it delegates to
+(`update_my_student_record`), then whether that function has a branch for the
+column at all. It does not.
+
+**Where it lives now.** `docs/HOUSE-DATA-REPAIR.md` is the matrix of who can fix
+which field and it already said an admin decides สาย; `skills/import-the-house-roster.md`
+now states the consequence that matters — a corrected re-import fixes every
+สาย, because no student can have taken ownership of one.
+
+**The general rule.** *A flag is a claim about behaviour; only the code path is
+the behaviour.* This repo already knew the prose version — "the sentence outlives
+the predicate", where `docs/CONTEXT.md` described a grant for the whole of its
+absence — and a COLUMN is the same failure with better credentials, because it is
+inside the database the reader thinks they are interrogating. **When a schema
+object is retired in place, put the retirement in its `comment on` — and when you
+read one to answer a question about behaviour, read the comment in the same
+query.** A `select monitoring_enabled` is asking the database; a
+`select sai_self_edit_open` looked identical and was asking a fossil. The tell is
+that the flag has no reader: `grep -rn "<flag>" src/ supabase/` returned the
+migration that created it, the migration that retired it, and nothing else.
