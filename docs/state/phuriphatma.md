@@ -16,6 +16,162 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-14, END OF SESSION — read this before anything else
+
+⚠️ **This block was written TWICE on 2026-09-14 and the second half is a
+correction of the first.** It was also appended to the BOTTOM of this file
+under a `#` heading, below 1,700 lines of history, while every other block is a
+`##` at the TOP — so the "read its FIRST `## ▶ HANDOFF` block" rule in STATE.md
+would have sent the next session to 09-13 and it would never have seen the
+import at all. Moved and renamed; nothing in it was rewritten. **If you append a
+handoff, append it here, in this shape.**
+
+## ⛔ DO THIS FIRST
+
+1. **A DEPLOY IS OWED.** `4b9967d` is pushed; production still serves
+   `public-Dw14D5B4.js` = **`9c7cc0f`**. The VPN dropped mid-run and the
+   pipeline printed nothing (= dropped VPN, not success). Reconnect, run
+   `skills/deploy-vm.md`, then verify `ได้รับเรื่องของคุณแล้ว` greps ≥1 in the
+   served public bundle and update STATE.md's ✅ DEPLOYED line (its one home).
+   ⚠️ **Migrations 0188–0192 ARE all applied to production** (Management API,
+   not the VPN), so the DB is AHEAD of the bundle. Safe direction — every one of
+   them only ADDs. **Do not DROP anything until the bundle catches up.**
+2. **The import itself is HELD on one question to ฝ่ายข้อมูล** (below).
+3. Discord bot — **owner is doing it later**, do not pick it up. `HANDOFF` §14b.
+
+## The import — cleaned, verified, NOT imported
+
+Raw file + outputs in `externaldata/house-import/` (**gitignored — 1,776 real
+students' PII and this repo is PUBLIC**). Regenerate any time:
+
+```bash
+node tools/clean-house-csv.mjs externaldata/house-import/2026-09-14-raw-from-data-dept.csv
+```
+
+**1,611 importable · 165 held.** The clean file passes the REAL importer
+(`parseStudentsCsv`) with **0 skipped, 0 problems**.
+
+### ✅ UPDATE, LATER THE SAME DAY — the blocker is answered and the upload file exists
+
+**ฝ่ายข้อมูล came back: the list is likely correct as it stands.** The owner's
+instruction: import it, and prompt for a fix if it turns out wrong. So §2 below
+is answered — **import as-is** — and the two สาย it names (141 missing, 256
+doubled in MD53/MD54) are now a thing to re-check against reality rather than a
+thing to wait on. ⚠️ If it IS wrong, the repair is a re-import of a corrected
+file, not hand-editing rows: `missing_since` and the held list are both rebuilt
+from whatever file was uploaded last.
+
+**⛔ AND THE FILE TO UPLOAD IS NOT `.clean.csv` — THAT WAS A REAL GAP.** The
+cleaner wrote two halves and named neither as the upload; the half labelled
+`นำเข้าได้` is the one you would reach for, and it is the wrong one. Uploading it
+would have (a) **cleared the held list** — `record_unresolved_rows` REPLACES it
+with whatever the uploaded file could not address, so all 165 seats vanish and
+nobody can claim one — and (b) stamped `missing_since` on anyone who had already
+claimed a seat, because `diffAgainstExisting` counts a SKIPPED line as the file
+mentioning that person. **Both are invisible: the run says `นำเข้าเรียบร้อยแล้ว`
+either way.** The cleaner now emits **`<base>.import.csv`** — every line in file
+order, address blanked on exactly the rows it routed out — and `§0` of the
+report says so first. Guard: `src/js/house/clean-csv.test.js`, which runs the
+REAL cleaner and feeds the REAL importer (5 of its 7 assertions go red when the
+upload file is reverted to the clean half; watched).
+
+**Measured against production before the import** (prod is effectively empty —
+1 student from an August test, already flagged missing, and she IS in this file):
+`insert 1610 · update 1 · same 0 · missing 0 · held 165` (152 no-kkumail, 11
+no-kkumail-and-no-รหัส, 2 empty rows), **305 สาย to seed**, house spread
+158–169 across all ten — even, which is the cheapest สาย-column sanity check
+there is. `sais.house_id` is `GENERATED ALWAYS AS right(code,1)`, so a house
+cannot drift from its สาย; the โกดัง risk is entirely in the สาย column itself.
+
+⚠️ **Nine of the ten houses have no name** (`houses.name` is null for 1–9; house
+0 is `บ้านคนน่ารัก`). The UI falls back to `บ้าน 3`, so nothing breaks — but
+1,611 students are about to see it. Owner's call, not a defect.
+
+**The loop is now a skill: `skills/import-the-house-roster.md`** — where the raw
+file goes, which file to upload and why, what in the preview is evidence, and
+the four SQL checks to run afterwards.
+
+**⛔ THE BLOCKER AS IT STOOD THIS MORNING (answered above), and only ฝ่ายข้อมูล can answer it.** MD53 and MD54 each skip
+สาย **141** and each double สาย **256**; MD49–52 run 1..N with no gap and no
+repeat. บ้าน is the LAST DIGIT of สายรหัส, so if that column shifted by one,
+~207 students are in the wrong house. §2 of the generated report asks it in four
+names. **The owner has sent the question and is waiting.** When the answer comes:
+re-run the cleaner on the new file, import via the admin pane. If they say the
+list is correct as-is, import as-is.
+
+**Decisions recorded in the tool** (`MAIL_OWNER`, `NAME_FIX` in
+`tools/clean-house-csv.mjs`) so they re-apply to the next file: ทัตพิชา owns
+`thatpicha.k@`, ธีร์ธวัช's address blanked; `653070078-2` is **รมิตา** not
+วรมิตา (her own kkumail is `ramita.si@` — the LEFT table was wrong, which is why
+§4 of the report now prints each person's email as a third witness). A stale
+decision reports itself.
+
+## What shipped (all applied dev + prod, all proved)
+
+| | |
+|---|---|
+| **0188** | `student_import_unresolved` — the import keeps the lines it cannot address, and the student claims their seat with รหัส + ชื่อ |
+| **0189** | a claim is IMPORT data — carry `last_import_batch` so the registry wins on names and conflicts are recorded |
+| **0190** | a seat that was dealt with stays dealt with (ask the resolution, not the student's รหัส) |
+| **0191** | a failed claim IS the report — no VitalSound round trip |
+| **0192** | the student can see their own receipt |
+
+Proofs: `tools/house0188-unresolved-seat.sql` **33/33**,
+`tools/house0191-help-requests.sql` **28/28**, both registered in
+`run-proofs.mjs` (41 proofs). `npm test` **2,090 green**.
+
+## ⚠️ A CORRECTION I MADE AND YOU SHOULD NOT UNDO
+
+I claimed VitalSound is "the confidential service desk" and that routing house
+data problems there was a category error. **Wrong** — `vs_categories` on prod:
+9 active, only **2** confidential (`personal` + one custom); `it — IT / เครือข่าย`
+is ordinary. VitalSound was never the wrong place. The surviving argument is
+narrower: a stuck student should not re-type facts the system already holds.
+0191's own header still contains the overbroad claim; **0192's header carries
+the correction** and so does `docs/HOUSE-DATA-REPAIR.md` §6.
+
+## Docs changed this session
+
+- **NEW** `docs/HOUSE-DATA-REPAIR.md` — the matrix: which broken field the
+  student fixes, the admin must, or only ฝ่ายข้อมูล can. Routed into the docs
+  sidebar (`docs/.vitepress/config.mjs`) and into `CLAUDE.md`'s on-demand list.
+- `docs/mistakes/postgres-schema.md` — a new table in `public` is born
+  anon-writable (`pg_default_acl`).
+- `docs/mistakes/authz-grants.md` — a claim reached `students` around the gate
+  the importer goes through.
+- `docs/mistakes/tooling-proofs.md` — a proof whose subjects were "whoever comes
+  back first", three times in one file.
+- `.claude/rules/mistakes.md` — class 6 gained the `create table` INHERITS site;
+  several older passages COMPRESSED to stay inside the 30 000-byte budget
+  (nothing deleted, same meaning fewer bytes).
+- `CLAUDE.md` — new doc entry; several entries compressed for the same reason.
+- `STATE.md` — deploy block, migrations-through line, owed-deploy note; three
+  settled 2026-08-31 blocks pruned to pointers to keep it under 260 lines.
+- `src/data/changelog.js` — two PENDING entries (house).
+
+## Bugs found by review, all fixed and guarded
+
+1. **23503** — held rows' สาย were never seeded (`ensureSais` saw only imported
+   rows). Survived this file by luck only.
+2. **Silent rename** — a claim overwrote a curated registry name with the file's
+   spelling and recorded nothing.
+3. **23505** — two rows sharing a รหัสนักศึกษา killed a whole 200-row chunk
+   mid-import; io.js only warned. It now CLEARS the รหัส on both.
+4. Three guards that were not guarding (a union the test built; a reason matched
+   from a Thai sentence; a stale-override check asking the wrong question).
+
+## Known gaps — nothing blocking
+
+- The **empty-seat** held rows (2) and the **no-รหัส** ones (11) can only be
+  closed by ฝ่ายข้อมูล; there is nothing to match on.
+- `tools/authz-sweep-identity.sql` should assert "no table in `public` grants
+  anon" as a PROPERTY over every table — today each new table's own proof has to
+  remember. 36 pre-existing tables carry anon INSERT (RLS-gated, pre-existing,
+  untouched).
+
+
+---
+
 ## ▶ HANDOFF 2026-09-13, END OF SESSION — read this before anything else
 
 **Status of the code: clean.** 2055 tests, build green, **39 of 39 live proofs
@@ -1752,110 +1908,3 @@ the repo copy would silently drop both routes — เชื่อมบัญช
 working with nothing in any log. It bit once already mid-session, when
 `/discord/config` was in the repo copy and not the live one and fell through to
 the SPA, returning HTML where the browser wanted JSON.
-
----
-
-# ▶ HANDOFF — 2026-09-14 · ระบบบ้าน import + the repair paths
-
-## ⛔ DO THIS FIRST
-
-1. **A DEPLOY IS OWED.** `4b9967d` is pushed; production still serves
-   `public-Dw14D5B4.js` = **`9c7cc0f`**. The VPN dropped mid-run and the
-   pipeline printed nothing (= dropped VPN, not success). Reconnect, run
-   `skills/deploy-vm.md`, then verify `ได้รับเรื่องของคุณแล้ว` greps ≥1 in the
-   served public bundle and update STATE.md's ✅ DEPLOYED line (its one home).
-   ⚠️ **Migrations 0188–0192 ARE all applied to production** (Management API,
-   not the VPN), so the DB is AHEAD of the bundle. Safe direction — every one of
-   them only ADDs. **Do not DROP anything until the bundle catches up.**
-2. **The import itself is HELD on one question to ฝ่ายข้อมูล** (below).
-3. Discord bot — **owner is doing it later**, do not pick it up. `HANDOFF` §14b.
-
-## The import — cleaned, verified, NOT imported
-
-Raw file + outputs in `externaldata/house-import/` (**gitignored — 1,776 real
-students' PII and this repo is PUBLIC**). Regenerate any time:
-
-```bash
-node tools/clean-house-csv.mjs externaldata/house-import/2026-09-14-raw-from-data-dept.csv
-```
-
-**1,611 importable · 165 held.** The clean file passes the REAL importer
-(`parseStudentsCsv`) with **0 skipped, 0 problems**.
-
-**⛔ THE BLOCKER, and only ฝ่ายข้อมูล can answer it.** MD53 and MD54 each skip
-สาย **141** and each double สาย **256**; MD49–52 run 1..N with no gap and no
-repeat. บ้าน is the LAST DIGIT of สายรหัส, so if that column shifted by one,
-~207 students are in the wrong house. §2 of the generated report asks it in four
-names. **The owner has sent the question and is waiting.** When the answer comes:
-re-run the cleaner on the new file, import via the admin pane. If they say the
-list is correct as-is, import as-is.
-
-**Decisions recorded in the tool** (`MAIL_OWNER`, `NAME_FIX` in
-`tools/clean-house-csv.mjs`) so they re-apply to the next file: ทัตพิชา owns
-`thatpicha.k@`, ธีร์ธวัช's address blanked; `653070078-2` is **รมิตา** not
-วรมิตา (her own kkumail is `ramita.si@` — the LEFT table was wrong, which is why
-§4 of the report now prints each person's email as a third witness). A stale
-decision reports itself.
-
-## What shipped (all applied dev + prod, all proved)
-
-| | |
-|---|---|
-| **0188** | `student_import_unresolved` — the import keeps the lines it cannot address, and the student claims their seat with รหัส + ชื่อ |
-| **0189** | a claim is IMPORT data — carry `last_import_batch` so the registry wins on names and conflicts are recorded |
-| **0190** | a seat that was dealt with stays dealt with (ask the resolution, not the student's รหัส) |
-| **0191** | a failed claim IS the report — no VitalSound round trip |
-| **0192** | the student can see their own receipt |
-
-Proofs: `tools/house0188-unresolved-seat.sql` **33/33**,
-`tools/house0191-help-requests.sql` **28/28**, both registered in
-`run-proofs.mjs` (41 proofs). `npm test` **2,090 green**.
-
-## ⚠️ A CORRECTION I MADE AND YOU SHOULD NOT UNDO
-
-I claimed VitalSound is "the confidential service desk" and that routing house
-data problems there was a category error. **Wrong** — `vs_categories` on prod:
-9 active, only **2** confidential (`personal` + one custom); `it — IT / เครือข่าย`
-is ordinary. VitalSound was never the wrong place. The surviving argument is
-narrower: a stuck student should not re-type facts the system already holds.
-0191's own header still contains the overbroad claim; **0192's header carries
-the correction** and so does `docs/HOUSE-DATA-REPAIR.md` §6.
-
-## Docs changed this session
-
-- **NEW** `docs/HOUSE-DATA-REPAIR.md` — the matrix: which broken field the
-  student fixes, the admin must, or only ฝ่ายข้อมูล can. Routed into the docs
-  sidebar (`docs/.vitepress/config.mjs`) and into `CLAUDE.md`'s on-demand list.
-- `docs/mistakes/postgres-schema.md` — a new table in `public` is born
-  anon-writable (`pg_default_acl`).
-- `docs/mistakes/authz-grants.md` — a claim reached `students` around the gate
-  the importer goes through.
-- `docs/mistakes/tooling-proofs.md` — a proof whose subjects were "whoever comes
-  back first", three times in one file.
-- `.claude/rules/mistakes.md` — class 6 gained the `create table` INHERITS site;
-  several older passages COMPRESSED to stay inside the 30 000-byte budget
-  (nothing deleted, same meaning fewer bytes).
-- `CLAUDE.md` — new doc entry; several entries compressed for the same reason.
-- `STATE.md` — deploy block, migrations-through line, owed-deploy note; three
-  settled 2026-08-31 blocks pruned to pointers to keep it under 260 lines.
-- `src/data/changelog.js` — two PENDING entries (house).
-
-## Bugs found by review, all fixed and guarded
-
-1. **23503** — held rows' สาย were never seeded (`ensureSais` saw only imported
-   rows). Survived this file by luck only.
-2. **Silent rename** — a claim overwrote a curated registry name with the file's
-   spelling and recorded nothing.
-3. **23505** — two rows sharing a รหัสนักศึกษา killed a whole 200-row chunk
-   mid-import; io.js only warned. It now CLEARS the รหัส on both.
-4. Three guards that were not guarding (a union the test built; a reason matched
-   from a Thai sentence; a stale-override check asking the wrong question).
-
-## Known gaps — nothing blocking
-
-- The **empty-seat** held rows (2) and the **no-รหัส** ones (11) can only be
-  closed by ฝ่ายข้อมูล; there is nothing to match on.
-- `tools/authz-sweep-identity.sql` should assert "no table in `public` grants
-  anon" as a PROPERTY over every table — today each new table's own proof has to
-  remember. 36 pre-existing tables carry anon INSERT (RLS-gated, pre-existing,
-  untouched).

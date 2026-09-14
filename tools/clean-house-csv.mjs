@@ -25,9 +25,28 @@
 // OUTPUTS (all under the same directory as the input, which is gitignored —
 // this is 1,776 real students' names, รหัส and addresses, and the repo is
 // PUBLIC):
-//   <base>.clean.csv    the rows that can be imported, in io.js's vocabulary
+//   <base>.import.csv   ⭐ THE FILE TO UPLOAD — every line of the handover, in
+//                       file order, in io.js's vocabulary
+//   <base>.clean.csv    the rows that can be imported, for reading
 //   <base>.pending.csv  the rows that cannot, each with the reason why
 //   <base>.report.md    what changed, what was routed out, what to ask
+//
+// WHY THERE ARE THREE CSVs AND ONLY ONE OF THEM IS UPLOADED.
+// `.clean.csv` and `.pending.csv` are the two halves of the answer to "what is
+// in this file", and splitting them is what makes the pending rows reviewable.
+// But UPLOADING the clean half alone silently throws the other half away, and
+// that is not a small loss — it is the whole reason migration 0188 exists:
+//   • `record_unresolved_rows` REPLACES the held list with what the uploaded
+//     file could not address, so a file that holds nothing CLEARS it. Upload
+//     `.clean.csv` and all 165 held seats vanish, and with them every student's
+//     ability to claim their own (`claim_my_student_seat` reads that table).
+//   • `diffAgainstExisting` counts a SKIPPED line as the file mentioning that
+//     person. Drop the skipped lines and anyone who already claimed a seat gets
+//     stamped `missing_since` on the next import — flagged as absent from a file
+//     that names them.
+// So the importer has to SEE the held lines. `.import.csv` is that file: every
+// row, with the address blanked on exactly the rows this script routed out, so
+// io.js reaches the same verdict this script did and records it.
 //
 //   node tools/clean-house-csv.mjs externaldata/house-import/<file>.csv
 // ============================================================
@@ -371,12 +390,18 @@ rows.forEach((r) => {
 });
 
 const clean_ = [], pending = [];
+// The lines routed OUT, by line number. Read by the `.import.csv` writer below,
+// which blanks their address so io.js skips exactly these rows and no others —
+// the routing decision is made once, here, and the upload file carries it rather
+// than restating it.
+const heldLines = new Set();
 for (const r of rows) {
   if (!r.kkumail) {
     // Two shapes, and the difference decides whether anyone can ever resolve
     // the row: with a รหัสนักศึกษา the student can identify themselves later;
     // without one, only a human who knows them can.
     const has = r.student_id || r.first_name_th;
+    heldLines.add(r.line);
     pending.push({ ...r,
       reason: !has ? 'ว่างทั้งแถว — มีแต่สายรหัส ไม่มีคน'
         : r.student_id ? 'ไม่มี kkumail'
@@ -393,6 +418,7 @@ for (const r of rows) {
     if (!report.dupMail.some((d) => d.mail === r.kkumail)) {
       report.dupMail.push({ mail: r.kkumail, rows: dup.map((x) => ({ line: x.line, name: `${x.first_name_th} ${x.last_name_th}`, sai: x.sai })) });
     }
+    heldLines.add(r.line);
     pending.push({ ...r, reason: `kkumail ซ้ำกับบรรทัด ${dup.filter((x) => x !== r).map((x) => x.line).join(', ')}` });
     continue;
   }
@@ -464,6 +490,19 @@ const dir = dirname(src);
 const base = basename(src).replace(/\.csv$/i, '');
 const out = (suffix) => join(dir, `${base}${suffix}`);
 
+// ⭐ THE UPLOAD FILE. Every line of the handover, in the file's own order, so a
+// held row's `source_line` in the database is the same number this report prints.
+//
+// The address is BLANKED on every routed-out row, including the duplicates that
+// still carry one. That is the point rather than a side-effect: io.js's own rule
+// for a duplicate address is "keep the first line, skip the rest", which decides
+// who owns the login by LINE ORDER — right by luck or wrong by luck, and
+// identical either way. This script already refused to make that call (pass 2);
+// blanking both is how that refusal survives the upload, and both people land in
+// the held list where someone can ask them.
+writeFileSync(out('.import.csv'), toCsv([OUT_HEADER,
+  ...rows.map((r) => OUT_HEADER.map(
+    (k) => (k === 'kkumail' && heldLines.has(r.line) ? '' : (r[k] ?? ''))))]), 'utf8');
 writeFileSync(out('.clean.csv'), toCsv([OUT_HEADER,
   ...clean_.map((r) => OUT_HEADER.map((k) => r[k] ?? ''))]), 'utf8');
 writeFileSync(out('.pending.csv'), toCsv([PENDING_HEADER,
@@ -476,10 +515,19 @@ say();
 say(`ไฟล์: \`${basename(src)}\` · ${data.length} แถว · ${blocks.length} รุ่น`);
 say(`สร้างโดย \`tools/clean-house-csv.mjs\` — รันซ้ำได้ ผลลัพธ์เหมือนเดิมทุกครั้ง`);
 say();
-say(`| ผลลัพธ์ | จำนวน |`);
-say(`|---|---|`);
-say(`| นำเข้าได้ (\`${base}.clean.csv\`) | **${clean_.length}** |`);
-say(`| ค้างไว้ก่อน (\`${base}.pending.csv\`) | **${pending.length}** |`);
+say(`## 0. ไฟล์ที่ต้องอัปโหลด`);
+say();
+say(`อัปโหลดไฟล์เดียวคือ **\`${base}.import.csv\`** (${rows.length} แถว) ที่หน้า ระบบบ้าน → นำเข้า CSV`);
+say();
+say(`| ไฟล์ | คืออะไร | จำนวน |`);
+say(`|---|---|---|`);
+say(`| **\`${base}.import.csv\`** | **ไฟล์ที่อัปโหลด** — ทุกแถวในไฟล์ที่คณะส่งมา | **${rows.length}** |`);
+say(`| \`${base}.clean.csv\` | ส่วนที่จะกลายเป็นรายชื่อนักศึกษา (ไว้อ่าน ไม่ต้องอัปโหลด) | ${clean_.length} |`);
+say(`| \`${base}.pending.csv\` | ส่วนที่ยังไม่มี kkumail (ไว้อ่าน ไม่ต้องอัปโหลด) | ${pending.length} |`);
+say();
+say(`⛔ **อย่าอัปโหลด \`.clean.csv\` แทน** — ระบบจะเข้าใจว่าไฟล์ล่าสุดไม่มี ${pending.length} คนนี้อยู่เลย `
+  + `รายชื่อที่ค้างไว้จะถูกล้างทิ้ง และ ${pending.length} คนนั้นจะยืนยันตัวตนเองไม่ได้ `
+  + `ไฟล์ \`.import.csv\` มีทุกแถว โดยเว้นอีเมลของแถวที่ยังใช้ไม่ได้ไว้ ระบบจึงพักคนกลุ่มนี้ไว้ให้เองอัตโนมัติ`);
 say();
 say(`## 1. สิ่งที่แก้ให้อัตโนมัติ`);
 say();
@@ -539,11 +587,16 @@ else {
   bad.forEach((b) => b.dupRows.forEach((r) => say(`| ${b.label} | ${r.line} | ${r.student_id || '—'} | ${r.first_name_th} ${r.last_name_th} | ${r.sai} |`)));
 }
 say();
-say(`## 3. แถวที่ยังนำเข้าไม่ได้ (${pending.length} คน)`);
+say(`## 3. แถวที่ยังเป็นนักศึกษาในระบบไม่ได้ (${pending.length} คน) — แต่ไม่ได้หายไป`);
 say();
 say(`ระบบบ้านใช้ **kkumail เป็นตัวระบุตัวตน** — เป็นทั้ง unique key ของตาราง `
-  + `และเป็นสิ่งที่ใช้จับคู่ตอนนักศึกษาล็อกอิน แถวที่ไม่มี kkumail จึงสร้างแถวในระบบไม่ได้เลย `
-  + `ไม่ได้ "นำเข้าแล้วเว้นว่าง" แต่คือ**ไม่มีตัวตนในระบบ**`);
+  + `และเป็นสิ่งที่ใช้จับคู่ตอนนักศึกษาล็อกอิน แถวที่ไม่มี kkumail จึงสร้างเป็นรายชื่อนักศึกษาไม่ได้`);
+say();
+say(`แต่ถ้าอัปโหลด \`${base}.import.csv\` ตามข้อ 0 คนกลุ่มนี้จะถูก**พักไว้ในรายชื่อ `
+  + `"ยังนำเข้าไม่ได้"** พร้อมรหัสนักศึกษา ชื่อ และสายรหัสที่คณะส่งมา ไม่ได้หายไปไหน `
+  + `และคนที่มีรหัสนักศึกษาติดมาด้วยจะ**ยืนยันตัวตนเองได้** โดยล็อกอินด้วย kkumail จริงของตัวเอง `
+  + `แล้วกรอกรหัสนักศึกษากับชื่อ ระบบจะจับคู่ที่นั่งของเขาให้เอง `
+  + `ส่วนคนที่ไม่มีรหัสนักศึกษาเลย ต้องให้ฝ่ายข้อมูลหรือผู้ดูแลเติมอีเมลให้`);
 say();
 const reasons = new Map();
 pending.forEach((p) => reasons.set(p.reason.replace(/บรรทัด .*/, 'อื่น'), (reasons.get(p.reason.replace(/บรรทัด .*/, 'อื่น')) || 0) + 1));
@@ -589,6 +642,7 @@ if (report.nameDiff.length) {
 }
 writeFileSync(out('.report.md'), L.join('\n') + '\n', 'utf8');
 
+console.log(`upload  ${String(rows.length).padStart(5)}  → ${out('.import.csv')}   ⭐ อัปโหลดไฟล์นี้`);
 console.log(`clean   ${String(clean_.length).padStart(5)}  → ${out('.clean.csv')}`);
 console.log(`pending ${String(pending.length).padStart(5)}  → ${out('.pending.csv')}`);
 console.log(`report         → ${out('.report.md')}`);
