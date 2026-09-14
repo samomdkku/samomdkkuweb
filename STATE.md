@@ -34,10 +34,10 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `9c7cc0f` (2026-09-14)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **32 s**
-  (baseline); docs step RAN, roots 13 s apart. SERVED: `ไม่ใช่ข้อมูลของฉัน` greps 1
-  in `public-Dw14D5B4.js`; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
+- ✅ **DEPLOYED = `c1060fc` (2026-09-14)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **33 s**
+  (baseline); docs step RAN, roots 13 s apart. SERVED: `ได้รับเรื่องของคุณแล้ว` greps 1
+  in `public-CUIgNXvr.js`, control `ไม่ใช่ข้อมูลของฉัน` 1; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
   string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
@@ -114,12 +114,12 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 
 ### What is owed
 
-⛔ **A DEPLOY IS OWED — `4b9967d` pushed, NOT served.** VPN dropped mid-run: the
-pipeline printed NOTHING (= dropped VPN, not success — `skills/deploy-vm.md`) and
-ssh then timed out. Confirmed from outside: prod serves `public-Dw14D5B4.js`
-(`9c7cc0f`) and 0192's receipt string greps 0. **Reconnect VPN, re-run.**
-⚠️ 0192 IS applied to prod (Management API, not VPN), so the DB is AHEAD of the
-bundle — safe direction, it only ADDS a function nothing served calls.
+🟡 **ระบบบ้าน — THE ROSTER IS READY AND NOT YET IMPORTED.** ฝ่ายข้อมูล say the
+list is likely right; the owner's call is import as-is, fix later if not.
+**Upload `<base>.import.csv`, never `.clean.csv`** — the clean half CLEARS the
+held list, taking 165 students' ability to claim a seat. Loop, prediction and the
+four checks: `skills/import-the-house-roster.md`. ⚠️ Houses 1–9 have no `name`;
+the UI falls back to `บ้าน N` for 1,611 people.
 
 ⛔ **START HERE: `docs/state/HANDOFF.md` is the full list of what is NOT done, with reasons and owners. Read it first; below is detail.**
 
