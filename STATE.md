@@ -114,10 +114,10 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 ### What is owed
 
 ✅ **ระบบบ้าน — THE ROSTER IS IMPORTED (2026-09-14).** 1,611 students · 165 held (152 self-claimable) · 0 missing · 306 สาย · ten houses 153–169 · 2 conflicts open. ONE transaction via `tools/house-import.mjs` (dry-run first); loop in `skills/import-the-house-roster.md`. ⚠️ **`advisors` is now EMPTY** — the two rows in it were TEST data pointing at สาย 100/200, which are REAL สาย in the file, so 12 students briefly saw a fake อาจารย์. Deleted (snapshot in `docs/mistakes/postgres-schema.md`); real อาจารย์ still to be entered, and no release note may promise them until they are.
+✅ **ข้อมูลไม่ครบ tab** (/admin/ ระบบบ้าน) — everything missing/mismatched/odd, grouped by who can fix it; badge counts ONLY admin work. One definition, shared with `npm run house:gaps`: `src/js/house/gaps.js`.
 ⛔ **สาย 141/256 NOT SETTLED** — สาย is a contiguous 1..N counter in four of six
 รุ่น; MD53+MD54 both skip 141 and repeat 256, 115 positions each, รหัส running
-straight through the gap. If that is a drag-fill slip **230 students' บ้าน is
-wrong**. ฝ่ายข้อมูล have not answered. Fix = ONE corrected re-import: no student
+straight through the gap — the new tab states it as arithmetic: สาย 141 is missing from THREE รุ่น while one held row can account for one. If it is a drag-fill slip **230 students' บ้าน is wrong**. ฝ่ายข้อมูล have not answered. Fix = ONE corrected re-import: no student
 can self-edit a สาย (`sai_self_edit_open` VESTIGIAL since 0125) and บ้าน is
 generated from it. ⚠️ Houses 1–9 have no `name` — the UI shows `บ้าน N` to 1,611 people.
 

@@ -125,6 +125,14 @@ that moved.
 
 ## 4b. Who is still missing something
 
+**In the admin pane: ระบบบ้าน → ข้อมูลไม่ครบ.** One screen for everything
+missing, mismatched or odd, grouped by who can fix it, with a badge that counts
+**only** what an admin must do.
+
+Same answer on the command line, from the same function
+(`src/js/house/gaps.js` — the pane and the script must not each decide what
+counts as a gap):
+
 ```bash
 npm run house:gaps                                        # summary
 npm run house:gaps -- --out externaldata/house-import/gaps.md   # per-person
@@ -144,6 +152,20 @@ work through a list that is three-quarters not theirs:
 | ชื่อ disagrees with the file | the person themselves, on their next sign-in |
 | held but has รหัส + ชื่อ | the person themselves — tell them once |
 | no ชื่อเล่น | nobody: they fill it in, or they don't |
+
+**The two checks nothing else can make**, because they are properties of a whole
+รุ่น rather than of a row:
+
+- **สายรหัสที่มีคนรุ่นเดียวกันมากกว่าหนึ่งคน** — a รุ่น numbers its สาย 1..N, one
+  person each.
+- **เลขสายเดียวกันหายไปจากหลายรุ่นพร้อมกัน** — one รุ่น missing a สาย is
+  ordinary; the same number missing from several at once is a column that moved,
+  and each held row with no รุ่น can account for at most one of them. บ้าน is the
+  last digit, so a moved column puts a whole stretch of people in the wrong บ้าน.
+
+⚠️ A held row **occupies** its สาย. Counting only `students` makes every person
+the file could not address read as a hole, which flagged all six รุ่น on a
+healthy system — guarded by `src/js/house/gaps.test.js`.
 
 Read-only. It never writes.
 

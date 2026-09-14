@@ -46,6 +46,7 @@ import {
   buildPreviewRows, PREVIEW_COLUMNS, PREVIEW_COLUMN_LABEL,
   CSV_COLUMN_LABEL,
 } from './io.js';
+import { computeGaps, TONE } from './gaps.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
@@ -82,6 +83,11 @@ let heldShowDone = false;
 // admin's job is matching the two, and a count that only appears once somebody
 // opens the pane is a count nobody sees.
 let helpReqs = [];
+/** Open identity conflicts — a COUNT, not the rows: the rows already have a
+ *  screen (the ตรวจสอบข้อมูล filter) and a second copy would drift from it. */
+let openConflicts = 0;
+/** Whether the ข้อมูลไม่ครบ pane lists every person or only the first few. */
+let gapShowAll = false;
 let pendingImport = null;   // parsed + diffed, awaiting confirmation
 
 function setStatus(msg, isError = false) {
@@ -124,6 +130,11 @@ async function reload() {
         fetchUnresolved(true),
       ]);
       helpReqs = await fetchHelpRequests(true);
+      // The conflict COUNT, for the ข้อมูลไม่ครบ badge. `.catch(() => null)`
+      // because it is a summary: losing it must not take the roster down with
+      // it, the same reason the status strip guards its own fetch.
+      openConflicts = Number(
+        (await fetchIdentityCheckSummary().catch(() => null))?.open_conflicts || 0);
       setStatus('');
       render();
     } catch (e) {
@@ -169,12 +180,23 @@ function render() {
     helpBadge.classList.toggle('d-none', openHelp === 0);
   }
 
+  // ⛔ COUNTS ONLY WHAT AN ADMIN MUST DO. The other groups are real and are
+  // rendered — they are just not somebody's job today, and a badge that reads
+  // 150-something for a month teaches the one person who looks at it to stop.
+  const gapBadge = $('houseGapBadge');
+  if (gapBadge) {
+    const { actionable } = computeGaps(gapData());
+    gapBadge.textContent = String(actionable);
+    gapBadge.classList.toggle('d-none', actionable === 0);
+  }
+
   if (mode === 'overview') renderOverview();
   else if (mode === 'students') renderStudents();
   else if (mode === 'sais') renderSais();
   else if (mode === 'advisors') renderAdvisors();
   else if (mode === 'requests') renderRequests();
   else if (mode === 'held') { renderHeld(); renderHelp(); }
+  else if (mode === 'gaps') renderGaps();
 }
 
 // ---------- คนที่ยืนยันตัวตนไม่ผ่าน ----------
@@ -274,6 +296,102 @@ function evidenceRow(h, done) {
           ${note ? `<span class="ms-1">${escHtml(note)}</span>` : ''}
         </td>
       </tr>`;
+}
+
+// ============================================================
+// ข้อมูลไม่ครบ — the one screen that answers "is anything wrong"
+// ============================================================
+//
+// REQUESTED: "can you also list show who got some information missing or
+// mismatch or error or wrong -> i want you to make ui for me to can see on the
+// admin tab web ระบบบ้าน".
+//
+// It LINKS to the worklists rather than repeating them. คำขอแก้ไข, ยังนำเข้าไม่ได้
+// and ตรวจสอบข้อมูล are already screens with actions on them; a second copy here
+// would be a second implementation of the same rule, and the two would disagree
+// the first time either was edited. What this pane OWNS is the part with no
+// other home — the per-รุ่น สายรหัส audit, and the students missing a field.
+
+/** Everything computeGaps() needs, from what `reload()` already loaded. */
+const gapData = () => ({
+  students, held, helpReqs, requests, houses, sais, advisors, conflicts: openConflicts,
+});
+
+const GAP_TONE = {
+  [TONE.act]: { label: 'ต้องมีคนทำ', cls: 'danger', icon: 'exclamation-octagon' },
+  [TONE.watch]: { label: 'น่าจะผิดที่ไฟล์', cls: 'warning', icon: 'binoculars' },
+  [TONE.tell]: { label: 'เจ้าตัวทำเองได้', cls: 'info', icon: 'megaphone' },
+  [TONE.setup]: { label: 'ยังตั้งค่าไม่เสร็จ', cls: 'secondary', icon: 'gear' },
+};
+
+const GAP_GOTO = {
+  overview: 'ภาพรวม', students: 'นักศึกษา', sais: 'สายรหัส',
+  advisors: 'อาจารย์', requests: 'คำขอแก้ไข', held: 'ยังนำเข้าไม่ได้',
+};
+
+const GAP_PREVIEW = 8;
+
+function renderGaps() {
+  const host = $('houseGapGroups');
+  if (!host) return;
+  const { groups, actionable } = computeGaps(gapData());
+
+  const sum = $('houseGapSummary');
+  if (sum) {
+    sum.innerHTML = groups.length
+      ? `<i class="bi bi-clipboard2-check"></i> ${
+        actionable ? `<strong class="text-danger">${actionable.toLocaleString('th-TH')} อย่างที่ต้องมีคนทำ</strong> · ` : ''
+      }อีก ${groups.filter((g) => g.tone !== TONE.act).length.toLocaleString('th-TH')} หัวข้อที่ควรรู้ไว้`
+      : '';
+  }
+
+  if (!groups.length) {
+    host.innerHTML = `<div class="alert alert-success mb-0">
+      <i class="bi bi-check2-circle"></i> <strong>ไม่มีอะไรค้าง</strong>
+      — ข้อมูลครบ ไม่มีที่ไม่ตรงกัน และไม่มีคำขอที่ยังไม่ตัดสิน</div>`;
+    return;
+  }
+
+  // Grouped by tone so the ORDER is the answer: what you must do, what the file
+  // probably got wrong, what will resolve itself, what is still unset.
+  const order = [TONE.act, TONE.watch, TONE.tell, TONE.setup];
+  host.innerHTML = order.map((tone) => {
+    const inTone = groups.filter((g) => g.tone === tone);
+    if (!inTone.length) return '';
+    const t = GAP_TONE[tone];
+    return `
+      <h6 class="text-muted small text-uppercase mt-4 mb-2">
+        <i class="bi bi-${t.icon}"></i> ${escHtml(t.label)}</h6>
+      ${inTone.map((g) => {
+    const shown = gapShowAll ? g.rows : g.rows.slice(0, GAP_PREVIEW);
+    const more = g.rows.length - shown.length;
+    return `
+        <div class="card mb-2 border-${t.cls}-subtle">
+          <div class="card-body py-2">
+            <div class="d-flex flex-wrap align-items-baseline gap-2">
+              <span class="badge bg-${t.cls}-subtle text-${t.cls}-emphasis border">${
+  g.count.toLocaleString('th-TH')}${g.unit === '' ? '' : ' คน'}</span>
+              <strong class="small">${escHtml(g.title)}</strong>
+              ${g.goto ? `<button type="button"
+                class="btn btn-sm btn-link p-0 ms-auto text-decoration-none"
+                data-gap-goto="${escHtml(g.goto)}">ไปที่ ${escHtml(GAP_GOTO[g.goto] || g.goto)}
+                <i class="bi bi-arrow-right-short"></i></button>` : ''}
+            </div>
+            <div class="small text-muted mt-1">${escHtml(g.why)}</div>
+            ${shown.length ? `
+            <ul class="list-unstyled small mt-2 mb-0 house-gap-rows">
+              ${shown.map((r) => `<li class="border-top py-1">
+                <span class="fw-medium">${escHtml(r.name)}</span>
+                ${r.detail ? `<span class="text-muted ms-2">${escHtml(r.detail)}</span>` : ''}
+                ${r.hint ? `<div class="text-muted">${escHtml(r.hint)}</div>` : ''}
+              </li>`).join('')}
+              ${more > 0 ? `<li class="border-top py-1 text-muted">
+                …และอีก ${more.toLocaleString('th-TH')} คน — เปิด “แสดงรายชื่อทั้งหมด” ด้านบน</li>` : ''}
+            </ul>` : ''}
+          </div>
+        </div>`;
+  }).join('')}`;
+  }).join('');
 }
 
 function renderHeld() {
@@ -2265,6 +2383,24 @@ async function onHeldAction(id, act, tr) {
 // WIRING
 // ============================================================
 function wire() {
+  // "ไปที่ …" — a group whose work belongs on another tab sends you there rather
+  // than growing an action of its own. Delegated on the container because the
+  // pane is re-rendered on every reload, and a listener per paint is how this
+  // repo has leaked them before.
+  const gapHost = $('houseGapGroups');
+  if (gapHost) {
+    gapHost.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-gap-goto]');
+      if (!btn) return;
+      mode = btn.dataset.gapGoto;
+      render();
+    });
+  }
+  const gapAll = $('houseGapShowAll');
+  if (gapAll) {
+    gapAll.addEventListener('change', (e) => { gapShowAll = e.target.checked; renderGaps(); });
+  }
+
   document.querySelectorAll('[data-house-mode]').forEach((btn) => {
     btn.addEventListener('click', () => { mode = btn.dataset.houseMode; render(); });
   });

@@ -2,24 +2,23 @@
 // ============================================================
 // house-gaps.mjs — who in ระบบบ้าน is missing something, and who can fix it.
 //
-// WHY A TOOL AND NOT A QUERY. "Who is missing information" is asked after every
-// handover file, and the useful answer is not one list — it is FOUR, split by
-// who can act:
+// THE SAME ANSWER AS THE ADMIN PANE, FROM THE SAME FUNCTION. `computeGaps()`
+// in src/js/house/gaps.js is imported, never reimplemented: this script fetches
+// the rows over SQL and the pane fetches them over PostgREST, and after that
+// there is one definition of "incomplete" for both. The first version of this
+// file did decide for itself, and it retyped the รุ่น epoch as 2516 where
+// `cohortLabel()` says 2515 — every รุ่น in the report was off by one, from a
+// constant that already had one home.
 //
-//   1. the student can fix it themselves        → nothing for anyone to do
-//   2. the student can claim their seat         → they need telling, once
-//   3. only an admin can                        → a real worklist, and short
-//   4. only ฝ่ายข้อมูล can                        → send it back
+// It READS ONLY. No write, no mutating RPC, nothing to undo.
 //
-// A single "165 people have problems" number invites someone to work through it
-// top to bottom, and three quarters of that work is not theirs to do.
-//
-// It READS ONLY. No write, no RPC that mutates, nothing to undo.
-//
-//   node tools/house-gaps.mjs                  # summary to the terminal
-//   node tools/house-gaps.mjs --out <file.md>  # full per-person list as well
+//   node tools/house-gaps.mjs                  # summary
+//   node tools/house-gaps.mjs --out <file.md>  # plus the per-person lists
+//   npm run house:gaps -- --out <file.md>      # the `--` is NOT optional
 // ============================================================
 import { writeFileSync } from 'node:fs';
+import { computeGaps, TONE } from '../src/js/house/gaps.js';
+import { cohortLabel } from '../src/js/house/fields.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
 const outIdx = process.argv.indexOf('--out');
@@ -27,130 +26,100 @@ const outFile = outIdx > -1 ? process.argv[outIdx + 1] : null;
 const target = announceTarget(loadEnv());
 const ask = async (sql) => JSON.parse(await runSql(sql, target));
 
-const [sum] = await ask(`
-select
-  (select count(*) from public.students)                                        as imported,
-  (select count(*) from public.students where nickname_imported is null
-     and nickname_self is null)                                                 as no_nickname,
-  (select count(*) from public.students where student_id is null)               as no_student_id,
-  (select count(*) from public.students where first_name_th is null
-     or last_name_th is null)                                                   as no_name,
-  (select count(*) from public.students where sai_code is null)                 as no_sai,
-  (select count(*) from public.students where missing_since is not null)        as flagged_missing,
-  (select count(*) from public.student_import_unresolved where resolved_at is null
-     and student_id is not null and first_name_th is not null)                  as held_claimable,
-  (select count(*) from public.student_import_unresolved where resolved_at is null
-     and (student_id is null or first_name_th is null))                         as held_admin_only,
-  (select count(*) from public.identity_conflicts where status = 'open')        as conflicts,
-  (select count(*) from public.house_help_requests where resolved_at is null)   as help_open,
-  (select count(*) from public.student_change_requests where status = 'pending') as change_pending,
-  (select count(*) from public.houses where name is null)                       as houses_unnamed,
-  (select count(*) from public.advisors)                                        as advisors`);
+// The same COLUMNS the pane loads, because computeGaps reads them by name. A
+// column missing here reads as "nobody has one", which is a silent wrong answer
+// rather than an error — so this list is short on purpose and every field in it
+// is one the function actually asks for.
+const [students, held, helpReqs, requests, houses, sais, advisors, conflicts] = await Promise.all([
+  ask(`select id::text, kkumail, student_id, first_name_th, last_name_th,
+              nickname, nickname_imported, nickname_self, major, sai_code,
+              cohort_year, missing_since
+         from public.students`),
+  ask(`select id::text, student_id, first_name_th, last_name_th,
+              nickname_imported as nickname, sai_code as sai, reason, file_note,
+              resolved_at
+         from public.student_import_unresolved`),
+  ask(`select id::text, kkumail, resolved_at from public.house_help_requests`),
+  ask(`select id::text, status from public.student_change_requests`),
+  ask(`select id, name from public.houses`),
+  ask(`select code from public.sais`),
+  ask(`select id::text, full_name from public.advisors`),
+  ask(`select count(*)::int as n from public.identity_conflicts where status = 'open'`),
+]);
 
-const n = (v) => Number(v).toLocaleString('th-TH');
-const line = (label, v, who) => console.log(`  ${label.padEnd(42)} ${n(v).padStart(6)}   ${who}`);
+const { groups, actionable } = computeGaps({
+  students, held, helpReqs, requests, houses, sais, advisors,
+  conflicts: conflicts[0]?.n || 0,
+});
 
-console.log('\n── นำเข้าแล้ว ' + n(sum.imported) + ' คน ────────────────────────────────────────');
-line('ไม่มีชื่อเล่น', sum.no_nickname, 'เจ้าตัวกรอกเองได้');
-line('ไม่มีรหัสนักศึกษา', sum.no_student_id, 'เจ้าตัวกรอกเองได้');
-line('ไม่มีชื่อหรือนามสกุล', sum.no_name, 'เจ้าตัวกรอกเองได้');
-line('ไม่มีสายรหัส', sum.no_sai, '⛔ แจ้งฝ่ายข้อมูล — ไม่มีบ้าน');
-line('ไม่อยู่ในไฟล์ล่าสุด', sum.flagged_missing, 'แอดมินตรวจ');
-line('ชื่อไม่ตรงกับไฟล์', sum.conflicts, 'เจ้าตัวเลือกเองได้ หรือแอดมินเลือกให้');
+const TONE_TH = {
+  [TONE.act]: '⛔ ต้องมีคนทำ',
+  [TONE.watch]: '👀 น่าจะผิดที่ไฟล์',
+  [TONE.tell]: '📣 เจ้าตัวทำเองได้',
+  [TONE.setup]: '⚙️  ยังตั้งค่าไม่เสร็จ',
+};
 
-console.log('\n── ยังนำเข้าไม่ได้ ' + n(Number(sum.held_claimable) + Number(sum.held_admin_only)) + ' คน ──────────────────────────');
-line('มีรหัส + ชื่อ → ยืนยันตัวตนเองได้', sum.held_claimable, 'บอกเขาครั้งเดียว');
-line('ไม่มีรหัส หรือไม่มีชื่อ', sum.held_admin_only, '⛔ แอดมิน/ฝ่ายข้อมูลเท่านั้น');
-
-console.log('\n── อย่างอื่น ──────────────────────────────────────────');
-line('คำขอแก้ข้อมูลที่ยังไม่ตัดสิน', sum.change_pending, 'แอดมิน');
-line('คนที่แจ้งว่าเข้าระบบแล้วไม่เจอตัวเอง', sum.help_open, 'แอดมิน');
-line('บ้านที่ยังไม่ได้ตั้งชื่อ', sum.houses_unnamed, 'แอดมิน');
-line('อาจารย์ที่ปรึกษาในระบบ', sum.advisors, sum.advisors === 0 ? '⛔ ยังไม่มีเลย' : '');
-
-if (!outFile) {
-  console.log('\n  (ใส่ --out <file.md> เพื่อได้รายชื่อรายคน)\n');
+if (!groups.length) {
+  console.log('\n  ✓ ไม่มีอะไรค้าง\n');
   process.exit(0);
 }
 
-// ── the per-person lists ───────────────────────────────────────────────────
-// Ordered so the SHORTEST and most actionable list is first: a worklist nobody
-// else can do beats a long list of things that resolve themselves.
-const adminOnly = await ask(`
-  select coalesce(first_name_th,'') || ' ' || coalesce(last_name_th,'') as name,
-         coalesce(student_id,'—') as sid, coalesce(sai_code,'—') as sai,
-         coalesce(file_note,'') as note, coalesce(file_kkumail,'') as file_mail,
-         reason, source_line
-    from public.student_import_unresolved
-   where resolved_at is null and (student_id is null or first_name_th is null)
-   order by source_line`);
+for (const tone of [TONE.act, TONE.watch, TONE.tell, TONE.setup]) {
+  const inTone = groups.filter((g) => g.tone === tone);
+  if (!inTone.length) continue;
+  console.log(`\n── ${TONE_TH[tone]} ──────────────────────────────────`);
+  for (const g of inTone) {
+    console.log(`  ${String(g.count).padStart(5)}  ${g.title}`);
+  }
+}
+console.log(`\n  ต้องมีคนทำทั้งหมด ${actionable} อย่าง\n`);
 
-const claimable = await ask(`
-  select coalesce(first_name_th,'') || ' ' || coalesce(last_name_th,'') as name,
-         student_id as sid, coalesce(sai_code,'—') as sai, cohort_year,
-         coalesce(file_kkumail,'') as file_mail, source_line
-    from public.student_import_unresolved
-   where resolved_at is null and student_id is not null and first_name_th is not null
-   order by cohort_year nulls last, sai_code`);
+if (!outFile) {
+  console.log('  (ใส่ --out <file.md> เพื่อได้รายชื่อรายคน)\n');
+  process.exit(0);
+}
 
-const conflicts = await ask(`
-  select c.field, c.mine, c.theirs, p.kkumail,
-         coalesce(p.first_name_th,'') || ' ' || coalesce(p.last_name_th,'') as name
-    from public.identity_conflicts c join public.people p on p.id = c.person_id
-   where c.status = 'open' order by c.created_at`);
+// ── the per-person file ────────────────────────────────────────────────────
+// The pane shows the first few of each group and hides the rest behind a
+// switch; a file has no such constraint, so it carries everybody. The groups
+// with no `rows` are the ones whose worklist lives on another screen — listing
+// them here too would be the second copy this refactor exists to remove.
+const md = ['# ใครในระบบบ้านที่ข้อมูลยังไม่ครบ', '',
+  `สร้างโดย \`tools/house-gaps.mjs\` เมื่อ ${new Date().toISOString()}`, '',
+  'เรียงตาม **ใครแก้ได้** ไม่ใช่ตามจำนวน', ''];
 
-const noNick = await ask(`
-  select first_name_th || ' ' || last_name_th as name, student_id as sid, sai_code as sai
-    from public.students
-   where nickname_imported is null and nickname_self is null
-   order by sai_code`);
+for (const tone of [TONE.act, TONE.watch, TONE.tell, TONE.setup]) {
+  const inTone = groups.filter((g) => g.tone === tone);
+  if (!inTone.length) continue;
+  md.push(`## ${TONE_TH[tone]}`, '');
+  for (const g of inTone) {
+    md.push(`### ${g.title} — ${g.count}`, '', g.why, '');
+    if (g.rows.length) {
+      md.push('| | | |', '|---|---|---|');
+      g.rows.forEach((r) => md.push(`| ${r.name} | ${r.detail || ''} | ${r.hint || ''} |`));
+      md.push('');
+    } else {
+      md.push(`*(รายชื่ออยู่ในแท็บ ${g.goto || '—'} ของหน้าระบบบ้าน)*`, '');
+    }
+  }
+}
 
-const md = [];
-const push = (s = '') => md.push(s);
-push('# ใครในระบบบ้านที่ข้อมูลยังไม่ครบ');
-push('');
-push(`สร้างโดย \`tools/house-gaps.mjs\` เมื่อ ${new Date().toISOString()}`);
-push('');
-push('เรียงตาม **ใครแก้ได้** ไม่ใช่ตามจำนวน — รายการแรกสั้นที่สุดและเป็นงานที่ไม่มีใครทำแทนได้');
-push('');
-
-push(`## 1. ⛔ ${adminOnly.length} คน — มีแต่แอดมินหรือฝ่ายข้อมูลที่ปิดได้`);
-push('');
-push('ไม่มีรหัสนักศึกษาในไฟล์ จึงยืนยันตัวตนเองไม่ได้ ต้องมีคนที่รู้จักเขาเติมอีเมลให้');
-push('');
-push('| บรรทัดในไฟล์ | ชื่อ | สาย | สิ่งที่ไฟล์บอก |');
-push('|---|---|---|---|');
-adminOnly.forEach((r) => push(`| ${r.source_line} | ${r.name.trim() || '*(ไม่มีชื่อ)*'} | ${r.sai} | ${r.note || (r.reason === 'empty_row' ? 'แถวว่าง มีแต่สายรหัส' : '—')} |`));
-push('');
-
-push(`## 2. ${conflicts.length} คน — ชื่อในระบบไม่ตรงกับไฟล์`);
-push('');
-push('ระบบเก็บชื่อเดิมไว้ ไม่ทับด้วยไฟล์ และบันทึกไว้ว่าไม่ตรงกัน');
-push('**เจ้าตัวเลือกเองได้เมื่อเข้าสู่ระบบ** หรือแอดมินเลือกให้ก็ได้');
-push('');
-push('| ชื่อในระบบ (ที่ใช้อยู่) | ไฟล์เขียนว่า | ช่อง | อีเมล |');
-push('|---|---|---|---|');
-conflicts.forEach((r) => push(`| ${r.mine} | ${r.theirs} | ${r.field === 'first_name_th' ? 'ชื่อ' : r.field === 'last_name_th' ? 'นามสกุล' : r.field} | ${r.kkumail} |`));
-push('');
-
-push(`## 3. ${claimable.length} คน — ยืนยันตัวตนเองได้ ไม่ต้องรอใคร`);
-push('');
-push('ไฟล์มีรหัสนักศึกษาและชื่อ แต่ไม่มี kkumail');
-push('เข้าสู่ระบบด้วย kkumail ของตัวเอง แล้วกรอกรหัสนักศึกษากับชื่อจริงที่หน้าแรก');
-push('');
-push('| รุ่น | สาย | ชื่อ | รหัสนักศึกษา |');
-push('|---|---|---|---|');
-claimable.forEach((r) => push(`| ${r.cohort_year ? 'MD' + (Number(r.cohort_year) - 2516) : '—'} | ${r.sai} | ${r.name.trim()} | ${r.sid} |`));
-push('');
-
-push(`## 4. ${noNick.length} คน — ไม่มีชื่อเล่น`);
-push('');
-push('ไม่ต้องทำอะไร เจ้าตัวกรอกเองได้ที่หน้าข้อมูลของฉัน');
-push('');
-push('| สาย | ชื่อ | รหัสนักศึกษา |');
-push('|---|---|---|');
-noNick.forEach((r) => push(`| ${r.sai} | ${r.name} | ${r.sid} |`));
-push('');
+// The held rows that CAN be self-claimed have no per-person list in computeGaps
+// — the pane sends you to the tab that already has one. A file is the one place
+// it is worth writing them out, because chasing 152 people is done from a list
+// somebody can print, not from a screen.
+const claimable = held
+  .filter((h) => !h.resolved_at && h.student_id && h.first_name_th)
+  .map((h) => ({ ...h, cohort: cohortLabel(h) || '—' }))
+  .sort((a, b) => a.cohort.localeCompare(b.cohort) || String(a.sai).localeCompare(String(b.sai)));
+if (claimable.length) {
+  md.push(`## ภาคผนวก — ${claimable.length} คนที่ยืนยันตัวตนเองได้`, '',
+    'บอกเขาครั้งเดียว: เข้าสู่ระบบด้วย kkumail แล้วกรอกรหัสนักศึกษากับชื่อจริงที่หน้าแรก', '',
+    '| รุ่น | สาย | ชื่อ | รหัสนักศึกษา |', '|---|---|---|---|');
+  claimable.forEach((h) => md.push(
+    `| ${h.cohort} | ${h.sai || '—'} | ${[h.first_name_th, h.last_name_th].filter(Boolean).join(' ')} | ${h.student_id} |`));
+  md.push('');
+}
 
 writeFileSync(outFile, md.join('\n') + '\n', 'utf8');
-console.log(`\n  → ${outFile}  (${adminOnly.length} + ${conflicts.length} + ${claimable.length} + ${noNick.length} คน)\n`);
+console.log(`  → ${outFile}\n`);

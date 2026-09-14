@@ -26,6 +26,10 @@
         <span class="badge bg-warning text-dark d-none" id="houseHeldBadge">0</span>
         <span class="badge bg-danger d-none" id="houseHelpBadge">0</span>
       </button>
+      <button type="button" class="btn btn-outline-secondary" data-house-mode="gaps">
+        <i class="bi bi-clipboard2-check"></i> ข้อมูลไม่ครบ
+        <span class="badge bg-danger d-none" id="houseGapBadge">0</span>
+      </button>
       <button type="button" class="btn btn-outline-secondary" data-house-mode="import">
         <i class="bi bi-upload"></i> นำเข้าข้อมูล
       </button>
@@ -311,6 +315,23 @@
       </table>
     </div>
     <div class="small text-muted" id="houseHelpCount"></div>
+  </section>
+
+  <!-- ข้อมูลไม่ครบ — everything missing, mismatched or odd, grouped by WHO CAN
+       FIX IT rather than by severity. The lists it points at already exist;
+       this is the one screen that answers "is anything wrong", so it links to
+       them instead of re-implementing them. The computation is
+       src/js/house/gaps.js, shared with tools/house-gaps.mjs so a screen and a
+       report cannot disagree about what counts as a gap. -->
+  <section data-house-pane="gaps" class="d-none">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div id="houseGapSummary" class="small text-muted"></div>
+      <div class="ms-auto form-check form-switch small">
+        <input class="form-check-input" type="checkbox" id="houseGapShowAll" />
+        <label class="form-check-label" for="houseGapShowAll">แสดงรายชื่อทั้งหมด</label>
+      </div>
+    </div>
+    <div id="houseGapGroups"></div>
   </section>
 
   <section data-house-pane="import" class="d-none">
