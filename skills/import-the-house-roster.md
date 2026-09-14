@@ -61,7 +61,35 @@ importing, because the answer may move people between บ้าน. If they conf
 list is right as it stands, import as it stands — that is a decision, and it
 belongs in `docs/state/<handle>.md` with the date and who said it.
 
-## 3. Import, in the admin pane
+## 3. Import
+
+Two ways, and they do the same work in the same order through the same code.
+
+### 3a. `tools/house-import.mjs` — one transaction, dry run first
+
+```bash
+node tools/house-import.mjs externaldata/house-import/<base>.import.csv          # DRY RUN
+node tools/house-import.mjs externaldata/house-import/<base>.import.csv --commit
+```
+
+Use this for a LARGE or FIRST import. The pane does nine unsynchronised HTTP
+requests; this wraps the identical sequence in `begin … commit`, so a failure
+leaves nothing behind instead of a half-populated table. It imports the app's own
+parser (`parseStudentsCsv`, `toUpsertRow`, `toUnresolvedRow`) rather than
+reimplementing it, and it runs as a **real admin** through `set local role
+authenticated` — the same RLS policies and RPC permission checks the pane meets,
+never as the superuser.
+
+The dry run is not a simulation: it does the real work against the real database
+and rolls back, reading the post-state from inside the transaction. What it
+prints is what committing would leave.
+
+It also stores the generated report in `student_import_batches.notes`, so the
+reasoning travels with the run instead of living only in a gitignored folder.
+
+⛔ It refuses any file not named `*.import.csv` — see the warning above.
+
+### 3b. The admin pane
 
 `/admin/` → **ระบบบ้าน** → **นำเข้า CSV** → pick `<base>.import.csv`.
 
@@ -95,7 +123,20 @@ The last one is the คนละบ้าน check: ten houses, and with ~1,600 
 should hold roughly a tenth. A house that is empty or double is a สาย column
 that moved.
 
-## 5. What is left over, and who can close it
+## 5. What the held rows carry, and what they cannot
+
+Since 0193 a held row also shows **what the file said in a cell the cleaner
+emptied** — an address that belongs to somebody else, or a real address that is
+not a kkumail — and the **รุ่น of a row with no รหัสนักศึกษา**, read off the
+file's block heading. Both are quotations. Neither can resolve a row:
+`file_kkumail` is an address already known NOT to be that person's login, which
+is the whole reason the row is held.
+
+⚠️ The รุ่น deliberately does NOT go in `cohort_year`. That column is derived from
+the รหัสนักศึกษา, and a reader has to be able to tell a derived value from a
+quoted one.
+
+## 6. What is left over, and who can close it
 
 Only ฝ่ายข้อมูล can close a held row with no รหัสนักศึกษา — there is nothing to
 match on. Everyone else closes themselves: a student signs in with their real

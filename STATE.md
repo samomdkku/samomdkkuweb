@@ -113,21 +113,21 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 
 ### What is owed
 
-🟡 **ระบบบ้าน — THE ROSTER IS READY AND NOT YET IMPORTED.** ฝ่ายข้อมูล say the
-list is likely right; the owner's call is import as-is, fix later if not.
-**Upload `<base>.import.csv`, never `.clean.csv`** — the clean half CLEARS the
-held list, taking 165 students' ability to claim a seat. Loop, prediction and the
-four checks: `skills/import-the-house-roster.md`. ⚠️ Houses 1–9 have no `name`;
-the UI falls back to `บ้าน N` for 1,611 people.
+✅ **ระบบบ้าน — THE ROSTER IS IMPORTED (2026-09-14).** 1,611 students · 165 held (152 self-claimable) · 0 missing · 306 สาย · ten houses 153–169 · 2 conflicts open. ONE transaction via `tools/house-import.mjs` (dry-run first); loop in `skills/import-the-house-roster.md`.
+⛔ **สาย 141/256 NOT SETTLED** — สาย is a contiguous 1..N counter in four of six
+รุ่น; MD53+MD54 both skip 141 and repeat 256, 115 positions each, รหัส running
+straight through the gap. If that is a drag-fill slip **230 students' บ้าน is
+wrong**. ฝ่ายข้อมูล have not answered. Fix = ONE corrected re-import: no student
+can self-edit a สาย (`sai_self_edit_open` VESTIGIAL since 0125) and บ้าน is
+generated from it. ⚠️ Houses 1–9 have no `name` — the UI shows `บ้าน N` to 1,611 people.
 
 ⛔ **START HERE: `docs/state/HANDOFF.md` is the full list of what is NOT done, with reasons and owners. Read it first; below is detail.**
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
-✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02).
-⛔ **No polling timer for the docs** — built, verified and REMOVED the same day.
-
-0. ✅ **ORG MOVE DONE** (2026-08-31) — traps in `skills/move-the-repo-to-an-organisation.md`, last box `HANDOFF` §3.
+✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02) ·
+the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
+last box `HANDOFF` §3). ⛔ **No polling timer for the docs** — built and REMOVED the same day.
 
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
