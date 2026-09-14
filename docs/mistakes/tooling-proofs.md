@@ -3021,3 +3021,69 @@ that RAN OUT — and the rule generalises: **if the case needs a particular stat
 create it; never take it as found.** A subject picked by `limit 1` is a subject
 that changes under you, and the tell is an assertion about a subject's attributes
 that the proof never set.
+
+---
+
+## The tool wrote both halves of the answer and neither was the file to upload
+
+**Symptom.** None yet — found while preparing the first real ระบบบ้าน import, one
+step before doing it. What it WOULD have looked like: the import runs, says
+`นำเข้าเรียบร้อยแล้ว`, 1,611 students appear and are correct — and the 165 people
+the faculty file names but cannot address are simply not there. No error, no
+warning, right counts everywhere. The damage only surfaces weeks later, as
+students who cannot find themselves and cannot claim a seat either.
+
+**Cause.** `tools/clean-house-csv.mjs` splits a handover file into
+`<base>.clean.csv` (the rows that can become students) and `<base>.pending.csv`
+(the rows that cannot, each with its reason). Both files are correct. Both are
+described accurately in the report. The file you would upload — the one holding
+every line so the importer can act on all of them — **did not exist**, and the
+half labelled `นำเข้าได้` is the one a reader reaches for.
+
+Uploading it does two invisible things, and both are the system working as
+designed:
+
+1. `record_unresolved_rows` (0188) **replaces** the held list with whatever the
+   uploaded file could not address — deliberately, so a file that resolves
+   everybody can say so by clearing it. A file that HOLDS nobody is
+   indistinguishable from one that resolved everybody, so all 165 held seats are
+   deleted, and `claim_my_student_seat` reads that table.
+2. `diffAgainstExisting` counts a SKIPPED line as the file MENTIONING that
+   person — also deliberate, so a student who claimed a seat with an address the
+   faculty file has never had is not flagged as gone. Drop the skipped lines and
+   exactly those people get stamped `missing_since` on the next import.
+
+Neither is reachable from the cleaner's source, which is why no source assertion
+would have found it: every line of the tool was right, every count in its report
+was right, and the defect was the ARTEFACT BETWEEN the two files.
+
+**Fix.** `<base>.import.csv` — every line of the handover in file order, with the
+address blanked on exactly the rows the cleaner routed out, so `io.js` reaches the
+same verdict the cleaner did and RECORDS it. `§0` of the report names it first and
+says what uploading the other one would do. Line numbers survive: a held row's
+`source_line` in the database is the บรรทัด printed in the report.
+
+Blanking a duplicated address has a price, and it is asserted rather than
+discovered: both holders land as `no_kkumail`, because by the time `io.js` reads
+the file the address is gone. That is the cost of not letting LINE ORDER decide
+who owns a login — `io.js` keeps the first and skips the rest — and the report
+still names both people and the address they shared.
+
+**Where it lives now.** `tools/clean-house-csv.mjs` (the `.import.csv` writer and
+`heldLines`), `src/js/house/clean-csv.test.js`, `skills/import-the-house-roster.md`.
+The guard runs the REAL cleaner over a synthetic handover file and feeds the REAL
+importer; 5 of its 7 assertions were watched going red with the upload file
+reverted to the clean half. It carries the control that the clean half alone holds
+NOBODY — the mistake itself, asserted, so the two files can never quietly become
+interchangeable.
+
+**The general rule.** *A tool that emits several files has also chosen one of them
+for the reader, whether or not it says so.* The repo already knew the neighbouring
+shape — two lists that agree while the thing BETWEEN them does not exist — and this
+is the same failure one step downstream: the outputs were not wrong, the report was
+not wrong, and the missing thing was the artefact a person actually feeds to the
+next system. **Name the file to use, in the output, first — and prove the naming by
+running the real producer into the real consumer.** When a destructive REPLACE sits
+at the far end (a list rebuilt from whatever it was handed), also ask what the
+consumer does with an EMPTY input: here "held nobody" and "resolved everybody" are
+the same bytes, and only the file you upload decides which one the database believes.
