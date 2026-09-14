@@ -150,6 +150,77 @@ function fixSid(raw) {
 }
 
 // ------------------------------------------------------------
+// DECISIONS A HUMAN MADE — the only place this file is allowed to guess,
+// because here it is not guessing.
+//
+// Everything above repairs what has exactly ONE possible right answer. The
+// entries below have an answer too, but the tool could not have reached it: a
+// person read the row, weighed it, and decided. They live here rather than in a
+// hand-edited CSV for the reason this whole script exists — the file comes back,
+// and a correction that is not written down has to be re-made from memory on a
+// file 1,776 lines long.
+//
+// ⚠️ EVERY ENTRY IS REPORTED WHEN IT DOES NOT MATCH. A decision keyed to a
+// รหัสนักศึกษา rots the moment the next handover fixes the row it was about, and
+// a stale override that quietly matches nothing is how a list like this turns
+// into folklore. §1 of the report prints the ones that did not apply, so they
+// can be deleted.
+// ------------------------------------------------------------
+
+/**
+ * Who an address belongs to, when two rows carry the same one.
+ *
+ * A duplicate kkumail is two people and one login, and the importer's own rule —
+ * keep the first line, skip the rest — decides it by LINE ORDER, which is right
+ * by luck or wrong by luck and looks identical either way. Naming the owner here
+ * means the other holders get the address blanked instead, so they land in the
+ * held list as "no kkumail" and can claim their own record later. Nobody is
+ * dropped, and the person who genuinely owns the address is not punished for
+ * somebody else's copy-paste.
+ */
+const MAIL_OWNER = {
+  // `thatpicha.k` is ทัตพิชา ก— . ธีร์ธวัช's row carried her address; his own is
+  // not reconstructible (KKU uses the given name plus one to three surname
+  // letters, and the count varies to disambiguate — `kanokpornol`,
+  // `pichsinee.kh` and `phiraphat.pr` are all in this file), so his is blanked
+  // rather than invented. Decided by the owner, 2026-09-14.
+  'thatpicha.k@kkumail.com': '643070034-1',
+};
+
+/**
+ * A name where the two tables disagree AND a third source settles it.
+ *
+ * The third source is the local part of the person's own kkumail: the university
+ * built it from the name it holds, so it is the one spelling neither department
+ * typed into this spreadsheet. It is not a proof — transliteration swallows ณิ/ณ
+ * and น์/ต์ — which is why only the unambiguous one is here and the rest stay in
+ * §4 for a human.
+ */
+const NAME_FIX = {
+  // Left table "วรมิตา", right table "รมิตา", her address `ramita.si@` — not
+  // `woramita.si@`. The left table carries a ว nobody else has. Decided by the
+  // owner, 2026-09-14, after the report gained the email column.
+  '653070078-2': { first_name_th: 'รมิตา' },
+};
+
+/**
+ * An address at any other domain is not an identity for ระบบบ้าน.
+ *
+ * `students.kkumail` is what a login is matched on, and the handover spec asks
+ * for kkumail. One row of the 2026-09-14 file carries a real, working
+ * `@gmail.com` address — not a typo, so nothing above touches it — and importing
+ * it would put a student in the system holding an address that only matches if
+ * they happen to sign in with that gmail rather than their university account.
+ *
+ * So it is BLANKED and the row is held. That is the better outcome for the
+ * person, not a worse one: held rows carry a รหัสนักศึกษา, and a held row with a
+ * รหัส is exactly what the student can claim for themselves with their REAL
+ * kkumail. The address is not lost — it is named in §3 of the report and it is
+ * still in the raw file, which is never modified.
+ */
+const IDENTITY_DOMAIN = /@kkumail\.com$/;
+
+// ------------------------------------------------------------
 // COLUMN LAYOUT
 //
 // The handover sheet carries TWO tables side by side. Columns 0-8 are the
@@ -185,6 +256,7 @@ const report = {
   invisible: [], errorCells: 0, mailFixed: [], sidRedashed: 0,
   dupMail: [], offDomain: [], titled: [], nameDiff: [],
   droppedCols: [], rightOnly: [],
+  decided: [], staleDecisions: [], blankedDomain: [],
 };
 
 // ---- cohort blocks, from the รุ่น column's section markers -----------------
@@ -213,7 +285,8 @@ const rows = data.map((r, i) => {
   if (mail.fixed) report.mailFixed.push({ line, ...mail.fixed });
   const sid = fixSid(r[IN.sid]);
   if (sid.ok && cell(r[IN.sid]) !== sid.value) report.sidRedashed++;
-  return {
+
+  const row = {
     line,
     cohort: blockOf(i),
     student_id: sid.value,
@@ -224,7 +297,58 @@ const rows = data.map((r, i) => {
     major: cell(r[IN.major]).toUpperCase(),
     sai: cell(r[IN.sai]),
   };
+
+  // ── the three decisions, applied in the one place a row is built ──────────
+  // Order matters only between the first two: an address is blanked either
+  // because it belongs to someone else or because it is not a kkumail, and a
+  // row must not be reported under both headings.
+
+  // 1. This address has a named owner and it is not this row.
+  const owner = MAIL_OWNER[row.kkumail];
+  if (owner && row.student_id && owner !== row.student_id) {
+    report.decided.push({ line, what: 'mail_owner', who: `${row.first_name_th} ${row.last_name_th}`,
+      detail: `${row.kkumail} เป็นของ ${owner} — เว้นอีเมลของแถวนี้ไว้` });
+    row.kkumail = '';
+  } else if (row.kkumail && !IDENTITY_DOMAIN.test(row.kkumail)) {
+    // 2. A real address at the wrong domain. Blanked, never repaired — the
+    //    domain is not a typo, so there is nothing to correct; it is simply not
+    //    the thing ระบบบ้าน identifies a student by.
+    report.blankedDomain.push({ line, who: `${row.first_name_th} ${row.last_name_th}`,
+      sid: row.student_id, mail: row.kkumail });
+    row.kkumail = '';
+  }
+
+  // 3. A name the two tables spell differently, settled by a third source.
+  const fix = NAME_FIX[row.student_id];
+  if (fix) {
+    for (const [k, v] of Object.entries(fix)) {
+      const field = k === 'first_name_th' ? 'first_name_th' : k;
+      if (row[field] !== v) {
+        report.decided.push({ line, what: 'name_fix', who: `${row.first_name_th} ${row.last_name_th}`,
+          detail: `${field}: “${row[field]}” → “${v}”` });
+        row[field] = v;
+      }
+    }
+  }
+
+  return row;
 });
+
+// A decision that matched NOTHING. Reported, because an override keyed to a
+// รหัสนักศึกษา rots the moment the next handover fixes the row it was about —
+// and one that silently matches nothing is worse than none at all: it reads as
+// a correction still being applied. Delete the entries this names.
+for (const [mail, owner] of Object.entries(MAIL_OWNER)) {
+  const holders = rows.filter((r) => r.kkumail === mail || MAIL_OWNER[r.kkumail] === owner);
+  if (!rows.some((r) => r.student_id === owner) || holders.length < 1) {
+    report.staleDecisions.push(`MAIL_OWNER ${mail} → ${owner}`);
+  }
+}
+for (const sidKey of Object.keys(NAME_FIX)) {
+  if (!rows.some((r) => r.student_id === sidKey)) {
+    report.staleDecisions.push(`NAME_FIX ${sidKey}`);
+  }
+}
 
 // ---- pass 2: route each row to clean or pending -----------------------------
 //
@@ -371,6 +495,26 @@ if (report.mailFixed.length) {
   report.mailFixed.forEach((m) => say(`| ${m.line} | \`${m.from}\` | \`${m.to}\` |`));
 }
 say();
+if (report.decided.length || report.blankedDomain.length) {
+  say(`### สิ่งที่ "ตัดสินใจ" ไม่ใช่แก้อัตโนมัติ`);
+  say();
+  say(`รายการด้านล่างเครื่องเดาเองไม่ได้ — เป็นการตัดสินใจของคนที่อ่านแถวนั้นแล้ว `
+    + `บันทึกไว้ในสคริปต์ (\`MAIL_OWNER\` / \`NAME_FIX\`) เพื่อให้ไฟล์รอบหน้าได้ผลเหมือนเดิม `
+    + `ไม่ต้องมานั่งจำ **ไฟล์ต้นฉบับไม่เคยถูกแก้**`);
+  say();
+  report.decided.forEach((d) => say(`- บรรทัด ${d.line} · ${d.who} — ${d.detail}`));
+  report.blankedDomain.forEach((d) => say(
+    `- บรรทัด ${d.line} · ${d.who} — \`${d.mail}\` ไม่ใช่ @kkumail.com `
+    + `จึงเว้นอีเมลไว้แล้วย้ายไปรายการค้าง เจ้าตัวยืนยันตัวตนเองด้วย kkumail จริงได้ `
+    + `(อีเมลเดิมยังอยู่ในไฟล์ต้นฉบับและในบรรทัดนี้)`));
+  say();
+}
+if (report.staleDecisions.length) {
+  say(`⚠️ **การตัดสินใจที่ไม่ตรงกับไฟล์นี้แล้ว** — ไฟล์ใหม่น่าจะแก้ให้แล้ว ลบออกจากสคริปต์ได้:`);
+  say();
+  report.staleDecisions.forEach((d) => say(`- \`${d}\``));
+  say();
+}
 say(`## 2. ⛔ ต้องถามฝ่ายข้อมูลก่อนนำเข้า`);
 say();
 const bad = saiAudit.filter((b) => b.gaps.length || b.dups.length);
@@ -407,17 +551,13 @@ pending.forEach((p) => byCohort.set(p.cohort, (byCohort.get(p.cohort) || 0) + 1)
 say(`แยกตามรุ่น: ${[...byCohort.entries()].map(([k, v]) => `${k} ${v} คน`).join(' · ')}`);
 if (report.dupMail.length) {
   say();
-  say(`**kkumail ซ้ำ** — คนละคนแต่ได้อีเมลเดียวกัน ต้องขออีเมลที่ถูกของอีกคน:`);
+  say(`**kkumail ซ้ำ แต่ยังไม่มีเจ้าของที่ระบุไว้** — คนละคนแต่ได้อีเมลเดียวกัน `
+    + `ทั้งสองแถวถูกพักไว้ เพราะตัดสินจากลำดับบรรทัดคือการเดา `
+    + `ถ้ารู้ว่าอีเมลเป็นของใคร แจ้งมาแล้วจะบันทึกไว้ให้ถาวร:`);
   say();
   report.dupMail.forEach((d) => {
     say(`- \`${d.mail}\` — ${d.rows.map((r) => `บรรทัด ${r.line} ${r.name} (สาย ${r.sai})`).join(' · ')}`);
   });
-}
-if (report.offDomain.length) {
-  say();
-  say(`**อีเมลที่ไม่ใช่ @kkumail.com** — นำเข้าได้ แต่เจ้าตัวจะล็อกอินแล้วไม่เจอข้อมูลตัวเอง:`);
-  say();
-  report.offDomain.forEach((o) => say(`- บรรทัด ${o.line} · ${o.name} · \`${o.mail}\``));
 }
 say();
 say(`## 4. ข้อสังเกตอื่น`);
