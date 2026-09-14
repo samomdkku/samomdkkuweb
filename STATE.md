@@ -34,10 +34,9 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `c1060fc` (2026-09-14)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **33 s**
-  (baseline); docs step RAN, roots 13 s apart. SERVED: `ได้รับเรื่องของคุณแล้ว` greps 1
-  in `public-CUIgNXvr.js`, control `ไม่ใช่ข้อมูลของฉัน` 1; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
+- ✅ **DEPLOYED = `a500fa6` (2026-09-14)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **31 s**
+  (baseline); docs step RAN, roots 13 s apart. SERVED: the new `/docs/mistakes/tooling-proofs` entry greps 1 with an older one as control; earlier the same day `ได้รับเรื่องของคุณแล้ว` (0192) greps 1 in `public-CUIgNXvr.js`; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
   string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
