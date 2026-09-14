@@ -181,6 +181,22 @@ describe('who owns each group', () => {
     }).groups.some((g) => g.key === 'houses_unnamed')).toBe(true);
   });
 
+  it('a group that counts สาย or บ้าน does not say “คน”', () => {
+    const g = computeGaps({
+      students: [
+        ...full(3, YEAR.MD49),
+        student(2, YEAR.MD49, { id: 'dup', first_name_th: 'ฉ' }),
+      ],
+      houses: [{ id: 1, name: null }],
+      sais: [{ code: '001' }, { code: '002' }, { code: '003' }, { code: '099' }],
+      advisors: [{ id: 'a', full_name: 'อ.' }],
+    });
+    const u = Object.fromEntries(g.groups.map((x) => [x.key, x.unit]));
+    expect(u.sai_shared).toBe('สาย');
+    expect(u.houses_unnamed).toBe('บ้าน');
+    expect(u.sai_empty).toBe('สาย');
+  });
+
   it('every group says who it belongs to and why, in Thai', () => {
     const g = computeGaps({
       students: [student(1, YEAR.MD49, { sai_code: null, nickname: null })],
@@ -191,6 +207,11 @@ describe('who owns each group', () => {
     });
     for (const grp of g.groups) {
       expect(Object.values(TONE)).toContain(grp.tone);
+      // ⛔ EVERY GROUP STATES ITS OWN UNIT. The pane renders `count + unit`, and
+      // the first version defaulted to "คน" — so "2 คน" sat under a heading
+      // about สายรหัส (it counts สาย) and "9 คน" under one about บ้าน. A label
+      // makes a claim about every case it covers.
+      expect(grp).toHaveProperty('unit');
       expect(grp.title.length).toBeGreaterThan(3);
       // A row an admin cannot interpret is a row they will not act on.
       expect(grp.why.length).toBeGreaterThan(20);

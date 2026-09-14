@@ -370,7 +370,7 @@ function renderGaps() {
           <div class="card-body py-2">
             <div class="d-flex flex-wrap align-items-baseline gap-2">
               <span class="badge bg-${t.cls}-subtle text-${t.cls}-emphasis border">${
-  g.count.toLocaleString('th-TH')}${g.unit === '' ? '' : ' คน'}</span>
+  g.count.toLocaleString('th-TH')}${g.unit ? ` ${escHtml(g.unit)}` : ''}</span>
               <strong class="small">${escHtml(g.title)}</strong>
               ${g.goto ? `<button type="button"
                 class="btn btn-sm btn-link p-0 ms-auto text-decoration-none"

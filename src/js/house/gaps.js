@@ -176,6 +176,7 @@ export function computeGaps(d = {}) {
 
   const groups = [
     {
+      unit: 'คน',
       key: 'held_admin',
       tone: TONE.act,
       title: 'ไม่มีรหัสนักศึกษาในไฟล์',
@@ -189,6 +190,7 @@ export function computeGaps(d = {}) {
       })),
     },
     {
+      unit: 'คน',
       key: 'help',
       tone: TONE.act,
       title: 'แจ้งว่าเข้าระบบแล้วไม่เจอตัวเอง',
@@ -198,6 +200,7 @@ export function computeGaps(d = {}) {
       rows: [],
     },
     {
+      unit: 'คำขอ',
       key: 'requests',
       tone: TONE.act,
       title: 'คำขอแก้ข้อมูลที่ยังไม่ตัดสิน',
@@ -207,6 +210,7 @@ export function computeGaps(d = {}) {
       rows: [],
     },
     {
+      unit: 'คน',
       key: 'conflicts',
       tone: TONE.act,
       title: 'ชื่อในระบบไม่ตรงกับไฟล์',
@@ -216,6 +220,7 @@ export function computeGaps(d = {}) {
       rows: [],
     },
     {
+      unit: 'สาย',
       key: 'sai_shared',
       tone: TONE.watch,
       title: 'สายรหัสที่มีคนรุ่นเดียวกันมากกว่าหนึ่งคน',
@@ -234,6 +239,7 @@ export function computeGaps(d = {}) {
       })),
     },
     {
+      unit: 'เลข',
       key: 'sai_across',
       tone: TONE.watch,
       title: 'เลขสายเดียวกันหายไปจากหลายรุ่นพร้อมกัน',
@@ -250,9 +256,9 @@ export function computeGaps(d = {}) {
             + `เหลืออีก ${r.unexplained} รุ่นที่ไม่มีใครถือเลขนี้เลย`
           : `ไม่มีใครถือเลขนี้เลยสักคน ทั้งที่ควรมีรุ่นละหนึ่งคน`,
       })),
-      unit: '',
     },
     {
+      unit: 'รุ่น',
       key: 'sai_gap',
       tone: TONE.watch,
       title: 'รุ่นที่เลขสายขาดหายไป',
@@ -267,6 +273,7 @@ export function computeGaps(d = {}) {
       })),
     },
     {
+      unit: 'คน',
       key: 'no_sai',
       tone: TONE.watch,
       title: 'นักศึกษาที่ไม่มีสายรหัส',
@@ -276,6 +283,7 @@ export function computeGaps(d = {}) {
       rows: noSai.map((s) => ({ name: name(s) || s.kkumail, detail: label(s), hint: s.kkumail })),
     },
     {
+      unit: 'คน',
       key: 'no_name',
       tone: TONE.watch,
       title: 'นักศึกษาที่ไม่มีชื่อหรือนามสกุล',
@@ -285,6 +293,7 @@ export function computeGaps(d = {}) {
       rows: noName.map((s) => ({ name: name(s) || '(ไม่มีชื่อ)', detail: label(s), hint: s.kkumail })),
     },
     {
+      unit: 'คน',
       key: 'gone',
       tone: TONE.watch,
       title: 'อยู่ในระบบ แต่ไม่อยู่ในไฟล์ล่าสุด',
@@ -294,6 +303,7 @@ export function computeGaps(d = {}) {
       rows: gone.map((s) => ({ name: name(s) || s.kkumail, detail: label(s), hint: s.kkumail })),
     },
     {
+      unit: 'คน',
       key: 'held_self',
       tone: TONE.tell,
       title: 'ยังนำเข้าไม่ได้ แต่ยืนยันตัวตนเองได้',
@@ -303,6 +313,7 @@ export function computeGaps(d = {}) {
       rows: [],
     },
     {
+      unit: 'คน',
       key: 'no_sid',
       tone: TONE.tell,
       title: 'นักศึกษาที่ไม่มีรหัสนักศึกษา',
@@ -312,6 +323,7 @@ export function computeGaps(d = {}) {
       rows: noSid.map((s) => ({ name: name(s) || s.kkumail, detail: label(s), hint: s.kkumail })),
     },
     {
+      unit: 'คน',
       key: 'no_nick',
       tone: TONE.tell,
       title: 'ไม่มีชื่อเล่น',
@@ -321,6 +333,7 @@ export function computeGaps(d = {}) {
       rows: [],
     },
     {
+      unit: 'บ้าน',
       key: 'houses_unnamed',
       tone: TONE.setup,
       title: 'บ้านที่ยังไม่ได้ตั้งชื่อ',
@@ -330,16 +343,17 @@ export function computeGaps(d = {}) {
       rows: [],
     },
     {
+      unit: '',
       key: 'no_advisors',
       tone: TONE.setup,
       title: 'ยังไม่มีอาจารย์ที่ปรึกษาในระบบ',
       why: 'นักศึกษาจะไม่เห็นอาจารย์ที่ปรึกษาของสายตัวเองเลย',
       goto: 'advisors',
-      count: advisors.length === 0 ? 1 : 0,
+      count: advisors.length === 0 && students.length ? 1 : 0,
       rows: [],
-      unit: '',
     },
     {
+      unit: 'สาย',
       key: 'sai_empty',
       tone: TONE.setup,
       title: 'สายรหัสที่ไม่มีใครอยู่',
