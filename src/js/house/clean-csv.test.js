@@ -26,7 +26,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseStudentsCsv, toUnresolvedRow, diffAgainstExisting } from './io.js';
+import {
+  parseStudentsCsv, toUnresolvedRow, toUpsertRow, diffAgainstExisting,
+  IMPORT_OWNED_COLUMNS,
+} from './io.js';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 
@@ -52,6 +55,10 @@ const RAW = [
   row({ 1: 'งอ', 2: 'สี่', 5: 'MD', 6: '005' }),
   row({ 0: '653070006-0', 1: 'จอ', 2: 'ห้า', 4: 'same.one@kkumail.com', 5: 'MD', 6: '006' }),
   row({ 0: '653070007-8', 1: 'ฉอ', 2: 'หก', 4: 'same.one@kkumail.com', 5: 'MD', 6: '007' }),
+  // A REAL, WORKING address that is not a kkumail (0193). It cannot be a login,
+  // so the row is held — and it is the only way to reach this person today, so
+  // it must survive into the held row rather than only into the report.
+  row({ 0: '653070008-6', 1: 'ชอ', 2: 'เจ็ด', 4: 'somebody2869@gmail.com', 5: 'MD', 6: '008' }),
 ].join('\n') + '\n';
 
 let dir, base, importCsv, cleanCsv, pendingCsv;
@@ -94,6 +101,58 @@ describe('the file a person uploads', () => {
     expect(r.skipped.length).toBe(0);
   });
 
+  // ── 0193: what the file said, in the cells this script emptied ──────────
+  describe('the evidence the cleaner would otherwise be the only thing to know', () => {
+    it('an address it removed travels with the row it was removed from', () => {
+      const held = parseStudentsCsv(importCsv, ['MD']).skipped.map(toUnresolvedRow);
+      const gmail = held.find((h) => h.student_id === '653070008-6');
+      expect(gmail.file_kkumail).toBe('somebody2869@gmail.com');
+      expect(gmail.file_note).toMatch(/kkumail/);
+      // …and ONLY that row. An address copied onto its neighbours would read as
+      // evidence about people it was never about.
+      expect(held.filter((h) => h.file_kkumail).length).toBe(1);
+    });
+
+    it('the รุ่น of a row with no รหัส is quoted, never derived into cohort_year', () => {
+      const held = parseStudentsCsv(importCsv, ['MD']).skipped.map(toUnresolvedRow);
+      const noSid = held.find((h) => !h.student_id && h.first_name_th === 'งอ');
+      // สาย numbers restart every รุ่น, so without this an admin — the only
+      // person who can ever close this row — cannot tell which รุ่น it is.
+      expect(noSid.file_note).toMatch(/MD50/);
+      // 0188 refused to put a STATED รุ่น in cohort_year, which is derived from
+      // the รหัสนักศึกษา. That refusal has to survive this change, or a reader
+      // can no longer tell a derived value from a quoted one.
+      expect(noSid.cohort_year).toBe(null);
+    });
+
+    // ⛔ THE LOAD-BEARING ONE. `file_kkumail` is an address ALREADY known not to
+    // be this person's login — that is why the row is held. If it could reach a
+    // `students` row, the import would create exactly the account nobody can
+    // sign in as that blanking the cell exists to prevent.
+    it('no evidence column can reach a students row', () => {
+      const r = parseStudentsCsv(importCsv, ['MD']);
+      expect(IMPORT_OWNED_COLUMNS).not.toContain('file_kkumail');
+      expect(IMPORT_OWNED_COLUMNS).not.toContain('file_note');
+      expect(r.presentColumns).not.toContain('file_kkumail');
+      for (const row of r.rows) {
+        const payload = toUpsertRow(row, 'batch-1', r.presentColumns);
+        expect(Object.keys(payload).some((k) => k.startsWith('file_') || k.startsWith('_')))
+          .toBe(false);
+        expect(Object.values(payload)).not.toContain('somebody2869@gmail.com');
+      }
+      // CONTROL: the file really did carry the column, so the assertions above
+      // are not passing on a header that was never there.
+      expect(importCsv.split('\n')[0]).toContain('file_kkumail');
+    });
+
+    it('the columns are not reported as unrecognised', () => {
+      // They are aliased, so the "คอลัมน์ที่ระบบไม่ได้ใช้" notice must stay
+      // silent — a notice on every import teaches people to ignore it.
+      const r = parseStudentsCsv(importCsv, ['MD']);
+      expect(r.problems.filter((p) => p.field === '_header')).toEqual([]);
+    });
+  });
+
   it('nobody is dropped — every held person keeps their รหัส, ชื่อ and สาย', () => {
     const held = parseStudentsCsv(importCsv, ['MD']).skipped.map(toUnresolvedRow);
     const pendingSids = dataLines(pendingCsv)
@@ -116,7 +175,7 @@ describe('the file a person uploads', () => {
     // future file needs the distinction in the DATABASE, the channel is
     // toUnresolvedRow() + record_unresolved_rows(), not the upload file.
     expect(held.map((h) => h.reason).sort()).toEqual(
-      ['empty_row', 'no_kkumail', 'no_kkumail',
+      ['empty_row', 'no_kkumail', 'no_kkumail', 'no_kkumail',
         'no_kkumail', 'no_kkumail_no_student_id'].sort());
   });
 

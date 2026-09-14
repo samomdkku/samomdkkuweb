@@ -79,6 +79,18 @@ const HEADER_ALIAS = {
   kkumail: 'kkumail', email: 'kkumail', mail: 'kkumail', อีเมล: 'kkumail',
   major: 'major', สาขา: 'major',
   sai: 'sai_code', sai_code: 'sai_code', สายรหัส: 'sai_code', สาย: 'sai_code',
+  // EVIDENCE COLUMNS, carried to the HELD list and nowhere else (0193).
+  //
+  // They are prefixed with `_` on purpose: every other alias here names a
+  // `students` column, and these two must never become one. `file_kkumail` is
+  // an address we have ALREADY decided is not this person's login — writing it
+  // to `students.kkumail` is precisely the bug the cleaner blanks it to avoid.
+  // The `_` keeps them out of IMPORT_OWNED_COLUMNS by construction rather than
+  // by anyone remembering, and `house-io.test.js` pins that.
+  //
+  // Produced by `tools/clean-house-csv.mjs`, which is the only thing that knows
+  // WHY a cell was removed. A file without them imports exactly as before.
+  file_kkumail: '_file_kkumail', file_note: '_file_note',
   // Recognised ONLY so the file can be refused with the right sentence. A single
   // "ชื่อ-สกุล" column cannot be split: "สมชาย ณ อยุธยา" and "สมชาย ใจดี ดีมาก"
   // both have three tokens and different answers, and guessing renames a real
@@ -239,6 +251,10 @@ export function parseStudentsCsv(text, knownMajors = []) {
       nickname_imported: cleanCell(o.nickname_imported),
       major: cleanCell(o.major),
       sai_code: cleanSpace(o.sai_code),
+      // What the file said before the cleaner touched it (0193). Present only
+      // on a SKIPPED row — an imported row's evidence is the row itself.
+      _file_kkumail: cleanSpace(o._file_kkumail),
+      _file_note: cleanCell(o._file_note),
       _house: null,
     });
   };
@@ -682,6 +698,11 @@ export function toUnresolvedRow(row) {
     major: cleanCell(row.major) || null,
     sai_code: sai.ok ? sai.value : null,
     cohort_year: sid.value ? (cohortFromStudentId(sid.value) ?? null) : null,
+    // Evidence, passed through untouched (0193). `cohort_year` above stays
+    // DERIVED-or-null; a รุ่น the file stated as a block heading travels in
+    // `file_note` instead, where a reader can see it is a quotation.
+    file_kkumail: cleanSpace(row._file_kkumail) || null,
+    file_note: cleanCell(row._file_note) || null,
     reason,
   };
 }

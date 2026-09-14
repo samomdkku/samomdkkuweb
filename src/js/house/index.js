@@ -219,7 +219,7 @@ function renderHelp() {
                    placeholder="บันทึกว่าทำอะไรไป" autocomplete="off" />
             <button type="button" class="btn btn-outline-secondary" data-help-act="resolve">ปิด</button>
           </div>`}</td>
-      </tr>`;
+      </tr>${evidenceRow(h, done)}`;
     }).join('');
   }
 
@@ -246,6 +246,36 @@ function renderHelp() {
 // header. A dismissal also REQUIRES its reason (the RPC raises without one), and
 // a mandatory value collected through a dialog the browser may refuse to show is
 // a dead end with no message.
+/**
+ * What the FILE said, on a row where it is not what we stored (0193).
+ *
+ * A held row says `ไม่มี kkumail`. For two of them that is not what the handover
+ * said — it carried an address that belongs to somebody else, and a working
+ * `@gmail.com` that cannot be a login. The cleaner was right to remove both and
+ * wrong to be the only thing that remembered: an admin resolving a row by hand
+ * needs the lead, and for the gmail it is the one way to reach that person
+ * TODAY. Same for the รุ่น of a row with no รหัสนักศึกษา — สาย numbers restart
+ * every รุ่น, so without it a name and a สาย locate nobody.
+ *
+ * Rendered as a QUOTATION, deliberately: `file_kkumail` is an address already
+ * known NOT to be this person's login. Nothing here is a mailto, nothing is
+ * copied into the promote field, and nothing branches on it.
+ */
+function evidenceRow(h, done) {
+  const mail = String(h.file_kkumail || '').trim();
+  const note = String(h.file_note || '').trim();
+  if (!mail && !note) return '';
+  return `
+      <tr class="${done ? 'table-light text-muted' : ''}">
+        <td></td>
+        <td colspan="6" class="pt-0 small text-muted">
+          <i class="bi bi-file-earmark-text"></i> ในไฟล์ที่คณะส่งมา:
+          ${mail ? `<span class="font-monospace">${escHtml(mail)}</span>` : ''}
+          ${note ? `<span class="ms-1">${escHtml(note)}</span>` : ''}
+        </td>
+      </tr>`;
+}
+
 function renderHeld() {
   const tbody = $('houseHeldRows');
   if (!tbody) return;

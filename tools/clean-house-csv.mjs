@@ -258,7 +258,13 @@ const RIGHT = { sid: 10, first: 11, last: 12, nick: 13, mail: 14 };
 /** io.js's own header spelling, so the clean file needs no aliasing at all. */
 const OUT_HEADER = ['student_id', 'first_name_th', 'last_name_th', 'nickname_th',
   'kkumail', 'major', 'sai'];
-const PENDING_HEADER = [...OUT_HEADER, 'source_line', 'cohort', 'reason'];
+// The upload file carries two more (0193) — what the file said in a cell this
+// script emptied, and one sentence of what it said that no other column can
+// hold. `io.js` aliases both to `_file_*` and carries them to the HELD list
+// only, so they can never reach a `students` row.
+const IMPORT_HEADER = [...OUT_HEADER, 'file_kkumail', 'file_note'];
+const PENDING_HEADER = [...OUT_HEADER, 'source_line', 'cohort', 'reason',
+  'file_kkumail', 'file_note'];
 
 // ------------------------------------------------------------
 // MAIN
@@ -328,6 +334,11 @@ const rows = data.map((r, i) => {
     report.decided.push({ line, what: 'mail_owner', key: `mail_owner:${row.kkumail}`,
       who: `${row.first_name_th} ${row.last_name_th}`,
       detail: `${row.kkumail} เป็นของ ${owner} — เว้นอีเมลของแถวนี้ไว้` });
+    // KEEP WHAT WAS REMOVED (0193). The held row would otherwise say
+    // `ไม่มี kkumail`, which is not what the file said, and an admin resolving
+    // this row by hand would have no idea an address was ever there.
+    row.file_kkumail = row.kkumail;
+    row.file_note = `ไฟล์ระบุอีเมลนี้ไว้ แต่เป็นของ ${owner} จึงไม่ใช้`;
     row.kkumail = '';
   } else if (row.kkumail && !IDENTITY_DOMAIN.test(row.kkumail)) {
     // 2. A real address at the wrong domain. Blanked, never repaired — the
@@ -335,6 +346,12 @@ const rows = data.map((r, i) => {
     //    the thing ระบบบ้าน identifies a student by.
     report.blankedDomain.push({ line, who: `${row.first_name_th} ${row.last_name_th}`,
       sid: row.student_id, mail: row.kkumail });
+    // The address is REAL and reaches this person today — it is simply not a
+    // kkumail, so it cannot be their login. That makes it the single most useful
+    // thing an admin could have about this row, so it travels with it (0193).
+    row.file_kkumail = row.kkumail;
+    row.file_note = 'ไฟล์ระบุอีเมลนี้ไว้ แต่ไม่ใช่ @kkumail.com จึงใช้เป็นตัวระบุตัวตนไม่ได้ '
+      + '(ติดต่อเจ้าตัวได้ที่อีเมลนี้ เพื่อให้เข้าสู่ระบบด้วย kkumail แล้วยืนยันตัวตนเอง)';
     row.kkumail = '';
   }
 
@@ -402,6 +419,20 @@ for (const r of rows) {
     // without one, only a human who knows them can.
     const has = r.student_id || r.first_name_th;
     heldLines.add(r.line);
+    // A row with NO รหัสนักศึกษา can never be self-claimed, so a human has to
+    // identify the person — and สาย numbers RESTART every รุ่น (สาย 131 exists
+    // six times over in this file), so a name and a สาย locate nobody. The file
+    // states the รุ่น as a block heading and it is the only source there is.
+    //
+    // It goes in `file_note`, NOT in `cohort_year`: that column is derived from
+    // the รหัสนักศึกษา through the same function the database uses, and a value
+    // read off whichever heading a row sits under is a different kind of fact
+    // (0188 refused it for exactly that reason, and the refusal is right).
+    // Quoted here, it is visibly a quotation.
+    if (!r.student_id && r.cohort && r.cohort !== '?') {
+      r.file_note = [r.file_note, `ไฟล์ระบุรุ่น ${r.cohort} (ไม่มีรหัสนักศึกษาให้คำนวณ)`]
+        .filter(Boolean).join(' · ');
+    }
     pending.push({ ...r,
       reason: !has ? 'ว่างทั้งแถว — มีแต่สายรหัส ไม่มีคน'
         : r.student_id ? 'ไม่มี kkumail'
@@ -500,8 +531,8 @@ const out = (suffix) => join(dir, `${base}${suffix}`);
 // identical either way. This script already refused to make that call (pass 2);
 // blanking both is how that refusal survives the upload, and both people land in
 // the held list where someone can ask them.
-writeFileSync(out('.import.csv'), toCsv([OUT_HEADER,
-  ...rows.map((r) => OUT_HEADER.map(
+writeFileSync(out('.import.csv'), toCsv([IMPORT_HEADER,
+  ...rows.map((r) => IMPORT_HEADER.map(
     (k) => (k === 'kkumail' && heldLines.has(r.line) ? '' : (r[k] ?? ''))))]), 'utf8');
 writeFileSync(out('.clean.csv'), toCsv([OUT_HEADER,
   ...clean_.map((r) => OUT_HEADER.map((k) => r[k] ?? ''))]), 'utf8');
