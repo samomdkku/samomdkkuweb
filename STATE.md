@@ -114,6 +114,13 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 
 ### What is owed
 
+⛔ **A DEPLOY IS OWED — `4b9967d` pushed, NOT served.** VPN dropped mid-run: the
+pipeline printed NOTHING (= dropped VPN, not success — `skills/deploy-vm.md`) and
+ssh then timed out. Confirmed from outside: prod serves `public-Dw14D5B4.js`
+(`9c7cc0f`) and 0192's receipt string greps 0. **Reconnect VPN, re-run.**
+⚠️ 0192 IS applied to prod (Management API, not VPN), so the DB is AHEAD of the
+bundle — safe direction, it only ADDS a function nothing served calls.
+
 ⛔ **START HERE: `docs/state/HANDOFF.md` is the full list of what is NOT done, with reasons and owners. Read it first; below is detail.**
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
@@ -121,16 +128,14 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 ✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02).
 ⛔ **No polling timer for the docs** — built, verified and REMOVED the same day.
 
-0. ✅ **ORG MOVE DONE** (2026-08-31); `repo-protection.mjs` 18 pass (was 27:
-   sibling-repo loops inert BY DESIGN). Org 2FA OFF by OWNER DECISION. Traps:
-   `skills/move-the-repo-to-an-organisation.md`; last box `HANDOFF` §3.
+0. ✅ **ORG MOVE DONE** (2026-08-31) — traps in `skills/move-the-repo-to-an-organisation.md`, last box `HANDOFF` §3.
 
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
    HTML**, a new row is a DRAFT, and covers UPLOAD from your machine (the file
    they replace is retired).
-   ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → a `tool/*` PR →
-   `/tools/<slug>`. Both are LIVE; do not rebuild either.
+   ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → `tool/*` PR →
+   `/tools/<slug>`. Both LIVE; do not rebuild.
    ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** (`allow-same-origin`), and
    the three changes that delete it are now a rule in `docs/INVARIANTS.md` —
    with the owner-facing fake-sign-in risk. Read it before touching the frame.
@@ -147,19 +152,17 @@ Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
 2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT.** An intermittent fault is never
    disproven by successes; this entry once claimed the opposite. Read the VM's
    `~/samo-deploy-logs` trace before theorising. Status: CURRENT DEPLOY, above.
-3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete or
-   replace the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
+3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
 4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; THE APPLY TOOL IS BUILT AND HAS
    NEVER WRITTEN IN THE REAL GUILD (2026-09-13).** Live plan = **0 add, 0
    remove** (the one linked person is already correct); the write path IS
    proved against a STUB guild, which found a defect that killed every write.
    **1 linked · 107 ticked · 48 mapped · 183/250.** ✅ §7 1–4 done, 5 deferred.
-   ⛔ **NOT READY TO OPEN — but the fix is ONE role, not 59:**
-   `ฝ่าย รพ. ร่วมผลิต` covers all 27 who would get NOTHING (`discord:readiness`).
-   ⛔ The owner has NOT said yes — do not create it.
-   ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED: **`HANDOFF` §14b**. ✅ nginx
-   drift CLOSED — `npm run check:routes` asks the SERVED host (a missing route
-   answers 200 SPA, not 404). Mechanics: the skill.
+   ⛔ **NOT READY TO OPEN — the fix is ONE role, not 59:** `ฝ่าย รพ. ร่วมผลิต`
+   covers all 27 who would get NOTHING (`discord:readiness`). Owner has NOT said
+   yes — do not create it. ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED:
+   **`HANDOFF` §14b**. ✅ nginx drift CLOSED — `npm run check:routes` asks the
+   SERVED host (a missing route answers 200 SPA, not 404).
 
 ### B. OWNER ONLY
 
@@ -206,9 +209,7 @@ Free self-hosted team password vault. Two Owners of org `samomdkku`: the owner's
 architecture `docs/CONTEXT.md` · what it owes HANDOFF §7.** Do not re-derive any of it here.
 ⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a non-empty value overrides `SIGNUPS_ALLOWED=false`
 and opened public registration to every kkumail at KKU for ~6 h today (`docs/mistakes/authz-grants.md`).
-**Came with it:** `unattended-upgrades` on, and nginx really compresses now.
-**Owner owes:** break-glass envelope · delete `newtest` org · rotate the Gmail app password.
-**Unverified:** websocket Upgrade through KKU's edge · **restore has never been run**.
+errands and **restore has NEVER been run** — both lists live in `HANDOFF` §7.
 
 ## NEXT SESSION — start here
 
@@ -252,7 +253,6 @@ that design removes.
 **No deploy is owed.** Check, do not trust this line — and note that it names
 no sha, on purpose. Retyping one into a `git diff` is the bug that opened
 2026-08-28, and `state-handoff.test.js` now forbids the shape:
-
 ```bash
 npm run deploy:owed
 ```
