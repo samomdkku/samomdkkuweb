@@ -594,3 +594,38 @@ export async function claimMySeat(studentId, firstName) {
   if (error) throw new Error(error.message || 'ยืนยันตัวตนไม่สำเร็จ');
   return data || { ok: false, message: 'ยืนยันตัวตนไม่สำเร็จ' };
 }
+
+/**
+ * "This record is not mine."
+ *
+ * The only path for the case that fails OPEN (docs/HOUSE-DATA-REPAIR.md §4): a
+ * wrong-but-valid kkumail in the handover file means somebody signs in and is
+ * shown a stranger's record. `requestMyChange` cannot say this — it is "change a
+ * field on MY record", and the whole point is that none of it is theirs.
+ *
+ * It files and changes nothing. See the RPC.
+ */
+export async function reportNotMyRecord(note) {
+  const { data, error } = await dbRest('/rpc/report_not_my_record', {
+    method: 'POST', body: { p_note: note || null },
+  });
+  if (error) throw new Error(error.message || 'แจ้งไม่สำเร็จ');
+  return data;
+}
+
+/** The people who could not get in — the other half of the held list. */
+export async function fetchHelpRequests(includeResolved = false) {
+  const { data, error } = await dbRest('/rpc/list_house_help_requests', {
+    method: 'POST', body: { p_include_resolved: !!includeResolved },
+  });
+  if (error) throw new Error(error.message || 'โหลดรายการแจ้งปัญหาไม่สำเร็จ');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function resolveHelpRequest(id, note) {
+  const { data, error } = await dbRest('/rpc/resolve_house_help_request', {
+    method: 'POST', body: { p_id: id, p_note: note || null },
+  });
+  if (error) fail(error, 'ปิดรายการไม่สำเร็จ');
+  return data;
+}

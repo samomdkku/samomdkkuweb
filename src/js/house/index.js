@@ -36,6 +36,7 @@ import {
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors, recordUnresolved,
   fetchUnresolved, promoteUnresolved, dismissUnresolved,
+  fetchHelpRequests, resolveHelpRequest,
   fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
   fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
 } from './api.js';
@@ -77,6 +78,10 @@ let majors = [];            // team_majors — the ONE สาขา vocabulary
 let held = [];
 let heldQuery = '';
 let heldShowDone = false;
+// The other direction: people with no seat. Loaded beside `held` because the
+// admin's job is matching the two, and a count that only appears once somebody
+// opens the pane is a count nobody sees.
+let helpReqs = [];
 let pendingImport = null;   // parsed + diffed, awaiting confirmation
 
 function setStatus(msg, isError = false) {
@@ -118,6 +123,7 @@ async function reload() {
         fetchStudents(), fetchAdvisors(), fetchRequests(), fetchMajors(),
         fetchUnresolved(true),
       ]);
+      helpReqs = await fetchHelpRequests(true);
       setStatus('');
       render();
     } catch (e) {
@@ -153,13 +159,75 @@ function render() {
     heldBadge.textContent = String(openHeld);
     heldBadge.classList.toggle('d-none', openHeld === 0);
   }
+  // A SEPARATE badge, not added into the one above. A held row is waiting on
+  // ฝ่ายข้อมูล; a help request is a real person who tried and is stuck, and
+  // folding 3 of those into "168" is how the 3 never get looked at.
+  const openHelp = helpReqs.filter((h) => !h.resolved_at).length;
+  const helpBadge = $('houseHelpBadge');
+  if (helpBadge) {
+    helpBadge.textContent = String(openHelp);
+    helpBadge.classList.toggle('d-none', openHelp === 0);
+  }
 
   if (mode === 'overview') renderOverview();
   else if (mode === 'students') renderStudents();
   else if (mode === 'sais') renderSais();
   else if (mode === 'advisors') renderAdvisors();
   else if (mode === 'requests') renderRequests();
-  else if (mode === 'held') renderHeld();
+  else if (mode === 'held') { renderHeld(); renderHelp(); }
+}
+
+// ---------- คนที่ยืนยันตัวตนไม่ผ่าน ----------
+//
+// Each row already carries its own candidates, computed server-side by
+// `list_house_help_requests` — the held rows that agree with the person on
+// EITHER their รหัส or their ชื่อ. A row agreeing on both would have been
+// claimed, so every candidate shown is a near miss, which is exactly the shape
+// of a typo in the handover file. Making an admin find that by eye across 165
+// rows would be a worklist in name only.
+function renderHelp() {
+  const tbody = $('houseHelpRows');
+  if (!tbody) return;
+  const rows = helpReqs.filter((h) => heldShowDone || !h.resolved_at);
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted small py-3">'
+      + 'ยังไม่มีใครยืนยันตัวตนไม่ผ่าน</td></tr>';
+  } else {
+    tbody.innerHTML = rows.map((h) => {
+      const done = !!h.resolved_at;
+      const typed = h.kind === 'not_me'
+        ? `<span class="text-danger">บอกว่าการ์ดนี้ไม่ใช่ของเขา</span>${
+          h.showing ? `<br /><span class="small text-muted">การ์ดแสดง: ${
+            escHtml(h.showing.name || '')} ${escHtml(h.showing.student_id || '')}</span>` : ''}${
+          h.note ? `<br /><span class="small">“${escHtml(h.note)}”</span>` : ''}`
+        : `${escHtml(h.typed_first_name || '')} · ${escHtml(h.typed_student_id || '')}${
+          h.attempts > 1 ? ` <span class="text-muted small">(ลอง ${h.attempts} ครั้ง)</span>` : ''}`;
+      const cands = (h.candidates || []).length
+        ? h.candidates.map((c) => `<div class="small">${escHtml(c.name || '')}
+            · ${escHtml(c.student_id || '—')} · สาย ${escHtml(c.sai || '—')}
+            <span class="text-muted">(${escHtml(c.matched)})</span></div>`).join('')
+        : '<span class="text-muted small">ไม่มีใครใกล้เคียงในรายการค้าง</span>';
+      return `<tr data-help-id="${escHtml(h.id)}"${done ? ' class="table-light text-muted"' : ''}>
+        <td class="small">${escHtml(h.kkumail)}</td>
+        <td class="small">${typed}</td>
+        <td>${cands}</td>
+        <td class="small">${done ? 'จัดการแล้ว' : `${h.waiting_days} วัน`}</td>
+        <td class="text-end">${done ? '' : `
+          <div class="input-group input-group-sm held-actions">
+            <input type="text" class="form-control" data-help-note
+                   placeholder="บันทึกว่าทำอะไรไป" autocomplete="off" />
+            <button type="button" class="btn btn-outline-secondary" data-help-act="resolve">ปิด</button>
+          </div>`}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const open = helpReqs.filter((h) => !h.resolved_at);
+  $('houseHelpCount').textContent = open.length
+    ? `มี ${open.length} คนที่ติดอยู่ — ถ้าเจอว่าเป็นใครในรายการค้างข้างบน `
+      + 'ให้กรอกอีเมลของเขาในแถวนั้น แล้วรายการนี้จะปิดเอง'
+    : 'ไม่มีใครติดอยู่';
 }
 
 // ---------- ยังนำเข้าไม่ได้ ----------
@@ -2257,6 +2325,19 @@ function wire() {
   // its innerHTML changes — so exactly one listener exists for the life of the
   // page. Attaching per row instead would add a listener per render, which is
   // the "fires once, then twice, then three times" bug wireCard documents.
+  $('houseHelpRows')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-help-act]');
+    if (!btn) return;
+    const tr = btn.closest('[data-help-id]');
+    const note = tr?.querySelector('[data-help-note]')?.value.trim();
+    if (!note) { setStatus('บันทึกสั้น ๆ ก่อนว่าทำอะไรไป', true); return; }
+    try {
+      await resolveHelpRequest(tr.dataset.helpId, note);
+      setStatus('ปิดรายการแล้ว');
+      await reload();
+    } catch (err) { setStatus(err?.message || 'ปิดรายการไม่สำเร็จ', true); }
+  });
+
   $('houseHeldRows')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-held-act]');
     if (!btn) return;

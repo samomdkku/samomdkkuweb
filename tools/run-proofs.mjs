@@ -46,6 +46,7 @@ const PROOFS = [
   ['house0145-duplicate-person.sql', 'a second placement links, never duplicates'],
   ['house0146-crest-refcount.sql', 'the crest refcount can see the crest'],
   ['house0188-unresolved-seat.sql', 'a held seat is claimable by the person it names, and nobody else'],
+  ['house0191-help-requests.sql', 'a student who cannot get in is heard, and still told nothing'],
   ['team0145-one-chan-pi.sql', 'ชั้นปี survives a registry touch'],
   ['team0145-save-as-the-member.sql', 'saving as the member keeps the mirror'],
   ['claude0154-quota-guard.sql', 'the Claude quota caps hold, and the board is gated'],

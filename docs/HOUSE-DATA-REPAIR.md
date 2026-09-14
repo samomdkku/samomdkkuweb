@@ -4,7 +4,7 @@ What a student can fix themselves, what needs an admin, and what has to go back
 to ฝ่ายข้อมูล — for every combination of ชื่อ · นามสกุล · รหัสนักศึกษา · kkumail ·
 สายรหัส being **missing** or **wrong**.
 
-Written against the live system on 2026-09-14 (migrations 0188–0190). Every
+Written against the live system on 2026-09-14 (migrations 0188–0191). Every
 "can" and "cannot" below was read off the actual function bodies, not assumed;
 where a claim was checked by running it, it says so.
 
@@ -75,13 +75,17 @@ The admin pane sorts on exactly this distinction: rows that **cannot** be
 self-claimed come first, because nobody else will ever close them. The footer
 says how many of each.
 
-> **The dead end to know about.** A student whose held row has a *wrong* รหัส or
-> a mistyped ชื่อ types their real details, gets no match, and reads
-> *"ฝ่ายข้อมูลยังไม่ได้ส่งชื่อของคุณมา"* — which is false. The message is
-> deliberately identical for every miss so the form cannot be used to test one
-> guess at a time against 165 real students' names, and that anti-enumeration
-> property is worth more than a precise message. **The cost is real and it is
-> paid by the admin**, who has to find these people by hand. See §6.
+> **The near miss, and why the student is not told about it.** A student whose
+> held row has a *wrong* รหัส or a mistyped ชื่อ types their real details and
+> gets no match — and is told the same neutral sentence as somebody who is
+> genuinely not in the file. That is deliberate: a message distinguishing "no
+> such รหัส" from "wrong ชื่อ" would turn the form into a way to test one guess
+> at a time against 165 real students.
+>
+> **They are not left to chase it, though.** The miss is recorded, with their
+> verified address and what they typed, and lands in front of an admin with the
+> near-miss held rows already picked out — see §6. Nobody has to describe their
+> problem twice, and nobody is sent to a different team to do it.
 
 ---
 
@@ -94,8 +98,8 @@ broken and gets reported. Here, something works — for the wrong person.
 | Sub-case | What actually happens | Detected? |
 |---|---|---|
 | **C1 — it duplicates another row in the same file** | The importer keeps neither: both are held, because line order cannot say whose address it is. If a human has named the owner (`MAIL_OWNER` in `tools/clean-house-csv.mjs`), the owner imports and the other is held with a blank address. | **Yes**, at import time, by name. |
-| **C2 — it is another real student's address, and they are not in the file** | Your row imports under their address. **They sign in and see your ชื่อ, รหัส, สาย and บ้าน** — and can edit it. You look like you were never sent. Verified by construction on samo-dev: `get_my_student_record` joins on kkumail and nothing else. | **No.** Nothing flags it. |
-| **C3 — a typo that belongs to nobody** (`kanokpron` for `kanokporn`) | The row imports. Nobody can ever sign into it. You look like you were never sent. Domain typos are repaired by the cleaner; a **local-part** typo is unrepairable and indistinguishable from a real address. | **No**, not directly — but see below. |
+| **C2 — it is another real student's address, and they are not in the file** | Your row imports under their address. **They sign in and see your ชื่อ, รหัส, สาย and บ้าน** — and can edit it. You look like you were never sent. Verified by construction on samo-dev: `get_my_student_record` joins on kkumail and nothing else. | **Yes, if they say so** — ไม่ใช่ข้อมูลของฉัน on the card (§6). Nothing detects it automatically. |
+| **C3 — a typo that belongs to nobody** (`kanokpron` for `kanokporn`) | The row imports. Nobody can ever sign into it. You look like you were never sent — so you land in §6 as a failed claim, and the held list will not contain you either. Domain typos are repaired by the cleaner; a **local-part** typo is unrepairable and indistinguishable from a real address. | **Indirectly** — you turn up in §6 with no candidates at all, which is itself the signal. |
 
 ### The detector for C2 and C3 already exists
 
@@ -117,40 +121,56 @@ term are the ones to re-ask ฝ่ายข้อมูล about by name.
 1. **The student fixes it** — anything except สายรหัส, once they can see their
    record.
 2. **The student claims it** — a held row that carries both รหัส and ชื่อ.
-3. **The admin types an address in** — a held row that carries neither, or one
-   whose รหัส/ชื่อ is wrong.
-4. **The admin approves a สาย change** — the only field a student cannot set.
-5. **Back to ฝ่ายข้อมูล** — an empty seat, a missing person, a duplicate address
+3. **The student tries and fails** — and that failure is the report (§6). No
+   second form, no other team.
+4. **The admin types an address in** — a held row that carries neither, or one
+   whose รหัส/ชื่อ is wrong. The report above hands them the likely match.
+5. **The admin approves a สาย change** — the only field a student cannot set.
+6. **Back to ฝ่ายข้อมูล** — an empty seat, a missing person, a duplicate address
    whose owner is unknown, or a สายรหัส nobody can vouch for. **Never invent a
    สาย**: บ้าน is its last digit, and a guess puts a real student in the wrong
    house with nothing downstream able to tell.
 
 ---
 
-## 6. Known gaps — what is NOT covered today
+## 6. Nobody is sent to VitalSound for this
 
-Stated plainly rather than left for someone to rediscover.
+**Owner's call, 2026-09-14:** *"i dont want everything to overload on vitalsound
+too much."* Right, and it was worse than volume — **VitalSound is the
+confidential service desk**. A data-entry problem sitting behind a
+confidentiality model it does not need, staffed by people it is not work for.
 
-**G1. A student who cannot claim has no structured way to say so.** Cases B-row-2,
-B-row-3 and "not in the file at all" all end at the same dead end, and the only
-exit is the VitalSound link on the empty card. **VitalSound is the confidential
-service desk**, not a data-entry queue — routing "my house record is missing"
-there is a category error the empty card currently commits. What is missing is a
-one-button report that carries the caller's verified kkumail plus what they
-typed, landing in the admin pane beside the held list. That is exactly the
-information an admin needs to match them by hand, and today they have to ask for
-it in a ticket thread.
+The fix is that **the claim form is the report**. A student who types their รหัส
+and ชื่อ and gets no match has already handed over everything an admin needs:
 
-**G2. A student looking at somebody else's record (C2) has no report path at
-all.** `request_my_change` is "change a field on *my* record"; there is no "this
-whole record is not mine". Today: VitalSound, free text.
+- their **kkumail, verified by Google** — the one fact the handover file is
+  missing, in every single one of these cases;
+- the **รหัสนักศึกษา and ชื่อ they believe are theirs**, in their own words.
 
-Both gaps want the same small mechanism, which is why they are listed together.
-Neither is built. **Decide who owns the queue before building it** — a third
-admin queue beside คำขอแก้ไข and รายชื่อที่ยังนำเข้าไม่ได้ needs a reason to
-exist that "it was easy" does not supply.
+So the miss is kept instead of thrown away. The student is asked for nothing
+more, and is told nothing more either: the same neutral sentence comes back for
+every miss, because a message that distinguished "no such รหัส" from "wrong ชื่อ"
+would turn the form into a way to test one guess at a time against 165 real
+students. **Silence towards a guesser is not silence towards the admin.**
 
----
+| | |
+|---|---|
+| **Where it lands** | ระบบบ้าน → ยังนำเข้าไม่ได้ → **คนที่ยืนยันตัวตนไม่ผ่าน**, under the held list — because the admin's job is matching the two, and they are two halves of one screen: *seats with no person* above, *people with no seat* below. |
+| **What the admin sees** | The verified address, what the person typed, and **candidate held rows** — the ones agreeing on either the รหัส *or* the ชื่อ. Anything agreeing on both would have been claimed, so every candidate shown is a near miss, which is the exact shape of a typo in the file. |
+| **How it closes** | By itself. Typing the person's address into the matching held row resolves both. A student who mistyped and then got it right closes their own. A queue that fills with already-solved problems is a queue nobody reads — which is the failure this replaces, not a new version of it. |
+| **Abuse** | The key is the kkumail, so an account that tries ten times leaves **one** row with `attempts = 10`. No counter, no cleanup job; the shape is the rate limit. |
+
+### "This record is not mine"
+
+The one case that fails open (§4 C2) now has a path too: **ไม่ใช่ข้อมูลของฉัน**
+on the card. It **files a sentence and changes nothing** — someone looking at a
+stranger's record must not be able to act on it, because the rightful owner of
+that address may still be the person shown, and an edit would overwrite a real
+student's data on the word of whoever the wrong address happened to reach.
+
+### What still goes to VitalSound
+
+Bugs and website problems. That link stays, and it is the correct one.
 
 ## 7. What the file itself can do to you — fixed, listed for the record
 

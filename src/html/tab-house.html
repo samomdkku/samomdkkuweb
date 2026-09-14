@@ -24,6 +24,7 @@
       <button type="button" class="btn btn-outline-secondary" data-house-mode="held">
         <i class="bi bi-person-exclamation"></i> ยังนำเข้าไม่ได้
         <span class="badge bg-warning text-dark d-none" id="houseHeldBadge">0</span>
+        <span class="badge bg-danger d-none" id="houseHelpBadge">0</span>
       </button>
       <button type="button" class="btn btn-outline-secondary" data-house-mode="import">
         <i class="bi bi-upload"></i> นำเข้าข้อมูล
@@ -285,6 +286,31 @@
       </table>
     </div>
     <div class="small text-muted" id="houseHeldCount"></div>
+
+    <!-- THE OTHER DIRECTION. The list above is seats with no person; this one is
+         people with no seat — students who typed their รหัส and ชื่อ into the
+         claim form and got no match. The admin's job is matching the two, so
+         they belong on one screen rather than in two places (and neither
+         belongs in VitalSound, which is the confidential service desk). -->
+    <h6 class="mt-4">คนที่ยืนยันตัวตนไม่ผ่าน</h6>
+    <p class="small text-muted mb-2">
+      นักศึกษากรอกรหัสกับชื่อแล้วระบบหาไม่เจอ ระบบเก็บไว้ให้เอง
+      <strong>เจ้าตัวไม่ต้องแจ้งซ้ำที่ไหน</strong> และไม่ได้บอกเขาว่าเจอหรือไม่เจออะไร
+      <br />อีเมลในคอลัมน์แรกคือ<strong>อีเมลจริงที่ยืนยันแล้ว</strong> ตอนเข้าสู่ระบบ
+      ซึ่งเป็นสิ่งเดียวที่ไฟล์จากคณะไม่มี
+    </p>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle house-table">
+        <thead>
+          <tr>
+            <th>อีเมล (ยืนยันแล้ว)</th><th>เขากรอกว่า</th><th>น่าจะเป็นใคร</th>
+            <th>รอมา</th><th class="text-end">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="houseHelpRows"></tbody>
+      </table>
+    </div>
+    <div class="small text-muted" id="houseHelpCount"></div>
   </section>
 
   <section data-house-pane="import" class="d-none">

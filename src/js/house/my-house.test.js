@@ -579,3 +579,86 @@ describe('the empty card offers a way in — to the people it can help', () => {
     expect(fn.indexOf('clearMyHouseCache()')).toBeLessThan(fn.indexOf('showMyHouse('));
   });
 });
+
+// ============================================================
+// ระบบบ้าน stops routing data problems to the confidential service desk (0191)
+// ============================================================
+describe('a student who cannot get in is not sent to VitalSound', () => {
+  const paint = (account) => {
+    const h = host();
+    renderMyHouse(h, null, { signedIn: true, account });
+    return h.innerHTML;
+  };
+
+  it('the empty card no longer offers VitalSound as the fallback', () => {
+    // OWNER: "i dont want everything to overload on vitalsound too much." It is
+    // worse than volume — VitalSound is the CONFIDENTIAL SERVICE DESK, and a
+    // student who cannot find their house record was being sent to the
+    // counselling queue to describe a data-entry problem in free text.
+    const html = paint('nobody@kkumail.com');
+    expect(html).not.toContain('vssound');
+  });
+
+  it('…and says the report happens on its own', () => {
+    // The claim form IS the report now (claim_my_student_seat records the miss
+    // with their verified address). If this promise disappears from the copy
+    // while the behaviour stays, the student is left thinking nobody heard —
+    // which is the state this replaced.
+    const html = paint('nobody@kkumail.com');
+    expect(html).toMatch(/แจ้งผู้ดูแล/);
+    expect(html).toMatch(/ไม่ต้อง.*แจ้งซ้ำ/);
+  });
+
+  it('the NON-kkumail card still just tells them to switch accounts', () => {
+    // Control: that branch has a different problem and must not gain a report
+    // form — there is nothing to report, they are signed in with the wrong
+    // account and the fix is entirely theirs.
+    const html = paint('someone@gmail.com');
+    expect(html).not.toContain('data-house-form="claim"');
+    expect(html).not.toContain('vssound');
+  });
+
+  it('the populated card keeps the VitalSound link — for BUGS, which is correct', () => {
+    // The rule is not "no VitalSound anywhere". A broken page IS their work.
+    const h = host();
+    renderMyHouse(h, recWith(), { signedIn: true });
+    expect(h.innerHTML).toContain('vssound');
+    expect(h.innerHTML).toMatch(/พบบัค|เว็บมีปัญหา/);
+  });
+});
+
+describe('"ไม่ใช่ข้อมูลของฉัน" — the only path for a record that is not yours', () => {
+  const painted = () => {
+    const h = host();
+    renderMyHouse(h, recWith(), { signedIn: true });
+    return h.innerHTML;
+  };
+
+  it('the card offers it', () => {
+    expect(painted()).toContain('data-house-act="notme"');
+    expect(painted()).toContain('data-house-form="notme"');
+  });
+
+  it('it warns against editing the card instead', () => {
+    // The dangerous thing a person in this state would otherwise do: "fix" the
+    // name to their own, overwriting a real student's record on the strength of
+    // an address that was mistyped in the handover file.
+    expect(painted()).toMatch(/อย่าแก้ข้อมูลในการ์ดนี้เอง/);
+  });
+
+  it('its handler files and mutates NOTHING', () => {
+    // Someone looking at a stranger's record must not be able to act on it.
+    // Pinned at the source, the way this file pins the listener rule: the notme
+    // branch may call the report and nothing that writes a student record.
+    const fn = CODE.slice(CODE.indexOf("notmeForm?.addEventListener"),
+      CODE.indexOf("notmeForm?.addEventListener") + 900);
+    expect(fn).toContain('reportNotMyRecord(');
+    expect(fn).not.toMatch(/saveMyStudentRecord|requestMyChange|deleteStudent/);
+  });
+
+  it('is wired to the form this paint made, never to the host', () => {
+    const fn = CODE.slice(CODE.indexOf("notmeForm?.addEventListener"),
+      CODE.indexOf("notmeForm?.addEventListener") + 900);
+    expect(fn).not.toMatch(/host\.addEventListener/);
+  });
+});

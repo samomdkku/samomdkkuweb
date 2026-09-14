@@ -42,7 +42,7 @@ import { convertDriveUrl } from '../uploads.js';
 import { registerProfileCache, clearProfileCaches } from '../profile-cache.js';
 import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
-  claimMySeat,
+  claimMySeat, reportNotMyRecord,
 } from './api.js';
 import {
   houseLabel, normalizeSai, cohortLabel, normalizeStudentId, saiProblem, safeColor,
@@ -545,6 +545,21 @@ function reportFormHtml(rec) {
         <button type="button" class="myseat-cancel" data-house-act="cancel-report">ยกเลิก</button>
         <span class="myseat-edit-status" data-house-report-status role="status"></span>
       </div>
+    </form>
+    <form class="myseat-edit" data-house-form="notme" hidden>
+      <p class="myhouse-empty">ถ้าชื่อหรือรหัสในการ์ดนี้เป็นของคนอื่น แปลว่าอีเมลของคุณถูกกรอกผิด
+        ในไฟล์ที่คณะส่งมา ระบบจะแจ้งผู้ดูแลให้ตรวจสอบ
+        <strong>อย่าแก้ข้อมูลในการ์ดนี้เอง</strong> เพราะจะทับข้อมูลของเจ้าของตัวจริง</p>
+      <label class="myseat-edit-field">
+        <span>บอกเพิ่มได้ถ้าอยากบอก (ไม่บังคับ)</span>
+        <input type="text" name="note" autocomplete="off"
+               placeholder="เช่น ชื่อในการ์ดนี้ไม่ใช่ชื่อฉัน" />
+      </label>
+      <div class="myseat-edit-actions">
+        <button type="submit" class="myseat-save">แจ้งผู้ดูแล</button>
+        <button type="button" class="myseat-cancel" data-house-act="cancel-notme">ยกเลิก</button>
+        <span class="myseat-edit-status" data-house-notme-status role="status"></span>
+      </div>
     </form>`;
 }
 
@@ -593,8 +608,8 @@ function emptyHouseHtml(account) {
           </div>
         </form>
         <p class="myhouse-empty myhouse-empty--quiet">ถ้ากรอกถูกแล้วยังไม่พบ
-          แปลว่าคณะยังไม่ได้ส่งชื่อของคุณมา แจ้งได้ที่
-          <a href="/vssound">แจ้งปัญหา (VitalSound)</a></p>`
+          ระบบจะแจ้งผู้ดูแลระบบบ้านให้เองทันที พร้อมกับสิ่งที่คุณกรอกไว้
+          ไม่ต้องไปแจ้งซ้ำที่อื่น</p>`
     : `
         <p class="myhouse-empty">ระบบบ้านใช้บัญชี <strong>kkumail</strong> ในการจับคู่ข้อมูลนักศึกษา
           ตอนนี้คุณเข้าสู่ระบบด้วย${mail
@@ -738,6 +753,9 @@ export function renderMyHouse(host, rec, opts = {}) {
         <button type="button" class="myseat-fix myseat-fix--quiet" data-house-act="report">
           <i class="bi bi-flag" aria-hidden="true"></i> แจ้งสายรหัสไม่ถูกต้อง
         </button>
+        <button type="button" class="myseat-fix myseat-fix--quiet" data-house-act="notme">
+          <i class="bi bi-person-x" aria-hidden="true"></i> ไม่ใช่ข้อมูลของฉัน
+        </button>
       </div>
 
       ${paired ? '' : editFormHtml(rec)}
@@ -790,6 +808,7 @@ function wireCard(host, rec, opts = {}) {
   const card = host.querySelector('.myhouse-card, .myhouse-section');
   const editForm = host.querySelector('[data-house-form="edit"]');
   const reportForm = host.querySelector('[data-house-form="report"]');
+  const notmeForm = host.querySelector('[data-house-form="notme"]');
 
   // ONE state, set explicitly. Never `toggle()` on a shared container: a panel
   // whose visibility is computed from its own current class cannot be reasoned
@@ -799,6 +818,7 @@ function wireCard(host, rec, opts = {}) {
     open = which;
     if (editForm) editForm.hidden = open !== 'edit';
     if (reportForm) reportForm.hidden = open !== 'report';
+    if (notmeForm) notmeForm.hidden = open !== 'notme';
     card?.querySelectorAll('[data-house-act]').forEach((b) => {
       b.classList.toggle('is-open', b.dataset.houseAct === open);
     });
@@ -816,6 +836,30 @@ function wireCard(host, rec, opts = {}) {
   host.querySelector('[data-house-act="report"]')?.addEventListener('click', () => toggle('report'));
   host.querySelector('[data-house-act="cancel-edit"]')?.addEventListener('click', () => setOpen(null));
   host.querySelector('[data-house-act="cancel-report"]')?.addEventListener('click', () => setOpen(null));
+  host.querySelector('[data-house-act="notme"]')?.addEventListener('click', () => toggle('notme'));
+  host.querySelector('[data-house-act="cancel-notme"]')?.addEventListener('click', () => setOpen(null));
+
+  // ── ไม่ใช่ข้อมูลของฉัน
+  //
+  // It FILES A SENTENCE AND CHANGES NOTHING, deliberately. Someone looking at a
+  // stranger's record must not be able to act on it — the rightful owner of that
+  // address may still turn out to be the person in the card, and an edit here
+  // would overwrite a real student's data on the word of whoever the wrong
+  // address happened to send.
+  notmeForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = notmeForm.querySelector('[data-house-notme-status]');
+    const btn = notmeForm.querySelector('.myseat-save');
+    if (btn) { btn.disabled = true; btn.textContent = 'กำลังส่ง…'; }
+    try {
+      await reportNotMyRecord(notmeForm.querySelector('[name="note"]').value.trim());
+      if (status) status.textContent = 'แจ้งแล้ว ผู้ดูแลจะติดต่อกลับ';
+      if (btn) btn.textContent = 'แจ้งแล้ว';
+    } catch (err) {
+      if (status) status.textContent = err?.message || 'ส่งไม่สำเร็จ';
+      if (btn) { btn.disabled = false; btn.textContent = 'แจ้งผู้ดูแล'; }
+    }
+  });
 
   // ── บันทึก
   editForm?.addEventListener('submit', async (e) => {
