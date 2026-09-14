@@ -292,3 +292,8 @@
 @media (prefers-reduced-motion: reduce) {
   .myhouse-fold-caret { transition: none; }
 }
+
+/* The "we heard you" receipt on the empty card. Separated from the claim form
+   above it because it is an ANSWER to that form, not another field. */
+.myhouse-receipt { margin-top: 0.5rem; }
+.myhouse-receipt-line { color: var(--brand-primary); }

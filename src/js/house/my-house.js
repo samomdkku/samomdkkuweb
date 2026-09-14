@@ -42,7 +42,7 @@ import { convertDriveUrl } from '../uploads.js';
 import { registerProfileCache, clearProfileCaches } from '../profile-cache.js';
 import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
-  claimMySeat, reportNotMyRecord,
+  claimMySeat, reportNotMyRecord, fetchMyHelpStatus,
 } from './api.js';
 import {
   houseLabel, normalizeSai, cohortLabel, normalizeStudentId, saiProblem, safeColor,
@@ -609,7 +609,8 @@ function emptyHouseHtml(account) {
         </form>
         <p class="myhouse-empty myhouse-empty--quiet">ถ้ากรอกถูกแล้วยังไม่พบ
           ระบบจะแจ้งผู้ดูแลระบบบ้านให้เองทันที พร้อมกับสิ่งที่คุณกรอกไว้
-          ไม่ต้องไปแจ้งซ้ำที่อื่น</p>`
+          ไม่ต้องกรอกซ้ำที่อื่น</p>
+        <div class="myhouse-receipt" data-house-receipt hidden></div>`
     : `
         <p class="myhouse-empty">ระบบบ้านใช้บัญชี <strong>kkumail</strong> ในการจับคู่ข้อมูลนักศึกษา
           ตอนนี้คุณเข้าสู่ระบบด้วย${mail
@@ -619,6 +620,48 @@ function emptyHouseHtml(account) {
         <p class="myhouse-empty">ออกจากระบบแล้วเข้าสู่ระบบใหม่ด้วย Google
           โดยเลือกบัญชี <strong>@kkumail.com</strong> ของคุณ แล้วข้อมูลจะขึ้นเองอัตโนมัติ</p>`}
     </div>`;
+}
+
+/**
+ * "We already have your report, from <date>."
+ *
+ * PAINTED AFTER the card, never awaited before it. The receipt is a decoration
+ * on an empty state; a student whose record is missing must not also wait on a
+ * second round trip to be told so, and if this call fails the card is simply the
+ * card — which is what it was before 0192.
+ *
+ * VitalSound appears HERE and only here, as the follow-up. The correction that
+ * matters: VitalSound is NOT confidential-only (two of its nine categories are;
+ * `it — IT / เครือข่าย` is not), so it was never the wrong PLACE. It was the
+ * wrong FIRST step, because it asks a stuck student to re-type facts the system
+ * already holds. Once they have waited, talking to a person is exactly right.
+ */
+async function paintHelpReceipt(host) {
+  if (typeof host.querySelector !== 'function') return;
+  const slot = host.querySelector('[data-house-receipt]');
+  if (!slot) return;
+  let st = null;
+  try { st = await fetchMyHelpStatus(); } catch { /* decoration only */ }
+  // The node may be gone: renderMyHouse can repaint while this is in flight.
+  if (!st || !slot.isConnected) return;
+  const when = (() => {
+    try {
+      return new Date(st.created_at).toLocaleDateString('th-TH',
+        { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch { return ''; }
+  })();
+  const stale = (st.waiting_days ?? 0) >= 7;
+  slot.hidden = false;
+  slot.innerHTML = `
+    <p class="myhouse-empty myhouse-receipt-line">
+      <i class="bi bi-check2-circle" aria-hidden="true"></i>
+      ผู้ดูแลระบบบ้านได้รับเรื่องของคุณแล้ว${when ? ` เมื่อ ${escHtml(when)}` : ''}
+      — ไม่ต้องแจ้งซ้ำ พอแก้ให้แล้วข้อมูลจะขึ้นในหน้านี้เอง
+    </p>
+    ${stale ? `<p class="myhouse-empty myhouse-empty--quiet">
+      รอมา ${st.waiting_days} วันแล้ว ถ้าอยากคุยกับคนจริง ๆ
+      แจ้งเพิ่มได้ที่ <a href="/vssound">VitalSound</a> (เลือกหมวด IT)
+    </p>` : ''}`;
 }
 
 /**
@@ -700,6 +743,7 @@ export function renderMyHouse(host, rec, opts = {}) {
     host.hidden = false;
     host.innerHTML = emptyHouseHtml(opts.account);
     wireClaim(host, opts);
+    paintHelpReceipt(host);
     return;
   }
   host.hidden = false;

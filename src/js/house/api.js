@@ -629,3 +629,27 @@ export async function resolveHelpRequest(id, note) {
   if (error) fail(error, 'ปิดรายการไม่สำเร็จ');
   return data;
 }
+
+/**
+ * The caller's OWN open help request, or null.
+ *
+ * The receipt, not a ticket system: there is no thread and no reply. It exists
+ * because an invisible queue is indistinguishable from being ignored — a student
+ * typed, read "ระบบได้แจ้งผู้ดูแลให้แล้ว", and then the card looked identical for
+ * ever, with no way to tell a report that landed from a sentence being polite.
+ *
+ * It deliberately carries NOTHING about the held list. The admin's view computes
+ * near-miss candidates; the same thing shown here would tell a guesser "somebody
+ * with your ชื่อ exists, with a different รหัส", which is the membership oracle
+ * the neutral failure message exists to prevent.
+ */
+export async function fetchMyHelpStatus() {
+  const { data, error } = await dbRest('/rpc/my_house_help_status', {
+    method: 'POST', body: {},
+  });
+  // Quiet on failure: this is a decoration on an empty card, and a student who
+  // cannot reach the system at all should not be handed a second error about
+  // the receipt for the first one.
+  if (error) { console.warn('[house] help status:', error.message); return null; }
+  return data || null;
+}

@@ -4,7 +4,7 @@ What a student can fix themselves, what needs an admin, and what has to go back
 to ฝ่ายข้อมูล — for every combination of ชื่อ · นามสกุล · รหัสนักศึกษา · kkumail ·
 สายรหัส being **missing** or **wrong**.
 
-Written against the live system on 2026-09-14 (migrations 0188–0191). Every
+Written against the live system on 2026-09-14 (migrations 0188–0192). Every
 "can" and "cannot" below was read off the actual function bodies, not assumed;
 where a claim was checked by running it, it says so.
 
@@ -136,9 +136,21 @@ term are the ones to re-ask ฝ่ายข้อมูล about by name.
 ## 6. Nobody is sent to VitalSound for this
 
 **Owner's call, 2026-09-14:** *"i dont want everything to overload on vitalsound
-too much."* Right, and it was worse than volume — **VitalSound is the
-confidential service desk**. A data-entry problem sitting behind a
-confidentiality model it does not need, staffed by people it is not work for.
+too much."*
+
+⚠️ **A correction, because the first version of this section got it wrong.** It
+said VitalSound "is the confidential service desk" and that routing data problems
+there was a category error. It is not: read off `vs_categories` on production,
+**two of nine active categories are confidential** (`personal` and one custom);
+the rest — including **`it — IT / เครือข่าย`** — are ordinary and publicly
+eligible. VitalSound was never the wrong *place*.
+
+The real argument is narrower and survives: **a stuck student should not have to
+re-type facts the system already holds.** Their Google-verified kkumail and the
+รหัส and ชื่อ they just typed are exactly what an admin needs; sending them to
+describe all of it again in free text loses the structure, loses the candidate
+matching, and costs them the effort. That is about duplicated work, not about
+which desk is allowed to help.
 
 The fix is that **the claim form is the report**. A student who types their รหัส
 and ชื่อ and gets no match has already handed over everything an admin needs:
@@ -168,9 +180,25 @@ stranger's record must not be able to act on it, because the rightful owner of
 that address may still be the person shown, and an edit would overwrite a real
 student's data on the word of whoever the wrong address happened to reach.
 
-### What still goes to VitalSound
+### The student can see it happened — and VitalSound is the follow-up
 
-Bugs and website problems. That link stays, and it is the correct one.
+An invisible queue is indistinguishable from being ignored, and that was the one
+thing a VitalSound ticket genuinely offered that this did not: a number and a
+status. So the empty card now shows the person their own receipt —
+*"ผู้ดูแลระบบบ้านได้รับเรื่องของคุณแล้ว เมื่อ …"* — and it disappears when the
+request is resolved, so its presence always means something is still open.
+
+It carries **nothing about the held list**. The admin's view computes near-miss
+candidates; showing the same to the student would say "somebody with your ชื่อ
+exists, with a different รหัส" — the membership oracle the neutral failure
+message exists to prevent.
+
+**After a week of waiting**, and only then, the card offers VitalSound (category
+**IT**) for talking to a person. That is the right order: automatic first because
+it costs the student nothing, a human second because by then they want one.
+
+Bugs and website problems go straight to VitalSound as before — that link on the
+populated card never moved, and it is correct.
 
 ## 7. What the file itself can do to you — fixed, listed for the record
 

@@ -251,6 +251,47 @@ insert into probe select '70. the admin''s promote closes actor 2''s open reques
   (select resolved_how from public.house_help_requests h join actor a on a.n = 2
     where h.kkumail = a.email);
 
+-- ── §I the student can see their own report, and ONLY that ─────────────────
+-- An invisible queue is indistinguishable from being ignored — the one thing a
+-- VitalSound ticket would have given them that this did not (0192).
+-- WHICH ACTOR IS IN WHICH STATE BY NOW, stated rather than assumed — the first
+-- version of this section used actor 2 for the positive case and read `null`,
+-- because §F's admin promote had already closed their report four steps earlier.
+-- A proof that assumes a subject's state instead of naming it is the fragility
+-- house0188 was rewritten for.
+--   actor 1 — open `not_me`, filed in §H
+--   actor 2 — CLOSED, by the admin promote in §F  → the control
+select pg_temp.as_actor(1);
+set local role authenticated;
+create temporary table mystatus on commit drop as
+  select public.my_house_help_status() as v;
+reset role;
+
+insert into probe select '80. the reporter sees their own open report', 'not_me',
+  (select v->>'kind' from mystatus);
+
+insert into probe select '81. …with when it was filed', 'true',
+  (select ((v->>'created_at') is not null)::text from mystatus);
+
+-- ⛔ IT MUST NOT LEAK THE NEAR MISS. The admin's list computes candidate held
+-- rows; handing the same thing to the student would say "somebody with your ชื่อ
+-- exists, with a different รหัส" — the membership oracle the neutral message in
+-- §C exists to prevent. The receipt says THAT and WHEN, never what was found.
+insert into probe select '82. …and NOTHING about the held list', 'false',
+  (select ((v ? 'candidates') or (v ? 'showing'))::text from mystatus);
+
+-- CONTROL for 80: somebody whose report is CLOSED gets null, so 80 is not
+-- passing on a function that answers for everyone. It also pins the thing the
+-- student most needs to be true — the receipt disappears when the problem is
+-- actually dealt with, rather than sitting there implying it never was.
+select pg_temp.as_actor(2);
+set local role authenticated;
+insert into attempt select 'nostatus', coalesce(public.my_house_help_status(), 'null'::jsonb);
+reset role;
+
+insert into probe select '83. …and someone whose report was RESOLVED sees nothing', 'null',
+  (select r::text from attempt where k = 'nostatus');
+
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
        expected, got

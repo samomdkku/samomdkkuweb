@@ -604,9 +604,15 @@ describe('a student who cannot get in is not sent to VitalSound', () => {
     // with their verified address). If this promise disappears from the copy
     // while the behaviour stays, the student is left thinking nobody heard —
     // which is the state this replaced.
+    //
+    // ASSERTED AS THE PROPERTY, not the sentence. The first version pinned the
+    // exact phrase "ไม่ต้อง…แจ้งซ้ำ" and went red on a copy edit that said the
+    // same thing better ("กรอกซ้ำ" — the point is not re-TYPING, not that you
+    // may not ask elsewhere). A guard that fails on rewording trains people to
+    // edit the guard.
     const html = paint('nobody@kkumail.com');
-    expect(html).toMatch(/แจ้งผู้ดูแล/);
-    expect(html).toMatch(/ไม่ต้อง.*แจ้งซ้ำ/);
+    expect(html, 'the card must promise somebody is told').toMatch(/แจ้งผู้ดูแล/);
+    expect(html, 'and that they need not repeat themselves').toMatch(/ไม่ต้อง.*ซ้ำ/);
   });
 
   it('the NON-kkumail card still just tells them to switch accounts', () => {
@@ -660,5 +666,45 @@ describe('"ไม่ใช่ข้อมูลของฉัน" — the only 
     const fn = CODE.slice(CODE.indexOf("notmeForm?.addEventListener"),
       CODE.indexOf("notmeForm?.addEventListener") + 900);
     expect(fn).not.toMatch(/host\.addEventListener/);
+  });
+});
+
+describe('the receipt — an invisible queue is being ignored (0192)', () => {
+  it('the empty card reserves a slot for it, hidden until there is one', () => {
+    const h = host();
+    renderMyHouse(h, null, { signedIn: true, account: 'nobody@kkumail.com' });
+    expect(h.innerHTML).toContain('data-house-receipt');
+    // Hidden by default: a student with no report must not see an empty box
+    // implying something was filed.
+    expect(h.innerHTML).toMatch(/data-house-receipt[^>]*hidden/);
+  });
+
+  it('the card does not WAIT on it', () => {
+    // A student whose record is missing must not also wait on a second round
+    // trip to be told so. renderMyHouse is sync and paints the receipt after.
+    const fn = CODE.slice(CODE.indexOf('function paintHelpReceipt'),
+      CODE.indexOf('function paintHelpReceipt') + 1200);
+    expect(fn).toMatch(/try\s*{\s*st = await fetchMyHelpStatus\(\);/);
+    expect(fn, 'a failed receipt must leave the card intact').toMatch(/catch/);
+    expect(CODE).toMatch(/paintHelpReceipt\(host\);/);
+    expect(CODE, 'awaiting it would block the empty card')
+      .not.toMatch(/await paintHelpReceipt/);
+  });
+
+  it('VitalSound appears ONLY in the receipt path, never as the first step', () => {
+    // The correction: VitalSound is not confidential-only — `it / เครือข่าย` is
+    // an ordinary category — so it was never the wrong place, only the wrong
+    // FIRST step, because it asks a stuck student to re-type what we hold.
+    const fn = CODE.slice(CODE.indexOf('function paintHelpReceipt'),
+      CODE.indexOf('function paintHelpReceipt') + 1800);
+    expect(fn).toContain('/vssound');
+    // …and it is gated on having waited, not shown to everyone who misses once.
+    expect(fn).toMatch(/stale\s*\?/);
+
+    const empty = (() => { const h = host();
+      renderMyHouse(h, null, { signedIn: true, account: 'nobody@kkumail.com' });
+      return h.innerHTML; })();
+    expect(empty, 'the FIRST thing they see must not be a link to another team')
+      .not.toContain('vssound');
   });
 });
