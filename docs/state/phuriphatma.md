@@ -16,106 +16,223 @@ path named here must resolve.
 
 ---
 
-## ▶ HANDOFF 2026-09-14 (EVENING) — the roster is IN, and what is left
+## ▶ HANDOFF 2026-09-14 (EVENING) — ระบบบ้าน is LIVE with real students
 
-⚠️ **This is the newest block. The one below it is from earlier the same day and
-everything in its "DO THIS FIRST" is now done.** Both are kept: the earlier one
-holds the reasoning behind the cleaner's decisions, which still apply to the next
-file.
+**Read this whole block before touching ระบบบ้าน, ทีม SAMO or `people`.** It is
+written against the things that actually confused THIS session, not as a summary
+of what was done — `git log` has that.
 
-## ⛔ DO THIS FIRST
+⚠️ The block below this one is from earlier the same day. Everything in its
+"DO THIS FIRST" is now done. It is kept only for the reasoning behind the
+cleaner's per-row decisions, which still apply to the next file.
 
-1. **Nothing is owed.** No deploy owed, no migration unapplied, 2,114 tests and
-   43 live proofs green, production serving the current bundle. Start from
-   `STATE.md`.
-2. **The ONE open question is สาย 141/256** — below. It is a question for
-   ฝ่ายข้อมูล, not a thing to build.
+---
 
-## What happened
+# 0. WHAT YOU ARE ABOUT TO ASSUME, AND WHY IT IS WRONG
 
-**The 1,776-row ฝ่ายข้อมูล roster is imported.** 1,611 students · 165 held
-(152 self-claimable) · 0 flagged missing · 305 สาย · ten houses 153–169 each.
-Run as ONE transaction by `tools/house-import.mjs` (dry-run by default, rolls
-back, reads the post-state from inside the transaction). The loop start-to-finish
-is `skills/import-the-house-roster.md` — read that, not this block, when the next
-file arrives.
+Every line here cost this session real time or a wrong answer to the owner.
 
-⛔ **Upload `<base>.import.csv`, never `.clean.csv`.** The clean half is the one
-you reach for and it CLEARS the held list — 165 seats deleted and with them every
-student's ability to claim one. Guarded by `src/js/house/clean-csv.test.js`;
-write-up in `docs/mistakes/tooling-proofs.md`.
+**"ระบบบ้าน is still empty / still waiting for the file."**
+No. **1,611 real students are in it**, imported 2026-09-14, plus 165 held seats.
+Every screen you touch now has real people behind it. The previous handoff said
+"cleaned, verified, NOT imported" and was true for about four hours.
 
-## ⛔ THE ONE THING STILL OPEN — สาย 141/256
+**"The owner's file is somewhere I need to find or re-request."**
+It is `externaldata/house-import/2026-09-14-raw-from-data-dept.csv`, and it is
+**byte-identical to the one they sent** (`~/Downloads/รายชื่อสายรหัส 00-99 -
+รายชื่อ_received_from_data.csv`, same MD5 — checked). Nothing ever edits the raw
+file. `externaldata/` is gitignored and holds ~1,800 students' PII; **this repo is
+PUBLIC**, so never move any of it under `src/`, `docs/` or `tools/`, and never
+paste a row into chat.
 
-**สาย is a contiguous 1..N counter in four of six รุ่น. MD53 and MD54 both skip
-141 and repeat 256** — 115 positions each — with the รหัสนักศึกษา running
-straight through the gap (MD54: สาย 140 = …164-3, สาย 142 = …165-1, consecutive).
-If that is a drag-fill slip, **230 students are one สาย too high and their บ้าน
-is wrong**, because บ้าน is the last digit.
+**"`npm run house:gaps` / the cleaner tells me which file to upload."**
+The file to upload is **`<base>.import.csv`**. `.clean.csv` is the half labelled
+`นำเข้าได้` and it is the WRONG one — uploading it deletes the held list and with
+it 165 students' ability to claim a seat, while the run still says
+`นำเข้าเรียบร้อยแล้ว`. This is guarded (`src/js/house/clean-csv.test.js`) and
+written up (`docs/mistakes/tooling-proofs.md`), but the label still reads
+invitingly. **Read `skills/import-the-house-roster.md` before any import.**
 
-The question is drafted and sent; the owner is waiting on ฝ่ายข้อมูล. The admin
-tab now states it as arithmetic (สาย 141 missing from THREE รุ่น, one held row
-can account for one), so it cannot be forgotten.
+**"A settings flag tells me what the app does."**
+It does not. `house_settings.sai_self_edit_open` is `true` and has been
+**VESTIGIAL since 0125** — its own column comment says so, and students cannot
+edit their สาย at all. I read the flag, told the owner students could self-edit,
+and the owner corrected me. **The answer to "can a user do X" is the write PATH**:
+the RLS policies on the table (there is exactly ONE on `students`, admin-only),
+then the RPC a user actually calls, then whether that function has a branch for
+the column. Write-up in `docs/mistakes/postgres-schema.md`.
 
-✅ **The fix, if they say the column slipped, is ONE corrected re-import** — and
-this was verified, not assumed: no student can self-edit a สาย
-(`house_settings.sai_self_edit_open` has been VESTIGIAL since 0125 — I claimed
-otherwise from the flag and the owner corrected me), and บ้าน is
-`generated always as right(code,1)`, stored nowhere per student.
+**"The owner says there is test data, so I should clear and re-import."**
+The owner said exactly that and it was the wrong move. `students` was already
+100% clean — every row carried the import's batch id. The residue was in a
+DIFFERENT table: two test อาจารย์ attached to สาย **100 and 200**, which look
+synthetic and are REAL สาย, so twelve real students including the owner had a
+fake advisor. **Measure before believing the shape of a report.**
 
-## What shipped today
+**"ทีม SAMO and ระบบบ้าน disagree, so I need to reconcile names."**
+They do not disagree about anything, and did not even before this session's
+repair. The gap was one-directional SILENCE, not conflict — see §3.
 
-| | |
+**"I can re-derive the สาย question from the file."**
+You can, and it takes an hour. It is already done — §2. Do not redo it; act on it.
+
+---
+
+# 1. ORIENT IN FIVE MINUTES, FROM THE DATABASE NOT FROM PROSE
+
+Every number in any document decays. These do not:
+
+```bash
+npm run house:gaps          # who is missing what, grouped by who can fix it
+npm run deploy:owed         # is production current
+npm run migrate:status      # PENDING must be 0
+npm test                    # the suite
+node tools/db-query.mjs tools/house0194-import-fills-registry.sql   # §F asks
+                            # LIVE whether anybody disagrees with their placements
+```
+
+`tools/db-query.mjs` takes a FILE and runs on **PRODUCTION**. It ignores `--dev`;
+to reach samo-dev you must override the URL (recipe in `skills/ship-a-migration.md`).
+
+---
+
+# 2. ⛔ THE ONE OPEN QUESTION — สาย 141/256
+
+**This is the only thing genuinely unresolved, and it is a question for
+ฝ่ายข้อมูล, not a thing to build.**
+
+สายรหัส is a contiguous 1..N counter in four of the six รุ่น. **MD53 and MD54
+both skip สาย 141 and both repeat สาย 256** — 115 positions each — and the
+รหัสนักศึกษา run straight through the gap (MD54: สาย 140 = …164-3, สาย 142 =
+…165-1, consecutive; nobody is missing). Two independent years producing the
+identical skip-and-repeat at identical numbers is what a dragged column looks
+like, not what enrolment looks like.
+
+**If it is a slip, 230 students are one สาย too high and their บ้าน is wrong**,
+because บ้าน is the LAST DIGIT of สาย.
+
+- The question is drafted and was sent; the owner is waiting on ฝ่ายข้อมูล.
+- ฝ่ายข้อมูล had earlier said "likely correct"; the owner's instruction was
+  **import as-is and fix later if wrong**, which is what happened.
+- The admin tab now states it as arithmetic so it cannot be forgotten:
+  ระบบบ้าน → **ข้อมูลไม่ครบ** → *เลขสายเดียวกันหายไปจากหลายรุ่นพร้อมกัน*.
+
+✅ **The repair, if they confirm a slip, is ONE corrected re-import** — verified,
+not assumed: no student can self-edit a สาย, and `sais.house_id` is
+`generated always as right(code,1)` with บ้าน stored nowhere per student. So
+re-running `tools/house-import.mjs` on a corrected file fixes everyone with
+nothing to unpick.
+
+⛔ **Do NOT "fix" the สาย numbers yourself.** Re-deriving สาย = row position is
+the guess the entire cleaner refuses to make, and a wrong สาย is a real student
+in the wrong บ้าน.
+
+---
+
+# 3. HOW THE THREE TABLES RELATE — the thing worth knowing before any edit
+
+```
+                     public.people          ← THE REGISTRY. One row per human.
+                    (identity lives here)     kkumail is the identity.
+                      ↑            ↓
+         student_*_mirror_up   person_mirror_down
+                      ↑            ↓
+   public.students  ←──┘            └──→  public.team_members
+   (ระบบบ้าน placement)                    (ทีม SAMO placement)
+    sai_code lives here                    node_id, permissions live here
+    and NEVER travels up                   and NEVER travel up
+```
+
+**Everything flows through `people`.** Both placements are mirrored from it, and
+both mirror up into it. Three rules that are easy to get wrong:
+
+1. **`person_mirror_down` is `AFTER UPDATE **OF** <column list>`.** An update
+   that names no listed column fires NOTHING. `set updated_at = now()` is not a
+   touch — it is a no-op. To wake the mirror, assign a listed column, even to
+   itself: `update people set kkumail = kkumail where …`. I lost a loop to this;
+   it ran 1,000 no-op writes before I killed it.
+2. **The registry wins over import data, but only where it HAS a value** (0189 +
+   0194). A NULL is a hole, not a curated value.
+3. **Repointing a placement's `person_id` does not touch the person**, so no
+   mirror fires and the placement keeps its old values until you wake one.
+
+**Current state: 0 disagreements anywhere.** Re-check or repair after any import:
+
+```bash
+node tools/house-sync-registry.mjs            # DRY RUN, counts the holes
+node tools/house-sync-registry.mjs --commit   # fills them, batched
+```
+
+It never overwrites — every column is `coalesce(REGISTRY, house)`. It batches
+because each registry write cascades through eleven triggers (~0.9 s per person);
+the whole set in one statement times out.
+
+---
+
+# 4. WHAT IS OWED — all five are HUMAN jobs, none is code
+
+| # | Owed | Who |
+|---|---|---|
+| 1 | **The สาย 141/256 answer** (§2) | ฝ่ายข้อมูล |
+| 2 | **25 ทีม SAMO members have no kkumail anywhere** — all hold real ตำแหน่ง (หัวหน้าฝ่าย, เหรัญญิก, เลขานุการ, ประธาน…). They cannot sign in, cannot see their บ้าน, cannot get a Discord role. Nothing matches them to a student. List: `externaldata/house-import/2026-09-14-teamsamo-no-kkumail.md`; query shape is `people where kkumail is null` | a human who knows them |
+| 3 | **13 held rows only an admin can close** — 11 are ONE block, **MD52**. Send it back as "รุ่น 52 มี 11 คนที่ไม่มีรหัสนักศึกษาติดมา", not as eleven names. The other 2 are empty สาย slots (151, 274 in MD54) | ฝ่ายข้อมูล |
+| 4 | **Houses 1–9 have no name** — 1,611 students currently read "บ้าน 3" | owner |
+| 5 | **No อาจารย์ที่ปรึกษา in the system at all** | owner |
+
+⚠️ **On #5:** two advisors existed and were TEST rows on real สาย; they were
+deleted. **No release note may promise อาจารย์ที่ปรึกษา until real ones are
+entered** — one did, and had to be corrected before release.
+
+---
+
+# 5. WHAT SHIPPED, AND WHERE ITS ONE HOME IS
+
+| | one home |
 |---|---|
-| **0193** | keep what the file said in a cell the cleaner emptied — a removed address, and the รุ่น of a row with no รหัส. Evidence, never an identity |
-| **0194** | an import may FILL the registry, it may not OVERWRITE it |
-| `tools/house-import.mjs` | the pane's nine requests as one transaction, using the app's own parser |
-| `tools/house-gaps.mjs` + **ข้อมูลไม่ครบ tab** | everything missing/mismatched/odd, grouped by WHO CAN FIX IT |
-| `tools/house-sync-registry.mjs` | fills the holes an import leaves in `people`, batched |
-| `src/js/house/gaps.js` | the ONE definition of "a gap", imported by both the pane and the CLI |
+| **The import loop, start to finish** | `skills/import-the-house-roster.md` ← read this, not this block |
+| Clean a handover file | `tools/clean-house-csv.mjs` — decisions live in `MAIL_OWNER` / `NAME_FIX` so they re-apply to the next file, and a stale one reports itself |
+| Import | `tools/house-import.mjs` — ONE transaction, dry-run by default, uses the app's own parser |
+| Who is missing what | `src/js/house/gaps.js` — imported by BOTH the ข้อมูลไม่ครบ tab and `npm run house:gaps`, so they cannot disagree |
+| Sync the registry | `tools/house-sync-registry.mjs` |
+| 0193 | file evidence on a held row (a removed address, the รุ่น of a row with no รหัส) |
+| 0194 | an import may FILL the registry, not overwrite it |
 
-Proofs: `house0193-file-evidence.sql` 18/18, `house0194-import-fills-registry.sql`
-20/20, both watched failing first, both registered in `run-proofs.mjs`.
+Proofs: `house0193-file-evidence.sql`, `house0194-import-fills-registry.sql` —
+both registered in `run-proofs.mjs`, both watched failing first.
 
-## The state of the data, asked of production
+⚠️ **§F of the 0194 proof asserts over LIVE data.** It subtracts its own fixtures
+and prints `ข้าม — ฐานนี้ยังไม่มีรายชื่อ` on a database with no roster (samo-dev)
+rather than passing silently. If you copy that pattern, copy both halves.
 
-- **0** diffs registry ↔ ระบบบ้าน · **0** registry ↔ ทีม SAMO · **0** duplicate
-  people · **0** mis-pointed placements. §F of the 0194 proof asks this live.
-- 9 humans held TWO registry rows and were merged (3 on kkumail, 6 on รหัส +
-  full_name + ชื่อเล่น agreeing together). `people` 1705 → 1696.
-- The 2 identity conflicts were resolved to the FILE's spelling on the owner's
-  instruction (จุฑามาศ, เหง้าพรมนิล) — all three copies agree.
+---
 
-## Owed, and every one of them is a HUMAN job, not code
+# 6. MISTAKES WRITTEN UP TODAY — all of them mine
 
-1. **ฝ่ายข้อมูล: the สาย 141/256 answer.** Above.
-2. **25 ทีม SAMO members have no kkumail anywhere** — all holding real ตำแหน่ง
-   (หัวหน้าฝ่าย, เหรัญญิก, เลขานุการ, ประธาน…), none matchable to a student.
-   They cannot sign in, cannot see their บ้าน and cannot get a Discord role.
-   `node tools/house-gaps.mjs` does not list them (they are ทีม SAMO's, not
-   ระบบบ้าน's); the query is in this session's scratch, and the shape is
-   `people where kkumail is null`.
-3. **13 held rows only an admin can close** — 11 of them are ONE block, MD52.
-   Worth sending back as "รุ่น 52 มี 11 คนที่ไม่มีรหัสนักศึกษาติดมา" rather than
-   as eleven names. The other two are empty สาย slots (151, 274 in MD54).
-4. **Houses 1–9 have no name** — 1,611 students currently read "บ้าน 3".
-5. **No อาจารย์ที่ปรึกษา in the system at all.** Two existed; both were TEST
-   rows attached to สาย 100 and 200, which are REAL สาย, so twelve real students
-   — the owner among them — had a fake advisor. Deleted. ⚠️ **No release note may
-   promise advisors until real ones are entered** (one did, and was corrected).
+- `docs/mistakes/tooling-proofs.md` — **a tool emitted both halves of an answer
+  and neither was the file to upload.** The defect was the artefact BETWEEN two
+  correct outputs.
+- `docs/mistakes/postgres-schema.md` — **a settings flag that controlled
+  nothing**; **test data keyed on สาย that turned out to be real**; **"the
+  registry wins" implemented as "the import never speaks"**.
 
-## Mistakes written up today — all five are mine
+**Two more that are only in commit messages** (`b7dfd58`) and should become
+write-ups if they recur:
 
-`docs/mistakes/tooling-proofs.md` — a tool emitted both halves of an answer and
-neither was the file to upload. `docs/mistakes/postgres-schema.md` — a settings
-flag that controlled nothing; test data keyed on สาย that turned out to be real;
-"the registry wins" implemented as "the import never speaks".
+1. `AFTER UPDATE OF <cols>` does not fire for a column you did not name — so a
+   batch loop whose termination depends on a side effect must check **progress**,
+   not a pass counter.
+2. A proof that measures LIVE data must subtract its own fixtures, and must SAY
+   when it cannot ask instead of passing vacuously.
 
-⚠️ **The two loop bugs are in the 0194 commit message and belong in a write-up
-if they recur**: `AFTER UPDATE OF <cols>` does not fire for a column you did not
-name (so a `touch` fires nothing and a batch loop never terminates — check
-PROGRESS, not a pass counter), and a proof that measures LIVE data must subtract
-its own fixtures and must say when it cannot ask rather than passing silently.
+---
+
+# 7. HOW TO WRITE THE NEXT HANDOFF
+
+Put it at the **TOP** of this file, under a `##` heading in the same shape as
+these. `STATE.md` tells the next session to read the FIRST `## ▶ HANDOFF` block —
+the 2026-09-14 morning block was appended to the BOTTOM under a `#` and would
+never have been found. Carry **commands and reasoning, not counts**: every number
+written into prose here went stale within hours, and `git log` already has them.
 
 ---
 
