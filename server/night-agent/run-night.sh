@@ -45,6 +45,22 @@ HARD_STOP_UTC="${HARD_STOP_OVERRIDE:-20:30}"
 # queue stops here; everything after is handoff.
 RESERVE_UTC="${RESERVE_UTC_OVERRIDE:-19:40}"
 
+# ⛔ COMPARE INSTANTS, NOT STRINGS. The first version tested
+#     [[ "$(date -u +%H:%M)" > "$RESERVE_UTC" ]]
+# which is a LEXICOGRAPHIC compare and is simply wrong once a run crosses
+# midnight: starting at 23:25 with a deadline of 08:00, "23:25" > "08:00" is
+# true, so the queue was abandoned before task 1 and it went straight to the
+# handoff. It worked only because the original schedule (15:41 → 20:30) never
+# crossed a day boundary — the bug was always there, hidden by the timetable.
+# Resolve both bounds to epoch seconds ONCE, rolling to tomorrow when the target
+# has already passed today.
+to_epoch() {
+  local hhmm="$1" today tomorrow now
+  now=$(date -u +%s)
+  today=$(date -u -d "today $hhmm" +%s 2>/dev/null) || today=0
+  if [ "$today" -gt "$now" ]; then echo "$today"; else date -u -d "tomorrow $hhmm" +%s; fi
+}
+
 # ⛔ ONLY the Claude webhook, from a file holding ONLY that value — never
 # /etc/samo-notify.env, which also carries SUPABASE_SERVICE_ROLE_KEY. That key
 # bypasses every RLS policy over real student records, and putting it in this
@@ -120,6 +136,9 @@ print("discord: posted")
 PYEOF
 }
 
+RESERVE_EPOCH="$(to_epoch "$RESERVE_UTC")"
+HARD_EPOCH="$(to_epoch "$HARD_STOP_UTC")"
+
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG") 2>&1
 echo "=== samo night agent — started $(date -u +%FT%TZ) (ICT $(TZ=Asia/Bangkok date +%H:%M)) ==="
@@ -171,7 +190,7 @@ ${SHARED}
 done_n=0; fail_n=0; stop_reason="queue finished"; SUMMARY=""; UNRUN=0; NEEDS_DECISION=""; QUOTA_GONE=0
 
 for i in "${!STARTS[@]}"; do
-  if [[ "$(date -u +%H:%M)" > "$RESERVE_UTC" ]]; then
+  if [ "$(date -u +%s)" -ge "$RESERVE_EPOCH" ]; then
     stop_reason="stopped at $RESERVE_UTC UTC to reserve time for the handoff"
     UNRUN=$(( TOTAL - i )); break
   fi
@@ -278,7 +297,7 @@ run_one() {
 # re-reads what the earlier tasks produced, so it reviews work rather than
 # continuing half-remembered work.
 pass=0
-while [[ "$(date -u +%H:%M)" < "$RESERVE_UTC" ]] && [ "$UNRUN" -eq 0 ] \
+while [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
       && [ "$QUOTA_GONE" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ]; do
   pass=$((pass+1))
   [ "$pass" -gt 6 ] && { echo "(stopping after 6 revision passes — diminishing returns)"; break; }
