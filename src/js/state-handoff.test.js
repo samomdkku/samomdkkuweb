@@ -57,6 +57,12 @@ function namedPaths(md) {
  * exemption is how a real broken pointer gets parked here and forgotten.
  */
 const ABSENT_ON_PURPOSE = {
+  'tools/house-year-sheets.mjs':
+    'EXISTS ONLY ON THE VM, and that is the point of the handoff entry naming it. The night agent of 2026-09-15 produced it on branch agent/2026-09-15-night1 in ~/samo-agent on the KKU VM, which holds no GitHub credentials and therefore cannot push. The 2026-09-16 handoff names it to say so — one copy, unreviewed, one `ssh` away from being lost. Delete this exemption the moment that branch is reviewed and landed on main, because then the path is real and the guard should check it again.',
+  'src/js/house/year-sheet-csv.js':
+    'EXISTS ONLY ON THE VM, and that is the point of the handoff entry naming it. The night agent of 2026-09-15 produced it on branch agent/2026-09-15-night1 in ~/samo-agent on the KKU VM, which holds no GitHub credentials and therefore cannot push. The 2026-09-16 handoff names it to say so — one copy, unreviewed, one `ssh` away from being lost. Delete this exemption the moment that branch is reviewed and landed on main, because then the path is real and the guard should check it again.',
+  'src/js/house/self-claim.test.js':
+    'EXISTS ONLY ON THE VM, and that is the point of the handoff entry naming it. The night agent of 2026-09-15 produced it on branch agent/2026-09-15-night1 in ~/samo-agent on the KKU VM, which holds no GitHub credentials and therefore cannot push. The 2026-09-16 handoff names it to say so — one copy, unreviewed, one `ssh` away from being lost. Delete this exemption the moment that branch is reviewed and landed on main, because then the path is real and the guard should check it again.',
   '.claude/rules/mistakes-archive.md':
     'deleted; STATE.md names it only to say "do not re-create it" — it lived in the auto-loaded directory, so archiving into it saved nothing',
   'docs/state-archive/YYYY-MM-DD.md':

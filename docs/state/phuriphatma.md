@@ -16,6 +16,85 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-16 (early) — the night agent is RUNNING, and what it is holding
+
+**A run started 23:26Z (06:26 ICT) and works until 08:00Z, handing off by 08:45Z.**
+Check it from a phone: the silent Discord posts in the night-agent channel.
+
+```bash
+ssh samo-vm 'systemctl is-active samo-night-agent.service'
+ssh samo-vm 'tail -40 $(ls -t ~/samo-night/logs/*.log | head -1)'
+ssh samo-vm 'cd ~/samo-agent && git log --oneline main..HEAD'
+```
+
+### ⛔ GAP — 1,311 insertions are stranded on the VM and nobody has read them
+
+Night 1 (2026-09-15) produced REAL work that its own report hid: it said "(no
+changes)" because the agent commits its own work and the runner only asked
+`git status`. Preserved on branch **`agent/2026-09-15-night1`** on the VM:
+
+| file | what |
+|---|---|
+| `docs/house-year-handover…` | the per-รุ่น handover plan |
+| `src/js/house/self-claim.test.js` | **410 lines** — the "how do I test what a kkumail-holder with no ระบบบ้าน row sees" question, answered |
+| `tools/house-year-sheets.mjs` + `src/js/house/year-sheet-csv.js` | the per-รุ่น CSV generator |
+| `src/js/house/gaps.js` | +126 lines |
+
+⛔ **The VM cannot push** (no GitHub credentials), so this exists in exactly one
+place. It is UNREVIEWED and UNVERIFIED against the live database — the agent has
+neither DB nor Google access by design. Review before trusting any of it:
+
+```bash
+ssh samo-vm 'cd ~/samo-agent && git diff main..agent/2026-09-15-night1'
+```
+
+Note it claims `npm test` was 2140/2141 with one PRE-EXISTING failure, and that
+`npm run build` OOMs on the 2 GB VM. Neither is confirmed — check both yourself.
+
+### What is owed, in order
+
+1. **Review and land `agent/2026-09-15-night1`** (above), and whatever tonight's
+   run adds on `agent/2026-09-16`.
+2. **Send the ฝ่ายข้อมูล question.** Drafted, sendable Thai, on that branch. It
+   asks the two things blocking real students: the สาย 141/256 skip-and-repeat in
+   MD53+MD54, and the roster arriving as 1,775 rows of `MD` with ZERO `MDI`/`RT`
+   while `docs/house-data-spec-th.md` asks for all three. **48 people cannot be
+   placed until they answer.**
+3. **`PASSPORT_GAS_SCRIPT_ID`** — one line in the repo root `.env.local`, so
+   `deploy:gas:passport` can deploy (it can already `--verify`). ⚠️ NOT the bare
+   `GAS_SCRIPT_ID` in that file, which is samoweb's project. `HANDOFF.md` §3.
+4. **3 more overclaiming labels** found by the audit, logged as `HANDOFF.md` §16
+   on the night-1 branch. None fixed.
+5. **ธีรภัทร ฝ่ายจำปา** still needs a kkumail — nobody has one. `HANDOFF` above.
+
+### The night agent — where it lives and what bit us
+
+Everything is version-controlled at **`server/night-agent/`** (it used to exist
+only on the VM). `bash server/night-agent/install.sh --run` deploys and launches.
+Full notes: `skills/night-agent.md`.
+
+**Four bugs cost a night between them; each looked fine in theory:**
+- `dontAsk` is DENY-by-default — the agent could not write at all. Use
+  `bypassPermissions`, which still honours deny rules.
+- A `Write(path)` deny rule is silently ignored; only `Edit(path)` applies.
+- A `Read(path)` deny rule does NOT stop `cat` through Bash. The deploy tree's
+  `.env.local` (holding `SUPABASE_SERVICE_ROLE_KEY`) needed kernel-level
+  `InaccessiblePaths=`. **The agent found this itself and reported it.**
+- The deadline check compared CLOCK STRINGS, so `"23:25" > "08:00"` abandoned the
+  queue before task 1. Hidden for a week because the scheduled 15:41→20:30 run
+  never crosses midnight.
+
+**And the real cause of night 1's failure was none of my two guesses.** Not
+quota — the log has no `session limit` anywhere. It was
+`401 OAuth access token has expired`: the token lives ~2 h,
+`samo-claude-usage.timer` only renews it under 10 minutes of remaining life, and
+a long run walks into the gap. `run_claude()` now retries once after 90 s.
+
+⚠️ **It shares ONE quota pool with every human on the account.** It is not
+allocated a window. If you are working at 23:30, it gets what you leave.
+
+---
+
 ## ▶ HANDOFF 2026-09-15 (LATEST) — 34 people placed; 51 left, 48 of them blocked on ฝ่ายข้อมูล
 
 **Two repairs ran, both with snapshots.** `house0196` merged 24 duplicate people;
