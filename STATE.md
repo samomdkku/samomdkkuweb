@@ -34,7 +34,7 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f42dde8` (2026-09-15)** — v4.7.0 still, read back from the VM's
+- ✅ **DEPLOYED = `6cc8b60` (2026-09-15)** — v4.7.0 still, read back from the VM's
   own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **34 s**
   (baseline); docs step RAN, roots 13 s apart. SERVED: `smoke:browser` 17/17 incl. the passport admin's ⬆️ Upload control check (3/3 — it read **0/3** before the 5deb48e deploy). ระบบบ้าน's ที่มาของตัวเลข + ข้อมูลครบแค่ไหน panels grep 1 each in `admin-DaYVl8Jy.js`. Earlier: the evening handoff greps 1 at `/docs/state/phuriphatma`; the 2 remaining `vssound` refs are BUG links, which stay.
   string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
