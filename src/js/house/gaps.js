@@ -174,12 +174,25 @@ export function computeGaps(d = {}) {
   // system in its own words.
   if (!students.length && !held.length) return { groups: [], actionable: 0 };
 
+  // WHICH POPULATION EACH COUNT IS OUT OF.
+  //
+  // REPORTED: "isn't people who doesn't have student id and doesn't have kkumail
+  // already included in รายชื่อที่ยังนำเข้าไม่ได้, making it appear in ข้อมูลไม่ครบ
+  // misleading". Yes — and the answer is not to drop the group, because the 13
+  // ARE the only thing on this screen an admin has to act on. It is that the
+  // screen never said the 13 and the 152 are one population split by owner, nor
+  // that neither is inside นักศึกษาทั้งหมด. A count with no stated denominator
+  // invites exactly that reading. Every person-group now carries its own.
+  const SCOPE_HELD = `จาก ${held.length} คนที่ยังนำเข้าไม่ได้`;
+  const SCOPE_STUDENTS = `จากนักศึกษา ${students.length} คนที่นำเข้าแล้ว`;
+
   const groups = [
     {
       unit: 'คน',
       key: 'held_admin',
       tone: TONE.act,
       title: 'ไม่มีรหัสนักศึกษาในไฟล์',
+      scope: SCOPE_HELD,
       why: 'ยืนยันตัวตนเองไม่ได้ เพราะไม่มีอะไรให้จับคู่ ต้องมีคนที่รู้จักเขาเติมอีเมลให้ หรือส่งกลับไปถามฝ่ายข้อมูล',
       goto: 'held',
       count: heldAdmin.length,
@@ -277,6 +290,7 @@ export function computeGaps(d = {}) {
       key: 'no_sai',
       tone: TONE.watch,
       title: 'นักศึกษาที่ไม่มีสายรหัส',
+      scope: SCOPE_STUDENTS,
       why: 'ไม่มีสายแปลว่าไม่มีบ้าน คนกลุ่มนี้เข้าระบบแล้วจะไม่เห็นบ้านของตัวเอง',
       goto: 'students',
       count: noSai.length,
@@ -287,6 +301,7 @@ export function computeGaps(d = {}) {
       key: 'no_name',
       tone: TONE.watch,
       title: 'นักศึกษาที่ไม่มีชื่อหรือนามสกุล',
+      scope: SCOPE_STUDENTS,
       why: 'ไฟล์ไม่ได้ส่งชื่อมา เจ้าตัวกรอกเองได้ แต่ถ้ามีหลายคนแปลว่าไฟล์ขาดทั้งคอลัมน์',
       goto: 'students',
       count: noName.length,
@@ -297,6 +312,7 @@ export function computeGaps(d = {}) {
       key: 'gone',
       tone: TONE.watch,
       title: 'อยู่ในระบบ แต่ไม่อยู่ในไฟล์ล่าสุด',
+      scope: SCOPE_STUDENTS,
       why: 'ระบบไม่เคยลบใครทิ้ง แค่ทำเครื่องหมายไว้ — อาจลาออก ซ้ำชั้น หรือไฟล์รอบนี้ตกหล่น',
       goto: 'students',
       count: gone.length,
@@ -307,6 +323,7 @@ export function computeGaps(d = {}) {
       key: 'held_self',
       tone: TONE.tell,
       title: 'ยังนำเข้าไม่ได้ แต่ยืนยันตัวตนเองได้',
+      scope: SCOPE_HELD,
       why: 'ไฟล์มีรหัสนักศึกษาและชื่อ ขาดแค่ kkumail — เข้าสู่ระบบแล้วกรอกรหัสกับชื่อที่หน้าแรกได้เลย บอกเขาครั้งเดียวพอ',
       goto: 'held',
       count: heldSelf.length,
@@ -317,6 +334,7 @@ export function computeGaps(d = {}) {
       key: 'no_sid',
       tone: TONE.tell,
       title: 'นักศึกษาที่ไม่มีรหัสนักศึกษา',
+      scope: SCOPE_STUDENTS,
       why: 'เจ้าตัวกรอกเองได้ที่หน้าข้อมูลของฉัน — รุ่นจะคำนวณให้เองเมื่อกรอกแล้ว',
       goto: 'students',
       count: noSid.length,
@@ -327,6 +345,7 @@ export function computeGaps(d = {}) {
       key: 'no_nick',
       tone: TONE.tell,
       title: 'ไม่มีชื่อเล่น',
+      scope: SCOPE_STUDENTS,
       why: 'ไม่ต้องทำอะไร เจ้าตัวกรอกเองได้ และถ้าเขาอยู่ในทีม SAMO ระบบเติมให้จากที่นั่นแล้ว',
       goto: 'students',
       count: noNick.length,

@@ -57,6 +57,17 @@
 
     <div class="row g-3 mb-3" id="houseStats"></div>
 
+    <!-- ที่มาของตัวเลข — the reconciliation (0195).
+         REPORTED: "what do you mean นักศึกษาทั้งหมด 1,611, why in
+         การตรวจสอบข้อมูลของนักศึกษา it shows 1,696 คน. does the ยังนำเข้าไม่ได้
+         165 and ข้อมูลไม่ครบ 13 included in 1611 or 1696 or include in what."
+         Both totals were correct and the screen was still unreadable: it counts
+         three populations and labelled all of them as if they were "everyone".
+         When two totals on one screen count different things, the screen owes
+         the reader the arithmetic. Rendered by renderCensus(); the numbers come
+         from src/js/house/census.js, which is pure and tested. -->
+    <div id="houseCensus" class="mb-4"></div>
+
     <!-- สถานะการตรวจสอบข้อมูล + ปีการศึกษา (0141).
          REPORTED: "why would you let people ยืนยันข้อมูล, what will it be use
          for, if it's useful then show who already ยืนยัน or who's left, or else
@@ -65,6 +76,12 @@
          collect it is precisely to know who is left after the week. This strip
          is that answer, and the นักศึกษา list below has a matching filter. -->
     <div id="houseCheckStatus" class="mb-4"></div>
+
+    <!-- ความครบของข้อมูลรายช่อง — the five fields the owner named, counted for
+         each population SEPARATELY. Never summed: a student missing a ชื่อเล่น
+         and a held row missing one are fixed by different people on different
+         screens, and one of them has no account to fix anything with. -->
+    <div id="houseFieldHealth" class="mb-4"></div>
 
     <h6 class="text-muted small text-uppercase mb-2">บ้านทั้ง 10</h6>
     <div class="row g-3 mb-4" id="houseCards"></div>

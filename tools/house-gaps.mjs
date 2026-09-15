@@ -69,7 +69,12 @@ for (const tone of [TONE.act, TONE.watch, TONE.tell, TONE.setup]) {
   if (!inTone.length) continue;
   console.log(`\n── ${TONE_TH[tone]} ──────────────────────────────────`);
   for (const g of inTone) {
-    console.log(`  ${String(g.count).padStart(5)}  ${g.title}`);
+    // Print the DENOMINATOR too. The UI gained one on 2026-09-15 because a bare
+    // count read as its own population — "ข้อมูลไม่ครบ 13" looked like 13 people
+    // who were not already among the 165 ยังนำเข้าไม่ได้. This report is the other
+    // reader of the same computeGaps(), and leaving it bare recreates the drift.
+    console.log(`  ${String(g.count).padStart(5)}  ${g.title}`
+      + (g.scope ? `  \x1b[2m(${g.scope})\x1b[0m` : ''));
   }
 }
 console.log(`\n  ต้องมีคนทำทั้งหมด ${actionable} อย่าง\n`);
@@ -93,7 +98,7 @@ for (const tone of [TONE.act, TONE.watch, TONE.tell, TONE.setup]) {
   if (!inTone.length) continue;
   md.push(`## ${TONE_TH[tone]}`, '');
   for (const g of inTone) {
-    md.push(`### ${g.title} — ${g.count}`, '', g.why, '');
+    md.push(`### ${g.title} — ${g.count}${g.scope ? ` (${g.scope})` : ''}`, '', g.why, '');
     if (g.rows.length) {
       md.push('| | | |', '|---|---|---|');
       g.rows.forEach((r) => md.push(`| ${r.name} | ${r.detail || ''} | ${r.hint || ''} |`));

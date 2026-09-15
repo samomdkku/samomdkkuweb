@@ -47,6 +47,7 @@ import {
   CSV_COLUMN_LABEL,
 } from './io.js';
 import { computeGaps, TONE } from './gaps.js';
+import { computeCensus } from './census.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
@@ -372,6 +373,8 @@ function renderGaps() {
               <span class="badge bg-${t.cls}-subtle text-${t.cls}-emphasis border">${
   g.count.toLocaleString('th-TH')}${g.unit ? ` ${escHtml(g.unit)}` : ''}</span>
               <strong class="small">${escHtml(g.title)}</strong>
+              ${g.scope ? `<span class="badge rounded-pill text-bg-light border fw-normal small"
+                >${escHtml(g.scope)}</span>` : ''}
               ${g.goto ? `<button type="button"
                 class="btn btn-sm btn-link p-0 ms-auto text-decoration-none"
                 data-gap-goto="${escHtml(g.goto)}">ไปที่ ${escHtml(GAP_GOTO[g.goto] || g.goto)}
@@ -484,6 +487,7 @@ function renderOverview() {
   }
 
   renderCheckStatus();
+  renderCensus();
 
   const counts = new Map();
   for (const s of students) {
@@ -1346,6 +1350,162 @@ async function renderCheckList() {
  * read together: "everyone has checked their data" and "the year they checked it
  * against" are the same question a week before an event.
  */
+/**
+ * `identity_check_summary()`'s last answer, kept so the census can show the
+ * registry total without a second round trip. null until it arrives — and the
+ * census renders correctly without it rather than guessing.
+ */
+let lastCheckSummary = null;
+
+/** One row of the reconciliation tree. `note` is the label this number wears elsewhere. */
+function censusRow({ label, n, note = '', depth = 0, strong = false, muted = false }) {
+  const pad = depth * 1.25;
+  return `
+    <div class="d-flex align-items-baseline gap-2 py-1 ${muted ? 'text-muted' : ''}"
+         style="padding-inline-start:${pad}rem">
+      ${depth ? '<span class="text-muted small" aria-hidden="true">└</span>' : ''}
+      <span class="${strong ? 'fw-semibold' : ''}">${escHtml(label)}</span>
+      ${note ? `<span class="badge rounded-pill text-bg-light border fw-normal">${escHtml(note)}</span>` : ''}
+      <span class="flex-grow-1 border-bottom border-1 opacity-25" style="min-width:1rem"></span>
+      <span class="${strong ? 'fw-semibold fs-5' : ''} font-monospace">${n === null ? '—' : n.toLocaleString('th-TH')}</span>
+      <span class="small text-muted">คน</span>
+    </div>`;
+}
+
+/**
+ * ที่มาของตัวเลข — WHICH POPULATION EACH TOTAL ON THIS SCREEN COUNTS.
+ *
+ * REPORTED: "what do you mean นักศึกษาทั้งหมด 1,611, why in
+ * การตรวจสอบข้อมูลของนักศึกษา it shows 1,696 คน. does the ยังนำเข้าไม่ได้ 165 and
+ * ข้อมูลไม่ครบ 13 included in 1611 or 1696 or include in what."
+ *
+ * Every number on the old screen was CORRECT, which is what made it hard. The
+ * page counts three different populations — the roster file, the house
+ * placements, the registry — and printed a total from each, every one labelled
+ * as though it were everyone. The reader was left to work out that the held 165
+ * are in NEITHER headline, and that the 13 is not a fourth group but the
+ * admin-owned third of that 165.
+ *
+ * So the fix is not a better label on any one number: it is showing the
+ * arithmetic, once, where the numbers are. Each line carries the name it wears
+ * on its own tab, so a reader can match what they are looking at to where it
+ * came from.
+ */
+function renderCensus() {
+  const host = $('houseCensus');
+  if (!host) return;
+  // Nothing to reconcile before the first import — and a panel that explains an
+  // empty system is noise on the healthy case. The ภาพรวม note already covers it.
+  if (!students.length && !held.length) { host.innerHTML = ''; return; }
+
+  const c = computeCensus({ students, held, registryPeople: lastCheckSummary?.people });
+
+  host.innerHTML = `
+    <div class="card">
+      <div class="card-body py-3">
+        <h6 class="mb-1"><i class="bi bi-diagram-2"></i> ที่มาของตัวเลขในหน้านี้</h6>
+        <p class="small text-muted mb-3">
+          หน้านี้นับคนอยู่ <strong>สามกลุ่ม</strong> ที่ไม่เท่ากัน
+          ตัวเลขทุกตัวถูกต้อง แต่คนละกลุ่มกัน — ตารางนี้บอกว่าตัวไหนอยู่ในตัวไหน
+        </p>
+
+        <div class="mb-3">
+          ${censusRow({ label: 'รายชื่อทั้งหมดที่ได้จากฝ่ายข้อมูล', n: c.roster, strong: true })}
+          ${censusRow({ label: 'นำเข้าแล้ว — มีสายรหัส มีบ้าน', n: c.students, depth: 1, note: 'คือ “นักศึกษาทั้งหมด”' })}
+          ${censusRow({ label: 'ยังนำเข้าไม่ได้ — ยังไม่มีบัญชีในระบบ', n: c.held, depth: 1, note: 'แท็บ “ยังนำเข้าไม่ได้”' })}
+          ${censusRow({ label: 'เจ้าตัวยืนยันเองได้ เมื่อเข้าสู่ระบบ', n: c.heldSelf, depth: 2, muted: true })}
+          ${censusRow({ label: 'ต้องมีคนทำให้ — ไม่มีรหัสนักศึกษาในไฟล์', n: c.heldAdmin, depth: 2, note: 'คือ “ข้อมูลไม่ครบ”' })}
+        </div>
+
+        <div class="mb-3">
+          ${censusRow({ label: 'ทุกคนที่ระบบรู้จัก (มีบัญชีแล้ว)', n: c.registry, strong: true, note: 'คือ “การตรวจสอบข้อมูล”' })}
+          ${censusRow({ label: 'นักศึกษาที่นำเข้าแล้ว', n: c.students, depth: 1, muted: true })}
+          ${censusRow({ label: 'สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ', n: c.teamOnly, depth: 1, muted: true })}
+        </div>
+
+        <div class="alert alert-light border mb-0 py-2 small">
+          <i class="bi bi-info-circle"></i>
+          <strong>${c.held.toLocaleString('th-TH')} คนที่ยังนำเข้าไม่ได้ ไม่ได้ถูกนับอยู่ใน
+          ${c.students.toLocaleString('th-TH')} และไม่ได้ถูกนับใน
+          ${c.registry ? c.registry.toLocaleString('th-TH') : '—'}</strong>
+          — เขายังไม่มีบัญชีในระบบ เป็นแค่บรรทัดในไฟล์ที่ยังจับคู่กับใครไม่ได้<br />
+          และ <strong>${c.heldAdmin.toLocaleString('th-TH')} ใน “ข้อมูลไม่ครบ” ไม่ใช่คนอีกกลุ่มหนึ่ง</strong>
+          — เป็นส่วนหนึ่งของ ${c.held.toLocaleString('th-TH')} คนนั้น
+          (${c.heldAdmin.toLocaleString('th-TH')} + ${c.heldSelf.toLocaleString('th-TH')}
+          = ${c.held.toLocaleString('th-TH')}) แยกตามว่า<em>ใครแก้ได้</em>
+        </div>
+      </div>
+    </div>`;
+
+  renderFieldHealth(c);
+}
+
+/** One cell of the field matrix: either "ครบ" or a count that jumps to the list. */
+function fieldCell(missing, total, goto, optional) {
+  if (!missing) {
+    return '<span class="text-success small"><i class="bi bi-check2"></i> ครบทุกคน</span>';
+  }
+  const tone = optional ? 'text-body-secondary' : 'text-danger fw-semibold';
+  return `<button type="button" class="btn btn-link btn-sm p-0 ${tone}" data-house-goto="${goto}">
+      ${missing.toLocaleString('th-TH')} คน<span class="text-muted fw-normal small">
+      / ${total.toLocaleString('th-TH')}</span>
+    </button>`;
+}
+
+/**
+ * ความครบของข้อมูลรายช่อง — the five fields the owner named, per population.
+ *
+ * REQUESTED: "it should show who has ปัญหา error ข้อมูลผิด or ข้อมูลหาย in ชื่อ,
+ * นามสกุล, ชื่อเล่น, รหัสนักศึกษา, สาย".
+ *
+ * ⛔ THE TWO COLUMNS ARE NEVER ADDED TOGETHER. A student missing a ชื่อเล่น and a
+ * held row missing one are different problems with different owners: the first
+ * signs in and types it, the second has no account to sign in with. Summing them
+ * produces a number that describes nobody — which is the same mistake the totals
+ * above were already making, one level down.
+ */
+function renderFieldHealth(c) {
+  const host = $('houseFieldHealth');
+  if (!host) return;
+  if (!students.length && !held.length) { host.innerHTML = ''; return; }
+
+  const rows = c.fields.map((f) => `
+    <tr>
+      <th scope="row" class="fw-normal">
+        ${escHtml(f.label)}
+        ${f.optional ? '<span class="badge text-bg-light border fw-normal ms-1">ไม่บังคับ</span>' : ''}
+      </th>
+      <td class="text-end">${fieldCell(f.students, f.studentsTotal, 'students', f.optional)}</td>
+      <td class="text-end">${fieldCell(f.held, f.heldTotal, 'held', f.optional)}</td>
+    </tr>`).join('');
+
+  host.innerHTML = `
+    <div class="card">
+      <div class="card-body py-3">
+        <h6 class="mb-1"><i class="bi bi-list-check"></i> ข้อมูลครบแค่ไหน แยกทีละช่อง</h6>
+        <p class="small text-muted mb-3">
+          นับ<strong>แยกกัน</strong>สองกลุ่ม เพราะคนละคนแก้ —
+          นักศึกษาที่นำเข้าแล้วแก้เองได้เมื่อเข้าสู่ระบบ
+          ส่วนคนที่ยังนำเข้าไม่ได้ยังไม่มีบัญชีให้แก้ ตัวเลขสองช่องนี้จึงห้ามเอามาบวกกัน
+        </p>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr class="small text-muted">
+                <th scope="col">ช่อง</th>
+                <th scope="col" class="text-end">นักศึกษาที่นำเข้าแล้ว
+                  <span class="d-block fw-normal">${c.students.toLocaleString('th-TH')} คน</span></th>
+                <th scope="col" class="text-end">ยังนำเข้าไม่ได้
+                  <span class="d-block fw-normal">${c.held.toLocaleString('th-TH')} คน</span></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+
 async function renderCheckStatus() {
   const host = $('houseCheckStatus');
   if (!host) return;
@@ -1357,6 +1517,10 @@ async function renderCheckStatus() {
       fetchAcademicYearStatus().catch(() => null),
     ]);
   } catch { /* a status strip must never take the page down with it */ }
+  // Publish it for renderCensus(): the registry total is the OTHER number on
+  // this screen, and the census cannot explain the gap between them without it.
+  // It renders again here because the first pass ran before this fetch landed.
+  if (sum) { lastCheckSummary = sum; renderCensus(); }
   if (!sum && !ay) { host.innerHTML = ''; return; }
 
   const people = Number(sum?.people || 0);
@@ -2399,6 +2563,20 @@ function wire() {
   const gapAll = $('houseGapShowAll');
   if (gapAll) {
     gapAll.addEventListener('change', (e) => { gapShowAll = e.target.checked; renderGaps(); });
+  }
+
+  // The field-health matrix jumps to the list a cell is about. Delegated on the
+  // STATIC container for the same reason as above — renderFieldHealth() repaints
+  // its contents on every overview render, and a listener per paint is a leak
+  // this repo has shipped before.
+  const fieldHost = $('houseFieldHealth');
+  if (fieldHost) {
+    fieldHost.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-house-goto]');
+      if (!btn) return;
+      mode = btn.dataset.houseGoto;
+      render();
+    });
   }
 
   document.querySelectorAll('[data-house-mode]').forEach((btn) => {

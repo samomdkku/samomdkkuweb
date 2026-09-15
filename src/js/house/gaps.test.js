@@ -219,3 +219,60 @@ describe('who owns each group', () => {
     }
   });
 });
+
+
+// ============================================================
+// EVERY PERSON-COUNT SAYS WHAT IT IS OUT OF (2026-09-15).
+//
+// REPORTED: "isn't people who doesn't have student id and doesn't have kkumail
+// already included in รายชื่อที่ยังนำเข้าไม่ได้, making it appear in ข้อมูลไม่ครบ
+// misleading". It was. The 13 and the 152 are one population split by owner, and
+// neither is inside นักศึกษาทั้งหมด — but every group printed a bare number, so
+// there was nothing on screen to read that from.
+// ============================================================
+describe('every person-group states its denominator', () => {
+  const REAL = {
+    students: Array.from({ length: 1611 }, (_, i) => ({
+      id: `s${i}`, first_name_th: 'ก', last_name_th: 'ข', student_id: `67307${i}`,
+      sai_code: String((i % 250) + 1).padStart(3, '0'), nickname_imported: 'เอ',
+    })),
+    held: Array.from({ length: 165 }, (_, i) => ({
+      id: `h${i}`, first_name_th: i < 2 ? '' : 'ค', last_name_th: 'ง',
+      student_id: i < 13 ? '' : `67307h${i}`, sai: '099', resolved_at: null,
+    })),
+  };
+
+  it('⛔ names the population behind every count of people', () => {
+    const { groups } = computeGaps(REAL);
+    const people = groups.filter((g) => g.unit === 'คน' && g.count > 0
+      && ['held_admin', 'held_self', 'no_sai', 'no_name', 'no_sid', 'no_nick', 'gone'].includes(g.key));
+    expect(people.length, 'no person-groups produced — the fixture stopped exercising this')
+      .toBeGreaterThan(0);
+    const bare = people.filter((g) => !g.scope).map((g) => g.key);
+    expect(bare, [
+      `these groups print a count of people with no stated denominator: ${bare.join(', ')}`,
+      'A bare number invites the reading that it is a separate population. It is',
+      'what made "ข้อมูลไม่ครบ 13" look like 13 people who were NOT already among',
+      'the 165 ยังนำเข้าไม่ได้. Give it a `scope`.',
+    ].join('\n')).toEqual([]);
+  });
+
+  it('the two held groups say they come from the SAME held population', () => {
+    const { groups } = computeGaps(REAL);
+    const admin = groups.find((g) => g.key === 'held_admin');
+    const self = groups.find((g) => g.key === 'held_self');
+    expect(admin.count + self.count, 'held_admin + held_self must BE the held total')
+      .toBe(REAL.held.length);
+    expect(admin.scope).toBe(self.scope);
+    expect(admin.scope).toContain(String(REAL.held.length));
+  });
+
+  it('a student-group does NOT claim the held denominator', () => {
+    const { groups } = computeGaps(REAL);
+    const nick = groups.find((g) => g.key === 'no_nick');
+    if (nick?.scope) {
+      expect(nick.scope, 'a count over students must not name the held total')
+        .not.toBe(groups.find((g) => g.key === 'held_admin').scope);
+    }
+  });
+});
