@@ -16,6 +16,42 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-15 — the numbers on the ระบบบ้าน overview now explain themselves
+
+**The owner asked which total each number was inside, and the screen could not
+answer.** All four were correct; there were just three populations on one page,
+each labelled as if it were everyone. Measured from production 2026-09-15:
+
+| | rows | what it is |
+|---|---|---|
+| the file ฝ่ายข้อมูล sent | **1,776** | `.csv` row count, reconciles exactly |
+| `students` | **1,611** | placed — has a สาย and a บ้าน. "นักศึกษาทั้งหมด" |
+| `student_import_unresolved` | **165** | held. 152 self-claimable · 11 no รหัส · 2 empty rows |
+| `people` | **1,696** | every ACCOUNT = 1,611 students + 85 ทีม SAMO-only |
+
+- **1,611 + 165 = 1,776.** The held are in NEITHER headline: no `students` row and
+  no `people` row — a held seat is a line from a file, not an account.
+- **ข้อมูลไม่ครบ's 13 is not a fourth group**; it is the admin-owned third of the
+  same 165 (13 + 152 = 165), split by who can fix it. The owner spotted this
+  before anyone else did, and they were right that it read as double-counting.
+- **1,585 of the 1,611 have no gap at all.** The only student-side gap is 26
+  missing ชื่อเล่น, which is optional. ชื่อ / นามสกุล / รหัส / สาย are 100% complete.
+- Held-side per field: ชื่อ 2 · นามสกุล 2 · ชื่อเล่น 41 · รหัส 13 · สาย 0.
+
+Shipped `d774f51`: `src/js/house/census.js` (pure + tested) renders a
+ที่มาของตัวเลข reconciliation and a per-field matrix; every person-group in
+ข้อมูลไม่ครบ now states its denominator, in the pane and in `npm run house:gaps`.
+
+⚠️ **ONE THING FOUND AND NOT ACTED ON — it needs a human decision.**
+**10 of the 152 self-claimable held rows carry a รหัสนักศึกษา that ALREADY exists
+in `people`** (they are ทีม SAMO members with no `students` row). The import held
+them because the file had no kkumail, even though the registry already knows who
+they are by รหัส. Auto-placing them would mean **matching on รหัสนักศึกษา**, and
+[[team-identity-is-kkumail]] records exactly why that is unsafe here — there is a
+known case of ONE mistyped รหัส on TWO humans. Do not merge on it without asking.
+
+---
+
 ## ▶ HANDOFF 2026-09-14 (EVENING) — ระบบบ้าน is LIVE with real students
 
 **Read this whole block before touching ระบบบ้าน, ทีม SAMO or `people`.** It is
