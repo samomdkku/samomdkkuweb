@@ -38,12 +38,12 @@ BRANCH="agent/$(date -u +%Y-%m-%d)"
 
 # Stop 10 minutes before the window closes (03:40 ICT = 20:40 UTC) so a task
 # cannot be cut off mid-edit and leave the tree in a state nobody chose.
-HARD_STOP_UTC="20:30"
+HARD_STOP_UTC="${HARD_STOP_OVERRIDE:-20:30}"
 # ⛔ THE HANDOFF IS RESERVED TIME, NOT THE LAST ITEM IN THE QUEUE.
 # As the last task it would be the first thing lost when the queue overran — and
 # a night whose work is undocumented is a night the owner cannot use. The main
 # queue stops here; everything after is handoff.
-RESERVE_UTC="19:40"
+RESERVE_UTC="${RESERVE_UTC_OVERRIDE:-19:40}"
 
 # ⛔ ONLY the Claude webhook, from a file holding ONLY that value — never
 # /etc/samo-notify.env, which also carries SUPABASE_SERVICE_ROLE_KEY. That key
@@ -64,6 +64,40 @@ if [ -r /etc/samo-agent.env ]; then
   unset DISCORD_NIGHT_AGENT_WEBHOOK DISCORD_CLAUDE_WEBHOOK
 fi
 
+
+
+# ── run_claude <promptfile-or-text> <outfile> — one call, with ONE retry on an
+# expired OAuth token.
+#
+# ⛔ THIS IS WHAT KILLED THE FIRST REAL NIGHT (2026-09-15). Tasks 1 and 2 ran
+# fine; task 3 died on
+#     Failed to authenticate. API Error: 401 OAuth access token has expired.
+# and so did 4 and 5. It was not quota — the log contains no "session limit" and
+# the 5-hour window was barely touched.
+#
+# The access token lives ~2 hours. `samo-claude-usage.timer` owns the refresh but
+# only renews when under 10 minutes of life remain, running every 15 minutes — so
+# there is a window in which the token is dead and nothing has yet renewed it. A
+# long unattended run walks into that window roughly every two hours.
+#
+# The retry costs one refused call and clears it, because starting a fresh
+# `claude` re-reads the credential file that the timer has since rotated.
+run_claude() {
+  local prompt="$1" out="$2" rc
+  timeout 3600 claude -p "$prompt" --permission-mode bypassPermissions \
+      --max-turns 120 --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
+  rc=$?
+  if grep -qiE '401|access token has expired|Failed to authenticate' "$out"; then
+    echo "!! OAuth token expired — waiting 90s for the refresh timer, then retrying ONCE"
+    sleep 90
+    timeout 3600 claude -p "$prompt" --permission-mode bypassPermissions \
+        --max-turns 120 --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
+    rc=$?
+    grep -qiE '401|access token has expired' "$out" \
+      && echo "!! still expired after retry — the credential needs \`claude login\` on the VM"
+  fi
+  return $rc
+}
 
 # ── post_discord <text> ──────────────────────────────────────────────────────
 # Always SILENT (flags 4096 = SUPPRESS_NOTIFICATIONS): it appears in the channel
@@ -149,6 +183,7 @@ for i in "${!STARTS[@]}"; do
 
   echo ""
   echo "--- [$((i+1))/$TOTAL] $title  ($(date -u +%H:%M)Z) ---"
+  before="$(git rev-parse HEAD)"
 
   out="$LOG_DIR/$STAMP-task$((i+1)).out"
   # `< /dev/null`: headless claude otherwise waits ~3s for stdin and warns.
@@ -162,10 +197,7 @@ for i in "${!STARTS[@]}"; do
   #
   # They live OUTSIDE the clone on purpose: some name real students, and this
   # repo is PUBLIC — inside the tree, `git add -A` would commit them.
-  timeout 3600 claude -p "${preamble_base}${prompt}" \
-      --permission-mode bypassPermissions --max-turns 120 \
-      --add-dir "$MEM_DIR" \
-      > "$out" 2>&1 < /dev/null
+  run_claude "${preamble_base}${prompt}" "$out"
   rc=$?
   tail -c 1500 "$out"
 
@@ -190,14 +222,21 @@ for i in "${!STARTS[@]}"; do
     done_n=$((done_n+1))
   fi
 
+  # Count work as EITHER an uncommitted change we sweep up, OR commits the agent
+  # made itself — it is told to commit, and only asking `git status` misses those.
   if [ -n "$(git status --porcelain)" ]; then
     git add -A
     git commit --quiet -m "agent: $title" -m "Unattended run $STAMP. Review before merging."
-    echo "committed: $(git log --oneline -1)"
-    [ $rc -eq 0 ] && SUMMARY+="OK   $title"$'\n'
+  fi
+  after="$(git rev-parse HEAD)"
+  if [ "$after" != "$before" ]; then
+    n_commits="$(git rev-list --count "$before..$after")"
+    files="$(git diff --shortstat "$before..$after" | tr -d '\n')"
+    echo "work: $n_commits commit(s) — $files"
+    [ $rc -eq 0 ] && SUMMARY+="OK   $title — $n_commits commit(s),$files"$'\n'
   else
-    echo "(no changes)"
-    [ $rc -eq 0 ] && SUMMARY+="--   $title (no changes)"$'\n'
+    echo "(no commits — nothing was produced)"
+    [ $rc -eq 0 ] && SUMMARY+="--   $title (produced nothing)"$'\n'
   fi
 done
 
@@ -206,11 +245,10 @@ run_one() {
   local f="$1" label="$2" out
   [ -r "$f" ] || { echo "(no $f — skipping $label)"; return 0; }
   out="$LOG_DIR/$STAMP-$label.out"
+  local b4; b4="$(git rev-parse HEAD)"
   echo ""
   echo "--- $label  ($(date -u +%H:%M)Z) ---"
-  timeout 2700 claude -p "${preamble_base}$(cat "$f")" \
-      --permission-mode bypassPermissions --max-turns 120 \
-      --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
+  run_claude "${preamble_base}$(cat "$f")" "$out"
   local rc=$?
   tail -c 1200 "$out"
   # ⛔ THE QUOTA CHECK BELONGS HERE TOO. It used to live only in the main queue,
@@ -225,9 +263,11 @@ run_one() {
   if [ -n "$(git status --porcelain)" ]; then
     git add -A
     git commit --quiet -m "agent: $label" -m "Unattended run $STAMP. Review before merging."
-    echo "committed: $(git log --oneline -1)"
+  fi
+  if [ "$(git rev-parse HEAD)" != "$b4" ]; then
+    echo "work: $(git rev-list --count "$b4..HEAD") commit(s)"
   else
-    echo "(no changes)"
+    echo "(no commits)"
   fi
   return $rc
 }
