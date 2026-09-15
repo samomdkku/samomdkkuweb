@@ -16,6 +16,46 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-15 (LATER) — 24 duplicate people merged; ONE person still blocked
+
+**`tools/house0196-merge-teamsamo-duplicates.mjs` ran with `--commit`.** 24 ทีม
+SAMO members who existed as a SECOND `people` row now share the row that holds
+their รหัส, สาย and บ้าน. Verified after — every number landed on its prediction:
+people 1696→1672, dual-placement 257→281, team-only 85→61, team-only with no
+รหัส 28→4, orphans 0, all 281 carrying the same kkumail on both rows.
+Snapshot: `externaldata/house-import/house0196-snapshot.json`.
+
+**THE CAUSE, worth knowing before adding anyone to ทีม SAMO by hand:**
+`resolve_person_id()` matches on **kkumail and only kkumail**. Enter a ทีม SAMO
+row without one and it CANNOT find the student already in the registry — it
+creates a second person. That is not a bug to fix; it is
+[[team-identity-is-kkumail]] enforced in code. The remedy is to always enter the
+kkumail, and the repair for an existing duplicate is to SET the kkumail and let
+`team_members_repoint_person` + `prune_person_after_repoint` do the rest.
+
+⛔ **STILL BLOCKED — ธีรภัทร ฝ่ายจำปา (Student engagement).**
+He matches a HELD row, not a student: รหัส 663070188-6, สาย 114, รุ่น 2566,
+ชื่อเล่น อเล็กซ์ from the file. **No kkumail for him exists anywhere** — not on
+his ทีม SAMO row, not in the file, not in `public.users`; he has never signed in
+and never filed a help request. Both admin paths need one
+(`promote_unresolved_row` takes it as an argument; the merge above sets it), so
+there is nothing to act on until a human supplies his address. ⛔ Do NOT derive
+it from his name or รหัส — `docs/house-data-spec-th.md` says an email wrong by
+one character is the one error that cannot be recovered from.
+**Two ways it resolves by itself:** he signs in with his kkumail and claims the
+seat (he is one of the 152 self-claimable — the held row has both รหัส and ชื่อ,
+which is exactly what `claim_my_student_seat` matches on), or the next roster
+file carries his address.
+
+**NOT merged, correctly:** พี่นิค (เจ้าหน้าที่คณะแพทย์) and อ.ประกาศิต
+เสงี่ยมวิบูล (อาจารย์). Neither is a student, so neither belongs in a student
+roster or a บ้าน — owner's call, and it is the right one.
+
+⚠️ The two review files in `externaldata/` (`2026-09-15-groupC-name-match.md`,
+`2026-09-15-APPROVE-merge-25.md`) are now HISTORICAL — 24 of their rows are done.
+
+---
+
 ## ▶ HANDOFF 2026-09-15 — the numbers on the ระบบบ้าน overview now explain themselves
 
 **The owner asked which total each number was inside, and the screen could not
