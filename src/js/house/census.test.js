@@ -8,7 +8,10 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { computeCensus, fieldHealth, FIELDS } from './census.js';
+
+const INDEX_SRC = readFileSync(new URL('./index.js', import.meta.url), 'utf8');
 
 /** The real 2026-09-14 shape, measured from production on 2026-09-15. */
 const student = (over = {}) => ({
@@ -112,5 +115,41 @@ describe('the ระบบบ้าน census', () => {
   it('says nothing is wrong when nothing is', () => {
     const f = fieldHealth([student()], [heldRow()]);
     expect(f.every((x) => x.ok)).toBe(true);
+  });
+});
+
+
+// ============================================================
+// A LABEL CLAIMS SOMETHING ABOUT EVERY CASE IT COVERS (2026-09-15).
+//
+// REPORTED: *"but ธีรภัทร has been in the file รายชื่อ isn't it, including him in
+// สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ won't it be misunderstood"*.
+//
+// It would, and the label was stating the opposite of the truth about him: his
+// รหัส, สาย, รุ่น and ชื่อเล่น all came FROM that file — he is held, not absent.
+// `teamOnly` is `registry - students`, which is "has an account but no house
+// placement" and cannot distinguish "in the file but waiting" from "never in the
+// file": a held row has no `people` row to subtract, so both land in the same
+// number. The label had invented a cause the arithmetic never checked.
+// ============================================================
+describe('the census labels only claim what they count', () => {
+  it('reads the renderer (a sweep that finds nothing must prove it looked)', () => {
+    expect(INDEX_SRC).toContain('censusRow({');
+    expect(INDEX_SRC).toContain('c.teamOnly');
+  });
+
+  it('⛔ the teamOnly line never claims the person is absent from the file', () => {
+    const line = INDEX_SRC.split('\n').find((l) => l.includes('c.teamOnly'));
+    expect(line, 'the teamOnly census row disappeared — re-point this guard').toBeTruthy();
+    expect(line, [
+      `teamOnly is labelled: ${line.trim()}`,
+      '',
+      'That number is `registry - students` — "has an account but no house',
+      'placement". It CANNOT tell "in the file but still held" from "never in the',
+      'file", because a held row has no people row to subtract. Saying ไฟล์ in this',
+      'label asserts a cause the arithmetic never checked, and it was wrong about a',
+      'real person: ธีรภัทร is IN the file, with a สาย, waiting only on a kkumail.',
+      'Name the line for what it counts — no สาย, no บ้าน.',
+    ].join('\n')).not.toContain('ไฟล์');
   });
 });

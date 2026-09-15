@@ -3625,3 +3625,45 @@ they agreed. **A guard rewritten to match a fresh theory is not a guard; it is
 the theory with a green tick next to it.** When a long-standing assertion
 suddenly looks wrong, suspect today's measurement before rewriting yesterday's
 proof.
+
+---
+
+## "สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ" — the label asserted a cause the arithmetic never checked
+
+**Symptom (as reported):** *"but ธีรภัทร has been in the file รายชื่อ isn't it,
+including him in สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ won't it be
+misunderstood"*. It would. His รหัสนักศึกษา, สาย, รุ่น and ชื่อเล่น had all come
+**from that file** — he is HELD, not absent — and the screen said the opposite
+about him, on a panel built the same day to stop exactly this kind of confusion.
+
+**Cause:** the number is `registry - students` — "has an account but no house
+placement". It is a subtraction, and it cannot distinguish *"in the file but
+still held"* from *"never in the file"*, because **a held row has no `people` row
+to subtract**: both states land in the identical number. The computation only
+ever knew "no สาย, no บ้าน". The label added "ไม่ได้อยู่ในไฟล์" — a *cause* —
+which nothing in the expression tests, and which happened to be false for 1 of
+the 51 people it covered.
+
+**Fix:** name the line for what it counts — `สมาชิกทีม SAMO ที่ยังไม่มีสายรหัส/บ้าน`
+— and say why in `census.js` where the subtraction lives. The per-person report
+now splits the group by whether the file has them, which IS checkable (join the
+open held rows on รหัสนักศึกษา), and says so in its title.
+
+**Where it lives now:** `src/js/house/census.js` (the comment on `teamOnly`),
+`src/js/house/index.js` (the row label), guarded by `census.test.js`
+*"the teamOnly line never claims the person is absent from the file"* —
+mutation-verified by restoring the old wording.
+
+**Rules:**
+1. **A label claims something about EVERY case it covers.** Before writing one,
+   ask which expression tests that claim. If none does, the label is a guess
+   printed in the authoritative voice, and it only has to be wrong about one
+   person to mislead about the whole group.
+2. **A SUBTRACTION KNOWS ONLY ITS TWO OPERANDS.** `A - B` can carry no reason;
+   every distinction that does not exist in A or B is invisible to it. Naming
+   such a number after a cause is how a derived value starts asserting things
+   nothing computed. Name it after the property, and split it separately where
+   the distinguishing fact is actually available.
+3. Same shape as the totals this very panel was built to fix — one level down.
+   Fixing "which population does this number count" at the headline does not fix
+   it inside the rows; check every line for the same question.

@@ -1420,7 +1420,7 @@ function renderCensus() {
         <div class="mb-3">
           ${censusRow({ label: 'ทุกคนที่ระบบรู้จัก (มีบัญชีแล้ว)', n: c.registry, strong: true, note: 'คือ “การตรวจสอบข้อมูล”' })}
           ${censusRow({ label: 'นักศึกษาที่นำเข้าแล้ว', n: c.students, depth: 1, muted: true })}
-          ${censusRow({ label: 'สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ', n: c.teamOnly, depth: 1, muted: true })}
+          ${censusRow({ label: 'สมาชิกทีม SAMO ที่ยังไม่มีสายรหัส/บ้าน', n: c.teamOnly, depth: 1, muted: true })}
         </div>
 
         <div class="alert alert-light border mb-0 py-2 small">

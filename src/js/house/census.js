@@ -75,6 +75,17 @@ export function computeCensus(d = {}) {
   // actually arrived. `identity_check_summary()` is behind its own permission
   // and the pane tolerates it failing; a 0 there would otherwise render as
   // "-1,611 ทีม SAMO members", a confident wrong number. null = "not known".
+  // ⛔ THIS IS "HAS AN ACCOUNT BUT NO HOUSE PLACEMENT" — IT SAYS NOTHING ABOUT
+  // THE FILE, AND ITS LABEL MUST NOT EITHER.
+  //
+  // REPORTED 2026-09-15: *"but ธีรภัทร has been in the file รายชื่อ isn't it,
+  // including him in สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ won't it be
+  // misunderstood"*. Exactly right, and the label was stating the opposite of the
+  // truth about him: his รหัส, สาย, รุ่น and ชื่อเล่น all CAME from that file —
+  // he is held, not absent. The subtraction below cannot tell the two apart,
+  // because a held row has no `people` row to subtract; "in the file but waiting"
+  // and "never in the file" both land here. So the line is named for what it
+  // COUNTS (no สาย, no บ้าน) and not for a cause it has no way to check.
   const teamOnly = registry ? Math.max(registry - students.length, 0) : null;
 
   return {

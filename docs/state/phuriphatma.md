@@ -29,12 +29,20 @@ path named here must resolve.
 | both student + ทีม SAMO | 257 | **291** |
 | ทีม SAMO with no house placement | 85 | **51** |
 
+⚠️ **THE OVERVIEW LINE USED TO BE CALLED "สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ"
+AND THAT WAS WRONG** — owner caught it. The number is `registry - students`,
+i.e. "no สาย, no บ้าน"; a held row has no `people` row to subtract, so *in the
+file but waiting* and *never in the file* land in the SAME number and the label
+asserted a cause nothing tested. It is now "ยังไม่มีสายรหัส/บ้าน", guarded by
+`census.test.js`, written up in `docs/mistakes/frontend-ui.md`. Only the report
+splits by file membership, because only there is it actually checkable.
+
 **The 51 who remain, and who can move them:**
 
 | | คน | who |
 |---|---|---|
-| **A** | **48** | สาขา **MDI (31) + RT (17)** — ⛔ only ฝ่ายข้อมูล. The roster is 1,775 MD rows and ZERO MDI/RT, while `docs/house-data-spec-th.md` — the spec we sent them — asks for `MD` หรือ `MDI` หรือ `RT`. Ask this in the same message as the สาย 141/256 question. 48 is only the MDI/RT students who happen to be in ทีม SAMO; the rest of those two programmes are invisible to us entirely |
-| **B** | **1** | ธีรภัทร ฝ่ายจำปา — รหัส 663070188-6, สาย 114, รุ่น 2566, ชื่อเล่น อเล็กซ์ now on his record. Needs ONE field: his kkumail. Nobody has it — ⛔ do not derive it |
+| **A** | **48** | genuinely absent from the file — สาขา **MDI (31) + RT (17)** — ⛔ only ฝ่ายข้อมูล. The roster is 1,775 MD rows and ZERO MDI/RT, while `docs/house-data-spec-th.md` — the spec we sent them — asks for `MD` หรือ `MDI` หรือ `RT`. Ask this in the same message as the สาย 141/256 question. 48 is only the MDI/RT students who happen to be in ทีม SAMO; the rest of those two programmes are invisible to us entirely |
+| **B** | **1** | ธีรภัทร ฝ่ายจำปา — ⚠️ **he IS in the file**: รหัส 663070188-6, สาย 114, รุ่น 2566, ชื่อเล่น อเล็กซ์, all of it from the roster, now on his record. He is HELD, not absent. Needs ONE field: his kkumail. Nobody has it — ⛔ do not derive it |
 | **C** | **2** | พี่นิค (เจ้าหน้าที่คณะแพทย์) · อ.ประกาศิต (อาจารย์). Not students. They will sit in this count for ever — consider excluding staff from it rather than "fixing" them |
 
 ⛔ **THE ORDERING RULE, learned the expensive way — read before placing anybody.**
