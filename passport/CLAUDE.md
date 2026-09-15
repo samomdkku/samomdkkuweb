@@ -114,12 +114,21 @@ npm run preview  # serve the production build locally
   scans to the window (no snapshots), so a finished season is naturally frozen.
 
 Image uploads: admin drag-drop posts to a Google Apps Script web app (`gas/Upload.gs`)
-that saves to the SAMO Drive *as the SAMO account* (uses its 2TB). Set the endpoint in
-`VITE_GAS_UPLOAD_URL`; without it, paste public links.
+that saves to the SAMO Drive *as the SAMO account* (uses its 2TB). The endpoint is
+CHECKED IN as `DEFAULT_GAS_URL` in `js/upload.js` — a `/exec` URL is a public
+webhook, not a secret, and samoweb pins its own the same way in
+`src/js/config.js`. `VITE_GAS_UPLOAD_URL` still overrides it for a one-off build.
+⛔ It used to be env-ONLY, and that is how the admin ⬆️ Upload button vanished for
+eleven days after the monorepo merge: the value lived in the old repo's gitignored
+`.env`, did not travel, and `passport/` is vite's `envDir` for this build — so
+`import.meta.env` compiled to `{}` and `wireUpload()` returned before painting
+anything. See `docs/mistakes/passport.md`.
 Deploy that script with `npm run deploy:gas` (`tools/deploy-gas.mjs`) — it diffs
 the remote first, then create-version + update-deployment on the SAME deployment
 id, so the `/exec` URL never moves, and verifies over HTTP with an inert
-`{action:'ping'}` probe. Needs `GAS_SCRIPT_ID` in `.env.local`. **Never**
+`{action:'ping'}` probe. Run it as `npm run deploy:gas:passport`; it needs
+`PASSPORT_GAS_SCRIPT_ID` in the REPO ROOT `.env.local` — ⚠️ never the bare
+`GAS_SCRIPT_ID`, which in that same file is SAMOWEB's project. **Never**
 `clasp deploy` — that mints a new URL and uploads silently stop working.
 Files land in `My Drive/IT Database/Passport/{badges,certificates}`.
 

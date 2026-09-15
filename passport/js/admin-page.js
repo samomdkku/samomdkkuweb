@@ -12,7 +12,7 @@ import { getCurrentContext } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import {
     getAdminScope, scopeCoversActivity, allowedDeptIds, allowedSubIdsForDept, scopeLabel,
-    LEGACY_PASSWORD_LOGIN, getLegacyScope, legacyLogin, clearLegacySession,
+    LEGACY_PASSWORD_LOGIN, LEGACY_LOGIN_CONFIGURED, getLegacyScope, legacyLogin, clearLegacySession,
     ensureLegacySession,
 } from './admin-scope.js';
 
@@ -136,7 +136,8 @@ async function init() {
     setupCertPreviewDrag();
     setupCertSliders();
 
-    // Drag-drop / click upload for image URL fields (if a GAS endpoint is set)
+    // Drag-drop / click upload for image URL fields. The endpoint is checked in
+    // (upload.js), so these buttons exist in every build — they used not to.
     wireUpload('act-badge-url', 'badges');
     wireUpload('edit-badge-url', 'badges');
     wireUpload('cert-bg-url', 'certificates');
@@ -520,8 +521,15 @@ function showAdminGate(scope) {
     document.getElementById('admin-content').style.display = 'none';
     document.getElementById('admin-logout').style.display = 'none';
 
+    // Shown only when the door can actually OPEN. LEGACY_PASSWORD_LOGIN says the
+    // hatch still exists in this build; LEGACY_LOGIN_CONFIGURED says the shared
+    // account it signs into is reachable. Since the 2026-09-04 merge dropped the
+    // gitignored VITE_PASSPORT_ADMIN_* the second has been FALSE in production,
+    // and this line asked only the first — so the form was advertised, accepted
+    // admin/1234, and answered with a Thai error naming a build-time env var to
+    // a person who has no build. A control that cannot work should not be drawn.
     const legacyBox = document.getElementById('admin-legacy-box');
-    if (legacyBox && LEGACY_PASSWORD_LOGIN) legacyBox.style.display = '';
+    if (legacyBox && LEGACY_PASSWORD_LOGIN && LEGACY_LOGIN_CONFIGURED) legacyBox.style.display = '';
 
     if (!scope?.user) return; // signed out — the default markup already says it
 
@@ -1300,7 +1308,10 @@ function wireUpload(inputId, folder) {
     const input = document.getElementById(inputId);
     if (!input) return;
     if (!isUploadConfigured()) {
-        console.info(`[upload] VITE_GAS_UPLOAD_URL not set — drag-drop disabled for #${inputId}; paste a link instead.`);
+        // Unreachable unless someone builds with VITE_GAS_UPLOAD_URL overridden to a
+        // blank — upload.js pins a checked-in default. Kept as a belt, but LOUD:
+        // the silent version of this cost the ⬆️ Upload button months of absence.
+        console.warn(`[upload] no Drive endpoint — drag-drop disabled for #${inputId}; paste a link instead.`);
         return;
     }
 

@@ -34,7 +34,8 @@
 //   2. Apps Script API ON for the same account:
 //        https://script.google.com/home/usersettings
 //   3. Add to .env.local (gitignored):
-//        GAS_SCRIPT_ID=<Apps Script → ⚙ Project Settings → IDs → Script ID>
+//        PASSPORT_GAS_SCRIPT_ID=<Apps Script → ⚙ Project Settings → IDs → Script ID>
+//      in the REPO ROOT .env.local — never the bare GAS_SCRIPT_ID, which is samoweb's
 //
 // ── RUN ─────────────────────────────────────────────────────────────────────
 //   npm run deploy:gas                 # diff, push, version, redeploy, verify
@@ -49,6 +50,18 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// ⛔ ENV COMES FROM THE REPO ROOT — AND UNDER PASSPORT-SPECIFIC KEY NAMES.
+// Two things bite here, both created by the 2026-09-04 monorepo merge:
+//   1. passport/ has no `.env*` any more (the old standalone repo's were
+//      gitignored and did not travel), so reading them here found nothing and
+//      this tool died on every invocation — the same silent no-deploy that cost
+//      2026-08-09. The one `.env.local` is at the repo root.
+//   2. ⚠️ THE ROOT FILE ALREADY HAS A `GAS_SCRIPT_ID`, AND IT IS SAMOWEB'S.
+//      There are THREE Apps Script projects; samoweb's holds appscript/prform.gs
+//      (PR/shop/project Drive uploads + the หนังสือโครงการ email). Reading the
+//      bare name here would push gas/Upload.gs OVER THAT PROJECT and take all of
+//      it down. Hence PASSPORT_GAS_*: one file, two apps, never one key.
+const REPO_ROOT = join(ROOT, '..');
 const SRC = join(ROOT, 'gas', 'Upload.gs');
 const STAGE = join(ROOT, '.gas-build');
 const PULLED = join(ROOT, '.gas-remote');
@@ -64,7 +77,7 @@ const VERIFY_ONLY = has('--verify');
 function env() {
   const out = {};
   for (const name of ['.env', '.env.local']) {
-    const p = join(ROOT, name);
+    const p = join(REPO_ROOT, name);
     if (!existsSync(p)) continue;
     for (const line of readFileSync(p, 'utf8').split('\n')) {
       if (!line.includes('=') || line.trim().startsWith('#')) continue;
@@ -76,9 +89,9 @@ function env() {
 }
 const ENV = env();
 // A real environment wins over the dotfiles — lets CI (or a one-off
-// `GAS_SCRIPT_ID=… npm run deploy:gas`) drive this without editing .env.local.
+// `PASSPORT_GAS_SCRIPT_ID=… npm run deploy:gas:passport`) drive this without editing .env.local.
 // Allow-listed rather than spread, so unrelated shell vars can't leak in.
-for (const k of ['GAS_SCRIPT_ID', 'GAS_DEPLOYMENT_ID', 'VITE_GAS_UPLOAD_URL']) {
+for (const k of ['PASSPORT_GAS_SCRIPT_ID', 'PASSPORT_GAS_DEPLOYMENT_ID', 'VITE_GAS_UPLOAD_URL']) {
   if (process.env[k]) ENV[k] = process.env[k];
 }
 
@@ -115,8 +128,22 @@ function writeClaspJson(dir, scriptId) {
  * which makes the env var the single source of truth for BOTH "which endpoint
  * do we verify" and "which deployment do we roll" — they cannot diverge.
  */
+/** The DEFAULT_GAS_URL literal in js/upload.js — the URL the bundle ships. */
+function defaultEndpointFromSource() {
+  try {
+    const src = readFileSync(join(ROOT, 'js', 'upload.js'), 'utf8');
+    return src.match(/const DEFAULT_GAS_URL\s*=\s*'([^']+)'/)?.[1] || '';
+  } catch { return ''; }
+}
+
 function liveEndpoint() {
-  const url = ENV.VITE_GAS_UPLOAD_URL || '';
+  // ONE HOME. The endpoint the app calls is the checked-in DEFAULT_GAS_URL in
+  // js/upload.js; this READS it rather than keeping a second copy, so the URL
+  // this tool verifies and the deployment it rolls cannot drift from the URL the
+  // bundle ships. (It was env-only until 2026-09-15, which is exactly how the
+  // admin upload button went missing — see js/upload.js.) The env var still
+  // wins, for a one-off build pointed somewhere else.
+  const url = ENV.VITE_GAS_UPLOAD_URL || defaultEndpointFromSource();
   const m = url.match(/https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]+)\/exec/);
   return m ? { url: m[0], deploymentId: m[1] } : null;
 }
@@ -134,7 +161,7 @@ function liveEndpoint() {
  */
 async function probeLive() {
   const ep = liveEndpoint();
-  if (!ep) return { ok: false, reason: 'VITE_GAS_UPLOAD_URL is not set in .env.local or .env' };
+  if (!ep) return { ok: false, reason: 'no endpoint: js/upload.js has no DEFAULT_GAS_URL and VITE_GAS_UPLOAD_URL is unset' };
   try {
     const r = await fetch(ep.url, {
       method: 'POST',
@@ -160,12 +187,14 @@ async function main() {
     process.exit(v.ok ? 0 : 1);
   }
 
-  const scriptId = ENV.GAS_SCRIPT_ID;
+  const scriptId = ENV.PASSPORT_GAS_SCRIPT_ID;
   if (!scriptId) {
-    die('GAS_SCRIPT_ID is not set in .env.local',
+    die('PASSPORT_GAS_SCRIPT_ID is not set in the repo root .env.local',
       'Get it from the Apps Script project ("samopassport", now filed under\n'
       + 'My Drive/IT Database/_Scripts/) → ⚙ Project Settings → IDs → Script ID,\n'
-      + 'then add to .env.local (gitignored):\n\n  GAS_SCRIPT_ID=1AbC...\n');
+      + 'then add to the REPO ROOT .env.local (gitignored):\n\n  PASSPORT_GAS_SCRIPT_ID=1AbC...\n\n'
+      + '⚠️  NOT `GAS_SCRIPT_ID` — that name is taken by samoweb\'s project in the\n'
+      + '   same file, and pushing this script over it breaks PR/shop uploads.\n');
   }
   if (!existsSync(SRC)) die(`missing ${SRC}`);
 
@@ -266,17 +295,17 @@ async function main() {
   console.log(`→ version ${version}`);
 
   // ---- 5. roll the EXISTING deployment ------------------------------------
-  const deploymentId = ENV.GAS_DEPLOYMENT_ID || liveEndpoint()?.deploymentId;
+  const deploymentId = ENV.PASSPORT_GAS_DEPLOYMENT_ID || liveEndpoint()?.deploymentId;
   if (!deploymentId) {
     die('could not determine which deployment to update',
       'VITE_GAS_UPLOAD_URL has no recognisable /exec URL. Set it explicitly:\n\n'
-      + '  GAS_DEPLOYMENT_ID=AKfycb...    (in .env.local)\n');
+      + '  PASSPORT_GAS_DEPLOYMENT_ID=AKfycb...    (in the repo root .env.local)\n');
   }
   const list = clasp(['list-deployments'], STAGE, { quiet: true });
   if (!list.includes(deploymentId)) {
     die(`deployment ${deploymentId} does not belong to script ${scriptId}`,
       'VITE_GAS_UPLOAD_URL points at a deployment this script does not have.\n'
-      + 'Either GAS_SCRIPT_ID is the wrong project (note there are THREE Apps\n'
+      + 'Either PASSPORT_GAS_SCRIPT_ID is the wrong project (note there are THREE Apps\n'
       + 'Script projects on this Drive and the names mislead), or the env is stale.\n\n'
       + `clasp list-deployments said:\n${list}`);
   }

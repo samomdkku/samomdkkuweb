@@ -357,6 +357,37 @@ if (!embed) {
     admin !== null && admin.overflow === false);
 }
 
+// ── THE PASSPORT ADMIN'S IMAGE-UPLOAD CONTROLS ──────────────────────────────
+// Reported 2026-09-15: "the upload badge image button of samopassport is gone."
+// It had been gone since the 2026-09-04 merge, and NOTHING could see it:
+// `npm test` passed, `npm run build` passed, the HTML was byte-correct and the
+// string "⬆️ Upload" was still in the shipped bundle. The button is INJECTED by
+// wireUpload(), which returned early because the Drive endpoint came only from
+// `VITE_GAS_UPLOAD_URL` — a gitignored value that did not survive the merge, in
+// a directory vite was also using as its envDir. `import.meta.env` compiled to
+// `{}` and three fields lost their control at once.
+//
+// So the instrument has to be the RENDERED DOM of the DEPLOYED build. This runs
+// SIGNED OUT on purpose: init() wires the uploads at page load, before the login
+// gate decides anything, so the buttons are assertable with no credential.
+// Falsified against production on the day of the fix: 0 buttons there, 3 on the
+// fixed build, same script.
+{
+  const passportAdmin = `${URL_.replace(/\/$/, '')}/passport/html/admin.html`;
+  await send('Page.navigate', { url: passportAdmin }, sessionId);
+  await sleep(6000);
+  const pa = await evalJs(`(() => ({
+    fields: [...document.querySelectorAll('.upload-row input[type=url]')].map(i => i.id).sort(),
+    buttons: document.querySelectorAll('button.upload-btn').length,
+  }))()`);
+  const want = ['act-badge-url', 'cert-bg-url', 'edit-badge-url'];
+  check(`the passport admin has its ⬆️ Upload controls (${pa ? pa.buttons : '?'}/3)`,
+    pa !== null && pa.buttons === 3 && JSON.stringify(pa.fields) === JSON.stringify(want),
+    'wireUpload() painted nothing: the badge and certificate image fields have no '
+    + 'upload button, so an admin can only paste a Drive link by hand. Almost '
+    + 'always means the Drive endpoint did not resolve — see passport/js/upload.js.');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${URL_})`);
 ws.close();
 chrome.kill();

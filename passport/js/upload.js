@@ -1,9 +1,24 @@
 // js/upload.js — drag-drop file upload to the SAMO Google Drive via a GAS web app.
 // The GAS web app runs AS the SAMO account, so uploaded files are owned by SAMO
-// and use its 2TB quota. Configure the endpoint via VITE_GAS_UPLOAD_URL.
-// See gas/Upload.gs and CLAUDE.md for the one-time setup.
-
-const GAS_URL = import.meta.env?.VITE_GAS_UPLOAD_URL || '';
+// and use its 2TB quota. See gas/Upload.gs for the one-time setup.
+//
+// ⛔ THE ENDPOINT IS CHECKED IN, AND THAT IS THE FIX FOR A REAL OUTAGE.
+// It used to come ONLY from `VITE_GAS_UPLOAD_URL`, which lived in the old
+// standalone passport repo's gitignored `.env`. The 2026-09-04 monorepo merge
+// copied the TRACKED files, so the value did not travel — and the passport build
+// pins `root` to passport/, which is also vite's `envDir`, so not even the repo
+// root's `.env.local` could have supplied it. `import.meta.env` compiled to `{}`,
+// `isUploadConfigured()` went false, and `wireUpload()` returned before creating
+// the button: admins lost the ⬆️ Upload control on BOTH badge fields and the
+// certificate background, with the only signal a `console.info` nobody reads.
+//
+// A GAS `/exec` URL is NOT a secret — `.claude/rules/security.md` classifies it
+// as a public webhook, samoweb pins its own the same way in `src/js/config.js`,
+// and this one shipped in a public bundle for months. Keeping it in env bought
+// no secrecy and cost the feature its existence. The env var is kept as an
+// OVERRIDE so a one-off build can repoint it; nothing in the repo sets it.
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwJgkPTcr9GbT75se0j5c7O3S1aBkVgpafA8-OeAG4glzJAO3IpGjYeag94zVeJD_tL6Q/exec';
+const GAS_URL = import.meta.env?.VITE_GAS_UPLOAD_URL || DEFAULT_GAS_URL;
 
 export function isUploadConfigured() {
     return !!GAS_URL;

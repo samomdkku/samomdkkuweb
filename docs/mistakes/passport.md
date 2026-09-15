@@ -495,3 +495,73 @@ which shows everything to anyone who types the password. The `filter-department`
    (db/0056), so this stops accidents, not attackers — SECURITY-HARDENING-PLAN.md is what makes
    it real, and its policies must read `passport_admin_context()` rather than invent a second
    admin table.
+
+---
+
+## The upload badge image button is gone — a gitignored env var did not survive the monorepo merge, and `passport/` is vite's `envDir`
+
+**Symptom (as reported, 2026-09-15):** *"the upload badge image button of samopassport is gone."*
+The ⬆️ Upload control beside **Badge Image URL** on `/passport/html/admin.html` had simply
+stopped existing. Nothing else looked wrong: the page loaded, the form saved, the URL field
+still accepted a pasted link, the HTML partial was unchanged, and the string `⬆️ Upload` was
+still present in the shipped bundle. `npm test` passed. `npm run build` passed.
+
+**Cause:** `passport/js/upload.js` read its Drive endpoint ONLY from
+`import.meta.env?.VITE_GAS_UPLOAD_URL`. That value lived in the old standalone passport repo's
+**gitignored `passport/.env`**. The 2026-09-04 merge (`git subtree add`) copied the TRACKED
+files, so it did not travel — and `passport/vite.config.js` pins `root: __dirname`, which is
+also vite's default `envDir`, so **not even the repo root's `.env.local` could have supplied
+it**. `import.meta.env` compiled to a literal `{}`, `GAS_URL` became `''`,
+`isUploadConfigured()` went false, and `wireUpload()` returned *before creating the button*.
+The only signal was a `console.info`.
+
+The blast radius was never one button. From that single constant:
+1. `act-badge-url`, `edit-badge-url` **and** `cert-bg-url` all lost their control, and their
+   drag-and-drop with it.
+2. `deleteFromDrive()` / `deleteFromDriveBeacon()` open with `if (!GAS_URL) return;` — so
+   **deleting an activity left its badge image in the SAMO Drive**, publicly readable.
+3. **Worst: the "wipe all data" confirm promises "AND the badge + certificate images they
+   stored in the SAMO Google Drive", then collects the URLs to delete inside
+   `if (isUploadConfigured())`.** Every wipe since the merge deleted the rows and none of the
+   files, while telling the operator it had.
+
+**Why nothing caught it.** Grepping the built bundle for `⬆️ Upload` does NOT work, and was
+tried: rollup does not fold the cross-module `isUploadConfigured()` call, so **the string
+survives in both the working and the broken build**. The thing that actually differs is
+whether an endpoint RESOLVES — visible only as `re={},S=(re==null?void 0:re.VITE_GAS_UPLOAD_URL)||""`
+in the served file, or as the presence/absence of the dead-branch message after DCE.
+
+**Fix:** pin the endpoint as a checked-in `DEFAULT_GAS_URL` in `js/upload.js`, keeping the env
+var as an override. A GAS `/exec` URL is **not a secret** — `.claude/rules/security.md`
+classifies it as a public webhook, samoweb pins its own the same way in `src/js/config.js`, and
+this one had shipped in a public bundle for months. Keeping it in env bought no secrecy and
+cost the feature its existence. Also set `envDir: resolve(__dirname, '..')` so any FUTURE
+`VITE_*` a passport module reads actually resolves.
+
+**Where it lives now:** `passport/js/upload.js` (`DEFAULT_GAS_URL`), `passport/vite.config.js`
+(`envDir`), `src/js/passport-upload.test.js` (7 assertions, all mutation-verified),
+`tools/smoke-browser.mjs` (the rendered-DOM check on the deployed build).
+
+**Rules:**
+1. **A CONFIG VALUE THAT IS NOT A SECRET SHOULD NOT BE IN ENV.** Env is a place values get
+   LOST — it is gitignored by design, so it does not survive a repo merge, a fresh clone, a new
+   host, or a retired CI dashboard. Ask what secrecy the indirection actually buys; if the
+   answer is none, check the value in, where a merge carries it and a diff shows it.
+2. **`envDir` DEFAULTS TO `root`.** Any vite config that repoints `root` at a subdirectory has
+   silently repointed its env directory too. If that subdirectory has no `.env*`,
+   `import.meta.env` compiles to `{}` and **every** `VITE_*` in that half of the app is blank —
+   in the production build only, where nobody is looking.
+3. **AFTER A REPO MERGE, ENUMERATE WHAT WAS IGNORED, NOT WHAT LOOKS BROKEN.**
+   `git status --ignored` in the OLD repo is the complete list of what could not have travelled.
+   Here it was two files holding four names, and reading them found all four failures at once —
+   including two nobody had reported. Symptom-chasing would have found one.
+4. **A FEATURE GATED ON A BUILD-TIME FLAG DIES SILENTLY, SO THE INSTRUMENT MUST BE THE RENDERED
+   DOM OF THE DEPLOYED BUILD.** A string grep cannot tell a live branch from a dead one. The
+   differential that settles it: same script, production → 0 buttons, fixed build → 3.
+5. **⚠️ THE OBVIOUS REPAIR WAS THE DANGEROUS ONE.** "Point the passport's tools at the repo
+   root like everything else" would have made `deploy:gas:passport` read the root
+   `GAS_SCRIPT_ID` — which is **SAMOWEB's** project. One script has one `doPost`: it would have
+   pushed `gas/Upload.gs` over `appscript/prform.gs` and taken down PR/shop/project Drive
+   uploads *and* the หนังสือโครงการ email, from a diff that looks like a path fix. When a merge
+   collapses two namespaces into one file, the shared KEY NAMES are the hazard, not the paths.
+   `src/js/gas-project-isolation.test.js`.

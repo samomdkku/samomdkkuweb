@@ -384,7 +384,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A proof whose subjects were "whoever comes back first", three times in one file
 - The tool wrote both halves of the answer and neither was the file to upload
 
-## `passport.md` — The Passport app's own write-ups *(39)*
+## `passport.md` — The Passport app's own write-ups *(40)*
 
 Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
@@ -427,5 +427,6 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A root-absolute `public/` asset path (`'/foo.png'`) 404s on the `/passport/` VM subpath
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
+- The upload badge image button is gone
 
-_366 entries across 10 files._
+_367 entries across 10 files._

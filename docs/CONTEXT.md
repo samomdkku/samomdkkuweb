@@ -1536,7 +1536,8 @@ Slim source files in `appscript/`. Redeploy procedure in `skills/deploy-gas.md`.
 
 Both Apps Script web apps are deployed **`Execute as: Me` + `Who has access:
 Anyone`**, and their `/exec` URLs are inlined into the shipped bundle at build
-time (`GAS_API_URL` in `config.js`; `VITE_GAS_UPLOAD_URL` for passport). So the
+time (`GAS_API_URL` in `src/js/config.js`; `DEFAULT_GAS_URL` in
+`passport/js/upload.js`). So the
 URL is **not a secret**, and every handler runs with the OWNER's full Drive and
 Gmail authority for any caller on the internet.
 

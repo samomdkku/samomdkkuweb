@@ -13,6 +13,22 @@ import { applyDevDatabaseEnv } from '../tools/dev-env.mjs';
 const config = {
   root: __dirname,
 
+  // ⛔ ENV COMES FROM THE REPO ROOT, NOT FROM passport/.
+  // Vite's `envDir` defaults to `root`, which is pinned above to passport/ —
+  // a directory with no `.env*` in it since the merge. That made
+  // `import.meta.env` compile to `{}` in every production build, which is how
+  // the admin ⬆️ Upload button disappeared (see passport/js/upload.js). One
+  // repo, one install, one build — and now one env file, the same `.env.local`
+  // the main pass reads.
+  //
+  // This does NOT weaken the dev-database guard below: vite's `loadEnv` applies
+  // the dotfiles first and then lets `process.env` OVERWRITE them, so the
+  // samo-dev values `applyDevDatabaseEnv()` puts in `process.env` still win over
+  // a maintainer's production `VITE_SUPABASE_*` in `.env.local`. Only `VITE_`-
+  // prefixed keys are ever exposed, so the secrets in that file stay out of the
+  // bundle exactly as they do for the main app.
+  envDir: resolve(__dirname, '..'),
+
   // ⚠️ THE BASE IS NOW ALWAYS '/passport/', AND THAT IS THE POINT OF THE MERGE.
   // Before the repos merged this defaulted to '/' because Cloudflare Pages
   // served passport at the root of its OWN project, while the KKU VM served it

@@ -157,10 +157,11 @@ re-raise — but do NOT weaken the rule to soften the surprise.
 
 ## 3. Owner-only errands, none urgent
 
-**Status: OWED** — four small items, none urgent, all owner-only.
+**Status: OWED** — five small items, none urgent, all owner-only.
 
 | | What |
 |---|---|
+| **`PASSPORT_GAS_SCRIPT_ID`** | one line in the repo root `.env.local`, so `npm run deploy:gas:passport` can DEPLOY (it can already `--verify`). The id is the samopassport Apps Script project's — ⚠️ **NOT** the bare `GAS_SCRIPT_ID` already in that file, which is samoweb's; pushing over that one takes down PR/shop uploads and the projects email. Guarded by `src/js/gas-project-isolation.test.js`. Until it is set, a committed `passport/gas/Upload.gs` fix stays undeployed — the 2026-08-09 failure, again |
 | Dev Apps Script | under its own Google account + a `DEV` Drive folder — last piece of dev-system phase 2 |
 | GitHub project board | phase 0's last piece; the `gh` here lacks the `project` scope |
 | One non-owner team add | last box of the org-move checklist: somebody who is not the owner adds a person to a team, once |
