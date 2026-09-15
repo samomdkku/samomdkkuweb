@@ -65,6 +65,10 @@ const ABSENT_ON_PURPOSE = {
     'an ephemeral ~30-line WebKit harness; STATE.md names it as a SHAPE worth rebuilding and says so',
   'assets/admin-CPiyOZWb.js':
     'a served bundle hash from a past deploy, recorded as evidence; it has a slash only because the URL path does',
+  'externaldata/house-import/2026-09-14-teamsamo-no-kkumail.md':
+    'gitignored local artifact under externaldata/ — the raw handover files and their derived lists never enter git (1,776 real students\' data); phuriphatma.md names it as evidence for a specific session, not a repo file',
+  'externaldata/house-import/house0196-snapshot.json':
+    'same as above — a gitignored pre-migration snapshot, named for the record',
   'public/passport-elsewhere.html':
     'DELETED 2026-09-04 by the repo merge, permanently. It was the splash telling a preview visitor Passport was not in this build; passport is now built into dist/passport/ so the path it apologised for exists. Named only by docs/state/phuriphatma.md, which is one person\'s session notes and is never rewritten by anyone else — hence an exemption rather than an edit. This file is not coming back: a rule sending /passport/* anywhere but the real files is the bug the merge removed.',
 };

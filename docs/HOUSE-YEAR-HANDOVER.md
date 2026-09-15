@@ -324,3 +324,129 @@ counts out of this file.**
    but a "year admin" is a person, not a ฝ่าย, and the owner's own phrasing
    ("I'll ask every admin of every year") implies these are individuals to be
    invited by personal email, which the owner will have and I do not.
+
+---
+
+## วิธีทดสอบ — the two screens the owner asked how to test
+
+**The owner's question, verbatim:** *"How do I test what a person who has a
+kkumail but is NOT in ระบบบ้าน sees? How do I test the เจ้าตัวยืนยันเองได้
+เมื่อเข้าสู่ระบบ flow? All of it is weak."*
+
+They are right that it was weak — not because the logic was untested, but
+because nothing in the repo said WHERE each piece was tested, so the only way
+to check any of it looked like "become one of ~1,800 real students." It is
+not. This section traces the actual code (front end: `src/js/house/my-house.js`
++ `src/js/house/api.js`; back end: `claim_my_student_seat` and its neighbours in
+`supabase/migrations/0188…0192`), lists every distinct outcome, says which
+automated test now pins it, and gives numbered steps for the two outcomes that
+genuinely need a real signed-in browser.
+
+Written headless, no database access, no live session — the enumeration below
+was built by reading the RPC bodies and the render function, not by running
+either. Where I could add a test tonight, I did (`git log` on this commit for
+the diff); where I could not, I wrote the manual recipe instead.
+
+### 0. The two landing states, and how a signed-in user with no `students` row
+   is told apart from one that is simply missing data
+
+`src/js/main.js:844-853` calls
+`showMyHouse(houseHost, user.id, { signedIn: true, account: user.email })`
+whenever the signed-in user holds no ทีม SAMO posting (a posting paints the
+house card differently — `{ mode: 'section' }` — because the identity is
+already shown above it; see §(a)/§(b) above for that split). `signedIn` and
+`account` are the ONLY two facts `renderMyHouse` (my-house.js:730) is given
+about someone with no `students` row — no database read happens before this
+decision, because there is nothing to read yet. `emptyHouseHtml()`
+(my-house.js:583) then branches on exactly one regex:
+`/@kkumail\.com$/i.test(mail) || /@kku\.ac\.th$/i.test(mail)`.
+
+### 1. Every distinct outcome
+
+| # | Outcome | Where it is decided | Message / behaviour | Covered by |
+|---|---|---|---|---|
+| 1 | **Signed out** | `renderMyHouse(host, null)` with no `opts.signedIn` | Card stays `hidden`, no markup at all | `my-house.test.js` → "renders nothing at all for a student who is not in the table" |
+| 2 | **Signed in, NOT a kkumail-looking account** (gmail, or username/password) | `emptyHouseHtml()`'s `isKku` regex | "ระบบบ้านใช้บัญชี kkumail…ออกจากระบบแล้วเข้าสู่ระบบใหม่ด้วย Google" — no claim form offered at all | `my-house.test.js` → "a NON-kkumail account does not get it" |
+| 3 | **Signed in, kkumail-looking account, no `students` row yet** | same branch, `isKku` true | Claim form (`data-house-form="claim"`) + a hidden receipt slot | `my-house.test.js` → "a kkumail account gets the claim form" |
+| 4 | **Claim form: both fields left blank** | `wireClaim`'s `if (!sid \|\| !first)` | "กรอกทั้งรหัสนักศึกษาและชื่อจริง", no server call | `my-house.test.js` → new "wireClaim — every branch a submit can take" describe block |
+| 5 | **Claim form: รหัสนักศึกษา not 10 digits** | `wireClaim`, `normalizeStudentId(sid).ok` false | "รหัสนักศึกษาต้องเป็นตัวเลข 10 หลัก เช่น 659999999-9", no server call — deliberately a DIFFERENT sentence from outcome 8, because this is a typo, not a guess (0191's anti-enumeration property only has to hold once the input is well-formed) | same describe block |
+| 6 | **NOT FOUND** — no held row matches | `claim_my_student_seat`, `if not found` (0191 §2) | `{ok:false, message:'ยังไม่พบรายชื่อ…'}`; a `house_help_requests` row is filed server-side with kind `no_record` | `api.test.js` → "NOT FOUND (incl. wrong รหัส / wrong ชื่อ)" |
+| 7 | **WRONG รหัส, right ชื่อ** | same branch — the match is `student_id_key(...) AND name_key(...)`, so a mismatch on either half takes the SAME exit | Identical message to outcome 6 — **by design**, so the form cannot be used to test one guess at a time (0191's own comment; proved server-side in `tools/house0191-help-requests.sql` §20-22) | Same `api.test.js` case; the ABSENCE of a test that tries to tell 6/7/right-code-wrong-name apart is itself the assertion (see the comment above that test) |
+| 8 | **right รหัส, WRONG ชื่อ** | same branch | Identical message to outcome 6 | Same as above |
+| 9 | **ALREADY CLAIMED** — caller's kkumail already has a `students` row | `claim_my_student_seat`, checked BEFORE the held-row lookup (0191 §2, first `if exists`) | Throws `'บัญชีนี้มีข้อมูลนักศึกษาอยู่แล้ว'` — the UI never shows this account the form in the first place (outcome 3's gate is "no row yet"), so this is reachable only by a stale card + a race, or a direct RPC call | `api.test.js` → "ALREADY CLAIMED" |
+| 10 | **NOT A KKUMAIL ACCOUNT, at the server** | `claim_my_student_seat`, checked before outcome 9 | Throws `'ต้องเข้าสู่ระบบด้วยบัญชี @kkumail.com ก่อน…'` — again UI-unreachable in the normal flow (outcome 2's gate already hides the form), kept as a server-side belt-and-braces check | `api.test.js` → "NOT A KKUMAIL ACCOUNT" |
+| 11 | **NOT SIGNED IN, at the server** | `claim_my_student_seat`, `if v_uid is null` | Throws `'ต้องเข้าสู่ระบบก่อน'` | `api.test.js` → "NOT SIGNED IN" |
+| 12 | **FOUND — match succeeds** | `claim_my_student_seat`, `insert into students` | `{ok:true, sai}`; front end clears the module-scope cache and repaints the real card (`clearMyHouseCache()` before `showMyHouse()` — this ordering is what 0188's own regression note calls "the stale-instrument shape" if it is skipped) | `api.test.js` → "FOUND"; `my-house.test.js` → "clears the cache before repainting after a successful claim" |
+| 13 | **The receipt: nothing filed yet** | `paintHelpReceipt()`, `fetchMyHelpStatus()` returns `null` | Receipt slot stays `hidden` | `my-house.test.js` → "the empty card reserves a slot for it, hidden until there is one" |
+| 14 | **The receipt: a miss was filed, < 7 days ago** | same, `waiting_days < 7` | "ผู้ดูแลระบบบ้านได้รับเรื่องของคุณแล้ว…", no VitalSound link | `my-house.test.js` → "the receipt" describe block |
+| 15 | **The receipt: ≥ 7 days waiting** | same, `stale` | Same line + "รอมา N วันแล้ว…VitalSound (เลือกหมวด IT)" | same block, "VitalSound appears ONLY in the receipt path" |
+| 16 | **The receipt lookup itself fails** (network, RLS, anything) | `fetchMyHelpStatus()`'s own `catch` in `api.js` | Swallowed to `null` — the empty card is not allowed to show a SECOND error about the receipt for the first missing record | `api.test.js` → "NEVER throws" |
+| 17 | **A found record that is not actually theirs** (Case C2, `docs/HOUSE-DATA-REPAIR.md` §4 — the wrong-kkumail case that fails OPEN) | populated card → "ไม่ใช่ข้อมูลของฉัน" → `report_not_my_record` | Files a `house_help_requests` row (`kind:'not_me'`) and changes nothing; "แจ้งแล้ว ผู้ดูแลจะติดต่อกลับ" | `my-house.test.js` → "ไม่ใช่ข้อมูลของฉัน" describe block; `api.test.js` → `reportNotMyRecord` describe block |
+| 18 | **Populated card — kkumail correct, `students` row exists** | `renderMyHouse(host, rec)` | Full record, edit form (Case A self-service fields), แจ้งสายรหัสไม่ถูกต้อง | The pre-existing bulk of `my-house.test.js` (unchanged tonight) |
+
+### 2. What still needs a real browser, and exactly how to do it in under five minutes
+
+Everything above outcome 12 in the table is proven either as a rendering
+property (a plain-object `host`, no DOM) or as a request/response contract
+(`dbRest` mocked). Two things those cannot prove:
+
+**(A) That the empty-card / non-kkumail branches actually PAINT correctly in a
+real browser** — needs no database at all, because `renderMyHouse` makes no
+network call on its own (only the receipt and the claim submit do). On
+`npm run dev` (samo-dev, never production), once signed in as anybody:
+
+1. Open the browser devtools console on the page.
+2. `const m = await import('/src/js/house/my-house.js')`
+3. `const el = document.getElementById('homeMyHouse')`
+4. `m.renderMyHouse(el, null, { signedIn: true, account: 'anything@gmail.com' })`
+   → outcome 2, the "switch account" card.
+5. `m.renderMyHouse(el, null, { signedIn: true, account: 'anything@kkumail.com' })`
+   → outcome 3, the claim form + a receipt slot that will quietly try (and
+   likely fail, harmlessly) to load a receipt for whichever account you are
+   REALLY signed in as — that failure is outcome 16 and is expected.
+6. Refresh the page when done — this only touched the DOM, not the database.
+
+**(B) That a real self-claim round-trip actually works end to end** — this is
+the one outcome (12, plus 6-8 as its failed attempts) that needs a genuine
+`claim_my_student_seat` call against a held row that exists. It needs no
+production data and no real student: `tools/house-claim-flow-manual-seed.sql`
+creates one obviously-fake held seat (รหัส `000000001-1`, ชื่อ "ทดสอบ
+ระบบบ้าน", สาย `999`) against **samo-dev only**.
+
+1. `VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs tools/house-claim-flow-manual-seed.sql`
+   — confirm the stderr line says `(samo-dev)`, not `(PRODUCTION)`, before
+   doing anything else (`docs/mistakes/tooling-proofs.md`'s npm-run-flag-trap
+   entry is the exact shape of getting this backwards).
+2. `npm run dev` (this already targets samo-dev — `docs/state/…` /
+   `contributor-credentials`) and sign in with any spare **@kkumail.com**
+   account that is not already a student (does not need to be a real MDKKU
+   student — only the domain is checked).
+3. On the home page, find "บ้านของฉัน" — it should show the claim form
+   (outcome 3).
+4. Type a wrong รหัส or ชื่อ first (e.g. `000000001-1` / `ไม่ใช่ชื่อนี้`) and
+   submit — confirm you get the neutral "ยังไม่พบรายชื่อ…" sentence (outcome
+   6/7/8, indistinguishable on purpose).
+5. Now type the real pair — รหัส `000000001-1`, ชื่อ `ทดสอบ` — and submit.
+   Expect "พบข้อมูลของคุณแล้ว กำลังโหลด…" and then a real การ์ด for สาย 999 /
+   MD50 (outcome 12).
+6. `VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs tools/house-claim-flow-manual-cleanup.sql`
+   to remove the fake seat/student/help-request rows. Re-run the seed script
+   to test again (e.g. a second account, to see outcome 9 — sign in with the
+   SAME account and submit the claim form again, or call
+   `claim_my_student_seat` a second time, and confirm outcome 9's exception
+   text).
+
+**Not given a live-session recipe, on purpose:** outcomes 9, 10 and 11 are
+server-only guards the UI structurally cannot reach in the ordinary flow (the
+form is hidden before the request could ever be sent) — `api.test.js` is the
+right and sufficient place to pin them, and a live reproduction would need to
+force a race the UI does not have a button for.
+
+### 3. What I did NOT verify
+
+I have not run either SQL script above — no database access tonight. Before
+trusting the seed script, read it once; it commits (does not roll back) by
+design, since a rolled-back transaction leaves nothing for a browser to see.
+If `sais.code = '999'` ever becomes a real assignment, change the seed script's
+code before running it — a `999` colliding with a real สาย would misfile a
+real house student the moment cleanup ran.
