@@ -38,6 +38,19 @@ const name = (r) => [r.first_name_th, r.last_name_th].filter(Boolean).join(' ').
 const label = (r) => cohortLabel(r) || '—';
 
 /**
+ * A held row is only self-claimable with BOTH a รหัสนักศึกษา and a ชื่อ — that is
+ * the pair `claim_my_student_seat` matches on. Exported so any OTHER reader
+ * (the year-admin CSV handover, a future สาย grid) classifies a held row the
+ * same way `computeGaps` does, rather than re-deriving the same two-line rule
+ * and risking the drift `.claude/rules/mistakes.md` class 6 warns about.
+ */
+export function splitHeld(held = []) {
+  const heldAdmin = held.filter((h) => !h.student_id || !h.first_name_th);
+  const heldSelf = held.filter((h) => h.student_id && h.first_name_th);
+  return { heldAdmin, heldSelf };
+}
+
+/**
  * @param {object} d everything the pane has already loaded
  * @param {object[]} d.students   rows from fetchStudents()
  * @param {object[]} d.held       rows from fetchUnresolved()
@@ -61,11 +74,9 @@ export function computeGaps(d = {}) {
   const advisors = d.advisors || [];
   const conflicts = Number(d.conflicts || 0);
 
-  // A held row can only ever be self-claimed with BOTH a รหัสนักศึกษา and a ชื่อ
-  // — that is the pair `claim_my_student_seat` matches on. Missing either makes
-  // it an admin's, permanently, which is why the split is here and not cosmetic.
-  const heldAdmin = held.filter((h) => !h.student_id || !h.first_name_th);
-  const heldSelf = held.filter((h) => h.student_id && h.first_name_th);
+  // Missing either field makes a held row an admin's, permanently, which is why
+  // the split matters and is not cosmetic. See splitHeld() above.
+  const { heldAdmin, heldSelf } = splitHeld(held);
 
   const noSai = students.filter((s) => !s.sai_code);
   const noName = students.filter((s) => !s.first_name_th || !s.last_name_th);

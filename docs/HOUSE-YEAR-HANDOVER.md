@@ -1,9 +1,21 @@
 # รุ่นรับผิดชอบข้อมูล — ส่งลิสต์ให้ปีการศึกษาไปแก้เอง
 
-**Status: PLAN. Nothing in this file is built.** Written headless, night of
+**Status: PLAN, plus ONE piece now built.** Written headless, night of
 2026-09-15→16, no database access, no Google credentials. Every claim about live
 data is copied from `docs/state/phuriphatma.md` (2026-09-15 blocks) and
 `STATE.md`, not re-queried — see §5 for what that means for trust.
+
+✅ **`tools/house-year-sheets.mjs` exists** (same night, second pass) — the CSV
+generator §c step 2 said could not be written yet. It reuses `splitHeld()`
+(factored out of `src/js/house/gaps.js` for exactly this) so the sheet and
+ข้อมูลไม่ครบ classify a held row identically, dry-runs by default, and refuses to
+overwrite an existing file without `--force`. Pinned by
+`tools/house-year-sheets.test.js` over fixtures — **the live run against real
+data is still unverified**, per §5 below; the owner runs it with credentials
+this repo does not have. It does NOT emit the "ไม่มีในไฟล์เลย" empty-สาย row
+(§5 assumption 1 is still open) — every row it writes corresponds to an actual
+person. Everything else in this file (the Sheet itself, the import-back tool,
+the สาย-grid UI) remains unbuilt.
 
 **The owner's ask, verbatim:** *"I'll ask every admin of every year for these
 lists of people... I need a proper format to send each year like MD50, 51, 52,
@@ -137,7 +149,14 @@ the file instead of living only in an email.
 1. **Create the spreadsheet** — the owner's Google account, not the SAMO
    service account (there isn't one with Sheets access).
 2. **One tab per รุ่น**, columns as in §b, generated from the CURRENT database
-   state. This plan cannot generate that CSV tonight — §5 says why.
+   state. ✅ **Now: `npm run house:year-sheets -- --apply`** writes one CSV per
+   รุ่น into `externaldata/house-year-sheets/` (gitignored — never move a
+   generated file under `src/`/`docs/`/`tools/`, never commit one); paste each
+   into its own tab, named to match the CSV's filename. Copy row 1 in as the
+   header exactly — `HEADER` in the tool is the source of truth for the nine
+   column names, not this table. Held rows with no รหัสนักศึกษา and no
+   cohort_year land in `_unplaced.csv`, not a รุ่น tab (§5 point 2's 13-ish
+   people) — hand that one to ฝ่ายข้อมูล directly, not to a year admin.
 3. **Protect ranges**, per tab: select columns 1–8, `Data → Protected sheets
    and ranges → Protect range`, restrict to "Only you" (the owner) or a small
    admin group, NOT the year admin being sent the tab. Column 9 (หมายเหตุ) stays
