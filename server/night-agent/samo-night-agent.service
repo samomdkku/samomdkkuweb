@@ -14,8 +14,19 @@ ExecStart=/home/ubuntu/samo-night/run-night.sh
 # intermittently; an unattended agent running builds and vitest must not be able
 # to OOM nginx or the notify service off production. systemd enforces this where
 # a comment in a script would not.
-MemoryMax=1200M
-MemoryHigh=1000M
+# ⛔ 1200M WAS TOO TIGHT AND IT KILLED A TASK. Night 1 reported `npm run build`
+# OOM-ing and I relayed that as a property of the 2 GB box — it is not.
+# `server/deploy.sh` builds on this same VM every deploy without trouble, because
+# it runs with NO cgroup cap at all. The cap was mine, and a vite build plus
+# vitest simply does not fit in 1200M.
+#
+# 1600M still leaves the live site its room (nginx + the notify service + the
+# usage reporter sit around 400M, and the kernel reclaims page cache under
+# pressure), while NODE_OPTIONS bounds node's heap directly — the precise control,
+# rather than waiting for the cgroup killer to notice.
+MemoryMax=1600M
+MemoryHigh=1400M
+Environment=NODE_OPTIONS=--max-old-space-size=1024
 CPUQuota=150%
 
 # Belt for the runner's own clock check: nothing runs past the 5-hour window.
