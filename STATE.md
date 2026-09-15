@@ -34,9 +34,9 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `87321cc` (2026-09-14)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **31 s**
-  (baseline); docs step RAN, roots 13 s apart. SERVED: the evening handoff greps 1 at `/docs/state/phuriphatma`; earlier `ข้อมูลไม่ครบ` greps 1 in `admin-CngP2_JL.js`; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
+- ✅ **DEPLOYED = `5deb48e` (2026-09-15)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **33 s**
+  (baseline); docs step RAN, roots 13 s apart. SERVED: the passport admin's ⬆️ Upload button is BACK — `smoke:browser` 17/17 incl. the new control check, which read **0/3** on the bundle before this deploy and 3/3 after. Earlier: the evening handoff greps 1 at `/docs/state/phuriphatma`; `ข้อมูลไม่ครบ` greps 1 in the admin chunk; the 2 remaining `vssound` refs are BUG links, which stay. เชื่อมบัญชี Discord shipped in `08b48b0` — the
   string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
