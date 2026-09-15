@@ -16,6 +16,47 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-15 (LATEST) — 34 people placed; 51 left, 48 of them blocked on ฝ่ายข้อมูล
+
+**Two repairs ran, both with snapshots.** `house0196` merged 24 duplicate people;
+`house0197` promoted 10 more out of ยังนำเข้าไม่ได้.
+
+| | before today | now |
+|---|---|---|
+| `people` | 1,696 | **1,672** |
+| `students` | 1,611 | **1,621** |
+| held OPEN | 165 | **155** |
+| both student + ทีม SAMO | 257 | **291** |
+| ทีม SAMO with no house placement | 85 | **51** |
+
+**The 51 who remain, and who can move them:**
+
+| | คน | who |
+|---|---|---|
+| **A** | **48** | สาขา **MDI (31) + RT (17)** — ⛔ only ฝ่ายข้อมูล. The roster is 1,775 MD rows and ZERO MDI/RT, while `docs/house-data-spec-th.md` — the spec we sent them — asks for `MD` หรือ `MDI` หรือ `RT`. Ask this in the same message as the สาย 141/256 question. 48 is only the MDI/RT students who happen to be in ทีม SAMO; the rest of those two programmes are invisible to us entirely |
+| **B** | **1** | ธีรภัทร ฝ่ายจำปา — รหัส 663070188-6, สาย 114, รุ่น 2566, ชื่อเล่น อเล็กซ์ now on his record. Needs ONE field: his kkumail. Nobody has it — ⛔ do not derive it |
+| **C** | **2** | พี่นิค (เจ้าหน้าที่คณะแพทย์) · อ.ประกาศิต (อาจารย์). Not students. They will sit in this count for ever — consider excluding staff from it rather than "fixing" them |
+
+⛔ **THE ORDERING RULE, learned the expensive way — read before placing anybody.**
+`students_link_person` → `resolve_person_id` matches on **kkumail and ONLY
+kkumail**. So:
+- Promote a held row while the person's `people` row lacks that same kkumail →
+  the resolver finds nothing and **creates a SECOND person**. That is how the 24
+  duplicates were born in the first place.
+- The order is therefore: **put the kkumail on the person FIRST, then promote.**
+  For the 10 today it was already there, verified before running.
+
+⚠️ **`house0197` shipped a bug; it is fixed and written up** in
+`docs/mistakes/tooling-proofs.md` — the statement closing the held rows re-derived
+a CTE meaning "has no students row", which the INSERT above had just falsified, so
+it matched zero rows and ten people were briefly BOTH a student and still held.
+A CTE describing a precondition cannot be reused as a postcondition.
+
+Snapshots: `externaldata/house-import/house019{6,7}-snapshot.json`,
+`house0198-teerapat-snapshot.json`.
+
+---
+
 ## ▶ HANDOFF 2026-09-15 (LATER) — 24 duplicate people merged; ONE person still blocked
 
 **`tools/house0196-merge-teamsamo-duplicates.mjs` ran with `--commit`.** 24 ทีม

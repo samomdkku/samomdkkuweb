@@ -3087,3 +3087,55 @@ running the real producer into the real consumer.** When a destructive REPLACE s
 at the far end (a list rebuilt from whatever it was handed), also ask what the
 consumer does with an EMPTY input: here "held nobody" and "resolved everybody" are
 the same bytes, and only the file you upload decides which one the database believes.
+
+---
+
+## A repair created the rows and left the old ones open — the CTE described a PRECONDITION and was reused as a POSTCONDITION
+
+**Symptom:** `house0197` reported `students_created: 10` and looked like a clean
+run. The verification then showed `held OPEN 165` and `held resolved 0` — the ten
+students existed, but the ten held rows they came from were still marked waiting.
+For a few minutes ten people were simultaneously a placed นักศึกษา *and* listed in
+ยังนำเข้าไม่ได้, which is a state the app has no idea what to do with.
+
+**Cause:** the script ran two statements against the same CTE:
+
+```sql
+WITH ... only_team AS (... AND NOT EXISTS (SELECT 1 FROM students s WHERE s.person_id = p.id)),
+     pairs AS (...)
+INSERT INTO students ...            -- statement 1: gives all ten a students row
+WITH ... pairs AS (...)             -- statement 2: RE-DERIVES the same CTE
+UPDATE student_import_unresolved ... FROM pairs
+```
+
+`only_team` is defined as *"has a ทีม SAMO placement and **no students row**"*.
+That was true when the plan was made and **false the instant statement 1
+committed** — the INSERT is what made it false. So `pairs` was empty, the UPDATE
+matched zero rows, and `UPDATE ... FROM <empty>` is not an error. The script
+printed a success count from statement 1 and said nothing about statement 2.
+
+**Fix:** close the held rows by the fact that is still true afterwards — *a held
+row whose รหัส and ชื่อ now belong to a real student* — and assert the invariant
+at the end rather than trusting the write:
+
+```sql
+select count(*) from students s join student_import_unresolved u
+  on <same รหัส> and <same ชื่อ> where u.resolved_at is null;   -- must be 0
+```
+
+**Where it lives now:** `tools/house0197-promote-teamsamo-held.mjs`, both the
+corrected UPDATE and the post-run assertion.
+
+**Rules:**
+1. **A CTE that describes a PRECONDITION cannot be reused as a POSTCONDITION.**
+   "Rows that still need X" stops matching the moment you do X. In a multi-statement
+   repair, the second statement must key on something the first did not change —
+   or better, on the thing the first statement *produced*.
+2. **`UPDATE … FROM <empty set>` succeeds.** So does `DELETE` and `INSERT …
+   SELECT`. A repair that reports only what it inserted has not told you what it
+   failed to update; print a count per statement and compare it to what you
+   predicted, per statement.
+3. **State the end invariant and check it, not the individual writes.** "Nobody
+   is both a student and still held" is one query, survives any refactor of how
+   the rows got there, and is the thing a reader of the ยังนำเข้าไม่ได้ tab
+   actually depends on.
