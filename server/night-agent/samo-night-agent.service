@@ -1,0 +1,44 @@
+[Unit]
+Description=SAMO night agent - work the NIGHT-TASKS queue while the 5-hour window is open
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/samo-night
+ExecStart=/home/ubuntu/samo-night/run-night.sh
+
+# ⛔ THE BOX HAS 2 GB AND RUNS THE LIVE SITE. npm ci already stalls here
+# intermittently; an unattended agent running builds and vitest must not be able
+# to OOM nginx or the notify service off production. systemd enforces this where
+# a comment in a script would not.
+MemoryMax=1200M
+MemoryHigh=1000M
+CPUQuota=150%
+
+# Belt for the runner's own clock check: nothing runs past the 5-hour window.
+TimeoutStartSec=5h
+Restart=no
+
+# The agent has no business anywhere but its own clone.
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/samo-agent /home/ubuntu/samo-night
+NoNewPrivileges=true
+
+# ⛔ THE DEPLOY TREE IS MADE INVISIBLE AT THE KERNEL LEVEL, NOT ASKED ABOUT NICELY.
+# The test run caught this and the agent reported it itself: a `Read(path)` deny
+# rule only covers the Read TOOL, so `cat` through Bash walked straight past it
+# and printed a file from ~/samo-projects. That tree holds .env.local, mode 0664,
+# owned by the same `ubuntu` the agent runs as — and it contains
+# SUPABASE_SERVICE_ROLE_KEY, which bypasses every RLS policy over real student
+# records. No prompt rule can be trusted with that. InaccessiblePaths puts it
+# outside the process's mount namespace, so there is nothing to read by any tool,
+# any shell, any spelling.
+InaccessiblePaths=/home/ubuntu/samo-projects
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Bash(sudo:*)",
+      "Bash(su:*)",
+      "Bash(systemctl:*)",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)",
+      "Bash(nginx:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)",
+      "Bash(*deploy.sh*)",
+      "Bash(*server/deploy*)",
+      "Bash(npm run deploy:*)",
+      "Bash(*apply-migration*)",
+      "Bash(*db-query*)",
+      "Bash(*deploy-gas*)",
+      "Bash(*vp-accounts*)",
+      "Bash(*discord-apply*)",
+      "Bash(*discord-provision*)",
+      "Bash(*notify-smoke*)",
+      "Bash(*email-smoke*)",
+      "Bash(npm run release:*)",
+      "Bash(*house0196*)",
+      "Bash(*house0197*)",
+      "Bash(git push:*)",
+      "Bash(git remote:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Read(**/.env*)",
+      "Edit(**/.env*)",
+      "Read(/etc/**)",
+      "Edit(/etc/**)",
+      "Read(**/.credentials.json)",
+      "Read(/home/ubuntu/samo-projects/**)",
+      "Edit(/home/ubuntu/samo-projects/**)"
+    ]
+  }
+}

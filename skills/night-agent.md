@@ -100,6 +100,31 @@ reports a usage limit, the runner STOPS rather than retries.
 `Persistent=false` on purpose: a missed run must not fire late and spend a window
 somebody is awake to use.
 
+## ⛔ IT SHARES ONE QUOTA POOL WITH EVERY HUMAN ON THE ACCOUNT
+
+**This is the failure mode that wasted the first real night (2026-09-15).** The
+run fired at 22:41 ICT into a freshly reset window and got almost nothing done —
+two tasks returned "no changes", three exited 1 — because the owner's own
+session and the maintainer's were spending the SAME 5-hour pool at the same time.
+The agent is not allocated a window; it draws from the one pool, and a human at
+a laptop will always win the race.
+
+So the window only belongs to the agent once **everyone has actually stopped**.
+"I'm going to sleep at 9pm" is not the same as the session ending at 9pm — on the
+night this was learned, the laptop was still working at 23:32.
+
+Two ways to know before trusting a night:
+- the booking board at `/admin#claude` — which is exactly what it was built for;
+- the next morning's log: `grep -c "session limit" ~/samo-night/logs/<run>.log`.
+
+⛔ **And the runner must DETECT it.** The first version's pattern matched
+"usage limit" but Claude's real words are **"You've hit your session limit"**, so
+nothing matched, nothing stopped, and it churned six revision passes and the
+handoff against an empty quota — each returning the same refusal in under a
+second. The pattern now matches `session limit` too, and the check lives inside
+`run_one()` as well as the main loop, because the revise and handoff passes go
+through `run_one()` and had no check at all.
+
 ## Cost
 
 One full window ≈ 14% of the weekly pool (`session_pool_pct` 100,

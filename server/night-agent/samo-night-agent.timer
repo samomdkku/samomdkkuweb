@@ -1,0 +1,16 @@
+[Unit]
+Description=Fire the SAMO night agent at 22:41 ICT, one minute after the 5-hour window resets
+
+[Timer]
+# 15:41 UTC = 22:41 Asia/Bangkok. THE VM IS ON UTC — writing 22:41 here would
+# fire at 05:41 ICT, which is the classic way to get this wrong.
+OnCalendar=*-*-* 15:41:00
+# ⛔ Persistent=false ON PURPOSE. A missed run must NOT fire late: the whole
+# point is the 5-hour window that opens at 22:40 ICT, and a catch-up run at
+# breakfast would spend a window somebody is awake to use.
+Persistent=false
+AccuracySec=30s
+Unit=samo-night-agent.service
+
+[Install]
+WantedBy=timers.target
