@@ -319,7 +319,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 - A missing nginx `location` does not 404
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(62)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(63)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -385,6 +385,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A proof whose subjects were "whoever comes back first", three times in one file
 - The tool wrote both halves of the answer and neither was the file to upload
 - A repair created the rows and left the old ones open
+- The year-admin CSV's ชื่อเล่น column was blank for every held row
 
 ## `passport.md` — The Passport app's own write-ups *(40)*
 
@@ -431,4 +432,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_369 entries across 10 files._
+_370 entries across 10 files._

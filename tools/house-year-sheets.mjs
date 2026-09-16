@@ -150,7 +150,7 @@ async function main() {
     ask(`select student_id, first_name_th, last_name_th, nickname,
                 nickname_imported, nickname_self, sai_code, cohort_year, kkumail
            from public.students`),
-    ask(`select id::text, student_id, first_name_th, last_name_th,
+    ask(`select id::text, student_id, first_name_th, last_name_th, nickname_imported,
                 sai_code as sai, cohort_year, resolved_at
            from public.student_import_unresolved`),
   ]);

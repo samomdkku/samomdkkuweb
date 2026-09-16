@@ -3139,3 +3139,44 @@ corrected UPDATE and the post-run assertion.
    is both a student and still held" is one query, survives any refactor of how
    the rows got there, and is the thing a reader of the ยังนำเข้าไม่ได้ tab
    actually depends on.
+
+## The year-admin CSV's ชื่อเล่น column was blank for every held row — the SQL just never selected it
+
+**Symptom.** `tools/house-year-sheets.mjs` generates one CSV per รุ่น for a
+year admin to review, and the whole point of sending it to a *year admin*
+specifically (`docs/HOUSE-YEAR-HANDOVER.md` §a) is that they can recognise
+their own students "by หน้าตาและชื่อเล่น" — but the ชื่อเล่น column would have
+come out empty for every held (ค้างนำเข้า) row, silently.
+
+**Cause.** The CLI's own SQL for the held population selected only
+`student_id, first_name_th, last_name_th, sai_code as sai, cohort_year,
+resolved_at` — no `nickname_imported`. `toRow()` calls the shared `nickOf`
+accessor (`FIELDS.find(f => f.key === 'nickname').get`, from `census.js`),
+which reads `r.nickname || r.nickname_self || r.nickname_imported`; held rows
+only ever populate the third one (`students` gets the first two from
+self-service, held rows never sign in). With the column absent from the
+query, `nickOf(heldRow)` was `undefined` for every row, always — not a bug a
+fixture test can catch, because the transform (`buildYearSheets`/`toCsv`) is
+tested against hand-built row objects that already have the field; the gap
+was entirely in the SQL string, which nothing in this repo runs against a real
+schema until a human executes it live.
+
+**Fix:** add `nickname_imported` to the held SELECT
+(`tools/house-year-sheets.mjs`), and add a fixture test
+(`tools/house-year-sheets.test.js`, "a held row's ชื่อเล่น comes from
+nickname_imported") that at least pins the ACCESSOR side of the contract —
+this cannot catch a future SQL omission by itself, since the fixture supplies
+the field directly; it only proves `toRow` reads the right property name.
+
+**Where it lives now:** `tools/house-year-sheets.mjs`,
+`tools/house-year-sheets.test.js`.
+
+**Rule:** a hand-written SQL column list and the accessor that reads its
+result are two authors of one contract, and a fixture test only ever proves
+the second author, not the first — because the fixture is the thing a real
+row is supposed to look like, not the thing the query is supposed to produce.
+When a tool builds its own row shape by column-listing (rather than
+`select *`, itself avoided on purpose elsewhere in this repo — see the class-6
+"a `create table` inherits too" entry), grep the list against every accessor
+the row is later passed through, not just against the columns the primary
+classification logic needs.

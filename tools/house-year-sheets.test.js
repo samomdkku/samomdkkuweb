@@ -46,6 +46,22 @@ describe('buildYearSheets — placement', () => {
     expect(row.kkumail).toBe('');
   });
 
+  // A held row's only nickname source is `nickname_imported` (the file's own
+  // column, per 0188 — held rows have no `nickname`/`nickname_self`, those are
+  // self-service fields on `students`). §a's whole justification for asking a
+  // year admin at all is "they know their own รุ่น's people by face and by
+  // ชื่อเล่น" — a query that forgets to select it silently blanks the one
+  // column that makes the sheet legible for exactly the held rows it exists to
+  // help with. Caught live tonight (the CLI's SQL omitted it); this pins it at
+  // the fixture level, the layer that DOES run without a database.
+  it("a held row's ชื่อเล่น comes from nickname_imported, the same accessor FIELDS uses everywhere else", () => {
+    const held = heldRow({
+      id: 'h5', student_id: '659888888-8', first_name_th: 'สมหญิง', nickname_imported: 'หญิง',
+    });
+    const { sheets } = buildYearSheets({ students: [], held: [held] });
+    expect(sheets.get('MD50')[0].nickname).toBe('หญิง');
+  });
+
   it('resolved held rows are excluded — they are no longer held', () => {
     const held = heldRow({ id: 'h3', resolved_at: '2026-09-01T00:00:00Z' });
     const { sheets, unplaced } = buildYearSheets({ students: [], held: [held] });
