@@ -51,6 +51,27 @@ export function splitHeld(held = []) {
 }
 
 /**
+ * Every occupant (a `students` row or an open `held` row) that has BOTH a
+ * สาย and a resolvable รุ่น, grouped by รุ่น label. Exported so any OTHER
+ * reader classifying occupants by รุ่น+สาย (the สาย-grid UI) uses the exact
+ * same grouping `computeGaps`'s own สายรหัส audit does, rather than
+ * re-deriving "which รุ่น is this person in" and risking the two disagreeing
+ * about who occupies what — the drift `.claude/rules/mistakes.md` class 6
+ * warns about.
+ */
+export function groupOccupantsByCohort(occupants = []) {
+  const byCohort = new Map();
+  for (const s of occupants) {
+    if (!saiOf(s)) continue;
+    const key = label(s);
+    if (key === '—') continue;
+    if (!byCohort.has(key)) byCohort.set(key, []);
+    byCohort.get(key).push(s);
+  }
+  return byCohort;
+}
+
+/**
  * @param {object} d everything the pane has already loaded
  * @param {object[]} d.students   rows from fetchStudents()
  * @param {object[]} d.held       rows from fetchUnresolved()
@@ -104,14 +125,7 @@ export function computeGaps(d = {}) {
   // than guessed at, because a guess here invents a gap or hides one.
   const occupants = [...students, ...held];
   const unplaced = held.filter((h) => !cohortLabel(h) && saiOf(h)).length;
-  const byCohort = new Map();
-  for (const s of occupants) {
-    if (!saiOf(s)) continue;
-    const key = label(s);
-    if (key === '—') continue;
-    if (!byCohort.has(key)) byCohort.set(key, []);
-    byCohort.get(key).push(s);
-  }
+  const byCohort = groupOccupantsByCohort(occupants);
   const saiShared = [];
   const saiGaps = [];
   const missingAcross = new Map();

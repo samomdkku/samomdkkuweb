@@ -32,7 +32,10 @@
 
 /** students say `sai_code`; a held row says `sai`. One accessor — same reason as gaps.js. */
 const saiOf = (r) => r.sai_code || r.sai || '';
-const has = (v) => typeof v === 'string' ? v.trim() !== '' : v != null && v !== '';
+// Exported: the สาย-grid UI needs the SAME "is this field present" rule
+// `fieldHealth` uses, per row, so a cell's "ข้อมูลไม่ครบ" state can never
+// disagree with the ความครบของข้อมูลรายช่อง panel's own count.
+export const has = (v) => typeof v === 'string' ? v.trim() !== '' : v != null && v !== '';
 
 /** A ชื่อเล่น can arrive from the file or be typed by the person; either counts. */
 const nickOf = (r) => r.nickname || r.nickname_self || r.nickname_imported || '';
