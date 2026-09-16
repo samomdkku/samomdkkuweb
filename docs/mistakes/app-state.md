@@ -851,3 +851,50 @@ the raw `pathname` (fixing only the exact-match branch would have left
 compares, and a routing miss must not resolve to a valid-looking page.* Falling
 through to a landing tab is indistinguishable from a working link to the wrong
 place. Where a miss is possible, make it visible.
+
+## computeCensus() and computeGaps() classified the same held row differently on a whitespace-only cell
+
+**Symptom.** Nothing observable yet — found in a revision self-review, not
+reported. `computeCensus()`'s `heldSelf`/`heldAdmin` split (the ภาพรวม tab's
+165/152/13 numbers) and `computeGaps()`'s identical-sounding split (the
+ข้อมูลไม่ครบ tab's own 13) could in principle disagree for the exact same held
+row, which would put two Coordinated Numbers On One Screen back into open
+contradiction — the failure `census.js`'s own file header was written to
+prevent.
+
+**Cause.** `computeGaps()` (`src/js/house/gaps.js`) tests presence with plain
+JS truthiness: `!h.student_id`. `computeCensus()` (`src/js/house/census.js`)
+tests presence with its own `has()` helper, which additionally trims
+whitespace: `typeof v === 'string' ? v.trim() !== '' : v != null && v !== ''`.
+For every value seen in production so far — a real string, `null`, or `''` —
+the two agree, so 41+41 tests across the two modules stayed green. They diverge
+only for a string that is non-empty but blank after trimming (`'   '`), which a
+hand-edited spreadsheet cell can absolutely produce and neither fixture set
+happened to include.
+
+`gaps.js` already exported `splitHeld()` — extracted in the same session
+specifically so "any OTHER reader classifies a held row the same way
+`computeGaps` does, rather than re-deriving the same two-line rule" — but
+`census.js` was never pointed at it; it kept a second, textually-similar copy
+written before `splitHeld()` existed, and the export's own docstring claim
+("recomputed from the same rule so the two can never drift") described what the
+comment *intended*, not what the code *did*.
+
+**Fix.** `census.js` now imports and calls `splitHeld()` from `gaps.js` instead
+of re-filtering `held` itself. Guarded by a differential test in
+`census.test.js` that builds a held row with `student_id: '   '` and asserts
+`computeCensus()`'s counts equal `splitHeld()`'s own counts for the same row —
+reverting the import (restoring the local `has()`-based filter) turns that
+assertion red, confirmed by reintroducing the old code and watching it fail
+before restoring the fix.
+
+**Where it lives now.** `splitHeld()` export in `src/js/house/gaps.js`;
+consumed by `computeCensus()` in `src/js/house/census.js`; differential guard
+in `src/js/house/census.test.js`.
+
+**The general rule.** *A comment claiming "recomputed from the same rule" is
+not the same rule unless it is the same function call.* Two textually-similar
+filters pass every test built from the values already in hand and diverge only
+on a value neither fixture set thought to include — write the second call site
+as an import, never a paraphrase, even when (especially when) the paraphrase is
+two lines.
