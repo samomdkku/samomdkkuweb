@@ -469,3 +469,211 @@ design, since a rolled-back transaction leaves nothing for a browser to see.
 If `sais.code = '999'` ever becomes a real assignment, change the seed script's
 code before running it — a `999` colliding with a real สาย would misfile a
 real house student the moment cleanup ran.
+
+---
+
+## ขั้นตอนการทำงานทั้งหมด — the loop around the sheet and the grid
+
+Task 6, written headless, no database access, no Google credentials, no code.
+§(a)-(e) above designed the sheet and the rules; §"วิธีทดสอบ" pinned the
+self-claim flow. This section is the ROUND TRIP those pieces sit inside — every
+turn of the crank, once a term, for as long as ฝ่ายข้อมูล keeps sending files.
+
+**One line of context for the SEND decision below, since it drives most of the
+labels:** the owner already said Sheets is what they want ("I think Google
+Sheets is best... can see in real time who fills it in"), so this section
+treats §c's spreadsheet design as decided and asks only where a download-CSV
+button fits AROUND it, not instead of it.
+
+### 1. Produce
+
+| Piece | Status | Detail |
+|---|---|---|
+| CSV generator, run from a terminal | ✅ **EXISTS** | `npm run house:year-sheets -- --apply` → `tools/house-year-sheets.mjs`, built task 1. Needs `.env.local` DB credentials. |
+| **When to run it** | MANUAL FOREVER, but pin the trigger | Not a calendar cadence — a รุ่น's data only changes when a new roster file is imported (`skills/import-the-house-roster.md`) or a หมายเหตุ correction from a PRIOR round lands (§5 below). **Run it as the last step of an import**, right after `tools/house-sync-registry.mjs --commit` (§4c of that skill) — never before, since the registry sync is what fills in the ชื่อเล่น/ชื่อ the sheet's whole justification depends on (see the 0fdc125 fix tonight: the sheet already had one bug from an unsynced field). Whoever runs an import adds one more command to the sequence; nothing here proposes a scheduled job. |
+| **An admin-UI download button**, so producing the CSVs does not require terminal + DB-credential access | 🔧 **NEEDS BUILDING** | Factor `buildYearSheets`, `toCsv`, `HEADER`, `STATUS` out of `tools/house-year-sheets.mjs` into a new shared module `src/js/house/year-sheets.js` (pure — no `fs`, no network in any of those four; only `main()` touches the filesystem and that part stays in the CLI script, importing the moved functions back — the same direction `tools/house-year-sheets.mjs` already imports `gaps.js`/`fields.js`/`census.js` from `src/`, per the file-placement rule in `CLAUDE.md`: shared logic lives under `src/js/`, a CLI tool imports FROM it, never the reverse). Then add one function beside `exportCsv()` in `src/js/house/index.js` (`downloadYearSheets()`) and one button in `src/html/tab-house.html` next to the existing `#houseExportCsv` ("ดาวน์โหลด CSV รายรุ่น (สำหรับส่งให้รุ่น)"). **No new query** — `index.js` already holds `students` and `held` in module state from `reload()` (`src/js/house/index.js:74,81`), the same arrays `gaps.js` and the สาย-grid already read, so the button runs `buildYearSheets({students, held})` against whatever the admin is already looking at and downloads one CSV per รุ่น (mirroring `exportCsv()`'s blob-and-anchor pattern, one `a.click()` per file — browsers do not need a zip library for eight-or-so small text files). |
+
+**Why the button is worth building even though the CLI already works**: the CLI
+needs a laptop with `.env.local`'s production DB credentials — today that is
+the owner alone. A button any admin can click, using data the browser already
+has, is strictly wider access with **no wider trust**: it shows nothing the
+admin's own screen doesn't already show them in ข้อมูลไม่ครบ or the สาย-grid.
+It also removes the one way the CLI file can silently drift from what the app
+believes: a browser button always reflects whatever `reload()` last fetched.
+
+### 2. Send — Sheets is primary; the button is a produce-time convenience, not a competitor
+
+**Recommendation: keep Google Sheets as the send mechanism (§c, decided).
+Build the download button above as an improvement to the PRODUCE step, feeding
+INTO Sheets — never as an alternative distribution channel that skips Sheets.**
+
+Why not let the button replace Sheets entirely (download eight CSVs, email
+each to its year admin, skip the spreadsheet):
+- It throws away the one thing the owner explicitly asked for and explained
+  the reason for — **live visibility of who has filled theirs in**. An emailed
+  CSV that comes back as a reply-attachment gives no signal until it arrives;
+  a Sheets tab shows partial progress the moment a year admin types anything.
+- Sheets deployment already needs a human in the loop every cycle anyway (§c
+  steps 1-4: create/paste/protect/share) — a downloaded CSV does not remove
+  the human, it only changes what they paste it into. It would be strictly
+  worse on the one axis (visibility) for no reduction in manual effort on the
+  other (a human still has to open eight files and do something with each).
+
+Why build the button anyway, rather than leaning only on the CLI:
+- **Producing** and **sending** are different steps done by potentially
+  different people at different times, and the CLI ties producing to whoever
+  holds DB credentials. Once the button exists, producing the eight files no
+  longer gates on the owner personally running a terminal command — anyone
+  with the ระบบบ้าน admin pane can generate a fresh set the morning a new
+  roster lands, then the owner (or anyone) does the fifteen-minute Sheets
+  paste-and-protect ritual whenever convenient.
+- It is genuinely complementary, not redundant: the CLI writes to
+  `externaldata/` on whatever machine runs it (fine for the owner's own
+  laptop, where the Sheets paste happens right after); the button writes to
+  whichever admin's Downloads folder they're sitting at, which may not be the
+  same machine that has the Google account signed in. Both stay useful.
+
+**What would change this recommendation**: if year admins turn out to have no
+personal Google identity to invite (§e assumption 5 — genuinely unknown
+tonight), Sheets sharing cannot work at all and the emailed-CSV-only path
+becomes the only option, chase-ability lost. Also, if the number of รุ่น grows
+large enough that the manual paste-protect-share ritual (§c steps 1-4) becomes
+the actual bottleneck rather than a fifteen-minute task, that argues for
+someone eventually provisioning a Google Sheets API service account so the
+paste step itself can be scripted — not attempted tonight, no credential for
+it exists, and it is a bigger ask than anything else in this section.
+
+### 3. Fill in — what to send the year admin, verbatim
+
+Two sentences, in Thai, ready to paste into the message that shares the tab:
+
+> **"ในแท็บของรุ่นคุณ ทุกคอลัมน์ล็อกไว้ห้ามแก้ ยกเว้นคอลัมน์สุดท้าย 'หมายเหตุ'
+> — ถ้าเจอแถวไหนที่รหัส ชื่อ หรือสายดูผิด ให้เขียนอธิบายในหมายเหตุแทน
+> อย่าลบหรือพิมพ์ทับคอลัมน์อื่น"**
+>
+> **"คอลัมน์ 'สถานะ' บอกว่าใครยังเข้าระบบไม่ได้ — ถ้าเห็นคำว่า
+> 'ยืนยันตัวตนเองได้แล้ว รอเข้าระบบ' แปลว่าคนนั้นแค่ต้องล็อกอินด้วยอีเมล kkumail
+> ของตัวเองแล้วกรอกรหัส+ชื่อ ไม่ต้องรอให้ใครช่วย — บอกเขาไปได้เลย."**
+
+The second sentence is not filler: §a's whole table shows `held_self` rows need
+nothing FROM the year admin except a nudge, and sending that sentence up front
+should shrink how many หมายเหตุ rows are just "คนนี้ยังไม่เข้าระบบ" restated.
+
+MANUAL FOREVER — this is a message a human sends: there is no notification
+channel between "a Sheet is shared" and "the assigned person reads it" that
+this repo could build without knowing who each year admin is by kkumail, which
+nobody has told this agent tonight (§e assumption 5, again).
+
+### 4. Come back — what is checked before anything downstream happens
+
+**Collecting the file**: MANUAL FOREVER. `File → Download → CSV`, once per tab
+(§c step 5) — Sheets has no multi-tab CSV export and no API credential exists
+here to script around that.
+
+**Validation, and why it is entirely human, on purpose:**
+
+The sheet's own design (§b) already did most of the validation BEFORE this
+step exists — eight of nine columns are range-protected and read-only, so the
+only thing that can come back changed is free text in หมายเหตุ. That column is
+read as a **claim about the database**, never as a value to write into it, so
+"validation" here does not mean a parser checking a CSV shape; it means a
+human deciding, per note, which of two existing paths (§5) it belongs to. What
+must be checked, in order, before anyone acts on a note:
+
+1. **Did the range protection actually hold?** Google Sheets "Editor" access
+   (§c step 4's chosen sharing level) can still add rows, reorder, or paste
+   over an unprotected cell inside a protected RANGE's own row if the row
+   itself was inserted fresh — protection is per-range, not structural. Before
+   trusting column 1 (รหัสนักศึกษา) as an anchor for a note in column 9,
+   confirm the row's รหัส still matches what the generator wrote (cross-check
+   against a fresh `--apply` run's own file, or against `npm run house:gaps`
+   directly) rather than assuming eight months of untouched protection.
+2. **Is the note about สาย?** ⛔ **Never act on it directly, ever, regardless
+   of how specific or confident it reads.** สาย is never guessed or
+   admin-typed (`docs/HOUSE-DATA-REPAIR.md` §2 — no self-service path exists
+   for it and none should be built here to route around that). Forward it to
+   ฝ่ายข้อมูล as a question about their SOURCE file; it is only real once it
+   shows up in the next authoritative roster.
+3. **Is the note about a wrong or missing kkumail on a held row** (the
+   `held_admin` case §a identifies as the one row a year admin genuinely
+   resolves)? Do not copy the address out of the sheet cell into the database
+   directly. Use the EXISTING held-row promotion control in the admin pane
+   (ระบบบ้าน → ยังนำเข้าไม่ได้ → search by รหัส or ชื่อ → กรอกอีเมล) so the
+   admin doing the promotion re-confirms รหัส+ชื่อ themselves at the point of
+   writing, the same discipline `claim_my_student_seat`'s neutral-failure
+   message exists to enforce for a student's own attempt (§b's "one door"
+   rule, restated: a sheet cell is a tip pointing at the door, never a second
+   door).
+4. **Is the note "this person doesn't exist / already graduated / duplicate"**?
+   No automated path — a human confirms with ฝ่ายข้อมูล and, if correct, it
+   becomes a note on the NEXT roster file exchange, not a live delete (this
+   repo's import path never deletes; §6 of `import-the-house-roster.md`).
+5. **Anything else** (a ชื่อ/นามสกุล/ชื่อเล่น correction) is lowest priority —
+   it is already self-service (`docs/HOUSE-DATA-REPAIR.md` §2 Case A) for
+   every row that can sign in, so a year admin's note is at best a heads-up to
+   mention to the person, never a database write on its own.
+
+⛔ **Nothing above is a step this repo should ever automate into "read column
+9, write to the database."** §b's core rule is that the sheet has exactly ONE
+writable column and it writes to a human, not a table — an importer that
+closed that loop automatically would be exactly the second write path
+`.claude/rules/mistakes.md` class 6 warns about, built to route around rules
+(สาย most of all) that exist specifically to require a human in the loop.
+
+### 5. Apply — reuse the existing import path; do not build a second one
+
+**Decision: reuse. No new writer.** Every corrected fact ends up going through
+one of two paths that already exist and are already hardened:
+
+- **A สาย or roster-level correction** (§4 point 2, and point 4's
+  no-longer-a-student case) becomes part of ฝ่ายข้อมูล's NEXT handover file,
+  which flows through the existing, hardened pipeline: `tools/clean-house-csv.mjs`
+  → read `<base>.report.md`, especially its §2 สาย-density check → `tools/house-import.mjs`
+  (dry run, then `--commit`) → `tools/house-sync-registry.mjs --commit` →
+  regenerate the year sheets (back to step 1). This is `skills/import-the-house-roster.md`
+  end to end, unmodified — a year-admin note is just one more INPUT to that
+  file, the same as any other correction ฝ่ายข้อมูล already receives.
+- **A held-row kkumail correction** (§4 point 3) uses the admin pane's
+  existing promotion control (ระบบบ้าน → ยังนำเข้าไม่ได้), which already writes
+  through the same guarded path a student's own successful claim would.
+
+**Why not build `house-year-notes-import.mjs`** (the tool §c step 6 named as
+"not built tonight"): having designed the validation checklist above, every
+single note category routes to one of the two existing mechanisms and needs a
+human decision first — there is no step where a note could be mechanically
+"imported" without that judgment call already having been made. A staging
+table (`house_year_admin_notes`) would only be worth building if the volume of
+notes ever gets large enough that reading raw CSV cells by eye becomes the
+bottleneck — not knowable tonight, and not needed for the first cycle of
+eight-ish tabs. **What would change this**: if a future round produces
+hundreds of notes across many รุ่น at once (e.g. a full re-verification sweep),
+revisit — but build the staging table then, sized to the actual note volume,
+not now against a guess.
+
+### 6. Chase — who has replied
+
+**In Sheets itself, no code, built once by the owner (or whoever manages the
+sheet) using features Sheets already has:**
+
+- A row-level visual cue already exists for free: Sheets conditional
+  formatting on the หมายเหตุ column (`Format → Conditional formatting → “is
+  not empty”` → any highlight colour) marks every row a year admin has
+  actually touched, live, as they type.
+- A one-glance "who's done" view: a formula on the ภาพรวม tab (already
+  planned in §c as tab 1),
+  one row per รุ่น: `=COUNTA(MD49!I2:I999)` (nonblank หมายเหตุ cells) next to
+  `=COUNTA(MD49!A2:A999)` (total rows), so the owner reads "12 / 214 filled"
+  per รุ่น without opening each tab. Copy the formula pair down once per รุ่น
+  row when the ภาพรวม tab is built — a Sheets formula, not a script, so it
+  needs no credential this repo could hold anyway.
+
+**MANUAL FOREVER, and deliberately not built as an in-app feature.** An
+in-repo "reply status" view would need the Google Sheets API (read access to
+the live spreadsheet), which is a credential nobody has issued yet
+(`.claude/rules/security.md` has no row for one) — and even if it existed, it
+would duplicate the exact live view Sheets already renders for free, which is
+the entire reason §c chose Sheets over anything else. **What would change
+this**: if the owner later wants the "who's filled in" state to show up
+somewhere OTHER than the spreadsheet itself (e.g., folded into the ระบบบ้าน
+admin pane's own overview alongside the existing gap counts), that is the
+point a Sheets API service account becomes worth provisioning — not before.
