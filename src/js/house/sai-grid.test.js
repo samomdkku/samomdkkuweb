@@ -6,6 +6,7 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import { computeSaiGrid, listGridCohorts, CELL } from './sai-grid.js';
+import { splitHeld } from './gaps.js';
 
 const YEAR = { MD49: 2564, MD50: 2565, MD51: 2566 };
 const student = (sai, cohort, extra = {}) => ({
@@ -91,6 +92,30 @@ describe('held rows split the same way gaps.js splits them', () => {
     expect(cell.state).toBe(CELL.heldAdmin);
     expect(cell.duplicate).toBe(true);
     expect(cell.occupants).toHaveLength(2);
+  });
+
+  // ⛔ DIFFERENTIAL, not a hand-picked example: an earlier version of this file
+  // reimplemented `!student_id || !first_name_th` inline instead of calling
+  // `splitHeld()`, agreeing with it only by coincidence (both used plain
+  // truthiness). This pins every held row's grid classification against
+  // `splitHeld()`'s OWN output, so an import that quietly turns back into a
+  // paraphrase — or a future change to `splitHeld()`'s predicate that this
+  // file doesn't follow — shows up here, not just in gaps.test.js.
+  it('classifies every held row exactly as splitHeld() does, not a re-derived copy', () => {
+    const rows = [
+      heldRow(1, { id: 'a' }),
+      heldRow(2, { id: 'b', student_id: null }),
+      heldRow(3, { id: 'c', first_name_th: '' }),
+      heldRow(4, { id: 'd', student_id: '', first_name_th: '' }),
+    ];
+    const { heldAdmin } = splitHeld(rows);
+    const adminIds = new Set(heldAdmin.map((r) => r.id));
+    const grid = computeSaiGrid({ held: rows }, 'MD50');
+    for (const r of rows) {
+      const cell = bySai(grid, String(r.sai));
+      const expected = adminIds.has(r.id) ? CELL.heldAdmin : CELL.heldSelf;
+      expect(cell.state).toBe(expected);
+    }
   });
 });
 

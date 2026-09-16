@@ -898,3 +898,46 @@ filters pass every test built from the values already in hand and diverge only
 on a value neither fixture set thought to include — write the second call site
 as an import, never a paraphrase, even when (especially when) the paraphrase is
 two lines.
+
+## sai-grid.js's held-row split was a paraphrase of splitHeld(), not a call to it
+
+**Symptom.** Nothing observable yet — found in a second revision pass over the
+same night's branch, immediately after the `computeCensus()` fix directly
+above. No live numeric disagreement: `src/js/house/sai-grid.js`'s inline
+`(!r.student_id || !r.first_name_th) ? heldAdmin : heldSelf` happened to be
+byte-for-byte the same predicate `splitHeld()` used, so every test in both
+files still passed.
+
+**Cause.** `sai-grid.js`'s own file header (written the same session as
+`computeSaiGrid()`) claims: *"reusing gaps.js's OWN two-tone split of a held
+row rather than inventing a third interpretation of it."* The code never
+called `splitHeld()` — it kept a second, hand-typed copy of the same two-line
+rule instead of importing it, exactly the shape the `computeCensus()` entry
+above generalises from ("recomputed from the same rule" is not the same rule
+unless it is the same function call). The two only agreed because nobody had
+touched either copy since `splitHeld()` was extracted.
+
+**Fix.** `sai-grid.js` now imports `splitHeld` from `gaps.js`, builds a
+`Set` of the `heldAdmin` rows by object identity (identity survives through
+`groupOccupantsByCohort`, since both read the same `held` array references),
+and classifies each held occupant by set membership instead of re-running the
+predicate. Guarded by a differential test in `sai-grid.test.js` that computes
+`splitHeld()` on a fixture set directly and asserts every cell in the grid
+agrees with it — not a hand-picked expected value, so it also survives a
+future change to `splitHeld()`'s own predicate. Verified the guard catches
+drift, not just disagreement with itself: simulated a future `splitHeld()`
+predicate change (added whitespace-trimming) with the inline copy reinstated,
+watched the new test go red (`held_self` vs expected `held_admin`), then
+restored both files and reran green.
+
+**Where it lives now.** `splitHeld()` export in `src/js/house/gaps.js`;
+consumed by `computeSaiGrid()` in `src/js/house/sai-grid.js` via a
+`heldAdminSet`; differential guard in `src/js/house/sai-grid.test.js`.
+
+**The general rule.** *A file header claiming reuse is not proof of reuse —
+grep the function name at the call site.* This is the SAME instance of the
+rule above, found in the sibling file the first fix didn't check: extracting
+a shared predicate into one module doesn't retire the copies already sitting
+in every OTHER module that needs it. When a class-6 fix lands, grep the
+codebase for the predicate's literal text, not just the one file that
+triggered the fix.

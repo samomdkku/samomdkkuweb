@@ -228,7 +228,7 @@ Open when: markup, modals, layout, touch, icons.
 - "The columns refuse to stack on a phone"
 - "สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ"
 
-## `app-state.md` — Routing, read-state, caches & serialization *(21)*
+## `app-state.md` — Routing, read-state, caches & serialization *(22)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -253,6 +253,7 @@ Open when: URL state, per-user "seen", import/export.
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
 - computeCensus() and computeGaps() classified the same held row differently on a whitespace-only cell
+- sai-grid.js's held-row split was a paraphrase of splitHeld(), not a call to it
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(31)*
 
@@ -433,4 +434,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_371 entries across 10 files._
+_372 entries across 10 files._

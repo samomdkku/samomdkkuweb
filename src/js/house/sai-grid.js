@@ -7,12 +7,15 @@
 // Like this สาย has nobody, data missing, error etc." Spec'd in
 // docs/HOUSE-YEAR-HANDOVER.md §(d) before this file was written.
 //
-// PURE. No DOM, no network, no clock. Reuses `groupOccupantsByCohort` from
-// ./gaps.js (the SAME per-รุ่น, per-สาย grouping the ข้อมูลไม่ครบ audit
-// computes) and `FIELDS`/`has` from ./census.js (the SAME per-field
+// PURE. No DOM, no network, no clock. Reuses `groupOccupantsByCohort` and
+// `splitHeld` from ./gaps.js (the SAME per-รุ่น/per-สาย grouping and the SAME
+// held-row admin/self split the ข้อมูลไม่ครบ audit computes — IMPORTED calls,
+// not paraphrased predicates, per `.claude/rules/mistakes.md` class 6: a
+// second copy of `!student_id || !first_name_th` sat here uncalled for one
+// commit, agreeing with `splitHeld` only because nobody had changed either
+// copy yet) and `FIELDS`/`has` from ./census.js (the SAME per-field
 // completeness rule ความครบของข้อมูลรายช่อง counts) — this module invents no
-// new definition of "complete" or "which รุ่น a person is in", per
-// `.claude/rules/mistakes.md` class 6 (two implementations of one rule drift).
+// new definition of "complete" or "which รุ่น a person is in".
 //
 // STATE PRIORITY, one per cell, WORST WINS when a สาย has more than one
 // occupant — reusing gaps.js's OWN two-tone split of a held row rather than
@@ -53,7 +56,7 @@
 //     no occupant currently claims the สาย.
 // ==============================================
 import { FIELDS, has } from './census.js';
-import { groupOccupantsByCohort } from './gaps.js';
+import { groupOccupantsByCohort, splitHeld } from './gaps.js';
 import { houseOf } from './fields.js';
 
 export const CELL = {
@@ -75,9 +78,14 @@ const personName = (r) => [r.first_name_th, r.last_name_th].filter(Boolean).join
 function occupantsByCohortAndSai(d) {
   const held = (d.held || []).filter((h) => !h.resolved_at);
   const heldSet = new Set(held);
+  // IMPORTED, not re-derived — see the file header. Object identity is
+  // preserved from `held` through `groupOccupantsByCohort`, so membership in
+  // this set (not a re-run of the predicate) is what tells a held occupant
+  // apart from a held_self one below.
+  const heldAdminSet = new Set(splitHeld(held).heldAdmin);
   const occupants = [...(d.students || []), ...held];
   const byCohort = groupOccupantsByCohort(occupants);
-  return { byCohort, heldSet };
+  return { byCohort, heldSet, heldAdminSet };
 }
 
 /** Every รุ่น label that has at least one occupant with a สาย — the picker's
@@ -95,7 +103,7 @@ export function listGridCohorts(d = {}) {
  *   `cells` is empty when the รุ่น has no occupant at all (nothing to grid).
  */
 export function computeSaiGrid(d = {}, cohort) {
-  const { byCohort, heldSet } = occupantsByCohortAndSai(d);
+  const { byCohort, heldSet, heldAdminSet } = occupantsByCohortAndSai(d);
   const rows = byCohort.get(cohort) || [];
   if (!rows.length) return { cohort, max: 0, cells: [] };
 
@@ -121,7 +129,7 @@ export function computeSaiGrid(d = {}, cohort) {
       const isHeld = heldSet.has(r);
       const missing = FIELDS.filter((f) => !has(f.get(r))).map((f) => f.label);
       let state;
-      if (isHeld) state = (!r.student_id || !r.first_name_th) ? CELL.heldAdmin : CELL.heldSelf;
+      if (isHeld) state = heldAdminSet.has(r) ? CELL.heldAdmin : CELL.heldSelf;
       else state = missing.length ? CELL.incomplete : CELL.ok;
       return { name: personName(r) || r.kkumail || '(ไม่มีชื่อ)', isHeld, missing, state };
     });
