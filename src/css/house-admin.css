@@ -103,8 +103,12 @@
    the same reason `house-table`'s overflow-x exists, just as a wrap instead
    of a scroll, since a scrolling GRID (as opposed to a wide table) hides most
    of the สาย a reader came to scan at once. `min-width: 0` on the cell itself
-   is required for `.text-truncate` inside it to actually shrink — a grid
-   item's default `min-width: auto` ignores its own overflow rule otherwise. */
+   keeps a long unbroken name from forcing the whole column wider — names
+   WRAP onto more lines instead of being cut with `.text-truncate` + `title`,
+   which was tried first and reverted (self-review, 2026-09-17): a `title`
+   tooltip does not exist on a touch device, and most of this app's traffic
+   is phones — the same class-4 defect this file's own JS comment warns
+   against, just for the occupant NAME instead of the state label. */
 .sai-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));

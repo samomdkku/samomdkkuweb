@@ -49,14 +49,17 @@
 //   sibling `sai_shared` flags: more than one occupant on one รุ่น's สาย.)
 //
 // AVOIDING THE 2026-09-15 DEFECT (docs/mistakes/frontend-ui.md, "a label
-// claims something about every case it covers"; the label audit in
-// docs/state/agent-notes/2026-09-15-label-audit.md found three more sites of
-// the same shape). Every state name here is named for what the code CHECKED,
-// not for an inferred cause:
+// claims something about every case it covers"). ⚠️ A label audit that found
+// three more sites of this shape exists ONLY on the unmerged sibling branch
+// `agent/2026-09-15-real-run` (`docs/state/agent-notes/2026-09-15-label-audit.md`)
+// — it 404s on this branch; do not go looking for it here
+// (docs/HOUSE-YEAR-HANDOVER.md §d and docs/state/agent-notes/2026-09-16-notes.md
+// both note the same gap). Every state name here is named for what the code
+// CHECKED, not for an inferred cause:
 //   - "held" cells say "ไม่มี kkumail" (literally true of every row in the
 //     held table — that IS the split criterion `student_import_unresolved`
 //     uses) rather than "ไม่มีรหัสนักศึกษาในไฟล์" (only true of the
-//     held_admin subset — Finding 1/2/3 of the audit).
+//     held_admin subset).
 //   - the `missing` list on each occupant is a PER-ROW check (`FIELDS`
 //     filtered by `!has(...)` on THAT row), never a group-level claim, so
 //     naming the exact fields is safe — it is what was tested, for that one

@@ -747,7 +747,7 @@ function renderSaiGridPane() {
           <span class="fw-semibold small">${escHtml(c.sai)}</span>
           <i class="bi bi-${style.icon}" aria-hidden="true"></i>
         </div>
-        <div class="sai-cell-name small text-truncate">${names.length ? escHtml(names.join(', ')) : '—'}</div>
+        <div class="sai-cell-name small">${names.length ? escHtml(names.join(', ')) : '—'}</div>
         <div class="sai-cell-state small">${escHtml(style.label)}</div>
         ${c.duplicate
     ? `<div class="small fw-medium"><i class="bi bi-people-fill" aria-hidden="true"></i> ${c.occupants.length} คน</div>`
