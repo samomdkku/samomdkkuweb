@@ -3694,21 +3694,31 @@ lines instead of being cut, so the full ชื่อ is on-screen without a hove
 from stretching the grid column) but its comment no longer claims to serve
 `.text-truncate`, which is gone.
 
-**Not fixed, flagged instead:** the `missing` field list (which ช่อง is
-absent, e.g. "ขาด: ชื่อเล่น") is built into the same `title` string and has
-**no on-screen equivalent at all** for an `incomplete` cell — worse than the
-name case, since there the label ("ข้อมูลไม่ครบ") is visible but WHICH field
-is not, anywhere but the tooltip. Not fixed here: the cell is already tight at
-the 390px breakpoint (4.4rem wide) and fitting a per-field list on-screen needs
-a real layout decision (an expandable cell? a tap-to-open detail panel? move
-the field list to whatever the cell links to?) that a headless self-review
-pass should not make unasked. Whoever builds it next should read this entry
-first — the ข้อมูลไม่ครบ tab already lists the missing field per row in its
-own table view, so one option is making a grid cell link there rather than
-inventing a second place to show the same detail.
+**Left open at the time, then closed the same night (2026-09-17 revision
+pass).** The `missing` field list (which ช่อง is absent, e.g. "ขาด: ชื่อเล่น")
+was built into the same `title` string with **no on-screen equivalent at all**
+for an `incomplete` cell — worse than the name case, since there the label
+("ข้อมูลไม่ครบ") was visible but WHICH field was not, anywhere but the
+tooltip. The self-review that found this deliberately did not fix it, reasoning
+that a per-field list needs "a real layout decision" the cell's 4.4rem mobile
+width can't obviously fit. On reread: the actual fields (ชื่อ/นามสกุล/ชื่อเล่น/
+รหัสนักศึกษา/สาย, `census.js`'s `FIELDS`) are short Thai words, at most a
+handful per cell — the same shape of content as the occupant name this exact
+fix pattern already solved, not a paragraph needing a real layout redesign. The
+"needs a bigger decision" framing was itself untested: nobody had tried the
+plain wrapping fix and found it insufficient, they had reasoned from the cell's
+width in the abstract.
+
+**Fix:** added a `.sai-cell-missing` div, visible on-screen (wraps, no
+truncation, same treatment as `.sai-cell-name`), listing the deduplicated
+missing-field labels for an `incomplete` cell. `title` keeps the same combined
+summary as before (label + names + missing) as a hover convenience for desktop
+— now redundant with what's on screen rather than the only carrier, which is
+what the class-4 rule actually requires ("colour/hover is never the ONLY
+signal"), not "no title at all."
 
 **Where it lives now:** `src/js/house/index.js` (`renderSaiGridPane`),
-`src/css/house-admin.css` (`.sai-cell-name`).
+`src/css/house-admin.css` (`.sai-cell-name`, `.sai-cell-missing`).
 
 **Rule:** a design principle stated once at the top of a file is not
 self-enforcing — grep the SAME file (and its renderer, if the file is pure and

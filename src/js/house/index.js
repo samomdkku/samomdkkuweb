@@ -736,8 +736,8 @@ function renderSaiGridPane() {
   host.innerHTML = grid.cells.map((c) => {
     const style = SAI_CELL_STYLE[c.state];
     const names = c.occupants.map((o) => o.name).filter(Boolean);
-    const missing = c.occupants.flatMap((o) => o.missing || []);
-    const title = [style.label, names.join(', '), missing.length ? `ขาด: ${[...new Set(missing)].join(', ')}` : '']
+    const missing = [...new Set(c.occupants.flatMap((o) => o.missing || []))];
+    const title = [style.label, names.join(', '), missing.length ? `ขาด: ${missing.join(', ')}` : '']
       .filter(Boolean).join(' — ');
     return `
       <div class="sai-cell border rounded-2 p-2 bg-${style.cls}-subtle border-${style.cls}-subtle
@@ -749,6 +749,7 @@ function renderSaiGridPane() {
         </div>
         <div class="sai-cell-name small">${names.length ? escHtml(names.join(', ')) : '—'}</div>
         <div class="sai-cell-state small">${escHtml(style.label)}</div>
+        ${missing.length ? `<div class="sai-cell-missing small">ขาด: ${escHtml(missing.join(', '))}</div>` : ''}
         ${c.duplicate
     ? `<div class="small fw-medium"><i class="bi bi-people-fill" aria-hidden="true"></i> ${c.occupants.length} คน</div>`
     : ''}

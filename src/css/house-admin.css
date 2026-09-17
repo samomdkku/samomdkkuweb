@@ -115,8 +115,13 @@
   gap: 0.5rem;
 }
 .sai-cell { min-width: 0; }
-.sai-cell-name, .sai-cell-state { line-height: 1.15; }
+.sai-cell-name, .sai-cell-state, .sai-cell-missing { line-height: 1.15; }
 .sai-cell-state { opacity: 0.85; }
+/* Which field is missing, on screen — not hover-only (2026-09-17 revision
+   pass, closing the gap the 2026-09-17 self-review flagged and deliberately
+   left open: "the missing list is entirely hover-only, with no on-screen
+   equivalent at all"). Wraps like .sai-cell-name; no truncation. */
+.sai-cell-missing { opacity: 0.85; }
 
 /* Duplicate is a BORDER treatment, never colour alone: two people can each
    individually be "ปกติ" and the problem is only visible as a COUNT, so the
