@@ -941,3 +941,59 @@ a shared predicate into one module doesn't retire the copies already sitting
 in every OTHER module that needs it. When a class-6 fix lands, grep the
 codebase for the predicate's literal text, not just the one file that
 triggered the fix.
+
+## sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
+
+**Symptom.** Nothing observable yet — found reviewing the same night's
+สาย-grid feature after the two `splitHeld()` entries above, once for the OTHER
+shared rule this module needs: "group these rows by numeric สาย, per รุ่น."
+`computeSaiGrid()` built its own `bySai` map with a hand-typed
+`Number(saiOf(r))` / `Number.isFinite` / `n <= 0` loop — textually identical to
+the loop `computeGaps()` already ran per cohort to build `sai_gap` (missing
+numbers in a รุ่น's own 1..max sequence) and `sai_shared` (more than one
+occupant on one number), but never calling either. Same shape as the
+`splitHeld()` bug: two copies agreeing only because nobody had edited either
+since the code was written.
+
+Separately, `computeSaiGrid()`'s own file header mis-cited *which* gaps.js
+group its `empty` state matches: it claimed "exactly gaps.js's own `sai_empty`
+guard." Tracing the data model shows this is wrong — `sai_empty` reads the
+separate `sais` table, a flat code registry with no cohort column, shared
+across every รุ่น (`ensureSais()`'s own comment: "สาย are NOT a seeded range");
+it asks whether a globally-declared code has zero occupants system-wide.
+`computeSaiGrid()` never receives `d.sais` and cannot ask that question — its
+`empty` cells are a hole in ONE รุ่น's own numbering, which is the `sai_gap`
+concept, not `sai_empty`. A reader trusting the comment to reason about why a
+cell went "ว่าง" would look in the wrong panel.
+
+**Cause.** The grouping loop was written directly in `sai-grid.js` before
+anyone asked whether `gaps.js` already had the same math (it did, inline in
+`computeGaps()`'s per-cohort loop, just never extracted). The mislabelled
+comment was a guess made confident-sounding by proximity to the correctly-cited
+`splitHeld()`/`groupOccupantsByCohort()` reuse claims two paragraphs above it.
+
+**Fix.** Extracted `groupBySaiNumber(rows)` from `computeGaps()`'s inline loop
+into an exported function in `gaps.js`, docstring cross-referencing both
+callers the way `splitHeld()`/`groupOccupantsByCohort()` already do.
+`computeGaps()` and `computeSaiGrid()` both call it now; `sai-grid.js`'s own
+`saiOf` copy (now unused) was deleted rather than left dead. The header comment
+was corrected to name `sai_gap`/`sai_shared`, not `sai_empty`, and to say
+explicitly that `computeSaiGrid()` has no `sais`-table data to ask that
+question with. Guarded by a differential test pair in `sai-grid.test.js` that
+runs `computeGaps()` and `computeSaiGrid()` on the identical fixture and
+asserts the grid's `empty`/`duplicate` cells equal `computeGaps()`'s own
+`sai_gap`/`sai_shared` rows for that รุ่น — plus a non-vacuous control on each,
+since a differential assertion with an accidentally-empty expected list passes
+for the wrong reason.
+
+**Where it lives now.** `groupBySaiNumber()` export in `src/js/house/gaps.js`;
+consumed by `computeGaps()` and by `computeSaiGrid()` in
+`src/js/house/sai-grid.js`; differential guard in `src/js/house/sai-grid.test.js`.
+
+**The general rule.** *The third copy of a rule is not a coincidence, it is a
+pattern — when a fix lands twice in one file for one shape (paraphrasing a
+shared predicate instead of importing it), audit the SAME file for every other
+inline loop that could be the next caller of the thing just extracted, not
+only the predicate that triggered the fix.* And: a comment naming which sibling
+concept a state "matches" is a factual claim about a DIFFERENT function's
+inputs — check what that function actually receives before citing it.

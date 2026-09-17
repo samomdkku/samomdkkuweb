@@ -30,12 +30,18 @@ collapsing two occupants into one state, and the same "name only what was
 checked" label discipline §d asks for. Tests + build green.
 ⚠️ **Still unseen in a real browser** — no DB credentials tonight, so nobody has
 loaded it against production data; do that before telling a year admin about it.
-⚠️ **Two review passes found the same drift bug twice**: `computeCensus()`
-(census.js) and, separately, `computeSaiGrid()` (sai-grid.js) each initially
-re-typed `splitHeld()`'s two-line predicate instead of importing it — harmless
-only because nobody had touched either copy yet. Both fixed to import the real
-function; both now carry a differential test. Write-ups:
-`docs/mistakes/app-state.md` (two entries, same night).
+⚠️ **Three review passes found the same drift shape three times**:
+`computeCensus()` (census.js) and, separately, `computeSaiGrid()`
+(sai-grid.js) each initially re-typed `splitHeld()`'s two-line predicate
+instead of importing it; a THIRD pass then found `computeSaiGrid()` had also
+re-typed the numeric-สาย grouping `computeGaps()` already ran for its
+`sai_gap`/`sai_shared` groups, and that its own file header mis-cited that
+state as matching `sai_empty` (a different table, a different question) —
+all three harmless only because nobody had touched the copies since they were
+written. All fixed to import the real function (`splitHeld()`, now also
+`groupBySaiNumber()`, both exported from `gaps.js`); all three now carry a
+differential test in `sai-grid.test.js`. Write-ups: `docs/mistakes/app-state.md`
+(three entries, same feature).
 
 **Not yet built**: the Sheet itself (§c — needs a human with a Google account),
 the admin-UI download button that would let any admin generate the CSVs

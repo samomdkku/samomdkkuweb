@@ -72,6 +72,28 @@ export function groupOccupantsByCohort(occupants = []) {
 }
 
 /**
+ * One รุ่น's occupants grouped by สาย NUMBER (not the zero-padded string, so
+ * 1 and "001" collide on purpose). Invalid/blank สาย values are dropped, same
+ * rule both callers below need: a gap or a duplicate can only be asked about
+ * a สาย that parses. Exported so the สาย-grid UI computes "nobody here" and
+ * "more than one person here" from the SAME grouping `computeGaps`'s own
+ * สายรหัส audit (`sai_gap`/`sai_shared`) does, rather than re-deriving
+ * "which number is this row's สาย" a third time in this file family and
+ * risking the drift class 6 of `.claude/rules/mistakes.md` warns about —
+ * already paid for twice tonight in this same feature (`splitHeld()`).
+ */
+export function groupBySaiNumber(rows = []) {
+  const bySai = new Map();
+  for (const s of rows) {
+    const n = Number(saiOf(s));
+    if (!Number.isFinite(n) || n <= 0) continue;
+    if (!bySai.has(n)) bySai.set(n, []);
+    bySai.get(n).push(s);
+  }
+  return bySai;
+}
+
+/**
  * @param {object} d everything the pane has already loaded
  * @param {object[]} d.students   rows from fetchStudents()
  * @param {object[]} d.held       rows from fetchUnresolved()
@@ -130,13 +152,7 @@ export function computeGaps(d = {}) {
   const saiGaps = [];
   const missingAcross = new Map();
   for (const [cohort, rows] of [...byCohort.entries()].sort()) {
-    const seen = new Map();
-    for (const s of rows) {
-      const n = Number(saiOf(s));
-      if (!Number.isFinite(n) || n <= 0) continue;
-      if (!seen.has(n)) seen.set(n, []);
-      seen.get(n).push(s);
-    }
+    const seen = groupBySaiNumber(rows);
     for (const [n, people] of [...seen.entries()].sort((a, b) => a[0] - b[0])) {
       if (people.length > 1) {
         saiShared.push({

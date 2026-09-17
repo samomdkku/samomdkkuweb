@@ -7,15 +7,18 @@
 // Like this สาย has nobody, data missing, error etc." Spec'd in
 // docs/HOUSE-YEAR-HANDOVER.md §(d) before this file was written.
 //
-// PURE. No DOM, no network, no clock. Reuses `groupOccupantsByCohort` and
-// `splitHeld` from ./gaps.js (the SAME per-รุ่น/per-สาย grouping and the SAME
-// held-row admin/self split the ข้อมูลไม่ครบ audit computes — IMPORTED calls,
-// not paraphrased predicates, per `.claude/rules/mistakes.md` class 6: a
-// second copy of `!student_id || !first_name_th` sat here uncalled for one
-// commit, agreeing with `splitHeld` only because nobody had changed either
-// copy yet) and `FIELDS`/`has` from ./census.js (the SAME per-field
-// completeness rule ความครบของข้อมูลรายช่อง counts) — this module invents no
-// new definition of "complete" or "which รุ่น a person is in".
+// PURE. No DOM, no network, no clock. Reuses `groupOccupantsByCohort`,
+// `splitHeld` AND `groupBySaiNumber` from ./gaps.js (the SAME per-รุ่น/per-สาย
+// grouping, the SAME held-row admin/self split, and the SAME numeric-สาย
+// grouping the ข้อมูลไม่ครบ audit's `sai_gap`/`sai_shared` pair computes —
+// IMPORTED calls, not paraphrased predicates, per `.claude/rules/mistakes.md`
+// class 6: a second copy of `!student_id || !first_name_th` sat here uncalled
+// for one commit, agreeing with `splitHeld` only because nobody had changed
+// either copy yet, and this module's own `bySai` map was a THIRD re-typing of
+// gaps.js's grouping loop before `groupBySaiNumber` was pulled out to close
+// it) and `FIELDS`/`has` from ./census.js (the SAME per-field completeness
+// rule ความครบของข้อมูลรายช่อง counts) — this module invents no new
+// definition of "complete" or "which รุ่น a person is in".
 //
 // STATE PRIORITY, one per cell, WORST WINS when a สาย has more than one
 // occupant — reusing gaps.js's OWN two-tone split of a held row rather than
@@ -31,12 +34,19 @@
 //   incomplete  (a `students` row with a blank FIELDS entry — noSai/noName/
 //               noNick etc.), tone `watch`.
 //   ok          every FIELDS entry present, no tone (healthy default).
-//   empty       no occupant at all claims this สาย — tone `setup`, exactly
-//               `gaps.js`'s own `sai_empty` guard: computed from
-//               [...students, ...held], never `students` alone, so a held
-//               row (real person, missing only an address) never reads as a
-//               hole. See gaps.js's own comment on this — a warning that
-//               fires on the healthy case is worse than none.
+//   empty       no occupant at all claims this สาย, WITHIN the รุ่น's own
+//               1..max range — tone `setup`. ⚠️ This is `gaps.js`'s `sai_gap`
+//               concept (a hole in one รุ่น's OWN numbering), NOT its
+//               `sai_empty` group — that one reads the separate `sais` table
+//               (a flat code registry with no cohort column, shared across
+//               every รุ่น) and is a different question this grid has no data
+//               to ask, since `computeSaiGrid()` is never handed `d.sais`.
+//               Computed from [...students, ...held], never `students`
+//               alone, so a held row (real person, missing only an address)
+//               never reads as a hole. See gaps.js's own comment on this — a
+//               warning that fires on the healthy case is worse than none.
+//   (duplicate, a separate flag below, is the same population `sai_gap`'s
+//   sibling `sai_shared` flags: more than one occupant on one รุ่น's สาย.)
 //
 // AVOIDING THE 2026-09-15 DEFECT (docs/mistakes/frontend-ui.md, "a label
 // claims something about every case it covers"; the label audit in
@@ -56,7 +66,7 @@
 //     no occupant currently claims the สาย.
 // ==============================================
 import { FIELDS, has } from './census.js';
-import { groupOccupantsByCohort, splitHeld } from './gaps.js';
+import { groupOccupantsByCohort, splitHeld, groupBySaiNumber } from './gaps.js';
 import { houseOf } from './fields.js';
 
 export const CELL = {
@@ -72,7 +82,6 @@ export const CELL = {
 // more than one person to look at, so no information is lost by collapsing.
 const SEVERITY = [CELL.heldAdmin, CELL.heldSelf, CELL.incomplete, CELL.ok];
 
-const saiOf = (r) => r.sai_code || r.sai || '';
 const personName = (r) => [r.first_name_th, r.last_name_th].filter(Boolean).join(' ').trim();
 
 function occupantsByCohortAndSai(d) {
@@ -107,13 +116,10 @@ export function computeSaiGrid(d = {}, cohort) {
   const rows = byCohort.get(cohort) || [];
   if (!rows.length) return { cohort, max: 0, cells: [] };
 
-  const bySai = new Map();
-  for (const r of rows) {
-    const n = Number(saiOf(r));
-    if (!Number.isFinite(n) || n <= 0) continue;
-    if (!bySai.has(n)) bySai.set(n, []);
-    bySai.get(n).push(r);
-  }
+  // IMPORTED, not re-derived — see the file header: the same grouping
+  // gaps.js's own sai_gap/sai_shared audit uses, so "nobody here" and
+  // "more than one here" can never silently disagree with that panel.
+  const bySai = groupBySaiNumber(rows);
   if (!bySai.size) return { cohort, max: 0, cells: [] };
   const max = Math.max(...bySai.keys());
 
