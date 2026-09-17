@@ -104,7 +104,8 @@ that generalises to code not yet written.
    an export and its import, a guard and its call sites. Write the differential
    test in the same commit — "keep in step" in a comment is not a mechanism.
    Also a hand-written list beside a shared constant (main.js's admin links vs
-   `ADMIN_FEATURES`, 0113). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
+   `ADMIN_FEATURES`, 0113; ผังตามสาย's legend vs `SAI_CELL_STYLE`, four times one
+   night, `app-state.md`). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
    OBJECT AND DROPS WHAT IS WRITTEN PER OBJECT** — GRANTs came across wholesale,
    `enable row level security` was RETYPED as a list of ten and the schema had
    eleven, so `passport.continents` sat anon-writable (0182). **A `create table`
@@ -382,12 +383,11 @@ REPORTED — what the next reader greps for. Run `npm run mistakes:index` (never
 hand-edit generated parts; if a line reads badly, fix the heading). A new
 instance of a class gets its site added to that class above.
 
-**Charged to every session.** The per-entry index used to live here, reached
-18,533 of 30,000 — bigger than the classes, growing with every fix — and finally
-blocked a write-up. It is now `docs/mistakes/INDEX.md`. When `check:context`
-fails, COMPRESS (same meaning, fewer bytes) or move detail to `docs/mistakes/`.
-Never raise the budget; never buy room by DELETING from the classes, the only
-part that generalises. Tighten this paragraph first.
+**Charged to every session.** The per-entry index once lived here (18,533/30,000,
+bigger than the classes) until it blocked a write-up; it moved to
+`docs/mistakes/INDEX.md`. If `check:context` fails: COMPRESS (same meaning,
+fewer bytes) or move detail to `docs/mistakes/`. Never raise the budget or cut
+a class — tighten this paragraph first.
 
 ---
 
