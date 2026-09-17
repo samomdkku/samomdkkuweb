@@ -229,7 +229,7 @@ Open when: markup, modals, layout, touch, icons.
 - "สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ"
 - ผังตามสาย's own file header warns about hover-only info, then a sibling file did it anyway
 
-## `app-state.md` — Routing, read-state, caches & serialization *(23)*
+## `app-state.md` — Routing, read-state, caches & serialization *(24)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -256,6 +256,7 @@ Open when: URL state, per-user "seen", import/export.
 - computeCensus() and computeGaps() classified the same held row differently on a whitespace-only cell
 - sai-grid.js's held-row split was a paraphrase of splitHeld(), not a call to it
 - sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
+- The ผังตามสาย legend was a fourth copy of the same rule
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(31)*
 
@@ -436,4 +437,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_374 entries across 10 files._
+_375 entries across 10 files._

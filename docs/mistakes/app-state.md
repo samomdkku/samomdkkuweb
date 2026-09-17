@@ -997,3 +997,62 @@ inline loop that could be the next caller of the thing just extracted, not
 only the predicate that triggered the fix.* And: a comment naming which sibling
 concept a state "matches" is a factual claim about a DIFFERENT function's
 inputs — check what that function actually receives before citing it.
+
+## The ผังตามสาย legend was a fourth copy of the same rule — hand-typed HTML this time, not JS
+
+**Symptom.** Nothing observable yet — found on a later revision pass over the
+same night's สาย-grid feature, after the `splitHeld()` ×2 and
+`groupBySaiNumber()` entries above had each fixed a JS module re-deriving a
+rule instead of importing it. The legend beside the grid
+(`src/html/tab-house.html`) was five `<span class="badge ...">` elements typed
+by hand — the same colour class, Bootstrap icon name and Thai label each cell
+already gets from `SAI_CELL_STYLE` in `src/js/house/index.js`. They agreed only
+because nobody had touched either side since the grid was built the same
+night; a future change to one state's colour or wording in `SAI_CELL_STYLE`
+(the kind of edit a UI tweak makes without re-reading the HTML it sits beside)
+would have left the legend describing colours the cells no longer use.
+
+**Cause.** The legend was written as static markup at the same time as the
+grid's cell renderer, in the same commit, by the same author, from the same
+mental model — so it started in agreement and there was nothing in the diff to
+suggest the two had ever been separate facts. Unlike the two `splitHeld()`
+bugs above, this one was never a bug that could fire from bad DATA (a
+whitespace cell, a future predicate change) — it can only fire from a future
+EDIT to one side and not the other, which is exactly what the three
+`splitHeld()`/`groupBySaiNumber()` write-ups above say to check for once a
+class-6 fix lands in a file: grep for every OTHER place the same rule could
+have been re-typed, not only the one that triggered the first fix. Nobody had
+checked the HTML.
+
+**Fix.** Replaced the five hand-typed badges with an empty
+`<div id="houseSaiGridLegend">` and a new `renderSaiGridLegend()` in
+`index.js` that builds the legend from `SAI_CELL_STYLE` itself, in a
+`SAI_LEGEND_ORDER` array (mild → severe, the order a reader scans the legend
+in — deliberately not the same order as `SEVERITY` in `sai-grid.js`, which is
+worst-first for picking one cell's own colour when it has several occupants).
+Called from `renderSaiGridPane()` on every paint. The "more than one occupant"
+badge stays separate — it answers a different question than the five states
+do, so folding it into the same map would be its own false unification.
+Guarded by `src/js/house/sai-grid-legend.test.js`, a source-text differential
+test (no jsdom in this repo, same constraint the `wireClaim`/`api.test.js`
+guards in this feature already work under): it asserts the legend function
+reads `SAI_CELL_STYLE` rather than literal strings, that the state count in
+`SAI_CELL_STYLE` matches the count in `SAI_LEGEND_ORDER`, and that the old
+hand-typed badge markup is gone from the HTML. **Verified the guard catches
+its own bug**: reintroduced two of the five original hand-typed badges in the
+HTML, reran — 2 of 5 assertions went red as expected (the "not hand-typed"
+check and the "mount point exists" check); restored and diffed byte-identical
+against the pre-mutation file before trusting the result, then reran clean.
+
+**Where it lives now.** `renderSaiGridLegend()` + `SAI_LEGEND_ORDER` in
+`src/js/house/index.js`; empty mount point in `src/html/tab-house.html`;
+guard in `src/js/house/sai-grid-legend.test.js`.
+
+**The general rule.** *A class-6 fix in one file's JS does not mean the rule
+has one home yet — the SAME night can produce a fourth copy in markup, not
+code, written by the same hand that just fixed the third one, because "I just
+wrote both, they obviously agree" is exactly the moment a rule is most likely
+to get a silent second definition.* After extracting a shared predicate,
+check every RENDERER of its output, not only every OTHER computer of the same
+input — a legend, a printed report, an export column can each independently
+restate what a style map already says.

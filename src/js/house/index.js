@@ -692,9 +692,33 @@ const SAI_CELL_STYLE = {
   [SAI_CELL.ok]: { cls: 'success', icon: 'check2', label: 'ปกติ' },
 };
 
+// Display order for the legend, mild → severe (NOT `SEVERITY` in sai-grid.js,
+// which is worst-first for picking a cell's own colour — the legend is read
+// top to bottom, so it runs the other way). GENERATED from SAI_CELL_STYLE, not
+// a second hand-typed list — see the HTML comment at #houseSaiGridLegend.
+const SAI_LEGEND_ORDER = [SAI_CELL.ok, SAI_CELL.empty, SAI_CELL.incomplete, SAI_CELL.heldSelf, SAI_CELL.heldAdmin];
+
+function renderSaiGridLegend() {
+  const host = $('houseSaiGridLegend');
+  if (!host) return;
+  const badges = SAI_LEGEND_ORDER.map((state) => {
+    const style = SAI_CELL_STYLE[state];
+    return `<span class="badge bg-${style.cls}-subtle text-${style.cls}-emphasis border">
+      <i class="bi bi-${style.icon}" aria-hidden="true"></i> ${escHtml(style.label)}</span>`;
+  }).join('');
+  // Duplicate is a border treatment, not a SAI_CELL_STYLE state (see the
+  // .sai-cell--duplicate CSS comment) — appended after the generated states,
+  // not folded into the same map, since it answers a different question
+  // ("more than one occupant") than the five states do.
+  const dup = `<span class="badge bg-light text-dark border sai-cell--duplicate-legend">
+      <i class="bi bi-people-fill" aria-hidden="true"></i> มีมากกว่าหนึ่งคนในสายเดียว</span>`;
+  host.innerHTML = badges + dup;
+}
+
 function renderSaiGridPane() {
   const wrap = $('houseSaiGridWrap');
   if (!wrap) return;
+  renderSaiGridLegend();
 
   const cohorts = listGridCohorts(gapData());
   fillDatalist('houseSaiGridYearList', cohorts);
