@@ -1,9 +1,11 @@
 # รุ่นรับผิดชอบข้อมูล — ส่งลิสต์ให้ปีการศึกษาไปแก้เอง
 
-**Status: PLAN, plus ONE piece now built.** Written headless, night of
-2026-09-15→16, no database access, no Google credentials. Every claim about live
-data is copied from `docs/state/phuriphatma.md` (2026-09-15 blocks) and
-`STATE.md`, not re-queried — see §5 for what that means for trust.
+**Status: PLAN, with TWO pieces now built, both against §d/§c's design below —
+this file is the spec they were built from, kept as the design record.**
+Written headless, night of 2026-09-15→16, no database access, no Google
+credentials. Every claim about live data is copied from
+`docs/state/phuriphatma.md` (2026-09-15 blocks) and `STATE.md`, not re-queried
+— see §5 for what that means for trust.
 
 ✅ **`tools/house-year-sheets.mjs` exists** (same night, second pass) — the CSV
 generator §c step 2 said could not be written yet. It reuses `splitHeld()`
@@ -14,8 +16,32 @@ overwrite an existing file without `--force`. Pinned by
 data is still unverified**, per §5 below; the owner runs it with credentials
 this repo does not have. It does NOT emit the "ไม่มีในไฟล์เลย" empty-สาย row
 (§5 assumption 1 is still open) — every row it writes corresponds to an actual
-person. Everything else in this file (the Sheet itself, the import-back tool,
-the สาย-grid UI) remains unbuilt.
+person. A later pass caught it silently dropping ชื่อเล่น for held rows
+(`nickname_imported` missing from the SELECT) — fixed, and again reviewed and
+source-guarded (a fixture test cannot see a bug that lives only in the SQL
+string; a second test now reads the tool's own source text for the column
+name). Write-ups: `docs/mistakes/tooling-proofs.md`.
+
+✅ **The สาย-grid UI (§d below) is built** (2026-09-16, `src/js/house/sai-grid.js`
++ `tab-house.html`'s ผังตามสาย toggle) — matches this spec: reuses
+`groupOccupantsByCohort`/`splitHeld` from `gaps.js` and `FIELDS`/`has` from
+`census.js`, worst-state-wins per cell, a separate `duplicate` flag rather than
+collapsing two occupants into one state, and the same "name only what was
+checked" label discipline §d asks for. Tests + build green.
+⚠️ **Still unseen in a real browser** — no DB credentials tonight, so nobody has
+loaded it against production data; do that before telling a year admin about it.
+⚠️ **Two review passes found the same drift bug twice**: `computeCensus()`
+(census.js) and, separately, `computeSaiGrid()` (sai-grid.js) each initially
+re-typed `splitHeld()`'s two-line predicate instead of importing it — harmless
+only because nobody had touched either copy yet. Both fixed to import the real
+function; both now carry a differential test. Write-ups:
+`docs/mistakes/app-state.md` (two entries, same night).
+
+**Not yet built**: the Sheet itself (§c — needs a human with a Google account),
+the admin-UI download button that would let any admin generate the CSVs
+without a terminal + DB credentials (§"ขั้นตอนการทำงานทั้งหมด" step 1), and the
+import-back tool for หมายเหตุ notes (§c step 6 — and §5 of that section argues
+against ever building it as an auto-apply path).
 
 **The owner's ask, verbatim:** *"I'll ask every admin of every year for these
 lists of people... I need a proper format to send each year like MD50, 51, 52,
@@ -285,12 +311,27 @@ LOOKS like "ปกติ" and is not detectable by this grid at all. So:
   §4's C2/C3 caveat, so a year admin reading the grid isn't given false
   confidence about a failure mode the grid structurally cannot show).
 
-### Not building tonight
+### Built — update, not the original plan-only claim
 
-No code is written for this task — the instruction for task 1 is plan-only.
-This section is a spec for whoever picks it up next, sized so that
-implementation is "add one export to `gaps.js`, add one render function and
-one HTML section to `tab-house.html`/`index.js`, no new query, no migration."
+This section was originally written as a spec for "whoever picks it up next,"
+with no code planned that night. It was in fact picked up the following night
+(2026-09-16): `src/js/house/sai-grid.js` + a ผังตามสาย toggle in
+`tab-house.html`/`index.js`, matching the design above (occupancy from
+`groupOccupantsByCohort`, completeness from `FIELDS`/`has`, no new query, no
+migration, colour states scoped to a WORST-WINS per-cell rule this spec did not
+fully pin down but the implementation had to choose — see `sai-grid.js`'s own
+file header for the resulting priority order). The label-defect avoidance
+described below was followed. ⚠️ `sai-grid.js`'s header also cites a
+`docs/state/agent-notes/2026-09-15-label-audit.md` as having found three more
+sites of the same shape — **that file does not exist on this branch** (it
+lives only on a sibling branch, `agent/2026-09-15-real-run`, never merged
+here); `docs/state/agent-notes/2026-09-16-notes.md` already recorded this gap
+and the decision to proceed on `.claude/rules/mistakes.md` class 4 plus this
+very §(d) instead. Anyone merging that sibling branch in should diff its
+findings against `sai-grid.js`'s labels before trusting them fully cross-checked.
+What is still open regardless: a real browser has not loaded this view against
+production data (no DB credentials tonight either time), so treat "built" as
+"built and tested against fixtures," not "verified live."
 
 ---
 
