@@ -3180,3 +3180,18 @@ When a tool builds its own row shape by column-listing (rather than
 "a `create table` inherits too" entry), grep the list against every accessor
 the row is later passed through, not just against the columns the primary
 classification logic needs.
+
+**Revision pass, later the same night.** The fix above shipped disclosing its
+own limit — "cannot catch a future SQL omission by itself" — as a TODO rather
+than closing it. Reintroduced the exact original bug (dropped
+`nickname_imported` from the held SELECT again) and reran the full suite: 14/14
+still green, confirming the fixture test really cannot see a regression in the
+SQL string, exactly as claimed. Added a second, source-text test
+(`tools/house-year-sheets.test.js`, `"main()'s held-population SELECT names
+nickname_imported"`) that reads the tool's own file text and asserts the
+column appears in the held query specifically, not just anywhere in the file.
+Reran the same reintroduced bug against the new test: red, as expected. This
+is a class-7 "source guard is a review, not a test" — it does not run the SQL,
+so a typo'd column name it would still miss — but it is strictly more than
+nothing, which is what the fixture test alone provided against this exact
+regression.

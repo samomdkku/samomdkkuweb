@@ -3,8 +3,11 @@
 // fixtures. No database: this only proves what buildYearSheets()/toCsv() do
 // with rows shaped like the ones tools/house-year-sheets.mjs fetches.
 // ==============================================
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { buildYearSheets, toCsv, HEADER } from './house-year-sheets.mjs';
+
+const SOURCE = readFileSync(new URL('./house-year-sheets.mjs', import.meta.url), 'utf8');
 
 // MD49 = 2564, MD50 = 2565 (COHORT_EPOCH 2515 — src/js/study-year.js).
 const student = (extra = {}) => ({
@@ -60,6 +63,22 @@ describe('buildYearSheets — placement', () => {
     });
     const { sheets } = buildYearSheets({ students: [], held: [held] });
     expect(sheets.get('MD50')[0].nickname).toBe('หญิง');
+  });
+
+  // The fixture test above pins the ACCESSOR — it cannot pin the SQL that puts
+  // `nickname_imported` on the row in the first place, because a fixture
+  // already carries the field by hand. That is exactly how the original bug
+  // hid: this suite was green with the CLI's SELECT missing the column.
+  // Reintroducing that regression here and re-running confirmed it — 14/14
+  // still green — before this test was added. A source-text check is a
+  // review, not a proof (mistakes.md class 7), but it is strictly more than
+  // the fixture test alone, which caught nothing.
+  it("main()'s held-population SELECT names nickname_imported", () => {
+    const heldSelect = SOURCE.match(/from public\.student_import_unresolved`\)/);
+    expect(heldSelect).not.toBeNull();
+    const selectBlock = SOURCE.slice(0, heldSelect.index);
+    const lastSelectStart = selectBlock.lastIndexOf('ask(`select');
+    expect(selectBlock.slice(lastSelectStart)).toContain('nickname_imported');
   });
 
   it('resolved held rows are excluded — they are no longer held', () => {
