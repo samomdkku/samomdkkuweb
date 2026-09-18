@@ -253,6 +253,12 @@ describe('RATCHET — ชั้นปี stays derived', () => {
     [join('house', 'my-house.js'), 'the same chooser on the house card'],
     [join('house', 'index.js'), 'the same chooser in the ระบบบ้าน admin editor'],
     [join('team', 'terms.js'), 'ปีการศึกษา of an ARCHIVED term, not anyone\'s ชั้นปี'],
+    // vs_tickets.year is typed by the REPORTER at submit time and never
+    // re-derived, and a VS reporter may be anonymous, so there is no
+    // รหัสนักศึกษา for studyYearLabel() to compute from. It renders with the
+    // qualifier '(ตอนที่แจ้ง)', which vs-requester.test.js asserts — so this
+    // exemption cannot quietly decay into a bare year read as current.
+    ['vs-requester.js', 'a ชั้นปี the reporter STATED, labelled as a snapshot'],
   ]);
 
   it('every ชั้นปี on screen comes from studyYearLabel()', () => {

@@ -42,6 +42,11 @@
               <section class="vs-modal-section">
                 <h6 class="vs-modal-section-title"><i class="bi bi-chat-left-text-fill"></i>เรื่องที่แจ้ง</h6>
                 <p class="mb-2 text-muted small"><strong id="staffModalDate">วันที่:</strong></p>
+                <!-- Who reported it + the ฝ่าย they asked for. Filled by
+                     vs-requester.js; it renders in EVERY case, including
+                     "did not say", so a blank block can never be mistaken for
+                     the months this data had no reader at all. -->
+                <div id="staffModalRequester" class="vs-req-box mb-3"></div>
                 <div id="staffDupBanner" class="d-none mb-3"></div>
                 <div class="p-3 bg-white border rounded shadow-sm" id="staffModalProblem">รายละเอียด</div>
               </section>

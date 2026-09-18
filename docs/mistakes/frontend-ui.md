@@ -3726,3 +3726,58 @@ nothing. Both halves mutation-verified. It reads the source through
    Discord were both fine for months; the only broken surface was the one the
    attachment exists to reach. A feature verified from the author's seat is
    unverified.
+
+---
+
+## "แต่ใน web มันไม่เห็นใช่ไหม" — the SECOND site of the same bug, found by sweeping columns against readers
+
+**Symptom (as reported):** after the PR ลิงก์เสริม fix the owner asked for a
+sweep — *"Find other things you might missed like this, scan for bugs"*. The
+sweep found VitalSound doing it too: the form asks **"ฝ่ายที่ต้องการส่งเรื่องถึง"**,
+Discord prints it with an instruction addressed to SE, and no web surface read
+the column at all.
+
+**Cause:** the same shape, one system over. `vs_tickets.requested_dept` is
+written by `vs-form.js` and — `grep` over all of `src/` and `passport/` — read
+by **nothing**. Routing is deliberate: a non-emergency report goes to SE first,
+SE decides, SE forwards, so `target_dept` is `'SE'` on every new ticket and the
+reporter's own choice survives ONLY in `requested_dept`. The Discord embed has
+printed *"📌 ผู้แจ้งปัญหาระบุว่าต้องการส่งถึง: X — (SE กรุณาพิจารณาและโอนย้ายหากเหมาะสม)"*
+since the GAS era, an instruction whose subject the dashboard never showed.
+`display_name` and `year` were worse: not on the web, not in Discord, nowhere —
+51 of 72 tickets carry a name and 19 a ชั้นปี.
+
+**In the GAS era the reader was the Google Sheet** — column K, commented
+`ฝ่ายที่ผู้ใช้ขอ (เพื่อให้ SE รู้ว่าต้องส่งต่อไปไหน)`. The Supabase migration
+carried the COLUMN across and replaced the Sheet with a dashboard that never
+learned the field. Cost, measured: 16 of 72 live tickets named a ฝ่าย; one was
+**closed at SE** having never reached it; one landed at a different ฝ่าย than
+the one asked for, with nothing on screen to notice the mismatch.
+
+**Fix:** `src/js/vs-requester.js` — one reading, asked by both the modal and the
+board. It returns a THREE-valued `state` (`none` / `pending` / `matched`) so
+every outcome renders something: a callout this module turns ON for "asked and
+not there yet" is turned OFF by arrival AND by "ไม่แน่ใจ", which the form
+submits as the literal `'SE'` — an answer, not a missing value. The button
+PRESELECTS the transfer dropdown and does not transfer: `submitStaffAction`
+derives `deptChanged` from that select, so pre-setting it on open would have
+made every ordinary save silently transfer the ticket.
+
+**Where it lives now:** `src/js/vs-requester.js`, `vs-requester.test.js`
+(18 assertions, three mutations verified: reading `'SE'` as a request, never
+withdrawing the callout, and pre-setting the select on open). The differential
+half asserts `vs-staff.js` contains neither column name.
+
+**Rules:**
+1. **A MIGRATION CARRIES COLUMNS; IT DOES NOT CARRY READERS.** When the thing
+   being replaced IS the reader — a Sheet, a mail folder, a printed form — every
+   column it displayed by default needs a reader written explicitly, and nothing
+   will fail if one is missed. Sweep the new schema against the new UI once,
+   per column, at the end of a migration.
+2. **THE SWEEP THAT FINDS THIS IS CHEAP**: for each column a form writes, grep
+   the frontend for its name. One hit means the write and no reader. It took
+   minutes and found a bug that had been live since the Supabase move.
+3. **"IT'S IN DISCORD" IS NOT "IT'S VISIBLE".** A notification is a nudge to a
+   channel that scrolls; the dashboard is where the work is done. If a message
+   instructs someone to act on a fact, that fact must be on the surface they act
+   from — and if it names a role ("SE กรุณา…"), check THAT role's screen.

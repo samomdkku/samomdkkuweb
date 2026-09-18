@@ -526,3 +526,81 @@
 /* Bigger tap target for the pull checkboxes — they are the primary control in
  * pull mode and the default 1em box is a poor touch target on a phone. */
 [data-vs-pull] { width: 1.15rem; height: 1.15rem; cursor: pointer; }
+
+/* ---- Reporter identity + the ฝ่าย they asked for (staff modal + board) ----
+   The VS form collects ชื่อ / ชั้นปี / ฝ่ายที่ต้องการส่งถึง. None of the three
+   had a reader on the web until this block existed: SE triages every
+   non-emergency ticket, so the reporter's own choice survives in
+   `requested_dept` and used to appear only in the Discord embed. */
+
+.vs-req-identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.vs-req-who i { margin-right: 0.25rem; }
+.vs-req-who.is-anon { color: #94a3b8; font-style: italic; }
+
+.vs-req-callout {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
+  font-size: 0.85rem;
+}
+
+.vs-req-callout > i { font-size: 1.05rem; flex-shrink: 0; }
+.vs-req-callout > div { flex: 1 1 auto; min-width: 0; }
+.vs-req-callout-title { font-weight: 600; }
+.vs-req-callout-sub { font-size: 0.76rem; opacity: 0.85; margin-top: 0.1rem; }
+.vs-req-callout-sub.is-error { color: #b91c1c; font-weight: 600; opacity: 1; }
+.vs-req-pick { flex-shrink: 0; white-space: nowrap; }
+
+/* Pending = the reporter named a ฝ่าย and the ticket is not there yet. The
+   only state with an action; amber, not red — SE deciding otherwise is a
+   legitimate outcome, not an error. */
+.vs-req-callout.is-pending {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.vs-req-callout.is-matched {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.vs-req-callout.is-none {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+/* Board chip — pending only, so a card goes quiet once the ticket has
+   reached the ฝ่าย that was asked for. */
+.vs-kanban-card-req {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 9rem;
+}
+
+@media (max-width: 575.98px) {
+  .vs-req-callout { flex-wrap: wrap; }
+  .vs-req-pick { width: 100%; }
+}

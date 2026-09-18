@@ -4,6 +4,7 @@
 
 import { formatThaiDate, renderTimeline, escHtml, stripHtmlToText } from './utils.js';
 import { db, dbRest } from './db.js';
+import { renderVsRequesterBlock, renderVsRequestedChip, vsRequester } from './vs-requester.js';
 import { sendNotify } from './notify.js';
 import { getUser as authGetUser, holdsMaster } from './auth.js';
 import { MANUAL_VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
@@ -537,6 +538,7 @@ function renderKanban() {
               <div class="vs-kanban-card-body">${escHtml(strippedProblem)}</div>
               <div class="vs-kanban-card-foot">
                 <span class="vs-kanban-card-dept" style="background:${deptC};">${escHtml(deptShort(t.target_dept))}</span>
+                ${renderVsRequestedChip(t, { short: deptShort })}
                 ${catChipFor(t)}
                 ${tagChipsFor(t)}
                 ${t.is_emergency ? '<span class="vs-kanban-card-urgent" title="ฉุกเฉิน">ด่วน</span>' : ''}
@@ -624,6 +626,12 @@ function openStaffModal(id, status, dept, problemHTML, date, remarks) {
   document.getElementById('staffModalDate').innerText =
     `วันที่แจ้ง: ${formattedDate} | ฝ่ายที่รับผิดชอบ: ${dept}`
     + (updAgo ? ` | อัปเดตล่าสุด: ${updAgo} ที่แล้ว` : '');
+  // Who reported it, and the ฝ่าย they asked for (vs-requester.js). Both
+  // came from the form and neither had a reader on the web: SE triages every
+  // non-emergency ticket, so the reporter's choice lives in requested_dept
+  // alone and used to exist only in the Discord embed.
+  const reqBox = document.getElementById('staffModalRequester');
+  if (reqBox) reqBox.innerHTML = renderVsRequesterBlock(tRow || {});
   document.getElementById('staffModalProblem').innerHTML = problemHTML;
   // showVis: staff see who each note reaches. The submitter view never gets
   // this — labelling a note "เฉพาะเจ้าหน้าที่" would advertise notes they
@@ -2073,6 +2081,39 @@ export async function deleteCurrentVSTicket() {
 // --------------------------------------------------
 // Submit Staff Action (Supabase update + GAS Discord proxy)
 // --------------------------------------------------
+
+/**
+ * Fill the transfer select with the ฝ่าย the reporter asked for.
+ *
+ * It only PRESELECTS. Pre-setting the select on open would have made every
+ * ordinary save — a status bump, a one-line note — silently transfer the
+ * ticket, because submitStaffAction reads `deptChanged` off that same select.
+ * SE reading the request and deciding is the design; this removes the
+ * retyping, not the decision.
+ */
+export function pickRequestedVsDept() {
+  const t = staffTicketsCache.find((x) => x.id === currentActiveTicketId);
+  const { requestedDept } = vsRequester(t || {});
+  const sel = document.getElementById('staffActionTransfer');
+  if (!requestedDept || !sel) return;
+  // A ฝ่าย that is not in this select cannot be chosen — say so IN THE
+  // CALLOUT rather than leaving the button looking broken. The option list is
+  // hand-written in modal-vs-staff.html and the form's list can outgrow it;
+  // not a native dialog, which an admin session can have suppressed
+  // (`native-dialog.test.js`).
+  const has = Array.from(sel.options).some((o) => o.value === requestedDept);
+  if (!has) {
+    const sub = document.querySelector('#staffModalRequester .vs-req-callout-sub');
+    if (sub) {
+      sub.textContent = `ฝ่าย "${requestedDept}" ไม่มีในรายการโอนย้ายของหน้านี้ — กรุณาแจ้งผู้ดูแลระบบ`;
+      sub.classList.add('is-error');
+    }
+    return;
+  }
+  sel.value = requestedDept;
+  sel.focus();
+  sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 export async function submitStaffAction() {
   const newStatus = document.getElementById('staffActionStatus').value;
