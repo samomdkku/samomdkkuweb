@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { computeCensus, fieldHealth, FIELDS } from './census.js';
+import { splitHeld } from './gaps.js';
 
 const INDEX_SRC = readFileSync(new URL('./index.js', import.meta.url), 'utf8');
 
@@ -115,6 +116,21 @@ describe('the ระบบบ้าน census', () => {
   it('says nothing is wrong when nothing is', () => {
     const f = fieldHealth([student()], [heldRow()]);
     expect(f.every((x) => x.ok)).toBe(true);
+  });
+
+  // ⛔ class 6 (.claude/rules/mistakes.md): computeCensus() used to re-derive
+  // its own heldSelf/heldAdmin split instead of importing gaps.js's splitHeld()
+  // — a second copy of the same rule, keyed on a different truthiness check
+  // (`has()`, which trims whitespace) than computeGaps() used (plain falsy).
+  // A whitespace-only cell from a bad import agreed with one and not the
+  // other. Pinned against gaps.js's own export so the two can never drift back
+  // apart silently.
+  it('⛔ classifies a held row identically to computeGaps — a whitespace-only cell must not disagree', () => {
+    const whitespaceHeld = heldRow({ student_id: '   ', first_name_th: 'ค' });
+    const { heldAdmin: gapsAdmin, heldSelf: gapsSelf } = splitHeld([whitespaceHeld]);
+    const c = computeCensus({ students: [], held: [whitespaceHeld] });
+    expect(c.heldAdmin).toBe(gapsAdmin.length);
+    expect(c.heldSelf).toBe(gapsSelf.length);
   });
 });
 

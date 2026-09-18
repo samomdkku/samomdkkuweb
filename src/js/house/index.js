@@ -48,6 +48,7 @@ import {
 } from './io.js';
 import { computeGaps, TONE } from './gaps.js';
 import { computeCensus } from './census.js';
+import { computeSaiGrid, listGridCohorts, CELL as SAI_CELL } from './sai-grid.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
@@ -89,6 +90,11 @@ let helpReqs = [];
 let openConflicts = 0;
 /** Whether the ข้อมูลไม่ครบ pane lists every person or only the first few. */
 let gapShowAll = false;
+// The สาย-grid is a VIEW inside the นักศึกษา pane, not a separate `mode` — it
+// shows the exact same `students`/`held` the list view does, laid out by สาย
+// instead of as rows. `studentsView` therefore never touches `mode`.
+let studentsView = 'list';    // 'list' | 'grid'
+let saiGridCohort = '';       // last-picked รุ่น; kept across renders/reloads
 let pendingImport = null;   // parsed + diffed, awaiting confirmation
 
 function setStatus(msg, isError = false) {
@@ -192,7 +198,7 @@ function render() {
   }
 
   if (mode === 'overview') renderOverview();
-  else if (mode === 'students') renderStudents();
+  else if (mode === 'students') { renderStudents(); renderSaiGridPane(); }
   else if (mode === 'sais') renderSais();
   else if (mode === 'advisors') renderAdvisors();
   else if (mode === 'requests') renderRequests();
@@ -645,6 +651,138 @@ function renderStudents() {
     count.textContent = rows.length
       ? `แสดง ${Math.min(rows.length, 500).toLocaleString('th-TH')} จาก ${rows.length.toLocaleString('th-TH')} คน`
       : '';
+  }
+}
+
+// ---------- นักศึกษา — สาย grid ----------
+//
+// REQUESTED (owner): "like how the file has it — e.g. MD50 list from สาย
+// 001, 002… and highlight in colour what information is missing. Like this
+// สาย has nobody, data missing, error etc." Spec: docs/HOUSE-YEAR-HANDOVER.md
+// §(d). A second VIEW of this same pane (`studentsView`), not a new `mode` —
+// it reads the exact `students`/`held` the list view already loaded, laid
+// out by สาย instead of as rows, via ./sai-grid.js (pure, tested separately).
+//
+// Colour reuses the SAME tone→Bootstrap-class map ข้อมูลไม่ครบ already
+// trained the admin on (GAP_TONE, above) — this view invents no second colour
+// vocabulary. But colour is never the ONLY signal: every state also gets its
+// own icon and a visible (not hover-only) short label, because a `title`
+// tooltip does not exist on a phone and most of this app's traffic is one
+// (`.claude/rules/mistakes.md` class 4).
+//
+// LABELS NAME ONLY WHAT WAS CHECKED — see sai-grid.js's own header for the
+// full reasoning; this is the 2026-09-15 label-audit's lesson applied here.
+const SAI_CELL_STYLE = {
+  [SAI_CELL.heldAdmin]: {
+    cls: GAP_TONE[TONE.act].cls, icon: 'person-fill-exclamation',
+    label: 'ค้างนำเข้า — ต้องมีคนช่วยยืนยัน',
+  },
+  [SAI_CELL.heldSelf]: {
+    cls: GAP_TONE[TONE.tell].cls, icon: 'person-fill-lock',
+    label: 'ค้างนำเข้า — รอเข้าระบบเอง',
+  },
+  [SAI_CELL.incomplete]: {
+    cls: GAP_TONE[TONE.watch].cls, icon: 'exclamation-triangle',
+    label: 'ข้อมูลไม่ครบ',
+  },
+  [SAI_CELL.empty]: {
+    cls: GAP_TONE[TONE.setup].cls, icon: 'dash-circle',
+    label: 'ไม่มีใครอยู่สายนี้',
+  },
+  [SAI_CELL.ok]: { cls: 'success', icon: 'check2', label: 'ปกติ' },
+};
+
+// Display order for the legend, mild → severe (NOT `SEVERITY` in sai-grid.js,
+// which is worst-first for picking a cell's own colour — the legend is read
+// top to bottom, so it runs the other way). GENERATED from SAI_CELL_STYLE, not
+// a second hand-typed list — see the HTML comment at #houseSaiGridLegend.
+const SAI_LEGEND_ORDER = [SAI_CELL.ok, SAI_CELL.empty, SAI_CELL.incomplete, SAI_CELL.heldSelf, SAI_CELL.heldAdmin];
+
+function renderSaiGridLegend() {
+  const host = $('houseSaiGridLegend');
+  if (!host) return;
+  const badges = SAI_LEGEND_ORDER.map((state) => {
+    const style = SAI_CELL_STYLE[state];
+    return `<span class="badge bg-${style.cls}-subtle text-${style.cls}-emphasis border">
+      <i class="bi bi-${style.icon}" aria-hidden="true"></i> ${escHtml(style.label)}</span>`;
+  }).join('');
+  // Duplicate is a border treatment, not a SAI_CELL_STYLE state (see the
+  // .sai-cell--duplicate CSS comment) — appended after the generated states,
+  // not folded into the same map, since it answers a different question
+  // ("more than one occupant") than the five states do.
+  const dup = `<span class="badge bg-light text-dark border sai-cell--duplicate-legend">
+      <i class="bi bi-people-fill" aria-hidden="true"></i> มีมากกว่าหนึ่งคนในสายเดียว</span>`;
+  host.innerHTML = badges + dup;
+}
+
+function renderSaiGridPane() {
+  const wrap = $('houseSaiGridWrap');
+  if (!wrap) return;
+  renderSaiGridLegend();
+
+  const cohorts = listGridCohorts(gapData());
+  fillDatalist('houseSaiGridYearList', cohorts);
+  const picker = $('houseSaiGridYear');
+  // Default to the NEWEST รุ่น (cohorts sort ascending, e.g. MD49 < MD50) —
+  // that is almost always the one a year admin conversation is about tonight.
+  // Only on FIRST paint: once the admin has typed something, a mismatch means
+  // they are mid-typing a prefix, not that their choice should be overridden.
+  if (!saiGridCohort && cohorts.length) saiGridCohort = cohorts[cohorts.length - 1];
+  if (picker && picker.value !== saiGridCohort) picker.value = saiGridCohort;
+
+  const host = $('houseSaiGridCells');
+  const empty = $('houseSaiGridEmpty');
+  const countEl = $('houseSaiGridCount');
+  if (!host) return;
+
+  if (!cohorts.length) {
+    host.innerHTML = '';
+    if (countEl) countEl.textContent = '';
+    if (empty) {
+      empty.classList.remove('d-none');
+      empty.textContent = 'ยังไม่มีข้อมูลนักศึกษา — นำเข้าไฟล์จากแท็บ “นำเข้าข้อมูล”';
+    }
+    return;
+  }
+
+  const grid = computeSaiGrid(gapData(), saiGridCohort);
+  if (!grid.cells.length) {
+    host.innerHTML = '';
+    if (countEl) countEl.textContent = '';
+    if (empty) {
+      empty.classList.remove('d-none');
+      empty.textContent = `ไม่พบสายรหัสของรุ่น ${saiGridCohort}`;
+    }
+    return;
+  }
+  empty?.classList.add('d-none');
+
+  host.innerHTML = grid.cells.map((c) => {
+    const style = SAI_CELL_STYLE[c.state];
+    const names = c.occupants.map((o) => o.name).filter(Boolean);
+    const missing = [...new Set(c.occupants.flatMap((o) => o.missing || []))];
+    const title = [style.label, names.join(', '), missing.length ? `ขาด: ${missing.join(', ')}` : '']
+      .filter(Boolean).join(' — ');
+    return `
+      <div class="sai-cell border rounded-2 p-2 bg-${style.cls}-subtle border-${style.cls}-subtle
+                  text-${style.cls}-emphasis${c.duplicate ? ' sai-cell--duplicate' : ''}"
+           title="${escHtml(title)}">
+        <div class="d-flex align-items-center justify-content-between gap-1">
+          <span class="fw-semibold small">${escHtml(c.sai)}</span>
+          <i class="bi bi-${style.icon}" aria-hidden="true"></i>
+        </div>
+        <div class="sai-cell-name small">${names.length ? escHtml(names.join(', ')) : '—'}</div>
+        <div class="sai-cell-state small">${escHtml(style.label)}</div>
+        ${missing.length ? `<div class="sai-cell-missing small">ขาด: ${escHtml(missing.join(', '))}</div>` : ''}
+        ${c.duplicate
+    ? `<div class="small fw-medium"><i class="bi bi-people-fill" aria-hidden="true"></i> ${c.occupants.length} คน</div>`
+    : ''}
+      </div>`;
+  }).join('');
+
+  if (countEl) {
+    countEl.textContent = `รุ่น ${saiGridCohort} · สาย 001–${grid.cells[grid.cells.length - 1].sai} `
+      + `· ${grid.cells.length.toLocaleString('th-TH')} สาย`;
   }
 }
 
@@ -2584,6 +2722,24 @@ function wire() {
   });
   $('houseReload')?.addEventListener('click', () => reload());
   $('houseExportCsv')?.addEventListener('click', exportCsv);
+
+  // นักศึกษา pane: list vs สาย-grid. A view toggle inside the pane, not a
+  // `[data-house-mode]` — both views show the same `mode === 'students'` data.
+  document.querySelectorAll('[data-house-students-view]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      studentsView = btn.dataset.houseStudentsView;
+      document.querySelectorAll('[data-house-students-view]').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+      });
+      $('houseStudentsListView')?.classList.toggle('d-none', studentsView !== 'list');
+      $('houseStudentsGridView')?.classList.toggle('d-none', studentsView !== 'grid');
+      if (studentsView === 'grid') renderSaiGridPane();
+    });
+  });
+  $('houseSaiGridYear')?.addEventListener('input', () => {
+    saiGridCohort = ($('houseSaiGridYear')?.value || '').trim();
+    renderSaiGridPane();
+  });
 
   // `input` on all of them, not `change`: the three combobox filters are text
   // boxes, and `change` on a text box fires on BLUR — so a typed filter would

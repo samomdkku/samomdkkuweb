@@ -29,6 +29,7 @@
     "discord:readiness": "node tools/discord-readiness.mjs",
     "check:routes": "node tools/check-live-routes.mjs",
     "house:gaps": "node tools/house-gaps.mjs",
+    "house:year-sheets": "node tools/house-year-sheets.mjs",
     "proofs": "node tools/run-proofs.mjs",
     "proofs:dev": "node tools/run-proofs.mjs --dev",
     "smoke:browser": "node tools/smoke-browser.mjs",

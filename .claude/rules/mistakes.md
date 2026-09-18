@@ -1,13 +1,13 @@
 # Mistakes — the recurring classes
 
-Every bug here is written up. **Loaded into every session, so it holds the
-recurring CLASSES and nothing else that grows.** Write-ups live in
-`docs/mistakes/*.md`, read on demand.
+Every bug here is written up. **Loaded into every session: the recurring
+CLASSES and nothing that grows.** Write-ups are in `docs/mistakes/*.md`, read
+on demand.
 
 **To find one**: `grep -rin "<phrase>" docs/mistakes/` — it searches the
 write-ups, not just titles, and is fastest with a symptom in hand. To SCAN
-headings, read `docs/mistakes/INDEX.md`. Read near-matches; most recurred
-elsewhere in different clothes.
+headings, read `docs/mistakes/INDEX.md`. Read near-matches; most recurred in
+different clothes.
 
 **Read the matching file BEFORE touching** `auth.js` · `db.js` · anything
 calling supabase-js · any RLS policy, `current_user_*` helper or definer fn ·
@@ -17,8 +17,8 @@ calling supabase-js · any RLS policy, `current_user_*` helper or definer fn ·
 
 ## The seven classes
 
-Bitten twice or more. If you read nothing else, read this — the part that
-generalises to code not yet written.
+Bitten twice or more. If you read nothing else, read this — what generalises to
+code not yet written.
 
 1. **A per-row UPDATE policy is not a column policy.** `for update using (<col> =
    auth.uid())` gates *which row*, then grants *every column in it*. On `users`
@@ -104,10 +104,11 @@ generalises to code not yet written.
    an export and its import, a guard and its call sites. Write the differential
    test in the same commit — "keep in step" in a comment is not a mechanism.
    Also a hand-written list beside a shared constant (main.js's admin links vs
-   `ADMIN_FEATURES`, 0113). Also an EARLY EXIT re-deciding what its BODY
-   decides — one `startsWith('http')` over a loop that already parsed the
-   other shape hid 23% of PR attachments from the audience they were FOR
-   (`frontend-ui.md`). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
+   `ADMIN_FEATURES`, 0113; ผังตามสาย's legend vs `SAI_CELL_STYLE`, 4× in a night,
+   `app-state.md`). An EARLY EXIT re-deciding what its BODY decides hid 23% of
+   PR attachments; **A MIGRATION CARRIES COLUMNS, NOT READERS** — when what it
+   replaced WAS the reader (a Sheet), nothing fails if a column never gets one:
+   `requested_dept` reached Discord alone (`frontend-ui.md`). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
    OBJECT AND DROPS WHAT IS WRITTEN PER OBJECT** — GRANTs came across wholesale,
    `enable row level security` was RETYPED as a list of ten and the schema had
    eleven, so `passport.continents` sat anon-writable (0182). **A `create table`
@@ -237,7 +238,7 @@ generalises to code not yet written.
    SUBTRACTION must share an INSTANT (0156/0158).
    **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled one
    block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
-   chars before any assertion ran (shared `strip-comments.js` now).
+   chars before any assertion ran (`strip-comments.js` now).
    Two more in `frontend-ui.md`: never measure a container to size the content
    that sizes it — **invisible across a FRAME boundary**, the two halves in
    different documents and neither line wrong (a tool reporting
@@ -247,7 +248,7 @@ generalises to code not yet written.
    unambiguous only beside the other buttons. **An ALERT is a dialog too**: a `detail` composed at the
    call site told a human to run `claude setup-token` while the same embed's
    fixed วิธีแก้ said `claude login`, and setup-token is what CAUSES that 403
-   (`integrations.md`). Two authors of one instruction, neither able to see
+   (`integrations.md`). Two authors of one instruction, neither seeing
    the contradiction.
    **AND THE INSTRUMENT CAN DELETE THE WITNESS.** Four skipped-docs deploys
    resisted three theories because the invocation piped the script through
@@ -318,7 +319,7 @@ generalises to code not yet written.
    **A PROOF IS ONLY AS GOOD AS ITS RUNNER'S ABILITY TO READ IT**: a proof ending in
    a COUNT summary, not per-case rows, sent `run-proofs` to its
    text-scanning fallback, which found `FAIL` inside the proof's own
-   `else '*** FAIL ***'` — green by hand, red under the runner, same database.
+   `else '*** FAIL ***'` — green by hand, red under the runner.
    That difference is never the subject; it is the instrument.
    **AND A DIAGNOSTIC MUST BE RUNNABLE BY THE PERSON IT DIAGNOSES** — the
    getting-started guide told contributors to run `dev:check`, which needs
@@ -379,17 +380,16 @@ generalises to code not yet written.
 ## Adding an entry
 
 Write it in the matching `docs/mistakes/*.md` as **Symptom → Cause → Fix → Where
-it lives now**, ending with the general rule and LEADING with the symptom as
+it lives now**, ending with the general rule and LEADING with the symptom AS
 REPORTED — what the next reader greps for. Run `npm run mistakes:index` (never
 hand-edit generated parts; fix the heading if a line reads badly). A new
 instance of a class gets its site added above.
 
-**Charged to every session.** The per-entry index lived here until it reached
-18,533 of 30,000 — bigger than the classes, growing with every fix — and blocked
-a write-up; it is now `docs/mistakes/INDEX.md`. When `check:context` fails,
-COMPRESS (same meaning, fewer bytes) or move detail to `docs/mistakes/`. Never
-raise the budget; never buy room by DELETING from the classes, the only part
-that generalises. Tighten this paragraph first.
+**Charged to every session.** The per-entry index once lived here (18,533/30,000,
+bigger than the classes) until it blocked a write-up; it moved to
+`docs/mistakes/INDEX.md`. If `check:context` fails: COMPRESS (same meaning,
+fewer bytes) or move detail to `docs/mistakes/`. Never raise the budget or cut
+a class — tighten this paragraph first.
 
 ---
 
@@ -401,11 +401,11 @@ that generalises. Tighten this paragraph first.
 - `authz-rls.md` *(31)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(21)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(30)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(92)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
-- `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
+- `frontend-ui.md` *(93)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `app-state.md` *(24)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(31)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(25)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(62)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(63)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(40)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

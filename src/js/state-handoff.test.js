@@ -57,12 +57,10 @@ function namedPaths(md) {
  * exemption is how a real broken pointer gets parked here and forgotten.
  */
 const ABSENT_ON_PURPOSE = {
-  'tools/house-year-sheets.mjs':
-    'EXISTS ONLY ON THE VM, and that is the point of the handoff entry naming it. The night agent of 2026-09-15 produced it on branch agent/2026-09-15-night1 in ~/samo-agent on the KKU VM, which holds no GitHub credentials and therefore cannot push. The 2026-09-16 handoff names it to say so — one copy, unreviewed, one `ssh` away from being lost. Delete this exemption the moment that branch is reviewed and landed on main, because then the path is real and the guard should check it again.',
   'src/js/house/year-sheet-csv.js':
-    'EXISTS ONLY ON THE VM, and that is the point of the handoff entry naming it. The night agent of 2026-09-15 produced it on branch agent/2026-09-15-night1 in ~/samo-agent on the KKU VM, which holds no GitHub credentials and therefore cannot push. The 2026-09-16 handoff names it to say so — one copy, unreviewed, one `ssh` away from being lost. Delete this exemption the moment that branch is reviewed and landed on main, because then the path is real and the guard should check it again.',
+    'SUPERSEDED, not pending. It existed only on the night agent\'s 2026-09-15-night1 branch; the 2026-09-17 branch that LANDED on main (2026-09-18) rebuilt the same job differently — the CSV logic went into tools/house-year-sheets.mjs itself, the self-claim cases into house/api.test.js + house/my-house.test.js. So this path is never arriving. It is still named by docs/state/phuriphatma.md, one person\'s session notes, never rewritten by anyone else — hence an exemption rather than an edit.',
   'src/js/house/self-claim.test.js':
-    'EXISTS ONLY ON THE VM, and that is the point of the handoff entry naming it. The night agent of 2026-09-15 produced it on branch agent/2026-09-15-night1 in ~/samo-agent on the KKU VM, which holds no GitHub credentials and therefore cannot push. The 2026-09-16 handoff names it to say so — one copy, unreviewed, one `ssh` away from being lost. Delete this exemption the moment that branch is reviewed and landed on main, because then the path is real and the guard should check it again.',
+    'SUPERSEDED, not pending. It existed only on the night agent\'s 2026-09-15-night1 branch; the 2026-09-17 branch that LANDED on main (2026-09-18) rebuilt the same job differently — the CSV logic went into tools/house-year-sheets.mjs itself, the self-claim cases into house/api.test.js + house/my-house.test.js. So this path is never arriving. It is still named by docs/state/phuriphatma.md, one person\'s session notes, never rewritten by anyone else — hence an exemption rather than an edit.',
   '.claude/rules/mistakes-archive.md':
     'deleted; STATE.md names it only to say "do not re-create it" — it lived in the auto-loaded directory, so archiving into it saved nothing',
   'docs/state-archive/YYYY-MM-DD.md':
@@ -71,6 +69,10 @@ const ABSENT_ON_PURPOSE = {
     'an ephemeral ~30-line WebKit harness; STATE.md names it as a SHAPE worth rebuilding and says so',
   'assets/admin-CPiyOZWb.js':
     'a served bundle hash from a past deploy, recorded as evidence; it has a slash only because the URL path does',
+  'externaldata/house-import/2026-09-14-teamsamo-no-kkumail.md':
+    'gitignored local artifact under externaldata/ — the raw handover files and their derived lists never enter git (1,776 real students\' data); phuriphatma.md names it as evidence for a specific session, not a repo file',
+  'externaldata/house-import/house0196-snapshot.json':
+    'same as above — a gitignored pre-migration snapshot, named for the record',
   'public/passport-elsewhere.html':
     'DELETED 2026-09-04 by the repo merge, permanently. It was the splash telling a preview visitor Passport was not in this build; passport is now built into dist/passport/ so the path it apologised for exists. Named only by docs/state/phuriphatma.md, which is one person\'s session notes and is never rewritten by anyone else — hence an exemption rather than an edit. This file is not coming back: a rule sending /passport/* anywhere but the real files is the bug the merge removed.',
 };
@@ -152,8 +154,19 @@ describe('STATE.md is a handoff, not a memory', () => {
   // while STATE.md pointed at nothing. A guard fails GREEN when its exemption
   // list outlives the absence it describes.
   it('no exemption survives the file arriving', () => {
+    // GITIGNORED PATHS ARE EXCLUDED, and that is not a loophole — it is the
+    // difference between the two machines this runs on. `externaldata/*` holds
+    // real students' data and never enters git: it EXISTS on the laptop that
+    // generated it and does NOT on CI, so `existsSync` alone made this
+    // assertion answer differently in the two places (red locally, green on CI
+    // — class 7's "a guard that cannot run where guards are enforced"). git is
+    // the authority for "is this path part of the repo".
+    const ignored = (p) => {
+      try { execFileSync('git', ['check-ignore', '-q', p], { cwd: ROOT }); return true; }
+      catch { return false; }
+    };
     const arrived = Object.keys(ABSENT_ON_PURPOSE).filter(
-      (p) => existsSync(join(ROOT, p)) || existsSync(join(ROOT, 'src/js', p)),
+      (p) => (existsSync(join(ROOT, p)) || existsSync(join(ROOT, 'src/js', p))) && !ignored(p),
     );
     expect(arrived, [
       'These paths are listed as ABSENT_ON_PURPOSE but exist on disk.',

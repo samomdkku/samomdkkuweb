@@ -29,10 +29,14 @@
 // PURE. No DOM, no network. Everything comes from what the pane already loaded,
 // so this adds no query and cannot disagree with the tabs it explains.
 // ==============================================
+import { splitHeld } from './gaps.js';
 
 /** students say `sai_code`; a held row says `sai`. One accessor — same reason as gaps.js. */
 const saiOf = (r) => r.sai_code || r.sai || '';
-const has = (v) => typeof v === 'string' ? v.trim() !== '' : v != null && v !== '';
+// Exported: the สาย-grid UI needs the SAME "is this field present" rule
+// `fieldHealth` uses, per row, so a cell's "ข้อมูลไม่ครบ" state can never
+// disagree with the ความครบของข้อมูลรายช่อง panel's own count.
+export const has = (v) => typeof v === 'string' ? v.trim() !== '' : v != null && v !== '';
 
 /** A ชื่อเล่น can arrive from the file or be typed by the person; either counts. */
 const nickOf = (r) => r.nickname || r.nickname_self || r.nickname_imported || '';
@@ -62,12 +66,12 @@ export function computeCensus(d = {}) {
   const students = d.students || [];
   const held = (d.held || []).filter((h) => !h.resolved_at);
 
-  // The split the ข้อมูลไม่ครบ tab already uses, recomputed from the same rule
-  // so the two can never drift: a held row is self-claimable only with BOTH a
-  // รหัสนักศึกษา and a ชื่อ, because that is the pair claim_my_student_seat
-  // matches on.
-  const heldSelf = held.filter((h) => has(h.student_id) && has(h.first_name_th));
-  const heldAdmin = held.filter((h) => !has(h.student_id) || !has(h.first_name_th));
+  // The exact split the ข้อมูลไม่ครบ tab uses — IMPORTED, not re-derived, so the
+  // two cannot drift (`.claude/rules/mistakes.md` class 6). This used to be a
+  // second copy of the same two-line rule, keyed on `has()` instead of plain
+  // truthiness; a whitespace-only cell from a bad import would have classified
+  // a held row differently here than in computeGaps.
+  const { heldAdmin, heldSelf } = splitHeld(held);
 
   const roster = students.length + held.length;
   const registry = Number(d.registryPeople || 0);

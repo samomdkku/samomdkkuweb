@@ -38,6 +38,62 @@ const name = (r) => [r.first_name_th, r.last_name_th].filter(Boolean).join(' ').
 const label = (r) => cohortLabel(r) || '—';
 
 /**
+ * A held row is only self-claimable with BOTH a รหัสนักศึกษา and a ชื่อ — that is
+ * the pair `claim_my_student_seat` matches on. Exported so any OTHER reader
+ * (the year-admin CSV handover, a future สาย grid) classifies a held row the
+ * same way `computeGaps` does, rather than re-deriving the same two-line rule
+ * and risking the drift `.claude/rules/mistakes.md` class 6 warns about.
+ */
+export function splitHeld(held = []) {
+  const heldAdmin = held.filter((h) => !h.student_id || !h.first_name_th);
+  const heldSelf = held.filter((h) => h.student_id && h.first_name_th);
+  return { heldAdmin, heldSelf };
+}
+
+/**
+ * Every occupant (a `students` row or an open `held` row) that has BOTH a
+ * สาย and a resolvable รุ่น, grouped by รุ่น label. Exported so any OTHER
+ * reader classifying occupants by รุ่น+สาย (the สาย-grid UI) uses the exact
+ * same grouping `computeGaps`'s own สายรหัส audit does, rather than
+ * re-deriving "which รุ่น is this person in" and risking the two disagreeing
+ * about who occupies what — the drift `.claude/rules/mistakes.md` class 6
+ * warns about.
+ */
+export function groupOccupantsByCohort(occupants = []) {
+  const byCohort = new Map();
+  for (const s of occupants) {
+    if (!saiOf(s)) continue;
+    const key = label(s);
+    if (key === '—') continue;
+    if (!byCohort.has(key)) byCohort.set(key, []);
+    byCohort.get(key).push(s);
+  }
+  return byCohort;
+}
+
+/**
+ * One รุ่น's occupants grouped by สาย NUMBER (not the zero-padded string, so
+ * 1 and "001" collide on purpose). Invalid/blank สาย values are dropped, same
+ * rule both callers below need: a gap or a duplicate can only be asked about
+ * a สาย that parses. Exported so the สาย-grid UI computes "nobody here" and
+ * "more than one person here" from the SAME grouping `computeGaps`'s own
+ * สายรหัส audit (`sai_gap`/`sai_shared`) does, rather than re-deriving
+ * "which number is this row's สาย" a third time in this file family and
+ * risking the drift class 6 of `.claude/rules/mistakes.md` warns about —
+ * already paid for twice tonight in this same feature (`splitHeld()`).
+ */
+export function groupBySaiNumber(rows = []) {
+  const bySai = new Map();
+  for (const s of rows) {
+    const n = Number(saiOf(s));
+    if (!Number.isFinite(n) || n <= 0) continue;
+    if (!bySai.has(n)) bySai.set(n, []);
+    bySai.get(n).push(s);
+  }
+  return bySai;
+}
+
+/**
  * @param {object} d everything the pane has already loaded
  * @param {object[]} d.students   rows from fetchStudents()
  * @param {object[]} d.held       rows from fetchUnresolved()
@@ -61,11 +117,9 @@ export function computeGaps(d = {}) {
   const advisors = d.advisors || [];
   const conflicts = Number(d.conflicts || 0);
 
-  // A held row can only ever be self-claimed with BOTH a รหัสนักศึกษา and a ชื่อ
-  // — that is the pair `claim_my_student_seat` matches on. Missing either makes
-  // it an admin's, permanently, which is why the split is here and not cosmetic.
-  const heldAdmin = held.filter((h) => !h.student_id || !h.first_name_th);
-  const heldSelf = held.filter((h) => h.student_id && h.first_name_th);
+  // Missing either field makes a held row an admin's, permanently, which is why
+  // the split matters and is not cosmetic. See splitHeld() above.
+  const { heldAdmin, heldSelf } = splitHeld(held);
 
   const noSai = students.filter((s) => !s.sai_code);
   const noName = students.filter((s) => !s.first_name_th || !s.last_name_th);
@@ -93,25 +147,12 @@ export function computeGaps(d = {}) {
   // than guessed at, because a guess here invents a gap or hides one.
   const occupants = [...students, ...held];
   const unplaced = held.filter((h) => !cohortLabel(h) && saiOf(h)).length;
-  const byCohort = new Map();
-  for (const s of occupants) {
-    if (!saiOf(s)) continue;
-    const key = label(s);
-    if (key === '—') continue;
-    if (!byCohort.has(key)) byCohort.set(key, []);
-    byCohort.get(key).push(s);
-  }
+  const byCohort = groupOccupantsByCohort(occupants);
   const saiShared = [];
   const saiGaps = [];
   const missingAcross = new Map();
   for (const [cohort, rows] of [...byCohort.entries()].sort()) {
-    const seen = new Map();
-    for (const s of rows) {
-      const n = Number(saiOf(s));
-      if (!Number.isFinite(n) || n <= 0) continue;
-      if (!seen.has(n)) seen.set(n, []);
-      seen.get(n).push(s);
-    }
+    const seen = groupBySaiNumber(rows);
     for (const [n, people] of [...seen.entries()].sort((a, b) => a[0] - b[0])) {
       if (people.length > 1) {
         saiShared.push({

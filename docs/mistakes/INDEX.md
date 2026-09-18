@@ -133,7 +133,7 @@ Open when: writing a migration.
 - The test data used keys that turned out to be real
 - "The registry wins" was implemented as "the import never speaks"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(92)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(93)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -229,8 +229,9 @@ Open when: markup, modals, layout, touch, icons.
 - "สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ"
 - "ลิ้งค์จะขึ้นใน discord แต่ไม่ได้ขึ้นใน PR Staff Dashboard"
 - "แต่ใน web มันไม่เห็นใช่ไหม" — the SECOND site of the same bug, found by sweeping columns against readers
+- ผังตามสาย's own file header warns about hover-only info, then a sibling file did it anyway
 
-## `app-state.md` — Routing, read-state, caches & serialization *(20)*
+## `app-state.md` — Routing, read-state, caches & serialization *(24)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -254,6 +255,10 @@ Open when: URL state, per-user "seen", import/export.
 - A DELIBERATE omission in the account purge cost 42 of 43 comments their edit button
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
+- computeCensus() and computeGaps() classified the same held row differently on a whitespace-only cell
+- sai-grid.js's held-row split was a paraphrase of splitHeld(), not a call to it
+- sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
+- The ผังตามสาย legend was a fourth copy of the same rule
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(31)*
 
@@ -321,7 +326,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 - A missing nginx `location` does not 404
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(62)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(63)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -387,6 +392,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A proof whose subjects were "whoever comes back first", three times in one file
 - The tool wrote both halves of the answer and neither was the file to upload
 - A repair created the rows and left the old ones open
+- The year-admin CSV's ชื่อเล่น column was blank for every held row
 
 ## `passport.md` — The Passport app's own write-ups *(40)*
 
@@ -433,4 +439,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_371 entries across 10 files._
+_377 entries across 10 files._

@@ -118,71 +118,126 @@
 
   <!-- ---------- นักศึกษา ---------- -->
   <section data-house-pane="students" class="d-none">
-    <!-- FIVE separate filters, and สายรหัส is one of them on purpose.
-         Typing "17" in the free-text box used to match รหัสนักศึกษา 6530701712
-         as happily as สาย 017, because one box searched every column. A number
-         means a different thing in each column, so each gets its own box.
+    <!-- List vs สาย-grid: two VIEWS of the same นักศึกษา data (task 4,
+         2026-09-16 — docs/HOUSE-YEAR-HANDOVER.md §d). Not a `data-house-mode`:
+         both read `students`/`held` from this same pane. -->
+    <div class="btn-group btn-group-sm mb-2" role="group" aria-label="มุมมองนักศึกษา">
+      <button type="button" class="btn btn-outline-secondary active"
+              data-house-students-view="list">
+        <i class="bi bi-table"></i> รายชื่อ
+      </button>
+      <button type="button" class="btn btn-outline-secondary"
+              data-house-students-view="grid">
+        <i class="bi bi-grid-3x3-gap"></i> ผังตามสาย
+      </button>
+    </div>
 
-         รุ่น / สาขา / สายรหัส are `<input list>` comboboxes, NOT selects: there
-         are ~300 สาย and รุ่น has no upper bound, so a dropdown is a scroll.
-         Typing filters as a SUBSTRING (see filteredStudents), so "MD5" narrows
-         to MD50–MD59 and "01" to every สาย containing it — an exact value is
-         just the narrowest case of the same rule, and nothing is rejected. -->
-    <div class="row g-2 mb-2">
-      <div class="col-12 col-md">
-        <input type="search" class="form-control form-control-sm" id="houseSearch"
-               placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัสนักศึกษา / อีเมล"
-               aria-label="ค้นหานักศึกษา" />
+    <div id="houseStudentsListView">
+      <!-- FIVE separate filters, and สายรหัส is one of them on purpose.
+           Typing "17" in the free-text box used to match รหัสนักศึกษา 6530701712
+           as happily as สาย 017, because one box searched every column. A number
+           means a different thing in each column, so each gets its own box.
+
+           รุ่น / สาขา / สายรหัส are `<input list>` comboboxes, NOT selects: there
+           are ~300 สาย and รุ่น has no upper bound, so a dropdown is a scroll.
+           Typing filters as a SUBSTRING (see filteredStudents), so "MD5" narrows
+           to MD50–MD59 and "01" to every สาย containing it — an exact value is
+           just the narrowest case of the same rule, and nothing is rejected. -->
+      <div class="row g-2 mb-2">
+        <div class="col-12 col-md">
+          <input type="search" class="form-control form-control-sm" id="houseSearch"
+                 placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัสนักศึกษา / อีเมล"
+                 aria-label="ค้นหานักศึกษา" />
+        </div>
+        <div class="col-6 col-md-2">
+          <select class="form-select form-select-sm" id="houseFilterHouse" aria-label="กรองตามบ้าน">
+            <option value="">ทุกบ้าน</option>
+          </select>
+        </div>
+        <!-- The "ยังไม่ได้ตรวจ" filter used to live here, on the นักศึกษา list.
+             WRONG POPULATION: this list is `students` (house placements), and
+             who-has-checked is a question about PEOPLE — every ทีม SAMO member has
+             a registry row and most have no house placement yet, so the count
+             said 300 and this list showed 3. It moved to its own pane above,
+             which reads the same table the count does (0142). -->
+        <div class="col-6 col-md-2">
+          <input class="form-control form-control-sm" id="houseFilterYear" list="houseYearList"
+                 placeholder="ทุกรุ่น" aria-label="กรองตามรุ่น" autocomplete="off" />
+          <datalist id="houseYearList"></datalist>
+        </div>
+        <div class="col-6 col-md-2">
+          <input class="form-control form-control-sm" id="houseFilterMajor" list="houseMajorList"
+                 placeholder="ทุกสาขา" aria-label="กรองตามสาขา" autocomplete="off" />
+          <datalist id="houseMajorList"></datalist>
+        </div>
+        <div class="col-6 col-md-2">
+          <input class="form-control form-control-sm" id="houseFilterSai" list="houseSaiList"
+                 placeholder="ทุกสายรหัส" aria-label="กรองตามสายรหัส" inputmode="numeric"
+                 autocomplete="off" />
+          <datalist id="houseSaiList"></datalist>
+        </div>
+        <div class="col-auto">
+          <button type="button" class="btn btn-sm btn-primary w-100 text-nowrap" id="houseAddStudent">
+            <i class="bi bi-person-plus"></i> เพิ่ม
+          </button>
+        </div>
       </div>
-      <div class="col-6 col-md-2">
-        <select class="form-select form-select-sm" id="houseFilterHouse" aria-label="กรองตามบ้าน">
-          <option value="">ทุกบ้าน</option>
-        </select>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle house-table">
+          <thead>
+            <tr>
+              <th>ชื่อ-สกุล</th><th>ชื่อเล่น</th><th>รหัสนักศึกษา</th>
+              <th>kkumail</th><th>สาขา</th><th>รุ่น</th><th>ชั้นปี</th><th>สาย</th><th>บ้าน</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="houseStudentRows"></tbody>
+        </table>
       </div>
-      <!-- The "ยังไม่ได้ตรวจ" filter used to live here, on the นักศึกษา list.
-           WRONG POPULATION: this list is `students` (house placements), and
-           who-has-checked is a question about PEOPLE — every ทีม SAMO member has
-           a registry row and most have no house placement yet, so the count
-           said 300 and this list showed 3. It moved to its own pane above,
-           which reads the same table the count does (0142). -->
-      <div class="col-6 col-md-2">
-        <input class="form-control form-control-sm" id="houseFilterYear" list="houseYearList"
-               placeholder="ทุกรุ่น" aria-label="กรองตามรุ่น" autocomplete="off" />
-        <datalist id="houseYearList"></datalist>
-      </div>
-      <div class="col-6 col-md-2">
-        <input class="form-control form-control-sm" id="houseFilterMajor" list="houseMajorList"
-               placeholder="ทุกสาขา" aria-label="กรองตามสาขา" autocomplete="off" />
-        <datalist id="houseMajorList"></datalist>
-      </div>
-      <div class="col-6 col-md-2">
-        <input class="form-control form-control-sm" id="houseFilterSai" list="houseSaiList"
-               placeholder="ทุกสายรหัส" aria-label="กรองตามสายรหัส" inputmode="numeric"
-               autocomplete="off" />
-        <datalist id="houseSaiList"></datalist>
-      </div>
-      <div class="col-auto">
-        <button type="button" class="btn btn-sm btn-primary w-100 text-nowrap" id="houseAddStudent">
-          <i class="bi bi-person-plus"></i> เพิ่ม
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="small text-muted" id="houseStudentCount"></div>
+        <button type="button" class="btn btn-sm btn-link p-0 d-none" id="houseClearFilters">
+          ล้างตัวกรอง
         </button>
       </div>
     </div>
-    <div class="table-responsive">
-      <table class="table table-sm table-hover align-middle house-table">
-        <thead>
-          <tr>
-            <th>ชื่อ-สกุล</th><th>ชื่อเล่น</th><th>รหัสนักศึกษา</th>
-            <th>kkumail</th><th>สาขา</th><th>รุ่น</th><th>ชั้นปี</th><th>สาย</th><th>บ้าน</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="houseStudentRows"></tbody>
-      </table>
-    </div>
-    <div class="d-flex flex-wrap gap-2 align-items-center">
-      <div class="small text-muted" id="houseStudentCount"></div>
-      <button type="button" class="btn btn-sm btn-link p-0 d-none" id="houseClearFilters">
-        ล้างตัวกรอง
-      </button>
+
+    <!-- ---------- ผังตามสาย ---------- -->
+    <div id="houseStudentsGridView" class="d-none" data-house-grid-wrap="1">
+      <div id="houseSaiGridWrap">
+        <div class="row g-2 mb-2 align-items-center">
+          <div class="col-6 col-md-3">
+            <input class="form-control form-control-sm" id="houseSaiGridYear" list="houseSaiGridYearList"
+                   placeholder="เลือกรุ่น เช่น MD50" aria-label="เลือกรุ่นเพื่อดูผังตามสาย"
+                   autocomplete="off" />
+            <datalist id="houseSaiGridYearList"></datalist>
+          </div>
+          <div class="col small text-muted" id="houseSaiGridCount"></div>
+        </div>
+
+        <!-- Legend: colour is NEVER the only signal — every state below also has
+             its own icon and a visible label, both on the legend and on each
+             cell (mistakes.md class 4: a `title` tooltip does not exist on a
+             phone, and most traffic here is one). GENERATED by
+             renderSaiGridLegend() in index.js from the SAME SAI_CELL_STYLE map
+             the grid cells render from (2026-09-17 revision pass) — this used
+             to be five badges hand-typed here, a second copy of the same
+             colour/icon/label triple `computeSaiGrid()`'s caller already owns.
+             It had not yet drifted only because nothing had touched either
+             side since the file was written; the class-6 shape this same
+             feature has paid for twice already (splitHeld, groupBySaiNumber
+             in gaps.js) — see docs/mistakes/app-state.md. -->
+        <div id="houseSaiGridLegend" class="d-flex flex-wrap gap-2 mb-2 small"></div>
+
+        <div class="alert alert-secondary d-none" id="houseSaiGridEmpty"></div>
+        <div class="sai-grid" id="houseSaiGridCells"></div>
+
+        <div class="small text-muted mt-2">
+          <i class="bi bi-info-circle"></i>
+          หน้านี้แสดงเฉพาะคนที่ระบบมีสายรหัสให้แล้ว การ์ดที่ดูปกติอาจเป็นคนละคนกับ
+          kkumail ที่ผูกไว้จริง — ดูหัวข้อ “แจ้งว่าเข้าระบบแล้วไม่เจอตัวเอง”
+          ที่แท็บ “ยังนำเข้าไม่ได้” ประกอบ
+        </div>
+      </div>
     </div>
   </section>
 

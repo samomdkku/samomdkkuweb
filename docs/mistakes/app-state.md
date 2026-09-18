@@ -851,3 +851,208 @@ the raw `pathname` (fixing only the exact-match branch would have left
 compares, and a routing miss must not resolve to a valid-looking page.* Falling
 through to a landing tab is indistinguishable from a working link to the wrong
 place. Where a miss is possible, make it visible.
+
+## computeCensus() and computeGaps() classified the same held row differently on a whitespace-only cell
+
+**Symptom.** Nothing observable yet — found in a revision self-review, not
+reported. `computeCensus()`'s `heldSelf`/`heldAdmin` split (the ภาพรวม tab's
+165/152/13 numbers) and `computeGaps()`'s identical-sounding split (the
+ข้อมูลไม่ครบ tab's own 13) could in principle disagree for the exact same held
+row, which would put two Coordinated Numbers On One Screen back into open
+contradiction — the failure `census.js`'s own file header was written to
+prevent.
+
+**Cause.** `computeGaps()` (`src/js/house/gaps.js`) tests presence with plain
+JS truthiness: `!h.student_id`. `computeCensus()` (`src/js/house/census.js`)
+tests presence with its own `has()` helper, which additionally trims
+whitespace: `typeof v === 'string' ? v.trim() !== '' : v != null && v !== ''`.
+For every value seen in production so far — a real string, `null`, or `''` —
+the two agree, so 41+41 tests across the two modules stayed green. They diverge
+only for a string that is non-empty but blank after trimming (`'   '`), which a
+hand-edited spreadsheet cell can absolutely produce and neither fixture set
+happened to include.
+
+`gaps.js` already exported `splitHeld()` — extracted in the same session
+specifically so "any OTHER reader classifies a held row the same way
+`computeGaps` does, rather than re-deriving the same two-line rule" — but
+`census.js` was never pointed at it; it kept a second, textually-similar copy
+written before `splitHeld()` existed, and the export's own docstring claim
+("recomputed from the same rule so the two can never drift") described what the
+comment *intended*, not what the code *did*.
+
+**Fix.** `census.js` now imports and calls `splitHeld()` from `gaps.js` instead
+of re-filtering `held` itself. Guarded by a differential test in
+`census.test.js` that builds a held row with `student_id: '   '` and asserts
+`computeCensus()`'s counts equal `splitHeld()`'s own counts for the same row —
+reverting the import (restoring the local `has()`-based filter) turns that
+assertion red, confirmed by reintroducing the old code and watching it fail
+before restoring the fix.
+
+**Where it lives now.** `splitHeld()` export in `src/js/house/gaps.js`;
+consumed by `computeCensus()` in `src/js/house/census.js`; differential guard
+in `src/js/house/census.test.js`.
+
+**The general rule.** *A comment claiming "recomputed from the same rule" is
+not the same rule unless it is the same function call.* Two textually-similar
+filters pass every test built from the values already in hand and diverge only
+on a value neither fixture set thought to include — write the second call site
+as an import, never a paraphrase, even when (especially when) the paraphrase is
+two lines.
+
+## sai-grid.js's held-row split was a paraphrase of splitHeld(), not a call to it
+
+**Symptom.** Nothing observable yet — found in a second revision pass over the
+same night's branch, immediately after the `computeCensus()` fix directly
+above. No live numeric disagreement: `src/js/house/sai-grid.js`'s inline
+`(!r.student_id || !r.first_name_th) ? heldAdmin : heldSelf` happened to be
+byte-for-byte the same predicate `splitHeld()` used, so every test in both
+files still passed.
+
+**Cause.** `sai-grid.js`'s own file header (written the same session as
+`computeSaiGrid()`) claims: *"reusing gaps.js's OWN two-tone split of a held
+row rather than inventing a third interpretation of it."* The code never
+called `splitHeld()` — it kept a second, hand-typed copy of the same two-line
+rule instead of importing it, exactly the shape the `computeCensus()` entry
+above generalises from ("recomputed from the same rule" is not the same rule
+unless it is the same function call). The two only agreed because nobody had
+touched either copy since `splitHeld()` was extracted.
+
+**Fix.** `sai-grid.js` now imports `splitHeld` from `gaps.js`, builds a
+`Set` of the `heldAdmin` rows by object identity (identity survives through
+`groupOccupantsByCohort`, since both read the same `held` array references),
+and classifies each held occupant by set membership instead of re-running the
+predicate. Guarded by a differential test in `sai-grid.test.js` that computes
+`splitHeld()` on a fixture set directly and asserts every cell in the grid
+agrees with it — not a hand-picked expected value, so it also survives a
+future change to `splitHeld()`'s own predicate. Verified the guard catches
+drift, not just disagreement with itself: simulated a future `splitHeld()`
+predicate change (added whitespace-trimming) with the inline copy reinstated,
+watched the new test go red (`held_self` vs expected `held_admin`), then
+restored both files and reran green.
+
+**Where it lives now.** `splitHeld()` export in `src/js/house/gaps.js`;
+consumed by `computeSaiGrid()` in `src/js/house/sai-grid.js` via a
+`heldAdminSet`; differential guard in `src/js/house/sai-grid.test.js`.
+
+**The general rule.** *A file header claiming reuse is not proof of reuse —
+grep the function name at the call site.* This is the SAME instance of the
+rule above, found in the sibling file the first fix didn't check: extracting
+a shared predicate into one module doesn't retire the copies already sitting
+in every OTHER module that needs it. When a class-6 fix lands, grep the
+codebase for the predicate's literal text, not just the one file that
+triggered the fix.
+
+## sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
+
+**Symptom.** Nothing observable yet — found reviewing the same night's
+สาย-grid feature after the two `splitHeld()` entries above, once for the OTHER
+shared rule this module needs: "group these rows by numeric สาย, per รุ่น."
+`computeSaiGrid()` built its own `bySai` map with a hand-typed
+`Number(saiOf(r))` / `Number.isFinite` / `n <= 0` loop — textually identical to
+the loop `computeGaps()` already ran per cohort to build `sai_gap` (missing
+numbers in a รุ่น's own 1..max sequence) and `sai_shared` (more than one
+occupant on one number), but never calling either. Same shape as the
+`splitHeld()` bug: two copies agreeing only because nobody had edited either
+since the code was written.
+
+Separately, `computeSaiGrid()`'s own file header mis-cited *which* gaps.js
+group its `empty` state matches: it claimed "exactly gaps.js's own `sai_empty`
+guard." Tracing the data model shows this is wrong — `sai_empty` reads the
+separate `sais` table, a flat code registry with no cohort column, shared
+across every รุ่น (`ensureSais()`'s own comment: "สาย are NOT a seeded range");
+it asks whether a globally-declared code has zero occupants system-wide.
+`computeSaiGrid()` never receives `d.sais` and cannot ask that question — its
+`empty` cells are a hole in ONE รุ่น's own numbering, which is the `sai_gap`
+concept, not `sai_empty`. A reader trusting the comment to reason about why a
+cell went "ว่าง" would look in the wrong panel.
+
+**Cause.** The grouping loop was written directly in `sai-grid.js` before
+anyone asked whether `gaps.js` already had the same math (it did, inline in
+`computeGaps()`'s per-cohort loop, just never extracted). The mislabelled
+comment was a guess made confident-sounding by proximity to the correctly-cited
+`splitHeld()`/`groupOccupantsByCohort()` reuse claims two paragraphs above it.
+
+**Fix.** Extracted `groupBySaiNumber(rows)` from `computeGaps()`'s inline loop
+into an exported function in `gaps.js`, docstring cross-referencing both
+callers the way `splitHeld()`/`groupOccupantsByCohort()` already do.
+`computeGaps()` and `computeSaiGrid()` both call it now; `sai-grid.js`'s own
+`saiOf` copy (now unused) was deleted rather than left dead. The header comment
+was corrected to name `sai_gap`/`sai_shared`, not `sai_empty`, and to say
+explicitly that `computeSaiGrid()` has no `sais`-table data to ask that
+question with. Guarded by a differential test pair in `sai-grid.test.js` that
+runs `computeGaps()` and `computeSaiGrid()` on the identical fixture and
+asserts the grid's `empty`/`duplicate` cells equal `computeGaps()`'s own
+`sai_gap`/`sai_shared` rows for that รุ่น — plus a non-vacuous control on each,
+since a differential assertion with an accidentally-empty expected list passes
+for the wrong reason.
+
+**Where it lives now.** `groupBySaiNumber()` export in `src/js/house/gaps.js`;
+consumed by `computeGaps()` and by `computeSaiGrid()` in
+`src/js/house/sai-grid.js`; differential guard in `src/js/house/sai-grid.test.js`.
+
+**The general rule.** *The third copy of a rule is not a coincidence, it is a
+pattern — when a fix lands twice in one file for one shape (paraphrasing a
+shared predicate instead of importing it), audit the SAME file for every other
+inline loop that could be the next caller of the thing just extracted, not
+only the predicate that triggered the fix.* And: a comment naming which sibling
+concept a state "matches" is a factual claim about a DIFFERENT function's
+inputs — check what that function actually receives before citing it.
+
+## The ผังตามสาย legend was a fourth copy of the same rule — hand-typed HTML this time, not JS
+
+**Symptom.** Nothing observable yet — found on a later revision pass over the
+same night's สาย-grid feature, after the `splitHeld()` ×2 and
+`groupBySaiNumber()` entries above had each fixed a JS module re-deriving a
+rule instead of importing it. The legend beside the grid
+(`src/html/tab-house.html`) was five `<span class="badge ...">` elements typed
+by hand — the same colour class, Bootstrap icon name and Thai label each cell
+already gets from `SAI_CELL_STYLE` in `src/js/house/index.js`. They agreed only
+because nobody had touched either side since the grid was built the same
+night; a future change to one state's colour or wording in `SAI_CELL_STYLE`
+(the kind of edit a UI tweak makes without re-reading the HTML it sits beside)
+would have left the legend describing colours the cells no longer use.
+
+**Cause.** The legend was written as static markup at the same time as the
+grid's cell renderer, in the same commit, by the same author, from the same
+mental model — so it started in agreement and there was nothing in the diff to
+suggest the two had ever been separate facts. Unlike the two `splitHeld()`
+bugs above, this one was never a bug that could fire from bad DATA (a
+whitespace cell, a future predicate change) — it can only fire from a future
+EDIT to one side and not the other, which is exactly what the three
+`splitHeld()`/`groupBySaiNumber()` write-ups above say to check for once a
+class-6 fix lands in a file: grep for every OTHER place the same rule could
+have been re-typed, not only the one that triggered the first fix. Nobody had
+checked the HTML.
+
+**Fix.** Replaced the five hand-typed badges with an empty
+`<div id="houseSaiGridLegend">` and a new `renderSaiGridLegend()` in
+`index.js` that builds the legend from `SAI_CELL_STYLE` itself, in a
+`SAI_LEGEND_ORDER` array (mild → severe, the order a reader scans the legend
+in — deliberately not the same order as `SEVERITY` in `sai-grid.js`, which is
+worst-first for picking one cell's own colour when it has several occupants).
+Called from `renderSaiGridPane()` on every paint. The "more than one occupant"
+badge stays separate — it answers a different question than the five states
+do, so folding it into the same map would be its own false unification.
+Guarded by `src/js/house/sai-grid-legend.test.js`, a source-text differential
+test (no jsdom in this repo, same constraint the `wireClaim`/`api.test.js`
+guards in this feature already work under): it asserts the legend function
+reads `SAI_CELL_STYLE` rather than literal strings, that the state count in
+`SAI_CELL_STYLE` matches the count in `SAI_LEGEND_ORDER`, and that the old
+hand-typed badge markup is gone from the HTML. **Verified the guard catches
+its own bug**: reintroduced two of the five original hand-typed badges in the
+HTML, reran — 2 of 5 assertions went red as expected (the "not hand-typed"
+check and the "mount point exists" check); restored and diffed byte-identical
+against the pre-mutation file before trusting the result, then reran clean.
+
+**Where it lives now.** `renderSaiGridLegend()` + `SAI_LEGEND_ORDER` in
+`src/js/house/index.js`; empty mount point in `src/html/tab-house.html`;
+guard in `src/js/house/sai-grid-legend.test.js`.
+
+**The general rule.** *A class-6 fix in one file's JS does not mean the rule
+has one home yet — the SAME night can produce a fourth copy in markup, not
+code, written by the same hand that just fixed the third one, because "I just
+wrote both, they obviously agree" is exactly the moment a rule is most likely
+to get a silent second definition.* After extracting a shared predicate,
+check every RENDERER of its output, not only every OTHER computer of the same
+input — a legend, a printed report, an export column can each independently
+restate what a style map already says.

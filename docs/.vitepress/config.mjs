@@ -115,7 +115,7 @@ export const SIDEBAR = [
       // how it works · what to ask ฝ่ายข้อมูล for · what to do when what
       // arrives is wrong.
       'HOUSE-SYSTEM.md', 'house-data-spec-th.md', 'HOUSE-DATA-REPAIR.md',
-      'TEAM-ROLES-AND-PHOTOS.md',
+      'HOUSE-YEAR-HANDOVER.md', 'TEAM-ROLES-AND-PHOTOS.md',
     ],
   },
   {

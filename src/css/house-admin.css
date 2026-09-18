@@ -97,3 +97,42 @@
   margin-left: auto;
 }
 .held-actions .input-group { flex-wrap: nowrap; }
+
+/* ── ผังตามสาย (task 4, 2026-09-16) ───────────────────────────────────────
+   `auto-fill` + a small `minmax` so the grid wraps on its own at any width —
+   the same reason `house-table`'s overflow-x exists, just as a wrap instead
+   of a scroll, since a scrolling GRID (as opposed to a wide table) hides most
+   of the สาย a reader came to scan at once. `min-width: 0` on the cell itself
+   keeps a long unbroken name from forcing the whole column wider — names
+   WRAP onto more lines instead of being cut with `.text-truncate` + `title`,
+   which was tried first and reverted (self-review, 2026-09-17): a `title`
+   tooltip does not exist on a touch device, and most of this app's traffic
+   is phones — the same class-4 defect this file's own JS comment warns
+   against, just for the occupant NAME instead of the state label. */
+.sai-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.5rem;
+}
+.sai-cell { min-width: 0; }
+.sai-cell-name, .sai-cell-state, .sai-cell-missing { line-height: 1.15; }
+.sai-cell-state { opacity: 0.85; }
+/* Which field is missing, on screen — not hover-only (2026-09-17 revision
+   pass, closing the gap the 2026-09-17 self-review flagged and deliberately
+   left open: "the missing list is entirely hover-only, with no on-screen
+   equivalent at all"). Wraps like .sai-cell-name; no truncation. */
+.sai-cell-missing { opacity: 0.85; }
+
+/* Duplicate is a BORDER treatment, never colour alone: two people can each
+   individually be "ปกติ" and the problem is only visible as a COUNT, so the
+   background tone belongs to whichever of them is worse and the dashed
+   border is the ONLY thing that says "more than one person is here". */
+.sai-cell--duplicate { border-style: dashed !important; border-width: 2px !important; }
+.sai-cell--duplicate-legend { border-style: dashed !important; border-width: 2px !important; }
+
+/* Mobile width 390px must not overflow — most of this app's traffic is
+   phones. A smaller minimum keeps 3–4 cells per row instead of 1. */
+@media (max-width: 420px) {
+  .sai-grid { grid-template-columns: repeat(auto-fill, minmax(4.4rem, 1fr)); gap: 0.35rem; }
+  .sai-cell { padding: 0.35rem !important; font-size: 0.72rem; }
+}

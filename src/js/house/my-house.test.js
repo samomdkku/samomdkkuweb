@@ -581,6 +581,70 @@ describe('the empty card offers a way in — to the people it can help', () => {
 });
 
 // ============================================================
+// wireClaim's OWN branches — pinned at the source, the way the rest of this
+// file pins addEventListener/classList hazards, because there is no jsdom here
+// to actually submit the form and watch `status.textContent` change. See
+// docs/HOUSE-YEAR-HANDOVER.md § วิธีทดสอบ for the full outcome list this and
+// api.test.js together are meant to cover; api.test.js pins what the SERVER
+// call answers, this pins what wireClaim DOES with each answer.
+// ============================================================
+describe('wireClaim — every branch a submit can take', () => {
+  const fn = () => CODE.slice(CODE.indexOf('function wireClaim'),
+    CODE.indexOf('export function renderMyHouse'));
+
+  it('refuses BOTH fields empty before calling the server at all', () => {
+    // The order matters: a client check that runs AFTER the network call is
+    // decoration, not a guard — it would still round-trip on every blank
+    // submit. `if (!sid || !first) { ...; return; }` must appear textually
+    // before `await claimMySeat(`.
+    const body = fn();
+    const guard = body.indexOf('if (!sid || !first)');
+    const call = body.indexOf('await claimMySeat(');
+    expect(guard).toBeGreaterThan(-1);
+    expect(call).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(call);
+  });
+
+  it('refuses a malformed รหัส BEFORE the server call, with a format hint, not the neutral miss sentence', () => {
+    // `claim_my_student_seat`'s neutral "ไม่พบรายชื่อ" message is deliberately
+    // the SAME for "no such รหัส" and "wrong ชื่อ" (0191, anti-enumeration). A
+    // รหัสนักศึกษา that is not even 10 digits is a different problem — a typo,
+    // not a guess — and mixing it into the neutral sentence would send someone
+    // who mistyped a digit to re-read their ชื่อ instead.
+    const body = fn();
+    const guard = body.indexOf('if (!norm.ok)');
+    const call = body.indexOf('await claimMySeat(');
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(call);
+    expect(body.slice(guard, call)).toContain('ต้องเป็นตัวเลข 10 หลัก');
+  });
+
+  it('a SERVER miss ({ok:false}) shows the server\'s own message and re-enables the button', () => {
+    // The server is the author of this sentence (0191) — composing a second one
+    // client-side is the "two authors of one message" shape this repo has been
+    // bitten by (docs/mistakes/integrations.md). And a disabled button with no
+    // path back would strand someone who mistyped on their first try.
+    const body = fn();
+    const branch = body.slice(body.indexOf('if (!res?.ok)'), body.indexOf('clearMyHouseCache()'));
+    expect(branch).toMatch(/status\.textContent\s*=\s*res\?\.message/);
+    expect(branch).toMatch(/btn\.disabled\s*=\s*false/);
+  });
+
+  it('a THROWN error (already claimed / wrong domain / not signed in) also re-enables the button', () => {
+    const body = fn();
+    const catchBranch = body.slice(body.indexOf('} catch (err)'));
+    expect(catchBranch).toMatch(/status\.textContent\s*=\s*err\?\.message/);
+    expect(catchBranch).toMatch(/btn\.disabled\s*=\s*false/);
+  });
+
+  it('a SUCCESS clears the cache and repaints — never leaves the stale empty card up', () => {
+    const body = fn();
+    const successBranch = body.slice(body.indexOf('clearMyHouseCache()'), body.indexOf('} catch (err)'));
+    expect(successBranch).toMatch(/showMyHouse\(host, opts\.uid, opts\)/);
+  });
+});
+
+// ============================================================
 // ระบบบ้าน stops routing data problems to the confidential service desk (0191)
 // ============================================================
 describe('a student who cannot get in is not sent to VitalSound', () => {

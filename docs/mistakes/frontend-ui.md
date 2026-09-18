@@ -3781,3 +3781,59 @@ half asserts `vs-staff.js` contains neither column name.
    channel that scrolls; the dashboard is where the work is done. If a message
    instructs someone to act on a fact, that fact must be on the surface they act
    from — and if it names a role ("SE กรุณา…"), check THAT role's screen.
+## ผังตามสาย's own file header warns about hover-only info, then a sibling file did it anyway
+
+**Symptom (found in self-review, not reported):** `sai-grid.js`'s own header
+states the design rule for this exact view — *"colour is never the ONLY
+signal: every state also gets its own icon and a visible (not hover-only)
+short label, because a `title` tooltip does not exist on a phone."* The rule
+was followed for the STATE label (`sai-cell-state` is always on-screen), but
+`index.js`'s renderer put `.text-truncate` on the occupant NAME (`sai-cell-name`)
+and moved the full text into the cell's `title` attribute instead — the exact
+thing the file next to it argues against, for the other piece of text in the
+same cell. A สาย shared by two occupants (`duplicate`) or one person with a
+long ชื่อ-นามสกุล would show a cut-off name with no way to read the rest on a
+touch device, which the code's own comment says is most of this app's traffic.
+
+**Cause:** the rule was applied to the label that was ALREADY being designed
+around (state, colour, icon — all discussed at length in the header) and not
+re-asked for the other text node added to the same cell markup. A design
+principle stated once at the top of a file does not re-check itself against
+every element added under it.
+
+**Fix:** dropped `.text-truncate` from `.sai-cell-name`; names wrap onto more
+lines instead of being cut, so the full ชื่อ is on-screen without a hover.
+`.sai-cell { min-width: 0 }` is kept (still prevents one long unbroken token
+from stretching the grid column) but its comment no longer claims to serve
+`.text-truncate`, which is gone.
+
+**Left open at the time, then closed the same night (2026-09-17 revision
+pass).** The `missing` field list (which ช่อง is absent, e.g. "ขาด: ชื่อเล่น")
+was built into the same `title` string with **no on-screen equivalent at all**
+for an `incomplete` cell — worse than the name case, since there the label
+("ข้อมูลไม่ครบ") was visible but WHICH field was not, anywhere but the
+tooltip. The self-review that found this deliberately did not fix it, reasoning
+that a per-field list needs "a real layout decision" the cell's 4.4rem mobile
+width can't obviously fit. On reread: the actual fields (ชื่อ/นามสกุล/ชื่อเล่น/
+รหัสนักศึกษา/สาย, `census.js`'s `FIELDS`) are short Thai words, at most a
+handful per cell — the same shape of content as the occupant name this exact
+fix pattern already solved, not a paragraph needing a real layout redesign. The
+"needs a bigger decision" framing was itself untested: nobody had tried the
+plain wrapping fix and found it insufficient, they had reasoned from the cell's
+width in the abstract.
+
+**Fix:** added a `.sai-cell-missing` div, visible on-screen (wraps, no
+truncation, same treatment as `.sai-cell-name`), listing the deduplicated
+missing-field labels for an `incomplete` cell. `title` keeps the same combined
+summary as before (label + names + missing) as a hover convenience for desktop
+— now redundant with what's on screen rather than the only carrier, which is
+what the class-4 rule actually requires ("colour/hover is never the ONLY
+signal"), not "no title at all."
+
+**Where it lives now:** `src/js/house/index.js` (`renderSaiGridPane`),
+`src/css/house-admin.css` (`.sai-cell-name`, `.sai-cell-missing`).
+
+**Rule:** a design principle stated once at the top of a file is not
+self-enforcing — grep the SAME file (and its renderer, if the file is pure and
+someone else renders it) for every other place the principle should apply
+before treating the header comment as done.
