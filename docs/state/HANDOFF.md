@@ -1474,6 +1474,59 @@ Running it with the policy count beside it is what surfaced the two deliberate
 deny-all siblings, which is the thing most likely to be broken by a well-meaning
 edit. `select relrowsecurity, (policy count)` — ask for both.
 
+## 16. ระบบบ้าน data handover — the sheets EXIST, nobody has sent them (2026-09-18/19)
+
+**Status: VERIFIED 2026-09-18 — how: ran the generator against production and
+printed the rows behind its most extreme counts before believing them (สาย 256
+held 8 rows across 6 รุ่น, of which only 2 pairs are real duplicates). Nothing
+has been SENT.**
+
+`node tools/house-year-sheets.mjs --apply --gaps-only --force` writes six CSVs
+into `externaldata/house-year-sheets/` (gitignored; 1,776 real students). They
+are ready to hand to the data team and that is the next action — **it belongs
+to the owner, not to a session.**
+
+| owed | who | why it is not done |
+|---|---|---|
+| send the six `MD*-ข้อมูลไม่ครบ.csv` to the data team | owner | needs a person to choose the recipient and share the Sheet |
+| check **สาย 141** against the source file | owner / ฝ่ายข้อมูล | MD53 and MD54 both have nobody on it, and after the 2026-09-19 รุ่น repair NOTHING unplaced can explain either. บ้าน is สาย's last digit, so if a column moved everyone after it is in the wrong บ้าน |
+| decide **สาย 256** — two people on it in MD53, two in MD54 | ฝ่ายข้อมูล | at least one of each pair is in the wrong บ้าน; the file is the only source |
+| write the **import-back** tool | a session, once data returns | nothing to import yet. It must match each returned kkumail to the person by รหัส+ชื่อ before writing, or a copy-paste slip silently swaps two students |
+
+**What the sheet asks for**: a `?` in a `กรอก: <field>` column, per row.
+155 rows want a kkumail, 13 a รหัสนักศึกษา, 2 a ชื่อ/นามสกุล. **The `?` is not
+decoration — it is the highlight.** A CSV carries no formatting, so a colour
+does not survive export or re-import; a character does.
+
+⚠️ **`ความสำคัญ = ต่ำ` means "do not chase"** — 26 rows missing only a ชื่อเล่น.
+The owner said so explicitly. Do not "improve" the sheet by requesting them.
+
+---
+
+## 17. The night agent is STOPPED, and what it is holding (2026-09-18)
+
+**Status: VERIFIED 2026-09-18 — how: `systemctl is-active` returned inactive,
+`systemctl list-timers --all` no longer lists the unit at all, and `pgrep -af
+claude` on the VM found nothing running.**
+
+It was not a scheduling bug. `OnCalendar=*-*-* 15:41:00` is daily BY DESIGN,
+one minute after the 5-hour window resets. The waste was that
+**`~/samo-night/NIGHT-TASKS.md` is never consumed**: unchanged since
+2026-09-15 23:24, so the same 6 tasks re-ran every night, and tonight's run
+had branched from `main` WITHOUT the previous night's 16 commits.
+
+✅ **The stranded work is no longer stranded.** `agent/2026-09-17` is MERGED
+(see `git log --oneline --merges` and STATE.md) — the per-รุ่น CSV generator, the ผังตามสาย grid and three
+class-6 fixes the agent found in its own earlier work. The older branches
+(`2026-09-15*`, `2026-09-16`) are SUPERSEDED by it; `2026-09-18` is empty.
+They still exist in `~/samo-agent` on the VM and can be deleted.
+
+**Before re-enabling: write a new queue first.** Then
+`sudo systemctl enable --now samo-night-agent.timer`. Re-enabling with the old
+file re-runs work that is now on `main`.
+
+---
+
 ## Where to look for anything else
 
 **Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.

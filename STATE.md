@@ -179,14 +179,37 @@ those four items and drifted from them; do not re-add a copy here.
 
 ---
 
+## ระบบบ้าน — EVERY held row now has a รุ่น (2026-09-19)
+
+✅ **The 13 held rows with no รุ่น are fixed.** They have no รหัสนักศึกษา (`#N/A`
+in the file), so `cohortFromStudentId()` — how all 1,763 others get theirs,
+65→MD50, 66→MD51 — had nothing to read. 0188 had already given
+`student_import_unresolved` a `cohort_year` for this; the importer never filled it. `tools/house-unplaced-cohort.mjs` reads the รุ่น back out of the
+handover file's block headings (column 9, once per block) and writes it, refusing
+any row whose สาย in the file disagrees with the database. 11 → MD52, 2 → MD54,
+all 13. **There is no `_unplaced` population any more.**
+
+⚠️ **This CHANGED a number reported before it.** `_สายมีปัญหา` went **18 → 5**:
+13 of the 15 "nobody is on this สาย" were these people, uncounted because the
+audit groups by รุ่น and they had none — any older note saying 18 is stale. What
+remains is real: สาย 256 held twice in MD53 and twice in MD54, สาย 141 empty in
+both, and **nothing unplaced can explain 141 any more**. Sheets generated, NOT
+sent — owner's errand, both in `HANDOFF.md` §16.
+
+## ⛔ THE NIGHT AGENT IS OFF (2026-09-18)
+
+Stopped, timer disabled, nothing scheduled. Daily was BY DESIGN; the waste was
+that its task file is never consumed, so the same 6 tasks re-ran nightly. Its
+work is MERGED, not stranded. **Write a new queue before re-enabling** —
+`HANDOFF.md` §17, its one home.
+
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 
-Free self-hosted team password vault. Two Owners of org `samomdkku`: the owner's kkumail and the
-`mdstuddata.beta@gmail.com` ROLE account (succession anchor). **Operations `skills/vaultwarden.md` ·
-architecture `docs/CONTEXT.md` · what it owes HANDOFF §7.** Do not re-derive any of it here.
-⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a non-empty value overrides `SIGNUPS_ALLOWED=false`
-and opened public registration to every kkumail at KKU for ~6 h today (`docs/mistakes/authz-grants.md`).
-errands and **restore has NEVER been run** — both lists live in `HANDOFF` §7.
+Team password vault. Owners of org `samomdkku`: the owner's kkumail + the `mdstuddata.beta@gmail.com`
+ROLE account. **Operations `skills/vaultwarden.md` · architecture `docs/CONTEXT.md` · what it owes
+HANDOFF §7** (incl. restore, NEVER run). ⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a
+non-empty value overrides `SIGNUPS_ALLOWED=false` and opened registration to every KKU kkumail for
+~6 h (`docs/mistakes/authz-grants.md`).
 
 ## NEXT SESSION — start here
 
