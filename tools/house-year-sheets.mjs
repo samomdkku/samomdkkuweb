@@ -28,16 +28,17 @@
 // ⚠️ OUTPUT IS PII. `externaldata/` is gitignored on purpose — never move a
 // generated CSV under `src/`, `docs/` or `tools/`, and never commit one.
 //
-//   node tools/house-year-sheets.mjs                 # dry run: counts only
-//   node tools/house-year-sheets.mjs --apply         # writes the CSVs
-//   node tools/house-year-sheets.mjs --apply --force # overwrite existing files
+//   node tools/house-year-sheets.mjs                       # dry run: counts only
+//   node tools/house-year-sheets.mjs --apply               # every person, per รุ่น
+//   node tools/house-year-sheets.mjs --apply --gaps-only   # ONLY incomplete/held
+//   node tools/house-year-sheets.mjs --apply --force       # overwrite existing
 // ============================================================
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { splitHeld } from '../src/js/house/gaps.js';
 import { cohortLabel, houseOf } from '../src/js/house/fields.js';
-import { FIELDS } from '../src/js/house/census.js';
+import { FIELDS, has } from '../src/js/house/census.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -45,7 +46,8 @@ export const OUT_DIR = path.join(ROOT, 'externaldata/house-year-sheets');
 
 export const HEADER = [
   'รหัสนักศึกษา', 'ชื่อ (จากระบบ)', 'นามสกุล (จากระบบ)', 'ชื่อเล่น',
-  'สาย', 'บ้าน', 'สถานะ', 'kkumail (ถ้ามีในระบบ)', 'หมายเหตุ (เขียนที่นี่ได้)',
+  'สาย', 'บ้าน', 'สถานะ', 'ข้อมูลที่ขาด', 'kkumail (ถ้ามีในระบบ)',
+  'หมายเหตุ (เขียนที่นี่ได้)',
 ];
 
 const STATUS = {
@@ -53,6 +55,35 @@ const STATUS = {
   heldAdmin: 'ค้างนำเข้า (ไม่มี kkumail)',
   heldSelf: 'ยืนยันตัวตนเองได้แล้ว รอเข้าระบบ',
 };
+
+/**
+ * WHICH fields are empty on this row, by the SAME predicate the ข้อมูลครบแค่ไหน
+ * panel counts with — `FIELDS` + `has()` from census.js, imported, never
+ * re-typed. A sheet sent to another team to FILL IN has to name what is
+ * missing; "สถานะ: ปกติ" with five blank-looking cells makes the reader
+ * re-derive the question this column answers.
+ *
+ * ชื่อเล่น is `optional: true` in that panel and stays optional here — it is
+ * listed with a (ไม่บังคับ) marker rather than dropped, because the หมายเหตุ
+ * column is exactly where someone would write one in.
+ */
+export function missingFields(r, status) {
+  const out = FIELDS.filter((f) => !has(f.get(r)))
+    .map((f) => (f.optional ? `${f.label} (ไม่บังคับ)` : f.label));
+  // kkumail is not one of the five FIELDS, and for MOST rows that is right:
+  // a held row has no kkumail BY DEFINITION — that is what "held" means — so
+  // listing it on all 165 would send whoever reads this sheet to collect 142
+  // addresses that are going to arrive without them.
+  //
+  // `docs/HOUSE-DATA-REPAIR.md` §3 is the authority on which: with BOTH รหัส and
+  // ชื่อ the STUDENT closes it by signing in and nobody else can help; without
+  // them "the admin must type their address into that row". Only the second
+  // group is data another team can actually supply, so only it says so here.
+  // The split itself is `splitHeld()`, which is what `status` was derived from —
+  // this re-states nothing, it only labels.
+  if (status === STATUS.heldAdmin) out.push('kkumail');
+  return out;
+}
 
 const saiOf = (r) => r.sai_code || r.sai || '';
 const nickOf = FIELDS.find((f) => f.key === 'nickname').get;
@@ -68,6 +99,7 @@ function toRow(r, status, { includeKkumail }) {
     sai,
     house: house == null ? '' : String(house),
     status,
+    missing: missingFields(r, status).join(' · '),
     kkumail: includeKkumail ? (r.kkumail || '') : '',
     note: '',
   };
@@ -124,11 +156,27 @@ export function buildYearSheets(d = {}) {
   return { sheets, unplaced };
 }
 
+/**
+ * The rows a HANDOVER is actually about: someone whose record is incomplete, or
+ * who is not in the system properly yet.
+ *
+ * Two independent reasons, and they are NOT the same question:
+ *   • `missing` — a field the ข้อมูลครบแค่ไหน panel counts as empty, and
+ *   • a สถานะ other than ปกติ — the person is held, so there is no row to fill
+ *     a field ON until they are imported or claim their seat.
+ * A row can have either without the other, so this is an OR. Emitting only the
+ * first would silently drop the 165 held people, who are the population the
+ * handover exists for.
+ */
+export function hasIssue(row) {
+  return row.missing !== '' || row.status !== STATUS.normal;
+}
+
 const csvCell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 export function toCsv(rows) {
   const lines = [HEADER, ...rows.map((r) => [
     r.studentId, r.firstName, r.lastName, r.nickname,
-    r.sai, r.house, r.status, r.kkumail, r.note,
+    r.sai, r.house, r.status, r.missing, r.kkumail, r.note,
   ])];
   return lines.map((line) => line.map(csvCell).join(',')).join('\n') + '\n';
 }
@@ -140,6 +188,10 @@ async function main() {
   const args = process.argv.slice(2);
   const APPLY = args.includes('--apply');
   const FORCE = args.includes('--force');
+  // --gaps-only emits ONLY the rows a handover is about. The full roster stays
+  // the default: it is the file a year admin reads to check a สาย, and the two
+  // land under different names so one can never be mistaken for the other.
+  const GAPS = args.includes('--gaps-only');
 
   const target = announceTarget(loadEnv());
   const ask = async (sql) => JSON.parse(await runSql(sql, target));
@@ -155,12 +207,28 @@ async function main() {
            from public.student_import_unresolved`),
   ]);
 
-  const { sheets, unplaced } = buildYearSheets({ students, held });
+  const built = buildYearSheets({ students, held });
+  let { sheets, unplaced } = built;
 
-  const labels = [...sheets.keys()].sort();
-  console.log('\n  รุ่น        แถว');
+  // Report BOTH numbers whichever mode is running — "43 rows" means nothing
+  // without "out of 305", and a filter is exactly the place a silent
+  // over-match hides.
+  const labelsAll = [...sheets.keys()].sort();
+  console.log(`\n  รุ่น        แถว  ${GAPS ? '(ข้อมูลไม่ครบ / ทั้งหมด)' : ''}`);
   console.log('  ──────────  ────');
-  for (const label of labels) console.log(`  ${label.padEnd(10)}  ${String(sheets.get(label).length).padStart(4)}`);
+  for (const label of labelsAll) {
+    const rows = sheets.get(label);
+    const n = GAPS ? rows.filter(hasIssue).length : rows.length;
+    console.log(`  ${label.padEnd(10)}  ${String(n).padStart(4)}`
+      + (GAPS ? `  / ${rows.length}` : ''));
+  }
+  if (GAPS) {
+    sheets = new Map(labelsAll
+      .map((l) => [l, sheets.get(l).filter(hasIssue)])
+      .filter(([, rows]) => rows.length > 0));
+    unplaced = unplaced.filter(hasIssue);
+  }
+  const labels = [...sheets.keys()].sort();
   if (unplaced.length) {
     console.log(`  ${'(ไม่มีรุ่น)'.padEnd(10)}  ${String(unplaced.length).padStart(4)}`
       + '  — ไม่มีรหัสนักศึกษาที่ระบุรุ่นได้ ไม่มีแท็บให้ลง (ดูคอมเมนต์ท้ายไฟล์นี้)');
@@ -174,8 +242,9 @@ async function main() {
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
-  const toWrite = [...labels.map((l) => [`${l}.csv`, sheets.get(l)]),
-    ...(unplaced.length ? [['_unplaced.csv', unplaced]] : [])];
+  const suffix = GAPS ? '-ข้อมูลไม่ครบ' : '';
+  const toWrite = [...labels.map((l) => [`${l}${suffix}.csv`, sheets.get(l)]),
+    ...(unplaced.length ? [[`_unplaced${suffix}.csv`, unplaced]] : [])];
 
   const blocked = toWrite.filter(([name]) => !FORCE && existsSync(path.join(OUT_DIR, name)));
   if (blocked.length) {

@@ -134,11 +134,47 @@ describe('buildYearSheets — blank-cell rule', () => {
 });
 
 describe('CSV shape', () => {
-  it('header matches the nine columns of HOUSE-YEAR-HANDOVER.md §b, in order', () => {
+  it('header matches HOUSE-YEAR-HANDOVER.md §b plus ข้อมูลที่ขาด, in order', () => {
+    // §b specified nine columns. ข้อมูลที่ขาด was added when the sheet's PURPOSE
+    // was stated out loud — it goes to another team to FILL IN, and a row that
+    // does not name what is missing makes that team re-derive the question.
     expect(HEADER).toEqual([
       'รหัสนักศึกษา', 'ชื่อ (จากระบบ)', 'นามสกุล (จากระบบ)', 'ชื่อเล่น',
-      'สาย', 'บ้าน', 'สถานะ', 'kkumail (ถ้ามีในระบบ)', 'หมายเหตุ (เขียนที่นี่ได้)',
+      'สาย', 'บ้าน', 'สถานะ', 'ข้อมูลที่ขาด', 'kkumail (ถ้ามีในระบบ)',
+      'หมายเหตุ (เขียนที่นี่ได้)',
     ]);
+  });
+
+  it('ข้อมูลที่ขาด names every empty field, by census.js\'s own predicate', () => {
+    const s = student({ first_name_th: '', nickname: '', nickname_self: '', nickname_imported: '', sai_code: '   ' });
+    const { sheets } = buildYearSheets({ students: [s], held: [] });
+    const row = sheets.get('MD50')[0];
+    // ชื่อเล่น is optional in the ข้อมูลครบแค่ไหน panel and says so here too;
+    // a whitespace-only สาย counts as empty, which is exactly why `has()` is
+    // imported rather than re-typed as a truthiness check.
+    expect(row.missing).toBe('ชื่อ · ชื่อเล่น (ไม่บังคับ) · สาย');
+  });
+
+  it('a complete row names nothing as missing', () => {
+    const { sheets } = buildYearSheets({ students: [student()], held: [] });
+    expect(sheets.get('MD50')[0].missing).toBe('');
+  });
+
+  it('names kkumail ONLY where an admin must supply it', () => {
+    // HOUSE-DATA-REPAIR.md §3: a held row with BOTH รหัส and ชื่อ is closed by
+    // the STUDENT signing in — nobody else can help and nobody should be sent
+    // to collect their address. Without them, "the admin must type their
+    // address into that row", which IS data another team can hand over.
+    // Every held row lacks a kkumail, so listing it on both would put 142
+    // people on a collection list that will close itself.
+    const selfClaimable = { student_id: '669999999-9', first_name_th: 'ก', last_name_th: 'ข', sai: '007', cohort_year: 2566 };
+    const adminOnly = { student_id: '', first_name_th: 'ค', last_name_th: 'ง', sai: '008', cohort_year: 2566 };
+    const { sheets } = buildYearSheets({ students: [], held: [selfClaimable, adminOnly] });
+    const rows = sheets.get('MD51');
+    const self = rows.find((r) => r.lastName === 'ข');
+    const admin = rows.find((r) => r.lastName === 'ง');
+    expect(self.missing).not.toContain('kkumail');
+    expect(admin.missing).toContain('kkumail');
   });
 
   it('renders one header line plus one line per row, comma-joined', () => {
@@ -147,7 +183,7 @@ describe('CSV shape', () => {
     const lines = csv.trim().split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe(HEADER.join(','));
-    expect(lines[1]).toBe('659999999-9,สมชาย,ใจดี,ชาย,005,5,ปกติ,somchai@kkumail.com,');
+    expect(lines[1]).toBe('659999999-9,สมชาย,ใจดี,ชาย,005,5,ปกติ,,somchai@kkumail.com,');
   });
 
   it('quotes a cell that contains a comma, and escapes an embedded quote', () => {
