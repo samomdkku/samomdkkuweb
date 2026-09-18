@@ -34,33 +34,10 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f13f4b3` (2026-09-18)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **33 s**
-  (baseline); docs step RAN, roots 13 s apart. SERVED, in the SHARED `analytics-*` chunk BOTH entries import — the control read **0 in `admin-*`** first (0145 again; a 0 control makes every number beside it worthless): the PR attachment fix `ลิงก์ Google Drive` 1, old `ลิงก์ G-Drive` 0, control `ไม่มีไฟล์แนบ (No file)` 1.
-  Earlier and still served: `smoke:browser` 17/17 incl. the passport admin's ⬆️ Upload control check (3/3 — it read **0/3** before the 5deb48e deploy). ระบบบ้าน's ที่มาของตัวเลข + ข้อมูลครบแค่ไหน panels grep 1 each in `admin-*`.
-  ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
-  ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
-  chunk (NOT the public bundle, 0145), ฝ่าย blocks in `admin-*`.
-  ⚠️ Empty output from the pipeline means a DROPPED VPN, not success —
-  `skills/deploy-vm.md`, its one home. The passport MERGE stays live — `/passport/` serves the real app and
-  `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
-  ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
-  ~5 min per run and **which one alternates**, so it is not either repo's
-  lockfile. Cause unknown; disk, memory, registry, CPU all measured healthy.
-  **Duration alone is not the known hang** — table in `skills/deploy-vm.md`.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** The run tally lives in
-  `skills/deploy-vm.md`, its ONE home — do not restate it here. `deploy.sh`
-  writes every run to `~/samo-deploy-logs` on the VM plus an xtrace naming the
-  line reached. Read the log before theorising.
-  ⛔ **A HEALTHY RUN IS ~30 SECONDS.** A run taking MINUTES is already the fault
-  — the two "clean ~7-minute runs" the hang was once declared dead on were 14×
-  baseline, not controls.
-  ⚠️ **After every deploy, check the ARTEFACT** — root write times must agree
-  (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then curl-grep a SERVED
-  page for a string added today, with an old one as control (`skills/deploy-vm.md`).
-  ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
-  Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
-  the whole recipe is `skills/deploy-vm.md`.
+- ✅ **DEPLOYED = `0b3ebae` (2026-09-18)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **34 s**
+  (baseline); docs step RAN, roots 13 s apart. SERVED: VS's `ผู้แจ้งขอให้ส่งถึง` 2 and `ตอนที่แจ้ง` 1 in `admin-*`; the PR attachment fix's control `ไม่มีไฟล์แนบ (No file)` 1 in the SHARED `analytics-*` chunk BOTH entries import — it reads **0 in `admin-*`**, and a 0 control makes every number beside it worthless (0145). ระบบบ้าน's ผังตามสาย greps 3 in the served `/admin/` HTML (an inlined partial, not a bundle) and `sai-grid` 1 in the served CSS.
+  ⛔ **The night agent is STOPPED and its timer DISABLED** (2026-09-18) — it had re-run the same 6-task queue nightly since 09-15 because `~/samo-night/NIGHT-TASKS.md` is never consumed. Its work is no longer stranded: `agent/2026-09-17` (16 commits) is MERGED. Re-enable only with a fresh queue.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
