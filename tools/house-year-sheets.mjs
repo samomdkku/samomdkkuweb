@@ -44,11 +44,39 @@ import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const OUT_DIR = path.join(ROOT, 'externaldata/house-year-sheets');
 
+/**
+ * THE CELLS THE OTHER TEAM TYPES IN — one column per field that can be
+ * requested, each marked `?` on the rows that need it and left blank on the
+ * rows that do not.
+ *
+ * WHY A MARKER AND NOT A COLOUR. Asked directly: "can you highlight what field
+ * for the other team to fill... will highlight not disappear". It would.
+ * **A CSV CARRIES NO FORMATTING AT ALL** — it is plain text, so a colour set
+ * before export does not survive the export, and one set in Sheets afterwards
+ * does not survive the next re-import into a fresh sheet. A character in the
+ * cell survives every hop: CSV → Sheets → xlsx → back to CSV, and it is
+ * findable with Ctrl+F in any of them.
+ *
+ * ชื่อเล่น is deliberately NOT here even though it can be missing: the owner
+ * said not to chase it, and a `?` is a request.
+ */
+export const FILL_MARK = '?';
+export const FILL_FIELDS = [
+  { key: 'first_name_th', label: 'ชื่อ' },
+  { key: 'last_name_th', label: 'นามสกุล' },
+  { key: 'student_id', label: 'รหัสนักศึกษา' },
+  { key: 'sai', label: 'สาย' },
+  { key: 'kkumail', label: 'kkumail' },
+];
+
 export const HEADER = [
   'รหัสนักศึกษา', 'ชื่อ (จากระบบ)', 'นามสกุล (จากระบบ)', 'ชื่อเล่น',
   'สาย', 'บ้าน', 'สถานะ', 'ความสำคัญ', 'ข้อมูลที่ขาด', 'ปัญหาที่พบ',
-  'kkumail (ถ้ามีในระบบ)', 'หมายเหตุ (เขียนที่นี่ได้)',
+  'kkumail (ในระบบ)',
+  ...FILL_FIELDS.map((f) => `กรอก: ${f.label}`),
+  'หมายเหตุ (เขียนที่นี่ได้)',
 ];
+
 
 /** The two fields nobody should be asked to chase. ชื่อเล่น is `optional` in
  *  the ข้อมูลครบแค่ไหน panel and the owner said so out loud: "for data like
@@ -295,7 +323,12 @@ export function toCsv(rows) {
   const lines = [HEADER, ...rows.map((r) => [
     r.studentId, r.firstName, r.lastName, r.nickname,
     r.sai, r.house, r.status, priorityOf(r), r.missing.join(' · '),
-    r.problems.join(' · '), r.kkumail, r.note,
+    r.problems.join(' · '), r.kkumail,
+    // `?` on exactly the fields this row's ข้อมูลที่ขาด names. The two lists
+    // come from ONE place — `missingFields()` — so a column can never ask for
+    // something the row does not say is missing.
+    ...FILL_FIELDS.map((f) => (r.missing.includes(f.label) ? FILL_MARK : '')),
+    r.note,
   ])];
   return lines.map((line) => line.map(csvCell).join(',')).join('\n') + '\n';
 }

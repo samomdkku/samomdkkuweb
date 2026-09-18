@@ -5,7 +5,7 @@
 // ==============================================
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY, buildSaiIssues, SAI_HEADER } from './house-year-sheets.mjs';
+import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY, buildSaiIssues, SAI_HEADER, FILL_MARK } from './house-year-sheets.mjs';
 
 const SOURCE = readFileSync(new URL('./house-year-sheets.mjs', import.meta.url), 'utf8');
 
@@ -218,6 +218,35 @@ describe("_สายมีปัญหา — the faults a person's row cannot h
   });
 });
 
+describe('the กรอก: columns — a marker, because a colour cannot survive CSV', () => {
+  const cell = (csv, header) => {
+    const [head, row] = csv.trim().split('\n');
+    return row.split(',')[head.split(',').indexOf(header)];
+  };
+
+  it('marks exactly the fields ข้อมูลที่ขาด names, and no others', () => {
+    const held = { first_name_th: 'ก', last_name_th: 'ข', sai_code: '004', cohort_year: 2565 };
+    const csv = toCsv(buildYearSheets({ students: [], held: [held] }).sheets.get('MD50'));
+    expect(cell(csv, 'กรอก: kkumail')).toBe(FILL_MARK);
+    expect(cell(csv, 'กรอก: รหัสนักศึกษา')).toBe(FILL_MARK); // held with no รหัส
+    expect(cell(csv, 'กรอก: ชื่อ')).toBe('');
+    expect(cell(csv, 'กรอก: สาย')).toBe('');
+  });
+
+  it('never asks for ชื่อเล่น — the owner said not to chase it', () => {
+    const s = student({ nickname: '', nickname_self: '', nickname_imported: '' });
+    const csv = toCsv(buildYearSheets({ students: [s], held: [] }).sheets.get('MD50'));
+    expect(csv).toContain('ชื่อเล่น (ไม่บังคับ)');          // still REPORTED
+    expect(HEADER).not.toContain('กรอก: ชื่อเล่น');          // never REQUESTED
+    expect(csv.trim().split('\n')[1]).not.toContain(FILL_MARK);
+  });
+
+  it('asks for nothing on a complete row', () => {
+    const csv = toCsv(buildYearSheets({ students: [student()], held: [] }).sheets.get('MD50'));
+    expect(csv.trim().split('\n')[1]).not.toContain(FILL_MARK);
+  });
+});
+
 describe('CSV shape', () => {
   it('header matches HOUSE-YEAR-HANDOVER.md §b plus the handover columns', () => {
     // §b specified nine columns. ข้อมูลที่ขาด was added when the sheet's PURPOSE
@@ -226,7 +255,9 @@ describe('CSV shape', () => {
     expect(HEADER).toEqual([
       'รหัสนักศึกษา', 'ชื่อ (จากระบบ)', 'นามสกุล (จากระบบ)', 'ชื่อเล่น',
       'สาย', 'บ้าน', 'สถานะ', 'ความสำคัญ', 'ข้อมูลที่ขาด', 'ปัญหาที่พบ',
-      'kkumail (ถ้ามีในระบบ)', 'หมายเหตุ (เขียนที่นี่ได้)',
+      'kkumail (ในระบบ)',
+      'กรอก: ชื่อ', 'กรอก: นามสกุล', 'กรอก: รหัสนักศึกษา', 'กรอก: สาย', 'กรอก: kkumail',
+      'หมายเหตุ (เขียนที่นี่ได้)',
     ]);
   });
 
@@ -271,7 +302,7 @@ describe('CSV shape', () => {
     const lines = csv.trim().split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe(HEADER.join(','));
-    expect(lines[1]).toBe('659999999-9,สมชาย,ใจดี,ชาย,005,5,ปกติ,ต่ำ,,,somchai@kkumail.com,');
+    expect(lines[1]).toBe('659999999-9,สมชาย,ใจดี,ชาย,005,5,ปกติ,ต่ำ,,,somchai@kkumail.com,,,,,,');
   });
 
   it('quotes a cell that contains a comma, and escapes an embedded quote', () => {
