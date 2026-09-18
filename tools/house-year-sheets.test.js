@@ -5,7 +5,7 @@
 // ==============================================
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY } from './house-year-sheets.mjs';
+import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY, buildSaiIssues, SAI_HEADER } from './house-year-sheets.mjs';
 
 const SOURCE = readFileSync(new URL('./house-year-sheets.mjs', import.meta.url), 'utf8');
 
@@ -172,6 +172,49 @@ describe('ปัญหาที่พบ — the error half, not the empty-cell 
     const b = student({ student_id: '659999992-2', sai_code: '009' });
     const { sheets } = buildYearSheets({ students: [a, b], held: [] });
     for (const r of sheets.get('MD50')) expect(r.problems).toEqual([]);
+  });
+});
+
+describe("_สายมีปัญหา — the faults a person's row cannot hold", () => {
+  it('lists a สาย nobody is on, with the รุ่น it is missing from', () => {
+    // A hole can only be seen by counting a whole รุ่น at once, and it has no
+    // person to hang on — which is why it is a file and not a column.
+    const a = student({ student_id: '659999991-1', sai_code: '001' });
+    const b = student({ student_id: '659999992-2', sai_code: '003' });
+    const rows = buildSaiIssues({ students: [a, b], held: [] });
+    const hole = rows.find((r) => r[2] === 'ไม่มีใครอยู่สายนี้');
+    expect(hole[0]).toBe('MD50');
+    expect(hole[1]).toBe('002');
+  });
+
+  it('lists a shared สาย with both names', () => {
+    const a = student({ student_id: '659999991-1', first_name_th: 'ก', last_name_th: 'หนึ่ง', sai_code: '001' });
+    const b = student({ student_id: '659999992-2', first_name_th: 'ข', last_name_th: 'สอง', sai_code: '001' });
+    const rows = buildSaiIssues({ students: [a, b], held: [] });
+    const dup = rows.find((r) => String(r[2]).startsWith('สายซ้ำ'));
+    expect(dup[1]).toBe('001');
+    expect(dup[3]).toContain('ก หนึ่ง');
+    expect(dup[3]).toContain('ข สอง');
+  });
+
+  it('a held row OCCUPIES its สาย, so it is not a hole', () => {
+    // Counting only `students` made the 165 held people read as 165 holes and
+    // flagged every รุ่น — a warning that fires on the healthy case.
+    const a = student({ student_id: '659999991-1', sai_code: '001' });
+    const heldOn2 = { student_id: '659999992-2', first_name_th: 'ข', last_name_th: 'สอง', sai_code: '002', cohort_year: 2565 };
+    const b = student({ student_id: '659999993-3', sai_code: '003' });
+    const rows = buildSaiIssues({ students: [a, b], held: [heldOn2] });
+    expect(rows.filter((r) => r[2] === 'ไม่มีใครอยู่สายนี้')).toEqual([]);
+  });
+
+  it('says nothing at all about a complete รุ่น', () => {
+    const a = student({ student_id: '659999991-1', sai_code: '001' });
+    const b = student({ student_id: '659999992-2', sai_code: '002' });
+    expect(buildSaiIssues({ students: [a, b], held: [] })).toEqual([]);
+  });
+
+  it('has the four columns the file writes', () => {
+    expect(SAI_HEADER).toEqual(['รุ่น', 'สาย', 'ปัญหา', 'รายละเอียด']);
   });
 });
 

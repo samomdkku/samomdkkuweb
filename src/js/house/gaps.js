@@ -94,39 +94,24 @@ export function groupBySaiNumber(rows = []) {
 }
 
 /**
- * @param {object} d everything the pane has already loaded
- * @param {object[]} d.students   rows from fetchStudents()
- * @param {object[]} d.held       rows from fetchUnresolved()
- * @param {object[]} d.helpReqs   rows from fetchHelpRequests()
- * @param {object[]} d.requests   rows from fetchRequests()
- * @param {object[]} d.houses     rows from fetchHouses()
- * @param {object[]} d.sais       rows from fetchSais()
- * @param {object[]} d.advisors   rows from fetchAdvisors()
- * @param {number}   d.conflicts  open identity conflicts (a COUNT — the rows
- *                                live behind the ตรวจสอบข้อมูล filter, which is
- *                                already the screen for them)
- * @returns {{groups: object[], actionable: number}}
+ * THE สายรหัส AUDIT, per รุ่น — extracted so it has ONE implementation.
+ *
+ * It was inline in `computeGaps` and therefore reachable only by the
+ * ข้อมูลไม่ครบ pane. `tools/house-year-sheets.mjs` needs the same answer for the
+ * handover sheet, and the class this repo pays for most is the second copy of a
+ * rule (`.claude/rules/mistakes.md` class 6) — so the panel and the sheet now
+ * ask this, and there is nothing to keep in step.
+ *
+ * @param {object[]} occupants every `students` row PLUS every open held row. A
+ *   HELD ROW OCCUPIES ITS สาย: counting only `students` made the 165 people the
+ *   file named but could not address read as 165 holes, and flagged every รุ่น —
+ *   a warning that fires on the healthy case.
+ * @param {object[]} held the open held rows again, for the across-รุ่น
+ *   arithmetic below, which needs to know how many holes an unplaced held row
+ *   could account for.
+ * @returns {{saiShared: object[], saiGaps: object[], acrossCohorts: object[], unplaced: number}}
  */
-export function computeGaps(d = {}) {
-  const students = d.students || [];
-  const held = (d.held || []).filter((h) => !h.resolved_at);
-  const helpReqs = (d.helpReqs || []).filter((h) => !h.resolved_at);
-  const pending = (d.requests || []).filter((r) => r.status === 'pending');
-  const houses = d.houses || [];
-  const sais = d.sais || [];
-  const advisors = d.advisors || [];
-  const conflicts = Number(d.conflicts || 0);
-
-  // Missing either field makes a held row an admin's, permanently, which is why
-  // the split matters and is not cosmetic. See splitHeld() above.
-  const { heldAdmin, heldSelf } = splitHeld(held);
-
-  const noSai = students.filter((s) => !s.sai_code);
-  const noName = students.filter((s) => !s.first_name_th || !s.last_name_th);
-  const noSid = students.filter((s) => !s.student_id);
-  const noNick = students.filter((s) => !(s.nickname || s.nickname_self || s.nickname_imported));
-  const gone = students.filter((s) => s.missing_since);
-
+export function auditSai(occupants = [], held = []) {
   // ── the สายรหัส audit, per รุ่น ───────────────────────────────────────────
   //
   // THE ONE CHECK THAT CANNOT BE SEEN ONE ROW AT A TIME, and the reason this
@@ -145,7 +130,6 @@ export function computeGaps(d = {}) {
   // derived from the รหัส, and 0188 deliberately refuses to read it off the
   // file's block heading). They are counted OUT and reported as a caveat rather
   // than guessed at, because a guess here invents a gap or hides one.
-  const occupants = [...students, ...held];
   const unplaced = held.filter((h) => !cohortLabel(h) && saiOf(h)).length;
   const byCohort = groupOccupantsByCohort(occupants);
   const saiShared = [];
@@ -201,6 +185,46 @@ export function computeGaps(d = {}) {
     }))
     .filter((r) => r.cohorts.length > 1 && r.unexplained > 0)
     .sort((a, b) => b.unexplained - a.unexplained);
+
+  return { saiShared, saiGaps, acrossCohorts, unplaced };
+}
+
+/**
+ * @param {object} d everything the pane has already loaded
+ * @param {object[]} d.students   rows from fetchStudents()
+ * @param {object[]} d.held       rows from fetchUnresolved()
+ * @param {object[]} d.helpReqs   rows from fetchHelpRequests()
+ * @param {object[]} d.requests   rows from fetchRequests()
+ * @param {object[]} d.houses     rows from fetchHouses()
+ * @param {object[]} d.sais       rows from fetchSais()
+ * @param {object[]} d.advisors   rows from fetchAdvisors()
+ * @param {number}   d.conflicts  open identity conflicts (a COUNT — the rows
+ *                                live behind the ตรวจสอบข้อมูล filter, which is
+ *                                already the screen for them)
+ * @returns {{groups: object[], actionable: number}}
+ */
+export function computeGaps(d = {}) {
+  const students = d.students || [];
+  const held = (d.held || []).filter((h) => !h.resolved_at);
+  const helpReqs = (d.helpReqs || []).filter((h) => !h.resolved_at);
+  const pending = (d.requests || []).filter((r) => r.status === 'pending');
+  const houses = d.houses || [];
+  const sais = d.sais || [];
+  const advisors = d.advisors || [];
+  const conflicts = Number(d.conflicts || 0);
+
+  // Missing either field makes a held row an admin's, permanently, which is why
+  // the split matters and is not cosmetic. See splitHeld() above.
+  const { heldAdmin, heldSelf } = splitHeld(held);
+
+  const noSai = students.filter((s) => !s.sai_code);
+  const noName = students.filter((s) => !s.first_name_th || !s.last_name_th);
+  const noSid = students.filter((s) => !s.student_id);
+  const noNick = students.filter((s) => !(s.nickname || s.nickname_self || s.nickname_imported));
+  const gone = students.filter((s) => s.missing_since);
+
+  const occupants = [...students, ...held];
+  const { saiShared, saiGaps, acrossCohorts, unplaced } = auditSai(occupants, held);
 
   // A สาย nobody is on AND no held row names. Held rows count: their สาย was
   // seeded for them and deleting it would break the next import with a 23503.

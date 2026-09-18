@@ -36,7 +36,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { splitHeld, groupOccupantsByCohort, groupBySaiNumber } from '../src/js/house/gaps.js';
+import { splitHeld, groupOccupantsByCohort, groupBySaiNumber, auditSai } from '../src/js/house/gaps.js';
 import { cohortLabel, houseOf } from '../src/js/house/fields.js';
 import { FIELDS, has } from '../src/js/house/census.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
@@ -244,6 +244,52 @@ export function priorityOf(row) {
   return required.length > 0 ? PRIORITY.high : PRIORITY.low;
 }
 
+/**
+ * THE สาย SHEET — the problems that belong to a สาย, not to a person.
+ *
+ * Asked for directly: "รวมถึงคนที่สายมีปัญหา". The per-person sheets already
+ * carry the two สาย faults a row can hold (no สาย at all; a สาย shared with
+ * somebody), but a สาย NOBODY is on has no row to live on, and it is the one
+ * fault that can only be seen by counting a whole รุ่น at once. It gets its own
+ * file rather than being hung on the nearest person.
+ *
+ * ⚠️ WHY A SKIPPED สาย MATTERS AND IS NOT TIDINESS: บ้าน is the LAST DIGIT of
+ * สายรหัส. A รุ่น numbers its สาย 1..N, one each, so a hole means either
+ * somebody's row is missing or a column moved — and if a column moved, everyone
+ * after it is in a different บ้าน and every screen agrees with the wrong answer.
+ *
+ * `auditSai` is `computeGaps`'s OWN audit, exported for this. Nothing here
+ * re-derives which สาย are missing.
+ */
+export const SAI_HEADER = ['รุ่น', 'สาย', 'ปัญหา', 'รายละเอียด'];
+
+export function buildSaiIssues(d = {}) {
+  const students = d.students || [];
+  const held = (d.held || []).filter((h) => !h.resolved_at);
+  const { saiShared, saiGaps, acrossCohorts } = auditSai([...students, ...held], held);
+
+  const rows = [];
+  for (const g of saiShared) {
+    rows.push([g.cohort, g.sai, `สายซ้ำ — ${g.count} คนอยู่สายเดียวกัน`, g.who]);
+  }
+  for (const g of saiGaps) {
+    for (const sai of g.missing) {
+      rows.push([g.cohort, sai, 'ไม่มีใครอยู่สายนี้',
+        `รุ่นนี้มี ${g.size} คน สายสูงสุด ${String(g.max).padStart(3, '0')}`]);
+    }
+  }
+  // The sharpest signal, and it is ABOUT A สาย ACROSS รุ่น — no single รุ่น row
+  // can say it. It states the arithmetic and stops: which รุ่น is wrong is a
+  // question only the source file answers.
+  for (const a of acrossCohorts) {
+    rows.push(['(หลายรุ่น)', a.sai,
+      `สายนี้ว่างพร้อมกัน ${a.cohorts.length} รุ่น`,
+      `${a.cohorts.join(', ')} — คนที่ยังไม่มีรุ่นอธิบายได้ ${a.couldExplain} เหลือ ${a.unexplained} ที่อธิบายไม่ได้`]);
+  }
+  rows.sort((x, y) => String(x[0]).localeCompare(String(y[0])) || String(x[1]).localeCompare(String(y[1])));
+  return rows;
+}
+
 const csvCell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 export function toCsv(rows) {
   const lines = [HEADER, ...rows.map((r) => [
@@ -311,6 +357,14 @@ async function main() {
     console.log(`  ${'(ไม่มีรุ่น)'.padEnd(10)}  ${String(unplaced.length).padStart(4)}`
       + '  — ไม่มีรหัสนักศึกษาที่ระบุรุ่นได้ ไม่มีแท็บให้ลง (ดูคอมเมนต์ท้ายไฟล์นี้)');
   }
+  const saiIssues = buildSaiIssues({ students, held });
+  if (saiIssues.length) {
+    const dup = saiIssues.filter((r) => String(r[2]).startsWith('สายซ้ำ')).length;
+    const empty = saiIssues.filter((r) => r[2] === 'ไม่มีใครอยู่สายนี้').length;
+    const across = saiIssues.length - dup - empty;
+    console.log(`\n  สายที่มีปัญหา: ${saiIssues.length} รายการ`
+      + ` (ซ้ำ ${dup} · ไม่มีใครอยู่ ${empty} · ว่างพร้อมกันหลายรุ่น ${across})`);
+  }
   const totalRows = labels.reduce((n, l) => n + sheets.get(l).length, 0) + unplaced.length;
   console.log(`\n  รวม ${labels.length} รุ่น, ${totalRows} แถว\n`);
 
@@ -333,6 +387,15 @@ async function main() {
     if (!FORCE && existsSync(path.join(OUT_DIR, name))) continue;
     writeFileSync(path.join(OUT_DIR, name), toCsv(rows), 'utf8');
     console.log(`  → ${path.join('externaldata/house-year-sheets', name)}`);
+  }
+
+  // The สาย sheet goes out in BOTH modes: it is not a slice of the roster, it
+  // is the fault list the roster cannot express.
+  const saiName = '_สายมีปัญหา.csv';
+  if (FORCE || !existsSync(path.join(OUT_DIR, saiName))) {
+    const lines = [SAI_HEADER, ...saiIssues].map((l) => l.map(csvCell).join(',')).join('\n') + '\n';
+    writeFileSync(path.join(OUT_DIR, saiName), lines, 'utf8');
+    console.log(`  → ${path.join('externaldata/house-year-sheets', saiName)}`);
   }
   console.log('');
 }
