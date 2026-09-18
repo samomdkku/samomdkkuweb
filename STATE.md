@@ -34,10 +34,10 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `d111af7` (2026-09-15)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **34 s**
-  (baseline); docs step RAN, roots 13 s apart. SERVED: `smoke:browser` 17/17 incl. the passport admin's ⬆️ Upload control check (3/3 — it read **0/3** before the 5deb48e deploy). ระบบบ้าน's ที่มาของตัวเลข + ข้อมูลครบแค่ไหน panels grep 1 each in `admin-DaYVl8Jy.js`. Earlier: the evening handoff greps 1 at `/docs/state/phuriphatma`; the 2 remaining `vssound` refs are BUG links, which stay.
-  string greps 3 in the served `public-*` chunk, `btn-dlink` 1 in the CSS.
+- ✅ **DEPLOYED = `f13f4b3` (2026-09-18)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **33 s**
+  (baseline); docs step RAN, roots 13 s apart. SERVED, in the SHARED `analytics-*` chunk BOTH entries import — the control read **0 in `admin-*`** first (0145 again; a 0 control makes every number beside it worthless): the PR attachment fix `ลิงก์ Google Drive` 1, old `ลิงก์ G-Drive` 0, control `ไม่มีไฟล์แนบ (No file)` 1.
+  Earlier and still served: `smoke:browser` 17/17 incl. the passport admin's ⬆️ Upload control check (3/3 — it read **0/3** before the 5deb48e deploy). ระบบบ้าน's ที่มาของตัวเลข + ข้อมูลครบแค่ไหน panels grep 1 each in `admin-*`.
   ⚠️ **`/discord/*` is in the LIVE nginx ONLY** — `HANDOFF` §14b, its one home.
   ⚠️ Code lives in DIFFERENT artefacts: `postGAS` in the shared `analytics-*`
   chunk (NOT the public bundle, 0145), ฝ่าย blocks in `admin-*`.
