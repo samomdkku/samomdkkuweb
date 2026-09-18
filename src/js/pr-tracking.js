@@ -2,7 +2,8 @@
 // PR TRACKING — User ticket tracking & history
 // ==============================================
 
-import { renderTimeline, escHtml, safeUrl } from './utils.js';
+import { renderTimeline, escHtml } from './utils.js';
+import { renderPrAttachments } from './pr-attachments.js';
 import { getUser as authGetUser } from './auth.js';
 import { dbRest } from './db.js';
 import { canonicalPrDept } from './pr-depts.js';
@@ -246,21 +247,8 @@ function renderPRDashboard(ticket) {
     html += `<div class="alert alert-danger py-2 small mt-2 mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>เหตุผลงานด่วน:</strong> ${escHtml(ticket.rushReason)}</div>`;
   }
 
-  // File links
-  let linkHTML = '';
-  if (!ticket.fileUrl || ticket.fileUrl === 'ไม่มีไฟล์แนบ' || ticket.fileUrl === '-') {
-    linkHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light mt-2 d-inline-block"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
-  } else {
-    const urls = ticket.fileUrl.split('\n');
-    urls.forEach((url, index) => {
-      if (url.startsWith('http')) {
-        linkHTML += `<a href="${escHtml(safeUrl(url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-2 me-2"><i class="bi bi-image"></i> ภาพที่ ${index + 1}</a>`;
-      } else if (url.startsWith('ลิงก์เสริม:')) {
-        const cleanUrl = url.replace('ลิงก์เสริม:', '').trim();
-        linkHTML += `<a href="${escHtml(safeUrl(cleanUrl))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive ส่วนตัว</a>`;
-      }
-    });
-  }
+  // File links — same reading as the staff dashboard (pr-attachments.js).
+  const linkHTML = renderPrAttachments(ticket.fileUrl, { extraClass: 'mt-2' });
 
   html += `
     <div class="mt-3 p-3 bg-white border rounded">

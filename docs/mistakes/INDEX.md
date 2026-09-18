@@ -133,7 +133,7 @@ Open when: writing a migration.
 - The test data used keys that turned out to be real
 - "The registry wins" was implemented as "the import never speaks"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(90)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(91)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -227,6 +227,7 @@ Open when: markup, modals, layout, touch, icons.
 - Fixing the transport made a latent bug REACHABLE
 - "The columns refuse to stack on a phone"
 - "สมาชิกทีม SAMO ที่ไม่ได้อยู่ในไฟล์รายชื่อ"
+- "ลิ้งค์จะขึ้นใน discord แต่ไม่ได้ขึ้นใน PR Staff Dashboard"
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
@@ -431,4 +432,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_369 entries across 10 files._
+_370 entries across 10 files._

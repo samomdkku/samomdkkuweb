@@ -2,7 +2,8 @@
 // PR STAFF — Dashboard, Modal, Agent Management
 // ==============================================
 
-import { renderTimeline, escHtml, safeUrl } from './utils.js';
+import { renderTimeline, escHtml } from './utils.js';
+import { renderPrAttachments, parsePrAttachments } from './pr-attachments.js';
 import { db, dbRest } from './db.js';
 import { canonicalPrDept, fillPrDeptSelect } from './pr-depts.js';
 
@@ -206,6 +207,13 @@ function renderKanbanCard(t) {
   const rushFlag = t.deadline && t.deadline.includes('ด่วน')
     ? '<span class="pr-kanban-card-rush"><i class="bi bi-rocket-takeoff"></i> ด่วน</span>'
     : '';
+  // Attachment count on the CARD: a ticket's images and its pasted ลิงก์
+  // are the thing staff open Discord to look for, so say on the board
+  // whether there is anything to open before they click into the modal.
+  const attachments = parsePrAttachments(t.fileUrl);
+  const attachFlag = attachments.length > 0
+    ? `<span><i class="bi bi-paperclip me-1"></i>${attachments.length} ไฟล์/ลิงก์</span>`
+    : '';
   const assigneesHtml = (t.assignees && t.assignees.length > 0)
     ? `<div class="pr-kanban-card-assignees">${t.assignees.map(a => `<span class="pr-kanban-card-assignee"><i class="bi bi-person-fill me-1"></i>${escapeHtml(a)}</span>`).join('')}</div>`
     : '<div class="pr-kanban-card-noassign"><i class="bi bi-person me-1"></i>ยังไม่มีผู้รับผิดชอบ</div>';
@@ -222,6 +230,7 @@ function renderKanbanCard(t) {
       ${assigneesHtml}
       <div class="pr-kanban-card-meta">
         <span><i class="bi bi-clock me-1"></i>${escapeHtml(t.date || '')}</span>
+        ${attachFlag}
       </div>
     </article>
   `;
@@ -284,26 +293,13 @@ export function openPRStaffModal(idx) {
     document.getElementById('prStaffModalRushReasonBox').classList.add('d-none');
   }
 
-  // File links
-  let linkBox = document.getElementById('prStaffModalLinkBox');
-  if (!t.fileUrl || t.fileUrl === 'ไม่มีไฟล์แนบ' || t.fileUrl === '-' || !t.fileUrl.startsWith('http')) {
-    linkBox.innerHTML = '<span class="text-muted small border px-2 py-1 rounded bg-light"><i class="bi bi-file-earmark-x"></i> ไม่มีไฟล์แนบ (No file)</span>';
-  } else {
-    let staffLinks = '';
-    const urls = t.fileUrl.split('\n');
-    urls.forEach((url, index) => {
-      if (url.startsWith('http')) {
-        // safeUrl + escHtml: guests can submit largeFileLink as free
-        // text; without the guard an attacker could inject attributes
-        // into the href via " onclick=... patterns.
-        staffLinks += `<a href="${escapeHtml(safeUrl(url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary me-2"><i class="bi bi-image"></i> ดูภาพที่ ${index + 1}</a>`;
-      } else if (url.startsWith('ลิงก์เสริม:')) {
-        const cleanUrl = url.replace('ลิงก์เสริม:', '').trim();
-        staffLinks += `<a href="${escapeHtml(safeUrl(cleanUrl))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark me-2"><i class="bi bi-link-45deg"></i> ลิงก์ G-Drive</a>`;
-      }
-    });
-    linkBox.innerHTML = staffLinks;
-  }
+  // File links — one shared reading of file_url (src/js/pr-attachments.js).
+  // This block used to require the blob to START with 'http', so a ticket
+  // whose only attachment was a pasted ลิงก์เสริม read "ไม่มีไฟล์แนบ" here
+  // while Discord and the submitter's tracking page both showed the link.
+  // safeUrl + escHtml live in that module: guests submit largeFileLink as
+  // free text, so the href needs the guard.
+  document.getElementById('prStaffModalLinkBox').innerHTML = renderPrAttachments(t.fileUrl);
 
   renderTimeline('prStaffModalTimeline', t.remarks, t.date);
   document.getElementById('prStaffActionStatus').value = t.status;

@@ -1,13 +1,13 @@
 # Mistakes — the recurring classes
 
-Every bug this repo has paid for is written up. **Loaded into every session, so
-it holds the recurring CLASSES and nothing else that grows.** Write-ups live in
+Every bug here is written up. **Loaded into every session, so it holds the
+recurring CLASSES and nothing else that grows.** Write-ups live in
 `docs/mistakes/*.md`, read on demand.
 
 **To find one**: `grep -rin "<phrase>" docs/mistakes/` — it searches the
-write-ups, not just titles, and is fastest once you have a symptom. To SCAN
-headings, read the generated `docs/mistakes/INDEX.md`. Read near-matches; most
-recurred elsewhere in different clothes.
+write-ups, not just titles, and is fastest with a symptom in hand. To SCAN
+headings, read `docs/mistakes/INDEX.md`. Read near-matches; most recurred
+elsewhere in different clothes.
 
 **Read the matching file BEFORE touching** `auth.js` · `db.js` · anything
 calling supabase-js · any RLS policy, `current_user_*` helper or definer fn ·
@@ -17,8 +17,8 @@ calling supabase-js · any RLS policy, `current_user_*` helper or definer fn ·
 
 ## The seven classes
 
-Bitten this repo twice or more. If you read nothing else, read this — the part
-that generalises to code not yet written.
+Bitten twice or more. If you read nothing else, read this — the part that
+generalises to code not yet written.
 
 1. **A per-row UPDATE policy is not a column policy.** `for update using (<col> =
    auth.uid())` gates *which row*, then grants *every column in it*. On `users`
@@ -104,7 +104,10 @@ that generalises to code not yet written.
    an export and its import, a guard and its call sites. Write the differential
    test in the same commit — "keep in step" in a comment is not a mechanism.
    Also a hand-written list beside a shared constant (main.js's admin links vs
-   `ADMIN_FEATURES`, 0113). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
+   `ADMIN_FEATURES`, 0113). Also an EARLY EXIT re-deciding what its BODY
+   decides — one `startsWith('http')` over a loop that already parsed the
+   other shape hid 23% of PR attachments from the audience they were FOR
+   (`frontend-ui.md`). **A SCHEMA MOVE CARRIES WHAT IS ATTACHED TO EVERY
    OBJECT AND DROPS WHAT IS WRITTEN PER OBJECT** — GRANTs came across wholesale,
    `enable row level security` was RETYPED as a list of ten and the schema had
    eleven, so `passport.continents` sat anon-writable (0182). **A `create table`
@@ -131,15 +134,15 @@ that generalises to code not yet written.
    HAPPENED to be looking at (the portrait cleanup missed `my-seat.js`). **A TRIGGER belongs to the TABLE, not to the statement
    it was written for**: 0174's "moving a scan moves the points" also fired on
    the SIGNUP RE-KEY, where the profile has not moved yet — debiting the real
-   row and crediting an id nothing lived at, so a carried student would have
-   signed in to 0 km (0175). A multi-statement operation is ONE act to its
+   row and crediting an id nothing lived at, so a carried student would sign in
+   to 0 km (0175). A multi-statement operation is ONE act to its
    author and N events to Postgres, so a trigger sees the row HALF-MOVED:
    restate the invariant at the end, do not try to out-order the trigger.
    Where a second copy is unavoidable, the guard is a DIFFERENTIAL test.
    **PROSE IS AN IMPLEMENTATION TOO.** `STATE.md` held six stale claims at once,
    five a fact with TWO homes where only one was corrected — a proof called red
    that was green (3 homes), three different test counts, a budget warning
-   contradicted 400 lines above it. A document has no compiler and every sentence
+   contradicted 400 lines above it. A document has no compiler; every sentence
    looks equally authoritative. **Grep the WHOLE file for a claim's other homes
    before committing a correction**; give a decaying fact ONE home; keep the
    LESSON in an old block, never the counts (`state-handoff.test.js`).
@@ -152,7 +155,7 @@ that generalises to code not yet written.
    **Erasing a field a stronger grant "covers" — SCOPE or IDENTITY?** A scope
    has a widest value the grant IS (VS แผนก, Passport ฝ่าย); an identity names
    one of several roles, which access cannot answer. `master` nulled the
-   หนังสือโครงการ seat — three DESKS at once — so "all" meant NOBODY, and that
+   หนังสือโครงการ seat — three DESKS at once — so "all" meant NOBODY; that
    column is also who gets NOTIFIED.
    **A uid in JSON is a uid**: the purge rewrote every uid COLUMN and skipped
    `timeline[].by` ON PURPOSE, costing 42 of 43 comments their edit button — an
@@ -161,10 +164,10 @@ that generalises to code not yet written.
    **A SENTINEL IS NOT A VALUE, AND A TIMESTAMP IS NOT AN EVENT.** A quota
    dashboard was about to report 83% of a ceiling really at 7%:
    `file_url is not null` counted `ไม่มีไฟล์แนบ` and a PASTED link as uploads,
-   and its "25 calls in one minute" was a bulk IMPORT — rows written for files
-   already in Drive, no call made.
-   **Before shipping an aggregate, print the ROWS behind its most extreme value**; ask what else the column can hold, and what a bulk write
-   would look like (`tooling-proofs.md`).
+   and its "25 calls in one minute" was a bulk IMPORT of files already in Drive,
+   no call made. **Before shipping an aggregate, print the ROWS behind its most
+   extreme value**; ask what else the column can hold, and what a bulk write
+   looks like (`tooling-proofs.md`).
    **A prediction of where a row LANDS must ask the function the VIEW asks** —
    the NULL branch is where a prediction and the real filter part first (the ปีงบ
    move, `frontend-ui.md`).
@@ -184,8 +187,8 @@ that generalises to code not yet written.
    commit began mid-comment, so the unclosed `/*` swallowed the next three rules
    and the page rendered *plausibly*. Slice by structure; check it parses. Guard the property, not the rules:
    every class the renderer EMITS must have a live rule (`frontend-ui.md`).
-   **A WARNING THAT FIRES ON THE HEALTHY CASE IS WORSE THAN NO WARNING** — and
-   one that cannot be WITHDRAWN is worse still. A boot watchdog on a bare 8 s
+   **A WARNING THAT FIRES ON THE HEALTHY CASE IS WORSE THAN NO WARNING** — one
+   that cannot be WITHDRAWN is worse still. A boot watchdog on a bare 8 s
    timer fired on a slow-but-working load and never left; the remedy it offered
    then looked broken too. Trigger on a DEFINITE signal (`load`, an `error`
    event), keep the timer as a backstop, and always leave a path back. Test the
@@ -234,7 +237,7 @@ that generalises to code not yet written.
    SUBTRACTION must share an INSTANT (0156/0158).
    **A guard's INSTRUMENT needs a guard too**: four tests hand-rolled one
    block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
-   chars before any assertion ran (one shared `strip-comments.js` now).
+   chars before any assertion ran (shared `strip-comments.js` now).
    Two more in `frontend-ui.md`: never measure a container to size the content
    that sizes it — **invisible across a FRAME boundary**, the two halves in
    different documents and neither line wrong (a tool reporting
@@ -244,8 +247,8 @@ that generalises to code not yet written.
    unambiguous only beside the other buttons. **An ALERT is a dialog too**: a `detail` composed at the
    call site told a human to run `claude setup-token` while the same embed's
    fixed วิธีแก้ said `claude login`, and setup-token is what CAUSES that 403
-   (`integrations.md`). Two authors of one instruction, neither able to see the
-   contradiction from where it sits.
+   (`integrations.md`). Two authors of one instruction, neither able to see
+   the contradiction.
    **AND THE INSTRUMENT CAN DELETE THE WITNESS.** Four skipped-docs deploys
    resisted three theories because the invocation piped the script through
    `grep -E "==>|error"`, discarding all the failing step said; the verdict
@@ -256,15 +259,15 @@ that generalises to code not yet written.
    the two "clean" 7-min runs were sick too (`deploy-hosting.md`).
    The ways, each paid for here: it cannot SEE the hazard (0146 — and
    `deploy-owed` v1, whose `<sha>..HEAD` missed the WORKING TREE) ·
-   its EXEMPTION outlived the absence ("PLANNED, not written" for a file that then
-   arrived, so the sweep skipped a REAL path) · its CONTROL finds nothing either
+   its EXEMPTION outlived the absence (a "PLANNED,
+   not written" skip for a file that arrived) · its CONTROL finds nothing either
    (0147) · satisfied by PROSE
    (`confirm-modal.test.js` matched a *comment*) · its SUBJECT is a hardcoded
    name that rotted (`proj0092`, `house0116`) — **or its SCENARIO needs live
    geometry that RAN OUT**: two rail proofs searched the remainder of the quota
    week for a slot and errored for six days once the week was nearly over. If
-   the thing a proof needs can run out, CREATE it (move the setting that defines
-   the geometry) — do not relax what the scenario asks for. **A scenario can need
+   what a proof needs can run out, CREATE it (move the setting that defines the
+   geometry) — do not relax what the scenario asks. **A scenario can need
    an ABSENCE just as silently**: claude0167 deleted only its OWN samples while
    its comment claimed "by construction", so it was green while the reporter was
    PAUSED and went red 15 min after measurement resumed — green while broken,
@@ -280,8 +283,8 @@ that generalises to code not yet written.
    (`not.toBe('production')` passes on `undefined`). Synthesise the artefact a
    real person creates; never read the one your machine has. When CI names tests
    that pass locally, ask how long it has been red, not what you broke.
-   **A SOURCE GUARD IS A REVIEW, NOT A TEST** — it sees a mistake's SHAPE and is
-   blind to its content. Both Discord writers set `X-Audit-Log-Reason` in Thai;
+   **A SOURCE GUARD IS A REVIEW, NOT A TEST** — it sees a mistake's SHAPE, not
+   its content. Both Discord writers set `X-Audit-Log-Reason` in Thai;
    a header value is latin-1, so `fetch` threw before any request existed and
    EVERY role write would have died — invisible to eight source assertions, to a
    live run (plan mode builds no header) and to 48 shipped adoptions (the header
@@ -312,8 +315,8 @@ that generalises to code not yet written.
    COUNTED `visible:false` literals ("one per kind") went red when four seeds
    folded into one insert, while the property held — and the fastest way to
    green is to edit the number, which is how a guard stops meaning anything.
-   **A PROOF IS ONLY AS GOOD AS ITS RUNNER'S ABILITY TO READ IT**: a proof ending
-   in a COUNT summary instead of per-case rows sent `run-proofs` to its
+   **A PROOF IS ONLY AS GOOD AS ITS RUNNER'S ABILITY TO READ IT**: a proof ending in
+   a COUNT summary, not per-case rows, sent `run-proofs` to its
    text-scanning fallback, which found `FAIL` inside the proof's own
    `else '*** FAIL ***'` — green by hand, red under the runner, same database.
    That difference is never the subject; it is the instrument.
@@ -343,8 +346,7 @@ that generalises to code not yet written.
    subpath rules it out" entered the HANDOFF as a constraint, from a blog post;
    one command disproved it (`bw config server <subpath>` → saved; `bw login` →
    *auth* error, so it REACHED the endpoint — a wrong URL gives a CONNECTION
-   error), and the vault had published `"api":"…/vault/api"` at its own
-   `/api/config` all along. An untested constraint in a doc closes off the right
+   error), and the vault had published its own `"api":"…/vault/api"` all along. An untested constraint in a doc closes off the right
    design for as long as it survives (`tooling-proofs.md`).
    **A MISSING THING CAN ANSWER 200** — an absent nginx `location` serves the SPA;
    key on a marker only the PRESENT component emits, and ask who may change a
@@ -379,15 +381,15 @@ that generalises to code not yet written.
 Write it in the matching `docs/mistakes/*.md` as **Symptom → Cause → Fix → Where
 it lives now**, ending with the general rule and LEADING with the symptom as
 REPORTED — what the next reader greps for. Run `npm run mistakes:index` (never
-hand-edit generated parts; if a line reads badly, fix the heading). A new
-instance of a class gets its site added to that class above.
+hand-edit generated parts; fix the heading if a line reads badly). A new
+instance of a class gets its site added above.
 
-**Charged to every session.** The per-entry index used to live here, reached
-18,533 of 30,000 — bigger than the classes, growing with every fix — and finally
-blocked a write-up. It is now `docs/mistakes/INDEX.md`. When `check:context`
-fails, COMPRESS (same meaning, fewer bytes) or move detail to `docs/mistakes/`.
-Never raise the budget; never buy room by DELETING from the classes, the only
-part that generalises. Tighten this paragraph first.
+**Charged to every session.** The per-entry index lived here until it reached
+18,533 of 30,000 — bigger than the classes, growing with every fix — and blocked
+a write-up; it is now `docs/mistakes/INDEX.md`. When `check:context` fails,
+COMPRESS (same meaning, fewer bytes) or move detail to `docs/mistakes/`. Never
+raise the budget; never buy room by DELETING from the classes, the only part
+that generalises. Tighten this paragraph first.
 
 ---
 
@@ -399,7 +401,7 @@ part that generalises. Tighten this paragraph first.
 - `authz-rls.md` *(31)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(21)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(30)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(90)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(91)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(31)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(25)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

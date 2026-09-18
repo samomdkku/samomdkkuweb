@@ -3667,3 +3667,62 @@ mutation-verified by restoring the old wording.
 3. Same shape as the totals this very panel was built to fix — one level down.
    Fixing "which population does this number count" at the headline does not fix
    it inside the rows; check every line for the same question.
+
+---
+
+## "ลิ้งค์จะขึ้นใน discord แต่ไม่ได้ขึ้นใน PR Staff Dashboard" — the staff copy of one renderer required `http` at byte 0
+
+**Symptom (as reported):** *"ตอนนี้ถ้าคนกรอกงาน PR form เข้ามาแบบแนบลิ้งค์
+ลิ้งค์จะขึ้นใน discord แต่ไม่ได้ขึ้นใน PR Staff Dashboard ในเว็บสโม ละต้องเช็ค 2 ที่
+บางทีเลยตกหล่น"*. ฝ่าย PR had to read Discord to find out a ticket had anything
+attached at all, and the dashboard positively asserted it did not: it printed
+**"ไม่มีไฟล์แนบ (No file)"**.
+
+**Cause:** `pr_tickets.file_url` is a newline-joined blob holding two line
+shapes — a Drive URL per uploaded image, and `ลิงก์เสริม: <url>` for a link the
+submitter pasted. Two renderers read it: `pr-tracking.js` (what the submitter
+sees) and `pr-staff.js` (what ฝ่าย PR sees). They were the same twenty lines
+written twice, and the staff copy carried one extra condition —
+
+```js
+if (!t.fileUrl || … || !t.fileUrl.startsWith('http'))   // ← staff only
+```
+
+— so a ticket whose ONLY attachment is a pasted link, whose blob therefore
+starts with `ล`, fell into the empty branch and never reached the loop that
+knows about `ลิงก์เสริม:` twelve lines below. **57 of 247 live tickets — 23%,
+and the shape a big-file or shared-folder submission always takes.** The
+submitter's own tracking page was correct all along, which is why nothing about
+the form ever looked broken; the notify payload carries `largeFileLink` as its
+own field and never touches the blob, so Discord was correct too. Only the
+audience the link EXISTS FOR could not see it.
+
+**Fix:** one reading — `src/js/pr-attachments.js` (`parsePrAttachments` +
+`renderPrAttachments`) — imported by both views, which now pass nothing but
+spacing. The kanban CARD also shows `N ไฟล์/ลิงก์`, so "is there anything to
+open" is answerable without opening anything. Image numbering moved from the
+array position to a per-kind counter: `ภาพที่ 2` was only ever right because the
+form happens to write every image before the link.
+
+**Where it lives now:** `src/js/pr-attachments.js`, guarded by
+`pr-attachments.test.js` — the link-only blob renders a link (the bug), and a
+differential half asserting neither view contains the marker literal or a
+`.startsWith('http')` gate, with a control so the sweep cannot pass by finding
+nothing. Both halves mutation-verified. It reads the source through
+`stripComments`, because the guard's own prose names the marker.
+
+**Rules:**
+1. **Two implementations of one rule drift, and the one you are not looking at
+   is the one that rots.** The tell here is that the extra condition was
+   *redundant with the loop it guarded* — a "cheap early exit" written over a
+   parser that already knew how to answer. An early return that re-decides what
+   the body decides is not an optimisation; it is a second implementation with
+   no test.
+2. **A renderer's empty state is a CLAIM, and it must be produced by the same
+   pass that produces the items** — `items.length === 0`, never a separate
+   predicate over the raw input. Two conditions for "nothing here" is the
+   entire bug.
+3. **Ask who the data is FOR, and check THAT view.** The submitter's copy and
+   Discord were both fine for months; the only broken surface was the one the
+   attachment exists to reach. A feature verified from the author's seat is
+   unverified.
