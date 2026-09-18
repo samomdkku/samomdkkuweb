@@ -36,7 +36,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { splitHeld } from '../src/js/house/gaps.js';
+import { splitHeld, groupOccupantsByCohort, groupBySaiNumber } from '../src/js/house/gaps.js';
 import { cohortLabel, houseOf } from '../src/js/house/fields.js';
 import { FIELDS, has } from '../src/js/house/census.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
@@ -46,9 +46,15 @@ export const OUT_DIR = path.join(ROOT, 'externaldata/house-year-sheets');
 
 export const HEADER = [
   'รหัสนักศึกษา', 'ชื่อ (จากระบบ)', 'นามสกุล (จากระบบ)', 'ชื่อเล่น',
-  'สาย', 'บ้าน', 'สถานะ', 'ข้อมูลที่ขาด', 'kkumail (ถ้ามีในระบบ)',
-  'หมายเหตุ (เขียนที่นี่ได้)',
+  'สาย', 'บ้าน', 'สถานะ', 'ความสำคัญ', 'ข้อมูลที่ขาด', 'ปัญหาที่พบ',
+  'kkumail (ถ้ามีในระบบ)', 'หมายเหตุ (เขียนที่นี่ได้)',
 ];
+
+/** The two fields nobody should be asked to chase. ชื่อเล่น is `optional` in
+ *  the ข้อมูลครบแค่ไหน panel and the owner said so out loud: "for data like
+ *  ชื่อเล่น it's fine to not request". Everything else on a row is worth a
+ *  request, which is what ความสำคัญ sorts and filters on. */
+export const PRIORITY = { high: 'สูง', low: 'ต่ำ' };
 
 const STATUS = {
   normal: 'ปกติ',
@@ -70,25 +76,26 @@ const STATUS = {
 export function missingFields(r, status) {
   const out = FIELDS.filter((f) => !has(f.get(r)))
     .map((f) => (f.optional ? `${f.label} (ไม่บังคับ)` : f.label));
-  // kkumail is not one of the five FIELDS, and for MOST rows that is right:
-  // a held row has no kkumail BY DEFINITION — that is what "held" means — so
-  // listing it on all 165 would send whoever reads this sheet to collect 142
-  // addresses that are going to arrive without them.
+  // kkumail is not one of the five FIELDS, but it is the single most valuable
+  // cell on this sheet: without it a person is not in `students` at all.
   //
-  // `docs/HOUSE-DATA-REPAIR.md` §3 is the authority on which: with BOTH รหัส and
-  // ชื่อ the STUDENT closes it by signing in and nobody else can help; without
-  // them "the admin must type their address into that row". Only the second
-  // group is data another team can actually supply, so only it says so here.
-  // The split itself is `splitHeld()`, which is what `status` was derived from —
-  // this re-states nothing, it only labels.
-  if (status === STATUS.heldAdmin) out.push('kkumail');
+  // ⚠️ THIS LISTS IT FOR **EVERY** HELD ROW, INCLUDING THE SELF-CLAIMABLE ONES,
+  // and that is a decision the owner made explicitly on 2026-09-18: *"even they
+  // can self claim, I want everyone list that has information missing... waiting
+  // for them to selfclaim seems bad, I want to get data from other team as much
+  // as possible"*. `docs/HOUSE-DATA-REPAIR.md` §3 says a held row with BOTH
+  // รหัส and ชื่อ CAN be closed by the student signing in — that stays true, and
+  // สถานะ still says which rows those are. It is a statement about who is ABLE
+  // to close it, not a reason to wait: 142 people had been able to for weeks.
+  // Collect the address, import them, and the self-claim never has to happen.
+  if (status !== STATUS.normal) out.push('kkumail');
   return out;
 }
 
 const saiOf = (r) => r.sai_code || r.sai || '';
 const nickOf = FIELDS.find((f) => f.key === 'nickname').get;
 
-function toRow(r, status, { includeKkumail }) {
+function toRow(r, status, { includeKkumail, problems = [] }) {
   const sai = saiOf(r);
   const house = houseOf(sai);
   return {
@@ -99,7 +106,8 @@ function toRow(r, status, { includeKkumail }) {
     sai,
     house: house == null ? '' : String(house),
     status,
-    missing: missingFields(r, status).join(' · '),
+    missing: missingFields(r, status),
+    problems,
     kkumail: includeKkumail ? (r.kkumail || '') : '',
     note: '',
   };
@@ -119,6 +127,53 @@ function toRow(r, status, { includeKkumail }) {
  *   derive it from, so there is no tab to put them in (§e of the plan already
  *   names this population: the held rows with no รุ่น at all).
  */
+/**
+ * Per-person problems that are not "a cell is empty" — the ERROR half of
+ * "ข้อมูลขาดหรือผิด".
+ *
+ * Only what can be attributed to a NAMED person, computed with the SAME
+ * grouping `computeGaps`'s สายรหัส audit uses (`groupOccupantsByCohort` +
+ * `groupBySaiNumber`, imported), so the sheet and the ข้อมูลไม่ครบ tab cannot
+ * disagree about who shares a สาย.
+ *
+ * ⛔ A SKIPPED สาย IS DELIBERATELY NOT HERE. "รุ่นนี้ไม่มีใครอยู่สาย 007" is a
+ * fact about a รุ่น, not about a person, and there is no row to write it on —
+ * `computeGaps` reports it per รุ่น and that is the right place. Putting it on
+ * the nearest person's row would accuse them of something the arithmetic never
+ * tested.
+ *
+ * @returns {Map<object, string[]>} row-object → problems, keyed by IDENTITY so
+ *   two people with the same name never collide.
+ */
+export function findProblems(occupants = []) {
+  const out = new Map();
+  const add = (r, msg) => {
+    if (!out.has(r)) out.set(r, []);
+    out.get(r).push(msg);
+  };
+  for (const r of occupants) {
+    // Stamped by the importer when a person the database holds was NOT in the
+    // newest file: either they left, or the file dropped them. Both need a human.
+    if (r.missing_since) add(r, 'หายจากไฟล์รายชื่อล่าสุด');
+  }
+  for (const [, rows] of groupOccupantsByCohort(occupants)) {
+    for (const [n, people] of groupBySaiNumber(rows)) {
+      if (people.length < 2) continue;
+      const sai = String(n).padStart(3, '0');
+      for (const p of people) {
+        const others = people.filter((q) => q !== p)
+          .map((q) => [q.first_name_th, q.last_name_th].filter(Boolean).join(' ').trim())
+          .filter(Boolean).join(', ');
+        // บ้าน is the LAST DIGIT of สาย, so a duplicate means at least one of
+        // them is in the wrong บ้าน — which is why this is an error and not a
+        // tidiness note.
+        add(p, `สาย ${sai} ซ้ำกับ ${others || '(ไม่มีชื่อ)'}`);
+      }
+    }
+  }
+  return out;
+}
+
 export function buildYearSheets(d = {}) {
   const students = d.students || [];
   const held = (d.held || []).filter((h) => !h.resolved_at);
@@ -127,9 +182,13 @@ export function buildYearSheets(d = {}) {
   const sheets = new Map();
   const unplaced = [];
 
+  // One pass over EVERYONE first: a duplicate สาย is a fact about a PAIR, so it
+  // cannot be computed while placing one row at a time.
+  const problems = findProblems([...students, ...held]);
+
   const place = (r, status, opts) => {
     const label = cohortLabel(r);
-    const row = toRow(r, status, opts);
+    const row = toRow(r, status, { ...opts, problems: problems.get(r) || [] });
     if (!label) { unplaced.push(row); return; }
     if (!sheets.has(label)) sheets.set(label, []);
     sheets.get(label).push(row);
@@ -169,14 +228,28 @@ export function buildYearSheets(d = {}) {
  * handover exists for.
  */
 export function hasIssue(row) {
-  return row.missing !== '' || row.status !== STATUS.normal;
+  return row.missing.length > 0 || row.problems.length > 0 || row.status !== STATUS.normal;
+}
+
+/**
+ * How hard it is worth chasing. ONE rule, stated once, and the sheet sorts on
+ * it: everything except a lone missing ชื่อเล่น is worth a request, because
+ * every other field either identifies the person (ชื่อ, นามสกุล, รหัสนักศึกษา),
+ * places them (สาย → บ้าน is its last digit) or lets them into the system at
+ * all (kkumail).
+ */
+export function priorityOf(row) {
+  if (row.problems.length > 0) return PRIORITY.high;
+  const required = row.missing.filter((m) => !m.includes('(ไม่บังคับ)'));
+  return required.length > 0 ? PRIORITY.high : PRIORITY.low;
 }
 
 const csvCell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 export function toCsv(rows) {
   const lines = [HEADER, ...rows.map((r) => [
     r.studentId, r.firstName, r.lastName, r.nickname,
-    r.sai, r.house, r.status, r.missing, r.kkumail, r.note,
+    r.sai, r.house, r.status, priorityOf(r), r.missing.join(' · '),
+    r.problems.join(' · '), r.kkumail, r.note,
   ])];
   return lines.map((line) => line.map(csvCell).join(',')).join('\n') + '\n';
 }
@@ -223,10 +296,15 @@ async function main() {
       + (GAPS ? `  / ${rows.length}` : ''));
   }
   if (GAPS) {
+    // สูง first: this file is a work queue, and the สาย order the full roster
+    // needs is the wrong order for one. Within a priority it stays as built,
+    // which is สาย ascending.
+    const byPriority = (a, b) => (priorityOf(a) === priorityOf(b) ? 0
+      : (priorityOf(a) === PRIORITY.high ? -1 : 1));
     sheets = new Map(labelsAll
-      .map((l) => [l, sheets.get(l).filter(hasIssue)])
+      .map((l) => [l, sheets.get(l).filter(hasIssue).sort(byPriority)])
       .filter(([, rows]) => rows.length > 0));
-    unplaced = unplaced.filter(hasIssue);
+    unplaced = unplaced.filter(hasIssue).sort(byPriority);
   }
   const labels = [...sheets.keys()].sort();
   if (unplaced.length) {

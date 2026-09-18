@@ -5,7 +5,7 @@
 // ==============================================
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { buildYearSheets, toCsv, HEADER } from './house-year-sheets.mjs';
+import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY } from './house-year-sheets.mjs';
 
 const SOURCE = readFileSync(new URL('./house-year-sheets.mjs', import.meta.url), 'utf8');
 
@@ -133,15 +133,57 @@ describe('buildYearSheets — blank-cell rule', () => {
   });
 });
 
+describe('ปัญหาที่พบ — the error half, not the empty-cell half', () => {
+  it('names both people when two share a สาย, each on their own row', () => {
+    // บ้าน is the LAST DIGIT of สาย, so a duplicate puts at least one of them
+    // in the wrong บ้าน. Same grouping computeGaps's own audit uses.
+    const a = student({ student_id: '659999991-1', first_name_th: 'ก', last_name_th: 'หนึ่ง', sai_code: '011' });
+    const b = student({ student_id: '659999992-2', first_name_th: 'ข', last_name_th: 'สอง', sai_code: '011' });
+    const { sheets } = buildYearSheets({ students: [a, b], held: [] });
+    // Found by NAME, not by index: the rows are สาย-then-นามสกุล ordered and
+    // Thai collation decides which of the two comes first, which is not what
+    // this test is about.
+    const rows = sheets.get('MD50');
+    const one = rows.find((r) => r.lastName === 'หนึ่ง');
+    const two = rows.find((r) => r.lastName === 'สอง');
+    expect(one.problems[0]).toContain('สาย 011 ซ้ำกับ');
+    expect(one.problems[0]).toContain('ข สอง');
+    expect(two.problems[0]).toContain('ก หนึ่ง');
+    // an error outranks a merely-optional gap
+    expect(priorityOf(one)).toBe(PRIORITY.high);
+  });
+
+  it('says nothing about a สาย only one person is on', () => {
+    const { sheets } = buildYearSheets({ students: [student()], held: [] });
+    expect(sheets.get('MD50')[0].problems).toEqual([]);
+  });
+
+  it('flags a person the newest file dropped', () => {
+    const s = student({ missing_since: '2026-09-14' });
+    const { sheets } = buildYearSheets({ students: [s], held: [] });
+    expect(sheets.get('MD50')[0].problems).toEqual(['หายจากไฟล์รายชื่อล่าสุด']);
+  });
+
+  it('does NOT put a รุ่น-level skipped สาย on anybody\'s row', () => {
+    // "nobody is on สาย 007" is a fact about a รุ่น. Writing it on the nearest
+    // person accuses them of something no arithmetic tested — computeGaps
+    // reports it per รุ่น and that stays its job.
+    const a = student({ student_id: '659999991-1', sai_code: '001' });
+    const b = student({ student_id: '659999992-2', sai_code: '009' });
+    const { sheets } = buildYearSheets({ students: [a, b], held: [] });
+    for (const r of sheets.get('MD50')) expect(r.problems).toEqual([]);
+  });
+});
+
 describe('CSV shape', () => {
-  it('header matches HOUSE-YEAR-HANDOVER.md §b plus ข้อมูลที่ขาด, in order', () => {
+  it('header matches HOUSE-YEAR-HANDOVER.md §b plus the handover columns', () => {
     // §b specified nine columns. ข้อมูลที่ขาด was added when the sheet's PURPOSE
     // was stated out loud — it goes to another team to FILL IN, and a row that
     // does not name what is missing makes that team re-derive the question.
     expect(HEADER).toEqual([
       'รหัสนักศึกษา', 'ชื่อ (จากระบบ)', 'นามสกุล (จากระบบ)', 'ชื่อเล่น',
-      'สาย', 'บ้าน', 'สถานะ', 'ข้อมูลที่ขาด', 'kkumail (ถ้ามีในระบบ)',
-      'หมายเหตุ (เขียนที่นี่ได้)',
+      'สาย', 'บ้าน', 'สถานะ', 'ความสำคัญ', 'ข้อมูลที่ขาด', 'ปัญหาที่พบ',
+      'kkumail (ถ้ามีในระบบ)', 'หมายเหตุ (เขียนที่นี่ได้)',
     ]);
   });
 
@@ -152,29 +194,32 @@ describe('CSV shape', () => {
     // ชื่อเล่น is optional in the ข้อมูลครบแค่ไหน panel and says so here too;
     // a whitespace-only สาย counts as empty, which is exactly why `has()` is
     // imported rather than re-typed as a truthiness check.
-    expect(row.missing).toBe('ชื่อ · ชื่อเล่น (ไม่บังคับ) · สาย');
+    expect(row.missing).toEqual(['ชื่อ', 'ชื่อเล่น (ไม่บังคับ)', 'สาย']);
   });
 
   it('a complete row names nothing as missing', () => {
     const { sheets } = buildYearSheets({ students: [student()], held: [] });
-    expect(sheets.get('MD50')[0].missing).toBe('');
+    expect(sheets.get('MD50')[0].missing).toEqual([]);
+    expect(priorityOf(sheets.get('MD50')[0])).toBe(PRIORITY.low);
   });
 
-  it('names kkumail ONLY where an admin must supply it', () => {
-    // HOUSE-DATA-REPAIR.md §3: a held row with BOTH รหัส and ชื่อ is closed by
-    // the STUDENT signing in — nobody else can help and nobody should be sent
-    // to collect their address. Without them, "the admin must type their
-    // address into that row", which IS data another team can hand over.
-    // Every held row lacks a kkumail, so listing it on both would put 142
-    // people on a collection list that will close itself.
+  it('names kkumail on EVERY held row, self-claimable included', () => {
+    // The owner's decision, 2026-09-18: "waiting for them to selfclaim seems
+    // bad, I want to get data from other team as much as possible". Every held
+    // row lacks a kkumail — that is what held MEANS — and an address collected
+    // from another team imports them today instead of whenever they next sign
+    // in. สถานะ still says which ones COULD have closed it themselves.
     const selfClaimable = { student_id: '669999999-9', first_name_th: 'ก', last_name_th: 'ข', sai: '007', cohort_year: 2566 };
     const adminOnly = { student_id: '', first_name_th: 'ค', last_name_th: 'ง', sai: '008', cohort_year: 2566 };
     const { sheets } = buildYearSheets({ students: [], held: [selfClaimable, adminOnly] });
     const rows = sheets.get('MD51');
     const self = rows.find((r) => r.lastName === 'ข');
     const admin = rows.find((r) => r.lastName === 'ง');
-    expect(self.missing).not.toContain('kkumail');
+    expect(self.missing).toContain('kkumail');
     expect(admin.missing).toContain('kkumail');
+    // and both are worth chasing, which is the point of the change
+    expect(priorityOf(self)).toBe(PRIORITY.high);
+    expect(priorityOf(admin)).toBe(PRIORITY.high);
   });
 
   it('renders one header line plus one line per row, comma-joined', () => {
@@ -183,7 +228,7 @@ describe('CSV shape', () => {
     const lines = csv.trim().split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe(HEADER.join(','));
-    expect(lines[1]).toBe('659999999-9,สมชาย,ใจดี,ชาย,005,5,ปกติ,,somchai@kkumail.com,');
+    expect(lines[1]).toBe('659999999-9,สมชาย,ใจดี,ชาย,005,5,ปกติ,ต่ำ,,,somchai@kkumail.com,');
   });
 
   it('quotes a cell that contains a comma, and escapes an embedded quote', () => {
