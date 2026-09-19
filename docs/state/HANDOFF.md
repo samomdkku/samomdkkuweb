@@ -1497,7 +1497,9 @@ has 288 students and **no incomplete records at all** — its file is gone.
 |---|---|---|
 | send the five remaining `MD*-ข้อมูลไม่ครบ.csv` (129 rows) to their ฝ่าย | owner | needs a person to choose the recipient and share the Sheet |
 | check **สาย 141** against the source file | owner / ฝ่ายข้อมูล | MD53 and MD54 both have nobody on it, and after the 2026-09-19 รุ่น repair NOTHING unplaced can explain either. บ้าน is สาย's last digit, so if a column moved everyone after it is in the wrong บ้าน |
-| decide **สาย 256** — two people on it in MD53, two in MD54 | ฝ่ายข้อมูล | at least one of each pair is in the wrong บ้าน; the file is the only source |
+| ~~check สาย 141 / decide สาย 256~~ | ✅ **ANSWERED 2026-09-19 — LEAVE IT** | The MD53 leader: *"ที่หนูจดไว้ตามนี้เลยค่ะ เพื่อนหนูเอาข้อมูลมาจาก 52 อีกที สาย 256 ซ้ำ 2 คนค่ะ แล้วก็ 141 ข้ามตามที่ลงไว้เลยค่ะ"* — transcribed that way from MD52, deliberately. **That rules out the thing worth worrying about**: not a shifted column, so every person's สาย is recorded correctly and NOBODY is in the wrong บ้าน. The owner's call is to leave it: the list is mostly right and they would not change it now. The audit will keep reporting it — that is cosmetic |
+| ~~the 11 MD47/MD48 people in MD50's returned roster~~ | ✅ **DECIDED 2026-09-19 — DO NOT ADD** | ระบบบ้าน covers MD49–MD54 only; these were never in ฝ่ายข้อมูล's roster and have no สาย. Owner: *"i'll not put in the system"*. ⛔ Do not re-propose |
+
 | ~~write the import-back tool~~ | ✅ **BUILT 2026-09-19** | `tools/house-kkumail-import.mjs`. Refuses a row whose name does not match the รหัส, promotes through the pane's own `promote_unresolved_row()` rather than re-implementing it, and runs as ONE transaction so a duplicate address cannot leave half a ฝ่าย's answer applied. It also carries a ชื่อเล่น the roster happens to include — never over one that exists |
 
 **What the sheet asks for**: a `?` in a `กรอก: <field>` column, per row.
@@ -1528,9 +1530,21 @@ class-6 fixes the agent found in its own earlier work. The older branches
 (`2026-09-15*`, `2026-09-16`) are SUPERSEDED by it; `2026-09-18` is empty.
 They still exist in `~/samo-agent` on the VM and can be deleted.
 
-**Before re-enabling: write a new queue first.** Then
-`sudo systemctl enable --now samo-night-agent.timer`. Re-enabling with the old
-file re-runs work that is now on `main`.
+✅ **IT CAN NO LONGER REPEAT ITSELF (2026-09-19).** `run-night.sh` now
+fingerprints `NIGHT-TASKS.md` and **refuses to start** if the file has not
+changed since the last run that REACHED THE END — it posts why to Discord and
+exits 0. The stamp is written at the END on purpose: a night abandoned half way
+(quota gone, box rebooted) has NOT been done and the next night must pick it up.
+`NIGHT_FORCE=1` re-runs a queue deliberately, and having to type it is the whole
+difference. Proved four ways: fresh queue RAN · same queue REFUSED · same queue
+with FORCE RAN · edited queue RAN.
+
+⚠️ **The script on the VM is a COPY.** The guard is in git; `~/samo-night/` has
+its own. `bash server/night-agent/install.sh` is what puts the new one there —
+until that runs, the VM still has the version that repeats.
+
+**Still write a new queue before re-enabling**, then
+`sudo systemctl enable --now samo-night-agent.timer`.
 
 ---
 

@@ -143,6 +143,32 @@ mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG") 2>&1
 echo "=== samo night agent — started $(date -u +%FT%TZ) (ICT $(TZ=Asia/Bangkok date +%H:%M)) ==="
 
+# ⛔ THE SAME QUEUE MAY NOT RUN TWICE. Paid for on 2026-09-15→18: nothing
+# consumes NIGHT-TASKS.md, so the file sat unchanged for three nights and the
+# agent worked the SAME six tasks each time — the third night branching from a
+# `main` that already had the second night's commits, so it rebuilt work that
+# existed. Nobody noticed because every run reported success: it had genuinely
+# done the tasks it was given.
+#
+# The fix is a fingerprint of the queue, written only after a run REACHES THE
+# END, and compared on the next start. It is checked here rather than trusted to
+# a human because the whole point of this thing is that no human is awake.
+#
+# It refuses rather than warns — a warning at 22:41 ICT is read by nobody.
+# `NIGHT_FORCE=1` is the deliberate escape for re-running a queue on purpose,
+# and it has to be typed, which is the difference that matters.
+QUEUE_STAMP="$NIGHT_HOME/.last-queue-sha"
+if [ -r "$TASKS" ]; then
+  QUEUE_SHA="$(sha256sum "$TASKS" | cut -d' ' -f1)"
+  if [ -r "$QUEUE_STAMP" ] && [ "$QUEUE_SHA" = "$(cat "$QUEUE_STAMP")" ] && [ -z "${NIGHT_FORCE:-}" ]; then
+    echo "!! NIGHT-TASKS.md has not changed since the last completed run — refusing."
+    echo "!! Write a new queue, or re-run this one on purpose with NIGHT_FORCE=1."
+    post_discord "$(printf 'ไม่ได้เริ่มงานคืนนี้ %s (ICT)\nคิวงานยังเป็นไฟล์เดิมที่ทำไปแล้ว — เขียนคิวใหม่ก่อน\n(ถ้าตั้งใจให้ทำซ้ำ ใช้ NIGHT_FORCE=1)' \
+      "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')")"
+    exit 0
+  fi
+fi
+
 # ⛔ SAY "I STARTED" BEFORE DOING ANYTHING. Without it, a run that dies early —
 # OOM, a hung task, the box rebooting — is indistinguishable in the morning from
 # a timer that never fired at all, and those two have completely different fixes.
@@ -315,6 +341,12 @@ export AGENT_UNRUN="$UNRUN" AGENT_STOP="$stop_reason" AGENT_ASKS="$NEEDS_DECISIO
 run_one "$NIGHT_HOME/HANDOFF.md" "handoff" && SUMMARY+="OK   handoff written"$'\n'
 
 echo ""
+# Stamped HERE, at the end, and only here: a queue that was abandoned half way
+# — quota gone, the box rebooted, a task hung — has NOT been done, and the next
+# night must be allowed to pick it up. Writing this at the start would turn
+# every interrupted night into a permanently skipped queue.
+[ -n "${QUEUE_SHA:-}" ] && printf '%s\n' "$QUEUE_SHA" > "$QUEUE_STAMP"
+
 echo "=== finished $(date -u +%FT%TZ) — $done_n ok, $fail_n failed. $stop_reason ==="
 commits="$(git log --oneline origin/main.."$BRANCH" 2>/dev/null | wc -l)"
 echo "commits on $BRANCH: $commits"
