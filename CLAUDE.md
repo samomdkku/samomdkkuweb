@@ -54,12 +54,12 @@ npm run setup    # write .env.local from a pasted block (env:share sends one)
 | Window-bound function (for `onclick=""`) | Wire in `src/js/main.js` |
 | New Supabase schema | New numbered file in `supabase/migrations/` |
 | Backend GAS edit | `appscript/*.gs` (then redeploy — see skills/deploy-gas.md) |
-| Any schema change | New numbered migration + a both-directional proof — **see `skills/ship-a-migration.md`** (ADD then deploy; DROP only AFTER the new bundle is SERVED) |
+| Any schema change | New numbered migration + a both-directional proof — `skills/ship-a-migration.md` (ADD then deploy; DROP only after the new bundle is SERVED) |
 | nginx, Docker, or the `/vault/` vault | `skills/vaultwarden.md` |
 
 ## UI/UX guidelines
 
-- **Brand**: white-dominant, gray gradient body, green primary + orange accent
+- **Brand**: white-dominant, gray gradient body, green primary, orange accent
 - **Wordmark**: `MDKKU` in `--brand-primary` (#105922), `SAMO` in `--brand-orange` (#FF6F30)
 - **Per-tab accents** (scoped via tab-level class on the pane):
   - PR form → pink (`--pink-*` keeps its original pink scale)
@@ -67,8 +67,8 @@ npm run setup    # write .env.local from a pasted block (env:share sends one)
   - Announcements/Creator → slate (`.an-tab` overrides to neutral)
   - Admin → green primary
 - **Departments**: 10 unique color identities (see `src/css/base.css` `--dept-*`)
-- **Fonts**: Noto Sans Thai (body), Prompt (brand pill + secondary), via Google Fonts. The system fallback chain lives in `src/css/base.css`.
-- **Density**: tight spacing on mobile, generous on desktop. Use Bootstrap utility classes.
+- **Fonts**: Noto Sans Thai (body), Prompt (brand + secondary), via Google Fonts; fallback chain in `src/css/base.css`.
+- **Density**: tight on mobile, generous on desktop; Bootstrap utilities.
 - **No emojis in UI text** unless the user explicitly asks.
 
 ## Memory layout — what loads, what you fetch
@@ -110,8 +110,8 @@ the build if it grows back past ~200.
 - `README.md` — human onboarding. Not for agents; open only to verify it.
 - `CONTRIBUTING.md` — human collaborator guide; same rules. Cross-check when
   editing project policy.
-- `docs/TEAM-WORKFLOW.md` — multi-developer plan (dev env, previews, credentials, review). **DESIGN ONLY**; §0 = owner decisions, do not re-litigate
-- `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10, §13
+- `docs/TEAM-WORKFLOW.md` — multi-dev plan (dev env, previews, credentials, review). **DESIGN ONLY**; §0 = owner decisions, do not re-litigate
+- `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT (content / embed / native). **DESIGN ONLY**; §10, §13
 - `docs/CONTEXT.md` — architecture map, RLS, schema, deploy plumbing, workflows
 - `docs/HOUSE-DATA-REPAIR.md` — ระบบบ้าน: which broken field a STUDENT fixes, an
   ADMIN must, or only ฝ่ายข้อมูล can; the one case that fails OPEN. READ BEFORE
@@ -122,7 +122,7 @@ the build if it grows back past ~200.
 - `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase. Not a status
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
-  version or adding a release note; `npm run release` does the mechanical half
+  version or adding a release note; `npm run release` does the mechanical half.
 - `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model; its "current
   state" section is the GAS era
 - `docs/KKU-SSO.md` — a login improvement, NOT a data source (no roster, no
@@ -138,17 +138,15 @@ the build if it grows back past ~200.
 
 Before sending the final response on any task that modified files:
 
-1. **Update `STATE.md`** — only if real state changed (branch HEAD, pending migrations, in-flight work, blocking issues). Do NOT append a session narrative — `git log` is the archive. Keep STATE.md under ~200 lines; if it bloats, prune past-session sections to `docs/state-archive/YYYY-MM-DD.md` and trust `git log --oneline` for the chronology.
+1. **Update `STATE.md`** — only if real state changed (branch HEAD, pending migrations, in-flight work, blockers). No session narrative: `git log` is the archive. Under ~200 lines; if it bloats, prune old sections to `docs/state-archive/YYYY-MM-DD.md`.
 2. **If a bug was found and fixed**: write it up in the matching
    `docs/mistakes/*.md` (**Symptom → Cause → Fix → Where it lives now**, ending
-   with the general rule; lead with the symptom AS REPORTED — that is what the
-   next reader greps for), then run `npm run mistakes:index`. If it is a new
-   instance of one of the seven classes, add the site to that class's list in
-   `.claude/rules/mistakes.md`. Prefer a guard test over a paragraph: this repo
-   has learned that writing a hazard down does not make anyone check it.
-3. **If a person would NOTICE the change** (อัปเดตระบบ / the public release
-   notes at `/updates`): append an entry to `PENDING` in
-   `src/data/changelog.js`, in the same commit that ships it. Plain Thai a
+   with the general rule; lead with the symptom AS REPORTED — what the next
+   reader greps for), then `npm run mistakes:index`. A new instance of one of
+   the seven classes gets its site added in `.claude/rules/mistakes.md`. Prefer
+   a guard over a paragraph: writing a hazard down makes nobody check it
+3. **If a person would NOTICE it** (อัปเดตระบบ / release notes at `/updates`):
+   append to `PENDING` in `src/data/changelog.js`, in the same commit. Plain Thai a
    student could read — no table names, no migration numbers, no permission
    keys; `changelog.test.js` enforces that. Write it NOW, not at release time:
    the details that make a good note (what was annoying before, what you no
@@ -157,15 +155,22 @@ Before sending the final response on any task that modified files:
    new version and clears it. A refactor, a test, or a migration nobody
    experiences gets NO entry; a one-line fix that unblocked a real workflow
    does.
-4. **If a repeatable multi-step workflow appeared**: create or update a file under `skills/`.
-5. **Documentation (conditional — only if any of these are true):**
-   - User-visible feature added or removed → update the "Key features" list in `README.md`.
-   - Architecture, schema, RLS, deploy plumbing, or auth flow changed → update `docs/CONTEXT.md`.
-   - Build / install / env setup changed → update `README.md` (Quick start, Commands, Environment).
-   - **If the change is internal-only (refactor, bugfix, test, comment) — skip this step.** Doc edits should be a side-effect of meaningful change, not a tax on every commit.
-6. State in the user-facing response: "Updated STATE.md / docs/mistakes / changelog / skills/* as needed."
+4. **If a repeatable multi-step workflow appeared**: add/update `skills/*.md`.
+5. **Docs (only if true):** user-visible feature added/removed → `README.md`
+   "Key features" · architecture, schema, RLS, deploy or auth changed →
+   `docs/CONTEXT.md` · build/install/env changed → `README.md`.
+   **Internal-only (refactor, bugfix, test, comment) — SKIP.** Doc edits are a
+   side-effect of meaningful change, not a tax on every commit.
+6. **RUN `npm run handoff:check`** — the step that can FAIL. Checks what is
+   mechanical: nothing uncommitted, HEAD pushed, memories indexed and their
+   pointers alive, HANDOFF sections carrying `Status:`, STATE.md in budget,
+   prod serving the sha STATE.md claims, the VM's agent memory synced, and
+   **counts in docs matching the DATABASE**. ⛔ A skip is NOT green. ⚠️ It
+   cannot tell whether a sentence is TRUE.
+7. Say "Updated STATE.md / docs/mistakes / changelog / skills/* as needed" and
+   paste its verdict.
 
-This loop keeps cold-start agents from re-walking the bugs we already paid for, AND keeps human-facing docs from going stale — without taxing routine commits.
+This keeps cold-start agents from re-walking bugs we already paid for, and docs from going stale. **Step 6 exists because 1–5 were a list somebody had to remember, and the owner kept having to ask for them at the end of a session.**
 
 ## Authority model
 

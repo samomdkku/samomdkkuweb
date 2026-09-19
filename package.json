@@ -57,7 +57,8 @@
     "cf:pin-dev": "node tools/cloudflare-pin-dev.mjs",
     "check:embeds": "node tools/check-embeds.mjs",
     "check:tool-boundary": "node tools/check-tool-boundary.mjs",
-    "test:clean": "node tools/test-clean.mjs"
+    "test:clean": "node tools/test-clean.mjs",
+    "handoff:check": "node tools/handoff-check.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.4.1",

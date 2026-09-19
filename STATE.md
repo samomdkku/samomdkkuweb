@@ -41,23 +41,17 @@ TRUE. That is what the grep is for.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
-  2026-08-31. Do not judge this by eye and do not retype the sha:
-
-  ```bash
-  npm run deploy:owed
-  ```
-
-  It reads the ✅ DEPLOYED line above, which is the sha's only home, and
-  compares that commit with the WORKING TREE. Exit 0 = prod is current.
-  ⛔ **Never paste a `git diff <sha>..HEAD` snippet back in** — the sha had four
-  homes here and only one got corrected.
+  2026-08-31. Do not judge by eye and do not retype the sha: **`npm run
+  deploy:owed`** reads the ✅ DEPLOYED line above — the sha's only home — and
+  compares it with the WORKING TREE. ⛔ **Never paste a `git diff <sha>..HEAD`
+  snippet back in**: the sha had four homes here and one got corrected.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0194. ALL 43 LIVE PROOFS GREEN** (2026-09-14). **0194: an import may FILL the registry, not overwrite it** — the old guard skipped the write entirely, so 136 people had a NULL ชื่อ in `people` while ระบบบ้าน had it; 20/20, watched failing first. Registry now 0-diff against BOTH placements (§F of that proof asks it live). **0193 keeps what the handover file said in a cell the cleaner emptied** — a removed address and the รุ่น of a row with no รหัส — as EVIDENCE the admin can see and nothing can resolve a row with; 18/18, watched failing first. 0183/0184 are the PORTAL half of Discord role sync — `discord_links`, `team_nodes.discord_role_id` + `discord_role`, plus `discord_role_targets()`, the ONE function that decides what a person is due — applied and proved 23/23 + 18/18, both watched failing first. The seed ticked **107 of 299 nodes**; the rest are the owner's review. **0187 closed a hole where UNLINKING kept your ฝ่าย roles for ever** — §14b, its one home. HANDOFF §11 and §13c both CLOSED. **0188–0190 keep the import lines that have no kkumail** and let the student claim their own seat with รหัสนักศึกษา + ชื่อ — 33/33, each fix watched failing first. 0188's table was born anon-writable (a `pg_default_acl` on `public` grants anon `arwdDxtm` to every NEW table; every other ระบบบ้าน table revokes it per object). 0189/0190 came out of reviewing 0188: a claim reached `students` without `last_import_batch`, so both mirror triggers took the NON-import branch and the file's spelling overwrote a curated registry name silently.
+- **Migrations through 0194. ALL 43 LIVE PROOFS GREEN** (2026-09-14) — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
   ⚠️ A proof can be GREEN WHILE BROKEN because the environment happened to be
   quiet — both Claude quota proofs were, until they CONSTRUCTED the absence
   they assume (`docs/mistakes/tooling-proofs.md`; counts live in the proofs).
@@ -66,14 +60,11 @@ TRUE. That is what the grep is for.
 
 ### WHAT PROD IS DOING RIGHT NOW
 
-- **Claude usage measurement is ON** since 2026-08-25 17:18 UTC, sampling every
-  15 min. ⚠️ This block once said OFF, with a procedure to re-enable something
-  already enabled — **ask the DATABASE, never this file, for runtime state**:
-  `select monitoring_enabled, … from public.claude_settings` (`db-query.mjs` takes a FILE).
-- `monitoring_note` still holds the old pause reason — not shown while
-  measurement is on, used correctly by the monitor-on notice. Leave it.
-  `claude_bookings` holds its FIRST REAL BOOKING (2026-09-07) — not empty. Ask
-  the database, not this line.
+⛔ **ASK THE DATABASE FOR RUNTIME STATE, NEVER THIS FILE.** This block once said
+Claude measurement was OFF and gave a procedure to re-enable what was already
+enabled. `select monitoring_enabled, … from public.claude_settings`
+(`db-query.mjs` takes a FILE). Same for `claude_bookings`, which is not empty,
+and `monitoring_note`, which holds an old pause reason on purpose — leave it.
 
 ---
 
@@ -81,16 +72,13 @@ TRUE. That is what the grep is for.
 
 `npm run dev` now uses **samo-dev, not production**, and says so on every start.
 `.env.local.example` is the contract; adding a variable is ONE edit there.
-✅ **samo-dev IN STEP — re-verified 2026-09-13.** ⚠️ It had DRIFTED four
-migrations while this line said otherwise. **Ask `npm run migrate:status --
---dev`, never this sentence.** A merged
-migration nobody applies is now visible in two places: the pull request itself,
-and `npm run deploy:owed`, which asks PRODUCTION before it gives its verdict.
-Why: `docs/state/phuriphatma.md`. What is left: `HANDOFF` §8.
+⚠️ **samo-dev: ASK `npm run migrate:status -- --dev`, NEVER this file.** It had
+drifted four migrations while a line here said it was in step. `deploy:owed`
+asks PRODUCTION before it answers. Archive: `docs/state-archive/2026-09-19-state-prune.md`.
 
 ### What is owed
 
-✅ **ระบบบ้าน — THE ROSTER IS IMPORTED (2026-09-14).** 1,611 students · 165 held (152 self-claimable) · 0 missing · 306 สาย · ten houses 153–169 · 2 conflicts open. ONE transaction via `tools/house-import.mjs` (dry-run first); loop in `skills/import-the-house-roster.md`. ⚠️ **`advisors` is now EMPTY** — the two rows in it were TEST data pointing at สาย 100/200, which are REAL สาย in the file, so 12 students briefly saw a fake อาจารย์. Deleted (snapshot in `docs/mistakes/postgres-schema.md`); real อาจารย์ still to be entered, and no release note may promise them until they are.
+✅ **ระบบบ้าน ROSTER IMPORTED (2026-09-14)** via `tools/house-import.mjs` (dry-run first; loop in `skills/import-the-house-roster.md`). ⚠️ **`advisors` is EMPTY** — its two rows were TEST data pointing at REAL สาย, so 12 students briefly saw a fake อาจารย์; no release note may promise อาจารย์ until real ones exist. Counts move: ask the database, not this line.
 ✅ **ทีม SAMO ↔ ระบบบ้าน IN SYNC** (2026-09-14) — 0 diffs on every column, 0 duplicate people, 0 mis-pointed placements; 9 humans held TWO registry rows (merged), `people` 1705 → 1696. Re-check/repair after any import: `node tools/house-sync-registry.mjs`. ⛔ **25 ทีม SAMO members have NO kkumail anywhere** — all hold real ตำแหน่ง, none matchable to a student; only a human can fill those.
 ✅ **ข้อมูลไม่ครบ tab** (/admin/ ระบบบ้าน) — everything missing/mismatched/odd, grouped by who can fix it; badge counts ONLY admin work. One definition, shared with `npm run house:gaps`: `src/js/house/gaps.js`. **+ ผังตามสาย view, built 2026-09-16** (list/grid toggle in the same tab) — per-รุ่น สาย grid, spec `docs/HOUSE-YEAR-HANDOVER.md` §(d), `src/js/house/sai-grid.js` reuses `gaps.js`/`census.js`. Tests+build green; ⚠️ unseen in a real browser (no DB creds tonight).
 ⛔ **สาย 141/256 NOT SETTLED** — สาย is a contiguous 1..N counter in four of six
@@ -105,14 +93,12 @@ generated from it. ⚠️ Houses 1–9 have no `name` — the UI shows `บ้�
 
 ✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02) ·
 the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
-last box `HANDOFF` §3). ⛔ **No polling timer for the docs** — built and REMOVED the same day.
+`HANDOFF` §3). ⛔ **No polling timer for the docs** — built and REMOVED same day.
 
-1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
-   เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
-   HTML**, a new row is a DRAFT, and covers UPLOAD from your machine (the file
-   they replace is retired).
-   ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → `tool/*` PR →
-   `/tools/<slug>`. Both LIVE; do not rebuild.
+1. ✅ **A ฝ่าย EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
+   เมนู "หน้าฝ่าย" in /admin/; four kinds (หัวข้อ · การ์ด · ข้อความ · HTML), a new
+   row is a DRAFT, upload included. ✅ **AND the ฝ่าย tools lane** —
+   `public/embed/starter/` → `tool/*` PR → `/tools/<slug>`. Both LIVE.
    ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** (`allow-same-origin`), and
    the three changes that delete it are now a rule in `docs/INVARIANTS.md` —
    with the owner-facing fake-sign-in risk. Read it before touching the frame.
@@ -181,19 +167,35 @@ those four items and drifted from them; do not re-add a copy here.
 
 ## ระบบบ้าน — EVERY held row now has a รุ่น (2026-09-19)
 
-✅ **The 13 held rows with no รุ่น are fixed.** They have no รหัสนักศึกษา (`#N/A`
-in the file), so `cohortFromStudentId()` — how all 1,763 others get theirs,
-65→MD50, 66→MD51 — had nothing to read. 0188 had already given
-`student_import_unresolved` a `cohort_year` for this; the importer never filled it. `tools/house-unplaced-cohort.mjs` reads the รุ่น back out of the
-handover file's block headings (column 9, once per block) and writes it, refusing
-any row whose สาย in the file disagrees with the database. 11 → MD52, 2 → MD54,
-all 13. **There is no `_unplaced` population any more.**
+✅ **The 13 held rows with no รุ่น are fixed.** They carry no รหัสนักศึกษา (`#N/A`
+in the file), so `cohortFromStudentId()` — how everyone else gets theirs,
+65→MD50, 66→MD51 — had nothing to read; 0188 had already given
+`student_import_unresolved` a `cohort_year` for exactly this and the importer
+never filled it. `tools/house-unplaced-cohort.mjs` reads it back out of the
+handover file's block headings, refusing any row whose สาย in the file disagrees
+with the database. **There is no `_unplaced` population any more.**
 
-⚠️ **This CHANGED a number reported before it.** `_สายมีปัญหา` went **18 → 5**:
-13 of the 15 "nobody is on this สาย" were these people, uncounted because the
-audit groups by รุ่น and they had none — any older note saying 18 is stale. What
-remains is real: สาย 256 held twice in MD53 and twice in MD54, สาย 141 empty in
-both, and **nothing unplaced can explain 141 any more**. ✅ **MD50 answered and is DONE (2026-09-19)** — 26 promoted via `tools/house-kkumail-import.mjs`, held 155 → 129, no incomplete MD50 record left; five รุ่น still owed (`HANDOFF.md` §16).
+⚠️ **That CHANGED a number already reported.** `_สายมีปัญหา` dropped to **5**:
+most "nobody is on this สาย" rows were these people, uncounted because the audit
+groups by รุ่น and they had none. Any older note saying 18 is stale. What remains
+is real — สาย 256 held twice in MD53 and twice in MD54, สาย 141 empty in both,
+and **nothing unplaced can explain 141 any more**.
+✅ **MD50 ANSWERED AND IS DONE (2026-09-19)** — promoted via
+`tools/house-kkumail-import.mjs`; five รุ่น still owed, `HANDOFF.md` §16.
+
+## ✅ THE HANDOFF IS A COMMAND NOW (2026-09-19)
+
+`npm run handoff:check` — step 6 of CLAUDE.md's loop and the only one that can
+FAIL. Uncommitted work · unpushed HEAD · an unindexed memory · a memory naming a
+dead file or command · a HANDOFF section with no `Status:` · this file over
+budget · prod behind the sha this file claims · the VM's agent memory out of
+sync · **a count in a document the database contradicts**. A check it could not
+RUN is a skip, and a skip is NOT green. It cannot tell whether a sentence is
+true. Detail: `HANDOFF.md` §9.
+
+⚠️ **`npm test` is NOT the test CI runs** — the suite reads gitignored files, and
+that asymmetry went red in both directions. `npm run test:clean` runs it over
+exactly what git will carry. Both live in `HANDOFF.md` §9.
 
 ## ⛔ THE NIGHT AGENT IS OFF (2026-09-18)
 
@@ -204,11 +206,7 @@ work is MERGED, not stranded. **Write a new queue before re-enabling** —
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 
-Team password vault. Owners of org `samomdkku`: the owner's kkumail + the `mdstuddata.beta@gmail.com`
-ROLE account. **Operations `skills/vaultwarden.md` · architecture `docs/CONTEXT.md` · what it owes
-HANDOFF §7** (incl. restore, NEVER run). ⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a
-non-empty value overrides `SIGNUPS_ALLOWED=false` and opened registration to every KKU kkumail for
-~6 h (`docs/mistakes/authz-grants.md`).
+Ops `skills/vaultwarden.md` · architecture `docs/CONTEXT.md` · what it owes HANDOFF §7 (incl. restore, NEVER run). ⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a non-empty value overrides `SIGNUPS_ALLOWED=false` and opened registration to every KKU kkumail for ~6 h (`docs/mistakes/authz-grants.md`).
 
 ## NEXT SESSION — start here
 

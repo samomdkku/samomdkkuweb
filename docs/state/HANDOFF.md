@@ -518,6 +518,26 @@ target rather than defaulting to the live database.
 
 ## 9. Tooling that WILL bite you — learned the hard way on 2026-09-04
 
+**Status: VERIFIED 2026-09-19 — how: each entry below was reproduced, and the
+two added that day were demonstrated by restoring the bug and watching the new
+command catch what `npm test` did not.**
+
+⚠️ **`npm test` IS NOT THE TEST CI RUNS.** The suite reads files; `externaldata/`
+and `.env.local` are gitignored, so they exist here and not on a runner. That
+asymmetry has gone red in BOTH directions (2026-09-18, two pushes; and 19 pushes
+earlier over `.env.local`). **`npm run test:clean`** stages exactly what git will
+carry into a temp repo and runs the suite there — run it before a push you care
+about. Assertions must ask GIT what the repo contains, never `existsSync`.
+
+✅ **`npm run handoff:check`** is step 6 of the end-of-turn loop and the only
+step that can fail: uncommitted work, unpushed HEAD, an unindexed memory file, a
+memory naming a file or command that no longer exists, a HANDOFF section with no
+`Status:`, STATE.md over budget, production behind the sha STATE.md claims, the
+night agent's VM memory out of sync, and **a count in a document that the
+database contradicts**. A check it could not RUN is a skip, and a skip is not
+green.
+
+
 **Status: VERIFIED 2026-09-04** — how: every item cost real time in-session and is reproduced from that run.
 
 None of this is in the tools' own help text. Each cost real time.
@@ -1543,8 +1563,18 @@ with FORCE RAN · edited queue RAN.
 its own. `bash server/night-agent/install.sh` is what puts the new one there —
 until that runs, the VM still has the version that repeats.
 
-**Still write a new queue before re-enabling**, then
-`sudo systemctl enable --now samo-night-agent.timer`.
+✅ **THE CONTINUATION WORKFLOW IS BUILT (2026-09-19).** The queue is STATE now:
+`Budget: N nights` that the human writes and the runner decrements, and per task
+a `Done when: <shell command>` that the RUNNER executes — its exit code is the
+status. The agent never writes its own verdict. The check also runs BEFORE the
+task, and a check already passing means the task is skipped, not credited. `Done
+when: once` is the honest escape for a plan task: one attempt, then
+needs-review, never retried. Format and reasoning: `skills/night-agent.md`;
+state machine + 15 tests: `src/js/night-queue.test.js`.
+
+**Still write a new queue before re-enabling.** Then
+`bash server/night-agent/install.sh` (syncs memory + ships queue.mjs) and only
+then `bash server/night-agent/install.sh --arm` — installing no longer arms.
 
 ---
 
