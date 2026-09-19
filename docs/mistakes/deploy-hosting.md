@@ -1175,3 +1175,45 @@ present component emits — and needs a control that would notice if the
 background changed. And when a doc records a constraint ("these have drifted",
 "the CLI needs a bare root"), **it is a measurement with an expiry date**: date
 it, or re-measure it before letting it stop you.
+
+---
+
+## `install.sh` exited 3 on a successful install — the sudo filter owned the exit code
+
+**Symptom:** `bash server/night-agent/install.sh` did everything it was supposed
+to — synced 56 memory files, staged both systemd units, reloaded the daemon —
+and returned a non-zero exit code. Anything of the form `install.sh && next-step`
+would silently never run `next-step`.
+
+**Cause:** the last command of the script is
+
+```bash
+ssh … "… | sudo -S bash -c '… systemctl daemon-reload' 2>&1" | grep -v '^\[sudo'
+```
+
+**`grep -v` exits 1 when it filters everything out**, and filtering everything
+out is the SUCCESSFUL case: a clean `daemon-reload` prints nothing but the
+`[sudo]` prompt line, which is exactly what the filter removes. So the better
+the install went, the more certainly it reported failure. With `set -e` and the
+pipeline's status being its last command's, that status became the script's.
+
+**This is the same shape as the deploy whose verdict was `tail`'s** — four
+skipped-docs deploys where `DEPLOY_EXIT=0` came from the tail of a pipe rather
+than from the work. A pipeline's status belongs to its LAST command, and when
+that command is a cosmetic filter, the status is about the filter.
+
+**Fix:** every `| grep -v '^\[sudo'` in the file is now `| { grep -v '^\[sudo'
+|| true; }`, with the reason written at the top of the script. Verified by
+running a successful install and reading `$?` — 0.
+
+**How it was found:** not by the exit code, which nobody was reading, but by
+running the installer under `bash -x` while investigating something else.
+
+**Rules:**
+1. **A COSMETIC FILTER AT THE END OF A PIPELINE DECIDES THE EXIT CODE.** `grep`,
+   `head`, `tail` and `awk` all have opinions about "no output". If the last
+   stage exists to make output prettier, terminate it with `|| true` — or the
+   script's verdict is about formatting, not about work.
+2. **A script that reports failure on success is worse than one that reports
+   success on failure in one specific way**: nobody chases it, because the thing
+   visibly worked. It rots until something automates it.

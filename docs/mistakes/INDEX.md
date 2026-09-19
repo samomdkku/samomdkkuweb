@@ -296,7 +296,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The Discord app id was redacted from `docs/` and left in `.claude/rules/`
 - Every Discord role write would have thrown before it was sent
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(25)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(26)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -325,6 +325,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `.mjs` served as `application/octet-stream`
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 - A missing nginx `location` does not 404
+- `install.sh` exited 3 on a successful install
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(65)*
 
@@ -441,4 +442,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_379 entries across 10 files._
+_380 entries across 10 files._

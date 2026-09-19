@@ -3,6 +3,13 @@
 # Run from the repo root WITH VPN UP:  bash server/night-agent/install.sh
 # Add --run to also start a run immediately instead of waiting for the timer.
 set -euo pipefail
+# ⛔ A SUDO FILTER MUST NOT DECIDE THIS SCRIPT'S EXIT CODE. `| grep -v '^[sudo'`
+# exits 1 when it filtered EVERYTHING — which is the successful case, because a
+# clean `systemctl daemon-reload` says nothing — so a working install reported
+# failure and `install.sh && something` never ran the something. Same shape as
+# the deploy whose verdict was `tail`'s (`docs/mistakes/deploy-hosting.md`):
+# a pipeline's status belongs to its LAST command, not to the work.
+# Every such filter below is wrapped in `{ … || true; }`.
 cd "$(dirname "$0")/../.."
 PW="$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//;s/"$//')"
 D=server/night-agent
@@ -49,7 +56,7 @@ ssh -o BatchMode=yes samo-vm 'cat > /tmp/na.timer'   < "$D/samo-night-agent.time
 ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S bash -c '
   install -m 0644 /tmp/na.service /etc/systemd/system/samo-night-agent.service
   install -m 0644 /tmp/na.timer   /etc/systemd/system/samo-night-agent.timer
-  systemctl daemon-reload' 2>&1" | grep -v '^\[sudo'
+  systemctl daemon-reload' 2>&1" | { grep -v '^\[sudo' || true; }
 
 # ⛔ INSTALLING IS NOT ARMING, since 2026-09-19. This used to
 # `systemctl enable --now` every time, so syncing the memory or shipping a fix
@@ -57,7 +64,7 @@ ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S bash -c '
 # reason it is disabled is that a queue must be WRITTEN before a night is worth
 # spending. `--arm` is the word for that, and it has to be typed.
 if [ "${1:-}" = "--arm" ] || [ "${2:-}" = "--arm" ]; then
-  ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S systemctl enable --now samo-night-agent.timer 2>&1" | grep -v '^\[sudo'
+  ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S systemctl enable --now samo-night-agent.timer 2>&1" | { grep -v '^\[sudo' || true; }
   echo "armed. NEXT: $(ssh -o BatchMode=yes samo-vm 'systemctl list-timers --all --no-pager | grep samo-night-agent | awk "{print \$1, \$2, \$3}"')"
 else
   echo "installed (NOT armed). Write a queue, then: bash server/night-agent/install.sh --arm"
@@ -66,6 +73,6 @@ fi
 
 if [ "${1:-}" = "--run" ]; then
   ssh -o BatchMode=yes samo-vm 'cd ~/samo-agent && git fetch -q origin main && git checkout -q -B main origin/main'
-  ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S systemctl start --no-block samo-night-agent.service 2>&1" | grep -v '^\[sudo'
+  ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S systemctl start --no-block samo-night-agent.service 2>&1" | { grep -v '^\[sudo' || true; }
   echo "started now — watch: ssh samo-vm 'tail -f \$(ls -t ~/samo-night/logs/*.log | head -1)'"
 fi
