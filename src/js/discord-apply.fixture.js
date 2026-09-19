@@ -104,6 +104,12 @@ export function serve(w) {
     if (p === `/api/v10/guilds/${w.guildId}/members`) {
       return json(url.searchParams.get('after') === '0' ? w.members : []);
     }
+    // discord-sync.mjs's change-log webhook: record every message it posts.
+    if (req.method === 'POST' && p === '/webhook') {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => { (w.posted ||= []).push(JSON.parse(b)); res.writeHead(204); res.end(); });
+      return undefined;
+    }
     // discord-sync.mjs renames a role to follow the website.
     if (req.method === 'PATCH' && /^\/api\/v10\/guilds\/[^/]+\/roles\/[^/]+$/.test(p)) {
       let b = ''; req.on('data', (c) => { b += c; });

@@ -75,6 +75,7 @@ const PROOFS = [
   ['team0195-link-source.sql', 'a Discord link says where it came from, and the web button upgrades an import to oauth'],
   ['team0196-position-not-inherited.sql', 'a ตำแหน่ง above you is not yours: only ฝ่าย pass their Discord role down'],
   ['team0197-sync-queue.sql', 'every web change that decides a Discord key leaves work for the sync service, and nothing else does'],
+  ['team0198-who-changed-it.sql', 'each queued Discord change names the editor and what they changed; a script run says so'],
   ['pass-hardening.mjs', 'passport RLS: five real principals, 0011 applied in a rolled-back txn'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],

@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
-import { diffMembers, gate, expectedRoleName, planProvision, serverPowers } from '../../server/discord-sync-core.mjs';
+import { diffMembers, gate, expectedRoleName, planProvision, serverPowers, formatReport } from '../../server/discord-sync-core.mjs';
 import { serve, ROOT } from './discord-apply.fixture.js';
 import { stripComments } from './strip-comments.js';
 
@@ -146,7 +146,7 @@ const once = (extra = {}) => new Promise((ok) => {
   const base = `http://127.0.0.1:${stub.port}`;
   execFile('node', [join(ROOT, 'server', 'discord-sync.mjs'), '--once'], { cwd: ROOT, env: { ...process.env,
     DISCORD_API_BASE: `${base}/api/v10`, DISCORD_TOKEN: 'stub', SUPABASE_URL: base, SUPABASE_SERVICE_ROLE_KEY: 'stub',
-    DISCORD_SYNC_WRITE_GAP_MS: '0', DISCORD_SYNC_ALERT_WEBHOOK: '', ...extra } },
+    DISCORD_SYNC_WRITE_GAP_MS: '0', DISCORD_SYNC_LOG_WEBHOOK: `${base}/webhook`, ...extra } },
   (err, stdout, stderr) => ok({ code: err ? err.code ?? 1 : 0, out: stdout + stderr,
     writes: stub.requests.filter((r) => /^(PUT|DELETE|POST|PATCH) \/api\//.test(r)) }));
 });
@@ -162,7 +162,13 @@ describe('one full pass, for real, against a stub guild', () => {
       'PUT /api/v10/guilds/G/members/U1/roles/RA',
     ]);
     expect(w.created[0]).toMatchObject({ name: 'ฝ่ายใหม่', permissions: '0', mentionable: false });
-    expect(r.out).toMatch(/HELD for a human[\s\S]*Power — power key/);
+    expect(r.out).toMatch(/HELD U2: Power — power key/);
+    // …and the channel got ONE silent report that pings nobody.
+    expect(w.posted).toHaveLength(1);
+    expect(w.posted[0].flags).toBe(4096);
+    expect(w.posted[0].allowed_mentions).toEqual({ parse: [] });
+    expect(w.posted[0].content).toMatch(/<@U1> ได้ <@&RA> · ถูกเอาออก <@&RB>/);
+    expect(w.posted[0].content).toMatch(/รอคนตรวจ[\s\S]*<@U2> <@&RP> — power key/);
   });
   it('with the power key approved, U2 gets it', async () => {
     const r = await once({ DISCORD_SYNC_ALLOW_POWER: 'Power' });
@@ -173,5 +179,27 @@ describe('one full pass, for real, against a stub guild', () => {
     const r = await once();
     expect(r.writes).toEqual([]);
     expect(r.out).toMatch(/NO rows/);
+  });
+});
+
+describe('formatReport — what the role-bot channel reads', () => {
+  const q = [{ actor_name: 'มุกโกะ (ภูสุดา) — x@kkumail.com', detail: 'ย้าย อั้ม จาก ฝ่าย A ไป ฝ่าย B' }];
+  it('says who edited, what, and whose keys moved', () => {
+    const [m] = formatReport({ queue: q, adds: [{ member: 'u1', role: 'B' }], removes: [{ member: 'u1', role: 'A' }] });
+    expect(m).toMatch(/แก้โดย:\*\* มุกโกะ/);
+    expect(m).toMatch(/• ย้าย อั้ม จาก ฝ่าย A ไป ฝ่าย B/);
+    expect(m).toMatch(/• <@u1> ได้ <@&B> · ถูกเอาออก <@&A>/);
+  });
+  it('a change with no Discord effect posts NOTHING (e.g. the person never linked)', () => {
+    expect(formatReport({ queue: q })).toEqual([]);
+  });
+  it('a full pass with no editor says it was the automatic check', () => {
+    expect(formatReport({ full: true, adds: [{ member: 'u', role: 'A' }] })[0]).toMatch(/ตรวจรอบอัตโนมัติ/);
+  });
+  it('every message stays under Discord\'s 2000-character limit', () => {
+    const adds = Array.from({ length: 200 }, (_, i) => ({ member: `1${String(i).padStart(17, '0')}`, role: '1'.repeat(19) }));
+    const out = formatReport({ queue: q, adds });
+    expect(out.length).toBeGreaterThan(1);
+    for (const m of out) expect(m.length).toBeLessThanOrEqual(2000);
   });
 });

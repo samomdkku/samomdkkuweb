@@ -23,7 +23,7 @@
 //   node server/discord-sync.mjs          # the service loop
 //   node server/discord-sync.mjs --once   # one full pass, then exit (tests, ops)
 // ============================================================
-import { diffMembers, gate, expectedRoleName, planProvision } from './discord-sync-core.mjs';
+import { diffMembers, gate, expectedRoleName, planProvision, formatReport } from './discord-sync-core.mjs';
 
 const env = process.env;
 const API = (() => {
@@ -69,18 +69,36 @@ async function pg(path, init = {}) {
   return body ? JSON.parse(body) : null;
 }
 
-// ── Alerts: one message per distinct problem, then quiet for 6 h ──────────
+// ── The change log channel (DISCORD_SYNC_LOG_WEBHOOK, /etc/samo-notify.env) ─
+// SILENT (flag 4096) and pings NOBODY (allowed_mentions none) — <@id> still
+// renders a name. The webhook is a secret: env only, never the repo.
+async function post(content) {
+  const url = env.DISCORD_SYNC_LOG_WEBHOOK;
+  if (!url) return;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, flags: 4096, allowed_mentions: { parse: [] } }) });
+      if (r.status === 429) { const b = await r.json().catch(() => ({})); await sleep(Math.ceil((b.retry_after ?? 1) * 1000) + 100); continue; }
+      if (!r.ok) log(`log webhook ${r.status}`);
+      await sleep(1000);
+      return;
+    } catch (e) { log(`log webhook failed: ${e.message}`); return; }
+  }
+}
+
+// One report per distinct problem, then quiet for 6 h — a full pass every 15
+// min would otherwise repeat a standing problem 24 times a day.
 const lastAlert = new Map();
-async function alert(key, text) {
+const fresh = (key) => {
   const now = Date.now();
-  if (lastAlert.has(key) && now - lastAlert.get(key) < 6 * 3600 * 1000) return;
-  lastAlert.set(key, now);
+  if (lastAlert.has(key) && now - lastAlert.get(key) < 6 * 3600 * 1000) return false;
+  lastAlert.set(key, now); return true;
+};
+async function alert(key, text) {
+  if (!fresh(key)) return;
   log(`ALERT ${text}`);
-  if (!env.DISCORD_SYNC_ALERT_WEBHOOK) return;
-  try {
-    await fetch(env.DISCORD_SYNC_ALERT_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: `**Discord sync** — ${text}`.slice(0, 1900), allowed_mentions: { parse: [] } }) });
-  } catch (e) { log(`alert webhook failed: ${e.message}`); }
+  await post(`**⚠️ Discord sync** — ${text}`.slice(0, 1900));
 }
 
 let guildId = env.DISCORD_GUILD_ID || null;
@@ -108,6 +126,7 @@ async function pass(queue, forceFull = false) {
   const botTop = Math.max(...bot.roles.map((r) => roles.find((x) => x.id === r)?.position ?? 0));
 
   // 1. renames — the web name is the truth
+  const renamed = [];
   for (const q of queue.filter((x) => x.kind === 'rename')) {
     const n = nodes.find((x) => x.id === q.node_id);
     const role = n && roles.find((r) => r.id === n.discord_role_id);
@@ -116,6 +135,7 @@ async function pass(queue, forceFull = false) {
     if (role.name === want) continue;
     if (role.position >= botTop) { await alert(`rename:${role.id}`, `cannot rename "${role.name}" → "${want}": it sits above the bot`); continue; }
     await write(`/guilds/${guildId}/roles/${role.id}`, { method: 'PATCH', body: JSON.stringify({ name: want }) });
+    renamed.push({ role: role.id, from: role.name });
     role.name = want;
     log(`renamed role "${want}"`);
   }
@@ -133,7 +153,7 @@ async function pass(queue, forceFull = false) {
       await pg(`team_nodes?id=eq.${c.node.id}`, { method: 'PATCH', body: JSON.stringify({ discord_role_id: role.id }) });
       roles.push(role); c.node.discord_role_id = role.id; log(`created role "${c.name}"`);
     }
-    for (const h of p.held) await alert(`prov:${h.node.id}:${h.why}`, `ตำแหน่ง "${h.node.name}" has no Discord role: ${h.why}`);
+    for (const h of p.held) await alert(`prov:${h.node.id}:${h.why}`, `ตำแหน่ง "${h.node.name}" ยังไม่มี role ใน Discord: ${h.why}`);
   }
 
   // 3. members — everyone on a full pass, else only the people the queue named
@@ -142,7 +162,7 @@ async function pass(queue, forceFull = false) {
     const persons = new Set(queue.map((q) => q.person_id).filter(Boolean));
     only = new Set(targets.filter((t) => persons.has(t.person_id)).map((t) => t.discord_user_id));
     for (const o of orphanRows) if (persons.has(o.person_id)) only.add(o.discord_user_id);
-    if (!only.size) return true;   // nobody linked among them: nothing on Discord to change
+    if (!only.size && !renamed.length) return true;   // nobody linked among them: nothing on Discord to change
   }
   // Re-derive the managed set AFTER provisioning, from the nodes this pass saw.
   const managed = new Set(nodes.filter((n) => n.discord_role && n.discord_role_id).map((n) => n.discord_role_id));
@@ -153,11 +173,9 @@ async function pass(queue, forceFull = false) {
   const name = (id) => roles.find((r) => r.id === id)?.name || id;
   for (const a of g.adds) { await write(`/guilds/${guildId}/members/${a.member}/roles/${a.role}`, { method: 'PUT' }); log(`+ ${a.who}  ${name(a.role)}`); }
   for (const r of g.removes) { await write(`/guilds/${guildId}/members/${r.member}/roles/${r.role}`, { method: 'DELETE' }); log(`− ${r.who}  ${name(r.role)}`); }
-  if (g.held.length) {
-    const lines = g.held.slice(0, 15).map((h) => `${h.who}: ${name(h.role)} — ${h.why}`);
-    await alert(`held:${g.held.map((h) => h.member + h.role).sort().join()}`,
-      `${g.held.length} change(s) HELD for a human:\n${lines.join('\n')}${g.held.length > 15 ? '\n…' : ''}`);
-  }
+  const newHeld = g.held.filter((h) => fresh(`held:${h.member}:${h.role}:${h.why}`));
+  for (const h of g.held) log(`HELD ${h.who}: ${name(h.role)} — ${h.why}`);
+  for (const m of formatReport({ queue, adds: g.adds, removes: g.removes, held: newHeld, renamed, full: !queue.length })) await post(m);
   if (full || g.adds.length || g.removes.length) log(`${full ? 'full' : 'event'} pass: +${g.adds.length} −${g.removes.length} held ${g.held.length}`);
   return true;
 }
@@ -175,7 +193,7 @@ async function main() {
   let lastFull = 0; let backoff = 0;
   for (;;) {
     try {
-      const queue = await pg('discord_sync_queue?select=id,kind,person_id,node_id&order=id&limit=1000');
+      const queue = await pg('discord_sync_queue?select=id,kind,person_id,node_id,actor_name,detail&order=id&limit=1000');
       const due = Date.now() - lastFull >= FULL_MS;
       if (queue.length || due) {
         const ok = await pass(queue, due);

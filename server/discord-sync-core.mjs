@@ -129,3 +129,44 @@ export function planProvision(nodes, roles, { cap = 245 } = {}) {
   }
   return { adopt, create, held };
 }
+
+/**
+ * The change log posted to the role-bot channel (owner, 2026-09-19): WHO edited
+ * ทีม SAMO, WHAT they changed, and WHOSE Discord keys moved. Mentions use
+ * Discord's <@id> / <@&id> so names render — the sender turns every ping OFF
+ * (allowed_mentions: none) and sends silently (flag 4096).
+ * Returns message bodies, each under Discord's 2000-character limit.
+ */
+export function formatReport({ queue = [], adds = [], removes = [], held = [], renamed = [], full = false }) {
+  if (!adds.length && !removes.length && !held.length && !renamed.length) return [];
+  const lines = [];
+  const actors = [...new Set(queue.map((q) => q.actor_name).filter(Boolean))];
+  const details = [...new Set(queue.map((q) => q.detail).filter(Boolean))];
+  if (actors.length) lines.push(`**แก้โดย:** ${actors.join(', ')}`);
+  else if (full) lines.push('**ตรวจรอบอัตโนมัติ** — ปรับ Discord ให้ตรงกับหน้าเว็บทีม SAMO (อาจมีคนแก้ role ใน Discord เอง)');
+  if (details.length) { lines.push('**สิ่งที่แก้ในเว็บ:**'); for (const d of details.slice(0, 20)) lines.push(`• ${d}`); if (details.length > 20) lines.push(`• …และอีก ${details.length - 20} รายการ`); }
+  if (renamed.length) { lines.push('**เปลี่ยนชื่อ role:**'); for (const r of renamed) lines.push(`• <@&${r.role}> ← เดิม "${r.from}"`); }
+  const by = new Map();
+  for (const a of adds) (by.get(a.member) || by.set(a.member, { add: [], rm: [] }).get(a.member)).add.push(a.role);
+  for (const r of removes) (by.get(r.member) || by.set(r.member, { add: [], rm: [] }).get(r.member)).rm.push(r.role);
+  if (by.size) {
+    lines.push('**ผลใน Discord:**');
+    for (const [m, x] of by) {
+      const parts = [];
+      if (x.add.length) parts.push(`ได้ ${x.add.map((r) => `<@&${r}>`).join(' ')}`);
+      if (x.rm.length) parts.push(`ถูกเอาออก ${x.rm.map((r) => `<@&${r}>`).join(' ')}`);
+      lines.push(`• <@${m}> ${parts.join(' · ')}`);
+    }
+  }
+  if (held.length) {
+    lines.push('**⏸ รอคนตรวจ (ยังไม่ได้ทำ):**');
+    for (const h of held.slice(0, 15)) lines.push(`• ${h.member ? `<@${h.member}> ` : ''}${h.role ? `<@&${h.role}> ` : ''}— ${h.why}`);
+    if (held.length > 15) lines.push(`• …และอีก ${held.length - 15} รายการ`);
+  }
+  const out = []; let cur = '';
+  for (const l of lines) {
+    if ((cur + '\n' + l).length > 1900) { out.push(cur); cur = l; } else cur = cur ? `${cur}\n${l}` : l;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
