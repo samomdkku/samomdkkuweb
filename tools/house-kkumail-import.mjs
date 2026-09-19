@@ -108,10 +108,23 @@ if (COL.mail < 0) {
 }
 
 const returned = new Map();
+const conflicts = new Map();
 for (const r of rows.slice(1)) {
   const sid = digits(r[COL.sid]);
   const mail = (r[COL.mail] || '').trim().toLowerCase();
   if (!sid || !mail) continue;
+  const seen = returned.get(sid);
+  // ⛔ ONE รหัส, TWO ADDRESSES IS NOT A ROW TO PICK BETWEEN. A Map would keep
+  // whichever came last and say nothing — and the wrong one here does not read
+  // as a typo later: the row is promoted with it, that address BECOMES the
+  // person, and its real owner signs in to someone else's สาย and บ้าน. The
+  // sheet is filled by hand in a spreadsheet, so a duplicated line is an
+  // ordinary accident, not an exotic one.
+  if (seen && seen.mail !== mail) {
+    if (!conflicts.has(sid)) conflicts.set(sid, new Set([seen.mail]));
+    conflicts.get(sid).add(mail);
+    continue;
+  }
   returned.set(sid, {
     mail,
     name: (r[COL.name] || '').trim(),
@@ -119,6 +132,14 @@ for (const r of rows.slice(1)) {
   });
 }
 console.log(`\n  ${basename(FILE)}: ${returned.size} แถวที่มีทั้งรหัสและอีเมล`);
+if (conflicts.size) {
+  console.log(`\n  ⛔ ${conflicts.size} รหัสมีอีเมลมากกว่าหนึ่งค่าในไฟล์นี้ — ข้ามทั้งหมด:`);
+  for (const [sid, mails] of conflicts) {
+    returned.delete(sid);
+    console.log(`     ${sid}: ${[...mails].join(' / ')}`);
+  }
+  console.log('     แก้ในไฟล์ให้เหลือค่าเดียวต่อคน แล้วรันใหม่\n');
+}
 
 // ---- the rows we are waiting on ------------------------------------------
 const target = announceTarget(loadEnv());
