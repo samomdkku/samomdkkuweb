@@ -117,13 +117,14 @@ the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
    disproven by successes; this entry once claimed the opposite. Read the VM's
    `~/samo-deploy-logs` trace before theorising. Status: CURRENT DEPLOY, above.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
-4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; EVERY ฝ่าย HAS A ROLE (56 created
-   2026-09-19); 168 LINKED (167 by nickname import, 0195); 90 more ตำแหน่ง
-   adopted; every linked person's keys MATCH the web, and since 2026-09-19 night
-   the `samo-discord-sync` service KEEPS them matching (~5–10 s after a web
-   change; full pass every 15 min).**
-   Owner decisions, the 30 withheld removals and the next steps: **`HANDOFF` §14b, its top block.** Counts: `npm run
-   discord:readiness`. ⛔ ONE HOME for the design: `docs/DISCORD-ROLE-SYNC.md`.
+4. ✅ **DISCORD ROLE SYNC — LIVE AND AUTOMATIC (2026-09-19).** Discord follows
+   ทีม SAMO by itself: the `samo-discord-sync` service (VM) applies a web change
+   in ~5–10 s, re-checks everything every 15 min (reverting hand edits in
+   Discord), and posts who changed what to `🤖┆samo-role-assignment-bot`.
+   ⛔ **Change the WEB, not Discord.** How it works, the owner's rules, what is
+   owed and the traps: **`HANDOFF` §14b** (the day's history is archived in
+   `docs/state-archive/2026-09-19-discord-sync.md`). Owner still owes: kick the
+   old bot, narrow the new bot's Administrator (HANDOFF §1).
 
 ### B. OWNER ONLY
 

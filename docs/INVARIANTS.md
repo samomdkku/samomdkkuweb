@@ -771,3 +771,29 @@ nothing about the two you were not (`docs/mistakes/deploy-hosting.md`).
 their old bundle at `<hash>.<project>.pages.dev`. Deleting them is the only
 complete fix. ⛔ **But NEVER delete `samomdkkupassport`** — 82% of printed QR
 posters point at it (`docs/PASSPORT-MONOREPO.md` §3).
+
+## Discord follows ทีม SAMO — change the WEB, never Discord
+
+**Owner rule, 2026-09-19: "everything should be according to the website,
+except a bug like the PR one."** The `samo-discord-sync` service enforces it
+continuously (HANDOFF §14b; design `docs/DISCORD-ROLE-SYNC.md`):
+
+- **A Discord role edited by hand is reverted within 15 minutes.** Fix a wrong
+  role by fixing the ตำแหน่ง in ทีม SAMO. To stop the sync:
+  `sudo systemctl disable --now samo-discord-sync` — a deploy will not re-arm it.
+- **One rule decides who holds what: `discord_role_targets()`** — your own
+  ตำแหน่ง's key plus every ticked ฝ่าย (DIVISION) above you. Never a ตำแหน่ง above
+  you (0196). A second copy of this rule anywhere is the drift this repo pays for.
+- **Nobody loses a room they already had when Discord is brought in line** — a
+  key the web does not give is replaced by a PERSONAL channel pass for exactly
+  what it opened (`tools/discord-keep-access.mjs`), never by widening a web
+  role: a role follows the ตำแหน่ง and would leak to its next holder.
+- **A key grants on two axes — per channel AND server-wide.** Audit both after
+  any bulk change. A key with server-wide power is handed out only by name
+  (`DISCORD_SYNC_ALLOW_POWER`).
+- **The bot never deletes a Discord role object** — its channel settings die
+  with it. Old-role cleanup is the owner's, by hand.
+- **Before linking an existing Discord role to a ตำแหน่ง, list its holders** —
+  the service strips everyone the web does not place there within seconds.
+- The change log goes to `🤖┆samo-role-assignment-bot`; its webhook lives ONLY
+  in `/etc/samo-notify.env` on the VM. `docs/` is published — never put it here.

@@ -1,31 +1,36 @@
 # Working on the Discord role sync
 
-**Read `docs/state/HANDOFF.md` §14b first** — it is what is TRUE NOW and what is
-OWED. `docs/DISCORD-ROLE-SYNC.md` is the design. This file is only the
-mechanics, because they are non-obvious in three ways that cost time to
-rediscover.
+**Read `docs/state/HANDOFF.md` §14b first** — how the system works now, the
+owner's rules, what is owed. `docs/DISCORD-ROLE-SYNC.md` is the design (its
+opening table lists which of its decisions were overturned). This file is only
+the mechanics, because they are non-obvious in ways that cost time.
 
-## ⛔ REMOVALS ONLY THROUGH `discord-keep-access.mjs` — it keeps access, `discord-apply` does not
+## ▶ It runs by itself — change the WEB, not Discord
 
-2026-09-19: the 30 extra keys were removed by `discord-keep-access.mjs`, which
-gives a personal pass first and proves access unchanged. `discord-apply.mjs`
-without `--add-only` would remove keys and TAKE ROOMS; do not use it for
-removal unless the owner has asked for rooms to be taken.
+Since 2026-09-19 the `samo-discord-sync` service (VM, systemd) keeps Discord
+matching ทีม SAMO: a web change reaches Discord in ~5–10 s, and a full pass
+every 15 min also REVERTS hand edits made in Discord. Each change is posted
+silently to `🤖┆samo-role-assignment-bot` with who edited what.
 
-## (history) ROLES WERE GIVEN ADD-ONLY FIRST
+```bash
+ssh samo-vm 'journalctl -u samo-discord-sync -f'        # what it is doing, live
+ssh samo-vm 'systemctl status samo-discord-sync'
+ssh samo-vm 'sudo systemctl disable --now samo-discord-sync'   # OFF — deploy.sh keeps it off
+# one full pass by hand (e.g. after a big import), on the VM, in the repo:
+sudo bash -c 'set -a; . /etc/samo-discord-bot.env; . /etc/samo-notify.env; set +a; node server/discord-sync.mjs --once'
+```
 
-2026-09-19, on the owner's word (`HANDOFF` §14b top): 56 roles created, 90
-adopted, and an `--add-only` run gave 183 roles to 92 people. **No role has
-ever been REMOVED from a member by this system** — removal waits on the
-leaver decision. Pass `--add-only` unless the owner has asked for removals in
-words. Earlier: Verified
-2026-09-13 from the guild itself: 183 roles, 48 mappings, newest written by the
-session before. **Every tool here plans by default and that is not an accident —
-do not pass `--apply` without the owner asking for that specific run in words.**
+- A key with SERVER-WIDE power is held until its name is in
+  `DISCORD_SYNC_ALLOW_POWER` in `server/samo-discord-sync.service` (a deploy
+  refreshes the installed unit).
+- A removal of >10 keys / >5 people in one pass is HELD and posted — if it is
+  really intended, apply it by hand with the tools below.
+- ⛔ **Before linking an EXISTING Discord role to a ตำแหน่ง, list who holds it.**
+  The service strips everyone the web does not place there within seconds; if
+  their access must persist, give passes first (`discord-keep-access.mjs`).
 
-The one thing outstanding is ONE role (`ฝ่าย รพ. ร่วมผลิต`, covers the 27 people
-who would otherwise get nothing). It has been put to the owner and **not
-answered**. `HANDOFF` §14b holds it.
+The hand tools below still work and are how the service was bootstrapped. They
+are for one-off operations now, not the normal path.
 
 ## ⛔ The two credentials live in different places, and neither may move
 
@@ -106,8 +111,10 @@ the withdrawal through all three doors (unlink · person deleted · **re-link to
 different account, which is an UPDATE**), and the plan now prints
 **WITHDRAWN, AND STILL HOLDING ฝ่าย ROLES**.
 
-⛔ **It still does not remove them** — that is the owner's undecided leaver
-policy. Do not "finish the job" by stripping them; read HANDOFF §14b item 4.
+✅ **Decided 2026-09-19 — the website is the truth:** a withdrawn account, and a
+linked person with no ตำแหน่ง, hold no mirrored key. The SERVICE applies that
+(`server/discord-sync-core.mjs` `diffMembers`). `discord-apply.mjs` still only
+REPORTS them — it predates the decision; do not use it to strip them by hand.
 
 ## Are we ready to open this to real people?
 
@@ -163,7 +170,7 @@ team0183 had it twice:**
   exactly what the owner is asked to do. Now asserts the rule its own comment
   states (the seed did not sweep the whole tree), with a control.
 - **§22-24 FOUND their two same-named nodes in production** instead of creating
-  them — and §14b item 2 asks the owner to rename the contested ฝ่าย. Forced
+  them — and the owner was asked to rename the contested ฝ่าย. Forced
   into a duplicate-free world it went red with `deny-rls` on three assertions,
   pointing the reader at a row-security problem that does not exist. It now
   builds the pair if production has none.

@@ -1,34 +1,26 @@
 # Discord role sync — ทีม SAMO as the source of truth
 
-**Status: LINKING IS LIVE. 2026-09-19, on the owner's word: 56 roles created,
-90 adopted, 167 people linked by a one-time nickname match, and an ADD-ONLY run
-gave 183 roles to 92 people. Since that night the `samo-discord-sync` service
-keeps Discord matching ทีม SAMO continuously (0197; HANDOFF §14b top).**
-Counts: `npm run discord:readiness`, never this line.
+**Status: BUILT AND RUNNING (2026-09-19).** Discord follows ทีม SAMO by itself:
+the `samo-discord-sync` service applies web changes in seconds and re-checks
+everything every 15 min. **What is true now, the owner's rules and what is owed:
+`docs/state/HANDOFF.md` §14b — read it first.** How to operate:
+`skills/discord-role-sync.md`. Counts: `npm run discord:readiness`.
 
-⛔ **What is TRUE NOW and what is OWED lives in `docs/state/HANDOFF.md` §14b, not
-here.** This file is the DESIGN; it will drift the moment it also tries to be a
-status. §7's owner steps are done except step 5 (kick the old bot).
+⛔ **This file is the DESIGN, written 2026-09-11/13, BEFORE the build.** Its
+reasoning (§3 why names fail, §5 identity / mapping / removal, §8g the role cap)
+still holds. Several of its DECISIONS were overturned on 2026-09-19, and a
+section below that still says otherwise is out of date:
 
-⛔ **Do not start building from the middle of this file.** §1 is the goal, §3 is
-why the obvious approach fails, §6 is the build order, §7 is what only the owner
-can do. A session that starts coding at §5 will build a sync that cannot
-identify anybody.
-
-⚠️ **§8b was decided (2026-09-12) as option A** — the bot in `discord-bot/`,
-Python — **but §8b-bis showed its premise was wrong** (nothing here needs a
-gateway connection) and recommends option C, Node beside the notify service.
-⛔ **Treat §8b as REOPENED, not settled**; it is `HANDOFF` §14b item 5 and
-nothing built so far depends on the answer.
-
-✅ **Phases 1, 2, 2a and 3 are BUILT AND PROVED.** 0183–0187 applied, all 39
-live proofs green. ✅ **§7 steps 1–4 are DONE and were verified from the live
-guild, not asked**: the bot is `samomdkkubot`, it holds Manage Roles, and its
-role sits at position 182 of 183 — above everything it manages, so step 4's
-silent failure is not present. ⛔ **Step 5 is NOT done**: the old bot is still a
-member of the server. An earlier version of this header said both "§7's owner
-steps are done except step 5" and "§7 still blocks every line of bot code",
-three paragraphs apart.
+| The design said | What happened |
+|---|---|
+| §5c "every ticked ANCESTOR's role" | only ticked **ฝ่าย (division)** ancestors — a ตำแหน่ง above you is not yours (0196) |
+| §5e removal policy / "what makes a leaver" undecided | owner: **the website is the truth** — linked with no ตำแหน่ง, or unlinked, holds no mirrored key; the service applies that |
+| §8g.2 "adopt what exists, create nothing" | owner: **every ฝ่าย gets a role**, the cap is theirs to manage — 56 created, 90 adopted |
+| §8b option A (Python `discord-bot/`) / §8b-bis option C | **C was built**: Node in `server/` beside the notify service (`server/discord-sync.mjs`) |
+| §5f Supabase Realtime as the trigger | a trigger-filled **queue table** (0197) polled every 5 s — survives restarts, needs no websocket |
+| §7 step 5, kick the old bot | still owed — HANDOFF §1 |
+| §8e linking by OAuth only | plus a ONE-TIME nickname import of 167 accounts (0195 `link_source`) |
+| §8e.2 bot writes nicknames from the registry | not built |
 
 📌 The same material, formatted for reading rather than for agents:
 `https://claude.ai/code/artifact/cfd900a6-3f6b-42ab-a8d4-13cf013065de`
@@ -382,7 +374,8 @@ kick that closes the old credential, is NOT.**
    default; 48 nodes adopted 2026-09-12, then **56 roles created 2026-09-19** —
    the owner reversed §8g.2's "create nothing" (every ฝ่าย gets a role; the cap
    is theirs to manage by deleting old roles).
-3. 🟡 **BUILT 2026-09-13, AND IT HAS NEVER WRITTEN ANYTHING** —
+3. ✅ **BUILT 2026-09-13, FIRST REAL WRITES 2026-09-19** (one person watched,
+   then 181 keys add-only; the paragraph below is its pre-launch record) —
    `tools/discord-apply.mjs` (`npm run discord:apply`), plan by default, with
    the cap built in rather than bolted on. It has run against the live guild
    read-only and the diff is **0 add, 0 remove**: the one linked person already
@@ -403,10 +396,13 @@ kick that closes the old credential, is NOT.**
    fails silently — Discord answers 204 and changes nothing), a bot without
    Manage Roles, and any role outside the managed mapping. An unlinked member
    never enters the plan; a **leaver** (linked, zero ตำแหน่ง) is reported and
-   never stripped, because §5e's ศิษย์เก่า SAMO rule is still the owner's
-   undecided call. Guarded by `src/js/discord-apply.test.js`, 17 assertions,
+   never stripped by THIS tool (the owner later decided the web is the truth,
+   and the service applies it). Guarded by `src/js/discord-apply.test.js`, 17 assertions,
    each watched failing first.
-4. **Live updates.** Realtime, with the periodic reconcile kept underneath.
+4. ✅ **Live updates — BUILT 2026-09-19.** Not Realtime: a trigger-filled queue
+   (0197/0198) polled every 5 s by `samo-discord-sync`, with a full pass every
+   15 min underneath and a change log posted to the role-bot channel. See
+   HANDOFF §14b.
 
 ⛔ **NO SECOND DISCORD APPLICATION.** A dev app invited without `Manage Roles`
 was proposed on 2026-09-12 and declined by the owner as not worth the upkeep.
@@ -419,7 +415,7 @@ Discord write call at all.
 
 ---
 
-## 7. ⛔ OWNER-ONLY, AND IT BLOCKS EVERYTHING — step by step
+## 7. OWNER-ONLY — the bot's setup (steps 1–4 DONE, step 5 — kick the old bot — OWED)
 
 **Status: STEPS 1–4 DONE, STEP 5 OWED — verified 2026-09-13 by reading the live
 guild, not by asking.** The new bot exists and is invited (`samomdkkubot`,

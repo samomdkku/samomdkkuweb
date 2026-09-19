@@ -280,13 +280,12 @@ async function main() {
 
     const display = m.nick || m.user.global_name || m.user.username;
 
-    // ⛔ A LEAVER IS NOT A DIFF EITHER — NOT YET. §5e says a person who resolves
-    // to no current placement keeps a `ศิษย์เก่า SAMO` role rather than being
-    // stripped bare, because a member with zero roles is indistinguishable from
-    // one the bot failed to match. WHAT MAKES SOMEONE A LEAVER IS UNDECIDED
-    // (HANDOFF §14b item 4) and so is the alumni role, so this tool reports
-    // them and touches nothing. Stripping them on a guess is the one removal
-    // that cannot be undone by re-running.
+    // ⛔ THIS TOOL REPORTS A LEAVER AND NEVER STRIPS ONE. The owner decided
+    // 2026-09-19 that the website is the truth (a linked person with no ตำแหน่ง
+    // holds no mirrored key), and the samo-discord-sync SERVICE applies that
+    // (server/discord-sync-core.mjs diffMembers). This hand tool predates the
+    // decision and stays report-only for leavers, so a one-off run can never
+    // strip people in bulk behind the service's brakes.
     if (t.placements === 0) {
       const held = m.roles.filter((r) => managed.has(r));
       if (held.length) leavers.push(`  ${display} — holds ${held.map((r) => roleName.get(r) || r).join(', ')}`);
@@ -312,7 +311,7 @@ async function main() {
   }
 
   // ⛔ --add-only (owner, 2026-09-19): the first real runs GIVE roles and take
-  // none. Removal waits on "what makes a leaver" (HANDOFF §14b item 4), and a
+  // none. (The leaver rule was decided later — the SERVICE applies it.) A
   // wrong removal costs someone their channels while a missing add costs
   // nothing. The removals are COUNTED and printed, never silently dropped — so
   // the gap between this run and a full one stays visible — and they are taken
@@ -351,9 +350,8 @@ async function main() {
   if (leavers.length) {
     console.log();
     console.log(`LEAVERS — linked, but ZERO ตำแหน่ง in ทีม SAMO: ${leavers.length}`);
-    console.log('  ⛔ NOT TOUCHED, on purpose. §5e wants a ศิษย์เก่า SAMO role rather than');
-    console.log('     a stripped member, and both "what makes a leaver" and that role are');
-    console.log('     the owner\'s undecided call (HANDOFF §14b item 4).');
+    console.log('  NOT TOUCHED by this tool. The samo-discord-sync service applies the');
+    console.log('  owner\'s rule (the web is the truth — no mirrored key) — HANDOFF §14b.');
     leavers.slice(0, 20).forEach((l) => console.log(l));
   }
 
@@ -361,9 +359,8 @@ async function main() {
     console.log();
     console.log(`⛔ WITHDRAWN, AND STILL HOLDING ฝ่าย ROLES: ${withdrawn.length}`);
     console.log('   These accounts WERE linked to a ทีม SAMO person and are not now.');
-    console.log('   NOT TOUCHED — the removal policy is undecided (HANDOFF §14b item 4) —');
-    console.log('   but nothing else will ever remove these roles either, so they are');
-    console.log('   listed rather than left to look like strangers.');
+    console.log('   NOT TOUCHED by this tool — the samo-discord-sync service removes their');
+    console.log('   mirrored keys (owner: the web is the truth) — HANDOFF §14b.');
     withdrawn.slice(0, 20).forEach((l) => console.log(l));
     if (withdrawn.length > 20) console.log(`  … ${withdrawn.length - 20} more`);
   }

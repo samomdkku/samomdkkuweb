@@ -40,8 +40,8 @@ Browser (SPA served by nginx on the KKU VM)
   │                        home for it instead of a build-time VITE_ var
   └─→ /discord/callback — Discord OAuth2 lands here; the ONLY server-side step
   │                        in เชื่อมบัญชี Discord. Same Node service as /notify.
-  │                        ⚠️ Both nginx locations exist ONLY in the VM's live
-  │                        config, NOT in server/nginx-samo.conf (drifted).
+  │                        Both locations are in server/nginx-samo.conf; the
+  │                        SERVED routes are checked by `npm run check:routes`.
   └─→ /notify (all Discord) — nginx proxies it to the samo-notify Node
         service on 127.0.0.1:8787 (server/notify-server.mjs)
         ↳ notifyPROnly                    → PR-team webhook
@@ -50,6 +50,9 @@ Browser (SPA served by nginx on the KKU VM)
            (webhooks in /etc/samo-notify.env on the VM. functions/notify.js is
             the Cloudflare-Pages twin of the same handler, kept in the repo and
             behaviourally identical — it is NOT what serves production.)
+
+  (no URL) samo-discord-sync — background service on the same VM: keeps
+        Discord roles matching ทีม SAMO. See "Discord role sync" below.
 ```
 
 GAS is intentionally minimal post-migration. Drops to 104 + 154 lines.
@@ -881,20 +884,26 @@ Tracker: `src/js/analytics.js` (`initAnalytics('public'|'admin')`) sends
 fire-and-forget events on load + tab/section switch; wired in `main.js` and
 `admin-main.js` (the latter also `trackTab()`s from `showAdminSide`).
 
-### Discord role sync (canonical: `0183`–`0187`)
+### Discord role sync (canonical: `0183`–`0187`, `0195`–`0198`)
 
-**ทีม SAMO is the source of truth for Discord roles.** No role has ever been
-added or removed by this system, and no role has ever been CREATED by it —
-verified from the guild 2026-09-13: 183 roles, 48 mapped. Three tools, all
-plan-by-default: `npm run discord:report` (read-only), `discord-provision.mjs`
-(`--only '<ชื่อ>'` narrows to named ตำแหน่ง), `npm run discord:apply` (the only
-one that changes a member's roles). `npm run discord:readiness` needs no Discord
-token and says whether this could be opened to real people. See `docs/state/HANDOFF.md` §14b for
-status and `docs/DISCORD-ROLE-SYNC.md` for the design; this is only the schema.
+**ทีม SAMO is the source of truth for Discord roles, and since 2026-09-19 it is
+ENFORCED continuously** by the `samo-discord-sync` service on the VM
+(`server/discord-sync.mjs` + `discord-sync-core.mjs`, systemd
+`server/samo-discord-sync.service`, env from `/etc/samo-discord-bot.env` +
+`/etc/samo-notify.env`). Triggers queue every web change that decides a key
+(0197); the service drains the queue every 5 s, does a full pass every 15 min,
+and posts who changed what to the role-bot channel (0198). Hand tools, all
+plan-by-default, for one-off work: `discord-report` (read-only),
+`discord-provision`, `discord-apply`, `discord-channels`, `discord-keep-access`,
+`discord-nickname-link`; `npm run discord:readiness` needs no Discord token.
+Status and the owner's rules: `docs/state/HANDOFF.md` §14b. Design:
+`docs/DISCORD-ROLE-SYNC.md`. This section is only the schema and the flow.
 
 ```
 discord_links        person_id PK → people(id)   ONE Discord account per person
                      discord_user_id TEXT, UNIQUE — the snowflake, never a name
+                     link_source 'oauth' | 'nickname-import' (0195) — the web
+                     button always resets it to 'oauth'
                      RLS: admin read/write only. No self-branch; 0186's RPCs
                      serve a person their own link instead, so `linked_by`
                      (who vouched) stays admin-only.
@@ -912,6 +921,14 @@ discord_orphaned_accounts (0187)
                      (measured). The column is allowed to dangle.
                      RLS on, no policy, ungranted — same stance as the codes.
                      Maintained ONLY by the trigger below; nothing writes it.
+
+discord_sync_queue (0197/0198)
+                     work for the service: kind person | structure | rename,
+                     person_id / node_id, actor_name (the editor, via
+                     my_person_id), detail (a Thai sentence). Filled ONLY by
+                     triggers on team_members, team_nodes, discord_links;
+                     drained by the service. RLS on, no policy, ungranted.
+                     Sibling ORDER enqueues nothing — role order is not mirrored.
 
 team_nodes.discord_role      BOOLEAN — "มี role ใน Discord", a DECISION.
                              ⛔ No rule can derive it: ฝ่าย sit at depths 1–5,
@@ -933,16 +950,20 @@ false claim). On the TABLE rather than inside `unlink_my_discord()` because the
 hole has THREE doors and the third is an UPDATE: unlink (`DELETE`), the person
 being deleted (cascade `DELETE`), and **re-linking to a different account**
 (`UPDATE`, which orphans the old one). Any fix shaped around the word "delete"
-closes two of three. ⛔ It RECORDS; removal policy is undecided.
+closes two of three. It RECORDS; the sync service acts on it (owner 2026-09-19:
+the web is the truth, so a withdrawn account holds no mirrored key).
 
 **Functions.** `discord_role_targets()` is the ONE place that decides which
-roles a person is due — their own ตำแหน่ง's plus every ticked ANCESTOR's — so
+roles a person is due — their own ตำแหน่ง's plus every ticked **DIVISION**
+ancestor's (0196: a ตำแหน่ง above you is not yours) — so
 the realtime path, the reconcile and any future portal screen cannot disagree.
 SECURITY INVOKER, which means an unprivileged caller gets ZERO ROWS; ⛔ a
 reconcile must never read that as "remove everything" (§5e).
 `issue_discord_link_code()` (authenticated) · `redeem_discord_link_code()`
 (**bot only** — a client that could call it could bind a code to a Discord
 account it does not control) · `my_discord_link()` / `unlink_my_discord()`.
+Trigger helpers (0197/0198, ungranted): `discord_enqueue_member/_link/_node`,
+`discord_person_label`, `discord_actor_label`, `discord_node_label`.
 
 **Auth flow.** ข้อมูลของฉัน → `issue_discord_link_code()` → redirect to Discord
 with `state=CODE.NONCE` and a nonce cookie → Discord → `/discord/callback` on

@@ -93,7 +93,7 @@ describe('the write path — the part no source guard can see', () => {
     expect(r.writes.some((x) => x.includes('/U6/')), 'nor a WITHDRAWN one').toBe(false);
   });
 
-  it('never strips a LEAVER while the ศิษย์เก่า rule is undecided', async () => {
+  it('never strips a LEAVER — this hand tool only reports them (the service applies the rule)', async () => {
     // dave is linked, holds ฝ่ายเอกสาร, and has zero ตำแหน่ง.
     const r = await run(['--apply', ...PLAN], stub);
     expect(r.code).toBe(0);
@@ -122,7 +122,7 @@ describe('an account that WAS linked is not a stranger (0187)', () => {
     expect(r.out).toContain('ฝ่าย IT');
   });
 
-  it('…and still does NOT touch them — the policy is undecided', async () => {
+  it('…and does NOT touch them — the service does that, behind its brakes', async () => {
     const r = await run(['--apply', ...PLAN], stub);
     expect(r.code).toBe(0);
     expect(r.writes).toEqual([

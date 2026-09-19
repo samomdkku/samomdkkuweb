@@ -129,7 +129,7 @@ describe('§5e — the three refusals, all of them before the first write', () =
   // keep a ศิษย์เก่า SAMO role rather than be stripped bare. Both "what makes a
   // leaver" and that role are the owner's undecided call, so the tool reports
   // and touches nothing.
-  it('never strips a leaver while the rule is undecided', () => {
+  it('never strips a leaver — report-only; the service applies the rule', () => {
     expect(CODE).toMatch(/if \(t\.placements === 0\) \{/);
     const leaver = CODE.indexOf('t.placements === 0');
     expect(CODE.slice(leaver, leaver + 400)).toMatch(/continue;/);

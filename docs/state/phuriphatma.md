@@ -16,6 +16,55 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-19 (night) — Discord now follows ทีม SAMO by itself
+
+**Start at `docs/state/HANDOFF.md` §14b** — the current picture, the owner's
+rules, what is owed, the traps. The day's layered notes are archived in
+`docs/state-archive/2026-09-19-discord-sync.md` (history only: its early lines
+are false now). This block is what I would tell the next session in person.
+
+### What happened, in order (one day)
+
+1. Linked 167 Discord accounts by nickname (0195 `link_source`), 4 more by hand
+   on the owner's word. Created 56 ฝ่าย roles, adopted 90 existing ones, gave
+   183 keys ADD-ONLY — the first writes to members ever.
+2. Removed 30 keys the web does not give (16 people), each replaced by a
+   PERSONAL channel pass so nobody lost a room (`discord-keep-access.mjs`).
+3. The owner caught 9 people holding `หัวหน้าฝ่าย PR` → **0196** (only ฝ่าย pass
+   their key down). The audit that followed found the tools never checked
+   SERVER-WIDE powers (SAMO Buddy, the 📇 ADMINISTRATOR role) → a power guard.
+4. Built the always-on sync: **0197** queue + triggers, **0198** who/what,
+   `samo-discord-sync` service, change log to `🤖┆samo-role-assignment-bot`,
+   announcement + first-day summary posted there.
+
+### Verified vs NOT verified — read before trusting
+
+✅ Live, on the real guild: add/remove a placement (4 keys in ~8 s / back in
+~6 s), rename + revert, full pass +0 −0, every person's rooms and server-wide
+powers diffed against the morning (0 lost), the audit log reconciled with every
+write. ✅ All 8 Discord proofs green; 2,332 tests.
+⚠️ **NOT yet seen live: a change-log message produced by a REAL admin edit.**
+The live tests were SQL edits (no web session), which post "ไม่ได้แก้ผ่านหน้าเว็บ"
+by design; the message format and the silent/no-ping flags are proven by the
+stub test and by the announcement posted through the same webhook. The first
+real ทีม SAMO edit is the check: its message must name the editor.
+⚠️ **Standing "held" alerts are de-duplicated IN MEMORY**, so every restart
+(every deploy) posts a standing one once more. None are standing tonight.
+⚠️ **A web edit that removes >10 keys or touches >5 people is HELD**, not
+applied (e.g. deleting a ฝ่าย with many linked members). The channel says so;
+a human applies it by hand (`discord-apply.mjs`, VM).
+
+### Owed — owner
+
+Kick `Role assignment bot for SAMO69`; narrow `samobot` from Administrator
+(HANDOFF §1). Name a ตำแหน่ง for any of the 21 hand-managed room keys that
+should follow the web (`🏅 อุปนายกฯ`, `สมาชิกฝ่าย Backend` / `Frontend`…).
+Delete old roles when ready (238 / 250 — the bot never deletes one). The
+webhook URL was pasted in chat: regenerate it if in doubt, then update
+`/etc/samo-notify.env` on the VM and restart the service.
+
+---
+
 ## ▶ HANDOFF 2026-09-16 (early) — the night agent is RUNNING, and what it is holding
 
 **A run started 23:26Z (06:26 ICT) and works until 08:00Z, handing off by 08:45Z.**
