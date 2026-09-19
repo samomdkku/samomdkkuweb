@@ -72,7 +72,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - 0182 — a schema move carried the GRANTS and dropped the ROW SECURITY, and the table it happened to was the one nothing…
 - `docs/CONTEXT.md` said "any authenticated user can SELECT all" of `public.users`
 
-## `authz-grants.md` — The permission / seat / scope channel *(21)*
+## `authz-grants.md` — The permission / seat / scope channel *(22)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -97,6 +97,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A "whitelist" that OPENED registration: `SIGNUPS_DOMAINS_WHITELIST` overrides `SIGNUPS_ALLOWED=false`
 - Unlinking your Discord account was a permanent ฝ่าย role grant
 - A claim reached `students` around the gate the importer goes through
+- "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(30)*
 
@@ -443,4 +444,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_381 entries across 10 files._
+_382 entries across 10 files._

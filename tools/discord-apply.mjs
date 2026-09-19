@@ -94,6 +94,24 @@ const MAX_PERCENT = 25;
 const MANAGE_ROLES = 1n << 28n;
 const ADMINISTRATOR = 1n << 3n;
 
+// ⛔ A KEY WITH SERVER-WIDE POWER IS NEVER HANDED OUT ON A RULE (2026-09-19).
+// Channel access was audited all day; what a role can do SERVER-WIDE was not.
+// `📇 ฝ่ายเลขานุการนายกฯ` (a ฝ่าย, so inherited by everyone under it) carries
+// ADMINISTRATOR, and `สมาชิก SAMO Buddy` can manage every channel and role —
+// the sync gave the latter to one person before anyone saw it. Any role whose
+// own permissions exceed @everyone's in these bits is listed, and --apply
+// refuses to ADD it unless the owner named it: --allow-power 'name,name'.
+const POWER_BITS = {
+  1: 'KICK_MEMBERS', 2: 'BAN_MEMBERS', 3: 'ADMINISTRATOR', 4: 'MANAGE_CHANNELS',
+  5: 'MANAGE_GUILD', 13: 'MANAGE_MESSAGES', 17: 'MENTION_EVERYONE', 22: 'MUTE_MEMBERS',
+  23: 'DEAFEN_MEMBERS', 24: 'MOVE_MEMBERS', 27: 'MANAGE_NICKNAMES', 28: 'MANAGE_ROLES',
+  29: 'MANAGE_WEBHOOKS', 30: 'MANAGE_EMOJIS', 33: 'MANAGE_EVENTS', 34: 'MANAGE_THREADS', 40: 'MODERATE_MEMBERS',
+};
+function serverPowers(role, everyone) {
+  const extra = BigInt(role.permissions || 0) & ~BigInt(everyone?.permissions || 0);
+  return Object.entries(POWER_BITS).filter(([b]) => extra & (1n << BigInt(b))).map(([, n]) => n);
+}
+
 const env = process.env;
 const need = (n) => {
   if (!env[n]) {
@@ -368,6 +386,24 @@ async function main() {
     console.log('   Fix: Server Settings → Roles → drag the bot ABOVE them (§7 step 4).');
   }
 
+  // ── Server-wide power ───────────────────────────────────────────────────
+  const everyone = roles.find((r) => r.id === guildId);
+  const allowPower = (val('--allow-power') || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const powerAdds = new Map();
+  for (const [, toAdd, , display] of plan) {
+    for (const r of toAdd) {
+      const role = roles.find((x) => x.id === r);
+      const pw = role ? serverPowers(role, everyone) : [];
+      if (pw.length) (powerAdds.get(role.name) || powerAdds.set(role.name, { pw, who: [] }).get(role.name)).who.push(display);
+    }
+  }
+  const unapproved = [...powerAdds.keys()].filter((n) => !allowPower.includes(n));
+  if (powerAdds.size) {
+    console.log();
+    console.log(`⛔ ${powerAdds.size} key(s) in this plan carry SERVER-WIDE power:`);
+    for (const [n, x] of powerAdds) console.log(`   ${n} [${x.pw.join(', ')}] → ${x.who.join(', ')}${allowPower.includes(n) ? '   (approved)' : ''}`);
+  }
+
   // ── The cap ─────────────────────────────────────────────────────────────
   // ⛔ REFUSAL 3, and it is checked HERE — before the first write, not caught
   // as an error part way through a run that has already stripped 200 people.
@@ -401,6 +437,11 @@ async function main() {
   }
   if (oversized && !has('--allow-large')) {
     console.error('\n✗ REFUSED — over the blast-radius cap without --allow-large.');
+    process.exit(1);
+  }
+  if (unapproved.length) {
+    console.error(`\n✗ REFUSED — would hand out server-wide power: ${unapproved.join(', ')}.`);
+    console.error('  Only on the owner\'s word, by name: --allow-power \'<role name>\'.');
     process.exit(1);
   }
   if (!h.canManage) {

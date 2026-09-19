@@ -34,7 +34,7 @@ with placed as (
   select distinct person_id from public.team_members where person_id is not null
 ),
 ticked as (
-  select n.id, n.discord_role_id is not null as provisioned from public.team_nodes n
+  select n.id, n.kind, n.discord_role_id is not null as provisioned from public.team_nodes n
    where n.discord_role
 ),
 due as (
@@ -45,6 +45,8 @@ due as (
     join public.team_members tm on tm.person_id = p.person_id
     cross join lateral public.discord_node_ancestry(tm.node_id) a
     join ticked t on t.id = a.node_id
+   -- 0196: a ตำแหน่ง ABOVE you is not yours; only ฝ่าย are inherited
+   where (a.node_id = tm.node_id or t.kind = 'division')
    group by p.person_id
 )
 select
@@ -94,7 +96,8 @@ const blockers = await q(`
          (select count(distinct tm2.person_id)
             from public.team_members tm2
             cross join lateral public.discord_node_ancestry(tm2.node_id) a
-           where a.node_id = n.id)                                             as beneath
+           where a.node_id = n.id
+             and (a.node_id = tm2.node_id or n.kind = 'division'))                                             as beneath
     from public.team_nodes n
    where n.discord_role and n.discord_role_id is null
    order by beneath desc, direct desc, n.name
@@ -133,6 +136,7 @@ const cover = await q(`
       cross join lateral public.discord_node_ancestry(tm.node_id) a
       join public.team_nodes n on n.id = a.node_id
      where n.discord_role
+       and (a.node_id = tm.node_id or n.kind = 'division')
   ),
   destitute as (
     select person_id from anc group by person_id having bool_and(not provisioned)

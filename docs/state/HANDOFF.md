@@ -1208,6 +1208,19 @@ for all: 181 more, ✓ 181 of 181 across 91 members.** Re-read after: add-only p
 0 to add. **The live guild now holds every role ทีม SAMO says a linked person
 is due.** First writes by this system to members — ever.
 
+⛔ **2026-09-19 evening — the owner caught a wrong grant: 9 people held
+`หัวหน้าฝ่าย PR`.** Fixed (0196: only ฝ่าย pass their role down; a ตำแหน่ง
+used as a folder no longer does), the 9 reverted to their morning access. The
+audit it triggered found the sync never looked at SERVER-WIDE power:
+`สมาชิก SAMO Buddy` (manage all channels + roles) was given to หงส์ —
+REVERTED; `📇 ฝ่ายเลขานุการนายกฯ` (ADMINISTRATOR) had been linked to the
+website's ฝ่ายเลขานุการนายกฯ that afternoon — UNLINKED before anyone else
+received it. `discord-apply.mjs` now refuses any power key without
+`--allow-power '<name>'`. Every person was diffed against the morning: 0 lost.
+⏳ **OWNER:** does หงส์ get SAMO Buddy (and its server-wide power)? Should
+ฝ่ายเลขานุการนายกฯ have a Discord key at all, given that one is Administrator?
+Write-up: `docs/mistakes/authz-grants.md`.
+
 **Owed next:**
 1. ✅ **The 30 extra keys — RESOLVED 2026-09-19, owner's rule: "the web is the
    absolute truth" AND "if they previously got permission, it should persist".**

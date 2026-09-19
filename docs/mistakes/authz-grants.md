@@ -1111,3 +1111,42 @@ considered when it was written, and it answers with whatever absence happens to
 mean. Ask what a null on that column means for EVERY writer, not just the one it
 was designed around — and when adding a writer, grep for every branch that reads
 the columns you are leaving unset.
+
+## "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?" — nine people given the head's Discord role, and a sync that never looked at server-wide power
+
+**Symptom (owner, 2026-09-19).** "why มิกซ์มี่ got role หัวหน้าฝ่าย PR, also many
+people on discord". Nine members of ฝ่าย Content creator / Media management held
+`หัวหน้าฝ่าย PR` — a role that manages 8 channels — hours after the sync ran.
+
+**Cause 1 — a ตำแหน่ง used as a folder.** In ทีม SAMO those two sub-ฝ่าย sit
+UNDER the ตำแหน่ง `หัวหน้าฝ่าย PR`. `discord_role_targets()` gave "your node's
+role plus every ticked ancestor's" (DISCORD-ROLE-SYNC §5c), a rule written for
+ฝ่าย, where belonging is inherited. Being under the head does not make you the
+head. It was latent until that ตำแหน่ง was ticked in the 90 adopted that day.
+
+**Cause 2 — found while auditing cause 1.** Every check that day was about what
+a role opens IN CHANNELS. Nothing asked what a role can do SERVER-WIDE. So the
+sync gave `สมาชิก SAMO Buddy` (MANAGE_CHANNELS + MANAGE_ROLES server-wide) to
+one person, and the website's ฝ่ายเลขานุการนายกฯ had been linked that same
+afternoon to `📇 ฝ่ายเลขานุการนายกฯ` — which carries ADMINISTRATOR and, being a
+ฝ่าย, would have gone to everyone under it at their first link.
+
+**Fix.** 0196: only DIVISION ancestors pass their role down; your own node's
+role is always yours (proof `team0196`, which fails at 30 before the migration).
+The same rule was copied three times in `discord-readiness.mjs` — all three
+changed. The nine removed after checking each loses nothing they held that
+morning. `discord-apply.mjs` now lists any role whose own permissions exceed
+@everyone's in the power bits, and refuses to ADD it unless the owner names it
+(`--allow-power`); the SAMO Buddy grant was reverted and the ADMINISTRATOR role
+unlinked from the website.
+
+**Where it lives now.** `supabase/migrations/0196_*`, `tools/discord-apply.mjs`
+(`POWER_BITS`, `serverPowers`), `tools/discord-readiness.mjs`,
+`src/js/discord-apply.run.test.js`.
+
+**Rule.** A grant that FOLLOWS A TREE must say which kinds of node it follows
+through — "everything above you" silently includes a position someone used as
+a folder. And an access audit must cover every axis a key grants on: per
+channel AND server-wide. The audit that found nothing on one axis was read as
+"nothing"; after any bulk grant, diff every person's powers against the
+morning, not just their rooms.

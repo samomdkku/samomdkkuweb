@@ -270,3 +270,36 @@ describe('--add-only gives and never takes (owner, 2026-09-19)', () => {
     expect(r.writes).toEqual([]);
   });
 });
+
+describe('a key with SERVER-WIDE power is never handed out on a rule (2026-09-19)', () => {
+  // `📇 ฝ่ายเลขานุการนายกฯ` carries ADMINISTRATOR and `สมาชิก SAMO Buddy` can
+  // manage every channel and role. Channel access was audited; this was not.
+  const powered = () => { w.roles.find((r) => r.id === 'R1').permissions = String(1n << 28n); };
+
+  it('lists the power key and who would get it, even in a plan', async () => {
+    powered();
+    const r = await run(['--add-only'], stub);
+    expect(r.out).toMatch(/1 key\(s\) in this plan carry SERVER-WIDE power/);
+    expect(r.out).toMatch(/ฝ่าย IT \[MANAGE_ROLES\] → alice/);
+  });
+
+  it('REFUSES to write it without --allow-power, and writes nothing', async () => {
+    powered();
+    const r = await run(['--apply', '--add-only', '--add', '1', '--remove', '0'], stub);
+    expect(r.code).not.toBe(0);
+    expect(r.out).toMatch(/REFUSED — would hand out server-wide power: ฝ่าย IT/);
+    expect(r.writes).toEqual([]);
+  });
+
+  it('writes it when the owner named it', async () => {
+    powered();
+    const r = await run(['--apply', '--add-only', '--add', '1', '--remove', '0', '--allow-power', 'ฝ่าย IT'], stub);
+    expect(r.code, r.out).toBe(0);
+    expect(r.writes).toEqual(['PUT /api/v10/guilds/G/members/U1/roles/R1']);
+  });
+
+  it('control: a key with no server-wide power is not listed', async () => {
+    const r = await run(['--add-only'], stub);
+    expect(r.out).not.toMatch(/SERVER-WIDE power/);
+  });
+});
