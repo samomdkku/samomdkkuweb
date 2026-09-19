@@ -1214,16 +1214,14 @@ is due.** First writes by this system to members — ever.
    like last year's ฝ่าย / หัวหน้า roles (e.g. `หัวหน้าฝ่าย IFMSA`,
    `หัวหน้าฝ่าย Clinic` held by someone ทีม SAMO no longer places there).
    Removing them takes channels away — it is item 4's decision, not a run.
-2. **Nickname near-matches — 2 of 7 LINKED (owner-confirmed: `Pru`, `ธิเบธ`),
-   5 left.** Owner's check: compare the account's Discord roles with the
-   person's ฝ่าย on the web. Applied to all 167 imports it found **0 that share
-   nothing** (148 share a role; 10 held no roles before the run, 9 have no ทีม
-   SAMO placement). Of the 5 left: ⏳ `Erin_#3_139-0` — owner said wrong, but
-   the account holds `ฝ่ายเวชนิทัศน์`, exactly the ฝ่าย of ทักษพร (เอิร์น,
-   …139-0); a SECOND account `เอิร์น_#2_093-9` is the กิจการภายนอก one. Put
-   back to the owner, not linked. The other 4 (`ส้มซ่า`, `oil`, `ฟิวส์`,
-   `สุขใจ`) hold NO Discord roles, so the check cannot decide them, and 2 of
-   the 4 are not in ทีม SAMO at all — left to the web button.
+2. ✅ **Nickname near-matches — CLOSED 2026-09-19, owner decided each.** Linked:
+   `Pru`, `ธิเบธ`, `Erin_#3_139-0` (the owner first said wrong — a SECOND
+   account `เอิร์น_#2_093-9` is the กิจการภายนอก one; the role check settled
+   it), `ฟิวส์`. Left alone: `ส้มซ่า`, `oil` (not in ทีม SAMO, no roles) and
+   `สุขใจ` (not approved) — they use the web button. The owner's check —
+   compare the account's Discord roles with the person's ฝ่าย on the web —
+   over all 167 imports found **0 that share nothing** (148 share a role; the
+   other 19 had no roles or no placement to compare).
 3. Rename the 2 same-team near-matches to their web names, then adopt.
 4. CHANNELS: the 56 new roles open nothing until added to their ฝ่าย's
    channels (115 of 151 channels carry custom overwrites; 56 overwrites name a
