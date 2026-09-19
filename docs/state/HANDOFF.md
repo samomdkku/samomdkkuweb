@@ -1189,9 +1189,16 @@ pass was +0 −0 (identical to `discord-apply.mjs`). Proof `team0197` 17/17.
   `DISCORD_SYNC_ALLOW_POWER` (today: `สมาชิก SAMO Buddy`, `📇 ฝ่ายเลขานุการนายกฯ`,
   owner rule); roles above the bot skipped; an empty target set never acted on;
   a ticked ตำแหน่ง whose name only RESEMBLES a role is held, never duplicated.
-- ⏳ **Alerts go only to the journal** until `DISCORD_SYNC_ALERT_WEBHOOK` is set in
-  `/etc/samo-notify.env` — OWNER: which channel? Two alerts are standing: the
-  near-matches `ฝ่ายประชาสัมพันธ์ฝ่าย AMSA` and `หัวหน้าฝ่าย IT (Tech lead)`.
+- ✅ **Change log → `🤖┆samo-role-assignment-bot`** (owner's channel, 2026-09-19):
+  `DISCORD_SYNC_LOG_WEBHOOK` in `/etc/samo-notify.env` (VM only; it was pasted
+  in a chat — regenerate if in doubt). Every pass that changes Discord posts
+  WHO edited ทีม SAMO, WHAT, and whose keys moved (0198), silently, pinging
+  nobody. Held items and alerts go there too, once per 6 h. The announcement
+  (how to get a missing role: link on the web, then ask the อุป to fix the WEB)
+  and a summary of the day's changes (112 people) were posted the same night.
+- ✅ The two near-matches were confirmed by the owner and LINKED + renamed to
+  the web names (`ฝ่ายประชาสัมพันธ์ฝ่าย AMSA`, `หัวหน้าฝ่าย IT (Tech lead)`);
+  nobody lost anything (the IT key's only holder is its web head).
 - ⛔ `discord-apply.mjs` / `discord-keep-access.mjs` still work by hand, but the
   service will undo anything the web does not say within 15 min. Change the
   WEB, not Discord.
