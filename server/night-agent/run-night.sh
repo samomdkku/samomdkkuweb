@@ -188,8 +188,21 @@ fi
 # ⛔ SAY "I STARTED" BEFORE DOING ANYTHING. Without it, a run that dies early —
 # OOM, a hung task, the box rebooting — is indistinguishable in the morning from
 # a timer that never fired at all, and those two have completely different fixes.
-post_discord "$(printf 'เริ่มทำงานแล้ว %s (ICT)\nคิวงาน: %s\nจะรายงานผลอีกครั้งตอนจบ' \
-  "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$(grep -c '^## ' "$TASKS" 2>/dev/null || echo '?')")"
+# ⛔ SAY HOW OLD THE MEMORY IS, IN THE MESSAGE A HUMAN ACTUALLY READS.
+# Nothing in the repo syncs `~/samo-night/memory` — `install.sh` does, and a
+# sync that depends on somebody remembering is a sync that is sometimes skipped.
+# On 2026-09-19 the VM's copy was EIGHT DAYS behind and four files short, and
+# the missing ones were precisely those saying earlier figures had changed. A
+# stale memory reads perfectly; the only way to notice is to be told its date.
+MEM_N="$(ls "$MEM_DIR" 2>/dev/null | wc -l | tr -d ' ')"
+MEM_AGE_D="$(( ( $(date +%s) - $(stat -c %Y "$MEM_DIR/MEMORY.md" 2>/dev/null || echo 0) ) / 86400 ))"
+MEM_LINE="ความจำ: $MEM_N ไฟล์ (อัปเดตล่าสุด $MEM_AGE_D วันก่อน)"
+[ "$MEM_AGE_D" -ge 3 ] && MEM_LINE="$MEM_LINE ⚠️ เก่าแล้ว — รัน install.sh เพื่อซิงก์"
+echo "$MEM_LINE"
+
+post_discord "$(printf 'เริ่มทำงานแล้ว %s (ICT)\nคิวงาน: %s\n%s\nจะรายงานผลอีกครั้งตอนจบ' \
+  "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$(grep -c '^## ' "$TASKS" 2>/dev/null || echo '?')" \
+  "$MEM_LINE")"
 
 cd "$REPO" || { echo "!! no $REPO"; exit 1; }
 

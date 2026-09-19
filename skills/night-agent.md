@@ -200,3 +200,18 @@ must terminate). Rehearsed end to end with a fake `claude` before shipping.
 ⚠️ **`bash server/night-agent/install.sh` is what puts `queue.mjs` and the new
 `run-night.sh` on the VM.** Until that runs, `~/samo-night/` still has the
 versions that repeat.
+
+### The memory is synced by the installer, and by nothing else
+
+`~/samo-night/memory` is read by every task and is **not in the repo** — some
+entries name real students and this repo is public. So nothing syncs it on its
+own: on 2026-09-19 the VM was eight days and four files behind, and the missing
+four were the ones saying earlier numbers had changed.
+
+`install.sh` now rsyncs it every time, `--delete` included, and refuses to run
+if the directory is missing. `run-night.sh` puts the file count and age in the
+Discord start post, with a warning past three days — a stale memory reads
+perfectly, so its date is the only tell.
+
+**Run the installer after any session that wrote a memory**, which is most of
+them. It does not arm anything: `--arm` is a separate word.

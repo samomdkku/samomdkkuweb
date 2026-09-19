@@ -3258,3 +3258,52 @@ Two things it needs, both learned by getting them wrong:
    anything outside git, run it where only git's files exist before believing it.
 3. **When you fix one reader of a rule, grep for the others in the same file.**
    The fixed one and the broken one were ten lines apart.
+
+---
+
+## The night agent's memory lived on the VM and nothing ever synced it
+
+**Symptom (as reported):** *"you should also sync memory system to the vm all
+the time, or the claude night agent would work wrong"*. Checked: the VM held
+**51 files dated Sep 11**; the laptop held **55**.
+
+**Cause:** the memory directory is deliberately OUTSIDE the repo — some entries
+name real students and this repo is public, so `git add -A` must never reach
+them. That is right, and it means **nothing syncs it**. `install.sh` copied the
+scripts and the systemd units and not the memory, so the VM's copy was whatever
+the last person had hand-copied, eight days earlier.
+
+**Why it is worse than a missing file.** The four entries the VM did not have
+were the ones written to say that earlier numbers had CHANGED — "13 held rows
+with no รุ่น" is now 0, "18 สาย problems" is now 5. An unattended run would have
+read the superseded figures as current, from a file that exists and reads
+fluently, and acted on them. Nothing in the night's output would have looked
+odd. It is the same shape as STATE.md's retyped deployed sha: **the stale copy
+was the instrument.**
+
+**Fix:** `install.sh` now rsyncs the memory on EVERY install — not behind a
+flag, because a sync you have to remember is a sync that is sometimes skipped
+and the failure is silent — with `--delete`, so a memory removed for being
+WRONG disappears there too. It refuses to arm at all if the directory is
+missing, rather than running an agent that reads nothing.
+
+And because an installer only helps when someone runs it, `run-night.sh` now
+prints the memory's file count and age **into the Discord message a human
+actually reads**, with a warning past three days. A stale memory cannot be
+noticed by reading it; the only tell is its date.
+
+**Also fixed in the same pass:** `install.sh` used to `systemctl enable --now`
+every time, so syncing the memory would have silently re-armed a timer the owner
+had deliberately disabled. Arming is now `--arm`, typed on purpose.
+
+**Where it lives now:** `server/night-agent/install.sh`,
+`server/night-agent/run-night.sh` (the `MEM_LINE` block), `skills/night-agent.md`.
+
+**Rules:**
+1. **STATE THAT LIVES OUTSIDE THE REPO HAS NO SYNC UNLESS YOU WRITE ONE**, and
+   its staleness is invisible by construction — there is no diff to see and no
+   build to fail. Name the thing that copies it, and make it unconditional.
+2. **A remote copy of anything should report its own age where the operator
+   looks.** Not in a log nobody opens: in the message that is already being sent.
+3. **Deploying is not enabling.** A script that installs and arms in one step
+   will eventually undo a deliberate "off".
