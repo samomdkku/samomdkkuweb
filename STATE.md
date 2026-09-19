@@ -34,9 +34,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b36ef80` (2026-09-19)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **34 s**
-  (baseline); docs step RAN, roots 13 s apart. SERVED: VS's `ผู้แจ้งขอให้ส่งถึง` 2 and `ตอนที่แจ้ง` 1 in `admin-*`; the PR attachment fix's control `ไม่มีไฟล์แนบ (No file)` 1 in the SHARED `analytics-*` chunk BOTH entries import — it reads **0 in `admin-*`**, and a 0 control makes every number beside it worthless (0145). ระบบบ้าน's ผังตามสาย greps 3 in the served `/admin/` HTML (an inlined partial, not a bundle) and `sai-grid` 1 in the served CSS.
+- ✅ **DEPLOYED = `df5eb9d` (2026-09-19)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`, **~33 s**
+  (baseline); docs step RAN, roots 14 s apart. SERVED: `/docs/state/HANDOFF` carries
+  §14b's new `owner decisions, and the first writes` block (1). Docs + tools only —
+  no bundle change since `b36ef80`.
   ⛔ **The night agent is STOPPED and its timer DISABLED** (2026-09-18) — it had re-run the same 6-task queue nightly since 09-15 because `~/samo-night/NIGHT-TASKS.md` is never consumed. Its work is no longer stranded: `agent/2026-09-17` (16 commits) is MERGED. Re-enable only with a fresh queue.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
