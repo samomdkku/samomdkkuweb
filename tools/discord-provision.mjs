@@ -33,7 +33,15 @@
 //   DISCORD_TOKEN                 /etc/samo-discord-bot.env
 //   SUPABASE_URL + SERVICE_ROLE   /etc/samo-notify.env
 // ============================================================
-const API = 'https://discord.com/api/v10';
+// The stub test (discord-provision.run.test.js) points this at 127.0.0.1 and
+// NOTHING else: a process holding the bot token must never be redirectable to
+// an arbitrary host by an environment variable. Same rule as discord-apply.mjs.
+const API = (() => {
+  const o = process.env.DISCORD_API_BASE;
+  return o && /^http:\/\/127\.0\.0\.1:\d{2,5}(\/[\w./-]*)?$/.test(o)
+    ? o
+    : 'https://discord.com/api/v10';
+})();
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const num = (f) => { const i = args.indexOf(f); return i < 0 ? null : Number(args[i + 1]); };
@@ -52,8 +60,18 @@ const val = (f) => { const i = args.indexOf(f); return i < 0 ? null : (args[i + 
 // Names are matched EXACTLY against ticked node names. A name that matches
 // nothing REFUSES rather than quietly doing less than asked: a typo that
 // provisions zero roles and exits 0 is the "guard that finds nothing" failure.
-const onlyNames = (val('--only') || '')
+const list = (f) => (val(f) || '')
   .split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+const onlyNames = list('--only');
+
+// ⛔ `--create-near 'a','b'` — a NEAR match a human has looked at and said "that
+// is a DIFFERENT ฝ่าย, not a rename". Owner, 2026-09-19: `ฝ่าย COMART` and
+// `ฝ่ายจัดหาทุน` under ฝ่ายเวชนิทัศน์ are separate teams from the ComArt and
+// Fundraising roles they resemble. Without this flag a near match can only ever
+// sit in the NEAR bucket, so a separate team could never get a role at all.
+// It never ADOPTS the look-alike — that stays a hand decision — it CREATES a
+// new, qualified one beside it.
+const createNear = list('--create-near');
 
 // Discord's hard cap. Not a soft limit and not raised by boosting.
 const ROLE_CAP = 250;
@@ -115,7 +133,9 @@ async function main() {
   // WAY THROUGH a run and leaves half the nodes mapped.
   const allRoles = await dc(`/guilds/${guildId}/roles`);
   const roles = allRoles.filter((r) => r.name !== '@everyone' && !r.managed);
-  const ticked = await pg('team_nodes?select=id,name,discord_role_id&discord_role=is.true&order=name');
+  const nodes = await pg('team_nodes?select=id,name,parent_id,discord_role,discord_role_id&order=name');
+  const ticked = nodes.filter((t) => t.discord_role);
+  const nodeById = new Map(nodes.map((t) => [t.id, t]));
 
   const byName = new Map(); const byNorm = new Map();
   for (const r of roles) {
@@ -144,18 +164,64 @@ async function main() {
     tickedByName.get(t.name).push(t);
   }
 
+  // ⛔ A NEW ROLE THAT SHARES A NAME IS QUALIFIED BY ITS PARENT (§5b).
+  // Discord shows a role with no context, so two roles both called
+  // `ฝ่ายวิชาการ` are indistinguishable in an @mention and in the member list.
+  // The plain web name is kept wherever it is free; only a name already taken
+  // — by another ticked node, or by a Discord role it resembles — gets
+  // `ฝ่ายวิชาการ · รังสีเทคนิค`. The mapping is by id either way; this is only
+  // what a human reads.
+  const short = (x) => String(x).replace(/\([^)]*\)/g, '').replace(/^ฝ่าย\s*/, '').trim();
+  const qualified = (t) => {
+    const parent = nodeById.get(t.parent_id);
+    return parent ? `${t.name} · ${short(parent.name)}` : null;
+  };
+
   const already = []; const adopt = []; const create = []; const near = [];
   const ambiguous = []; const contested = [];
   for (const t of ticked) {
     if (t.discord_role_id) { already.push(t); continue; }
     // Two ticked nodes sharing a name cannot both hold one role, and picking
     // for them by position or id would hand one ฝ่าย another ฝ่าย's channels.
-    if ((tickedByName.get(t.name) || []).length > 1) { contested.push(t); continue; }
+    //
+    // Once ONE sibling holds the role (a human settled it), or no Discord role
+    // has the name at all, the others are simply separate ฝ่าย and each gets a
+    // qualified role of its own. Only an UNSETTLED contest over an EXISTING
+    // role still needs a human: which sibling inherits its channels.
+    const siblings = tickedByName.get(t.name) || [];
+    if (siblings.length > 1) {
+      const settled = siblings.some((x) => x.discord_role_id);
+      const q = qualified(t);
+      if ((settled || !(byName.get(t.name) || []).length) && q) create.push({ ...t, roleName: q });
+      else contested.push(t);
+      continue;
+    }
     const exact = byName.get(t.name) || [];
     if (exact.length === 1) { adopt.push([t, exact[0]]); continue; }
     if (exact.length > 1) { ambiguous.push([t, exact]); continue; }
     const close = byNorm.get(norm(t.name)) || [];
-    if (close.length === 1) near.push([t, close[0]]); else create.push(t);
+    if (close.length === 1) {
+      const q = qualified(t);
+      if (createNear.includes(t.name) && q) create.push({ ...t, roleName: q });
+      else near.push([t, close[0]]);
+    } else create.push({ ...t, roleName: t.name });
+  }
+
+  // A qualified name must itself be free, or it is the same collision again.
+  const taken = new Set(roles.map((r) => r.name));
+  const clash = [];
+  for (const t of create) {
+    if (taken.has(t.roleName)) clash.push(t.roleName);
+    taken.add(t.roleName);
+  }
+  if (clash.length) {
+    console.error(`\n✗ REFUSED — these role names would not be unique: ${clash.join(', ')}`);
+    process.exit(1);
+  }
+  const unknownNear = createNear.filter((n) => !ticked.some((t) => t.name === n));
+  if (unknownNear.length) {
+    console.error(`\n✗ REFUSED — --create-near named ${unknownNear.length} ตำแหน่ง that is not ticked: ${unknownNear.join(', ')}`);
+    process.exit(1);
   }
 
   // ⛔ NARROW BEFORE COUNTING, so the --adopt/--create numbers the operator is
@@ -186,6 +252,7 @@ async function main() {
   console.log(`TICKED nodes: ${ticked.length}   already mapped: ${already.length}`);
   console.log(`  ADOPT     ${adopt.length}`);
   console.log(`  CREATE    ${create.length}`);
+  for (const t of create) if (t.roleName !== t.name) console.log(`      "${t.name}"  →  new role "${t.roleName}"`);
   console.log(`  NEAR      ${near.length}  (a rename — confirm by hand, never adopted automatically)`);
   console.log(`  AMBIGUOUS ${ambiguous.length}  (the same name on several roles — a human must choose)`);
   console.log(`  CONTESTED ${contested.length}  (several ทีม SAMO nodes share ONE name — a human must choose)`);
@@ -281,7 +348,7 @@ async function main() {
     // permissions of its own grants them server-wide.
     const role = await dc(`/guilds/${guildId}/roles`, {
       method: 'POST',
-      body: JSON.stringify({ name: t.name, permissions: '0', mentionable: true, hoist: false }),
+      body: JSON.stringify({ name: t.roleName, permissions: '0', mentionable: true, hoist: false }),
       // ⛔ URL-ENCODED. A header value is a ByteString (latin-1) and both the
       // Thai and the em dash throw `Cannot convert argument to a ByteString`
       // in fetch() before the request is made. This branch has NEVER RUN —
@@ -290,8 +357,13 @@ async function main() {
       // the identical one against a stub guild.
       headers: { 'X-Audit-Log-Reason': encodeURIComponent('ทีม SAMO role sync — provisioning') },
     });
+    // A response with no id would PATCH `{}` — a silent no-op that reports
+    // "created" while the node stays unmapped and the role is orphaned.
+    if (!role || typeof role.id !== 'string' || role.name !== t.roleName) {
+      throw new Error(`Discord did not return the role it was asked to create ("${t.roleName}") — stopping`);
+    }
     await pg(`team_nodes?id=eq.${t.id}`, { method: 'PATCH', body: JSON.stringify({ discord_role_id: role.id }) });
-    console.log(`  created  ${t.name}`);
+    console.log(`  created  ${t.roleName}`);
     n++;
     await new Promise((ok) => setTimeout(ok, 400));   // pace against the rate limit
   }

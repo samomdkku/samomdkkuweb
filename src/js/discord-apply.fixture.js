@@ -86,6 +86,17 @@ export function serve(w) {
     // ── Discord ──
     if (p === '/api/v10/users/@me/guilds') return json([{ id: w.guildId, name: 'stub guild' }]);
     if (p === '/api/v10/users/@me') return json({ id: w.botId, username: 'stub' });
+    // discord-provision.mjs's only Discord write: create a role. The BODY is
+    // kept, because the name a role is created with is the thing under test.
+    if (req.method === 'POST' && p === `/api/v10/guilds/${w.guildId}/roles`) {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => {
+        const body = JSON.parse(b);
+        (w.created ||= []).push({ ...body, auditReason: req.headers['x-audit-log-reason'] });
+        json({ id: `NEW${w.created.length}`, ...body });
+      });
+      return undefined;
+    }
     if (p === `/api/v10/guilds/${w.guildId}/roles`) return json(w.roles);
     if (p === `/api/v10/guilds/${w.guildId}/members/${w.botId}`) {
       return json({ user: { id: w.botId, bot: true }, roles: w.botRoles });
@@ -99,6 +110,14 @@ export function serve(w) {
     }
 
     // ── PostgREST ──
+    if (req.method === 'PATCH' && p === '/rest/v1/team_nodes') {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => {
+        (w.patched ||= []).push({ id: (url.searchParams.get('id') || '').replace(/^eq\./, ''), ...JSON.parse(b) });
+        json([]);
+      });
+      return undefined;
+    }
     if (p === '/rest/v1/team_nodes') return json(w.ticked);
     if (p === '/rest/v1/rpc/discord_role_targets') return json(w.targets);
     if (p === '/rest/v1/discord_orphaned_accounts') return json(w.orphans);
@@ -115,10 +134,10 @@ export function serve(w) {
 }
 
 /** Run the real tool against the stub. Resolves { code, out, requests }. */
-export function run(args, stub, extraEnv = {}) {
+export function run(args, stub, extraEnv = {}, tool = 'discord-apply.mjs') {
   const base = `http://127.0.0.1:${stub.port}`;
   return new Promise((ok) => {
-    execFile('node', [join(ROOT, 'tools', 'discord-apply.mjs'), ...args], {
+    execFile('node', [join(ROOT, 'tools', tool), ...args], {
       cwd: ROOT,
       env: {
         ...process.env,
