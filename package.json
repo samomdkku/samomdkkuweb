@@ -56,7 +56,8 @@
     "dev:google": "node tools/dev-google-signin.mjs",
     "cf:pin-dev": "node tools/cloudflare-pin-dev.mjs",
     "check:embeds": "node tools/check-embeds.mjs",
-    "check:tool-boundary": "node tools/check-tool-boundary.mjs"
+    "check:tool-boundary": "node tools/check-tool-boundary.mjs",
+    "test:clean": "node tools/test-clean.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.4.1",

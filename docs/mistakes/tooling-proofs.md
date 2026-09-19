@@ -3195,3 +3195,66 @@ is a class-7 "source guard is a review, not a test" — it does not run the SQL,
 so a typo'd column name it would still miss — but it is strictly more than
 nothing, which is what the fixture test alone provided against this exact
 regression.
+
+---
+
+## "Run failed: build" on a push whose `npm test` was green — the suite is not the same suite on both machines
+
+**Symptom (as reported):** *"why the build workflow run keep getting error like
+this. you should improve your workflow or test or something to detect so that
+this wouldn't occur."* Two pushes went red on CI (`ef1fe7a`, `bee6d90`) while
+`npm test` was 2,176/2,176 on the laptop that made them.
+
+**Cause:** `state-handoff.test.js` sweeps every path `STATE.md` and
+`docs/state/*.md` name and fails on one that is not there. It asked
+`existsSync`. `externaldata/` holds the raw handover files — 1,776 real
+students — and is **gitignored**, so it EXISTS on the maintainer's laptop and
+does NOT exist on a CI checkout. The sweep therefore answered a different
+question on each machine.
+
+**Both directions happened on the same night**, which is what makes it a shape
+rather than a slip:
+
+| assertion | laptop | CI |
+|---|---|---|
+| the two dead-pointer sweeps | green | **RED** |
+| "no exemption survives the file arriving" | **RED** | green |
+
+The second was fixed first, with a local `git check-ignore` helper — and the
+two sweeps ten lines above it were left reading the filesystem. One rule, two
+implementations, one fixed: `.claude/rules/mistakes.md` class 6, inside the file
+whose job is to catch exactly that.
+
+**Fix:** one `missingFromRepo()` asking git, used by all three sweeps. A
+gitignored path is not a repo file — it is a local artifact a note may
+legitimately name — so it is skipped whether or not this machine has it. The two
+`externaldata/` entries in `ABSENT_ON_PURPOSE` then became unreachable and were
+deleted: an exemption that is never reached silences that path for ever,
+including after a real rename.
+
+**And the part that catches the NEXT one:** `npm run test:clean`
+(`tools/test-clean.mjs`) stages exactly `git ls-files` into a temp directory and
+runs the suite there. Demonstrated on the restored bug — `npm test` 15/15 green,
+`npm run test:clean` 1 failed, which is what CI would have said.
+
+Two things it needs, both learned by getting them wrong:
+1. **It must be a real git repo** (`git init` + the same remote), or every
+   assertion that shells out to git goes red for "not a repository" — a
+   clean-room that reports failures CI will not report teaches you to ignore it.
+2. **It must see the HISTORY** (`.git/objects/info/alternates` pointing at the
+   real object store), or `git cat-file -e <sha>` says no for the perfectly good
+   sha in the ✅ DEPLOYED line. CI checks out with `fetch-depth: 0` and resolves
+   it fine.
+
+**Where it lives now:** `src/js/state-handoff.test.js` (`missingFromRepo`),
+`tools/test-clean.mjs`, `npm run test:clean`.
+
+**Rules:**
+1. **AN ASSERTION THAT ASKS THE FILESYSTEM ASKS A DIFFERENT QUESTION ON EACH
+   MACHINE.** Anything gitignored — `externaldata/`, `.env.local`, `dist/` — is
+   present for the author and absent for CI. Ask git what the repo contains;
+   `existsSync` answers what this disk contains, and those are not the same set.
+2. **A green `npm test` is not evidence about a push.** If the suite reads
+   anything outside git, run it where only git's files exist before believing it.
+3. **When you fix one reader of a rule, grep for the others in the same file.**
+   The fixed one and the broken one were ten lines apart.

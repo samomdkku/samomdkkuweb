@@ -31,7 +31,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const STATE = readFileSync(join(ROOT, 'STATE.md'), 'utf8');
@@ -69,13 +69,63 @@ const ABSENT_ON_PURPOSE = {
     'an ephemeral ~30-line WebKit harness; STATE.md names it as a SHAPE worth rebuilding and says so',
   'assets/admin-CPiyOZWb.js':
     'a served bundle hash from a past deploy, recorded as evidence; it has a slash only because the URL path does',
-  'externaldata/house-import/2026-09-14-teamsamo-no-kkumail.md':
-    'gitignored local artifact under externaldata/ — the raw handover files and their derived lists never enter git (1,776 real students\' data); phuriphatma.md names it as evidence for a specific session, not a repo file',
-  'externaldata/house-import/house0196-snapshot.json':
-    'same as above — a gitignored pre-migration snapshot, named for the record',
   'public/passport-elsewhere.html':
     'DELETED 2026-09-04 by the repo merge, permanently. It was the splash telling a preview visitor Passport was not in this build; passport is now built into dist/passport/ so the path it apologised for exists. Named only by docs/state/phuriphatma.md, which is one person\'s session notes and is never rewritten by anyone else — hence an exemption rather than an edit. This file is not coming back: a rule sending /passport/* anywhere but the real files is the bug the merge removed.',
 };
+
+/**
+ * ⛔ THE FILESYSTEM IS NOT THE SAME ON BOTH MACHINES THIS RUNS ON, and three
+ * assertions in this file used to ask it directly. `externaldata/` holds the
+ * raw handover files (1,776 real students) and is gitignored, so it EXISTS on
+ * the maintainer's laptop and does NOT exist on CI — which made the sweeps here
+ * answer differently in the two places, in BOTH directions, on the same night:
+ *
+ *   the dead-pointer sweeps  — green local, RED ON CI for two pushes
+ *   "no exemption survives"  — RED local, green on CI
+ *
+ * That is `.claude/rules/mistakes.md` class 7's "a guard that cannot run where
+ * guards are enforced", and `npm test` passing here proves nothing about the
+ * push. So every sweep below asks GIT instead: a gitignored path is not a repo
+ * file, it is a local artifact a note may legitimately name, and it is skipped
+ * whether or not this machine happens to have it.
+ *
+ * Which also means such a path needs NO entry in ABSENT_ON_PURPOSE — and must
+ * not have one. An exemption that is never reached is a hole: it silences the
+ * sweep for that path for ever, including after a real rename.
+ */
+// ONE git call, not one per path. The first version shelled out inside the
+// sweep and the test timed out at 5 s the moment a new `docs/state/*.md` file
+// added its pointers — a guard that dies of its own cost is a guard that gets
+// its timeout raised until somebody deletes it. `--stdin` answers for the whole
+// set at once; the set is every path any watched document names, plus every
+// exemption key, which is all this file ever asks about.
+const GIT_IGNORED = (() => {
+  const names = new Set(Object.keys(ABSENT_ON_PURPOSE));
+  for (const p of namedPaths(STATE)) names.add(p);
+  if (existsSync(join(ROOT, 'docs/state'))) {
+    for (const f of readdirSync(join(ROOT, 'docs/state'))) {
+      if (!f.endsWith('.md')) continue;
+      for (const p of namedPaths(readFileSync(join(ROOT, `docs/state/${f}`), 'utf8'))) names.add(p);
+    }
+  }
+  if (!names.size) return new Set();
+  const r = spawnSync('git', ['check-ignore', '--stdin'],
+    { cwd: ROOT, input: [...names].join('\n'), encoding: 'utf8' });
+  // Exit 128 is "not a git repository" — every path is then UNKNOWN, not
+  // ignored, and the sweeps fall back to asking the filesystem. Saying
+  // "ignored" here instead would silence them entirely outside a checkout.
+  if (r.status === 128 || r.error) return new Set();
+  return new Set((r.stdout || '').split('\n').map((x) => x.trim()).filter(Boolean));
+})();
+
+function isGitIgnored(p) { return GIT_IGNORED.has(p); }
+
+/** True when a named path is a file the REPO should have. */
+function missingFromRepo(p) {
+  if (isGitIgnored(p)) return false;
+  return !existsSync(join(ROOT, p)) && !existsSync(join(ROOT, 'src/js', p));
+}
+
 
 describe('STATE.md is a handoff, not a memory', () => {
   it('reads the file at all (a sweep that finds nothing must prove it looked)', () => {
@@ -112,9 +162,7 @@ describe('STATE.md is a handoff, not a memory', () => {
       const md = readFileSync(join(ROOT, rel), 'utf8');
       for (const t of namedPaths(md)) {
         if (t in ABSENT_ON_PURPOSE) continue;
-        if (!existsSync(join(ROOT, t)) && !existsSync(join(ROOT, 'src/js', t))) {
-          broken.push(`${rel} → ${t}`);
-        }
+        if (missingFromRepo(t)) broken.push(`${rel} → ${t}`);
       }
     }
     expect(broken, [
@@ -129,7 +177,7 @@ describe('STATE.md is a handoff, not a memory', () => {
       if (p in ABSENT_ON_PURPOSE) return false;
       // Module paths are often written relative to src/js — `team/index.js`
       // means `src/js/team/index.js`. Both spellings resolve.
-      return !existsSync(join(ROOT, p)) && !existsSync(join(ROOT, 'src/js', p));
+      return missingFromRepo(p);
     });
     expect(broken, [
       'STATE.md points at files that do not exist. A cold session follows these',
@@ -161,13 +209,7 @@ describe('STATE.md is a handoff, not a memory', () => {
     // assertion answer differently in the two places (red locally, green on CI
     // — class 7's "a guard that cannot run where guards are enforced"). git is
     // the authority for "is this path part of the repo".
-    const ignored = (p) => {
-      try { execFileSync('git', ['check-ignore', '-q', p], { cwd: ROOT }); return true; }
-      catch { return false; }
-    };
-    const arrived = Object.keys(ABSENT_ON_PURPOSE).filter(
-      (p) => (existsSync(join(ROOT, p)) || existsSync(join(ROOT, 'src/js', p))) && !ignored(p),
-    );
+    const arrived = Object.keys(ABSENT_ON_PURPOSE).filter((p) => !missingFromRepo(p));
     expect(arrived, [
       'These paths are listed as ABSENT_ON_PURPOSE but exist on disk.',
       'An exemption for a file that is THERE is not an exemption — it is a hole:',
