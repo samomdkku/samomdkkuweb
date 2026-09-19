@@ -1210,9 +1210,14 @@ is due.** First writes by this system to members — ever.
 
 **Owed next:**
 1. ⏳ **OWNER — the 30 WITHHELD removals, 16 people** (+1 leaver, `ปลา`, zero
-   ตำแหน่ง). A full `discord-apply.mjs` plan lists them by name; most look
-   like last year's ฝ่าย / หัวหน้า roles (e.g. `หัวหน้าฝ่าย IFMSA`,
-   `หัวหน้าฝ่าย Clinic` held by someone ทีม SAMO no longer places there).
+   ตำแหน่ง). A full `discord-apply.mjs` plan lists them by name. ⛔ NOT "last
+   year's roles" — an earlier note said so and the owner corrected it: this is
+   the FIRST year of the system. Each is a Discord role (given by the old
+   Sheet bot, which granted every ฝ่าย applied to — DISCORD-ROLE-SYNC.md §3b —
+   or by hand) that ทีม SAMO does not place that person in. Two shapes: a RANK
+   disagreement inside the right ฝ่าย (5: e.g. Discord `หัวหน้าฝ่าย IFMSA`,
+   web `รองหัวหน้าฝ่าย IFMSA`) and a WHOLE ฝ่าย ทีม SAMO does not have them in
+   (11). Either side may be the wrong one; a human says which, per person.
    Removing them takes channels away — it is item 4's decision, not a run.
 2. ✅ **Nickname near-matches — CLOSED 2026-09-19, owner decided each.** Linked:
    `Pru`, `ธิเบธ`, `Erin_#3_139-0` (the owner first said wrong — a SECOND
