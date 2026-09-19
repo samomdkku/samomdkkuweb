@@ -1184,12 +1184,14 @@ after creation; `npm run discord:readiness` re-run after the batch.
   won the 09-12 adoption race by sorting first — and was MOVED. Same-name
   siblings get `<name> · <parent>` roles (§5b), now in `discord-provision.mjs`.
 - **Role writes to MEMBERS start ADD-ONLY.** Removal waits on item 4 (leavers).
-- **One-time link by NICKNAME is approved in principle** — the server's
-  `ชื่อเล่น_#ปี_XXX-X` pattern matches ชื่อเล่น + last 4 of รหัส to exactly one
-  person for 168 of 196 members (0 ambiguous, 0 two-to-one); 7 near-matches
-  go to the owner by hand. A link stores the Discord user ID, so a later
-  rename changes nothing. **NOT DONE YET** — needs a provenance marker so an
-  imported link is distinguishable from an OAuth one.
+- **One-time link by NICKNAME — DONE 2026-09-19: 167 linked** by
+  `tools/discord-nickname-link.mjs` (ชื่อเล่น + last 4 of รหัส, exact and
+  one-to-one only; never an account in `discord_orphaned_accounts`). Each row
+  says `link_source = 'nickname-import'` (0195, proof `team0195` 12/12); the
+  web button resets it to `oauth`. A link stores the Discord user ID, so a
+  later rename changes nothing. ⏳ **7 near-matches await the owner** — the
+  tool prints them; link with `--confirm <discord ids>`. 3 match nobody, 18
+  nicknames are not in the shape (they use the button).
 - **Rename, not copy**, to give an adopted role its web name: channel
   overwrites belong to the role ID. Owner leaned towards copy-to-new-role;
   rename was recommended and not refused. Copy only for a SPLIT.
@@ -1200,7 +1202,11 @@ data). 340 of 342 would now get a role; the 2 left are the two same-team
 near-matches (`ฝ่ายประชาสัมพันธ์ฝ่าย AMSA`, `หัวหน้าฝ่าย IT (Tech lead)`), owed
 the rename step.
 
-**Owed next, in order:** nickname link import · tick the ~90 unticked nodes that
+**Owed next, in order:** ⏳ **the first ADD-ONLY run** — `discord-apply.mjs
+--add-only` is built and stub-tested (removals are counted and withheld, never
+dropped silently). Computed from the DB + the 11:37Z guild snapshot: **162 roles
+to 92 people**, with 20 removals across 12 people withheld. Run `--only <one
+id>` first, watched, then all; needs the VPN (it runs on the VM) · tick the ~90 unticked nodes that
 have an EXACT-name Discord role gating a channel (0 roles, recommended to the
 owner; 3 names exist twice on the web — resolve by holders, as ฝ่ายวิชาการ was)
 · rename the 2 near-matches · add-only mode in `discord-apply.mjs` · one person

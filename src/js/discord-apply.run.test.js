@@ -242,3 +242,31 @@ describe('a mapped role that no longer exists in the guild', () => {
     expect(r.writes).toEqual([]);
   });
 });
+
+describe('--add-only gives and never takes (owner, 2026-09-19)', () => {
+  it('plans the add, WITHHOLDS the removal, and says how many it withheld', async () => {
+    const r = await run(['--add-only'], stub);
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/ADD-ONLY: 1 removal\(s\) WITHHELD/);
+    expect(r.out).toMatch(/PLAN: 1 role\(s\) to add, 0 to remove/);
+    expect(r.writes).toEqual([]);
+  });
+
+  it('writes exactly the PUT — no DELETE — and exits 0', async () => {
+    // code === 0 is the ALLOW half: a refusal would also write no DELETE.
+    const r = await run(['--apply', '--add-only', '--add', '1', '--remove', '0'], stub);
+    expect(r.code, r.out).toBe(0);
+    expect(r.writes).toEqual(['PUT /api/v10/guilds/G/members/U1/roles/R1']);
+  });
+
+  it('control: WITHOUT --add-only the same world still removes', async () => {
+    const r = await run(['--apply', '--add', '1', '--remove', '1'], stub);
+    expect(r.writes).toContain('DELETE /api/v10/guilds/G/members/U1/roles/R2');
+  });
+
+  it('an add-only run passed the FULL plan\'s --remove count refuses and writes nothing', async () => {
+    const r = await run(['--apply', '--add-only', '--add', '1', '--remove', '1'], stub);
+    expect(r.code).not.toBe(0);
+    expect(r.writes).toEqual([]);
+  });
+});

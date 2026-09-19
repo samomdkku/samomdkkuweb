@@ -21,6 +21,7 @@
 //     node tools/discord-apply.mjs                          # plan only
 //     node tools/discord-apply.mjs --apply --add 4 --remove 0
 //     node tools/discord-apply.mjs --only <discord-user-id> # one person first
+//     node tools/discord-apply.mjs --add-only               # give, never take
 //
 // The plan is RECOMPUTED at apply time and re-printed. If it no longer matches
 // the numbers passed, it refuses. An --apply that recomputes and proceeds
@@ -292,6 +293,21 @@ async function main() {
     plan.push([m, toAdd, toRemove, display]);
   }
 
+  // ⛔ --add-only (owner, 2026-09-19): the first real runs GIVE roles and take
+  // none. Removal waits on "what makes a leaver" (HANDOFF §14b item 4), and a
+  // wrong removal costs someone their channels while a missing add costs
+  // nothing. The removals are COUNTED and printed, never silently dropped — so
+  // the gap between this run and a full one stays visible — and they are taken
+  // out of the plan HERE, before the counts, the cap and the write loop, so
+  // nothing downstream can see one.
+  let withheld = 0;
+  if (has('--add-only')) {
+    for (const entry of plan) { withheld += entry[2].length; entry[2] = []; }
+    for (let i = plan.length - 1; i >= 0; i--) if (!plan[i][1].length) plan.splice(i, 1);
+    remove = 0;
+    console.log(`ADD-ONLY: ${withheld} removal(s) WITHHELD — listed by a run without --add-only.`);
+  }
+
   if (missing.size) {
     console.log(`⚠️  ${missing.size} mapped role id(s) do not exist in this guild any more —`);
     console.log('   a role was deleted in Discord after being adopted. They are SKIPPED,');
@@ -367,6 +383,7 @@ async function main() {
     console.log();
     console.log('PLAN ONLY — nothing was written.');
     console.log(`    node tools/discord-apply.mjs --apply --add ${add} --remove ${remove}`
+      + (has('--add-only') ? ' --add-only' : '')
       + (oversized ? ' --allow-large' : '') + (only ? ` --only ${only}` : ''));
     console.log('  ⚠️  Run it on ONE person first: --only <discord-user-id>.');
     return;

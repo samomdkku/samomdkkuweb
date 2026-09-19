@@ -53,7 +53,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0194. ALL 43 LIVE PROOFS GREEN** (2026-09-14) — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
+- **Migrations through 0195. ALL 44 LIVE PROOFS GREEN** (2026-09-14; 0195 added + the four Discord proofs re-run 2026-09-19) — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
   ⚠️ A proof can be GREEN WHILE BROKEN because the environment happened to be
   quiet — both Claude quota proofs were, until they CONSTRUCTED the absence
   they assume (`docs/mistakes/tooling-proofs.md`; counts live in the proofs).
@@ -119,9 +119,9 @@ the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
    `~/samo-deploy-logs` trace before theorising. Status: CURRENT DEPLOY, above.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
 4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; EVERY ฝ่าย HAS A ROLE (56 created
-   2026-09-19); NO MEMBER HAS BEEN GIVEN OR STRIPPED ONE YET.** Owner decisions
-   and the ordered next steps (nickname link import → ticks → add-only apply →
-   channels): **`HANDOFF` §14b, its top block.** Counts: `npm run
+   2026-09-19); 168 LINKED (167 by nickname import, 0195); NO MEMBER HAS BEEN
+   GIVEN OR STRIPPED A ROLE YET.** Owner decisions and the ordered next steps
+   (add-only apply → near-matches → ticks → channels): **`HANDOFF` §14b, its top block.** Counts: `npm run
    discord:readiness`. ⛔ ONE HOME for the design: `docs/DISCORD-ROLE-SYNC.md`.
 
 ### B. OWNER ONLY

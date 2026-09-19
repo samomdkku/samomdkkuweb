@@ -72,6 +72,7 @@ const PROOFS = [
   ['team0184-discord-targets.sql', 'which Discord roles a person is DUE — own ตำแหน่ง plus every ticked ฝ่าย above it'],
   ['team0185-link-codes.sql', 'a Discord link code proves a live portal session, once, and cannot steal an account'],
   ['team0187-orphaned-accounts.sql', 'a Discord account that stops being claimed leaves a trace, through all three doors'],
+  ['team0195-link-source.sql', 'a Discord link says where it came from, and the web button upgrades an import to oauth'],
   ['pass-hardening.mjs', 'passport RLS: five real principals, 0011 applied in a rolled-back txn'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],
