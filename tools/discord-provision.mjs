@@ -349,12 +349,15 @@ async function main() {
     n++;
   }
   for (const t of willCreate) {
-    // No permissions, no colour, not hoisted. Access comes from CHANNEL
+    // No permissions, no colour, not hoisted, NOT MENTIONABLE — 1 of the 179
+    // pre-existing roles lets everyone @ping it; the first 56 created here all
+    // did (2026-09-19), letting anyone in the server ping a whole ฝ่าย.
+    // Access comes from CHANNEL
     // overwrites, which a human adds deliberately; a role created with
     // permissions of its own grants them server-wide.
     const role = await dc(`/guilds/${guildId}/roles`, {
       method: 'POST',
-      body: JSON.stringify({ name: t.roleName, permissions: '0', mentionable: true, hoist: false }),
+      body: JSON.stringify({ name: t.roleName, permissions: '0', mentionable: false, hoist: false }),
       // ⛔ URL-ENCODED. A header value is a ByteString (latin-1) and both the
       // Thai and the em dash throw `Cannot convert argument to a ByteString`
       // in fetch() before the request is made. This branch has NEVER RUN —

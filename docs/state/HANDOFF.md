@@ -1217,6 +1217,21 @@ REVERTED; `📇 ฝ่ายเลขานุการนายกฯ` (ADMINIS
 website's ฝ่ายเลขานุการนายกฯ that afternoon — UNLINKED before anyone else
 received it. `discord-apply.mjs` now refuses any power key without
 `--allow-power '<name>'`. Every person was diffed against the morning: 0 lost.
+✅ **FULL SCAN vs THIS MORNING (2026-09-19, owner asked "scan for bugs,
+overpermission"), every human × every room + server-wide:** 0 lost · 0 keys
+held that the web does not give · 0 server-wide powers gained · every room
+gained comes from a key the web gives (180 person×room, 28 people) · 5
+per-room powers gained, all from web-given keys (บอส manages the 2 VS rooms via
+ฝ่ายยุทธศาสตร์, as its other members already did; ผักหวาน + เปียโน are heads).
+Discord's AUDIT LOG (45 days, 467 entries) reconciles: 57 created, 1 deleted,
+242 member key changes (202 given + 40 removed), 29 key room grants, 57
+personal passes (7 not logged — all channels synced to a category; each exists
+and grants nothing beyond that person's morning). **The bot changed no
+pre-existing key's settings.** `📇 ฝ่ายเลขานุการนายกฯ` (ADMINISTRATOR) and
+`สมาชิก SAMO Buddy` had those powers before 12 Aug (no change in the log) —
+they PERSIST, as do their holders. **One over-permission was mine and is
+fixed:** the 56 created keys were @-mentionable by everyone (server
+convention: 1 of 179) — set to false, and provisioning now creates them so.
 ⏳ **OWNER:** does หงส์ get SAMO Buddy (and its server-wide power)? Should
 ฝ่ายเลขานุการนายกฯ have a Discord key at all, given that one is Administrator?
 Write-up: `docs/mistakes/authz-grants.md`.

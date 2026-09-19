@@ -28,6 +28,9 @@ describe('provisioning never deletes', () => {
     // to come from CHANNEL overwrites a human adds deliberately.
     expect(CODE).toMatch(/permissions:\s*['"`]0['"`]/);
     expect(CODE).not.toMatch(/hoist:\s*true/);
+    // The server's convention: 1 of 179 roles is @-mentionable by everyone.
+    expect(CODE).toMatch(/mentionable:\s*false/);
+    expect(CODE).not.toMatch(/mentionable:\s*true/);
   });
 });
 
