@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# pre-push — surface an unwritten handoff BEFORE the work leaves this machine.
+#
+# ⛔ WHY A HOOK AND NOT A REMINDER. The end-of-turn loop is a list somebody has
+# to remember, and the owner said what happens when nobody does: *"sometime i
+# forgot to tell you to handoff also, like sometime i knew it at 92% session
+# token"* — by then there is no room left to write one. A hook does not depend
+# on either of us noticing that the end has arrived.
+#
+# ⚠️ IT WARNS, IT DOES NOT BLOCK. Blocking a push on a documentation rule would
+# be wrong here: this owner ships several times an hour and a refactor changes
+# no state. It prints what is unrecorded and gets out of the way.
+# `HANDOFF_STRICT=1 git push` makes it refuse instead.
+#
+# Install (once, per clone):  git config core.hooksPath .githooks
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+LAST="$(git log -1 --format=%H -- STATE.md 2>/dev/null)"
+[ -n "$LAST" ] || exit 0
+SINCE="$(git log --oneline "$LAST..HEAD" -- src/ supabase/ server/ passport/ tools/ functions/ 2>/dev/null)"
+N=$([ -n "$SINCE" ] && printf '%s\n' "$SINCE" | wc -l | tr -d ' ' || echo 0)
+
+[ "$N" -lt 3 ] && exit 0
+
+printf '\n\033[33m⚠️  %s shipping commit(s) since STATE.md last moved:\033[0m\n' "$N"
+printf '%s\n' "$SINCE" | head -8 | sed 's/^/      /'
+cat <<'MSG'
+
+   If any of that changed what the NEXT session needs to know — what is
+   deployed, what is in flight, what is now blocked — write it into STATE.md
+   or docs/state/HANDOFF.md now, while you still remember it.
+
+   A refactor changes no state and needs nothing. Run `npm run handoff:check`
+   for the full picture.
+MSG
+
+if [ -n "${HANDOFF_STRICT:-}" ]; then
+  echo "   HANDOFF_STRICT is set — refusing the push."
+  exit 1
+fi
+echo ""
+exit 0

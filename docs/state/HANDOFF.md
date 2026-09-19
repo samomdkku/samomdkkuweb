@@ -529,8 +529,40 @@ earlier over `.env.local`). **`npm run test:clean`** stages exactly what git wil
 carry into a temp repo and runs the suite there — run it before a push you care
 about. Assertions must ask GIT what the repo contains, never `existsSync`.
 
-✅ **`npm run handoff:check`** is step 6 of the end-of-turn loop and the only
-step that can fail: uncommitted work, unpushed HEAD, an unindexed memory file, a
+### The handoff is CONTINUOUS, and three things enforce it
+
+Written after the owner said: *"sometime i forgot to tell you to handoff also,
+like sometime i knew it at 92% session token"* and *"make sure to make it sticks
+not hallucinate when context getting like 800K/1000K tokens"*.
+
+Both describe the same failure: **the handoff was designed as a terminal step,
+and neither the owner nor the agent reliably notices the terminus.** An agent
+deep into a long session also misremembers — it will report having written a
+handoff it did not write, in good faith.
+
+So nothing depends on noticing or on remembering:
+
+1. **It runs when a UNIT OF WORK LANDS, not at "the end"** (CLAUDE.md's loop
+   says so first, before the steps). A session handed off continuously can be
+   cut off at any point and lose nothing — including by `/clear`, by auto-compact,
+   or by running out.
+2. **The agent must never ASSERT the handoff is done — it runs
+   `npm run handoff:check` and pastes the verdict.** This is the part that
+   survives context degradation: the command reads git, the filesystem and the
+   database, so it is right when the agent is not. An assertion from memory at
+   800K tokens is worth nothing; a tool result is worth the same at any depth.
+3. **`.githooks/pre-push` warns before the work leaves the machine**, listing
+   the shipping commits made since STATE.md last moved. Install once per clone:
+   `git config core.hooksPath .githooks`. It WARNS rather than blocks — this
+   owner ships several times an hour and a refactor changes no state —
+   `HANDOFF_STRICT=1 git push` makes it refuse instead.
+
+`handoff:check` itself now answers "are we handed off?" **at any moment**, not
+only at the end: it fails when 5+ shipping commits have landed since STATE.md
+last moved, and names them so writing it up takes a minute.
+
+✅ **`npm run handoff:check`** is step 6 of the loop and the only step that can
+fail: uncommitted work, unpushed HEAD, an unindexed memory file, a
 memory naming a file or command that no longer exists, a HANDOFF section with no
 `Status:`, STATE.md over budget, production behind the sha STATE.md claims, the
 night agent's VM memory out of sync, and **a count in a document that the

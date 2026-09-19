@@ -29,7 +29,7 @@ Supabase project: `fheueuowbchsnsvbcgil`.
   GrapesJS — **DYNAMIC IMPORT ONLY, never an entry bundle**
 - **Auth + DB**: Supabase Auth (Google + username/password), Postgres with RLS
 - **Files**: Google Drive via GAS `uploadPRFile` (2 TB quota)
-- **Discord**: GAS proxy actions `notifyPROnly` / `notifyVSOnly` / `notifyVSConsult`
+- **Discord**: GAS proxy `notifyPROnly` / `notifyVSOnly` / `notifyVSConsult`
 - **Hosting**: KKU VM (nginx) via `server/deploy.sh` over ssh. Pages is retired.
 - **Env vars**: `VITE_*` baked in at build time on the VM. Every secret and its
   tier is in `.claude/rules/security.md`, already loaded.
@@ -50,12 +50,12 @@ npm run setup    # write .env.local from a pasted block (env:share sends one)
 | New CSS | `src/css/*.css` (then `@import` from `src/main.css`) |
 | New JS module | `src/js/*.js` (ES module) |
 | A ฝ่าย tool (launcher + ฝ่าย page) | **one entry in `src/data/tools.js`** — never markup in `tab-tools.html`, which is generated |
-| A ฝ่าย's OWN page (they wrote the HTML) | `public/embed/<slug>/` + a `kind:'embed'` entry — copy `public/embed/starter/` |
-| Window-bound function (for `onclick=""`) | Wire in `src/js/main.js` |
+| A ฝ่าย's OWN page (they wrote the HTML) | `public/embed/<slug>/` + a `kind:'embed'` entry — copy `starter/` |
+| Window-bound fn (for `onclick=""`) | Wire in `src/js/main.js` |
 | New Supabase schema | New numbered file in `supabase/migrations/` |
 | Backend GAS edit | `appscript/*.gs` (then redeploy — see skills/deploy-gas.md) |
 | Any schema change | New numbered migration + a both-directional proof — `skills/ship-a-migration.md` (ADD then deploy; DROP only after the new bundle is SERVED) |
-| nginx, Docker, or the `/vault/` vault | `skills/vaultwarden.md` |
+| nginx, Docker, the `/vault/` vault | `skills/vaultwarden.md` |
 
 ## UI/UX guidelines
 
@@ -73,10 +73,9 @@ npm run setup    # write .env.local from a pasted block (env:share sends one)
 
 ## Memory layout — what loads, what you fetch
 
-**Auto-loaded into every session** (`CLAUDE.md` + everything in
-`.claude/rules/`): this file, `.claude/rules/mistakes.md` (the recurring bug
-CLASSES + a nine-line directory of which write-up file holds what),
-`.claude/rules/security.md` (key hygiene). Budget enforced in BYTES by
+**Auto-loaded every session** (`CLAUDE.md` + all of `.claude/rules/`): this
+file, `mistakes.md` (the recurring CLASSES + which write-up file holds what),
+`security.md` (key hygiene). Budget enforced in BYTES by
 `npm run check:context`, which `npm test` runs. **Never put a bug write-up, a
 session narrative, or anything that GROWS WITH THE WORK in `.claude/rules/` —
 it is charged to every future session.** The per-entry symptom index lives in
@@ -91,52 +90,55 @@ guarded) · **`docs/INVARIANTS.md`** = rules outliving a session · **HANDOFF** 
 what is NOT done · **`docs/state/<handle>.md`** = one person's notes, never
 rewritten by others · **`docs/state-archive/`** = why.
 
-`STATE.md` carries what is in flight, deployed and owed — the things that change
-what you do FIRST. Everything else below is genuinely fetch-when-needed; these
-two are not, and skipping them is how a session re-breaks yesterday's work.
-⛔ **Write to the right home.** Appending a session narrative to `STATE.md` took
-it to 1,403 lines against a 200-line target; `state-handoff.test.js` now fails
-the build if it grows back past ~200.
+`STATE.md` carries what is in flight, deployed and owed — what changes what you
+do FIRST. Everything else below is fetch-when-needed; these two are not, and
+skipping them is how a session re-breaks yesterday's work.
+⛔ **Write to the right home.** A session narrative appended to `STATE.md` took
+it to 1,403 lines against a 200-line target; `state-handoff.test.js` fails the
+build if it grows back.
 
-**Read on demand** — everything below. Fetch the one you need; don't preload.
+**Read on demand.** Fetch the one you need; don't preload.
 
 - `docs/mistakes/*.md` — the bug write-ups, nine files by area, plus the
-  generated `INDEX.md` (one symptom line per entry). The directory in
-  `.claude/rules/mistakes.md` says which file to open, but
+  generated `INDEX.md`. `.claude/rules/mistakes.md` says which file to open, but
   `grep -rin "<symptom>" docs/mistakes/` is usually faster — it searches the
   write-ups, not their titles. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
   SECURITY DEFINER function, `server/deploy.sh`, or `appscript/*.gs`.**
-- `README.md` — human onboarding. Not for agents; open only to verify it.
-- `CONTRIBUTING.md` — human collaborator guide; same rules. Cross-check when
-  editing project policy.
-- `docs/TEAM-WORKFLOW.md` — multi-dev plan (dev env, previews, credentials, review). **DESIGN ONLY**; §0 = owner decisions, do not re-litigate
+- `README.md` / `CONTRIBUTING.md` — human onboarding and collaborator guide.
+  Not for agents; open only to verify or when editing project policy.
+- `docs/TEAM-WORKFLOW.md` — multi-dev plan (dev env, previews, credentials).
+  **DESIGN ONLY**; §0 = owner decisions, do not re-litigate
 - `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT (content / embed / native). **DESIGN ONLY**; §10, §13
-- `docs/CONTEXT.md` — architecture map, RLS, schema, deploy plumbing, workflows
+- `docs/CONTEXT.md` — architecture, RLS, schema, deploy plumbing, workflows
 - `docs/HOUSE-DATA-REPAIR.md` — ระบบบ้าน: which broken field a STUDENT fixes, an
   ADMIN must, or only ฝ่ายข้อมูล can; the one case that fails OPEN. READ BEFORE
-  promising a data fix or touching the claim / held list.
+  promising a data fix or touching the claim / held list
 - `docs/EMAIL.md` — who sends mail and the quota ceilings. The VM CAN send via
-  a relay (587 out works); it cannot BE or RECEIVE mail (25 blocked out, no
-  inbound port, `p=reject`). READ BEFORE touching mail.
-- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase. Not a status
-- `docs/MERGE-CHECKLIST.md` — when merging refactor → main
+  a relay (587 out); it cannot BE or RECEIVE mail (25 blocked, no inbound port,
+  `p=reject`). READ BEFORE touching mail.
+- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase. Not a status.
+- `docs/MERGE-CHECKLIST.md` — merging refactor → main
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
-  version or adding a release note; `npm run release` does the mechanical half.
+  version or adding a release note; `npm run release` does the mechanical half
 - `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model; its "current
-  state" section is the GAS era
-- `docs/KKU-SSO.md` — a login improvement, NOT a data source (no roster, no
-  สายรหัส, no สาขา). Manual: `KKU-SSO-MANUAL.md`
-- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED
+  state" is the GAS era
+- `docs/KKU-SSO.md` — a login improvement, NOT a data source (no roster, สายรหัส
+  or สาขา). Manual: `KKU-SSO-MANUAL.md`
+- `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal. DEFERRED
 - `docs/DISCORD-ROLE-SYNC.md` — ทีม SAMO → Discord roles. **DESIGN ONLY**; §7 is
-  owner-only and blocks the rest. READ BEFORE any Discord bot code
-- `docs/demos/*/README.md` — built-and-published comparisons the owner is
-  choosing between. Not shipped code; each says what is decided and what is not
-- `skills/*.md` — playbooks for the non-obvious workflows
+  owner-only and blocks the rest. READ BEFORE any Discord bot code.
+- `docs/demos/*/README.md` — published comparisons the owner is choosing
+  between. Not shipped code; each says what is decided
+- `skills/*.md` — playbooks for the non-obvious workflows.
 
-## End-of-turn loop (MANDATORY)
+## Handoff loop (MANDATORY)
 
-Before sending the final response on any task that modified files:
+⛔ **Run it when a UNIT OF WORK LANDS — not at "the end", which nobody
+controls** (the owner has noticed at 92% of a session, too late to write one).
+⛔ **And never ASSERT the handoff is done — RUN step 6 and paste its verdict.**
+Late in a long session you will misremember having written it; the command reads
+git, the filesystem and the database, so it is right when you are not.
 
 1. **Update `STATE.md`** — only if real state changed (branch HEAD, pending migrations, in-flight work, blockers). No session narrative: `git log` is the archive. Under ~200 lines; if it bloats, prune old sections to `docs/state-archive/YYYY-MM-DD.md`.
 2. **If a bug was found and fixed**: write it up in the matching
@@ -161,16 +163,16 @@ Before sending the final response on any task that modified files:
    `docs/CONTEXT.md` · build/install/env changed → `README.md`.
    **Internal-only (refactor, bugfix, test, comment) — SKIP.** Doc edits are a
    side-effect of meaningful change, not a tax on every commit.
-6. **RUN `npm run handoff:check`** — the step that can FAIL. Checks what is
-   mechanical: nothing uncommitted, HEAD pushed, memories indexed and their
-   pointers alive, HANDOFF sections carrying `Status:`, STATE.md in budget,
-   prod serving the sha STATE.md claims, the VM's agent memory synced, and
-   **counts in docs matching the DATABASE**. ⛔ A skip is NOT green. ⚠️ It
-   cannot tell whether a sentence is TRUE.
+6. **RUN `npm run handoff:check`** — the step that can FAIL. Checks the
+   mechanical part: uncommitted work, unpushed HEAD, unindexed memories, dead
+   pointers in them, a HANDOFF section with no `Status:`, STATE.md over budget
+   or behind the work, prod behind the sha STATE.md claims, the VM's agent
+   memory out of sync, **a count in a doc the DATABASE contradicts**.
+   ⛔ A skip is NOT green. ⚠️ It cannot tell if a sentence is TRUE.
 7. Say "Updated STATE.md / docs/mistakes / changelog / skills/* as needed" and
    paste its verdict.
 
-This keeps cold-start agents from re-walking bugs we already paid for, and docs from going stale. **Step 6 exists because 1–5 were a list somebody had to remember, and the owner kept having to ask for them at the end of a session.**
+This keeps cold-start agents from re-walking bugs we already paid for, and docs from going stale. **Step 6 exists because 1–5 were a list somebody had to remember, and remembering is what kept failing.**
 
 ## Authority model
 

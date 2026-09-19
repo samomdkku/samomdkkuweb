@@ -128,6 +128,33 @@ try {
   else ok('every HANDOFF section says how far to trust it', `${secs.length} sections`);
 } catch (e) { skip('HANDOFF sections', e.message); }
 
+// ── has the handoff fallen behind the work? ────────────────────────────────
+// ⛔ THE POINT OF THIS ONE: a handoff written at the END depends on somebody
+// noticing that the end has arrived, and the owner said plainly that they
+// sometimes notice at 92% of a session — too late to write anything properly.
+// So "are we handed off?" has to be answerable AT ANY MOMENT, not only when
+// someone declares the session over.
+//
+// This counts shipping commits since STATE.md last moved. It is a proxy and it
+// says so: a refactor changes no state and should not force STATE.md to churn,
+// which is why 1–4 is reported and tolerated. Past that, work the next session
+// needs to know about is almost certainly sitting unrecorded, and the check
+// names the commits so writing it up takes a minute rather than a re-read.
+try {
+  const last = git('log', '-1', '--format=%H', '--', 'STATE.md');
+  const since = git('log', '--oneline', `${last}..HEAD`, '--',
+    'src/', 'supabase/', 'server/', 'passport/', 'tools/', 'functions/');
+  const n = since ? since.split('\n').length : 0;
+  if (n >= 5) {
+    bad('the handoff has kept up with the work',
+      `${n} shipping commits since STATE.md last moved:\n      ${since.split('\n').slice(0, 6).join('\n      ')}`);
+  } else if (n > 0) {
+    ok('the handoff has kept up with the work', `${n} shipping commit(s) since STATE.md moved — fine unless one changed STATE`);
+  } else {
+    ok('the handoff has kept up with the work', 'STATE.md is current with the work');
+  }
+} catch (e) { skip('the handoff has kept up with the work', e.message.split('\n')[0]); }
+
 try {
   const lines = read('STATE.md').split('\n').length;
   if (lines > 260) bad('STATE.md is still a status file', `${lines} lines, budget ~200 (hard stop 260)`);
