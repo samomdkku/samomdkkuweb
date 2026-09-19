@@ -106,3 +106,16 @@ describe('same-name ฝ่าย get a qualified role of their own', () => {
     expect(w.created).toBeUndefined();
   });
 });
+
+describe('an emoji-prefixed Discord role is still recognised', () => {
+  it('`📇 ฝ่ายX` is a NEAR match for web `ฝ่ายX` — never a second, empty role', async () => {
+    // 2026-09-19: the emoji was stripped but its trailing space kept, so the
+    // ฝ่าย prefix did not strip and the names normalised apart — a duplicate
+    // of `📇 ฝ่ายเลขานุการนายกฯ` was created. It must land in NEAR instead.
+    w.roles.push({ id: 'RE', name: '📇 ฝ่ายเลขานุการนายกฯ', position: 7, permissions: '0', managed: false });
+    w.ticked.push({ id: 'sec', name: 'ฝ่ายเลขานุการนายกฯ', parent_id: null, discord_role: true, discord_role_id: null });
+    const r = await provision([]);
+    expect(r.out).toContain('"ฝ่ายเลขานุการนายกฯ"  ≈  "📇 ฝ่ายเลขานุการนายกฯ"');
+    expect(r.out).not.toContain('→  new role "ฝ่ายเลขานุการนายกฯ');
+  });
+});

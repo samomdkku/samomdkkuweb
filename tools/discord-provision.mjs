@@ -110,9 +110,15 @@ async function pg(path, init = {}) {
   return body ? JSON.parse(body) : null;
 }
 
+// ⛔ TRIM BEFORE STRIPPING THE ฝ่าย PREFIX. `📇 ฝ่ายเลขานุการนายกฯ` lost its
+// emoji and kept the space, so `^ฝ่าย` no longer matched and the name
+// normalised differently from the web's `ฝ่ายเลขานุการนายกฯ`. The match was
+// missed, a DUPLICATE empty role was created beside the one holding 5 channels
+// (2026-09-19; deleted, node remapped). Emoji prefixes are this server's
+// convention (👑 นายกฯ, 🏅 อุปนายกฯ), so this is not a one-off.
 const norm = (x) => String(x)
   .replace(/[\p{Extended_Pictographic}️​-‍]/gu, '')
-  .replace(/\([^)]*\)/g, '').replace(/^ฝ่าย\s*/, '').replace(/\s+/g, '').toLowerCase().trim();
+  .trim().replace(/\([^)]*\)/g, '').replace(/^ฝ่าย\s*/, '').replace(/\s+/g, '').toLowerCase().trim();
 
 async function main() {
   const guilds = await dc('/users/@me/guilds');

@@ -1244,8 +1244,33 @@ is due.** First writes by this system to members — ever.
    over all 167 imports found **0 that share nothing** (148 share a role; the
    other 19 had no roles or no placement to compare).
 3. Rename the 2 same-team near-matches to their web names, then adopt.
-4. CHANNELS: the 56 new roles open nothing until added to their ฝ่าย's
-   channels (115 of 151 channels carry custom overwrites; 56 overwrites name a
+4. ✅ **CHANNELS, TIER 1 — DONE 2026-09-19** (`tools/discord-channels.mjs`): a
+   ฝ่าย role gets the channels its OWN `สมาชิกฝ่าย X` role opens — allow bits
+   only, so nobody can lose anything, and the tool recomputes every human ×
+   every channel and refuses on any loss or broken category sync. 25 grants /
+   18 ฝ่าย; re-read from the REAL guild after: **0 lost, sync 36 → 36**, one
+   person gained 2 channels (`หงส์`, whom ทีม SAMO places in that ฝ่าย).
+   The earlier add-only run was checked the same way: 0 lost across 95 members.
+   ⛔ **A duplicate role was created by provisioning and REMOVED the same day**:
+   `📇 ฝ่ายเลขานุการนายกฯ` (5 channels) was missed because the emoji was
+   stripped but its space kept; an empty `ฝ่ายเลขานุการนายกฯ` was created beside
+   it. The node now points at the 📇 role, the empty one was deleted (it had
+   permissions 0, no overwrite, and its one holder had the 📇 role), and the
+   matcher trims first (test in `discord-provision.run.test.js`). 238 roles.
+   ⏳ **TIER 2 — OWNER.** 32 ฝ่าย roles still open nothing. 10 have a "team
+   channel" opened separately to most of their ตำแหน่ง (`#internat-amsa`,
+   `#internat-ifmsa`, `#internat-interclub`, `#interuni-smst`, the
+   `#interuni-syringe` set, `#pr-contentcreator`, and ฝ่ายจัดการโครงการ's
+   โครงการ category). Adding the ฝ่าย role there OPENS them to members who do
+   not see them today — so it is a decision, not a rule. 22 have no channel.
+   The 30 withheld removals are unchanged by tier 1 (58 channel accesses):
+   they are real disagreements about who is in which ฝ่าย.
+5. ⚠️ **The bot's role (`samobot`) holds ADMINISTRATOR** — read from the
+   guild. The design asked for Manage Roles only, and this token has leaked
+   before. Nothing done so far needed more than Manage Roles + (for tier 1)
+   Manage Channels/Permissions. Owner's call; raised, not changed.
+6. (was 4) The remaining channels work: tier 2 above, then new channels
+   need ONE role — the ฝ่าย's. (115 of 151 channels carry custom overwrites; 56 overwrites name a
    single person and are out of scope). Owner still owes: kick
 `Role assignment bot for SAMO69`.
 
