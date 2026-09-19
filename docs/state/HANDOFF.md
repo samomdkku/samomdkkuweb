@@ -1232,7 +1232,16 @@ pre-existing key's settings.** `📇 ฝ่ายเลขานุการน�
 they PERSIST, as do their holders. **One over-permission was mine and is
 fixed:** the 56 created keys were @-mentionable by everyone (server
 convention: 1 of 179) — set to false, and provisioning now creates them so.
-⏳ **OWNER:** does หงส์ get SAMO Buddy (and its server-wide power)? Should
+✅ **OWNER RULE (2026-09-19, in words): "everything should be according to the
+website, except a bug like the PR one."** So: หงส์ was GIVEN `สมาชิก SAMO
+Buddy` (the web places her there) with `--allow-power 'สมาชิก SAMO Buddy'`, and
+the web's ฝ่ายเลขานุการนายกฯ was RE-LINKED to `📇 ฝ่ายเลขานุการนายกฯ`. On the
+web that ฝ่าย holds ก้อง (already has it) and เอมมี่ (หัวหน้าฝ่ายเลขาฯนายกฯ, NOT
+linked yet). ⚠️ When เอมมี่ links, the plan will list that key as ADMINISTRATOR
+and refuse without `--allow-power '📇 ฝ่ายเลขานุการนายกฯ'` — the owner's rule
+approves it; the guard stays so a BUG (the PR shape) can never hand out power
+unseen. Plan after both: 0 add / 0 remove.
+(superseded) ⏳ **OWNER:** does หงส์ get SAMO Buddy (and its server-wide power)? Should
 ฝ่ายเลขานุการนายกฯ have a Discord key at all, given that one is Administrator?
 Write-up: `docs/mistakes/authz-grants.md`.
 
