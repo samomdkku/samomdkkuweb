@@ -8,7 +8,11 @@ PW="$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//
 D=server/night-agent
 
 ssh -o BatchMode=yes samo-vm 'mkdir -p ~/samo-night/logs ~/samo-agent/.claude'
-for f in run-night.sh NIGHT-TASKS.md REVISE.md HANDOFF.md; do
+# ⛔ queue.mjs IS NOT OPTIONAL. run-night.sh calls it to gate the night, to read
+# each task's `Done when:` and to write the verdicts back. Left off this list it
+# would be missing on the VM and every night would fall back to running the whole
+# queue again — which is precisely the behaviour it was written to end.
+for f in run-night.sh queue.mjs NIGHT-TASKS.md REVISE.md HANDOFF.md; do
   ssh -o BatchMode=yes samo-vm "cat > ~/samo-night/$f" < "$D/$f"
 done
 ssh -o BatchMode=yes samo-vm 'chmod +x ~/samo-night/run-night.sh && bash -n ~/samo-night/run-night.sh'

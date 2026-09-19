@@ -135,3 +135,68 @@ One full window ≈ 14% of the weekly pool (`session_pool_pct` 100,
 The branch is `agent/<date>` on the VM and **cannot be pushed**. Review it there,
 or pull it to a laptop. Nothing it produced has been verified against the live
 database — by construction, it has none.
+
+---
+
+## Writing a queue (2026-09-19 — the format the runner reads and WRITES)
+
+`~/samo-night/NIGHT-TASKS.md` is **state**, not a prompt. The runner writes
+`Status:` / `Attempts:` back into it, and reads them on the next night. That is
+what stops the thing the first three nights did: run the same six tasks over and
+over against a `main` that already held the previous night's work.
+
+```markdown
+# NIGHT-TASKS
+Budget: 3 nights          ← YOU write this. The runner decrements it.
+
+## 1. Build the CSV generator
+Done when: node tools/house-year-sheets.mjs --help
+
+## 2. Fix the ระบบบ้าน audit
+Done when: npm test && node tools/house-gaps.mjs | grep -q 'สายที่มีปัญหา: 5'
+
+## 3. Plan the multi-project engine — no code
+Done when: once
+```
+
+### The one rule worth understanding
+
+**`Done when:` is a shell command the RUNNER executes. Its exit code is the
+status.** The agent never writes its own verdict — it may write `Note:`, which
+nothing reads but a person.
+
+The obvious alternative, letting the agent write `Status: done`, is the same bug
+wearing a schema: the agent is still the one asserting it. This repo has paid
+for that shape twice — `DEPLOY_EXIT=0` was reachable with the docs step skipped,
+and `confirm-modal.test.js` was satisfied by a COMMENT.
+
+### What the runner does with it
+
+| when | what |
+|---|---|
+| before the night | `queue.mjs gate` — no work, or no budget → post why, **exit without calling claude at all** |
+| before each task | run `Done when:`. **Already passing → skip the task**, mark done, say so. It proved nothing about work that has not happened |
+| after each task | run it again. pass → `done` · fail → `todo` (retry tomorrow) · fail twice → `blocked` |
+| `Done when: once` | one attempt → `needs-review`. Never retried |
+| end of night | `queue.mjs spend` — one night off `Budget` |
+
+### Two stops, deliberately independent
+
+1. every task reaching `done` / `blocked` / `needs-review`
+2. `Budget: N nights`
+
+A mistyped check breaks (1) and only (2) guarantees the loop ends. A queue with
+**no `Budget:` line gets ONE night** — an omitted field fails toward stopping.
+
+### Why the timer can stay armed
+
+`gate` runs before any `claude -p`, so a finished queue costs nothing: the run
+posts one line to Discord and exits. There is no timer to disable and no state
+on the VM to clean up — **the queue file is the switch.**
+
+Unit tests: `src/js/night-queue.test.js` (15, including a five-night loop that
+must terminate). Rehearsed end to end with a fake `claude` before shipping.
+
+⚠️ **`bash server/night-agent/install.sh` is what puts `queue.mjs` and the new
+`run-night.sh` on the VM.** Until that runs, `~/samo-night/` still has the
+versions that repeat.

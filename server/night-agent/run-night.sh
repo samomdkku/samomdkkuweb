@@ -157,6 +157,22 @@ echo "=== samo night agent — started $(date -u +%FT%TZ) (ICT $(TZ=Asia/Bangkok
 # It refuses rather than warns — a warning at 22:41 ICT is read by nobody.
 # `NIGHT_FORCE=1` is the deliberate escape for re-running a queue on purpose,
 # and it has to be typed, which is the difference that matters.
+# ⛔ ASK THE QUEUE WHETHER TONIGHT SHOULD HAPPEN — BEFORE any `claude -p`, so a
+# finished or out-of-budget queue costs nothing at all. That is why the timer can
+# stay armed: there is nothing to disable, and a no-op night spends no tokens.
+QUEUE="$(dirname "$0")/queue.mjs"
+[ -r "$QUEUE" ] || QUEUE="$NIGHT_HOME/queue.mjs"
+if [ -r "$QUEUE" ] && [ -r "$TASKS" ]; then
+  GATE_WHY="$(node "$QUEUE" gate "$TASKS" 2>&1)"; GATE_RC=$?
+  if [ "$GATE_RC" -ne 0 ]; then
+    echo "!! ไม่เริ่มงานคืนนี้: $GATE_WHY"
+    post_discord "$(printf 'ไม่ได้เริ่มงานคืนนี้ %s (ICT)\n%s' \
+      "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$GATE_WHY")"
+    exit 0
+  fi
+  echo "queue: $GATE_WHY"
+fi
+
 QUEUE_STAMP="$NIGHT_HOME/.last-queue-sha"
 if [ -r "$TASKS" ]; then
   QUEUE_SHA="$(sha256sum "$TASKS" | cut -d' ' -f1)"
@@ -242,6 +258,29 @@ for i in "${!STARTS[@]}"; do
   #
   # They live OUTSIDE the clone on purpose: some name real students, and this
   # repo is PUBLIC — inside the tree, `git add -A` would commit them.
+  # THE CHECK THE HUMAN WROTE, run BEFORE the agent. A check already passing is
+  # the missing control: it has proved nothing about work that has not happened
+  # yet, and reporting "done" off it would credit the agent with either an
+  # already-finished task or a broken check.
+  CHECK="$(node "$QUEUE" list "$TASKS" 2>/dev/null \
+    | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const t=JSON.parse(d).tasks[+process.argv[1]];process.stdout.write(t&&t.check?t.check:"")})' "$i")"
+  t_attempts="$(node "$QUEUE" list "$TASKS" 2>/dev/null \
+    | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const t=JSON.parse(d).tasks[+process.argv[1]];process.stdout.write(String(t?t.attempts:0))})' "$i")"
+  t_attempts=${t_attempts:-0}
+  PASSED_BEFORE=0
+  if [ -n "$CHECK" ] && [ "$CHECK" != "once" ]; then
+    if ( cd "$REPO" && eval "$CHECK" ) >/dev/null 2>&1; then
+      PASSED_BEFORE=1
+      echo "(วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม — ข้ามงานนี้)"
+    fi
+  fi
+
+  if [ "$PASSED_BEFORE" -eq 1 ]; then
+    node "$QUEUE" set "$TASKS" "$i" done "${t_attempts:-0}" "ผ่านตั้งแต่ก่อนเริ่ม"
+    SUMMARY+="SKIP $title — ผ่านตั้งแต่ก่อนเริ่ม"$'\n'
+    continue
+  fi
+
   run_claude "${preamble_base}${prompt}" "$out"
   rc=$?
   tail -c 1500 "$out"
@@ -265,6 +304,36 @@ for i in "${!STARTS[@]}"; do
     echo "(task exited $rc)"; fail_n=$((fail_n+1)); SUMMARY+="FAIL $title (exit $rc)"$'\n'
   else
     done_n=$((done_n+1))
+  fi
+
+  # ⛔ THE VERDICT, AND IT IS NOT THE AGENT'S. `rc` is only "claude exited 0",
+  # which is reachable with nothing produced — the same shape as a deploy
+  # reporting DEPLOY_EXIT=0 with its docs step skipped. What decides the status
+  # is the check the HUMAN wrote, run now, against the repo as it stands.
+  #
+  # `once` means "no mechanical check": one attempt, then a person reads it.
+  # Never retried — retrying what nothing can judge is how a night is spent on
+  # nothing.
+  if [ -n "$CHECK" ] && [ "$CHECK" != "once" ]; then
+    if ( cd "$REPO" && eval "$CHECK" ) >/dev/null 2>&1; then
+      node "$QUEUE" set "$TASKS" "$i" done "$((t_attempts + 1))" "ผ่านวิธีตรวจ"
+      echo "check: PASS"
+      SUMMARY+="DONE $title — ผ่านวิธีตรวจ"$'\n'
+    else
+      t_attempts=$((t_attempts + 1))
+      if [ "$t_attempts" -ge 2 ]; then
+        node "$QUEUE" set "$TASKS" "$i" blocked "$t_attempts" "ลองแล้ว $t_attempts ครั้ง ยังไม่ผ่าน"
+        echo "check: FAIL — blocked after $t_attempts attempts"
+        SUMMARY+="BLOCK $title — ลอง $t_attempts ครั้งแล้วยังไม่ผ่านวิธีตรวจ"$'\n'
+      else
+        node "$QUEUE" set "$TASKS" "$i" todo "$t_attempts" "ยังไม่ผ่านวิธีตรวจ"
+        echo "check: FAIL — will retry next night"
+        SUMMARY+="RETRY $title — ยังไม่ผ่านวิธีตรวจ"$'\n'
+      fi
+    fi
+  else
+    node "$QUEUE" set "$TASKS" "$i" needs-review "$((t_attempts + 1))" "ไม่มีวิธีตรวจอัตโนมัติ"
+    SUMMARY+="REVIEW $title — ไม่มีวิธีตรวจ ต้องให้คนอ่าน"$'\n'
   fi
 
   # Count work as EITHER an uncommitted change we sweep up, OR commits the agent
@@ -345,6 +414,14 @@ echo ""
 # — quota gone, the box rebooted, a task hung — has NOT been done, and the next
 # night must be allowed to pick it up. Writing this at the start would turn
 # every interrupted night into a permanently skipped queue.
+# One night against the budget — the stop that does not depend on the checks
+# being written correctly. A mistyped `Done when:` never terminates on its own.
+[ -r "$QUEUE" ] && [ -r "$TASKS" ] && node "$QUEUE" spend "$TASKS" 2>/dev/null || true
+
+# Stamped AFTER the queue was rewritten, so the fingerprint is of the file as it
+# now stands — with tonight's verdicts in it. Stamping the file we READ would
+# make every night's own progress look like "unchanged" to the next one.
+QUEUE_SHA="$(sha256sum "$TASKS" 2>/dev/null | cut -d' ' -f1)"
 [ -n "${QUEUE_SHA:-}" ] && printf '%s\n' "$QUEUE_SHA" > "$QUEUE_STAMP"
 
 echo "=== finished $(date -u +%FT%TZ) — $done_n ok, $fail_n failed. $stop_reason ==="

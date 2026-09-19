@@ -37,7 +37,17 @@ const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8', maxB
 // newline, and splitting on '\n' would silently drop or halve such a file —
 // leaving the clean run testing something subtly different from CI, which is
 // the exact failure mode this script exists to remove.
-const files = git('ls-files', '-z').split('\0').filter(Boolean);
+// `--cached --others --exclude-standard` = what git tracks PLUS what is
+// untracked but not ignored — i.e. exactly the set a `git add -A` is about to
+// commit, which is what CI will then check out.
+//
+// Plain `ls-files` was wrong and wrong in the dangerous direction: a BRAND NEW
+// test file is untracked until it is added, so the clean run silently skipped
+// it and reported fewer tests than `npm test` while printing a confident green.
+// A pre-push check that cannot see the code you are about to push is worse than
+// none — caught by comparing the two totals, 2,267 against 2,248.
+const files = git('ls-files', '-z', '--cached', '--others', '--exclude-standard')
+  .split('\0').filter(Boolean);
 if (!files.length) { console.error('git ls-files returned nothing — is this a repo?'); process.exit(2); }
 
 const dir = mkdtempSync(join(tmpdir(), 'samo-clean-'));
