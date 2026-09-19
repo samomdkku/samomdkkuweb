@@ -1209,32 +1209,30 @@ for all: 181 more, ✓ 181 of 181 across 91 members.** Re-read after: add-only p
 is due.** First writes by this system to members — ever.
 
 **Owed next:**
-1. ⏳ **OWNER — the 30 WITHHELD removals, 16 people.** (The one leaver, `ปลา`,
-   was PLACED 2026-09-19 on the owner's word as สมาชิกฝ่ายส่งเสริมวัฒนธรรมองค์กร,
-   `confirmed = false` — the only ตำแหน่ง matching both her Discord roles with
-   a free seat. Her Discord roles already matched; nothing changed there.)
-   ⛔ **CHANNELS BEFORE ANY REMOVAL.** Access was computed per channel the way
-   Discord does (role perms → @everyone / role / member overwrites): the 30
-   removals would change 58 channel accesses, and several are losses ONLY
-   because a new ฝ่าย role (created today, opens nothing) has not been added to
-   its channels yet — e.g. `ดีดี` would lose `#internat-amsa`. Give the ฝ่าย
-   roles their channels first, then re-plan: the list will shrink.
-   ✅ **Best practice, measured:** channel access belongs on the ฝ่าย role;
-   ตำแหน่ง roles add only extra power (manage, head channels). Everyone
-   receives every ticked ฝ่าย role above them, so a new ฝ่าย channel needs ONE
-   role. 36 of 40 หัวหน้า/สมาชิก pairs already work this way; the 4 that do
-   not are 3 SMST Syringe sub-ฝ่าย (their ฝ่าย role opens nothing yet) and
-   Art/Graphic, whose channels are granted to `สมาชิกฝ่าย Art/Graphic` and whose
-   head/member sit directly under ฝ่าย ComArt with no Art/Graphic ฝ่าย node.
-   Do NOT make a head also hold the สมาชิก role — that is the duplication. A full `discord-apply.mjs` plan lists them by name. ⛔ NOT "last
-   year's roles" — an earlier note said so and the owner corrected it: this is
-   the FIRST year of the system. Each is a Discord role (given by the old
-   Sheet bot, which granted every ฝ่าย applied to — DISCORD-ROLE-SYNC.md §3b —
-   or by hand) that ทีม SAMO does not place that person in. Two shapes: a RANK
-   disagreement inside the right ฝ่าย (5: e.g. Discord `หัวหน้าฝ่าย IFMSA`,
-   web `รองหัวหน้าฝ่าย IFMSA`) and a WHOLE ฝ่าย ทีม SAMO does not have them in
-   (11). Either side may be the wrong one; a human says which, per person.
-   Removing them takes channels away — it is item 4's decision, not a run.
+1. ✅ **The 30 extra keys — RESOLVED 2026-09-19, owner's rule: "the web is the
+   absolute truth" AND "if they previously got permission, it should persist".**
+   `tools/discord-keep-access.mjs`: each extra mirrored key removed, and a
+   PERSONAL channel pass (member overwrite) for exactly the bits it had opened
+   — 56+1 passes, 28+2 keys, one person first. Re-read from Discord after:
+   **access changed for 0 person × channel, sync unchanged**; full apply plan
+   now **0 add / 0 remove**. ⛔ **Why a personal pass and not "give the web
+   role the room"**: a mirrored role follows the ตำแหน่ง, so that would hand
+   e.g. `#รวม-head` to every future SMST PR member. ⚠️ **The passes do not
+   follow the web** — if one of these 15 people leaves, their pass stays until
+   removed by hand; they are member overwrites with the audit reason
+   `ทีม SAMO: keys match the web, access kept`. `ปลา` (the leaver) was placed
+   instead (`confirmed = false`).
+   ✅ **Art/Graphic restructured (owner: "if best practice, do it")**: new
+   division `ฝ่าย Art/Graphic` under ฝ่าย ComArt, its หัวหน้า + สมาชิก moved
+   in; every website permission for both ตำแหน่ง checked IDENTICAL before and
+   after (node_effective_* + managed_permissions). Discord: role created, given
+   the 4 rooms `สมาชิกฝ่าย Art/Graphic` opened (0 lost), handed to 15.
+   ⏸ **Tier 2 (AMSA-style rooms opened ตำแหน่ง-by-ตำแหน่ง) — owner: KEEP AS IS.**
+   Those keys are mirrored and follow the web; a new room there needs each
+   ตำแหน่ง key. **21 of 178 room-opening keys are NOT mirrored** (hand-managed,
+   do not follow the web): notably `🏅 อุปนายกฯ` (10 people), `สมาชิกฝ่าย
+   Backend` (7) / `Frontend` (3) — no ตำแหน่ง of that name on the web — and the
+   two near-matches `หัวหน้าฝ่าย IT`, `ประชาสัมพันธ์ฝ่าย AMSA`.
 2. ✅ **Nickname near-matches — CLOSED 2026-09-19, owner decided each.** Linked:
    `Pru`, `ธิเบธ`, `Erin_#3_139-0` (the owner first said wrong — a SECOND
    account `เอิร์น_#2_093-9` is the กิจการภายนอก one; the role check settled

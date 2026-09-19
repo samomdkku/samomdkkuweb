@@ -5,7 +5,14 @@ OWED. `docs/DISCORD-ROLE-SYNC.md` is the design. This file is only the
 mechanics, because they are non-obvious in three ways that cost time to
 rediscover.
 
-## ⛔ ROLES ARE GIVEN (ADD-ONLY); NOTHING HAS EVER BEEN REMOVED — keep it that way until asked
+## ⛔ REMOVALS ONLY THROUGH `discord-keep-access.mjs` — it keeps access, `discord-apply` does not
+
+2026-09-19: the 30 extra keys were removed by `discord-keep-access.mjs`, which
+gives a personal pass first and proves access unchanged. `discord-apply.mjs`
+without `--add-only` would remove keys and TAKE ROOMS; do not use it for
+removal unless the owner has asked for rooms to be taken.
+
+## (history) ROLES WERE GIVEN ADD-ONLY FIRST
 
 2026-09-19, on the owner's word (`HANDOFF` §14b top): 56 roles created, 90
 adopted, and an `--add-only` run gave 183 roles to 92 people. **No role has

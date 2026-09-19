@@ -119,7 +119,8 @@ the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
 3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
 4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; EVERY ฝ่าย HAS A ROLE (56 created
    2026-09-19); 168 LINKED (167 by nickname import, 0195); 90 more ตำแหน่ง
-   adopted; ADD-ONLY RUN DONE — 183 roles given to 92 people, NONE removed.**
+   adopted; every linked person's keys MATCH the web (0 add / 0 remove), extra
+   keys replaced by personal passes so no access changed (proved from Discord).**
    Owner decisions, the 30 withheld removals and the next steps: **`HANDOFF` §14b, its top block.** Counts: `npm run
    discord:readiness`. ⛔ ONE HOME for the design: `docs/DISCORD-ROLE-SYNC.md`.
 
