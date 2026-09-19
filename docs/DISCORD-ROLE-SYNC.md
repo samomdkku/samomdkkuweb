@@ -1,12 +1,10 @@
 # Discord role sync — ทีม SAMO as the source of truth
 
-**Status: LINKING IS LIVE. THE APPLY TOOL EXISTS AND HAS NEVER WRITTEN ANYTHING
-(2026-09-13).** A person can connect their Discord account and 48 ทีม SAMO nodes
-are mapped to roles. `tools/discord-apply.mjs` can now add and remove roles,
-with the blast-radius brake in the same file rather than as a follow-up — but
-**no role has ever been added, removed or created by this system**, verified
-from the guild: 183 roles, 48 mappings, newest written 2026-09-12. Every run so
-far has been plan-only.
+**Status: LINKING IS LIVE. 56 ROLES CREATED 2026-09-19, on the owner's word;
+NO MEMBER HAS YET BEEN GIVEN OR STRIPPED A ROLE by this system.** A person can
+connect their Discord account; every ticked ฝ่าย now has a role (104 of 106
+ticked nodes mapped). `tools/discord-apply.mjs`, which changes MEMBERS, has
+still only run plan-only. Counts: `npm run discord:readiness`, never this line.
 
 ⛔ **What is TRUE NOW and what is OWED lives in `docs/state/HANDOFF.md` §14b, not
 here.** This file is the DESIGN; it will drift the moment it also tries to be a
@@ -381,7 +379,9 @@ kick that closes the old credential, is NOT.**
 2. ✅ **DONE — report-only reconcile.** `npm run discord:report`, writes nothing
    (guarded: no HTTP verb but GET leaves the file). Has run against the live
    guild. 2a ✅ **provisioning** — `tools/discord-provision.mjs`, plan by
-   default; 48 nodes adopted, 0 roles created (§8g.2).
+   default; 48 nodes adopted 2026-09-12, then **56 roles created 2026-09-19** —
+   the owner reversed §8g.2's "create nothing" (every ฝ่าย gets a role; the cap
+   is theirs to manage by deleting old roles).
 3. 🟡 **BUILT 2026-09-13, AND IT HAS NEVER WRITTEN ANYTHING** —
    `tools/discord-apply.mjs` (`npm run discord:apply`), plan by default, with
    the cap built in rather than bolted on. It has run against the live guild

@@ -116,16 +116,11 @@ the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
    disproven by successes; this entry once claimed the opposite. Read the VM's
    `~/samo-deploy-logs` trace before theorising. Status: CURRENT DEPLOY, above.
 3. ✅ **PASSPORT REPO MERGE — COMPLETE**, old repo ARCHIVED. ⛔ Never delete the `samomdkkupassport` Cloudflare project — `docs/INVARIANTS.md`.
-4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; THE APPLY TOOL IS BUILT AND HAS
-   NEVER WRITTEN IN THE REAL GUILD (2026-09-13).** Live plan = **0 add, 0
-   remove** (the one linked person is already correct); the write path IS
-   proved against a STUB guild, which found a defect that killed every write.
-   **1 linked · 107 ticked · 48 mapped · 183/250.** ✅ §7 1–4 done, 5 deferred.
-   ⛔ **NOT READY TO OPEN — the fix is ONE role, not 59:** `ฝ่าย รพ. ร่วมผลิต`
-   covers all 27 who would get NOTHING (`discord:readiness`). Owner has NOT said
-   yes — do not create it. ⛔ ONE HOME: `docs/DISCORD-ROLE-SYNC.md`; OWED:
-   **`HANDOFF` §14b**. ✅ nginx drift CLOSED — `npm run check:routes` asks the
-   SERVED host (a missing route answers 200 SPA, not 404).
+4. 🟡 **DISCORD ROLE SYNC — LINKING IS LIVE; EVERY ฝ่าย HAS A ROLE (56 created
+   2026-09-19); NO MEMBER HAS BEEN GIVEN OR STRIPPED ONE YET.** Owner decisions
+   and the ordered next steps (nickname link import → ticks → add-only apply →
+   channels): **`HANDOFF` §14b, its top block.** Counts: `npm run
+   discord:readiness`. ⛔ ONE HOME for the design: `docs/DISCORD-ROLE-SYNC.md`.
 
 ### B. OWNER ONLY
 

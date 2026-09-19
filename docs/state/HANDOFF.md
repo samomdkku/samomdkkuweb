@@ -1167,6 +1167,48 @@ why under-showing relative to RLS is the safe direction.
 
 ## 14b. Discord role sync — LINKING IS LIVE, the apply step is not
 
+### ▶ 2026-09-19 — owner decisions, and the first writes to the guild
+
+**Status: VERIFIED 2026-09-19 — how:** each role read back from the guild by id
+after creation; `npm run discord:readiness` re-run after the batch.
+
+**Decided by the owner, in words, this session — do not re-ask:**
+- **Every ฝ่าย gets a Discord role, at every level** — not only the top 11
+  (27 of 28 existing sub-ฝ่าย roles open channels their top ฝ่าย does not, so
+  top-only would leave sub-ฝ่าย members without their channels).
+- **The 250 cap is the owner's to manage** ("I can remove old role later").
+- `ฝ่าย COMART` and `ฝ่ายจัดหาทุน` under ฝ่ายเวชนิทัศน์ are **SEPARATE teams**
+  from the ComArt / Fundraising roles they resemble.
+- **ฝ่ายวิชาการ: the TOP-LEVEL node owns the Discord role** (21 of its 23
+  holders sit there). The link was on the EMPTY one under ฝ่ายรังสีเทคนิค — it
+  won the 09-12 adoption race by sorting first — and was MOVED. Same-name
+  siblings get `<name> · <parent>` roles (§5b), now in `discord-provision.mjs`.
+- **Role writes to MEMBERS start ADD-ONLY.** Removal waits on item 4 (leavers).
+- **One-time link by NICKNAME is approved in principle** — the server's
+  `ชื่อเล่น_#ปี_XXX-X` pattern matches ชื่อเล่น + last 4 of รหัส to exactly one
+  person for 168 of 196 members (0 ambiguous, 0 two-to-one); 7 near-matches
+  go to the owner by hand. A link stores the Discord user ID, so a later
+  rename changes nothing. **NOT DONE YET** — needs a provenance marker so an
+  imported link is distinguishable from an OAuth one.
+- **Rename, not copy**, to give an adopted role its web name: channel
+  overwrites belong to the role ID. Owner leaned towards copy-to-new-role;
+  rename was recommended and not refused. Copy only for a SPLIT.
+
+**Done:** 56 roles created (183 → 239 of 250), all `permissions: 0`, bottom of
+the list, uncoloured — so they gate NO channel yet. `เอิงtesting` UNTICKED (test
+data). 340 of 342 would now get a role; the 2 left are the two same-team
+near-matches (`ฝ่ายประชาสัมพันธ์ฝ่าย AMSA`, `หัวหน้าฝ่าย IT (Tech lead)`), owed
+the rename step.
+
+**Owed next, in order:** nickname link import · tick the ~90 unticked nodes that
+have an EXACT-name Discord role gating a channel (0 roles, recommended to the
+owner; 3 names exist twice on the web — resolve by holders, as ฝ่ายวิชาการ was)
+· rename the 2 near-matches · add-only mode in `discord-apply.mjs` · one person
+watched, then all · then CHANNELS: the 56 new roles open nothing until added to
+their ฝ่าย's channels (115 of 151 channels carry custom overwrites; 56
+overwrites name a single person and are out of scope). Owner still owes: kick
+`Role assignment bot for SAMO69`.
+
 **Status: VERIFIED 2026-09-13 — how:** every claim below was read from the live
 system, not from a plan. Migrations 0183–0186 applied to production; proofs
 `team0183` 23/23, `team0184` 18/18, `team0185` 29/29; the OAuth flow completed
@@ -1232,10 +1274,9 @@ still reaches the guild — §1, and item 6 below.
 
 ### ⛔ WHAT IS LEFT BEFORE THIS CAN BE OPENED TO REAL PEOPLE
 
-⛔ **THE OWNER HAS NOT AGREED TO CREATE ANY ROLE. Do not create one.** Nothing
-has ever been written to Discord by this system — no role created, assigned or
-removed — and that is a fact worth keeping true until somebody says otherwise in
-words. Everything below is a measurement, not a task list.
+⚠️ **SUPERSEDED 2026-09-19 — the owner agreed; 56 roles now exist (top of this
+section).** Kept for the reasoning. No MEMBER has been given or stripped a role
+yet. Everything below is a 2026-09-13 measurement, not a task list.
 
 **Status: MEASURED 2026-09-13 — `npm run discord:readiness`, which needs no
 Discord token and re-runs this whole section in two seconds. Do not retype these

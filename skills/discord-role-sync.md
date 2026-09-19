@@ -5,9 +5,10 @@ OWED. `docs/DISCORD-ROLE-SYNC.md` is the design. This file is only the
 mechanics, because they are non-obvious in three ways that cost time to
 rediscover.
 
-## ⛔ NOTHING HAS EVER BEEN WRITTEN TO DISCORD — keep it that way until asked
+## ⛔ ROLES HAVE BEEN CREATED; NO MEMBER HAS BEEN CHANGED — keep it that way until asked
 
-No role has been created, assigned or removed by this system. Verified
+56 roles were created 2026-09-19 on the owner's word (`HANDOFF` §14b top). No
+role has been ASSIGNED to or REMOVED from a member by this system. Earlier: Verified
 2026-09-13 from the guild itself: 183 roles, 48 mappings, newest written by the
 session before. **Every tool here plans by default and that is not an accident —
 do not pass `--apply` without the owner asking for that specific run in words.**
