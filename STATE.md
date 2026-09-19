@@ -34,9 +34,9 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `0bb16ee` (2026-09-19)** — v4.7.0 still, read back from the VM's
+- ✅ **DEPLOYED = `705b309` (2026-09-19)** — v4.7.0 still, read back from the VM's
   own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step
-  RAN. SERVED: `/docs/state/HANDOFF` carries `CHANNELS BEFORE ANY REMOVAL` (1).
+  RAN. SERVED: `/docs/state/HANDOFF` carries `CHANNELS, TIER 1` (1).
   Docs, tools and the staged changelog only — no bundle change since `b36ef80`.
   ⛔ **The night agent is STOPPED and its timer DISABLED** (2026-09-18) — it had re-run the same 6-task queue nightly since 09-15 because `~/samo-night/NIGHT-TASKS.md` is never consumed. Its work is no longer stranded: `agent/2026-09-17` (16 commits) is MERGED. Re-enable only with a fresh queue.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
