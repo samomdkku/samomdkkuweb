@@ -104,6 +104,16 @@ export function serve(w) {
     if (p === `/api/v10/guilds/${w.guildId}/members`) {
       return json(url.searchParams.get('after') === '0' ? w.members : []);
     }
+    // discord-sync.mjs renames a role to follow the website.
+    if (req.method === 'PATCH' && /^\/api\/v10\/guilds\/[^/]+\/roles\/[^/]+$/.test(p)) {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => {
+        const id = p.split('/').pop(); const body = JSON.parse(b);
+        (w.renamed ||= []).push({ id, ...body });
+        json({ ...(w.roles.find((r) => r.id === id) || {}), ...body });
+      });
+      return undefined;
+    }
     // The write. Accepted, recorded, and nothing else.
     if (/^\/api\/v10\/guilds\/[^/]+\/members\/[^/]+\/roles\/[^/]+$/.test(p)) {
       res.writeHead(204); return res.end();

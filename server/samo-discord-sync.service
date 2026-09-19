@@ -1,0 +1,33 @@
+[Unit]
+# The always-on ทีม SAMO → Discord sync (server/discord-sync.mjs, 0197).
+# Install:  sudo cp server/samo-discord-sync.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now samo-discord-sync
+# Logs:     journalctl -u samo-discord-sync -f
+# deploy.sh restarts it on every deploy, like samo-notify.
+Description=SAMO Discord role sync (follows ทีม SAMO)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/samo-projects/samomdkkuweb
+ExecStart=/usr/bin/node server/discord-sync.mjs
+# The bot token and the Supabase service key, each in its own root-owned 0600
+# file (.claude/rules/security.md). Nothing here is a secret.
+EnvironmentFile=/etc/samo-discord-bot.env
+EnvironmentFile=/etc/samo-notify.env
+# Keys with SERVER-WIDE power the sync may hand out because ทีม SAMO says so —
+# owner, 2026-09-19: "everything should be according to the website". Any other
+# power key is HELD and reported. Role NAMES, comma-separated.
+Environment="DISCORD_SYNC_ALLOW_POWER=สมาชิก SAMO Buddy,📇 ฝ่ายเลขานุการนายกฯ"
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

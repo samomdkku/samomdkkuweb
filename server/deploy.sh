@@ -209,6 +209,22 @@ echo "==> restart notify service + reload nginx"
 sudo systemctl restart samo-notify || echo "  (samo-notify not installed yet — see docs/SELF-HOST.md)"
 sudo nginx -t && sudo systemctl reload nginx
 
+echo "==> discord sync: refresh + restart, ONLY if already enabled"
+# ⛔ A deploy never ARMS a service (docs/mistakes/deploy-hosting.md, the night
+# agent): if the owner switched the sync off, it stays off. When it is on, the
+# unit file is refreshed from the repo (its allow-list of power keys lives there)
+# and the process restarted onto the new code.
+if systemctl is-enabled --quiet samo-discord-sync 2>/dev/null; then
+  if ! cmp -s "$WEB_DIR/server/samo-discord-sync.service" /etc/systemd/system/samo-discord-sync.service; then
+    sudo cp "$WEB_DIR/server/samo-discord-sync.service" /etc/systemd/system/samo-discord-sync.service
+    sudo systemctl daemon-reload
+    echo "  unit file refreshed"
+  fi
+  sudo systemctl restart samo-discord-sync || echo "  ⚠️ samo-discord-sync failed to restart — journalctl -u samo-discord-sync"
+else
+  echo "  (samo-discord-sync not enabled — left off; install: header of server/samo-discord-sync.service)"
+fi
+
 echo "==> done. Smoke test:"
 echo "    curl -sk https://127.0.0.1/build.json"
 echo "    curl -sk https://127.0.0.1/notify   # {\"ok\":true,...}"
