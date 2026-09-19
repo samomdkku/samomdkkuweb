@@ -1486,15 +1486,22 @@ into `externaldata/house-year-sheets/` (gitignored; 1,776 real students). They
 are ready to hand to the data team and that is the next action — **it belongs
 to the owner, not to a session.**
 
+✅ **MD50 IS DONE (2026-09-19).** The owner sent the sheet as
+`House System Issues.xlsx`; MD50 answered with its own roster (320 rows, not a
+round-trip of ours) and `tools/house-kkumail-import.mjs` matched 26 of them by
+รหัส+ชื่อ, 0 name mismatches, and promoted all 26 through
+`promote_unresolved_row()` in one transaction. Held rows: 155 → 129. MD50 now
+has 288 students and **no incomplete records at all** — its file is gone.
+
 | owed | who | why it is not done |
 |---|---|---|
-| send the six `MD*-ข้อมูลไม่ครบ.csv` to the data team | owner | needs a person to choose the recipient and share the Sheet |
+| send the five remaining `MD*-ข้อมูลไม่ครบ.csv` (129 rows) to their ฝ่าย | owner | needs a person to choose the recipient and share the Sheet |
 | check **สาย 141** against the source file | owner / ฝ่ายข้อมูล | MD53 and MD54 both have nobody on it, and after the 2026-09-19 รุ่น repair NOTHING unplaced can explain either. บ้าน is สาย's last digit, so if a column moved everyone after it is in the wrong บ้าน |
 | decide **สาย 256** — two people on it in MD53, two in MD54 | ฝ่ายข้อมูล | at least one of each pair is in the wrong บ้าน; the file is the only source |
-| write the **import-back** tool | a session, once data returns | nothing to import yet. It must match each returned kkumail to the person by รหัส+ชื่อ before writing, or a copy-paste slip silently swaps two students |
+| ~~write the import-back tool~~ | ✅ **BUILT 2026-09-19** | `tools/house-kkumail-import.mjs`. Refuses a row whose name does not match the รหัส, promotes through the pane's own `promote_unresolved_row()` rather than re-implementing it, and runs as ONE transaction so a duplicate address cannot leave half a ฝ่าย's answer applied. It also carries a ชื่อเล่น the roster happens to include — never over one that exists |
 
 **What the sheet asks for**: a `?` in a `กรอก: <field>` column, per row.
-155 rows want a kkumail, 13 a รหัสนักศึกษา, 2 a ชื่อ/นามสกุล. **The `?` is not
+129 rows want a kkumail, 13 a รหัสนักศึกษา, 2 a ชื่อ/นามสกุล (was 155 before MD50 answered). **The `?` is not
 decoration — it is the highlight.** A CSV carries no formatting, so a colour
 does not survive export or re-import; a character does.
 

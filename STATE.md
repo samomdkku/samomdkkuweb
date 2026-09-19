@@ -193,8 +193,7 @@ all 13. **There is no `_unplaced` population any more.**
 13 of the 15 "nobody is on this สาย" were these people, uncounted because the
 audit groups by รุ่น and they had none — any older note saying 18 is stale. What
 remains is real: สาย 256 held twice in MD53 and twice in MD54, สาย 141 empty in
-both, and **nothing unplaced can explain 141 any more**. Sheets generated, NOT
-sent — owner's errand, both in `HANDOFF.md` §16.
+both, and **nothing unplaced can explain 141 any more**. ✅ **MD50 answered and is DONE (2026-09-19)** — 26 promoted via `tools/house-kkumail-import.mjs`, held 155 → 129, no incomplete MD50 record left; five รุ่น still owed (`HANDOFF.md` §16).
 
 ## ⛔ THE NIGHT AGENT IS OFF (2026-09-18)
 
