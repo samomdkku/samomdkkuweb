@@ -1,10 +1,9 @@
 # Discord role sync — ทีม SAMO as the source of truth
 
-**Status: LINKING IS LIVE. 56 ROLES CREATED 2026-09-19, on the owner's word;
-NO MEMBER HAS YET BEEN GIVEN OR STRIPPED A ROLE by this system.** A person can
-connect their Discord account; every ticked ฝ่าย now has a role (104 of 106
-ticked nodes mapped). `tools/discord-apply.mjs`, which changes MEMBERS, has
-still only run plan-only. Counts: `npm run discord:readiness`, never this line.
+**Status: LINKING IS LIVE. 2026-09-19, on the owner's word: 56 roles created,
+90 adopted, 167 people linked by a one-time nickname match, and an ADD-ONLY run
+gave 183 roles to 92 people. NO ROLE HAS EVER BEEN REMOVED by this system.**
+Counts: `npm run discord:readiness`, never this line.
 
 ⛔ **What is TRUE NOW and what is OWED lives in `docs/state/HANDOFF.md` §14b, not
 here.** This file is the DESIGN; it will drift the moment it also tries to be a

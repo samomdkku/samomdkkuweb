@@ -1202,23 +1202,24 @@ data). 340 of 342 would now get a role; the 2 left are the two same-team
 near-matches (`ฝ่ายประชาสัมพันธ์ฝ่าย AMSA`, `หัวหน้าฝ่าย IT (Tech lead)`), owed
 the rename step.
 
-**Owed next, in order — every step needs the VPN (they run on the VM):**
-1. **ADOPT the 90 ticked 2026-09-19** — the unticked nodes whose EXACT-name
-   Discord role gates a channel, name unique on the web, ≥1 person (mostly
-   หัวหน้า / รองอุปนายก; 30 of them can MANAGE channels). DB ticks are DONE;
-   the mapping is not: `discord-provision.mjs --apply --adopt-only --adopt 90
-   --create 0`. 0 new roles, no channel changes. Until then readiness shows
-   them as "no Discord role yet". Excluded on purpose: 3 names that exist twice
-   on the web (resolve by holders, as ฝ่ายวิชาการ was), 13 roles that gate no
-   channel, 5 nodes with nobody.
-2. **The first ADD-ONLY run** — `discord-apply.mjs --add-only`, built and
-   stub-tested (removals counted and WITHHELD, never silently dropped). Before
-   step 1 it was 162 roles to 92 people with 20 removals withheld; step 1 will
-   raise it — re-read the plan. `--only <one id>` first, watched, then all.
+**✅ RAN 2026-09-19 (VPN): the 90 adopted (0 new roles; all five Discord proofs
+green after) · first real member write on ONE person, re-read 0/0 · then ADD-ONLY
+for all: 181 more, ✓ 181 of 181 across 91 members.** Re-read after: add-only plan
+0 to add. **The live guild now holds every role ทีม SAMO says a linked person
+is due.** First writes by this system to members — ever.
+
+**Owed next:**
+1. ⏳ **OWNER — the 30 WITHHELD removals, 16 people** (+1 leaver, `ปลา`, zero
+   ตำแหน่ง). A full `discord-apply.mjs` plan lists them by name; most look
+   like last year's ฝ่าย / หัวหน้า roles (e.g. `หัวหน้าฝ่าย IFMSA`,
+   `หัวหน้าฝ่าย Clinic` held by someone ทีม SAMO no longer places there).
+   Removing them takes channels away — it is item 4's decision, not a run.
+2. ⏳ **OWNER — 7 nickname near-matches** (`discord-nickname-link.mjs` prints
+   them; `--confirm <ids>`).
 3. Rename the 2 same-team near-matches to their web names, then adopt.
-4. CHANNELS: the 56 new roles open nothing until added to
-   their ฝ่าย's channels (115 of 151 channels carry custom overwrites; 56
-overwrites name a single person and are out of scope). Owner still owes: kick
+4. CHANNELS: the 56 new roles open nothing until added to their ฝ่าย's
+   channels (115 of 151 channels carry custom overwrites; 56 overwrites name a
+   single person and are out of scope). Owner still owes: kick
 `Role assignment bot for SAMO69`.
 
 **Status: VERIFIED 2026-09-13 — how:** every claim below was read from the live

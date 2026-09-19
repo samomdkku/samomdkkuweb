@@ -5,10 +5,13 @@ OWED. `docs/DISCORD-ROLE-SYNC.md` is the design. This file is only the
 mechanics, because they are non-obvious in three ways that cost time to
 rediscover.
 
-## ⛔ ROLES HAVE BEEN CREATED; NO MEMBER HAS BEEN CHANGED — keep it that way until asked
+## ⛔ ROLES ARE GIVEN (ADD-ONLY); NOTHING HAS EVER BEEN REMOVED — keep it that way until asked
 
-56 roles were created 2026-09-19 on the owner's word (`HANDOFF` §14b top). No
-role has been ASSIGNED to or REMOVED from a member by this system. Earlier: Verified
+2026-09-19, on the owner's word (`HANDOFF` §14b top): 56 roles created, 90
+adopted, and an `--add-only` run gave 183 roles to 92 people. **No role has
+ever been REMOVED from a member by this system** — removal waits on the
+leaver decision. Pass `--add-only` unless the owner has asked for removals in
+words. Earlier: Verified
 2026-09-13 from the guild itself: 183 roles, 48 mappings, newest written by the
 session before. **Every tool here plans by default and that is not an accident —
 do not pass `--apply` without the owner asking for that specific run in words.**
