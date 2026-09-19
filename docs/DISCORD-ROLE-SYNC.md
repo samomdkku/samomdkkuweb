@@ -2,7 +2,8 @@
 
 **Status: LINKING IS LIVE. 2026-09-19, on the owner's word: 56 roles created,
 90 adopted, 167 people linked by a one-time nickname match, and an ADD-ONLY run
-gave 183 roles to 92 people. NO ROLE HAS EVER BEEN REMOVED by this system.**
+gave 183 roles to 92 people. Since that night the `samo-discord-sync` service
+keeps Discord matching ทีม SAMO continuously (0197; HANDOFF §14b top).**
 Counts: `npm run discord:readiness`, never this line.
 
 ⛔ **What is TRUE NOW and what is OWED lives in `docs/state/HANDOFF.md` §14b, not

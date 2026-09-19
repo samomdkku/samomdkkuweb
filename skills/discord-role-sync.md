@@ -232,3 +232,21 @@ sudo rm -f /tmp/*.mjs /tmp/*.sh /tmp/g*.json
 
 The nginx backups (`/etc/nginx/sites-available/default.bak-*`) are the opposite:
 **leave them.** They are the only way back if a hand edit breaks the config.
+
+## The always-on service (since 2026-09-19 night)
+
+`samo-discord-sync` on the VM keeps Discord matching ทีม SAMO. Change the WEB;
+the service follows in ~5–10 s and re-checks everything every 15 min.
+
+```bash
+ssh samo-vm 'journalctl -u samo-discord-sync -f'          # what it is doing
+ssh samo-vm 'systemctl status samo-discord-sync'
+sudo systemctl disable --now samo-discord-sync            # OFF (deploy.sh keeps it off)
+# one full pass by hand, e.g. after a big import:
+sudo bash -c 'set -a; . /etc/samo-discord-bot.env; . /etc/samo-notify.env; set +a; node server/discord-sync.mjs --once'
+```
+
+A new key with SERVER-WIDE power is HELD until its name is added to
+`DISCORD_SYNC_ALLOW_POWER` in `server/samo-discord-sync.service` (deploy
+refreshes the unit). A bulk removal (>10 keys / >5 people) is held and
+reported — if it is intended, run `discord-apply.mjs` by hand.

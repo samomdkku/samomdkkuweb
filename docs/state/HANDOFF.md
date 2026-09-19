@@ -1167,6 +1167,35 @@ why under-showing relative to RLS is the safe direction.
 
 ## 14b. Discord role sync — LINKING IS LIVE, the apply step is not
 
+### ▶ 2026-09-19 night — DISCORD NOW FOLLOWS ทีม SAMO BY ITSELF
+
+**Status: VERIFIED 2026-09-19 — how:** live on the real guild — a placement
+added on the web gave 4 keys in ~8 s and removing it took all 4 back in ~6 s; a
+ฝ่าย renamed and renamed back renamed its Discord role both ways; the first full
+pass was +0 −0 (identical to `discord-apply.mjs`). Proof `team0197` 17/17.
+
+- **0197** — triggers on `team_members` / `team_nodes` / `discord_links` write
+  to `discord_sync_queue` (service role only). Placing, moving, removing a
+  person; creating, deleting, moving, ticking, renaming a ตำแหน่ง/ฝ่าย; linking,
+  unlinking, re-linking — all enqueue. Sibling ORDER does not (Discord role
+  order is a permission hierarchy; not mirrored, on purpose).
+- **`samo-discord-sync`** (systemd, VM; `server/discord-sync.mjs`) drains it
+  every 5 s and does a full pass every 15 min (catches missed events AND hand
+  edits in Discord). `journalctl -u samo-discord-sync -f`. ENABLED at boot;
+  `deploy.sh` refreshes + restarts it only if enabled — a deploy never arms it.
+- **Brakes, always on:** a removal of more than 10 keys / 5 people in one pass
+  is HELD and reported (the adds still go) — an accidental delete of a whole
+  ฝ่าย cannot strip Discord; power keys only if named in the unit's
+  `DISCORD_SYNC_ALLOW_POWER` (today: `สมาชิก SAMO Buddy`, `📇 ฝ่ายเลขานุการนายกฯ`,
+  owner rule); roles above the bot skipped; an empty target set never acted on;
+  a ticked ตำแหน่ง whose name only RESEMBLES a role is held, never duplicated.
+- ⏳ **Alerts go only to the journal** until `DISCORD_SYNC_ALERT_WEBHOOK` is set in
+  `/etc/samo-notify.env` — OWNER: which channel? Two alerts are standing: the
+  near-matches `ฝ่ายประชาสัมพันธ์ฝ่าย AMSA` and `หัวหน้าฝ่าย IT (Tech lead)`.
+- ⛔ `discord-apply.mjs` / `discord-keep-access.mjs` still work by hand, but the
+  service will undo anything the web does not say within 15 min. Change the
+  WEB, not Discord.
+
 ### ▶ 2026-09-19 — owner decisions, and the first writes to the guild
 
 **Status: VERIFIED 2026-09-19 — how:** each role read back from the guild by id
