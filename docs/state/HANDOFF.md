@@ -1209,8 +1209,24 @@ for all: 181 more, ✓ 181 of 181 across 91 members.** Re-read after: add-only p
 is due.** First writes by this system to members — ever.
 
 **Owed next:**
-1. ⏳ **OWNER — the 30 WITHHELD removals, 16 people** (+1 leaver, `ปลา`, zero
-   ตำแหน่ง). A full `discord-apply.mjs` plan lists them by name. ⛔ NOT "last
+1. ⏳ **OWNER — the 30 WITHHELD removals, 16 people.** (The one leaver, `ปลา`,
+   was PLACED 2026-09-19 on the owner's word as สมาชิกฝ่ายส่งเสริมวัฒนธรรมองค์กร,
+   `confirmed = false` — the only ตำแหน่ง matching both her Discord roles with
+   a free seat. Her Discord roles already matched; nothing changed there.)
+   ⛔ **CHANNELS BEFORE ANY REMOVAL.** Access was computed per channel the way
+   Discord does (role perms → @everyone / role / member overwrites): the 30
+   removals would change 58 channel accesses, and several are losses ONLY
+   because a new ฝ่าย role (created today, opens nothing) has not been added to
+   its channels yet — e.g. `ดีดี` would lose `#internat-amsa`. Give the ฝ่าย
+   roles their channels first, then re-plan: the list will shrink.
+   ✅ **Best practice, measured:** channel access belongs on the ฝ่าย role;
+   ตำแหน่ง roles add only extra power (manage, head channels). Everyone
+   receives every ticked ฝ่าย role above them, so a new ฝ่าย channel needs ONE
+   role. 36 of 40 หัวหน้า/สมาชิก pairs already work this way; the 4 that do
+   not are 3 SMST Syringe sub-ฝ่าย (their ฝ่าย role opens nothing yet) and
+   Art/Graphic, whose channels are granted to `สมาชิกฝ่าย Art/Graphic` and whose
+   head/member sit directly under ฝ่าย ComArt with no Art/Graphic ฝ่าย node.
+   Do NOT make a head also hold the สมาชิก role — that is the duplication. A full `discord-apply.mjs` plan lists them by name. ⛔ NOT "last
    year's roles" — an earlier note said so and the owner corrected it: this is
    the FIRST year of the system. Each is a Discord role (given by the old
    Sheet bot, which granted every ฝ่าย applied to — DISCORD-ROLE-SYNC.md §3b —
