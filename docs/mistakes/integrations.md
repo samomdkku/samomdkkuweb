@@ -1367,3 +1367,28 @@ far cheaper than the first live run, and *a read-only run of a writing tool
 exercises none of the writing*. And when a string crosses a protocol boundary,
 ask what that protocol's alphabet is: headers are latin-1, and the code will not
 tell you until the moment it matters.
+
+## Provisioning created a duplicate Discord role beside one that held 5 channels
+
+**Symptom.** After the 2026-09-19 provisioning run, Discord had both
+`📇 ฝ่ายเลขานุการนายกฯ` (5 channels) and a new, empty `ฝ่ายเลขานุการนายกฯ`;
+the ทีม SAMO node pointed at the EMPTY one. Found by listing every role created
+that day beside any older role with a near-identical name.
+
+**Cause.** `discord-provision.mjs`'s `norm()` removed the emoji but kept the
+space after it, so `^ฝ่าย\s*` no longer matched the start and the two names
+normalised apart. No exact match, no near match → CREATE.
+
+**Fix.** Node remapped to the 📇 role; the duplicate deleted after re-checking
+it held nothing (permissions `0`, no channel overwrite, its one holder already
+had the 📇 role). `norm()` now trims before stripping the prefix, with a test
+in `discord-provision.run.test.js` that fails without it.
+
+**Where it lives now.** `tools/discord-provision.mjs` (`norm`),
+`src/js/discord-provision.run.test.js`.
+
+**Rule.** A normaliser is a chain, and each step assumes what the previous one
+left. Stripping a prefix CHARACTER leaves the separator that followed it — test
+a normaliser on the decorated forms the real data uses (this server prefixes
+emoji: 👑 นายกฯ, 🏅 อุปนายกฯ), and after any bulk CREATE, list what was
+created beside what already existed.

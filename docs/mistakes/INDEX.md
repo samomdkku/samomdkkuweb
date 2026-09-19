@@ -260,7 +260,7 @@ Open when: URL state, per-user "seen", import/export.
 - sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
 - The ผังตามสาย legend was a fourth copy of the same rule
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(31)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(32)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -295,6 +295,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - Google answers /exec with an HTML page, and the student gets "Unexpected token '<'" on the file they just picked
 - The Discord app id was redacted from `docs/` and left in `.claude/rules/`
 - Every Discord role write would have thrown before it was sent
+- Provisioning created a duplicate Discord role beside one that held 5 channels
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(26)*
 
@@ -442,4 +443,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_380 entries across 10 files._
+_381 entries across 10 files._
