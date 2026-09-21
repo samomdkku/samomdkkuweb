@@ -192,62 +192,6 @@
 .shop-tab .shop-contact-strip a:hover { text-decoration: underline; }
 
 /* ==============================================
- * Pickup-announcement hero banner
- * ============================================== */
-.shop-tab .pickup-banner {
-  background:
-    radial-gradient(800px 240px at 110% 0%, rgba(253, 197, 90, .6) 0%, rgba(253, 197, 90, 0) 60%),
-    linear-gradient(120deg, var(--brand-orange) 0%, var(--brand-coral) 60%, #ff8a4a 100%);
-  color: #fff;
-  border-radius: var(--shop-radius-lg);
-  padding: 1.5rem 1.75rem;
-  margin-bottom: 1.5rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-  box-shadow: 0 14px 40px -12px rgba(255, 111, 48, .45);
-  position: relative;
-  overflow: hidden;
-}
-.shop-tab .pickup-banner::before {
-  content: "";
-  position: absolute; inset: 0;
-  background-image:
-    repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0, rgba(255,255,255,.06) 2px, transparent 2px, transparent 12px);
-  pointer-events: none;
-}
-.shop-tab .pickup-banner .pb-kicker {
-  font-size: .8rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  opacity: .85;
-  font-weight: 600;
-}
-.shop-tab .pickup-banner .pb-title {
-  font-family: "Prompt", sans-serif;
-  font-size: 1.45rem;
-  font-weight: 700;
-  margin: .25rem 0 .5rem;
-  line-height: 1.25;
-}
-.shop-tab .pickup-banner .pb-meta {
-  display: flex; flex-wrap: wrap; gap: .35rem .75rem; font-size: .88rem; opacity: .95;
-}
-.shop-tab .pickup-banner .pb-meta b { font-weight: 600; }
-.shop-tab .pickup-banner .pb-cta {
-  background: var(--brand-cream);
-  color: var(--shop-700);
-  border: 0;
-  font-weight: 600;
-  padding: .6rem 1.2rem;
-  border-radius: 999px;
-  white-space: nowrap;
-  transition: background .15s, transform .05s;
-}
-.shop-tab .pickup-banner .pb-cta:hover { background: #fff; transform: translateY(-1px); }
-
-/* ==============================================
  * Recent launches — horizontal "big show" carousel
  * ============================================== */
 .shop-tab .launch-arrows { display: inline-flex; gap: .35rem; }
@@ -345,7 +289,6 @@
   font-size: clamp(1.15rem, 2.4vw, 1.5rem);
 }
 .shop-tab .launch-big-body .lb-price .baht { font-size: .8rem; color: rgba(255,255,255,.7); margin-right: .15rem; font-weight: 500; }
-.shop-tab .launch-big-body .lb-date { color: rgba(255,255,255,.7) !important; }
 
 /* Pagination dots — quietly indicate slide count + active slide. */
 .shop-tab .launch-dots {
@@ -373,46 +316,11 @@
  * Pickup announcements — stack of cards (multi-batch)
  * ============================================== */
 .shop-tab .pickup-stack { display: flex; flex-direction: column; gap: .85rem; }
-.shop-tab .pickup-banner .pb-dates {
-  display: flex; flex-wrap: wrap; gap: .45rem;
-  margin-top: .6rem;
-}
-.shop-tab .pickup-banner .pb-date {
-  background: rgba(255,255,255,.18);
-  border: 1px solid rgba(255,255,255,.3);
-  border-radius: 999px;
-  padding: .25rem .7rem;
-  font-size: .82rem;
-  display: inline-flex; align-items: center; gap: .35rem;
-}
-.shop-tab .pickup-banner .pb-date .pb-date-time {
-  margin-left: .35rem; padding-left: .55rem; border-left: 1px solid rgba(255,255,255,.4);
-  display: inline-flex; align-items: center; gap: .25rem;
-  font-weight: 600;
-}
-.shop-tab .pickup-banner .pb-note { opacity: .92; max-width: 540px; }
 
 /* ==============================================
- * Filter bar — sort by type + source
+ * Chips — the admin shop's status / preorder toggles
+ * (the public filters are sf-* in shop-storefront.css)
  * ============================================== */
-.shop-tab .filter-bar {
-  background: #fff;
-  border-radius: var(--shop-radius);
-  padding: 1rem 1.1rem;
-  box-shadow: var(--shop-shadow-sm);
-  margin-bottom: 1rem;
-  display: grid;
-  gap: .75rem;
-  border: 1px solid var(--shop-cream-100);
-}
-.shop-tab .filter-row {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
-}
-.shop-tab .filter-label {
-  font-size: .8rem; font-weight: 600;
-  color: var(--shop-ink-500); text-transform: uppercase; letter-spacing: .04em;
-  min-width: 64px;
-}
 .shop-tab .chip {
   display: inline-flex;
   align-items: center;
@@ -498,19 +406,6 @@
 .shop-tab .chip-tone-danger.is-active {
   background: #ef4444; color: #fff; border-color: #dc2626;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, .25);
-}
-.shop-tab .chip .chip-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  display: inline-block;
-}
-.shop-tab .chip[data-src="md"]       .chip-dot { background: var(--src-md); }
-.shop-tab .chip[data-src="rt"]       .chip-dot { background: var(--src-rt); }
-.shop-tab .chip[data-src="mdi"]      .chip-dot { background: var(--src-mdi); }
-.shop-tab .chip[data-src="sittikao"] .chip-dot { background: var(--src-sittikao); }
-.shop-tab .filter-bar .form-control,
-.shop-tab .filter-bar .form-select {
-  font-size: .9rem;
-  max-width: 240px;
 }
 
 /* ==============================================
@@ -2108,7 +2003,5 @@
   .shop-tab .shop-grid { grid-template-columns: repeat(2, 1fr); gap: .65rem; }
   .shop-tab .product-body { padding: .65rem .75rem .75rem; }
   .shop-tab .product-name { font-size: .88rem; }
-  .shop-tab .pickup-banner { grid-template-columns: 1fr; padding: 1.25rem; }
-  .shop-tab .pickup-banner .pb-cta { width: 100%; }
   .shop-tab .launch-big { flex-basis: 78%; }
 }

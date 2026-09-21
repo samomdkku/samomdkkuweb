@@ -138,6 +138,7 @@ export function mountShopBrowse() {
 
   wireCarouselArrows(LAUNCH_CAROUSEL);
   wireCarouselArrows(ANNOUNCE_CAROUSEL);
+  window.addEventListener('resize', syncDropArrowsVisible, { passive: true });
 }
 
 /** (Re)render the ประเภท filter chips from the current type list. If the
@@ -305,7 +306,13 @@ function renderLaunches() {
   // Product mode = several "drop" cards per view (no dots — arrows page
   // through by the visible width instead).
   const cardMode = banners.length === 0;
+  launchCardMode = cardMode;
   host.classList.toggle('is-cards', cardMode);
+  // The subtitle promises product cards; admin banners can link anywhere.
+  const sub = document.getElementById('shopDropsSub');
+  if (sub) sub.textContent = cardMode
+    ? 'สินค้าใหม่ล่าสุด แตะรูปที่สนใจเพื่อดูรายละเอียด'
+    : 'เปิดตัวล่าสุดจาก SAMO — เลื่อนซ้ายขวาเพื่อดูเพิ่ม';
   dots?.classList.toggle('d-none', cardMode);
   if (!cardMode) {
     slides = banners.map(bannerSlideHtml);
@@ -331,11 +338,20 @@ function renderLaunches() {
     ).join('');
   }
   setCarouselArrowsVisible(LAUNCH_CAROUSEL, slides.length > 1);
-  // Arrow visibility for card mode depends on overflow, not count.
-  if (cardMode) requestAnimationFrame(() =>
-    setCarouselArrowsVisible(LAUNCH_CAROUSEL, host.scrollWidth > host.clientWidth + 2));
+  if (cardMode) requestAnimationFrame(syncDropArrowsVisible);
   updateCarouselArrowsState(LAUNCH_CAROUSEL);
   updateActiveDot(LAUNCH_CAROUSEL);
+}
+
+/** Card mode shows several cards per view, so whether there is anything to
+ *  page to depends on overflow — which changes with the viewport width, so
+ *  this re-runs on resize (a rotated phone), not only at render. */
+let launchCardMode = false;
+function syncDropArrowsVisible() {
+  const host = document.getElementById('shopLaunchCarousel');
+  if (!launchCardMode || !host || !host.clientWidth) return;
+  setCarouselArrowsVisible(LAUNCH_CAROUSEL, host.scrollWidth > host.clientWidth + 2);
+  updateCarouselArrowsState(LAUNCH_CAROUSEL);
 }
 
 // ---------------------------------------------------------------------

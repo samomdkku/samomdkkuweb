@@ -92,42 +92,9 @@ body.shop-mode .samo-footer {
 #shopProductModal .font-prompt { font-family: var(--sf-serif); }
 #pills-shop :focus-visible { outline: 2px solid var(--sf-espresso); outline-offset: 3px; }
 
-/* ---------- Navbar brand suffix: "MDKKUSAMO / samo shop" (shop tab only) ---------- */
-.brand-shop-suffix { display: none; }
-body.shop-mode .brand-shop-suffix {
-  display: inline-flex;
-  align-items: baseline;
-  gap: .45rem;
-  margin-left: .45rem;
-  white-space: nowrap;
-}
-body.shop-mode .brand-fixed .brand-shop-slash {
-  font-family: "Prompt", sans-serif;
-  font-size: 1.3rem;
-  font-weight: 300;
-  color: #CDBFAE;
-}
-body.shop-mode .brand-fixed .brand-shop-word {
-  font-family: "Playfair Display", Georgia, serif;
-  font-style: italic;
-  font-size: 1.5rem;
-  letter-spacing: .3px;
-  color: #4C2B08;
-}
-body.shop-mode .brand-fixed .brand-shop-word span { color: #AFCBF3; letter-spacing: .3px; }
-/* Phones: the centred brand sits between the hamburger and the auth
-   button, so the longer "MDKKUSAMO / samo shop" is shrunk and the auth
-   button drops to icon-only (shop tab only). */
-@media (max-width: 575.98px) {
-  body.shop-mode .brand-fixed { padding-inline: 0; }
-  body.shop-mode .brand-mdkku,
-  body.shop-mode .brand-samo { font-size: .92rem; letter-spacing: .2px; }
-  body.shop-mode .brand-fixed .brand-shop-slash { font-size: .95rem; }
-  body.shop-mode .brand-fixed .brand-shop-word { font-size: 1.02rem; }
-  body.shop-mode .brand-shop-suffix { gap: .25rem; margin-left: .25rem; }
-  body.shop-mode .samo-navbar .nav-signin-mobile .nav-signin-label { display: none; }
-  body.shop-mode .samo-navbar .nav-signin-mobile i { margin-right: 0 !important; }
-}
+/* The navbar is deliberately NOT restyled here: a shop-only brand suffix
+   widened the inline brand on desktop and slid every nav pill ~66px each
+   time the shop tab opened or closed. Shop identity lives inside the pane. */
 
 /* ---------- Sub-nav (centered, espresso pills) ---------- */
 #pills-shop .shop-subnav {
