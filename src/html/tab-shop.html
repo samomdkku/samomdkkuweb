@@ -2,6 +2,16 @@
       <div class="tab-pane fade shop-tab sf-store" id="pills-shop" role="tabpanel">
         <div class="container">
 
+          <!-- The shop's own identity. It used to be a "/ samo shop" suffix on
+               the NAVBAR brand, which widened the inline brand and slid every
+               nav pill ~66px whenever the shop tab opened or closed. The
+               identity lives here instead: inside the pane, so nothing outside
+               the shop moves. Same wordmark kita drew for the navbar. -->
+          <header class="sf-brand">
+            <div class="sf-brand-eyebrow">MDKKU SAMO</div>
+            <h1 class="sf-brand-word">samo <span>shop</span></h1>
+          </header>
+
           <!-- Sub-nav: ร้านค้า / คำสั่งซื้อของฉัน / Checkout (shown contextually) -->
           <div class="shop-subnav" id="shopSubnav" role="tablist">
             <button type="button" data-shop-view="shop" class="is-active">

@@ -136,7 +136,7 @@ Open when: writing a migration.
 - "The registry wins" was implemented as "the import never speaks"
 - "why does that photo and cohort year bug exist"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(94)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(95)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -234,6 +234,7 @@ Open when: markup, modals, layout, touch, icons.
 - "แต่ใน web มันไม่เห็นใช่ไหม" — the SECOND site of the same bug, found by sweeping columns against readers
 - ผังตามสาย's own file header warns about hover-only info, then a sibling file did it anyway
 - "my ipad has extension of stay, userscripts … why other webs don't have issue but this web does"
+- A layout fix scoped to ONE tab hid an overlap that existed on every tab
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(24)*
 
@@ -447,4 +448,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_385 entries across 10 files._
+_386 entries across 10 files._

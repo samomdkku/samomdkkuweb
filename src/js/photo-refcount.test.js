@@ -72,8 +72,16 @@ const NOT_A_PORTRAIT = new Map([
   ['announcements.thumbnail_url', 'covers are cleaned by filesToRetire (file IDS, not URL strings)'],
   ['pr_tickets.file_url', 'PR attachments are cleaned by deletePRFile'],
   ['project_files.drive_view_url', 'project files are cleaned by the projects flow'],
-  ['shop_products.image_url', 'shop images have no cleanup path and no shared-file case'],
+  // Corrected 2026-09-21: "no cleanup path" was stale — the product editor
+  // trashes a replaced image after the save, skipping one another product
+  // still shows. A shop admin reads every shop row, so that check is complete
+  // for the caller, which is what a client-side refcount needs.
+  ['shop_products.image_url', 'cleaned by the product editor, which checks every other product first'],
   ['shop_banners.image_url', 'as shop_products.image_url'],
+  // 0201. Each is its OWN upload into Shop/Batches, made and replaced only by
+  // the announcement editor, which checks other announcements and products
+  // before trashing. It is never a portrait, never passed to this function.
+  ['shop_pickup_batches.image_url', 'cleaned by the announcement editor, which checks announcements + products first'],
   ['shop_orders.slip_url', 'a payment slip — never passed to this function'],
   ['shop_promptpay_qrs.qr_url', 'a QR image — never passed to this function'],
   ['shop_settings.promptpay_qr_url', 'as shop_promptpay_qrs.qr_url'],

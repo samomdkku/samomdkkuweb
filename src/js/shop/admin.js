@@ -2431,6 +2431,19 @@ function batchEditorHtml(b) {
           <label class="small text-muted mb-1">จุดรับ</label>
           <input id="shopBatchLocation" class="form-control" value="${escHtml(b.location || '')}" placeholder="เช่น ห้องสโมสรนักศึกษาฯ ชั้น 1" />
         </div>
+        <div class="col-md-6">
+          <label class="small text-muted mb-1">รูปบนการ์ดประกาศ (ไม่บังคับ)</label>
+          <div class="d-flex gap-3 align-items-center flex-wrap">
+            ${batchImagePreview(b)}
+            <label class="btn btn-ghost btn-sm mb-0">
+              <i class="bi bi-image me-1"></i> ${b.image_url || b._imageFile ? 'เปลี่ยนรูป' : 'เลือกรูป'}
+              <input id="shopBatchImageFile" type="file" accept="image/*" hidden />
+            </label>
+            ${b.image_url || b._imageFile ? `<button type="button" class="btn btn-ghost btn-sm text-danger" id="shopBatchImageRemove">
+              <i class="bi bi-x-lg me-1"></i> เอารูปออก</button>` : ''}
+          </div>
+          <div class="form-text">ไม่ใส่ก็ได้ — ระบบจะใช้รูปของสินค้าที่เลือกไว้ด้านบน${b._imageFile ? ' · รูปใหม่จะอัปโหลดตอนกดบันทึก' : ''}</div>
+        </div>
         <div class="col-md-6 d-flex align-items-end">
           <div class="form-check">
             <input id="shopBatchActive" class="form-check-input" type="checkbox" ${b.is_active ? 'checked' : ''} />
@@ -2477,8 +2490,43 @@ function batchDateRowHtml(entry, idx) {
     </div>`;
 }
 
+/** Preview for the announcement picture: the file picked but not yet saved
+ *  (a local blob URL), else the saved one, else what the storefront will fall
+ *  back to — the first chosen product that has a picture — so the admin sees
+ *  what customers will see. */
+function batchImagePreview(b) {
+  const style = 'width:96px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--shop-ink-100, #ebecee);';
+  // A blob: URL this page minted itself (createObjectURL) — safeUrl() allows
+  // only http(s)/mailto/tel and would turn it into '#', so it is escaped, not
+  // filtered.
+  if (b._imagePreview && b._imagePreview.startsWith('blob:')) return `<img src="${escHtml(b._imagePreview)}" alt="" style="${style}" />`;
+  if (b.image_url) return `<img src="${safeUrl(convertDriveUrl(b.image_url))}" alt="" style="${style}" />`;
+  const p = (state.products || []).find((x) => (b.product_ids || []).includes(x.id) && x.image_url);
+  if (p) return `<img src="${safeUrl(convertDriveUrl(p.image_url))}" alt="" style="${style} opacity:.6;" title="ใช้รูปสินค้าแทน" />`;
+  return '';
+}
+
 function wireBatchEditor() {
   const b = state.batchEditor;
+  // PICKED, not uploaded: the upload happens in the save handler, so a picture
+  // chosen and then abandoned never becomes an orphan in Drive
+  // (upload-on-save — the cleanup cannot reach a file nothing references).
+  document.getElementById('shopBatchImageFile')?.addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { showShopToast('ไฟล์ใหญ่เกิน 8 MB', 'warn'); return; }
+    collectBatchEditorState();
+    if (b._imagePreview) URL.revokeObjectURL(b._imagePreview);
+    b._imageFile = f;
+    b._imagePreview = URL.createObjectURL(f);
+    renderBatches();
+  });
+  document.getElementById('shopBatchImageRemove')?.addEventListener('click', () => {
+    collectBatchEditorState();
+    if (b._imagePreview) URL.revokeObjectURL(b._imagePreview);
+    b._imageFile = null; b._imagePreview = null; b.image_url = '';
+    renderBatches();
+  });
   document.getElementById('shopBatchCancel')?.addEventListener('click', () => { state.batchEditor = null; renderBatches(); });
   document.getElementById('shopBatchAddDate')?.addEventListener('click', () => {
     collectBatchEditorState();
@@ -2510,13 +2558,34 @@ function wireBatchEditor() {
       product_ids: b.product_ids,
       note: b.note,
       is_active: b.is_active,
+      image_url: b.image_url || null,
     };
+    // The picture this row is about to stop pointing at, for the cleanup below.
+    const prev = String(state.batches.find((x) => x.id === b.id)?.image_url || '').trim();
+    const btn = document.getElementById('shopBatchSave');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก…'; }
     try {
+      if (b._imageFile) {
+        const ext = (b._imageFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
+        payload.image_url = await uploadShopFile(b._imageFile, 'Shop/Batches',
+          { fileName: `batch_${Date.now()}.${ext}`, maxEdge: 2000 });
+      }
       await upsertBatch(payload);
+      // Trash the replaced picture AFTER the write, and only if nothing else
+      // still shows it — another announcement, or a product.
+      if (prev && prev !== (payload.image_url || '')
+          && !state.batches.some((x) => x.id !== b.id && x.image_url === prev)
+          && !(state.products || []).some((p) => p.image_url === prev)) {
+        deleteShopFile(prev).catch(() => {});
+      }
+      if (b._imagePreview) URL.revokeObjectURL(b._imagePreview);
       showShopToast('บันทึกประกาศแล้ว', 'success');
       state.batchEditor = null;
       refreshBatches();
-    } catch (e) { showShopToast(`บันทึกล้มเหลว: ${e.message || e}`, 'error'); }
+    } catch (e) {
+      showShopToast(`บันทึกล้มเหลว: ${e.message || e}`, 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = `<i class="bi bi-megaphone me-1"></i> ${b.id ? 'บันทึก' : 'ประกาศ'}`; }
+    }
   });
 }
 

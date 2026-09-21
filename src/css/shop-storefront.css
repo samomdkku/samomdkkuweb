@@ -96,6 +96,24 @@ body.shop-mode .samo-footer {
    widened the inline brand on desktop and slid every nav pill ~66px each
    time the shop tab opened or closed. Shop identity lives inside the pane. */
 
+/* ---------- Shop identity (in the pane, never in the navbar) ---------- */
+#pills-shop .sf-brand { text-align: center; margin: 1.75rem 0 .25rem; }
+#pills-shop .sf-brand-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: .22em;
+  color: var(--sf-taupe); margin-bottom: 4px;
+}
+#pills-shop .sf-brand-word {
+  margin: 0;
+  font-family: var(--sf-script); font-style: italic; font-weight: 400;
+  font-size: 46px; line-height: 1.05; letter-spacing: .3px;
+  color: var(--sf-espresso);
+}
+#pills-shop .sf-brand-word span { color: var(--sf-sky-deep); }
+@media (max-width: 699px) {
+  #pills-shop .sf-brand { margin-top: 1.1rem; }
+  #pills-shop .sf-brand-word { font-size: 34px; }
+}
+
 /* ---------- Sub-nav (centered, espresso pills) ---------- */
 #pills-shop .shop-subnav {
   margin: 1.25rem auto .5rem;
@@ -260,6 +278,12 @@ body.shop-mode .samo-footer {
 #pills-shop .sf-announce-art::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(76,43,8,0) 40%, rgba(76,43,8,.55) 100%);
+}
+/* 0201 — a real picture instead of the stripe: fill the panel, no shade. */
+#pills-shop .sf-announce-art.has-img { background: var(--sf-sky); }
+#pills-shop .sf-announce-art.has-img::after { content: none; }
+#pills-shop .sf-announce-art.has-img img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
 }
 #pills-shop .sf-announce-mark {
   position: relative; z-index: 1;
@@ -594,6 +618,8 @@ body.shop-mode .samo-footer {
 
   #pills-shop .sf-announce { grid-template-columns: 1fr; }
   #pills-shop .sf-announce-art { min-height: 72px; }
+  /* A stripe can be a 72px band; a photo that thin shows nothing. */
+  #pills-shop .sf-announce-art.has-img { min-height: 0; aspect-ratio: 16 / 9; }
   #pills-shop .sf-announce-mark { padding: 14px 18px; font-size: 22px; }
   #pills-shop .sf-announce-body { padding: 20px; }
   #pills-shop .sf-announce-title { font-size: 20px; }

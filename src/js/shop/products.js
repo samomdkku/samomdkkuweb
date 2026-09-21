@@ -18,6 +18,7 @@ import {
 } from './data.js';
 import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll, getSettings } from './api.js';
 import { addItem } from './state.js';
+import { getProductMap } from './cart.js';
 
 let cache = { products: [], batches: [], contact: { instagram: '', gmail: '' }, loaded: false };
 
@@ -259,11 +260,28 @@ function renderBanner() {
     btn.addEventListener('click', () => onGoOrders()));
 }
 
+/** The picture for a pickup card (0201): the announcement's own, else the
+ *  first linked product that has one — looked up in ALL products, because a
+ *  product whose pickup is being announced has often stopped being on sale —
+ *  else null, and the card keeps its striped panel. */
+function pickupImage(b) {
+  if (b.image_url) return b.image_url;
+  const all = getProductMap();
+  for (const id of (b.product_ids || [])) {
+    const p = cache.products.find((x) => x.id === id) || all[id];
+    if (p?.image_url) return p.image_url;
+  }
+  return null;
+}
+
 function pickupBannerCardHtml(b) {
   const entries = batchDateEntries(b);
+  const img = pickupImage(b);
   return `
     <div class="sf-announce">
-      <div class="sf-announce-art" aria-hidden="true"><div class="sf-announce-mark">samo</div></div>
+      ${img
+        ? `<div class="sf-announce-art has-img"><img src="${safeUrl(convertDriveUrl(img))}" alt="${escHtml(b.title)}" loading="lazy" /></div>`
+        : '<div class="sf-announce-art" aria-hidden="true"><div class="sf-announce-mark">samo</div></div>'}
       <div class="sf-announce-body">
         <div class="sf-announce-main">
           <div class="sf-announce-tag">ประกาศรับสินค้า</div>

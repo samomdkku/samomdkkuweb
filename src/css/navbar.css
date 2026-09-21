@@ -285,6 +285,24 @@
   font-size: 0.9rem;
 }
 
+/* Narrow phones (<400px). Measured 2026-09-21, signed in: the absolutely-
+   centred wordmark and the Logout button overlapped by 23px at 360px and 15px
+   at 375px, on EVERY tab. The shop's old CSS hid this label on the shop tab
+   only, which is why it was never seen there. The wordmark steps down a
+   little, and Logout goes icon-only (its aria-label says ออกจากระบบ); Login
+   keeps its word, because a signed-out visitor is the one who needs it. */
+@media (max-width: 399.98px) {
+  .samo-navbar .brand-fixed .brand-mdkku,
+  .samo-navbar .brand-fixed .brand-samo { font-size: 1.15rem; }
+  #navAuthSignedInMobile .nav-signin-label { display: none; }
+  #navAuthSignedInMobile i { margin-right: 0 !important; }
+}
+/* 320px (the smallest phones still in use): even "Login" overlaps by 18px. */
+@media (max-width: 359.98px) {
+  #navAuthSignedOutMobile .nav-signin-label { display: none; }
+  #navAuthSignedOutMobile i { margin-right: 0 !important; }
+}
+
 .samo-navbar-auth .dropdown-toggle::after {
   margin-left: 0.4rem;
 }

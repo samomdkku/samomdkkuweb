@@ -3885,3 +3885,30 @@ somebody's browser, and a module graph dies with its weakest import. And an
 error event on a module ENTRY does not name the import that failed — when the
 instrument can only see the entry, ask for every file by name before
 concluding anything about the one it blamed.
+
+---
+
+## A layout fix scoped to ONE tab hid an overlap that existed on every tab
+
+**Symptom (found, not reported)**: while checking the new shop wordmark on a
+phone, the navbar's "MDKKUSAMO" and the mobile Logout button OVERLAPPED — 23px
+at 360px wide, 15px at 375px — signed in, on every tab. Signed out, "Login"
+overlapped by 18px at 320px.
+
+**Cause**: the brand is absolutely centred on phones and the auth button sits
+flush right; nothing reserves space between them. The shop redesign had hidden
+the button's label under `body.shop-mode` only — correct for its own suffix,
+and exactly the tab anyone looked at the navbar on. Removing the suffix (and
+that CSS) did not create the overlap; it was always there on the other tabs.
+
+**Fix**: `src/css/navbar.css` — under 400px the wordmark steps down to 1.15rem
+and Logout goes icon-only (its aria-label is ออกจากระบบ); under 360px Login
+does too. Measured at 320/360/375/390/430, both states: no overlap.
+
+**Where it lives now**: `src/css/navbar.css`, the two narrow-phone blocks.
+
+**The general rule**: *a fix scoped by a state class is a claim that the
+problem only exists in that state* — check it without the class before
+trusting the scope. And measure a navbar at the smallest real width in BOTH
+auth states: the two buttons differ in width, and a harness whose browser
+profile kept a session will measure the signed-in one twice and call it both.
