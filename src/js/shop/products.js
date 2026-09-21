@@ -23,6 +23,27 @@ let cache = { products: [], batches: [], contact: { instagram: '', gmail: '' }, 
 
 const filters = { source: 'all', type: 'all', sort: 'newest', search: '' };
 
+// Storefront type-filter icons (line drawings from the shop redesign).
+// Bootstrap Icons has no shirt / polo / trousers glyph, so these are
+// inline SVGs keyed by SHOP_TYPES id. Admin keeps using SHOP_TYPES[].icon;
+// a type without an entry here falls back to that bi-* class.
+const TYPE_SVG_PATHS = {
+  'all':             '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  'apparel-shirt':   '<path d="M8 3 4 7l3 3v11h10V10l3-3-4-4-4 2-4-2Z"/>',
+  // Polo: short sleeves + pointed collar flaps + button placket.
+  'apparel-polo':    '<path d="M9 3 4.5 5.5 3.3 9.6 7 10.6V21h10V10.6l3.7-1-1.2-4.1L15 3"/><path d="M9 3l1.5 4.2L12 5.6l1.5 1.6L15 3"/><path d="M12 5.6V11.5"/><circle cx="12" cy="8.2" r=".55" fill="currentColor" stroke="none"/><circle cx="12" cy="10.4" r=".55" fill="currentColor" stroke="none"/>',
+  // Trousers: waistband + fly, two legs split at the crotch.
+  'apparel-trouser': '<path d="M6 3h12l1.2 18h-5L12 10.5 9.8 21h-5Z"/><path d="M6 6h12"/><path d="M12 6v3"/>',
+  'bag':             '<path d="M4 9a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 9V6a4 4 0 1 1 8 0v3"/>',
+  'stationery':      '<path d="m17 3 4 4L9 19l-5 1 1-5Z"/>',
+};
+function typeIconHtml(t) {
+  const paths = TYPE_SVG_PATHS[t.id];
+  if (!paths) return `<i class="bi ${escHtml(t.icon || 'bi-tag')}"></i>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
 // Listeners to switch the parent view to "orders" (set up by index.js).
 let onGoOrders = () => {};
 export function setShopNavigators({ goOrders }) { onGoOrders = goOrders || onGoOrders; }
@@ -37,17 +58,22 @@ export function mountShopBrowse() {
   const search     = document.getElementById('shopSearchInput');
 
   if (sourceHost) {
-    sourceHost.innerHTML = SHOP_SOURCES.map((s) =>
-      `<button type="button" class="chip ${s.id === filters.source ? 'is-active' : ''}" data-src="${s.id}" data-source-id="${s.id}">
-        ${s.id !== 'all' ? '<span class="chip-dot"></span>' : ''}
-        ${escHtml(s.label)}
-      </button>`).join('');
+    sourceHost.innerHTML = SHOP_SOURCES.map((s) => {
+      const on = s.id === filters.source;
+      return `<button type="button" class="sf-source-pill ${on ? 'is-active' : ''}" aria-pressed="${on}"
+                data-src="${s.id}" data-source-id="${s.id}">
+        <span class="sf-dot"></span>${escHtml(s.label)}
+      </button>`;
+    }).join('');
     sourceHost.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-source-id]');
       if (!btn) return;
       filters.source = btn.dataset.sourceId;
-      sourceHost.querySelectorAll('.chip').forEach((el) =>
-        el.classList.toggle('is-active', el.dataset.sourceId === filters.source));
+      sourceHost.querySelectorAll('[data-source-id]').forEach((el) => {
+        const on = el.dataset.sourceId === filters.source;
+        el.classList.toggle('is-active', on);
+        el.setAttribute('aria-pressed', String(on));
+      });
       renderGrid();
     });
   }
@@ -61,8 +87,11 @@ export function mountShopBrowse() {
       const btn = e.target.closest('[data-type-id]');
       if (!btn) return;
       filters.type = btn.dataset.typeId;
-      typeHost.querySelectorAll('.chip').forEach((el) =>
-        el.classList.toggle('is-active', el.dataset.typeId === filters.type));
+      typeHost.querySelectorAll('[data-type-id]').forEach((el) => {
+        const on = el.dataset.typeId === filters.type;
+        el.classList.toggle('is-active', on);
+        el.setAttribute('aria-pressed', String(on));
+      });
       renderGrid();
     });
   }
@@ -121,10 +150,13 @@ function renderTypeChips() {
   if (filters.type !== 'all' && !types.some((t) => t.id === filters.type)) {
     filters.type = 'all';
   }
-  typeHost.innerHTML = types.map((t) =>
-    `<button type="button" class="chip ${t.id === filters.type ? 'is-active' : ''}" data-type-id="${t.id}">
-      <i class="bi ${escHtml(t.icon)}"></i> ${escHtml(t.label)}
-    </button>`).join('');
+  typeHost.innerHTML = types.map((t) => {
+    const on = t.id === filters.type;
+    return `<button type="button" class="sf-icon-tab ${on ? 'is-active' : ''}" aria-pressed="${on}" data-type-id="${escHtml(t.id)}">
+      <span class="sf-icon-circle">${typeIconHtml(t)}</span>
+      <span class="sf-icon-label">${escHtml(t.label)}</span>
+    </button>`;
+  }).join('');
 }
 
 /** Open a banner slide's link_url (new tab if external). Returns true
@@ -216,6 +248,7 @@ function renderBanner() {
   const host = document.getElementById('shopPickupBanner');
   if (!host) return;
   const list = cache.batches;
+  host.classList.toggle('d-none', !list.length);
   if (!list.length) { host.innerHTML = ''; return; }
   host.innerHTML = `
     <div class="pickup-stack">
@@ -228,26 +261,29 @@ function renderBanner() {
 function pickupBannerCardHtml(b) {
   const entries = batchDateEntries(b);
   return `
-    <div class="pickup-banner">
-      <div>
-        <div class="pb-kicker"><i class="bi bi-megaphone-fill me-1"></i> ประกาศจาก SAMO Shop</div>
-        <h3 class="pb-title">${escHtml(b.title)}</h3>
-        <div class="pb-meta">
-          ${b.location ? `<span><b>รับได้ที่:</b> ${escHtml(b.location)}</span>` : ''}
+    <div class="sf-announce">
+      <div class="sf-announce-art" aria-hidden="true"><div class="sf-announce-mark">samo</div></div>
+      <div class="sf-announce-body">
+        <div class="sf-announce-main">
+          <div class="sf-announce-tag">ประกาศรับสินค้า</div>
+          <h3 class="sf-announce-title">${escHtml(b.title)}</h3>
+          ${b.location ? `<div class="sf-announce-loc">รับได้ที่: ${escHtml(b.location)}</div>` : ''}
         </div>
         ${entries.length ? `
-          <div class="pb-dates">
+          <div class="sf-date-row">
             ${entries.map((e) => `
-              <span class="pb-date">
-                <i class="bi bi-calendar-event"></i> ${escHtml(e.date)}
-                ${e.hours ? `<span class="pb-date-time"><i class="bi bi-clock"></i> ${escHtml(e.hours)}</span>` : ''}
-              </span>`).join('')}
+              <div class="sf-date-tile">
+                <div class="sf-date-day">${escHtml(e.date)}</div>
+                ${e.hours ? `<div class="sf-date-time">${escHtml(e.hours)}</div>` : ''}
+              </div>`).join('')}
           </div>` : ''}
-        ${b.note ? `<div class="pb-note small mt-2">${escHtml(b.note)}</div>` : ''}
+        <div class="sf-announce-side">
+          ${b.note ? `<div class="sf-announce-note">${escHtml(b.note)}</div>` : '<div></div>'}
+          <button type="button" class="sf-btn-primary" data-pickup-go-orders>
+            ดูคำสั่งซื้อของฉัน <i class="bi bi-arrow-right"></i>
+          </button>
+        </div>
       </div>
-      <button class="pb-cta" data-pickup-go-orders>
-        <i class="bi bi-box-arrow-right me-1"></i> ดูคำสั่งซื้อของฉัน
-      </button>
     </div>`;
 }
 
@@ -265,16 +301,23 @@ function renderLaunches() {
   // hero is never empty when there's stock to show.
   const banners = (cache.launchBanners || []).slice(0, 10);
   let slides;
-  if (banners.length > 0) {
+  // Banner mode = full-width hero slides (one per view, with dots).
+  // Product mode = several "drop" cards per view (no dots — arrows page
+  // through by the visible width instead).
+  const cardMode = banners.length === 0;
+  host.classList.toggle('is-cards', cardMode);
+  dots?.classList.toggle('d-none', cardMode);
+  if (!cardMode) {
     slides = banners.map(bannerSlideHtml);
   } else {
     const flagged = cache.products.filter((p) => p.is_new).slice(0, 10);
     const fallback = flagged.length > 0
       ? flagged
       : cache.products.slice().sort((a, b) => new Date(b.added_at || 0) - new Date(a.added_at || 0)).slice(0, 5);
-    slides = fallback.map(launchCardHtml);
+    slides = fallback.map(dropCardHtml);
   }
 
+  document.getElementById('shopDropsSection')?.classList.toggle('d-none', slides.length === 0);
   if (slides.length === 0) {
     host.innerHTML = '';
     if (dots) dots.innerHTML = '';
@@ -288,6 +331,9 @@ function renderLaunches() {
     ).join('');
   }
   setCarouselArrowsVisible(LAUNCH_CAROUSEL, slides.length > 1);
+  // Arrow visibility for card mode depends on overflow, not count.
+  if (cardMode) requestAnimationFrame(() =>
+    setCarouselArrowsVisible(LAUNCH_CAROUSEL, host.scrollWidth > host.clientWidth + 2));
   updateCarouselArrowsState(LAUNCH_CAROUSEL);
   updateActiveDot(LAUNCH_CAROUSEL);
 }
@@ -338,12 +384,14 @@ function bannerSlideHtml(b) {
     </div>`;
 }
 
-function launchCardHtml(p) {
+/** "Latest Drops" card — used when there are no admin launch banners
+ *  and the carousel falls back to is_new / newest products. */
+function dropCardHtml(p) {
   const src = findSource(p.source);
   const oos = p.stock_status === 'sold_out' || p.stock_status === 'production_closed';
   return `
-    <div class="launch-big ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
-      <div class="launch-big-thumb">
+    <div class="sf-drop-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
+      <div class="sf-drop-thumb">
         ${p.image_url
           ? `<img src="${safeUrl(convertDriveUrl(p.image_url))}" alt="${escHtml(p.name)}" loading="lazy" />`
           : `<div class="stripe-placeholder" style="background-image: repeating-linear-gradient(135deg, hsl(${Number(p.hue) || 220} 30% 96%) 0 6px, hsl(${Number(p.hue) || 220} 28% 90%) 6px 12px);"></div>`}
@@ -353,16 +401,14 @@ function launchCardHtml(p) {
           ${p.stock_status && p.stock_status !== 'available' ? `<span class="ribbon-oos">${escHtml(STOCK_STATUS_META[p.stock_status]?.ribbon || '')}</span>` : ''}
         </div>
       </div>
-      <div class="launch-big-body">
-        <span class="product-source" data-src="${escHtml(p.source)}">
-          <span class="src-dot"></span> ${escHtml(src?.label || p.source)}
-        </span>
-        <div class="lb-name">${escHtml(p.name)}</div>
-        <div class="lb-meta">${escHtml(p.sub || '')}</div>
-        <div class="lb-foot">
-          <span class="lb-price"><span class="baht">฿</span>${thb(effectivePrice(p))}</span>
-          <span class="lb-date small text-muted">${fmtDate(p.added_at)}</span>
-        </div>
+      <span class="product-source" data-src="${escHtml(p.source)}">
+        <span class="src-dot"></span> ${escHtml(src?.label || p.source)}
+      </span>
+      <div class="sf-drop-name">${escHtml(p.name)}</div>
+      ${p.sub ? `<div class="sf-drop-sub">${escHtml(p.sub)}</div>` : ''}
+      <div class="sf-drop-foot">
+        <span class="sf-drop-price">฿ ${thb(effectivePrice(p))}</span>
+        <span class="sf-drop-date">${fmtDate(p.added_at)}</span>
       </div>
     </div>`;
 }

@@ -1,5 +1,5 @@
       <!-- TAB: SAMO SHOP -->
-      <div class="tab-pane fade shop-tab" id="pills-shop" role="tabpanel">
+      <div class="tab-pane fade shop-tab sf-store" id="pills-shop" role="tabpanel">
         <div class="container">
 
           <!-- Sub-nav: ร้านค้า / คำสั่งซื้อของฉัน / Checkout (shown contextually) -->
@@ -23,13 +23,12 @@
             <!-- ประกาศ swipe carousel (admin-curated banners,
                  placement='announcement'). Hidden until there's ≥1.
                  Reuses the launch-* carousel CSS. -->
-            <div id="shopAnnounceSection" class="d-none mb-3">
-              <div class="d-flex align-items-end justify-content-between mb-2">
+            <section id="shopAnnounceSection" class="sf-section d-none">
+              <div class="sf-section-head">
                 <div>
-                  <h3 class="shop-page-title" style="font-size:1.15rem; margin-bottom:0;">
-                    <i class="bi bi-megaphone-fill me-1 text-accent"></i> ประกาศ
-                  </h3>
-                  <p class="shop-page-sub small mb-0">ประกาศจาก SAMO Shop — เลื่อนซ้ายขวาเพื่อดูเพิ่ม</p>
+                  <div class="sf-eyebrow">ประกาศ</div>
+                  <h3 class="sf-section-title">Announcements</h3>
+                  <p class="sf-section-sub">ประกาศจาก SAMO Shop — เลื่อนซ้ายขวาเพื่อดูเพิ่ม</p>
                 </div>
                 <div class="launch-arrows">
                   <button type="button" class="launch-arrow d-none" id="shopAnnouncePrev" aria-label="ก่อนหน้า">
@@ -42,62 +41,65 @@
               </div>
               <div class="launch-carousel" id="shopAnnounceCarousel"></div>
               <div class="launch-dots" id="shopAnnounceDots"></div>
-            </div>
+            </section>
 
-            <div id="shopPickupBanner"></div>
+            <section class="sf-section" id="shopPickupBanner"></section>
 
-            <div class="d-flex align-items-end justify-content-between mb-2">
-              <div>
-                <h3 class="shop-page-title" style="font-size:1.15rem; margin-bottom:0;">
-                  <i class="bi bi-stars me-1 text-accent"></i> เปิดตัวล่าสุด
-                </h3>
-                <p class="shop-page-sub small mb-0">Recent launches from SAMO — เลื่อนซ้ายขวาเพื่อดูเพิ่ม</p>
+            <section class="sf-section" id="shopDropsSection">
+              <div class="sf-section-head">
+                <div>
+                  <div class="sf-eyebrow">✦ เปิดตัวล่าสุด</div>
+                  <h3 class="sf-section-title">Latest Drops</h3>
+                  <p class="sf-section-sub">สินค้าใหม่ล่าสุด แตะรูปที่สนใจเพื่อดูรายละเอียด</p>
+                </div>
+                <div class="launch-arrows">
+                  <button type="button" class="launch-arrow d-none" id="shopLaunchPrev" aria-label="ก่อนหน้า">
+                    <i class="bi bi-chevron-left"></i>
+                  </button>
+                  <button type="button" class="launch-arrow d-none" id="shopLaunchNext" aria-label="ถัดไป">
+                    <i class="bi bi-chevron-right"></i>
+                  </button>
+                </div>
               </div>
-              <div class="launch-arrows">
-                <button type="button" class="launch-arrow d-none" id="shopLaunchPrev" aria-label="ก่อนหน้า">
-                  <i class="bi bi-chevron-left"></i>
-                </button>
-                <button type="button" class="launch-arrow d-none" id="shopLaunchNext" aria-label="ถัดไป">
-                  <i class="bi bi-chevron-right"></i>
-                </button>
-              </div>
-            </div>
-            <div class="launch-carousel" id="shopLaunchCarousel"></div>
-            <div class="launch-dots" id="shopLaunchDots"></div>
+              <div class="launch-carousel" id="shopLaunchCarousel"></div>
+              <div class="launch-dots" id="shopLaunchDots"></div>
+            </section>
 
-            <div class="filter-bar">
-              <div class="filter-row">
-                <span class="filter-label">แหล่งที่มา</span>
-                <div id="shopSourceChips" class="d-flex flex-wrap gap-2"></div>
-              </div>
-              <div class="filter-row">
-                <span class="filter-label">ประเภท</span>
-                <div id="shopTypeChips" class="d-flex flex-wrap gap-2"></div>
-              </div>
-              <div class="filter-row">
-                <span class="filter-label">เรียง</span>
-                <select id="shopSortSelect" class="form-select form-select-sm" style="max-width: 180px;"></select>
-                <div class="ms-auto" style="max-width:260px; flex:1 1 200px;">
-                  <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                    <input id="shopSearchInput" type="search" class="form-control" placeholder="ค้นหาสินค้า..." />
+            <!-- Shop: filter sidebar (desktop) / stacked filters (mobile) + grid -->
+            <section class="sf-section" aria-label="สินค้าทั้งหมด">
+              <div class="sf-shop">
+                <aside class="sf-filters">
+                  <label class="sf-search">
+                    <i class="bi bi-search"></i>
+                    <input id="shopSearchInput" type="search" placeholder="ค้นหาสินค้า..." autocomplete="off" />
+                  </label>
+
+                  <div class="sf-filter-label">แหล่งที่มา</div>
+                  <div id="shopSourceChips" class="sf-source-row"></div>
+
+                  <div class="sf-filter-label">ประเภทสินค้า</div>
+                  <div id="shopTypeChips" class="sf-icon-tabs"></div>
+                </aside>
+
+                <div class="sf-results">
+                  <div class="sf-grid-meta">
+                    <div class="sf-grid-count" aria-live="polite">
+                      พบสินค้า <b id="shopResultCount">0</b> รายการ
+                    </div>
+                    <label class="sf-sort">
+                      <span>เรียง:</span>
+                      <select id="shopSortSelect" aria-label="เรียงสินค้า"></select>
+                      <i class="bi bi-chevron-down"></i>
+                    </label>
+                  </div>
+
+                  <div id="shopProductGrid" class="shop-grid"></div>
+                  <div id="shopProductEmpty" class="sf-empty d-none">
+                    ไม่พบสินค้าที่ค้นหา ลองเปลี่ยนตัวกรองหรือคำค้นหาดูนะ
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div class="d-flex align-items-baseline justify-content-between mb-2">
-              <p class="shop-page-sub mb-0 small">
-                พบสินค้า <b id="shopResultCount">0</b> รายการ
-              </p>
-            </div>
-
-            <div id="shopProductGrid" class="shop-grid"></div>
-            <div id="shopProductEmpty" class="empty-state d-none">
-              <i class="bi bi-search"></i>
-              <h4>ไม่พบสินค้า</h4>
-              <p>ลองเปลี่ยนตัวกรองหรือคำค้นหา</p>
-            </div>
+            </section>
           </div>
 
           <!-- View: My Orders -->

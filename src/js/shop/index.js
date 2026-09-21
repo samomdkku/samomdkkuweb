@@ -49,6 +49,12 @@ function syncFab() {
   showCartFab(shopTabActive && view !== 'checkout' && !cartOpen);
 }
 
+// Shop-only page chrome: `shop-mode` on <body> paints the storefront
+// background edge-to-edge (see shop-storefront.css).
+function setShopChrome(active) {
+  document.body.classList.toggle('shop-mode', active);
+}
+
 function setView(next) {
   view = next;
   document.querySelectorAll('#shopSubnav [data-shop-view]').forEach((b) =>
@@ -108,6 +114,7 @@ export function initShop() {
   document.addEventListener('shown.bs.tab', async (e) => {
     if (e.target?.id === 'pills-shop-tab') {
       shopTabActive = true;
+      setShopChrome(true);
       syncFab();
       const grid = document.getElementById('shopProductGrid');
       if (grid && grid.childElementCount === 0) {
@@ -128,6 +135,7 @@ export function initShop() {
       }
     } else {
       shopTabActive = false;
+      setShopChrome(false);
       syncFab();
     }
   });
