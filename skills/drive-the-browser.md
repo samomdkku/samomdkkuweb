@@ -300,10 +300,12 @@ relative to the scratchpad and fails. Use absolute paths.
 Most of this app is behind auth, so a driver that cannot log in can only ever
 see the public mirror. Both shortcuts you will reach for first do not work.
 
-### Trap 1: you cannot inject a session into `localStorage`
+### Trap 1: you cannot inject a session into `localStorage` — against the REAL backend
 
 Writing `sb-<ref>-auth-token` yourself and reloading looks right and silently
-does nothing — the app boots signed-OUT. (supabase-js has changed that key's
+does nothing — the app boots signed-OUT, because the real auth server rejects a
+token it did not issue. ⚠️ **Narrowed 2026-09-21:** it DOES work when every
+Supabase request is answered by a stub — see §10. (supabase-js has changed that key's
 encoding across versions; do not spend time reverse-engineering it.)
 
 **What works: drive the app's own sign-in form.** It is the path a person uses,
@@ -476,3 +478,36 @@ healthy case is worse than no warning.* I nearly reported a working admin page
 as a merge regression. Before believing a browser check's bad news, re-run that
 ONE page in isolation — the second run costs a minute and is the difference
 between a bug report and a false alarm.
+
+---
+
+## 10. Signed in with NO account at all — stub the whole backend over CDP (2026-09-21)
+
+For a question about THE PAGE (does this button upload, does this panel render,
+what request does it send), not about the database. Used to reproduce the shop
+slip flow, the per-size price modal, the ระบบบ้าน mismatch panel and the admin
+announcement editor.
+
+1. `Fetch.enable` with patterns `*supabase.co/*` and `*script.google.com/*`;
+   answer every `Fetch.requestPaused` with `Fetch.fulfillRequest` from a small
+   `reply(request)` router (`/auth/v1/user` → a user object; `/rest/v1/users` →
+   the profile row with the `role` you want; the table/RPC under test → your
+   fixture; everything else `[]`). **Send CORS headers**
+   (`Access-Control-Allow-Origin/Headers/Methods: *`) or the page sees a network
+   error.
+2. Load the page once, then write the session and reload:
+   `localStorage.setItem('sb-<ref>-auth-token', JSON.stringify({access_token:<any
+   JWT-shaped string with sub + exp>, refresh_token:'r', token_type:'bearer',
+   expires_in:3600, expires_at:4102444800, user}))`. `<ref>` is from
+   `SUPABASE_DEV_URL` — `npm run dev` points at samo-dev.
+3. Drive it; to set a file input use `DOM.setFileInputFiles` on the node.
+4. Assert on what the router RECEIVED (method, body), not only on the DOM.
+
+Three traps, each hit once:
+- **Every POST appears TWICE in a naive request log** — the first is the CORS
+  `OPTIONS` preflight. Log the method before calling anything a double-submit.
+- **A reused `--user-data-dir` keeps the session.** A "signed-out" pass measured
+  the signed-in button until the script ran `localStorage.clear()` first.
+- **A probe whose values differ from the stored ones can trigger the very write
+  that hides a sync bug** (0200) — for DB-side proofs see
+  `docs/mistakes/postgres-schema.md`.

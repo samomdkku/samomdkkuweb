@@ -85,6 +85,8 @@ straight through the gap — the new tab states it as arithmetic: สาย 141 
 can self-edit a สาย (`sai_self_edit_open` VESTIGIAL since 0125) and บ้าน is
 generated from it. ⚠️ Houses 1–9 have no `name` — the UI shows `บ้าน N` to 1,611 people.
 
+✅ **SAMO SHOP (2026-09-21, all live):** kita's redesign (look DECIDED by the shop team) · identity = "samo shop" wordmark INSIDE the pane, never the navbar · per-size prices, and the DATABASE now sets every price (0199 — `place_shop_order` had trusted the browser) · Discord message per web order, built from the DB (`DISCORD_SHOP_WEBHOOK`, VM only) · pickup-card picture (0201) · core chunk renamed `core-*` (an `analytics-*` name let a tracking blocker kill the portal). **Registry (0200): main card / ทีม SAMO / ระบบบ้าน auto-sync on connect; mismatches listed + fixable in ระบบบ้าน → ข้อมูลไม่ครบ.** Why + how each was checked: `docs/state/claude-2026-09-21.md`. Open items (webhook rotation, Stay hypothesis, never-seen Discord message): `HANDOFF.md` §18.
+
 ⛔ **START HERE: `docs/state/HANDOFF.md` is the full list of what is NOT done, with reasons and owners. Read it first; below is detail.**
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
@@ -210,7 +212,7 @@ Ops `skills/vaultwarden.md` · architecture `docs/CONTEXT.md` · what it owes HA
 2. **`docs/state/HANDOFF.md`** — the ONLY list of what is not done, each
    section carrying a `Status:` saying how far to trust it.
 3. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
-4. **`docs/state/phuriphatma.md` — its FIRST `## ▶ HANDOFF` block**, whichever
+4. **The newest `docs/state/claude-*.md` and `docs/state/phuriphatma.md` — each one's FIRST `## ▶ HANDOFF` block**, whichever
    date that is. It names what is owed, what is waiting on the owner, and what
    was deliberately NOT verified. Everything below it is history, including
    older handoff blocks.

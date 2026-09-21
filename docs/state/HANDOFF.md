@@ -16,8 +16,10 @@ numbered 8, and "Where to look for anything else" sat in the middle. It is now
 **0–10 in order**, with that table at the end. A section number quoted in an
 older note or memory may be stale.
 
-📌 **The most recent session's REASONING is in `docs/state/phuriphatma.md`**
-(2026-09-06, contributor credentials). This file holds only what is NOT done.
+📌 **The most recent session's REASONING is in `docs/state/claude-2026-09-21.md`**
+(SAMO Shop redesign, prices, Discord, registry sync — its open items are §18).
+Older: `docs/state/claude-2026-09-18.md`, `docs/state/phuriphatma.md`. This file
+holds only what is NOT done.
 
 
 **Every section carries a `Status:` line, and it changes what you should DO.**
@@ -1489,6 +1491,58 @@ state machine + 15 tests: `src/js/night-queue.test.js`.
 **Still write a new queue before re-enabling.** Then
 `bash server/night-agent/install.sh` (syncs memory + ships queue.mjs) and only
 then `bash server/night-agent/install.sh --arm` — installing no longer arms.
+
+---
+
+## 18. SAMO Shop + registry sync — what the 2026-09-21 session left open
+
+**Status: VERIFIED 2026-09-21 — how:** each item below says how it was checked; the WHY and the full measurements are in `docs/state/claude-2026-09-21.md`. Shipped and live: kita's redesign, per-size prices (0199), server-side prices, Discord order messages, `core-*` chunk rename, registry sync + mismatch panel (0200), pickup picture (0201), preorder popup, phone navbar overlap.
+
+**Owner-only**
+- **OWED — rotate the shop Discord webhook.** The owner pasted its URL into the
+  chat on 2026-09-21; it now lives only in the VM's `/etc/samo-notify.env`
+  (`DISCORD_SHOP_WEBHOOK`). Discord → channel → Integrations → Webhooks →
+  regenerate; replace the value with sudo, never printing it (lengths only);
+  `sudo systemctl restart samo-notify`.
+- **OWED — see one real Discord order message.** Never observed in the channel:
+  no web order has been placed since it shipped. The live service was checked
+  only by its refusals (no token; bogus token → `order read HTTP 401`). A marked
+  test message was offered, not sent. First real order = first real check.
+- **HYPOTHESIS — Stay/Userscripts blocked the old `analytics-*.js` chunk.** The
+  fragility is MEASURED (block that one file → portal dead; renamed `core-*`
+  now). That Stay was the blocker is NOT: five standard lists match nothing.
+  Needs: owner's iPad with extensions ON → if the bar appears, its
+  "ดูรายละเอียด" now names each file 200/404/BLOCKED.
+- **OWED (shop team) — a picture for the live pickup announcement.**
+  "น้องอุ่นใจผลิตเสร็จแล้ว" links a product that was DELETED, so it shows the
+  stripe until an admin adds a picture in the announcement editor.
+- **OWED (shop team) — spec the first promotion** before anything is built.
+  Recommended design (not built): session notes §10.
+
+**Buildable, small**
+- **OWED — CSV export carries only the latest slip.** `admin.js` export writes
+  `slip_count` + `slip_url` (newest). Add all slip URLs if the shop team uses it.
+- **HYPOTHESIS — checkout QR can disagree with the order if an admin edits a
+  price DURING someone's checkout.** The cart re-prices on every product load and
+  the server charges `shop_unit_price`; the window is between load and "place".
+  Not measured; accepted as rare.
+- **OWED — "เพิ่มสลิป only works after deleting" was NOT reproduced** (DB replay
+  as the buyer: accepted; headless page: 2 slips saved). Slips now upload ~7×
+  smaller, which removes the ~60 s upload the timeline showed. If it recurs, get
+  the toast text and the device before theorising.
+- **VERIFIED 2026-09-21 — how: stubbed headless Chrome only** — the ระบบบ้าน
+  mismatch panel + ซิงก์ให้ตรงกัน button, and the announcement-picture editor,
+  have NOT been driven signed in as a real admin. First real use is the check.
+
+**Decided — do not re-open**
+- **DECIDED 2026-09-21** — the shop's espresso/milk/sky look is what the SAMO
+  Shop team wants; the shop identity lives INSIDE the shop pane, never the navbar.
+- **DECIDED 2026-09-21** — a buyer may attach several slips (two transfers, a
+  clearer re-take); admins see every slip with its time.
+- **DECIDED 2026-09-21** — the Discord order message never carries phone, email
+  or the slip image; the title links the order in /admin/.
+- **DECIDED 2026-09-21** — main card / ทีม SAMO / ระบบบ้าน must always match; a
+  repair fills blanks and the main card wins, never overwriting a value with a blank.
 
 ---
 

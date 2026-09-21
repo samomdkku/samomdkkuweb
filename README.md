@@ -63,7 +63,10 @@ triggered over ssh (needs the KKU VPN).
   (`public.people`): fixing your name or ชื่อเล่น anywhere — your own card, the
   ทีม SAMO admin pane, the ระบบบ้าน admin pane — updates everywhere. Signed-in
   users see a single **ข้อมูลของฉัน** card with their identity once, then a
-  ทีม SAMO section and a ระบบบ้าน section.
+  ทีม SAMO section and a ระบบบ้าน section. The three copies of a person (main
+  card, ทีม SAMO, ระบบบ้าน) sync by themselves — including when someone is
+  newly added to one of them — and any disagreement is listed in ระบบบ้าน →
+  ข้อมูลไม่ครบ with a one-tap ซิงก์ให้ตรงกัน.
 - **Announcements board.** Public read; staff post via a Quill-based rich-text
   editor. Per-department thumbnails and theming.
 - **PR submission.** Form-based job intake with file upload, deadline mode,
@@ -132,16 +135,21 @@ triggered over ssh (needs the KKU VPN).
   because both would be overstatements.
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
-- **SAMO Shop.** Product catalogue (filter by source / admin-managed type,
-  sort, search), cart with localStorage persistence, checkout with required
+- **SAMO Shop.** Its own storefront look ("samo shop" wordmark, espresso /
+  milk / sky palette) inside the portal. Product catalogue (filter by source /
+  admin-managed type, sort, search), **prices per size (normal and preorder),
+  always charged by the database — never the price the browser sends**, cart
+  with localStorage persistence (re-priced from the current catalogue), checkout with required
   name+email+phone contact step (phone auto-fills from the signed-in
   profile), admin-managed PromptPay accounts assignable per product (a
   mixed-account cart splits into one order + slip per account) and per-product
-  pickup locations shown at buy-time, slip upload to Drive, order timeline
+  pickup locations shown at buy-time, slip upload to Drive (several slips per
+  order, shrunk before upload), a Discord message to the shop team for every
+  web order (who, what, how much, slip status — no contact details), order timeline
   (pending → review → paid → produce → ready → done), per-order QR codes
   (customers show, admins scan via the camera viewfinder in the orders
   tab — `/admin/?scan=<id>` also opens the order directly), pickup-batch
-  announcements, an admin-curated swipe-banner carousel for both
+  announcements (with an optional picture), an admin-curated swipe-banner carousel for both
   เปิดตัวล่าสุด and ประกาศ (upload + reorder + per-placement), and full
   admin (orders table with size/colour variant dropdowns on order
   create/edit, slip-verify queue, batches, product CRUD, QR settings).
