@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `82320ac` (2026-09-21)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. SERVED: admin bundle carries `registry_mismatches` (1) and `ซิงก์ให้ตรงกัน` (2); 0200 applied to production BEFORE the deploy, `house0200-three-copies` 13/13 there after it. Earlier the same day: `aa94a14` (shop Discord + `core-*` chunk) and `ba3f8ba` (per-size prices).
+- ✅ **DEPLOYED = `ea1b114` (2026-09-21)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. SERVED: `sf-brand-word` in the public HTML (1), pickup-card `has-img` code (1), admin `shopBatchImageFile` (2); 0201 applied to dev + production BEFORE the deploy. Earlier the same day: `82320ac` (registry sync 0200), `aa94a14`, `ba3f8ba`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
