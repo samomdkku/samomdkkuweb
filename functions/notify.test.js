@@ -405,7 +405,7 @@ describe('no notification this app sends may ping the channel', () => {
     // notifyShopOrder resolves only once notify.js has LOADED the order from
     // the database; this is that loaded state, with the buyer's name (DB text a
     // buyer controls) in the field that reaches `content`.
-    __shop: { order: { id: 'SH1', buyer_name: 'x', total: 1, items: [] }, names: {} },
+    __shop: { order: { id: 'SH1', buyer_name: 'x', total: 1, items: [] } },
   };
 
   it.each(['@here', '@everyone'])('no builder writes %s into content', (mention) => {
@@ -539,7 +539,7 @@ describe('silence is honoured by every action, not only the ones that remembered
   };
   const src = readFileSync(new URL('./_discord.js', import.meta.url), 'utf8');
   // The loaded-from-DB state notifyShopOrder needs (see notify.js).
-  const SHOP = { order: { id: 'SH1', total: 1, items: [] }, names: {} };
+  const SHOP = { order: { id: 'SH1', total: 1, items: [] } };
   const ACTIONS = [...stripComments(src).matchAll(/case '(notify\w+)':/g)].map((m) => m[1]);
 
   it('found every action in the source', () => {
@@ -663,9 +663,11 @@ describe('every silence spelling a frontend sender uses is honoured', () => {
 describe('notifyShopOrder', () => {
   const SHOP_ENV = { ...ENV, DISCORD_SHOP_WEBHOOK: 'https://discord/shop', SUPABASE_URL: 'https://db', SUPABASE_ANON_KEY: 'anon', PUBLIC_ORIGIN: 'https://samo.md.kku.ac.th' };
   const row = (over = {}) => ({
-    id: 'SH1234', buyer_name: 'ผู้ซื้อ', status: 'review', total: 580, placed_at: new Date().toISOString(),
-    is_preorder: false, slip_url: 'https://x/slip',
-    items: [{ product_id: 'p1', size: 'XL', color: 'default', qty: 2, unit_price: 290 }], ...over,
+    id: 'SH1234', buyer_name: 'ผู้ซื้อ', buyer_label: 'someone@kkumail.com', status: 'review',
+    subtotal: 580, fee: 0, total: 580, placed_at: new Date().toISOString(),
+    is_preorder: false, slip_url: 'https://x/slip', slips: [{ url: 'https://x/slip' }],
+    buyer_note: 'ขอรับวันศุกร์', buyer_email: 'leak@kkumail.com', buyer_phone: '0812345678',
+    items: [{ product_id: 'p1', size: 'XL', color: 'black', qty: 2, unit_price: 290, is_preorder: false }], ...over,
   });
   const jsonResp = (body) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body), headers: { get: () => null } });
   function stub(orderRows) {
@@ -673,7 +675,11 @@ describe('notifyShopOrder', () => {
     const f = vi.fn(async (url, init = {}) => {
       calls.push({ url: String(url), init });
       if (String(url).includes('/rest/v1/shop_orders')) return jsonResp(orderRows);
-      if (String(url).includes('/rest/v1/shop_products')) return jsonResp([{ id: 'p1', name: 'เสื้อ SAMO' }]);
+      if (String(url).includes('/rest/v1/shop_products')) return jsonResp([{ id: 'p1', name: 'เสื้อ SAMO',
+        image_url: 'https://drive.google.com/file/d/IMG123/view', colors: [{ id: 'black', label: 'ดำ' }],
+        pickup_location_id: 7, promptpay_qr_id: 3 }]);
+      if (String(url).includes('/rest/v1/shop_pickup_locations')) return jsonResp([{ id: 7, label: 'ห้องสโม ชั้น 1' }]);
+      if (String(url).includes('/rest/v1/shop_promptpay_qrs')) return jsonResp([{ id: 3, label: 'บัญชีฝ่ายสวัสดิการ' }]);
       if (String(url).includes('/rest/v1/notify_log')) return jsonResp([]);
       return resp(204);
     });
@@ -694,12 +700,31 @@ describe('notifyShopOrder', () => {
     const discord = calls.filter((c) => c.url === 'https://discord/shop');
     expect(discord).toHaveLength(1);
     const body = discord[0].init.body;
-    expect(body).toContain(`คำสั่งซื้อใหม่ ${id}`);
+    expect(body).toContain(`คำสั่งซื้อใหม่ **${id}** จาก **ผู้ซื้อ**`);
     expect(body).toContain('฿580');
-    expect(body).toContain('เสื้อ SAMO ไซส์ XL × 2');
+    expect(body).toContain('เสื้อ SAMO');
+    expect(body).toContain('ไซส์ XL · ดำ');
+    expect(body).toContain('× 2 · ฿290/ชิ้น = **฿580**');
+    expect(body).toContain('ผู้ซื้อ');
+    expect(body).toContain('ห้องสโม ชั้น 1');
+    expect(body).toContain('บัญชีฝ่ายสวัสดิการ');
+    expect(body).toContain('ขอรับวันศุกร์');
+    expect(body).toContain('https://lh3.googleusercontent.com/d/IMG123=w400');
+    expect(JSON.parse(body).embeds[0].color).toBe(0x105922);
+    // Never copied into a channel that keeps it for ever — the order page has them.
+    for (const secret of ['leak@kkumail.com', '0812345678', 'someone@kkumail.com']) expect(body).not.toContain(secret);
     expect(body).not.toContain('FAKE');
     expect(body).not.toContain('TOKEN');
     expect(body).toContain(`/admin/?scan=${id}`);
+  });
+
+  it('no slip yet → amber, and it says so', async () => {
+    const id = freshId();
+    const calls = stub([row({ id, slip_url: null, slips: [] })]);
+    await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'T' });
+    const body = JSON.parse(calls.find((c) => c.url === 'https://discord/shop').init.body);
+    expect(body.embeds[0].color).toBe(0xE0A100);
+    expect(JSON.stringify(body)).toContain('ยังไม่ได้ส่ง');
   });
 
   it('announces an order ONCE', async () => {

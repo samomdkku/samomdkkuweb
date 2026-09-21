@@ -375,8 +375,11 @@ export function buildClaudeMonitorPayload(data = {}) {
 
 const SHOP_NOTIFY_MAX_AGE_MS = 30 * 60 * 1000;
 
-/** Read the order (and its product names) as the caller. Returns the row, or
- *  `{ error }` for every way it is not something to announce. */
+/** Read the order — and what it takes to describe it (product names,
+ *  pictures and colour labels; pickup places; payment accounts) — as the
+ *  caller. Returns `{ order, products, pickups, qrs }`, or `{ error }` for
+ *  every way it is not something to announce. Everything past the order row
+ *  is a nicety: a failed lookup leaves the message plainer, never unsent. */
 export async function loadShopOrderForNotify(env = {}, data = {}, { fetchImpl = fetch, now = Date.now() } = {}) {
   const base = env.SUPABASE_URL;
   const key = env.SUPABASE_ANON_KEY;
@@ -386,8 +389,9 @@ export async function loadShopOrderForNotify(env = {}, data = {}, { fetchImpl = 
   if (!/^[A-Z0-9]{2,12}$/.test(id)) return { error: 'bad orderId' };
   if (!token) return { error: 'accessToken required' };
   const headers = { apikey: key, Authorization: `Bearer ${token}` };
-  const sel = 'id,buyer_name,buyer_label,status,total,placed_at,is_preorder,slip_url,'
-    + 'items:shop_order_items(product_id,size,color,qty,unit_price)';
+  const sel = 'id,buyer_name,buyer_label,status,subtotal,fee,total,placed_at,is_preorder,'
+    + 'slip_url,slips,buyer_note,pickup_location,'
+    + 'items:shop_order_items(product_id,size,color,qty,unit_price,is_preorder)';
   let rows;
   try {
     const r = await fetchImpl(`${base}/rest/v1/shop_orders?id=eq.${encodeURIComponent(id)}&select=${sel}`, { headers });
@@ -398,37 +402,108 @@ export async function loadShopOrderForNotify(env = {}, data = {}, { fetchImpl = 
   if (!order) return { error: 'order not found for this session' };
   const age = now - Date.parse(order.placed_at);
   if (!(age >= 0 && age <= SHOP_NOTIFY_MAX_AGE_MS)) return { error: 'order is not new' };
-  const ids = [...new Set((order.items || []).map((it) => it.product_id).filter(Boolean))];
-  let names = {};
-  if (ids.length) {
+
+  const get = async (path) => {
     try {
-      const r = await fetchImpl(`${base}/rest/v1/shop_products?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,name`, { headers });
-      if (r.ok) names = Object.fromEntries((await r.json()).map((p) => [p.id, p.name]));
-    } catch { /* names are a nicety; the id still identifies the item */ }
-  }
-  return { order, names };
+      const r = await fetchImpl(`${base}/rest/v1/${path}`, { headers });
+      return r.ok ? await r.json() : [];
+    } catch { return []; }
+  };
+  const inList = (xs) => `in.(${xs.map((x) => encodeURIComponent(String(x))).join(',')})`;
+  const ids = [...new Set((order.items || []).map((it) => it.product_id).filter(Boolean))];
+  const products = ids.length ? Object.fromEntries((await get(
+    `shop_products?id=${inList(ids)}&select=id,name,code,image_url,colors,pickup_location_id,promptpay_qr_id`,
+  )).map((p) => [p.id, p])) : {};
+  const pickupIds = [...new Set(Object.values(products).map((p) => p.pickup_location_id).filter((x) => x != null))];
+  const qrIds = [...new Set(Object.values(products).map((p) => p.promptpay_qr_id).filter((x) => x != null))];
+  const pickups = pickupIds.length ? Object.fromEntries((await get(
+    `shop_pickup_locations?id=${inList(pickupIds)}&select=id,label`)).map((l) => [l.id, l.label])) : {};
+  const qrs = qrIds.length ? Object.fromEntries((await get(
+    `shop_promptpay_qrs?id=${inList(qrIds)}&select=id,label,promptpay_name`))
+    .map((q) => [q.id, q.label || q.promptpay_name])) : {};
+  return { order, products, pickups, qrs };
 }
 
-const SHOP_GREEN = 0x105922;
+const SHOP_COLOR_PAID = 0x105922;    // slip attached — brand green
+const SHOP_COLOR_WAITING = 0xE0A100; // no slip yet — amber: someone must follow up
+const baht = (n) => `฿${(Number(n) || 0).toLocaleString('en-US')}`;
+/** Same rule as src/js/uploads.js convertDriveUrl: Discord needs a URL that
+ *  IS an image, and a Drive share link is a web page. */
+function shopImageUrl(url) {
+  if (!url) return null;
+  if (url.includes('googleusercontent.com/')) return url;
+  const m = url.match(/\/file\/d\/([^/?#]+)/) || url.match(/[?&]id=([^&]+)/);
+  if (m) return `https://lh3.googleusercontent.com/d/${m[1]}=w400`;
+  return /^https:\/\//.test(url) ? url : null;
+}
+/** A person's name for the channel. `buyer_label` falls back to the account's
+ *  EMAIL for a password account with no name — never print an address into a
+ *  channel that keeps it for ever (the order page has the contact). */
+const notAnEmail = (s) => (s && !String(s).includes('@') ? String(s).trim() : '');
 
-export function buildShopOrderPayload(order = {}, names = {}, origin = '') {
+/**
+ * The shop team's view of a new order — built ONLY from the database row
+ * loadShopOrderForNotify() read (see the header above).
+ *
+ * WHAT IS DELIBERATELY LEFT OUT: the buyer's phone and email, and the slip
+ * image. A Discord channel keeps every message for as long as it exists and is
+ * read by whoever is in it; a payment slip carries a bank account and a full
+ * legal name. Both are one tap away — the title links to the order in /admin/.
+ */
+export function buildShopOrderPayload(loaded = {}, origin = '') {
+  const order = loaded.order || {};
+  const products = loaded.products || {};
+  const pickups = loaded.pickups || {};
+  const qrs = loaded.qrs || {};
   const items = Array.isArray(order.items) ? order.items : [];
+
   const lines = items.map((it) => {
-    const name = names[it.product_id] || it.product_id || 'สินค้า';
-    const size = it.size && it.size !== 'F' ? ` ไซส์ ${it.size}` : '';
-    const line = (Number(it.unit_price) || 0) * (Number(it.qty) || 0);
-    return `• ${name}${size} × ${it.qty} — ฿${line.toLocaleString('en-US')}`;
+    const p = products[it.product_id] || {};
+    const color = (Array.isArray(p.colors) ? p.colors : [])
+      .find((c) => (c.id || c.label) === it.color || c.label === it.color);
+    const variant = [
+      it.size && it.size !== 'F' ? `ไซส์ ${it.size}` : '',
+      color?.label || (it.color && it.color !== 'default' ? it.color : ''),
+      it.is_preorder ? 'Preorder' : '',
+    ].filter(Boolean).join(' · ');
+    const qty = Number(it.qty) || 0;
+    return `**${p.name || it.product_id || 'สินค้า'}**${variant ? ` — ${variant}` : ''}\n`
+      + `× ${qty} · ${baht(it.unit_price)}/ชิ้น = **${baht((Number(it.unit_price) || 0) * qty)}**`;
   });
+  const count = items.reduce((n, it) => n + (Number(it.qty) || 0), 0);
+  const slips = Array.isArray(order.slips) && order.slips.length ? order.slips.length : (order.slip_url ? 1 : 0);
+
+  const who = notAnEmail(order.buyer_name) || notAnEmail(order.buyer_label) || 'ลูกค้า';
+  const account = notAnEmail(order.buyer_label);
   const fields = [
-    { name: 'รายการ', value: (lines.join('\n') || '—').substring(0, 1024) },
-    { name: 'ยอดรวม', value: `฿${(Number(order.total) || 0).toLocaleString('en-US')}`, inline: true },
-    { name: 'สลิป', value: order.slip_url ? 'ส่งแล้ว — รอตรวจ' : 'ยังไม่ได้ส่ง', inline: true },
+    { name: 'ผู้สั่ง', value: account && account !== who ? `${who}\nบัญชี: ${account}` : who, inline: true },
+    { name: 'ยอดที่ต้องโอน', value: `**${baht(order.total)}**\n${count} ชิ้น`
+        + (Number(order.fee) ? ` · ค่าส่ง ${baht(order.fee)}` : ''), inline: true },
+    { name: 'สลิป', value: slips ? `ส่งแล้ว${slips > 1 ? ` ${slips} ใบ` : ''} — รอตรวจ` : 'ยังไม่ได้ส่ง', inline: true },
   ];
-  if (order.is_preorder) fields.push({ name: 'ประเภท', value: 'Preorder', inline: true });
-  const who = order.buyer_name || order.buyer_label || 'ลูกค้า';
-  const embed = { title: `คำสั่งซื้อใหม่ ${order.id}`, color: SHOP_GREEN, fields };
+  const pickupLabels = [...new Set(items.map((it) => pickups[products[it.product_id]?.pickup_location_id]).filter(Boolean))];
+  if (order.pickup_location) pickupLabels.unshift(order.pickup_location);
+  if (pickupLabels.length) fields.push({ name: 'รับสินค้าที่', value: [...new Set(pickupLabels)].join('\n').substring(0, 1024), inline: true });
+  const qrLabels = [...new Set(items.map((it) => qrs[products[it.product_id]?.promptpay_qr_id]).filter(Boolean))];
+  if (qrLabels.length) fields.push({ name: 'บัญชีรับเงิน', value: qrLabels.join('\n').substring(0, 1024), inline: true });
+  if (order.is_preorder) fields.push({ name: 'ประเภท', value: 'มีสินค้า Preorder', inline: true });
+  if (order.buyer_note && String(order.buyer_note).trim()) {
+    fields.push({ name: 'หมายเหตุจากผู้สั่ง', value: String(order.buyer_note).trim().substring(0, 1024) });
+  }
+
+  const embed = {
+    author: { name: 'SAMO Shop · คำสั่งซื้อใหม่' },
+    title: `${order.id} — ${baht(order.total)}`,
+    description: (lines.join('\n\n') || '—').substring(0, 4000),
+    color: slips ? SHOP_COLOR_PAID : SHOP_COLOR_WAITING,
+    fields,
+    footer: { text: slips ? 'กดหัวข้อเพื่อเปิดคำสั่งซื้อและตรวจสลิป' : 'ยังไม่มีสลิป — กดหัวข้อเพื่อเปิดคำสั่งซื้อ' },
+  };
+  if (order.placed_at) embed.timestamp = new Date(order.placed_at).toISOString();
+  const thumb = items.map((it) => shopImageUrl(products[it.product_id]?.image_url)).find(Boolean);
+  if (thumb) embed.thumbnail = { url: thumb };
   if (origin) embed.url = `${origin.replace(/\/$/, '')}/admin/?scan=${encodeURIComponent(order.id)}`;
-  return { content: `มีคำสั่งซื้อใหม่จาก **${who}**`, embeds: [embed] };
+  return { content: `คำสั่งซื้อใหม่ **${order.id}** จาก **${who}**`, embeds: [embed] };
 }
 
 export function resolveTarget(action, data = {}, env = {}) {
@@ -448,7 +523,7 @@ function resolveTargetInner(action, data = {}, env = {}) {
       // client cannot supply it because notify.js overwrites it first.
       if (!data.__shop?.order) return { error: 'shop order not loaded' };
       return { url: env.DISCORD_SHOP_WEBHOOK,
-        payload: buildShopOrderPayload(data.__shop.order, data.__shop.names, env.PUBLIC_ORIGIN) };
+        payload: buildShopOrderPayload(data.__shop, env.PUBLIC_ORIGIN) };
     case 'notifyClaudeBooking':
       return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeBookingPayload(data) };
     case 'notifyClaudeAlert':
