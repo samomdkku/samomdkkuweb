@@ -1377,3 +1377,59 @@ every `if … then return` at the top of a mirror and ask what it does when the
 protected side is EMPTY. ⚠️ And a stalled mirror hop shows up as gaps in BOTH
 directions, because the write that was skipped is also the event the reverse
 mirror listens for — two symptoms, one cause, and neither one points at it.
+
+---
+
+## "why does that photo and cohort year bug exist" — connecting a placement to an existing person is a MERGE, and only half of it ran
+
+**Symptom (as found)**: `house0194` went red on production — two ระบบบ้าน rows
+with no photo while their person's main card had one, and one new ทีม SAMO
+posting with an empty ปีที่เข้า while the card said 2565. Measured over EVERY
+synced column the same day: 38 disagreements (32 photo_focus, 2 photo_url,
+2 year_offset on the house side; 1 cohort_year, 1 photo_focus on ทีม SAMO), and
+every one was a value on one side and a BLANK on the other — never two values
+disagreeing. All on rows CONNECTED to an already-existing person on 2026-09-14
+(the duplicate merge), 09-15 ("place 10 more") and 09-19 (a new posting).
+The owner's rule, after hearing it: *"it should all sync, the main card,
+teamsamo, ระบบบ้าน, it should able to detect if there's mismatch also."*
+
+**Cause**: the mirrors are change-driven — the down-mirror fires on an UPDATE
+of `people`. Connecting a placement to a person who already exists is, to
+Postgres, an INSERT (or a `person_id` change) on the PLACEMENT. The up-mirror
+pushes the placement's non-empty values into `people`; when that changes
+nothing — the posting carried only the name the card already had — `people` is
+never written, the down-mirror never runs, and the new placement keeps its
+blanks for ever. The same stalled hop as 0194, entered from the connect side.
+Separately, `student_mirror_up` SET `photo_url`/`photo_focus` but left both out
+of its `is distinct from` guard, so a house edit changing ONLY the photo was
+judged "nothing changed".
+
+**What almost hid it — the proof's first version passed BEFORE the fix.** Its
+new posting was named `probe0200`, which differs from the card, so the
+up-mirror CHANGED `people`, the down-mirror fired, and the cohort arrived by
+accident. The real case is a posting that tells the registry nothing new; with
+the person's own name the proof went red at 10–11 as it should.
+
+**Fix**: 0200. `_registry_mismatches(person)` is the one definition of "the
+copies disagree" (every column `person_mirror_down` carries, read as a reader
+sees it). `_registry_sync_person` fills the card's blanks from a placement and
+then writes `people`, which fires the ONE existing down-mirror — no second
+down-mirror was written, that would be the drift being fixed. `zz_registry_link_sync`
+runs it after a placement is connected, only when something disagrees. The
+photo is in the guard, compared exactly as it is SET (coalesce). `registry_mismatches()`
+/ `repair_registry_mismatches()` (house / team_edit / master) feed a group in
+ระบบบ้าน → ข้อมูลไม่ครบ with a ซิงก์ให้ตรงกัน button. The 38 rows repaired in
+the migration.
+
+**Where it lives now**: `supabase/migrations/0200_*.sql`;
+`tools/house0200-three-copies.sql` (13/13 dev + production; red before at 01,
+10, 11, 20, 21, 33, 36); `src/js/house/gaps.js` group `registry_mismatch`.
+
+**The general rule**: *a change-driven sync has no event for "these two became
+the same thing".* A LINK is a merge, and a merge needs both directions at the
+moment it happens — the change listeners will not see it, because on the side
+that already existed nothing changed. When you add a way to connect records
+(an import, a claim, a merge tool, an admin picker), ask what fills the NEW
+side from the OLD one. And test a sync with an input that is ALREADY IN SYNC on
+the fields it carries: a probe that differs somewhere triggers the very write
+that masks the gap.

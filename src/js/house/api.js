@@ -496,6 +496,21 @@ export async function saveAcademicYear(year) {
  * per-row by the นักศึกษา table, which is already gated; this answers HOW MANY,
  * which is the question a week before an event.
  */
+/** 0200: every place a ทีม SAMO or ระบบบ้าน row disagrees with its person's
+ *  main card — { kind, placement_id, person_id, who, columns[] }. */
+export async function fetchRegistryMismatches() {
+  const { data, error } = await dbRest('/rpc/registry_mismatches', { method: 'POST', body: {} });
+  if (error) fail(error, 'อ่านรายการข้อมูลไม่ตรงกันไม่สำเร็จ');
+  return Array.isArray(data) ? data : [];
+}
+
+/** 0200: fill the blanks and re-sync up to 100 people. Returns how many. */
+export async function repairRegistryMismatches() {
+  const { data, error } = await dbRest('/rpc/repair_registry_mismatches', { method: 'POST', body: {} });
+  if (error) fail(error, 'ซิงก์ข้อมูลไม่สำเร็จ');
+  return Number(data) || 0;
+}
+
 export async function fetchIdentityCheckSummary() {
   const { data, error } = await dbRest('/rpc/identity_check_summary', {
     method: 'POST', body: {},

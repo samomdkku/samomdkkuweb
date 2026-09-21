@@ -203,6 +203,13 @@ export function auditSai(occupants = [], held = []) {
  *                                already the screen for them)
  * @returns {{groups: object[], actionable: number}}
  */
+/** Thai names for the columns 0200's `registry_mismatches()` reports. */
+export const REGISTRY_FIELD_LABEL = {
+  full_name: 'ชื่อเต็ม', first_name_th: 'ชื่อ', last_name_th: 'นามสกุล', nickname: 'ชื่อเล่น',
+  student_id: 'รหัสนักศึกษา', major: 'สาขา', cohort_year: 'ปีที่เข้า', year_offset: 'ชั้นปีที่ปรับ',
+  photo_url: 'รูป', photo_focus: 'ตำแหน่งครอปรูป', bio: 'แนะนำตัว', kkumail: 'อีเมล',
+};
+
 export function computeGaps(d = {}) {
   const students = d.students || [];
   const held = (d.held || []).filter((h) => !h.resolved_at);
@@ -212,6 +219,7 @@ export function computeGaps(d = {}) {
   const sais = d.sais || [];
   const advisors = d.advisors || [];
   const conflicts = Number(d.conflicts || 0);
+  const mismatches = d.mismatches || [];
 
   // Missing either field makes a held row an admin's, permanently, which is why
   // the split matters and is not cosmetic. See splitHeld() above.
@@ -296,6 +304,24 @@ export function computeGaps(d = {}) {
       goto: 'overview',
       count: conflicts,
       rows: [],
+    },
+    {
+      unit: 'คน',
+      key: 'registry_mismatch',
+      tone: TONE.act,
+      title: 'ข้อมูลไม่ตรงกันระหว่างบัตรหลัก ทีม SAMO และระบบบ้าน',
+      // 0200: every case measured was one side EMPTY — never two values
+      // disagreeing — so the button fills blanks and never overwrites a value.
+      why: 'ทั้งสามที่ควรเหมือนกันเสมอ ปกติระบบซิงก์ให้เอง ถ้าขึ้นตรงนี้แปลว่ามีที่หนึ่งยังว่างอยู่ '
+        + 'กด “ซิงก์ให้ตรงกัน” ระบบจะเติมช่องที่ว่างจากที่ที่มีข้อมูล และใช้ข้อมูลบนบัตรหลักเป็นหลัก',
+      goto: null,
+      action: 'repair_registry',
+      count: new Set(mismatches.map((r) => r.person_id)).size,
+      rows: mismatches.map((r) => ({
+        name: r.who || '(ไม่ทราบชื่อ)',
+        detail: r.kind === 'team' ? 'ทีม SAMO' : 'ระบบบ้าน',
+        hint: 'ไม่ตรง: ' + (r.columns || []).map((c) => REGISTRY_FIELD_LABEL[c] || c).join(', '),
+      })),
     },
     {
       unit: 'สาย',

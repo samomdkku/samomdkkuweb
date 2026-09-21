@@ -49,6 +49,7 @@ const PROOFS = [
   ['house0191-help-requests.sql', 'a student who cannot get in is heard, and still told nothing'],
   ['house0193-file-evidence.sql', 'what the file said survives the cleaning, and never becomes an identity'],
   ['house0194-import-fills-registry.sql', 'an import fills a hole in the registry and never writes over it'],
+  ['house0200-three-copies.sql', 'the main card, ทีม SAMO and ระบบบ้าน agree, a new connection takes the card, and an admin can see and repair a mismatch'],
   ['team0145-one-chan-pi.sql', 'ชั้นปี survives a registry touch'],
   ['team0145-save-as-the-member.sql', 'saving as the member keeps the mirror'],
   ['claude0154-quota-guard.sql', 'the Claude quota caps hold, and the board is gated'],

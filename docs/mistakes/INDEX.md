@@ -100,7 +100,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(30)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(31)*
 
 Open when: writing a migration.
 
@@ -134,6 +134,7 @@ Open when: writing a migration.
 - A settings flag said `true` and controlled nothing
 - The test data used keys that turned out to be real
 - "The registry wins" was implemented as "the import never speaks"
+- "why does that photo and cohort year bug exist"
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(94)*
 
@@ -446,4 +447,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_384 entries across 10 files._
+_385 entries across 10 files._

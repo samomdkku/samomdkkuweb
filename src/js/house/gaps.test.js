@@ -276,3 +276,30 @@ describe('every person-group states its denominator', () => {
     }
   });
 });
+
+// 0200 — the main card, ทีม SAMO and ระบบบ้าน disagree. The rows come from
+// registry_mismatches(); one person can appear once per placement, and the
+// count is PEOPLE, because "sync" is done per person.
+describe('registry mismatch group', () => {
+  const students = full(3, YEAR.MD50);
+  const mm = [
+    { kind: 'team', placement_id: 't1', person_id: 'p1', who: 'เอ — ก ข', columns: ['cohort_year'] },
+    { kind: 'house', placement_id: 's1', person_id: 'p1', who: 'เอ — ก ข', columns: ['photo_url', 'photo_focus'] },
+    { kind: 'house', placement_id: 's2', person_id: 'p2', who: 'บี — ค ง', columns: ['year_offset'] },
+  ];
+  it('counts people, lists each placement, names the fields in Thai, and is an admin action', () => {
+    const g = byKey(computeGaps({ students, mismatches: mm })).registry_mismatch;
+    expect(g.count).toBe(2);
+    expect(g.tone).toBe(TONE.act);
+    expect(g.action).toBe('repair_registry');
+    expect(g.rows.map((r) => r.detail)).toEqual(['ทีม SAMO', 'ระบบบ้าน', 'ระบบบ้าน']);
+    expect(g.rows[1].hint).toBe('ไม่ตรง: รูป, ตำแหน่งครอปรูป');
+    expect(g.rows[0].hint).toBe('ไม่ตรง: ปีที่เข้า');
+  });
+  it('nothing to report → no group, and it adds to the badge only when present', () => {
+    expect(byKey(computeGaps({ students })).registry_mismatch).toBeUndefined();
+    const withIt = computeGaps({ students, mismatches: mm }).actionable;
+    const without = computeGaps({ students }).actionable;
+    expect(withIt - without).toBe(2);
+  });
+});

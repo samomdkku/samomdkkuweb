@@ -39,6 +39,7 @@ import {
   fetchHelpRequests, resolveHelpRequest,
   fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
   fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
+  fetchRegistryMismatches, repairRegistryMismatches,
 } from './api.js';
 import {
   parseStudentsCsv, diffAgainstExisting, toUpsertRow, toUnresolvedRow, saiCodesToSeed,
@@ -88,6 +89,7 @@ let helpReqs = [];
 /** Open identity conflicts — a COUNT, not the rows: the rows already have a
  *  screen (the ตรวจสอบข้อมูล filter) and a second copy would drift from it. */
 let openConflicts = 0;
+let registryMismatches = [];   // 0200 — the main card vs ทีม SAMO vs ระบบบ้าน
 /** Whether the ข้อมูลไม่ครบ pane lists every person or only the first few. */
 let gapShowAll = false;
 // The สาย-grid is a VIEW inside the นักศึกษา pane, not a separate `mode` — it
@@ -142,6 +144,9 @@ async function reload() {
       // it, the same reason the status strip guards its own fetch.
       openConflicts = Number(
         (await fetchIdentityCheckSummary().catch(() => null))?.open_conflicts || 0);
+      // Same reasoning: a check, not the roster — losing it must not take the
+      // pane down. An account without the grant gets [] and sees no group.
+      registryMismatches = await fetchRegistryMismatches().catch(() => []);
       setStatus('');
       render();
     } catch (e) {
@@ -322,6 +327,7 @@ function evidenceRow(h, done) {
 /** Everything computeGaps() needs, from what `reload()` already loaded. */
 const gapData = () => ({
   students, held, helpReqs, requests, houses, sais, advisors, conflicts: openConflicts,
+  mismatches: registryMismatches,
 });
 
 const GAP_TONE = {
@@ -381,6 +387,9 @@ function renderGaps() {
               <strong class="small">${escHtml(g.title)}</strong>
               ${g.scope ? `<span class="badge rounded-pill text-bg-light border fw-normal small"
                 >${escHtml(g.scope)}</span>` : ''}
+              ${g.action === 'repair_registry' ? `<button type="button"
+                class="btn btn-sm btn-outline-danger py-0 ms-auto"
+                data-gap-action="repair_registry"><i class="bi bi-arrow-repeat"></i> ซิงก์ให้ตรงกัน</button>` : ''}
               ${g.goto ? `<button type="button"
                 class="btn btn-sm btn-link p-0 ms-auto text-decoration-none"
                 data-gap-goto="${escHtml(g.goto)}">ไปที่ ${escHtml(GAP_GOTO[g.goto] || g.goto)}
@@ -2691,7 +2700,24 @@ function wire() {
   // repo has leaked them before.
   const gapHost = $('houseGapGroups');
   if (gapHost) {
-    gapHost.addEventListener('click', (e) => {
+    gapHost.addEventListener('click', async (e) => {
+      const act = e.target.closest('[data-gap-action="repair_registry"]');
+      if (act) {
+        act.disabled = true;
+        act.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังซิงก์…';
+        // The message goes up AFTER the reload: reload() clears the status line
+        // when it finishes, so a message set before it is wiped unread.
+        let msg; let bad = false;
+        try {
+          const n = await repairRegistryMismatches();
+          msg = `ซิงก์แล้ว ${n.toLocaleString('th-TH')} คน`;
+        } catch (err) {
+          msg = err?.message || 'ซิงก์ข้อมูลไม่สำเร็จ'; bad = true;
+        }
+        await reload();
+        setStatus(msg, bad);
+        return;
+      }
       const btn = e.target.closest('[data-gap-goto]');
       if (!btn) return;
       mode = btn.dataset.gapGoto;

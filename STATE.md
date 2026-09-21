@@ -50,7 +50,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0199. 43 of 48 LIVE PROOFS GREEN on production (2026-09-21) — the 5 red are house/team/dept drift, two of them REAL mirror drift: `docs/state/HANDOFF.md` §16b.** 0199 (shop per-size pricing + server-side price) `shop0199-pricing` 20/20 on dev AND production — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
+- **Migrations through 0200. 45 of 49 LIVE PROOFS GREEN on production (2026-09-21) — the 4 red are house/team/dept proof-subject drift: `docs/state/HANDOFF.md` §16b.** 0199 shop per-size pricing (`shop0199-pricing` 20/20); 0200 the three copies of a person stay in sync + admin mismatch panel (`house0200-three-copies` 13/13, `house0194` back to 20/20), both dev AND production — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
   ⚠️ A proof can be GREEN WHILE BROKEN because the environment happened to be
   quiet — both Claude quota proofs were, until they CONSTRUCTED the absence
   they assume (`docs/mistakes/tooling-proofs.md`; counts live in the proofs).

@@ -1316,19 +1316,15 @@ node tools/db-query.mjs tools/team019{5,6,7,8}-*.sql # the proofs
 
 ## 16b. Five live proofs RED on production (found 2026-09-21) — none from shop 0199
 
-**Status: VERIFIED 2026-09-21 — how:** `npm run proofs` against production: 43/48 green, 5 not.
+**Status: VERIFIED 2026-09-21 — how:** `npm run proofs` against production: 43/48 green, 5 not; house0194 then FIXED by 0200 — 4 remain OWED.
 None of the five reads a shop table; 0199 touches only shop tables and
 functions, and `shop0199-pricing` + `shop0150` are green. They drifted after
 the last all-green run (09-14/09-19). Two are REAL data drift, the rest look
 like proofs whose SUBJECT went stale — each needs reading before "fixing":
 
-- **house0194 60/61 — REAL.** A mirror dropped a write. Rows behind it
-  (column names only, no values): two `students` rows changed `photo_url` on
-  2026-09-15 that `people` never received; one `team_members.cohort_year`
-  changed on 2026-09-19 that `people` never received. Class 6 ("a mirror is
-  bidirectional only on the columns BOTH directions NAME") — check which trigger
-  omits `photo_url` (students→people) and `cohort_year` (team_members→people)
-  before touching data. OWED.
+- ✅ **house0194 60/61 — FIXED by 0200 (2026-09-21).** Cause: connecting a
+  placement to an existing person never ran the down-mirror; 38 rows repaired,
+  `house0194` 20/20 and `house0200-three-copies` 13/13 on production.
 - **house0188 53** — "one whose claimer kept their registry รหัส": expected
   false, got true. Scenario vs live data; read the case first.
 - **house0191** — errors: `list_house_help_requests` raises "ไม่มีสิทธิ์ดูรายการนี้"

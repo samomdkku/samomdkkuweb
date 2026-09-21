@@ -549,6 +549,15 @@ them, so a member cannot PATCH them, and a direct write is undone by the registr
 on the next touch. The one writer is the person's own card, through
 `update_my_identity` → `year_offset`.
 
+**Connecting is a merge (0200).** The mirrors fire on CHANGES, so a placement
+newly connected to an existing person (import, claim, new posting, merge) used
+to keep its blanks — nothing about `people` changed. `zz_registry_link_sync`
+now finishes the merge: if the person disagrees with any placement, the card's
+blanks are filled from a placement and `people` is rewritten, which runs the one
+down-mirror. `registry_mismatches()` / `repair_registry_mismatches()` (house /
+team_edit / master) show and fix any disagreement; ระบบบ้าน → ข้อมูลไม่ครบ
+renders them. Proof: `tools/house0200-three-copies.sql`.
+
 **Nothing writes a ชั้นปี.** `team_members.year` was that column and it is dead:
 nothing bumped it, so by August 2026 nine members were showing a ชั้นปี exactly
 one year behind, and one person read ปี 5 / จบแล้ว / ปี 5 on three screens. The
