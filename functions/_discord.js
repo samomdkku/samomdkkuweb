@@ -363,6 +363,74 @@ export function buildClaudeMonitorPayload(data = {}) {
   };
 }
 
+// ---- SAMO Shop: a new order ----
+//
+// ⛔ NOT BUILT FROM WHAT THE BROWSER SAYS. Every other action here formats the
+// fields the client posted, so anyone can post a PR that never existed. For an
+// ORDER that would mean anyone announcing a paid order to the shop team. So the
+// client sends only { orderId, accessToken }, and loadShopOrderForNotify()
+// reads the row with the BUYER's own session: RLS (shop_orders_read) answers
+// only for the buyer or a shop admin, so a stranger's id reads nothing. The
+// builder below takes that DB row, never `data`.
+
+const SHOP_NOTIFY_MAX_AGE_MS = 30 * 60 * 1000;
+
+/** Read the order (and its product names) as the caller. Returns the row, or
+ *  `{ error }` for every way it is not something to announce. */
+export async function loadShopOrderForNotify(env = {}, data = {}, { fetchImpl = fetch, now = Date.now() } = {}) {
+  const base = env.SUPABASE_URL;
+  const key = env.SUPABASE_ANON_KEY;
+  const id = String(data.orderId || '');
+  const token = String(data.accessToken || '');
+  if (!base || !key) return { error: 'shop notify needs SUPABASE_URL + SUPABASE_ANON_KEY' };
+  if (!/^[A-Z0-9]{2,12}$/.test(id)) return { error: 'bad orderId' };
+  if (!token) return { error: 'accessToken required' };
+  const headers = { apikey: key, Authorization: `Bearer ${token}` };
+  const sel = 'id,buyer_name,buyer_label,status,total,placed_at,is_preorder,slip_url,'
+    + 'items:shop_order_items(product_id,size,color,qty,unit_price)';
+  let rows;
+  try {
+    const r = await fetchImpl(`${base}/rest/v1/shop_orders?id=eq.${encodeURIComponent(id)}&select=${sel}`, { headers });
+    if (!r.ok) return { error: `order read HTTP ${r.status}` };
+    rows = await r.json();
+  } catch (e) { return { error: `order read failed: ${e}` }; }
+  const order = Array.isArray(rows) && rows[0];
+  if (!order) return { error: 'order not found for this session' };
+  const age = now - Date.parse(order.placed_at);
+  if (!(age >= 0 && age <= SHOP_NOTIFY_MAX_AGE_MS)) return { error: 'order is not new' };
+  const ids = [...new Set((order.items || []).map((it) => it.product_id).filter(Boolean))];
+  let names = {};
+  if (ids.length) {
+    try {
+      const r = await fetchImpl(`${base}/rest/v1/shop_products?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,name`, { headers });
+      if (r.ok) names = Object.fromEntries((await r.json()).map((p) => [p.id, p.name]));
+    } catch { /* names are a nicety; the id still identifies the item */ }
+  }
+  return { order, names };
+}
+
+const SHOP_GREEN = 0x105922;
+
+export function buildShopOrderPayload(order = {}, names = {}, origin = '') {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const lines = items.map((it) => {
+    const name = names[it.product_id] || it.product_id || 'สินค้า';
+    const size = it.size && it.size !== 'F' ? ` ไซส์ ${it.size}` : '';
+    const line = (Number(it.unit_price) || 0) * (Number(it.qty) || 0);
+    return `• ${name}${size} × ${it.qty} — ฿${line.toLocaleString('en-US')}`;
+  });
+  const fields = [
+    { name: 'รายการ', value: (lines.join('\n') || '—').substring(0, 1024) },
+    { name: 'ยอดรวม', value: `฿${(Number(order.total) || 0).toLocaleString('en-US')}`, inline: true },
+    { name: 'สลิป', value: order.slip_url ? 'ส่งแล้ว — รอตรวจ' : 'ยังไม่ได้ส่ง', inline: true },
+  ];
+  if (order.is_preorder) fields.push({ name: 'ประเภท', value: 'Preorder', inline: true });
+  const who = order.buyer_name || order.buyer_label || 'ลูกค้า';
+  const embed = { title: `คำสั่งซื้อใหม่ ${order.id}`, color: SHOP_GREEN, fields };
+  if (origin) embed.url = `${origin.replace(/\/$/, '')}/admin/?scan=${encodeURIComponent(order.id)}`;
+  return { content: `มีคำสั่งซื้อใหม่จาก **${who}**`, embeds: [embed] };
+}
+
 export function resolveTarget(action, data = {}, env = {}) {
   const t = resolveTargetInner(action, data, env);
   // Applied HERE so no builder can forget it, and so an action added later
@@ -375,6 +443,12 @@ function resolveTargetInner(action, data = {}, env = {}) {
   switch (action) {
     case 'notifyPROnly':
       return { url: env.DISCORD_PR_WEBHOOK, payload: buildPrPayload(data) };
+    case 'notifyShopOrder':
+      // `data.__shop` is set by notify.js from the DATABASE (see above); a
+      // client cannot supply it because notify.js overwrites it first.
+      if (!data.__shop?.order) return { error: 'shop order not loaded' };
+      return { url: env.DISCORD_SHOP_WEBHOOK,
+        payload: buildShopOrderPayload(data.__shop.order, data.__shop.names, env.PUBLIC_ORIGIN) };
     case 'notifyClaudeBooking':
       return { url: env.DISCORD_CLAUDE_WEBHOOK, payload: buildClaudeBookingPayload(data) };
     case 'notifyClaudeAlert':

@@ -3837,3 +3837,51 @@ signal"), not "no title at all."
 self-enforcing — grep the SAME file (and its renderer, if the file is pure and
 someone else renders it) for every other place the principle should apply
 before treating the header comment as done.
+
+---
+
+## "my ipad has extension of stay, userscripts … why other webs don't have issue but this web does" — the core chunk was called `analytics-*.js`
+
+**Symptom (as reported)**: with Stay / Userscripts enabled on the owner's iPad,
+the portal loads dead (the boot watchdog's bar), while every other site works.
+The August report of the same symptom (entry above) carried
+`script failed: public-*.js` — our own entry — and was closed as "turn the
+extension off for this site". The owner's follow-up: *"i want to use it not
+having to turn off extension … other client might have extension like me."*
+
+**Cause (the fragility — MEASURED; the trigger on that iPad — NOT proven)**:
+Rollup names a shared chunk after the first module in it. The portal's biggest
+shared chunk — the Supabase client, auth, everything `public-*.js` imports
+statically — shipped as **`analytics-<hash>.js`**, because `src/js/analytics.js`
+came first. A module graph fails as a unit, so when that one file is refused the
+entry's `error` event fires and the whole portal is dead. Measured on production
+in headless Chrome: block `*analytics*` → `__samoBooted=false`, failure bar;
+block nothing → boots. That is exactly the file a tracking blocker removes: on
+another site it costs the site its analytics; here it cost the site. And the
+watchdog's own note named the ENTRY (`script failed: public-*.js`), because the
+element's error event cannot say which import failed — so the August report was
+chasing the wrong file.
+⚠️ What is NOT proven: that Stay is what blocked it. EasyList, EasyPrivacy and
+AdGuard base/tracking/social, run through a real engine
+(`@ghostery/adblocker`) against every served URL, match nothing — a lossy
+Safari content-blocker conversion or Stay's own rules could, but that is a
+hypothesis. The fix removes the fragility either way and makes the next report
+decisive.
+
+**Fix**: `tools/chunk-names.mjs` — any chunk whose name looks like tracking
+(analytics, track, stats, ads, pixel, …) is emitted as `core-<hash>.js`, via
+`output.chunkFileNames` in `vite.config.js`. On failure the boot watchdog now
+fetches every `/assets/` file the page names and reports each as `200`, `404`
+or `BLOCKED` in its copyable diagnostics — measured: `core-… BLOCKED (Failed to
+fetch), public-… 200`.
+
+**Where it lives now**: `tools/chunk-names.mjs`, `vite.config.js`,
+`src/js/chunk-names.test.js` (reintroduce the old name → red), the watchdog in
+`index.html` + `admin/index.html`.
+
+**The general rule**: *a file's NAME is part of its availability.* Anything on
+the critical path that is named like tracking, ads or stats will be removed by
+somebody's browser, and a module graph dies with its weakest import. And an
+error event on a module ENTRY does not name the import that failed — when the
+instrument can only see the entry, ask for every file by name before
+concluding anything about the one it blamed.

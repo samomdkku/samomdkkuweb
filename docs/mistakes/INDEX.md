@@ -135,7 +135,7 @@ Open when: writing a migration.
 - The test data used keys that turned out to be real
 - "The registry wins" was implemented as "the import never speaks"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(93)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(94)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -232,6 +232,7 @@ Open when: markup, modals, layout, touch, icons.
 - "ลิ้งค์จะขึ้นใน discord แต่ไม่ได้ขึ้นใน PR Staff Dashboard"
 - "แต่ใน web มันไม่เห็นใช่ไหม" — the SECOND site of the same bug, found by sweeping columns against readers
 - ผังตามสาย's own file header warns about hover-only info, then a sibling file did it anyway
+- "my ipad has extension of stay, userscripts … why other webs don't have issue but this web does"
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(24)*
 
@@ -445,4 +446,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_383 entries across 10 files._
+_384 entries across 10 files._

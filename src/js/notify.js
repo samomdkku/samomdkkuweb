@@ -34,6 +34,9 @@ export function actionFor(system, mode) {
     return 'notifyClaudeMonitor';
   }
   if (system === 'claude') return 'notifyClaudeBooking';
+  // ร้านค้า — a new order. The payload is only { orderId, accessToken }: the
+  // server reads the order itself, as this buyer (functions/_discord.js).
+  if (system === 'shop') return 'notifyShopOrder';
   throw new Error(`notify: unknown system "${system}" mode "${mode}"`);
 }
 

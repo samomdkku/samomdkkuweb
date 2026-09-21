@@ -402,6 +402,10 @@ describe('no notification this app sends may ping the channel', () => {
     reason: 'x',
     mode: 'monitor-off',
     note: 'x',
+    // notifyShopOrder resolves only once notify.js has LOADED the order from
+    // the database; this is that loaded state, with the buyer's name (DB text a
+    // buyer controls) in the field that reaches `content`.
+    __shop: { order: { id: 'SH1', buyer_name: 'x', total: 1, items: [] }, names: {} },
   };
 
   it.each(['@here', '@everyone'])('no builder writes %s into content', (mention) => {
@@ -531,8 +535,11 @@ describe('silence is honoured by every action, not only the ones that remembered
     DISCORD_PROJECTS_WEBHOOK: WEBHOOK,
     DISCORD_CLAUDE_WEBHOOK: WEBHOOK,
     DISCORD_VS_WEBHOOKS: JSON.stringify({ SE: WEBHOOK }),
+    DISCORD_SHOP_WEBHOOK: WEBHOOK,
   };
   const src = readFileSync(new URL('./_discord.js', import.meta.url), 'utf8');
+  // The loaded-from-DB state notifyShopOrder needs (see notify.js).
+  const SHOP = { order: { id: 'SH1', total: 1, items: [] }, names: {} };
   const ACTIONS = [...stripComments(src).matchAll(/case '(notify\w+)':/g)].map((m) => m[1]);
 
   it('found every action in the source', () => {
@@ -541,14 +548,14 @@ describe('silence is honoured by every action, not only the ones that remembered
 
   for (const action of ACTIONS) {
     it(`${action} suppresses the ping when asked`, () => {
-      const data = { department: 'SE', notifyTo: 'SE', ticketId: 'T', silentNotify: true };
+      const data = { department: 'SE', notifyTo: 'SE', ticketId: 'T', silentNotify: true, __shop: SHOP };
       const { payload, error } = resolveTarget(action, data, env);
       expect(error, `${action} did not resolve`).toBeFalsy();
       expect(payload && payload.flags, `${action} DROPPED the silence flag`).toBe(4096);
     });
 
     it(`${action} pings normally when not asked`, () => {
-      const { payload } = resolveTarget(action, { department: 'SE', notifyTo: 'SE', ticketId: 'T' }, env);
+      const { payload } = resolveTarget(action, { department: 'SE', notifyTo: 'SE', ticketId: 'T', __shop: SHOP }, env);
       expect(payload && payload.flags, `${action} silenced a message nobody asked to silence`).toBeUndefined();
     });
   }
@@ -645,5 +652,84 @@ describe('every silence spelling a frontend sender uses is honoured', () => {
     const { payload } = resolveTarget('notifyVSConsult',
       { notifyTo: 'SE', ticketId: 'T', role: 'x', isSilent: true }, env);
     expect(payload && payload.flags).toBe(4096);
+  });
+});
+
+// ---- SAMO Shop: new-order notification ----
+// The one action NOT built from what the client posts: the order is read from
+// the database with the buyer's own session, so these tests assert what goes
+// OUT — to Supabase (the token) and to Discord (the DB's numbers, never the
+// client's) — against a stubbed fetch.
+describe('notifyShopOrder', () => {
+  const SHOP_ENV = { ...ENV, DISCORD_SHOP_WEBHOOK: 'https://discord/shop', SUPABASE_URL: 'https://db', SUPABASE_ANON_KEY: 'anon', PUBLIC_ORIGIN: 'https://samo.md.kku.ac.th' };
+  const row = (over = {}) => ({
+    id: 'SH1234', buyer_name: 'ผู้ซื้อ', status: 'review', total: 580, placed_at: new Date().toISOString(),
+    is_preorder: false, slip_url: 'https://x/slip',
+    items: [{ product_id: 'p1', size: 'XL', color: 'default', qty: 2, unit_price: 290 }], ...over,
+  });
+  const jsonResp = (body) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body), headers: { get: () => null } });
+  function stub(orderRows) {
+    const calls = [];
+    const f = vi.fn(async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      if (String(url).includes('/rest/v1/shop_orders')) return jsonResp(orderRows);
+      if (String(url).includes('/rest/v1/shop_products')) return jsonResp([{ id: 'p1', name: 'เสื้อ SAMO' }]);
+      if (String(url).includes('/rest/v1/notify_log')) return jsonResp([]);
+      return resp(204);
+    });
+    vi.stubGlobal('fetch', f);
+    return calls;
+  }
+  const post = (body) => onRequestPost({ request: { text: async () => JSON.stringify(body) }, env: SHOP_ENV, waitUntil: () => {} });
+  let n = 0;
+  const freshId = () => `SH${9000 + (n++)}`;
+
+  it('builds the message from the DATABASE row, not from the client', async () => {
+    const id = freshId();
+    const calls = stub([row({ id })]);
+    const res = await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'TOKEN', total: 1, __shop: { order: { id: 'FAKE', total: 0 } } });
+    expect(JSON.parse(await res.text()).success).toBe(true);
+    const read = calls.find((c) => c.url.includes('/rest/v1/shop_orders'));
+    expect(read.init.headers.Authorization).toBe('Bearer TOKEN');
+    const discord = calls.filter((c) => c.url === 'https://discord/shop');
+    expect(discord).toHaveLength(1);
+    const body = discord[0].init.body;
+    expect(body).toContain(`คำสั่งซื้อใหม่ ${id}`);
+    expect(body).toContain('฿580');
+    expect(body).toContain('เสื้อ SAMO ไซส์ XL × 2');
+    expect(body).not.toContain('FAKE');
+    expect(body).not.toContain('TOKEN');
+    expect(body).toContain(`/admin/?scan=${id}`);
+  });
+
+  it('announces an order ONCE', async () => {
+    const id = freshId();
+    const calls = stub([row({ id })]);
+    await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'T' });
+    const again = await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'T' });
+    expect(JSON.parse(await again.text()).duplicate).toBe(true);
+    expect(calls.filter((c) => c.url === 'https://discord/shop')).toHaveLength(1);
+  });
+
+  it("a stranger's order id reads nothing (RLS) → nothing is posted", async () => {
+    const calls = stub([]);
+    const res = await post({ action: 'notifyShopOrder', orderId: freshId(), accessToken: 'T' });
+    expect(JSON.parse(await res.text()).success).toBe(false);
+    expect(calls.some((c) => c.url.startsWith('https://discord'))).toBe(false);
+  });
+
+  it('an old order is not news', async () => {
+    const id = freshId();
+    const calls = stub([row({ id, placed_at: new Date(Date.now() - 2 * 3600e3).toISOString() })]);
+    const res = await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'T' });
+    expect(JSON.parse(await res.text()).message).toBe('order is not new');
+    expect(calls.some((c) => c.url.startsWith('https://discord'))).toBe(false);
+  });
+
+  it('no token or a malformed id is refused before any read', async () => {
+    const calls = stub([row()]);
+    expect(JSON.parse(await (await post({ action: 'notifyShopOrder', orderId: freshId() })).text()).success).toBe(false);
+    expect(JSON.parse(await (await post({ action: 'notifyShopOrder', orderId: "x'; drop", accessToken: 'T' })).text()).success).toBe(false);
+    expect(calls).toHaveLength(0);
   });
 });

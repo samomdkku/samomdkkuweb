@@ -26,9 +26,16 @@
 // Request:  POST /notify   body = { action, ...payload }   (text/plain ok)
 // Actions:  notifyPROnly | notifyVSOnly | notifyVSConsult | notifyProjectDiscord
 //           | notifyClaudeBooking | notifyClaudeAlert | notifyClaudeMonitor
+//           | notifyShopOrder (reads the order from the DB — see _discord.js)
 // ==============================================
 
-import { resolveTarget, postToDiscord, logNotifyOutcome } from './_discord.js';
+import { resolveTarget, postToDiscord, logNotifyOutcome, loadShopOrderForNotify } from './_discord.js';
+
+/** Orders already announced by THIS process — a buyer re-posting their own
+ *  order id must not post it twice. In-memory is enough: loadShopOrderForNotify
+ *  also refuses anything older than 30 min, so a restart re-opens at most that
+ *  window, once. */
+const announcedShopOrders = new Map();
 
 /** Coarse system tag for the notify_log row (migration 0055). */
 function systemForAction(action) {
@@ -37,6 +44,7 @@ function systemForAction(action) {
   if (action === 'notifyProjectDiscord') return 'projects';
   if (action === 'notifyClaudeBooking' || action === 'notifyClaudeAlert'
       || action === 'notifyClaudeMonitor') return 'claude';
+  if (action === 'notifyShopOrder') return 'shop';
   return null;
 }
 
@@ -59,7 +67,21 @@ export async function onRequestPost(context) {
   }
 
   const action = data && data.action;
+  if (action === 'notifyShopOrder') {
+    delete data.__shop; // only ever set from the database, below
+    const key = String(data.orderId || '');
+    if (announcedShopOrders.has(key)) return json({ success: true, duplicate: true });
+    // Claimed BEFORE the await, so two concurrent posts of one id cannot both
+    // pass the check; released again on any failure so a retry can deliver.
+    announcedShopOrders.set(key, Date.now());
+    const loaded = await loadShopOrderForNotify(env, data, context.fetchImpl ? { fetchImpl: context.fetchImpl } : {});
+    if (loaded.error) { announcedShopOrders.delete(key); return json({ success: false, message: loaded.error }); }
+    for (const [k, t] of announcedShopOrders) if (Date.now() - t > 60 * 60 * 1000) announcedShopOrders.delete(k);
+    data.__shop = loaded;
+    delete data.accessToken; // never logged, never forwarded
+  }
   const { url, payload, error } = resolveTarget(action, data, env);
+  if ((error || !url) && action === 'notifyShopOrder') announcedShopOrders.delete(String(data.orderId || ''));
   if (error) return json({ success: false, message: error });
   if (!url) {
     console.warn(`[notify] no webhook configured for action "${action}" (dept="${data.department || data.notifyTo || ''}")`);
@@ -75,7 +97,7 @@ export async function onRequestPost(context) {
   const logPromise = logNotifyOutcome(env, {
     system: systemForAction(action),
     action,
-    ticketId: data.ticketId,
+    ticketId: data.ticketId || data.orderId,
     dept: data.department || data.notifyTo || null,
     ok: res.ok,
     status: res.status,
@@ -88,6 +110,7 @@ export async function onRequestPost(context) {
   else logPromise.catch(() => {});
 
   if (!res.ok) {
+    if (action === 'notifyShopOrder') announcedShopOrders.delete(String(data.orderId || ''));
     console.warn(`[notify] ${action} → Discord HTTP ${res.status} after ${res.attempts} attempt(s)`, res.body || '');
     return json({
       success: false,

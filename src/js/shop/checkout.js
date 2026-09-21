@@ -14,6 +14,8 @@ import { thb, getDefaultQr, findQr, findPickupLocation } from './data.js';
 import { getCart, cartSubtotal, clearCart, addItem } from './state.js';
 import { getSettings, placeShopOrder } from './api.js';
 import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE } from './uploads.js';
+import { sendNotify } from '../notify.js';
+import { currentAccessToken } from '../db.js';
 import { getProductMap, ensureProductsLoaded } from './cart.js';
 import { showShopToast } from './products.js';
 
@@ -571,6 +573,14 @@ async function placeOrder() {
   } catch (e) {
     console.error('[shop/checkout] placeOrder failed:', e);
     failure = e;
+  }
+
+  // Tell the shop team on Discord — one message per order actually placed,
+  // including the ones that made it before a later group failed. Only the id
+  // and this session travel: the server reads the real order back as this
+  // buyer, so nothing here can make it announce something that is not so.
+  for (const { order } of placedOrders) {
+    if (order?.id) sendNotify('shop', { orderId: order.id, accessToken: currentAccessToken() });
   }
 
   const placedKeys = new Set(placedOrders.map((p) => p.key));

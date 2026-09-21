@@ -189,11 +189,40 @@
           'ua: ' + navigator.userAgent,
           'scripts: ' + scriptInventory() + '  (not ours: ' + foreignScripts() + ')',
           'errors: ' + (notes.length ? notes.join(' | ') : '(none captured)'),
+          'assets: ' + (assetReport || '(not probed)'),
         ].join('\n');
+      }
+
+      // WHICH OF OUR FILES THE BROWSER REFUSED. A module graph fails as a unit:
+      // if ANY chunk the entry imports is blocked, the element's error event
+      // names only the ENTRY, and "script failed: public-*.js" sent a real
+      // report after the wrong file (a content blocker had removed a shared
+      // chunk, 2026-09-21). So on failure, ask for each of our /assets/ files
+      // directly. A blocked request REJECTS (TypeError), a missing one answers
+      // 404 — the two causes this bar exists for, now told apart by name.
+      var assetReport = '';
+      function probeAssets() {
+        try {
+          var urls = [], els = document.querySelectorAll('script[type="module"][src], link[rel="modulepreload"][href]');
+          for (var i = 0; i < els.length; i++) {
+            var u = els[i].getAttribute('src') || els[i].getAttribute('href');
+            if (u && u.indexOf('/assets/') === 0 && urls.indexOf(u) === -1) urls.push(u);
+          }
+          if (!urls.length || !window.fetch) return;
+          var out = [];
+          urls.forEach(function (u) {
+            fetch(u, { cache: 'no-store' }).then(function (r) {
+              out.push(u.split('/').pop() + ' ' + r.status);
+            }, function (err) {
+              out.push(u.split('/').pop() + ' BLOCKED (' + String((err && err.message) || err).slice(0, 40) + ')');
+            }).then(function () { assetReport = out.join(', '); });
+          });
+        } catch (x) { assetReport = '(probe failed: ' + x + ')'; }
       }
 
       function tell() {
         if (booted() || document.getElementById('samoBootFail')) return;
+        probeAssets();
         var bar = document.createElement('div');
         bar.id = 'samoBootFail';
         bar.setAttribute('role', 'alert');

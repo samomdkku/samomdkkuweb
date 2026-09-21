@@ -47,6 +47,10 @@ Browser (SPA served by nginx on the KKU VM)
         ↳ notifyPROnly                    → PR-team webhook
         ↳ notifyVSOnly / notifyVSConsult  → per-dept VS webhooks
         ↳ notifyProjectDiscord            → SAMO admin webhook
+        ↳ notifyShopOrder                 → shop webhook. The ONE action not
+           built from what the client sends: the browser posts only
+           {orderId, accessToken}; the service reads the order back as that
+           buyer (RLS decides), refuses anything >30 min old, sends once.
            (webhooks in /etc/samo-notify.env on the VM. functions/notify.js is
             the Cloudflare-Pages twin of the same handler, kept in the repo and
             behaviourally identical — it is NOT what serves production.)

@@ -3,6 +3,7 @@ import { applyDevDatabaseEnv, describeDevDatabase, driftNow } from './tools/dev-
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { safeChunkName } from './tools/chunk-names.mjs';
 
 // Inline-include partials at build time. Used by both entries.
 function htmlPartials() {
@@ -194,6 +195,12 @@ const config = {
       input: {
         public: path.resolve(__dirname, 'index.html'),
         admin:  path.resolve(__dirname, 'admin/index.html'),
+      },
+      // No file may LOOK like a tracker (tools/chunk-names.mjs): a content
+      // blocker that removes a shared chunk named `analytics-*` removes the
+      // whole portal with it.
+      output: {
+        chunkFileNames: (chunk) => `assets/${safeChunkName(chunk.name)}-[hash].js`,
       },
     },
   },
