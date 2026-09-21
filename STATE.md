@@ -34,9 +34,9 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `3b994f0` (2026-09-19)** — v4.7.0 still, read back from the VM's
+- ✅ **DEPLOYED = `ba3f8ba` (2026-09-21)** — v4.7.0 still, read back from the VM's
   own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step
-  RAN. SERVED: `/docs/state/HANDOFF` carries `LIVE and AUTOMATIC` (1) and the archive page serves; `samo-discord-sync` active after the restart.
+  RAN (web 14:13:23, docs 14:13:37). SERVED: shop redesign without the navbar suffix, per-size prices (`price-from`, `SIZE_UNAVAILABLE`, admin `ราคาต่อไซส์` all 1), sign-in hint `ยังไม่มีรหัสผ่าน` (1). 0199 applied to production BEFORE the deploy; `shop0199-pricing` 20/20 there.
   Docs, tools and the staged changelog only — no bundle change since `b36ef80`.
   ⛔ **The night agent is STOPPED and its timer DISABLED** (2026-09-18) — it had re-run the same 6-task queue nightly since 09-15 because `~/samo-night/NIGHT-TASKS.md` is never consumed. Its work is no longer stranded: `agent/2026-09-17` (16 commits) is MERGED. Re-enable only with a fresh queue.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
