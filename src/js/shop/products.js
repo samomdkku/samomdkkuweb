@@ -637,7 +637,15 @@ function openProductModal(product) {
   // Hero
   const hero = document.getElementById('shopProductModalHero');
   if (hero) {
-    hero.innerHTML = '';
+    // The same tags the grid card shows, so opening a product never loses what
+    // the card told you about it.
+    const oos = product.stock_status === 'sold_out' || product.stock_status === 'production_closed';
+    const tags = [
+      product.is_new ? '<span class="ribbon-new">NEW</span>' : '',
+      product.is_presale ? '<span class="ribbon-preorder">PREORDER</span>' : '',
+      oos ? `<span class="ribbon-oos">${escHtml(STOCK_STATUS_META[product.stock_status]?.ribbon || '')}</span>` : '',
+    ].join('');
+    hero.innerHTML = tags ? `<div class="ribbons">${tags}</div>` : '';
     hero.style.backgroundImage = '';
     if (product.image_url) {
       hero.style.backgroundImage = `url('${safeUrl(product.image_url)}')`;
@@ -655,7 +663,9 @@ function openProductModal(product) {
   const preorderNote = document.getElementById('shopProductModalPreorderNote');
   if (preorderBox && preorderNote) {
     preorderBox.classList.toggle('d-none', !product.is_presale);
-    preorderNote.textContent = product.presale_note || '';
+    const note = String(product.presale_note || '').trim();
+    preorderNote.textContent = note;
+    preorderNote.classList.toggle('d-none', !note);
   }
 
   // Pickup location (migration 0057) — shown so the buyer knows where

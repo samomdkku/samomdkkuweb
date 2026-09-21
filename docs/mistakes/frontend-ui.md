@@ -3912,3 +3912,25 @@ problem only exists in that state* — check it without the class before
 trusting the scope. And measure a navbar at the smallest real width in BOTH
 auth states: the two buttons differ in width, and a harness whose browser
 profile kept a session will measure the signed-in one twice and call it both.
+
+---
+
+## "when thumbnail show preorder, after i click into the product … i dont see where it said preorder"
+
+**Symptom (as reported)**: the grid card carried a PREORDER tag; the product
+popup it opened said nothing of the kind.
+
+**Cause**: the popup's preorder box rendered a calendar icon and the admin's
+`presale_note` ("ผลิตเสร็จ …") — the word itself was never in it. It relied on
+the note to say "preorder", and a note is whatever an admin typed. The popup's
+picture also dropped the card's tags (NEW / PREORDER / sold-out).
+
+**Fix**: the box now has a fixed heading, "สินค้า Preorder · สั่งจองล่วงหน้า",
+with the note beneath it (hidden when empty), and the popup picture shows the
+same tags as the card. `src/html/modal-shop-product.html`,
+`src/js/shop/products.js` (openProductModal), `src/css/shop-storefront.css`.
+
+**The general rule**: *a detail view must restate every status its summary
+showed* — the tap that opens it is the moment someone is deciding. And a label
+whose only wording is free text an admin types is not a label: put the fixed
+word in the markup, and let the typed text add to it.

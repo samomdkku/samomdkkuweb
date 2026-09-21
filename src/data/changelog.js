@@ -152,6 +152,8 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'fixed', area: 'shop', audience: 'public', text: 'ร้านค้า SAMO: กดดูสินค้า Preorder แล้วไม่มีตรงไหนบอกว่าเป็น Preorder '
+    + 'ตอนนี้รูปสินค้ามีป้าย PREORDER เหมือนในหน้ารวม และมีกล่องเขียนชัด ๆ ว่าเป็นสินค้าสั่งจองล่วงหน้า พร้อมรายละเอียดจากร้าน', },
   { type: 'improved', area: 'shop', audience: 'public', text: 'ร้านค้า SAMO: หน้าร้านมีโลโก้ samo shop ของตัวเองอยู่บนสุดของหน้า '
     + 'แทนที่จะไปต่อท้ายชื่อเว็บบนแถบเมนู แถบเมนูจึงไม่ขยับไปมาเวลาเข้าออกหน้าร้านแล้ว '
     + 'และการ์ดประกาศรับสินค้าแสดงรูปสินค้าแทนลายทาง', },

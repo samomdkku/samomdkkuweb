@@ -19,9 +19,14 @@
                 <span class="baht">฿</span><span id="shopProductModalPrice"></span>
               </div>
               <p class="detail-desc" id="shopProductModalDesc"></p>
+              <!-- The box used to hold only a calendar icon + the admin's note, so
+                   a preorder product's popup never actually SAID preorder — the
+                   grid card's PREORDER tag was the only place it appeared. -->
               <div id="shopProductModalPreorder" class="detail-preorder d-none">
-                <i class="bi bi-calendar-event me-1"></i>
-                <span id="shopProductModalPreorderNote"></span>
+                <div class="detail-preorder-title">
+                  <i class="bi bi-hourglass-split me-1"></i>สินค้า Preorder · สั่งจองล่วงหน้า
+                </div>
+                <div id="shopProductModalPreorderNote" class="detail-preorder-note"></div>
               </div>
               <div id="shopProductModalStockStatus" class="detail-stock-status d-none"></div>
               <div id="shopProductModalPickup" class="detail-pickup small d-none mt-2"></div>

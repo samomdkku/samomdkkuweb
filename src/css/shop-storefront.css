@@ -554,6 +554,22 @@ body.shop-mode .samo-footer {
 #shopProductModal .variant-btn.is-selected { background: var(--sf-espresso); border-color: var(--sf-espresso); color: var(--sf-milk); }
 #shopProductModal .variant-swatch.is-selected { box-shadow: 0 0 0 2px var(--sf-milk), 0 0 0 4px var(--sf-espresso); }
 #shopProductModal .detail-preorder { background: var(--sf-sky); color: var(--sf-espresso); border-color: var(--sf-sky-deep); }
+#shopProductModal .detail-preorder-title { font-weight: 700; }
+#shopProductModal .detail-preorder-note { margin-top: 2px; white-space: pre-line; }
+/* The grid card's tags, on the popup's picture too. */
+#shopProductModal .detail-hero .ribbons {
+  position: absolute; top: 12px; left: 12px; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+#shopProductModal .ribbon-new,
+#shopProductModal .ribbon-preorder,
+#shopProductModal .ribbon-oos {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  padding: 4px 10px; border-radius: 999px; text-transform: uppercase;
+}
+#shopProductModal .ribbon-new      { background: var(--sf-espresso); color: var(--sf-milk); }
+#shopProductModal .ribbon-preorder { background: var(--sf-sky-deep); color: var(--sf-espresso); }
+#shopProductModal .ribbon-oos      { background: rgba(76, 43, 8, .78); color: var(--sf-milk); }
 #shopCartOffcanvas .cart-item-thumb { border-radius: var(--sf-radius-sm); }
 
 /* ---------- Floating cart button ---------- */
