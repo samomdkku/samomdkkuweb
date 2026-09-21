@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `a6aa34d` (2026-09-21)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. SERVED: `detail-preorder-title` in the public HTML (1). Earlier the same day: `afb10b2` (richer Discord order message), `ea1b114`, `82320ac`, `aa94a14`, `ba3f8ba`.
+- ✅ **DEPLOYED = `95a31e0` (2026-09-21)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step RAN (web 15:41:58, docs 15:42:12). SERVED: `/docs/state/claude-2026-09-21` → 200. The day's code deploys and what each served: `docs/state/claude-2026-09-21.md`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
