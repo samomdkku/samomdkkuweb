@@ -78,6 +78,31 @@ export function removeItem(index) {
   notify();
 }
 
+/**
+ * Bring every line's price up to what the database will charge for it now.
+ *
+ * WHY. A line froze its price when it was added, and the cart lives in
+ * localStorage for days. Since 0199 place_shop_order computes the price itself
+ * (per size) and ignores the one sent, so a frozen price is no longer "the
+ * price you agreed to" — it is a number that can disagree with the order, and
+ * the checkout QR asks the buyer to TRANSFER that number. Re-pricing here, from
+ * the one place that knows the products, keeps every reader (cart lines,
+ * subtotal, the per-account checkout amounts) on the same figure.
+ *
+ * @param {(line) => number|null} priceOf  current unit price, or null when the
+ *   product is unknown (then the line keeps its price and the server decides)
+ */
+export function repriceCart(priceOf) {
+  let changed = false;
+  cart = cart.map((it) => {
+    const now = priceOf(it);
+    if (now == null || now === Number(it.price)) return it;
+    changed = true;
+    return { ...it, price: now };
+  });
+  if (changed) { persist(); notify(); }
+}
+
 export function clearCart() {
   cart = [];
   persist();

@@ -13,7 +13,7 @@ import {
 } from './data.js';
 import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip, updateOrderContact } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
-import { uploadShopFile, slipFolderForNow } from './uploads.js';
+import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE } from './uploads.js';
 import { showShopToast } from './products.js';
 import { showOrderQrModal } from './qr.js';
 
@@ -163,7 +163,7 @@ async function handleSlipAdd(orderId, file) {
     const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
     const slipName = `${user.id}_${Date.now()}.${ext}`;
     const folder = slipFolderForNow(new Date());
-    const slipUrl = await uploadShopFile(file, folder, { fileName: slipName });
+    const slipUrl = await uploadShopFile(file, folder, { fileName: slipName, maxEdge: SLIP_MAX_EDGE });
     await addOrderSlip(orderId, slipUrl);
     showShopToast('เพิ่มสลิปแล้ว — รอ admin ตรวจสอบ', 'success');
     await renderOrdersView();

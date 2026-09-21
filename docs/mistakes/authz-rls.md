@@ -1426,3 +1426,57 @@ describes an access rule is part of that rule's implementation**, so correcting
 it belongs in the same commit as the migration, and the correction should name
 the authority (`pg_policy`, a sweep) rather than restate the answer, because a
 restated answer is just a fresher copy of the thing that went stale.
+
+---
+
+## "Make admin samoshop can custom the price for each size" — and the order RPC charged whatever the browser said
+
+**Symptom (as reported)**: a feature request, not a bug — per-size prices for
+SAMO Shop products. Reading the LIVE `place_shop_order` to add them (skill:
+read the live body, never the migration) showed there was nothing to add them
+TO: the function stored the `unit_price` the caller sent, and the `p_buyer_id`
+it was told. Measured on production, 2026-09-21, in a rolled-back transaction:
+```
+anon  → place_shop_order(<another user's id>, …, unit_price 0)  → ACCEPTED
+buyer → insert into shop_orders (status 'paid', total 0)        → ACCEPTED
+```
+**Cause**: three things each assumed another was the gate.
+- The RPC was `SECURITY DEFINER` and `EXECUTE` was granted to PUBLIC/anon
+  (the default for a new function — nobody revoked it), so RLS never ran on
+  its inserts; and its body trusted every argument, including who the buyer is.
+- Prices lived in the browser: the cart froze `price` at add time and the RPC
+  summed what it was given. A price column the page reads would have been
+  decoration — the customer controls the page.
+- `shop_orders_insert_buyer` (`with check (buyer_id = auth.uid())`) was kept
+  after 0034 moved ordering into the RPC, "for the pre-0030 fallback". It gated
+  WHICH row a buyer may write and nothing about its columns — class 1 on INSERT
+  — so a buyer could write an order that already says `paid`.
+The slip-verification step hid all of it: staff compare the slip against the
+order's `total`, and the total was the attacker's number.
+
+**Fix**: 0199. `shop_unit_price(product, size)` is the one home of the price
+(per-size → base; preorder first for a preorder product); `place_shop_order`,
+for any non-shop-admin caller, requires `p_buyer_id = auth.uid()`, ignores the
+sent price and charges the computed one, forces `fee = 0`, and refuses an
+inactive/sold-out product or an unknown size (an unknown size would otherwise
+fall through to the cheaper base price). `EXECUTE` revoked from PUBLIC/anon.
+Both buyer INSERT policies dropped — the RPC is the only way an order is made.
+Shop admins keep a hand-typed price on purpose (walk-in orders,
+`adminCreateOrder`). The JS mirror `unitPriceFor` is display-only, and the cart
+re-prices itself from it whenever product data loads, because the checkout QR
+asks the buyer to TRANSFER the number the page shows.
+
+**Where it lives now**: `supabase/migrations/0199_*.sql`; proof
+`tools/shop0199-pricing.mjs` (20/20 dev + production — every case in
+`src/js/shop/price-cases.json` against SQL, which `data.test.js` replays against
+JS; plus each DENY paired with an ALLOW over the same product, and the admin
+walk-in price as the control).
+
+**The general rule**: *a value the customer can edit is not a price until the
+server recomputes it.* When a `SECURITY DEFINER` function WRITES rows, ask of
+every argument "who chose this?" — a definer skips RLS, so its body IS the
+policy, and an argument named `p_buyer_id` is a claim, not an identity. And
+`revoke execute … from public, anon` belongs in the same migration as every
+`create function` that does not want strangers: the default grant is the open
+door, silently. The fallback policy "kept for an old path" is the same trap as
+the fallback function — it outlives the path and keeps its grant.

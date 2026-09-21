@@ -13,7 +13,7 @@ import {
   SHOP_SOURCES, findSource, slugify, sanitizeOrderCode,
   STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock,
   batchDateEntries, ITEM_STAGES_ORDER, rollupOrderStage, itemStatusMeta,
-  effectivePrice,
+  effectivePrice, unitPriceFor, priceRange,
   getShopTypes, setShopTypes, getPromptpayQrs, setPromptpayQrs,
   getPickupLocations, setPickupLocations,
 } from './data.js';
@@ -1116,7 +1116,7 @@ function onOrderCreateAddItem(host) {
   const priceRaw = host.querySelector('[data-oc-price]')?.value;
   const price = priceRaw !== '' && priceRaw != null
     ? Math.max(0, Number(priceRaw) || 0)
-    : effectivePrice(product);
+    : unitPriceFor(product, size);
   d.items.push({ productId, size, color, qty, price });
   renderOrderCreatePanel();
 }
@@ -1556,7 +1556,7 @@ async function onAddOrderItem(body) {
   const product = (state.products || []).find((p) => p.id === productId);
   const unitPrice = priceRaw !== '' && priceRaw != null
     ? Math.max(0, Number(priceRaw) || 0)
-    : effectivePrice(product);
+    : unitPriceFor(product, size);
   const isPreorder = body.querySelector('[data-add-preorder]')?.value === 'true';
   const variant = [size !== 'F' ? `ไซส์ ${size}` : '', colorLabelFor(product, color)].filter(Boolean).join(' · ');
   if (!confirm(`เพิ่ม "${product?.name || productId}"${variant ? ` (${variant})` : ''} × ${qty} (฿${unitPrice}/ชิ้น) เข้าคำสั่งซื้อ?`)) return;
@@ -1986,7 +1986,7 @@ function renderVerifyQueue() {
             const name = p?.name || it.product_id || '(สินค้าถูกลบ)';
             return `
             <div class="d-flex justify-content-between py-1 small">
-              <span>${escHtml(name)} <span class="text-muted">× ${it.qty}</span></span>
+              <span>${escHtml(name)}${it.size && it.size !== 'F' ? ` <span class="text-muted">ไซส์ ${escHtml(it.size)}</span>` : ''} <span class="text-muted">× ${it.qty}</span></span>
               <span>฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</span>
             </div>`;
           }).join('')}
@@ -2565,6 +2565,8 @@ function blankProduct() {
     is_active: true,
     stock_status: 'available',
     stock_matrix: {},
+    price_by_size: {},
+    preorder_price_by_size: {},
     promptpay_qr_id: null,
     pickup_location_id: null,
     _imageFile: null,
@@ -2605,7 +2607,7 @@ function renderProductsTable() {
         </span>
       </td>
       <td class="text-nowrap">
-        <b>฿${thb(effectivePrice(p))}</b>
+        <b>${(() => { const r = priceRange(p); return r.min === r.max ? `฿${thb(r.min)}` : `฿${thb(r.min)}–${thb(r.max)}`; })()}</b>
         ${(p.is_presale && p.preorder_price != null && Number(p.preorder_price) !== Number(p.price))
           ? `<span class="text-muted small text-decoration-line-through ms-1">฿${thb(p.price)}</span>`
           : ''}
@@ -2810,6 +2812,14 @@ function renderProductEditor() {
           <input id="shopProdPresaleNote" class="form-control" value="${escHtml(p.presale_note || '')}" placeholder="เช่น ผลิตเสร็จ 20 มิ.ย. 2026" />
         </div>
         <div class="col-12">
+          <label class="small text-muted mb-1">ราคาต่อไซส์ (ไม่บังคับ)</label>
+          <div id="shopProdSizePrices">${sizePricesHtml(p)}</div>
+          <div class="small text-muted mt-1">
+            เว้นว่าง = ใช้ราคาด้านบน · ราคา Preorder ใช้ตอนติ๊ก Preorder เท่านั้น ถ้าเว้นว่างจะใช้ราคา Preorder ด้านบน
+            (ถ้าไม่ได้ตั้งไว้ จะใช้ราคาปกติของไซส์นั้น)
+          </div>
+        </div>
+        <div class="col-12">
           <label class="small text-muted mb-1">สต็อกต่อไซส์ × สี</label>
           <div id="shopProdStockMatrix">${stockMatrixHtml(p)}</div>
           <div class="small text-muted mt-1">
@@ -2869,6 +2879,8 @@ function renderProductEditor() {
 function refreshMatrixOnly() {
   const p = state.productEditor;
   if (!p) return;
+  // Keep what was typed in the per-size price table across the re-render.
+  Object.assign(p, readSizePrices());
   // pull live values, replace in-memory + re-render only the matrix area
   p.sizes  = (document.getElementById('shopProdSizes')?.value || '').split(',').map((s) => s.trim()).filter(Boolean);
   // Read colors from the row picker (replaces the old JSON textarea).
@@ -2876,6 +2888,51 @@ function refreshMatrixOnly() {
   p.colors = readColorRows();
   const host = document.getElementById('shopProdStockMatrix');
   if (host) host.innerHTML = stockMatrixHtml(p);
+  const prices = document.getElementById('shopProdSizePrices');
+  if (prices) prices.innerHTML = sizePricesHtml(p);
+}
+
+/** Per-size price table (0199): one row per size, a normal and a preorder
+ *  price. Blank = the product-wide price applies — exactly the fallback
+ *  public.shop_unit_price() uses, so what is typed here is what is charged. */
+function sizePricesHtml(p) {
+  const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
+  const reg = p.price_by_size || {};
+  const pre = p.preorder_price_by_size || {};
+  const val = (m, s) => (m[s] == null ? '' : Number(m[s]));
+  return `
+    <div class="stock-matrix">
+      <table class="stock-matrix-table">
+        <thead><tr><th>ไซส์</th><th>ราคาปกติ (บาท)</th><th>ราคา Preorder (บาท)</th></tr></thead>
+        <tbody>
+          ${sizes.map((s) => `
+            <tr>
+              <th>${escHtml(s === 'F' ? 'Free size' : s)}</th>
+              <td><input type="number" min="0" step="1" class="form-control form-control-sm"
+                   data-size-price="${escHtml(s)}" value="${val(reg, s)}" placeholder="ราคาด้านบน" /></td>
+              <td><input type="number" min="0" step="1" class="form-control form-control-sm"
+                   data-size-preorder-price="${escHtml(s)}" value="${val(pre, s)}" placeholder="ราคา Preorder ด้านบน" /></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/** Read the per-size table into { price_by_size, preorder_price_by_size }.
+ *  Only sizes the product still HAS are kept, so removing a size from the
+ *  list also removes its price. Blank / invalid → no entry (base applies). */
+function readSizePrices() {
+  const out = { price_by_size: {}, preorder_price_by_size: {} };
+  const read = (attr, into) => document.querySelectorAll(`[${attr}]`).forEach((el) => {
+    const raw = String(el.value || '').trim();
+    if (raw === '') return;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return;
+    into[el.getAttribute(attr)] = Math.round(n);
+  });
+  read('data-size-price', out.price_by_size);
+  read('data-size-preorder-price', out.preorder_price_by_size);
+  return out;
 }
 
 function stockMatrixHtml(p) {
@@ -2962,6 +3019,14 @@ async function saveProductForm() {
     is_active: !!document.getElementById('shopProdIsActive')?.checked,
     stock_status: document.getElementById('shopProdStockStatus')?.value || 'available',
     stock_matrix: readStockMatrix(),
+    ...(() => {
+      // Drop entries for sizes no longer on the product.
+      const sizes = (document.getElementById('shopProdSizes')?.value || '').split(',').map((x) => x.trim()).filter(Boolean);
+      const keep = new Set(sizes.length ? sizes : ['F']);
+      const { price_by_size, preorder_price_by_size } = readSizePrices();
+      const only = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => keep.has(k)));
+      return { price_by_size: only(price_by_size), preorder_price_by_size: only(preorder_price_by_size) };
+    })(),
     presale_note: document.getElementById('shopProdPresaleNote')?.value.trim() || null,
     // Catalog config (migration 0057). Empty select value → null (default
     // account / no pickup line).

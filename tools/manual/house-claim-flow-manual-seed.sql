@@ -15,14 +15,14 @@
 -- ⛔ RUN THIS AGAINST samo-dev, NEVER PRODUCTION:
 --
 --     VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs \
---       tools/house-claim-flow-manual-seed.sql
+--       tools/manual/house-claim-flow-manual-seed.sql
 --
 -- Check the "→ project: … (samo-dev)" line it prints to stderr BEFORE trusting
 -- the result — this is the exact mistake docs/mistakes/tooling-proofs.md's
 -- npm-run-flag-trap entry is named for.
 --
 -- It COMMITS (there is nothing here for a live UI to see if it rolled back).
--- Run tools/house-claim-flow-manual-cleanup.sql when done — the ONE-open-row
+-- Run tools/manual/house-claim-flow-manual-cleanup.sql when done — the ONE-open-row
 -- rate limit on house_help_requests means a leftover fake row does not hurt
 -- anything, but the fake seat should not linger where a real import could
 -- someday collide with its student_id.

@@ -13,7 +13,7 @@ import { getUser } from '../auth.js';
 import { thb, getDefaultQr, findQr, findPickupLocation } from './data.js';
 import { getCart, cartSubtotal, clearCart, addItem } from './state.js';
 import { getSettings, placeShopOrder } from './api.js';
-import { uploadShopFile, slipFolderForNow } from './uploads.js';
+import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE } from './uploads.js';
 import { getProductMap, ensureProductsLoaded } from './cart.js';
 import { showShopToast } from './products.js';
 
@@ -545,7 +545,7 @@ async function placeOrder() {
         const ext = (slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
         const slipName = `${user.id}_${Date.now()}_${gi}.${ext}`;
         const folder = slipFolderForNow(new Date());
-        slipUrl = await uploadShopFile(slipFile, folder, { fileName: slipName });
+        slipUrl = await uploadShopFile(slipFile, folder, { fileName: slipName, maxEdge: SLIP_MAX_EDGE });
         slipUploadedAt = new Date().toISOString();
       }
       // Order-id prefix from the group's first product (falls back to "SH"

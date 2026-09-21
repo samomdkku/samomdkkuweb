@@ -12,7 +12,7 @@
 -- ⛔ SAME RULE AS THE SEED SCRIPT — samo-dev only:
 --
 --     VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs \
---       tools/house-claim-flow-manual-cleanup.sql
+--       tools/manual/house-claim-flow-manual-cleanup.sql
 -- ============================================================
 begin;
 

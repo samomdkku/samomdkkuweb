@@ -12,7 +12,7 @@ import {
   SHOP_SOURCES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META, stockKey, totalStock,
-  effectivePrice, isUnlimitedBuying,
+  unitPriceFor, priceRange, isUnlimitedBuying,
   availableForVariant, availableTotal,
   getShopTypes, findPickupLocation,
 } from './data.js';
@@ -423,7 +423,7 @@ function dropCardHtml(p) {
       <div class="sf-drop-name">${escHtml(p.name)}</div>
       ${p.sub ? `<div class="sf-drop-sub">${escHtml(p.sub)}</div>` : ''}
       <div class="sf-drop-foot">
-        <span class="sf-drop-price">฿ ${thb(effectivePrice(p))}</span>
+        <span class="sf-drop-price">${fromPrice(p).from ? 'เริ่ม ' : ''}฿ ${thb(fromPrice(p).min)}</span>
         <span class="sf-drop-date">${fmtDate(p.added_at)}</span>
       </div>
     </div>`;
@@ -523,6 +523,13 @@ function renderGrid() {
   grid.innerHTML = list.map(productCardHtml).join('');
 }
 
+/** A card shows one number. When sizes are priced differently (0199) it is the
+ *  cheapest, said as a floor — the modal shows the exact price per size. */
+function fromPrice(p) {
+  const { min, max } = priceRange(p);
+  return { min, from: min !== max };
+}
+
 function productCardHtml(p) {
   const src = findSource(p.source);
   const sizes = Array.isArray(p.sizes) ? p.sizes : [];
@@ -561,7 +568,7 @@ function productCardHtml(p) {
         </div>
         <div class="product-foot">
           <span class="product-price">
-            <span class="baht">฿</span>${thb(effectivePrice(p))}
+            ${fromPrice(p).from ? '<span class="price-from">เริ่ม</span> ' : ''}<span class="baht">฿</span>${thb(fromPrice(p).min)}
           </span>
           ${stockHint}
         </div>
@@ -622,7 +629,7 @@ function openProductModal(product) {
     }
   }
   setText('shopProductModalSub',   product.sub || '');
-  setText('shopProductModalPrice', thb(effectivePrice(product)));
+  setText('shopProductModalPrice', thb(unitPriceFor(product, modalState.size)));
   setText('shopProductModalDesc',  product.description || '');
 
   // Preorder (was "Presale") note
@@ -693,7 +700,7 @@ function openProductModal(product) {
         color: modalState.color,
         fit: 'unisex',
         qty: modalState.qty,
-        price: effectivePrice(product),
+        price: unitPriceFor(product, modalState.size),
       });
       inst?.hide();
       showShopToast(`เพิ่ม "${product.name}" ลงตะกร้าแล้ว`, 'success');
@@ -734,13 +741,17 @@ function renderSizeOptions(sizes) {
   const host  = document.getElementById('shopProductModalSizeOptions');
   if (!group || !host) return;
   group.classList.toggle('d-none', sizes.length <= 1);
+  // Sizes priced differently (0199) say so on the button, so the buyer does
+  // not discover it only by watching the total change.
+  const p = modalState.product;
+  const perSize = p && fromPrice(p).from;
   host.innerHTML = sizes.map((s) => {
     const oos = isSizeAllOOS(s);
     return `<button type="button"
              class="variant-btn ${modalState.size === s ? 'is-selected' : ''} ${oos ? 'is-oos' : ''}"
              ${oos ? 'disabled' : ''} data-size="${escHtml(s)}"
              title="${oos ? 'หมดทุกสี' : escHtml(s)}">
-       ${escHtml(s)}${oos ? ' <span class="small text-muted">(หมด)</span>' : ''}
+       ${escHtml(s)}${perSize ? ` <span class="variant-price">฿${thb(unitPriceFor(p, s))}</span>` : ''}${oos ? ' <span class="small text-muted">(หมด)</span>' : ''}
      </button>`;
   }).join('');
   host.onclick = (e) => {
@@ -749,6 +760,7 @@ function renderSizeOptions(sizes) {
     modalState.size = btn.dataset.size;
     host.querySelectorAll('.variant-btn').forEach((el) =>
       el.classList.toggle('is-selected', el.dataset.size === modalState.size));
+    renderQty();
     renderOOS();
   };
 }
@@ -791,7 +803,9 @@ function renderQty() {
   const addLabel = document.getElementById('shopProductModalAddLabel');
   const product = modalState.product;
   if (addLabel && product) {
-    addLabel.textContent = `เพิ่มลงตะกร้า · ฿${thb(effectivePrice(product) * modalState.qty)}`;
+    addLabel.textContent = `เพิ่มลงตะกร้า · ฿${thb(unitPriceFor(product, modalState.size) * modalState.qty)}`;
+    // The size can change the price (0199), so the headline follows it too.
+    setText('shopProductModalPrice', thb(unitPriceFor(product, modalState.size)));
   }
 }
 function renderOOS() {

@@ -104,6 +104,16 @@ export async function placeShopOrder(payload) {
     if (/OUT_OF_STOCK/.test(msg)) {
       throw new Error('สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง');
     }
+    // 0199's refusals. Each names what the buyer can do about it.
+    if (/PRODUCT_UNAVAILABLE/.test(msg)) {
+      throw new Error('สินค้าบางชิ้นในตะกร้าปิดขายหรือหมดแล้ว กรุณาลบออกจากตะกร้าแล้วลองอีกครั้ง');
+    }
+    if (/SIZE_UNAVAILABLE/.test(msg)) {
+      throw new Error('ไซส์ของสินค้าบางชิ้นในตะกร้าไม่มีขายแล้ว กรุณาลบแล้วเลือกไซส์ใหม่');
+    }
+    if (/NOT_YOUR_ORDER/.test(msg)) {
+      throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง แล้วสั่งซื้ออีกครั้ง');
+    }
     throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
   }
   const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
@@ -144,6 +154,16 @@ async function placeShopOrderPre34(payload) {
     }
     if (/OUT_OF_STOCK/.test(msg)) {
       throw new Error('สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง');
+    }
+    // 0199's refusals. Each names what the buyer can do about it.
+    if (/PRODUCT_UNAVAILABLE/.test(msg)) {
+      throw new Error('สินค้าบางชิ้นในตะกร้าปิดขายหรือหมดแล้ว กรุณาลบออกจากตะกร้าแล้วลองอีกครั้ง');
+    }
+    if (/SIZE_UNAVAILABLE/.test(msg)) {
+      throw new Error('ไซส์ของสินค้าบางชิ้นในตะกร้าไม่มีขายแล้ว กรุณาลบแล้วเลือกไซส์ใหม่');
+    }
+    if (/NOT_YOUR_ORDER/.test(msg)) {
+      throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง แล้วสั่งซื้ออีกครั้ง');
     }
     throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
   }

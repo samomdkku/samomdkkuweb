@@ -1,0 +1,15 @@
+{
+  "_why": "One table, two readers: data.test.js checks unitPriceFor() (JS, display) and tools/shop0199-pricing.sql checks public.shop_unit_price() (SQL, what is charged). If a case is added here and only one side learns it, one of them goes red.",
+  "cases": [
+    { "name": "no per-size price → base",                "product": { "price": 250, "is_presale": false }, "size": "M",  "expect": 250 },
+    { "name": "per-size price wins over base",            "product": { "price": 250, "price_by_size": { "XL": 290 }, "is_presale": false }, "size": "XL", "expect": 290 },
+    { "name": "a size without an entry keeps base",       "product": { "price": 250, "price_by_size": { "XL": 290 }, "is_presale": false }, "size": "M",  "expect": 250 },
+    { "name": "per-size 0 is a price, not a gap",         "product": { "price": 250, "price_by_size": { "S": 0 }, "is_presale": false }, "size": "S", "expect": 0 },
+    { "name": "normal ignores preorder prices",           "product": { "price": 250, "preorder_price": 200, "preorder_price_by_size": { "XL": 230 }, "is_presale": false }, "size": "XL", "expect": 250 },
+    { "name": "preorder by size wins",                    "product": { "price": 250, "preorder_price": 200, "price_by_size": { "XL": 290 }, "preorder_price_by_size": { "XL": 230 }, "is_presale": true }, "size": "XL", "expect": 230 },
+    { "name": "preorder: no size entry → preorder base",  "product": { "price": 250, "preorder_price": 200, "price_by_size": { "XL": 290 }, "is_presale": true }, "size": "XL", "expect": 200 },
+    { "name": "preorder without preorder base → size",    "product": { "price": 250, "price_by_size": { "XL": 290 }, "is_presale": true }, "size": "XL", "expect": 290 },
+    { "name": "preorder with nothing set → base",         "product": { "price": 250, "is_presale": true }, "size": "M", "expect": 250 },
+    { "name": "free size F",                              "product": { "price": 120, "price_by_size": { "F": 99 }, "is_presale": false }, "size": "F", "expect": 99 }
+  ]
+}

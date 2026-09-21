@@ -204,6 +204,37 @@ export function effectivePrice(p) {
   return Number(p.price) || 0;
 }
 
+/** What ONE unit of `size` costs right now — the price per size (0199).
+ *
+ *  ⛔ MIRROR of public.shop_unit_price(). The DATABASE is what charges (since
+ *  0199 place_shop_order ignores the price the browser sends); this copy only
+ *  lets the page SHOW that number before the order exists — in the product
+ *  modal, the cart, and the transfer amount in the checkout QR, which must
+ *  equal what the order will say. Both are asserted against the same table:
+ *  price-cases.json, by data.test.js here and tools/shop0199-pricing.sql there.
+ *
+ *  Preorder: preorder-by-size → preorder price → price-by-size → price.
+ *  Normal:   price-by-size → price. */
+export function unitPriceFor(p, size) {
+  if (!p) return 0;
+  const pick = (map) => {
+    const v = map && typeof map === 'object' ? map[size] : undefined;
+    return v == null || v === '' ? null : Number(v);
+  };
+  const first = (...xs) => { for (const x of xs) if (x != null && Number.isFinite(Number(x))) return Number(x); return 0; };
+  return p.is_presale
+    ? first(pick(p.preorder_price_by_size), p.preorder_price, pick(p.price_by_size), p.price)
+    : first(pick(p.price_by_size), p.price);
+}
+
+/** Cheapest and dearest size of a product, for a card that shows one price
+ *  ("เริ่มต้น ฿250" when they differ). A product with no sizes has one: F. */
+export function priceRange(p) {
+  const sizes = Array.isArray(p?.sizes) && p.sizes.length ? p.sizes : ['F'];
+  const prices = sizes.map((s) => unitPriceFor(p, s));
+  return { min: Math.min(...prices), max: Math.max(...prices) };
+}
+
 /** Preorder products are sold without a stock check — the admin
  *  hasn't manufactured them yet and is collecting indications of
  *  interest. matrixIsConfigured / global stock_status still apply

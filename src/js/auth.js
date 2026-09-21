@@ -543,6 +543,19 @@ export async function signInWithPassword(rawUsername, rawPassword) {
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) {
     // Supabase returns generic "Invalid login credentials". Translate.
+    //
+    // A REAL email typed here is almost always an account made with the Google
+    // button — 550 of them on 2026-09-21, none with a password, because Google
+    // sign-up never sets one. "Username หรือ Password ไม่ถูกต้อง" told them they
+    // mistyped, so they retried (often with their university mail password,
+    // which this site never had). Say what is actually likely, and the way in.
+    // Deliberately NOT a server lookup of "does this email have a password":
+    // that would answer, for any address, whether it holds an account here.
+    if (username.includes('@') && !email.endsWith(`@${PASSWORD_EMAIL_DOMAIN}`)) {
+      throw new Error('รหัสผ่านไม่ถูกต้อง หรือบัญชีนี้ยังไม่มีรหัสผ่าน — '
+        + 'ถ้าเคยเข้าด้วยปุ่ม Google ให้กดปุ่ม Google แทน '
+        + '(ตั้งรหัสผ่านเพิ่มได้ที่หน้าโปรไฟล์หลังเข้าสู่ระบบ)');
+    }
     throw new Error('Username หรือ Password ไม่ถูกต้อง');
   }
   // Belt-and-braces: explicitly populate currentUser and notify

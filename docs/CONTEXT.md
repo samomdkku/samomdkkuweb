@@ -224,7 +224,15 @@ The overall display stage is a JS rollup (`rollupOrderStage` in
 `src/js/shop/data.js` — least-progressed item). `place_shop_order(...)`
 (0034, SECURITY DEFINER) stamps per-item `is_preorder` + seeds
 `item_status`, validates stock atomically under a row lock, and persists
-`buyer_phone` + `slips`. `apply_product_production_status` (stock tab) and
+`buyer_phone` + `slips`. **Since 0199 it is also where the PRICE is decided**:
+for anyone who is not a shop admin it requires `p_buyer_id = auth.uid()`,
+ignores the sent `unit_price` and charges `shop_unit_price(product, size)`
+(per-size `price_by_size` / `preorder_price_by_size` → base price; JS mirror
+`unitPriceFor`, both checked against `src/js/shop/price-cases.json`), forces
+`fee = 0`, and refuses an inactive/sold-out product or a size it does not
+have. EXECUTE is `authenticated` only, and buyers have NO direct INSERT on
+`shop_orders` / `shop_order_items` — the RPC is the only way an order is made.
+Shop admins keep a hand-typed price (walk-in orders). `apply_product_production_status` (stock tab) and
 the order→paid trigger cascade to `item_status`, not the whole order.
 Reserved-stock aggregates (`shop_reserved_matrix_all`) count at the item
 level (an item stops reserving once `item_status='done'`). Migration 0038:

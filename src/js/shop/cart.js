@@ -7,8 +7,8 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { thb } from './data.js';
-import { onCartChange, cartCount, cartSubtotal, getCart, updateQty, removeItem } from './state.js';
+import { thb, unitPriceFor } from './data.js';
+import { onCartChange, cartCount, cartSubtotal, getCart, updateQty, removeItem, repriceCart } from './state.js';
 import { listProducts } from './api.js';
 
 let productMap = {};
@@ -33,6 +33,7 @@ export function mountShopCart() {
 export function setShopCartProducts(products) {
   productMap = {};
   for (const p of (products || [])) productMap[p.id] = p;
+  repriceCart((it) => (productMap[it.productId] ? unitPriceFor(productMap[it.productId], it.size) : null));
   render();
 }
 

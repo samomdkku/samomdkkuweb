@@ -478,6 +478,10 @@ body.shop-mode .samo-footer {
 }
 #pills-shop .product-price .baht { font-size: 14px; font-weight: 700; color: inherit; margin-right: 3px; }
 #pills-shop .stripe-placeholder { color: var(--sf-taupe); }
+/* "เริ่ม ฿240" — a card whose sizes are priced differently shows the floor. */
+#pills-shop .price-from { font-size: 12px; font-weight: 500; color: var(--sf-taupe); }
+/* The price on a size button, when sizes differ in price. */
+#shopProductModal .variant-price { font-size: .8em; opacity: .75; margin-left: 2px; }
 
 #pills-shop .sf-empty {
   text-align: center;

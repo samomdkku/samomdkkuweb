@@ -475,11 +475,11 @@ network call on its own (only the receipt and the claim submit do). On
 **(B) That a real self-claim round-trip actually works end to end** — this is
 the one outcome (12, plus 6-8 as its failed attempts) that needs a genuine
 `claim_my_student_seat` call against a held row that exists. It needs no
-production data and no real student: `tools/house-claim-flow-manual-seed.sql`
+production data and no real student: `tools/manual/house-claim-flow-manual-seed.sql`
 creates one obviously-fake held seat (รหัส `000000001-1`, ชื่อ "ทดสอบ
 ระบบบ้าน", สาย `999`) against **samo-dev only**.
 
-1. `VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs tools/house-claim-flow-manual-seed.sql`
+1. `VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs tools/manual/house-claim-flow-manual-seed.sql`
    — confirm the stderr line says `(samo-dev)`, not `(PRODUCTION)`, before
    doing anything else (`docs/mistakes/tooling-proofs.md`'s npm-run-flag-trap
    entry is the exact shape of getting this backwards).
@@ -495,7 +495,7 @@ creates one obviously-fake held seat (รหัส `000000001-1`, ชื่อ "
 5. Now type the real pair — รหัส `000000001-1`, ชื่อ `ทดสอบ` — and submit.
    Expect "พบข้อมูลของคุณแล้ว กำลังโหลด…" and then a real การ์ด for สาย 999 /
    MD50 (outcome 12).
-6. `VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs tools/house-claim-flow-manual-cleanup.sql`
+6. `VITE_SUPABASE_URL=$SUPABASE_DEV_URL node tools/db-query.mjs tools/manual/house-claim-flow-manual-cleanup.sql`
    to remove the fake seat/student/help-request rows. Re-run the seed script
    to test again (e.g. a second account, to see outcome 9 — sign in with the
    SAME account and submit the claim form again, or call

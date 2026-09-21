@@ -104,3 +104,20 @@ describe('STAGES_META + ISSUE_STATUSES', () => {
     }
   });
 });
+
+// 0199 — the per-size price rule. The SAME table is replayed against the SQL
+// function by tools/shop0199-pricing.sql, so JS (what the page shows) and SQL
+// (what the order charges) cannot drift without one of them going red.
+import priceCases from './price-cases.json';
+import { unitPriceFor, priceRange } from './data.js';
+
+describe('unitPriceFor mirrors public.shop_unit_price', () => {
+  for (const c of priceCases.cases) {
+    it(c.name, () => expect(unitPriceFor(c.product, c.size)).toBe(c.expect));
+  }
+  it('priceRange spans the sizes', () => {
+    const p = { price: 250, sizes: ['S', 'M', 'XL'], price_by_size: { XL: 290, S: 240 } };
+    expect(priceRange(p)).toEqual({ min: 240, max: 290 });
+    expect(priceRange({ price: 100 })).toEqual({ min: 100, max: 100 });
+  });
+});
