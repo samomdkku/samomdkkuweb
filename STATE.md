@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `ea1b114` (2026-09-21)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. SERVED: `sf-brand-word` in the public HTML (1), pickup-card `has-img` code (1), admin `shopBatchImageFile` (2); 0201 applied to dev + production BEFORE the deploy. Earlier the same day: `82320ac` (registry sync 0200), `aa94a14`, `ba3f8ba`.
+- ✅ **DEPLOYED = `afb10b2` (2026-09-21)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. SERVED: the VM's `functions/_discord.js` carries the richer shop message (`SHOP_COLOR_WAITING` 2); samo-notify restarted 15:22:39Z and still refuses a bogus token (`order read HTTP 401`). Earlier the same day: `ea1b114`, `82320ac`, `aa94a14`, `ba3f8ba`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
