@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `95a31e0` (2026-09-21)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step RAN (web 15:41:58, docs 15:42:12). SERVED: `/docs/state/claude-2026-09-21` → 200. The day's code deploys and what each served: `docs/state/claude-2026-09-21.md`.
+- ✅ **DEPLOYED = `ed39203` (2026-09-22)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step RAN (web 08:36:49Z, docs 08:37:03Z). SERVED: the new slip-unreadable message in `core-*.js` (1), control `ส่งสลิป & สั่งซื้อ` in the same chunk. Previous: `95a31e0` (2026-09-21, `docs/state/claude-2026-09-21.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
