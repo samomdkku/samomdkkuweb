@@ -29,6 +29,7 @@ import {
   listPickupLocations, upsertPickupLocation, deletePickupLocation,
 } from './api.js';
 import { uploadShopFile, deleteShopFile } from './uploads.js';
+import { holdInMemory } from '../read-file.js';
 import { convertDriveUrl } from '../uploads.js';
 import { showShopToast } from './products.js';
 import { invalidateSettingsCache } from './checkout.js';
@@ -2511,10 +2512,13 @@ function wireBatchEditor() {
   // PICKED, not uploaded: the upload happens in the save handler, so a picture
   // chosen and then abandoned never becomes an orphan in Drive
   // (upload-on-save — the cleanup cannot reach a file nothing references).
-  document.getElementById('shopBatchImageFile')?.addEventListener('change', (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 8 * 1024 * 1024) { showShopToast('ไฟล์ใหญ่เกิน 8 MB', 'warn'); return; }
+  document.getElementById('shopBatchImageFile')?.addEventListener('change', async (e) => {
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    if (picked.size > 8 * 1024 * 1024) { showShopToast('ไฟล์ใหญ่เกิน 8 MB', 'warn'); return; }
+    // The bytes, not the handle — the upload waits for save (read-file.js).
+    let f;
+    try { f = await holdInMemory(picked); } catch (err) { showShopToast(err.message, 'error'); return; }
     collectBatchEditorState();
     if (b._imagePreview) URL.revokeObjectURL(b._imagePreview);
     b._imageFile = f;
@@ -2904,8 +2908,13 @@ function renderProductEditor() {
       </div>
     </div>`;
 
-  document.getElementById('shopProdImageFile')?.addEventListener('change', (e) => {
-    p._imageFile = e.target.files?.[0] || null;
+  document.getElementById('shopProdImageFile')?.addEventListener('change', async (e) => {
+    const picked = e.target.files?.[0] || null;
+    // The bytes, not the handle — the upload waits for save (read-file.js).
+    try { p._imageFile = picked && await holdInMemory(picked); } catch (err) {
+      showShopToast(err.message, 'error');
+      return;
+    }
     renderProductEditor();
   });
 

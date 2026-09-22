@@ -24,6 +24,7 @@ import {
   updateDocument,
 } from './api.js';
 import { uploadProjectFile } from './uploads.js';
+import { holdAllInMemory } from '../read-file.js';
 import { buildDocFolderPath } from './data.js';
 import { notifyUniStaff } from './notify.js';
 import { getCachedDocTypes } from './index.js';
@@ -33,6 +34,24 @@ let modal = null;
 let mode = 'create';   // 'create' | 'add-doc'
 let lockedProject = null;
 let pendingFiles = [];
+// Copying the picked files' bytes into memory (read-file.js). Awaited at the
+// top of onSubmit, BEFORE the project/หนังสือ rows exist: a file the phone will
+// no longer read must fail while nothing has been created, never after a
+// หนังสือ is already 'sent' with half its attachments.
+let pendingHold = Promise.resolve();
+
+function stageFiles(list) {
+  const picked = Array.from(list || []);
+  pendingFiles = picked.slice();
+  renderFileList();
+  const hold = holdAllInMemory(picked).then((held) => {
+    const byPicked = new Map(picked.map((f, i) => [f, held[i]]));
+    // Removals made while it was copying are kept: swap in place, never re-add.
+    pendingFiles = pendingFiles.map((f) => byPicked.get(f) || f);
+  });
+  hold.catch(() => {}); // reported by onSubmit, where the person is waiting
+  pendingHold = hold;
+}
 
 export function mountSendFlow({ onCreated: cb } = {}) {
   if (typeof cb === 'function') onCreated = cb;
@@ -48,8 +67,7 @@ export function mountSendFlow({ onCreated: cb } = {}) {
   // File input
   const fileInput = document.getElementById('projectSendFiles');
   fileInput?.addEventListener('change', () => {
-    pendingFiles = Array.from(fileInput.files || []);
-    renderFileList();
+    stageFiles(fileInput.files);
   });
 
   // Drag-drop
@@ -60,8 +78,7 @@ export function mountSendFlow({ onCreated: cb } = {}) {
     drop.addEventListener('drop', (e) => {
       e.preventDefault();
       drop.classList.remove('is-drag');
-      pendingFiles = Array.from(e.dataTransfer.files || []);
-      renderFileList();
+      stageFiles(e.dataTransfer.files);
     });
   }
 
@@ -80,6 +97,7 @@ export function mountSendFlow({ onCreated: cb } = {}) {
   // Reset state when the modal closes
   modalEl.addEventListener('hidden.bs.modal', () => {
     pendingFiles = [];
+    pendingHold = Promise.resolve();
     lockedProject = null;
     mode = 'create';
     document.getElementById('projectSendForm')?.reset();
@@ -92,6 +110,7 @@ export async function openCreateProject() {
   mode = 'create';
   lockedProject = null;
   pendingFiles = [];
+  pendingHold = Promise.resolve();
   await populateDocTypes();
   const projWrap = document.getElementById('projectSendProjectFields');
   const lockWrap = document.getElementById('projectSendLockedProject');
@@ -111,6 +130,7 @@ export async function openSendDocument({ project }) {
   mode = 'add-doc';
   lockedProject = project;
   pendingFiles = [];
+  pendingHold = Promise.resolve();
   await populateDocTypes();
   const projWrap = document.getElementById('projectSendProjectFields');
   const lockWrap = document.getElementById('projectSendLockedProject');
@@ -186,6 +206,8 @@ async function onSubmit(e) {
   const user = getUser();
 
   try {
+    if (includeDoc) await pendingHold;
+
     // 1) Project (create or use locked)
     let project = lockedProject;
     if (mode === 'create') {

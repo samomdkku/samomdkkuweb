@@ -15,7 +15,7 @@ import { generatePRTicketId } from './ticket-ids.js';
 import { restErrorMessage } from './rest-error.js';
 import { escHtml } from './utils.js';
 import { fillPrDeptSelect } from './pr-depts.js';
-import { readAsDataURL } from './read-file.js';
+import { readAsDataURL, holdAllInMemory } from './read-file.js';
 
 // ----------------------------------------------------
 // Idempotent PR insert via raw fetch.
@@ -103,6 +103,11 @@ async function insertPRTicketIdempotent(row) {
 }
 
 let lastJobType = '';
+// The picked images, copied into memory at pick time and tagged with the
+// FileList they came from. Submit uploads them only after the whole form is
+// filled, and by then a phone may refuse to read the original handle
+// (read-file.js). A list that no longer matches the input is ignored.
+let heldPrFiles = null;
 
 // --------------------------------------------------
 // Form Visibility & Conditional Fields
@@ -359,6 +364,13 @@ export function initPrForm() {
 
   // PR form submit
   document.getElementById('prForm').addEventListener('submit', handlePrFormSubmit);
+  const prFileInput = document.getElementById('fileUpload');
+  prFileInput?.addEventListener('change', () => {
+    const list = prFileInput.files;
+    const promise = holdAllInMemory(list);
+    promise.catch(() => {}); // surfaced at submit, where the person is waiting
+    heldPrFiles = { list, promise };
+  });
 
   // Success-card copy + dismiss (matches the VS form pattern).
   document.getElementById('prSuccessCopy')?.addEventListener('click', copyPrTicket);
@@ -489,11 +501,12 @@ async function handlePrFormSubmit(e) {
   let uploadedUrls = [];
 
   // Sequential file upload
+  const held = heldPrFiles?.list === fileInput.files ? heldPrFiles.promise : null;
   if (fileInput.files.length > 0) {
     for (let i = 0; i < fileInput.files.length; i++) {
-      const file = fileInput.files[i];
       btnLoading.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> กำลังอัปโหลดรูปที่ ${i + 1}/${fileInput.files.length}...`;
       try {
+        const file = held ? (await held)[i] : fileInput.files[i];
         const base64 = await readAsDataURL(file);
         // postGAS retries the one failure that is safe to retry: Google
         // answering with an HTML page instead of running the script. This is
@@ -514,7 +527,8 @@ async function handlePrFormSubmit(e) {
         const okMsg = uploadedUrls.length > 0
           ? ` (รูปที่ 1–${uploadedUrls.length} ขึ้น Drive แล้ว — กรุณาลบไฟล์ซ้ำหากต้องลองใหม่)`
           : '';
-        alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> การอัปโหลดรูปที่ ${i + 1} ล้มเหลว${okMsg}`;
+        alertBox.innerHTML = `<i class="bi bi-x-circle-fill me-2 fs-5"></i> การอัปโหลดรูปที่ ${i + 1} ล้มเหลว${okMsg}`
+          + (err?.message ? `<div class="small mt-1">${escHtml(err.message)}</div>` : '');
         btn.disabled = false; btnText.classList.remove('d-none'); btnLoading.classList.add('d-none');
         return;
       }
@@ -617,6 +631,7 @@ async function handlePrFormSubmit(e) {
     // in every browser — explicit `.value = ''` guarantees the next submit
     // doesn't accidentally re-upload the previous file set (mistakes.md).
     fileInput.value = '';
+    heldPrFiles = null;
     // form.reset() clears the hidden submitter inputs; re-populate from
     // the current auth state so the *next* submission has the identifier
     // baked in.

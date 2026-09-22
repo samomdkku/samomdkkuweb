@@ -55,6 +55,7 @@ import {
   cohortLabel, saiProblem, safeColor,
   studyYear, studyYearLabel, offsetForPickedYear,
 } from './fields.js';
+import { holdInMemory } from '../read-file.js';
 
 const $ = (id) => document.getElementById(id);
 const modalInstance = (id) => {
@@ -2446,9 +2447,13 @@ function paintHouseIcon() {
  * The bytes now leave in onHouseSubmit, next to the write that will point at
  * them.
  */
-function onHouseIconPicked(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
+async function onHouseIconPicked(e) {
+  const picked = e.target.files?.[0];
+  if (!picked) return;
+  // Keep the bytes: the upload happens on save, and a phone may refuse a later
+  // read of the picked handle (read-file.js).
+  let file;
+  try { file = await holdInMemory(picked); } catch (err) { setStatus(err.message, true); return; }
   if (housePendingIcon?.previewUrl) URL.revokeObjectURL(housePendingIcon.previewUrl);
   housePendingIcon = { file, previewUrl: URL.createObjectURL(file) };
   paintHouseIcon();

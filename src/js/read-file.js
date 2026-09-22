@@ -44,3 +44,8 @@ export async function holdInMemory(file) {
   }
   return new File([bytes], file.name, { type: file.type, lastModified: file.lastModified });
 }
+
+/** holdInMemory for every file of a pick, in order. Rejects like it. */
+export function holdAllInMemory(files) {
+  return Promise.all(Array.from(files || [], holdInMemory));
+}

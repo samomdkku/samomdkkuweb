@@ -37,6 +37,7 @@ import { deleteTeamPhotoIfUnused, photoToRetire } from './team/api.js';
 // itself is loaded inside it, on first open, so it never enters a bundle
 // anybody downloads before pressing the button.
 import { openVisualEditor } from './dept-visual-editor.js';
+import { holdInMemory } from './read-file.js';
 
 /** One Thai sentence for a failed call. `restErrorMessage` takes the RAW
  *  response, not the parsed object dbRest hands back, so the unwrapping happens
@@ -504,14 +505,22 @@ export function initDeptPageAdmin(user) {
   // A pick, delegated for the same reason. Nothing is uploaded here — the file
   // is parked in `pending` and the bytes leave only in save(). See that map's
   // comment for the Drive orphans the other order produced.
-  root.addEventListener('change', (e) => {
+  root.addEventListener('change', async (e) => {
     const input = e.target.closest('[data-dpa-file]');
     if (!input) return;
     const rowEl = input.closest('[data-dpa-row]');
-    const file = input.files?.[0];
-    if (!rowEl || !file) return;
+    const picked = input.files?.[0];
+    if (!rowEl || !picked) return;
     const id = rowEl.dataset.dpaRow;
     const field = input.dataset.dpaFile;
+    // Park the BYTES, not the handle: save() may run long after the pick, and
+    // a phone can refuse to read the original by then (read-file.js).
+    let file;
+    try { file = await holdInMemory(picked); } catch (err) {
+      input.value = '';
+      say(root, err.message);
+      return;
+    }
     // Replacing an earlier pick for the same field must release the old blob.
     const prev = pending.get(pendingKey(id, field));
     if (prev) URL.revokeObjectURL(prev.previewUrl);

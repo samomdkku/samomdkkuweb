@@ -3965,6 +3965,24 @@ person to pick the file again. It is the ONE reader behind `uploads.js`,
 `src/js` + `passport/js` for any FileReader inside a `new Promise(` lacking an
 `onerror` or rejecting with the event (mutation-checked against both old shapes).
 
+**The sweep (same day)** — every module that takes a picked `File`, classified.
+Six PARKED a pick until a later save and read the handle then: the checkout
+slip, the public PR form, หนังสือโครงการ's send modal (`projects/send.js`), the
+ฝ่าย page editor (`dept-page-admin.js`), the house icon, and the shop batch +
+product images. The worst was `send.js`: it creates the project and the
+หนังสือ (`status:'sent'`) BEFORE uploading, so a file failing mid-loop left a
+sent หนังสือ with part of its attachments, and a retry duplicated it. It now
+awaits the hold before its first write, so an unreadable file fails while
+nothing exists. The PR form's alert also dropped `err.message`, which it now
+shows. Also checked and clean: no raw event reaches `reject`, no
+promised reader/decoder lacks an error path, no thrown value lacks `.message`,
+and no renderer prints a bare error. `cropImage` returns a canvas-built File,
+already in memory.
+**Guard**: `read-file.test.js` holds a REGISTRY of every module with a
+`.files` reference (count + held/immediate). A new pick site is red until it
+is classified; a `held` module without `holdInMemory` is red. Both
+mutation-checked.
+
 **The general rule**: *a picked file is a promise the OS may break later* —
 read it (or copy its bytes) when it is picked if the send happens after a wait.
 And *reject with an Error, never an event*: every `${e.message || e}` in a
