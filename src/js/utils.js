@@ -210,14 +210,26 @@ export function stripHtmlToText(html, max) {
 }
 
 /**
- * Sanitize a URL for safe use in an href attribute. Only allows http(s),
- * mailto, and tel schemes. Returns '#' for anything else (e.g. javascript:,
- * data:, or attribute-injection payloads). Always pair with escHtml() when
- * interpolating into an attribute via innerHTML.
+ * Sanitize a URL for an href/src attribute or a CSS url('…'). Only allows
+ * http(s), mailto, and tel schemes; returns '#' for anything else
+ * (javascript:, data:, …).
+ *
+ * The result is SAFE TO INTERPOLATE BARE: the characters that can end an
+ * attribute or a CSS string (quotes, <, >, backtick, whitespace, backslash)
+ * are percent-encoded, which keeps the URL valid. This used to be a comment
+ * saying "always pair with escHtml()" — 27 call sites did not, and a slip URL
+ * is buyer-writable, so `https://x/"onerror="…` would have run in an admin's
+ * browser (2026-09-22). Wrapping it in escHtml() as well is still harmless:
+ * nothing it leaves is something escHtml changes except `&`, which the
+ * browser decodes back.
  */
 export function safeUrl(s) {
   const u = String(s == null ? '' : s).trim();
-  if (/^https?:\/\//i.test(u) || /^mailto:/i.test(u) || /^tel:/i.test(u)) return u;
+  if (/^https?:\/\//i.test(u) || /^mailto:/i.test(u) || /^tel:/i.test(u)) {
+    // Explicit %XX: encodeURIComponent leaves `'` alone.
+    return u.replace(/["'<>`\s\\]/g,
+      (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+  }
   return '#';
 }
 

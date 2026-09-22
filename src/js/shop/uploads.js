@@ -16,7 +16,8 @@ import { GAS_API_URL } from '../config.js';
 import { postGAS } from '../gas-post.js';
 import { currentAccessToken } from '../db.js';
 import { convertDriveUrl } from '../uploads.js';
-import { downscaleImage } from '../image-resize.js';
+import { downscaleImage, decode } from '../image-resize.js';
+import { holdInMemory } from '../read-file.js';
 import { readAsDataURL } from '../read-file.js';
 
 
@@ -96,4 +97,33 @@ export function slipFolderForNow(now = new Date()) {
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   return `Shop/Slips/${yyyy}-${mm}`;
+}
+
+/** What a picked file may weigh BEFORE it is shrunk — a 48 MP phone photo of a
+ *  paper slip is 8–12 MB and comes out a few hundred KB, so the old 5 MB check
+ *  on the RAW file refused slips that would have uploaded fine. */
+export const SLIP_MAX_PICK_BYTES = 25 * 1024 * 1024;
+/** And after — what actually goes to Drive. */
+export const SLIP_MAX_SEND_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Turn a picked slip into the File that will be sent, AT PICK TIME:
+ * the bytes are copied (the phone may refuse a later read — read-file.js), the
+ * image is checked to be one this browser can open (a HEIC photo on Chrome or
+ * Android cannot be, and would reach the shop team as a file nobody can view),
+ * and it is shrunk to SLIP_MAX_EDGE. Throws an Error with a Thai message.
+ */
+export async function prepareSlip(file) {
+  if (!file) throw new Error('ไม่พบไฟล์');
+  if (file.size > SLIP_MAX_PICK_BYTES) throw new Error('ไฟล์ใหญ่เกิน 25 MB กรุณาใช้ภาพแคปหน้าจอสลิป');
+  const held = await holdInMemory(file);
+  try {
+    const img = await decode(held);
+    img.close?.();
+  } catch {
+    throw new Error('เปิดรูปนี้ไม่ได้ กรุณาใช้ภาพแคปหน้าจอสลิป (JPG หรือ PNG)');
+  }
+  const small = await downscaleImage(held, { maxEdge: SLIP_MAX_EDGE, quality: 0.85 });
+  if (small.size > SLIP_MAX_SEND_BYTES) throw new Error('ไฟล์ใหญ่เกิน 5 MB กรุณาใช้ภาพแคปหน้าจอสลิป');
+  return small;
 }

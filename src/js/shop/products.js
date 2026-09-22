@@ -15,6 +15,7 @@ import {
   unitPriceFor, priceRange, isUnlimitedBuying,
   availableForVariant, availableTotal,
   getShopTypes, findPickupLocation,
+  bannerLinkTarget,
 } from './data.js';
 import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll, getSettings } from './api.js';
 import { addItem } from './state.js';
@@ -166,12 +167,9 @@ function renderTypeChips() {
 function handleBannerLinkClick(e) {
   const banner = e.target.closest('[data-banner-link]');
   if (!banner) return false;
-  const href = banner.dataset.bannerLink;
-  if (/^https?:\/\//i.test(href)) {
-    window.open(href, '_blank', 'noopener');
-  } else {
-    location.href = href;
-  }
+  const target = bannerLinkTarget(banner.dataset.bannerLink);
+  if (target?.external) window.open(target.href, '_blank', 'noopener');
+  else if (target) location.href = target.href;
   return true;
 }
 
@@ -646,7 +644,11 @@ function openProductModal(product) {
       oos ? `<span class="ribbon-oos">${escHtml(STOCK_STATUS_META[product.stock_status]?.ribbon || '')}</span>` : '',
     ].join('');
     hero.innerHTML = tags ? `<div class="ribbons">${tags}</div>` : '';
-    hero.style.backgroundImage = '';
+    // Reset the SHORTHAND, not just the image: the no-picture branch below sets
+    // `background`, which also writes inline size/position (auto / 0 0) over the
+    // stylesheet's cover/center — so the next product WITH a picture drew it
+    // tiled from the corner until reload.
+    hero.style.background = '';
     if (product.image_url) {
       hero.style.backgroundImage = `url('${safeUrl(product.image_url)}')`;
     } else {
@@ -721,6 +723,9 @@ function openProductModal(product) {
   const addBtn = document.getElementById('shopProductModalAdd');
   if (addBtn) {
     addBtn.onclick = () => {
+      // The modal loses `show` the moment it starts to hide; a second tap
+      // during the fade used to add the item twice.
+      if (!document.getElementById('shopProductModal')?.classList.contains('show')) return;
       if (isBlockedForPurchase()) return;
       addItem({
         productId: product.id,
@@ -826,6 +831,12 @@ function renderColorOptions(colors) {
   };
 }
 function renderQty() {
+  // A size/colour switch can leave the quantity above what the new one has.
+  const pq = modalState.product;
+  if (pq && !isUnlimitedBuying(pq)) {
+    const avail = availableForVariant(pq, modalState.size, modalState.color);
+    if (avail != null && avail > 0 && modalState.qty > avail) modalState.qty = avail;
+  }
   const qty = document.getElementById('shopProductModalQty');
   if (qty) qty.value = String(modalState.qty);
   const addLabel = document.getElementById('shopProductModalAddLabel');

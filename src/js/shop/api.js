@@ -65,6 +65,37 @@ function mapOrderItems(items) {
   }));
 }
 
+/**
+ * place_shop_order's refusal → what the buyer reads. ONE home for both RPC
+ * paths (they had a copy each). Always Thai: a code the buyer cannot act on
+ * ("ID_GENERATION_FAILED", a Postgres message) becomes "try again", with the
+ * code kept in brackets so a screenshot still tells the team which one.
+ */
+export function placeOrderErrorMessage(msg = '') {
+  if (/OUT_OF_STOCK/.test(msg)) return 'สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง';
+  // 0199/0202's refusals. Each names what the buyer can do about it.
+  if (/PRODUCT_UNAVAILABLE/.test(msg)) return 'สินค้าบางชิ้นในตะกร้าปิดขายหรือหมดแล้ว กรุณาลบออกจากตะกร้าแล้วลองอีกครั้ง';
+  if (/SIZE_UNAVAILABLE/.test(msg)) return 'ไซส์ของสินค้าบางชิ้นในตะกร้าไม่มีขายแล้ว กรุณาลบแล้วเลือกไซส์ใหม่';
+  if (/COLOR_UNAVAILABLE/.test(msg)) return 'สีของสินค้าบางชิ้นในตะกร้าไม่มีขายแล้ว กรุณาลบแล้วเลือกสีใหม่';
+  if (/NOT_YOUR_ORDER/.test(msg)) return 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง แล้วสั่งซื้ออีกครั้ง';
+  if (/NO_SLIP/.test(msg)) return 'กรุณาแนบสลิปก่อนสั่งซื้อ';
+  if (/BAD_SLIP_URL/.test(msg)) return 'อัปโหลดสลิปไม่สมบูรณ์ กรุณาเลือกสลิปใหม่แล้วลองอีกครั้ง';
+  if (/EMPTY_ORDER|INVALID_QTY/.test(msg)) return 'จำนวนสินค้าในตะกร้าไม่ถูกต้อง กรุณาตรวจตะกร้าแล้วลองอีกครั้ง';
+  const code = String(msg).trim().slice(0, 80);
+  return 'สั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง' + (code ? ` (${code})` : '');
+}
+
+/** The caller's own order carrying this slip URL, or null. A slip URL is
+ *  unique to one upload, so this identifies the order one attempt created. */
+export async function findMyOrderBySlip(buyerId, slipUrl) {
+  if (!buyerId || !slipUrl) return null;
+  const { data, error } = await dbRest(
+    `/shop_orders?buyer_id=eq.${encodeURIComponent(buyerId)}`
+    + `&slip_url=eq.${encodeURIComponent(slipUrl)}&select=*&limit=1`);
+  if (error) throw new Error(error.message || 'lookup failed');
+  return (data && data[0]) || null;
+}
+
 export async function placeShopOrder(payload) {
   const items = mapOrderItems(payload.items);
   const slips = payload.slipUrl
@@ -74,6 +105,9 @@ export async function placeShopOrder(payload) {
   // buyer_phone + slips[] handled atomically inside the transaction.
   const { data, error } = await dbRest('/rpc/place_shop_order', {
     method: 'POST',
+    // 15 s (the default) is short for a phone on campus wifi, and a timeout
+    // here is the WORST failure: the order may be saved with the answer lost.
+    timeout: 45000,
     body: {
       p_buyer_id:         payload.buyerId,
       p_buyer_label:      payload.buyerLabel || null,
@@ -91,6 +125,15 @@ export async function placeShopOrder(payload) {
   });
   if (error) {
     const msg = error.message || '';
+    // No HTTP status = the request never got an answer (timeout, dropped
+    // connection). The order may have been saved; say so, and let the caller
+    // check (checkout's placeShopOrderOrFindIt) before offering a retry.
+    if (error.status == null) {
+      const err = new Error('การเชื่อมต่อขาดระหว่างสั่งซื้อ ระบบไม่แน่ใจว่าบันทึกแล้วหรือยัง '
+        + 'กรุณาเปิดหน้า "คำสั่งซื้อของฉัน" ตรวจก่อนสั่งซ้ำ');
+      err.ambiguous = true;
+      throw err;
+    }
     // 0034 not applied → the new (phone/slips) signature isn't found.
     // Fall back to the pre-0034 RPC + post-create enrichment, which in
     // turn falls back to legacy direct-insert if 0030 is also missing.
@@ -101,20 +144,7 @@ export async function placeShopOrder(payload) {
       }
       return placeShopOrderPre34(payload);
     }
-    if (/OUT_OF_STOCK/.test(msg)) {
-      throw new Error('สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง');
-    }
-    // 0199's refusals. Each names what the buyer can do about it.
-    if (/PRODUCT_UNAVAILABLE/.test(msg)) {
-      throw new Error('สินค้าบางชิ้นในตะกร้าปิดขายหรือหมดแล้ว กรุณาลบออกจากตะกร้าแล้วลองอีกครั้ง');
-    }
-    if (/SIZE_UNAVAILABLE/.test(msg)) {
-      throw new Error('ไซส์ของสินค้าบางชิ้นในตะกร้าไม่มีขายแล้ว กรุณาลบแล้วเลือกไซส์ใหม่');
-    }
-    if (/NOT_YOUR_ORDER/.test(msg)) {
-      throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง แล้วสั่งซื้ออีกครั้ง');
-    }
-    throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
+    throw new Error(placeOrderErrorMessage(msg));
   }
   const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
   if (!orderId) throw new Error('สั่งซื้อไม่สำเร็จ (ไม่ได้รับรหัสคำสั่งซื้อ)');
@@ -152,20 +182,7 @@ async function placeShopOrderPre34(payload) {
       }
       return createOrder(payload);
     }
-    if (/OUT_OF_STOCK/.test(msg)) {
-      throw new Error('สินค้าหมดสต็อกแล้ว กรุณารีเฟรชหน้าและลองอีกครั้ง');
-    }
-    // 0199's refusals. Each names what the buyer can do about it.
-    if (/PRODUCT_UNAVAILABLE/.test(msg)) {
-      throw new Error('สินค้าบางชิ้นในตะกร้าปิดขายหรือหมดแล้ว กรุณาลบออกจากตะกร้าแล้วลองอีกครั้ง');
-    }
-    if (/SIZE_UNAVAILABLE/.test(msg)) {
-      throw new Error('ไซส์ของสินค้าบางชิ้นในตะกร้าไม่มีขายแล้ว กรุณาลบแล้วเลือกไซส์ใหม่');
-    }
-    if (/NOT_YOUR_ORDER/.test(msg)) {
-      throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง แล้วสั่งซื้ออีกครั้ง');
-    }
-    throw new Error(msg || 'สั่งซื้อไม่สำเร็จ');
+    throw new Error(placeOrderErrorMessage(msg));
   }
   const orderId = typeof data === 'string' ? data : (Array.isArray(data) ? data[0] : data);
   if (!orderId) throw new Error('สั่งซื้อไม่สำเร็จ (ไม่ได้รับรหัสคำสั่งซื้อ)');
@@ -351,12 +368,21 @@ export async function listMyOrders(buyerId) {
   return data || [];
 }
 
+/** Every order, in pages. PostgREST caps one response (1,000 rows by
+ *  default) WITHOUT saying so — past it the oldest orders fell off the admin
+ *  table, counts, CSV and stock numbers, and a pickup scan of one said "not
+ *  found". `id` breaks placed_at ties so no row straddles two pages. */
 export async function listAllOrders() {
-  const { data, error } = await dbRest(
-    `/shop_orders?select=${ORDER_FIELDS}&order=placed_at.desc`,
-  );
-  if (error) throw new Error(error.message || 'โหลดคำสั่งซื้อไม่สำเร็จ');
-  return data || [];
+  const PAGE = 1000;
+  const all = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await dbRest(
+      `/shop_orders?select=${ORDER_FIELDS}&order=placed_at.desc,id.asc&limit=${PAGE}&offset=${offset}`,
+    );
+    if (error) throw new Error(error.message || 'โหลดคำสั่งซื้อไม่สำเร็จ');
+    all.push(...(data || []));
+    if (!data || data.length < PAGE) return all;
+  }
 }
 
 export async function getOrder(id) {
@@ -481,9 +507,18 @@ export async function createOrder(payload) {
 /**
  * Update an order's status (and append a timeline entry). Admin-only by RLS.
  */
+export const ORDER_CHANGED_MESSAGE = 'คำสั่งซื้อนี้เปลี่ยนไปแล้ว (มีสลิปใหม่หรือ admin คนอื่นจัดการแล้ว) — โหลดใหม่แล้วตรวจอีกครั้ง';
+
+/** `extra.expectUpdatedAt`: write ONLY if the order is still exactly the one
+ *  the admin was looking at. The verify queue approves from a list loaded
+ *  earlier; without this, "อนุมัติ" overwrote another admin's decision, or
+ *  approved an order whose buyer had since added a different slip. */
 export async function updateOrderStatus(id, nextStatus, extra = {}) {
   const current = await getOrder(id);
   if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
+  if (extra.expectUpdatedAt && current.updated_at !== extra.expectUpdatedAt) {
+    throw new Error(ORDER_CHANGED_MESSAGE);
+  }
   const now = new Date().toISOString();
   const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
   timeline.push({
@@ -493,8 +528,10 @@ export async function updateOrderStatus(id, nextStatus, extra = {}) {
     by: extra.by || 'admin',
   });
   const idEsc = encodeURIComponent(id);
+  const guard = extra.expectUpdatedAt
+    ? `&updated_at=eq.${encodeURIComponent(extra.expectUpdatedAt)}` : '';
   const { data, error } = await dbRest(
-    `/shop_orders?id=eq.${idEsc}`,
+    `/shop_orders?id=eq.${idEsc}${guard}`,
     {
       method: 'PATCH',
       body: {
@@ -509,7 +546,7 @@ export async function updateOrderStatus(id, nextStatus, extra = {}) {
   );
   if (error) throw new Error(error.message || 'อัปเดตสถานะไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('อัปเดตสถานะไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
+    throw new Error(guard ? ORDER_CHANGED_MESSAGE : 'อัปเดตสถานะไม่สำเร็จ (RLS หรือสิทธิ์ไม่พอ)');
   }
   return data[0];
 }
@@ -530,7 +567,9 @@ export async function updateOrderStatus(id, nextStatus, extra = {}) {
 export async function deleteOrder(id) {
   const idEsc = encodeURIComponent(id);
   const existing = await getOrder(id);
-  const slipUrl = existing?.slip_url || null;
+  // EVERY slip, not just the newest: an order can carry several (a second
+  // transfer, a clearer re-take), and each is a public image of a bank slip.
+  const slipUrls = [...new Set(normalizeSlips(existing).map((s) => s.url))];
   const { data, error } = await dbRest(
     `/shop_orders?id=eq.${idEsc}`,
     { method: 'DELETE', prefer: 'return=representation' },
@@ -541,7 +580,7 @@ export async function deleteOrder(id) {
   }
   // Fire-and-forget slip trash. Caller doesn't await it; we still log
   // a warning if it fails so admin can spot orphans in Drive later.
-  if (slipUrl) {
+  for (const slipUrl of slipUrls) {
     deleteShopFile(slipUrl).then((ok) => {
       if (!ok) console.warn('[shop/api] order', id, 'deleted but slip not trashed:', slipUrl);
     });
@@ -592,28 +631,49 @@ export async function updateOrderContact(id, { email, phone }) {
   return data[0];
 }
 
-export async function addOrderSlip(id, slipUrl) {
+/** Statuses in which a buyer may still change their slips (RLS agrees). */
+const BUYER_SLIP_STATUSES = ['pending', 'review', 'slip_mismatch'];
+export const SLIP_LOCKED_MESSAGE = 'คำสั่งซื้อนี้ตรวจสลิปแล้ว แก้ไขสลิปไม่ได้ กรุณาโหลดหน้าใหม่';
+
+/**
+ * Buyer slip edits read the order, change the slips array, and write it back.
+ * Two of those at once (a phone and a laptop, two taps) used to overwrite one
+ * another. The PATCH is now conditional on `updated_at` still being what was
+ * read; on a miss the edit is re-built from a fresh read, once.
+ * `build(current)` returns the PATCH body.
+ */
+async function patchOwnOrderSlips(id, build) {
   const idEsc = encodeURIComponent(id);
-  const now = new Date().toISOString();
-  const current = await getOrder(id);
-  if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
-  const slips = normalizeSlips(current);
-  slips.push({ url: slipUrl, at: now });
-  const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
-  timeline.push({ stage: 'review', at: now, label: 'ส่งสลิปแล้ว — รอตรวจ' });
-  const { data, error } = await dbRest(
-    `/shop_orders?id=eq.${idEsc}`,
-    {
-      method: 'PATCH',
-      body: { slips, slip_url: slipUrl, slip_uploaded_at: now, status: 'review', timeline },
-      prefer: 'return=representation',
-    },
-  );
-  if (error) throw new Error(error.message || 'ส่งสลิปไม่สำเร็จ');
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('ส่งสลิปไม่สำเร็จ (RLS หรือสถานะไม่ใช่ pending/review/slip_mismatch)');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const current = await getOrder(id);
+    if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
+    if (!BUYER_SLIP_STATUSES.includes(current.status)) throw new Error(SLIP_LOCKED_MESSAGE);
+    const { data, error } = await dbRest(
+      `/shop_orders?id=eq.${idEsc}&updated_at=eq.${encodeURIComponent(current.updated_at)}`,
+      { method: 'PATCH', body: build(current), prefer: 'return=representation' },
+    );
+    if (error) {
+      const err = new Error(error.status == null
+        ? 'การเชื่อมต่อขาด กรุณาโหลดหน้าใหม่เพื่อตรวจว่าบันทึกแล้วหรือยัง'
+        : (error.message || 'บันทึกไม่สำเร็จ'));
+      err.ambiguous = error.status == null;
+      throw err;
+    }
+    if (Array.isArray(data) && data.length) return data[0];
+    // 0 rows: changed since we read it (or no longer ours to change) — re-read.
   }
-  return data[0];
+  throw new Error(SLIP_LOCKED_MESSAGE);
+}
+
+export async function addOrderSlip(id, slipUrl) {
+  return patchOwnOrderSlips(id, (current) => {
+    const now = new Date().toISOString();
+    const slips = normalizeSlips(current);
+    slips.push({ url: slipUrl, at: now });
+    const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
+    timeline.push({ stage: 'review', at: now, label: 'ส่งสลิปแล้ว — รอตรวจ' });
+    return { slips, slip_url: slipUrl, slip_uploaded_at: now, status: 'review', timeline };
+  });
 }
 
 /** Buyer-facing: REMOVE one slip (by url) from a pending/review/
@@ -622,37 +682,29 @@ export async function addOrderSlip(id, slipUrl) {
  *  so it leaves the verify queue. The removed file is trashed from Drive
  *  (best-effort). */
 export async function removeOrderSlip(id, slipUrl) {
-  const idEsc = encodeURIComponent(id);
-  const now = new Date().toISOString();
-  const current = await getOrder(id);
-  if (!current) throw new Error('ไม่พบคำสั่งซื้อ');
-  const remaining = normalizeSlips(current).filter((s) => s.url !== slipUrl);
-  const latest = remaining.length ? remaining[remaining.length - 1] : null;
-  const body = {
-    slips: remaining,
-    slip_url: latest ? latest.url : null,
-    slip_uploaded_at: latest ? latest.at : null,
-  };
-  if (remaining.length === 0 && ['review', 'slip_mismatch'].includes(current.status)) {
-    body.status = 'pending';
-    const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
-    timeline.push({ stage: 'pending', at: now, label: 'ลบสลิปแล้ว — รอชำระเงิน' });
-    body.timeline = timeline;
-  }
-  const { data, error } = await dbRest(
-    `/shop_orders?id=eq.${idEsc}`,
-    { method: 'PATCH', body, prefer: 'return=representation' },
-  );
-  if (error) throw new Error(error.message || 'ลบสลิปไม่สำเร็จ');
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('ลบสลิปไม่สำเร็จ (RLS หรือสถานะไม่อนุญาตให้แก้ไข)');
-  }
+  const row = await patchOwnOrderSlips(id, (current) => {
+    const now = new Date().toISOString();
+    const remaining = normalizeSlips(current).filter((s) => s.url !== slipUrl);
+    const latest = remaining.length ? remaining[remaining.length - 1] : null;
+    const body = {
+      slips: remaining,
+      slip_url: latest ? latest.url : null,
+      slip_uploaded_at: latest ? latest.at : null,
+    };
+    if (remaining.length === 0 && ['review', 'slip_mismatch'].includes(current.status)) {
+      body.status = 'pending';
+      const timeline = Array.isArray(current.timeline) ? current.timeline.slice() : [];
+      timeline.push({ stage: 'pending', at: now, label: 'ลบสลิปแล้ว — รอชำระเงิน' });
+      body.timeline = timeline;
+    }
+    return body;
+  });
   if (slipUrl) {
     deleteShopFile(slipUrl).then((ok) => {
       if (!ok) console.warn('[shop/api] order', id, 'slip removed but not trashed:', slipUrl);
     });
   }
-  return data[0];
+  return row;
 }
 
 /** Admin-only: set ONE line item's fulfilment status (paid / produce /

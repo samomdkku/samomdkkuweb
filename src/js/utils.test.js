@@ -93,6 +93,20 @@ describe('escHtml', () => {
 });
 
 describe('safeUrl', () => {
+  it('cannot be broken out of — safe to interpolate bare into an attribute or url()', () => {
+    // A buyer-writable slip URL reached `<img src="${safeUrl(u)}">` unescaped.
+    for (const u of ['https://x/"onerror="alert(1)', "https://x/'onerror='alert(1)", 'https://x/"><script>1</script>',
+                     'https://x/`a', 'https://x/ onerror=alert(1)', "https://x/') ; background:url('//evil"]) {
+      const out = safeUrl(u);
+      expect(out).not.toMatch(/["'<>`\s]/);
+      const html = `<img src="${out}">`;
+      expect(html.match(/"/g)).toHaveLength(2); // still one attribute
+    }
+  });
+  it('leaves an ordinary Drive / lh3 URL unchanged', () => {
+    const u = 'https://lh3.googleusercontent.com/d/1AbC_d-E=w1200?x=1&y=2#f';
+    expect(safeUrl(u)).toBe(u);
+  });
   it('allows http and https URLs through', () => {
     expect(safeUrl('http://example.com/a')).toBe('http://example.com/a');
     expect(safeUrl('https://drive.google.com/file/d/X/view')).toBe('https://drive.google.com/file/d/X/view');

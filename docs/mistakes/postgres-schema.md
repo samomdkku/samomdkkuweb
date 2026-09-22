@@ -1433,3 +1433,27 @@ that already existed nothing changed. When you add a way to connect records
 side from the OLD one. And test a sync with an input that is ALREADY IN SYNC on
 the fields it carries: a probe that differs somewhere triggers the very write
 that masks the gap.
+
+---
+
+## The storefront said "sold out" for a size the server would sell — 0040 rebuilt two functions from a copy older than 0038
+
+**Symptom (found in the 2026-09-22 shop sweep)**: the live
+`shop_reserved_matrix` / `shop_reserved_matrix_all` counted PREORDER items as
+reserved stock, while `place_shop_order` (the guard) did not. The two counts
+went out of step. Latent, 0 products affected on the day. It bites when a
+product that took preorders is switched to in-stock with stock numbers.
+
+**Cause**: 0038 added `coalesce(oi.is_preorder, false) = false` to all three.
+0040 re-created the two display functions to drop the dead 'exchange' status,
+starting from a pre-0038 copy, and the filter went with it. No test compared
+the three.
+
+**Fix**: 0202 restores the filter, from the LIVE bodies. `shop0202-stock-rule`
+reads the display and the guard over the same rows.
+`src/js/shop/reserved-rule.test.js` asserts the LATEST definition of all three
+in the migration history carries the filter; with 0202 removed it names 0040.
+
+**The general rule**: `skills/ship-a-migration.md` step 1 — rebuild from
+`pg_get_functiondef`, never from a file. A migration that edits ONE thing in a
+function silently reverts every change since the copy it started from.

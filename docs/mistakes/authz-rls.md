@@ -1480,3 +1480,36 @@ policy, and an argument named `p_buyer_id` is a claim, not an identity. And
 `create function` that does not want strangers: the default grant is the open
 door, silently. The fallback policy "kept for an old path" is the same trap as
 the fallback function — it outlives the path and keeps its grant.
+
+---
+
+## A buyer could write status, timeline and slips on their own order — the column guard allowed the columns, not the values
+
+**Symptom (found in the 2026-09-22 shop sweep)**: the buyer self-update guard
+(0100/0150) whitelisted `status`, `timeline` and `slips` because the slip flows
+write them. The RLS WITH CHECK only kept `status` in pending/review/slip_mismatch.
+So a buyer could:
+- set `slip_mismatch`, or clear it to `review` with no new slip;
+- append `{stage:'paid'}`, which the admin timeline shows as a payment step;
+- put any URL in `slips`, which reached an admin's `<img src>` (see
+  frontend-ui.md, safeUrl).
+
+`place_shop_order` also took a slip-less buyer order, and any colour. A
+colour with no stock cell skipped the stock check.
+
+**Cause**: class 1 again, one level down. A column whitelist says WHICH
+columns; it does not say which VALUES. The buyer flows only ever write two
+statuses and two stages, and the guard did not say so.
+
+**Fix**: 0202 changes the guard, `place_shop_order` and adds
+`shop_slip_url_ok`:
+- the guard accepts only status `pending`/`review`, appended stages
+  `pending`/`review`, and Google-hosted slip URLs;
+- `place_shop_order` refuses `NO_SLIP`, `BAD_SLIP_URL`, `COLOR_UNAVAILABLE` and
+  quantities over 99, and counts stock across lines of one call.
+
+`shop0202-stock-rule` has 22 cases, each DENY beside an ALLOW; 14 of them fail
+on the pre-0202 bodies.
+
+**The general rule**: when a guard whitelists a column because a flow writes
+it, write down the VALUES that flow writes, and refuse the rest.

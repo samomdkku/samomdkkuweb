@@ -16,6 +16,7 @@ import {
   effectivePrice, unitPriceFor, priceRange,
   getShopTypes, setShopTypes, getPromptpayQrs, setPromptpayQrs,
   getPickupLocations, setPickupLocations,
+  bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
 } from './data.js';
 import {
   listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus,
@@ -831,8 +832,11 @@ function renderStats() {
   // ready counts have their own filter pills below and were just
   // visual noise here.
   const review = state.orders.filter((o) => o.status === 'review').length;
+  // Only orders whose slip was CHECKED. 'review' is unchecked and
+  // 'slip_mismatch' is a slip that was REJECTED — both were being counted as
+  // money received under a label that said only cancel/pending were left out.
   const revenue = state.orders
-    .filter((o) => o.status !== 'pending' && o.status !== 'cancel')
+    .filter((o) => !['pending', 'review', 'slip_mismatch', 'cancel'].includes(o.status))
     .reduce((s, o) => s + (Number(o.total) || 0), 0);
   host.innerHTML = `
     <div class="stat-card is-warning">
@@ -841,7 +845,7 @@ function renderStats() {
       <div class="stat-delta" style="color:var(--status-cancel)">รอจัดการ</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">รายรับสะสม (ไม่รวมยกเลิก/รอชำระ)</div>
+      <div class="stat-label">รายรับสะสม (เฉพาะที่ตรวจสลิปแล้ว)</div>
       <div class="stat-value">฿${thb(revenue)}</div>
     </div>`;
 }
@@ -1263,14 +1267,6 @@ function filterOrders(source) {
 // Excel-compatible: UTF-8 BOM + CRLF + RFC4180 quoting.
 // ---------------------------------------------------------------------
 
-function csvCell(v) {
-  if (v == null) return '';
-  const s = String(v);
-  // RFC4180: quote when the cell contains comma, quote, newline; double
-  // up internal quotes. Always quote so partial files still parse if
-  // the data later contains a delimiter.
-  return `"${s.replace(/"/g, '""')}"`;
-}
 
 // One ROW PER LINE ITEM (tidy / long format) — every order + item field
 // in its own column so the file is filterable, sortable, and pivotable in
@@ -1311,13 +1307,13 @@ function ordersToCsv(orders, productMap) {
     const items = visibleOrderItems(o);
     const slipCount = Array.isArray(o.slips) ? o.slips.length : (o.slip_url ? 1 : 0);
     const orderCells = {
-      head: [o.id, o.placed_at || '', o.updated_at || '',
+      head: [o.id, bkkTime(o.placed_at), bkkTime(o.updated_at),
              o.status || '', STAGES_META[o.status]?.label || o.status || '',
              o.is_preorder ? 'yes' : 'no'],
-      buyer: [o.buyer_name || '', o.buyer_email || '', o.buyer_phone || '',
+      buyer: [o.buyer_name || '', o.buyer_email || '', csvPhoneCell(o.buyer_phone),
               o.buyer_label || '', o.buyer_id || ''],
       money: [o.subtotal || 0, o.fee || 0, o.total || 0],
-      fulfil: [slipCount, o.slip_url || '', o.slip_uploaded_at || '',
+      fulfil: [slipCount, o.slip_url || '', bkkTime(o.slip_uploaded_at),
                o.pickup_batch_id || '', o.pickup_location || ''],
       notes: [o.buyer_note || '', o.admin_note || '', o.cancel_reason || ''],
     };
@@ -1361,7 +1357,7 @@ function exportOrdersCsv() {
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   const csv = ordersToCsv(list, productMap);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+  const stamp = bkkTime(new Date()).replace(/[: ]/g, '-').slice(0, 16);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1476,7 +1472,7 @@ async function applyOrderStatusImmediate(nextStatus) {
   try {
     await updateOrderStatus(orderId, nextStatus, { label: STAGES_META[nextStatus]?.label || nextStatus });
     showShopToast(`${orderId} → ${STAGES_META[nextStatus]?.label || nextStatus}`, 'success');
-    await reloadModalOrderFromServer();
+    await reloadModalOrderFromServer(orderId);
     if (state.tab === 'verify') renderVerifyQueue();
     if (state.tab === 'preorder') refreshPreorder();
   } catch (e) {
@@ -1485,19 +1481,21 @@ async function applyOrderStatusImmediate(nextStatus) {
   }
 }
 
-async function reloadModalOrderFromServer() {
-  if (!modalOrder) return;
+/** Re-read ONE order (by id — never "whatever modalOrder is by the time the
+ *  fetch returns") and repaint the modal only if that order is still open. */
+async function reloadModalOrderFromServer(orderId = modalOrder?.id) {
+  if (!orderId) return;
   try {
-    const fresh = await getOrder(modalOrder.id);
+    const fresh = await getOrder(orderId);
     if (fresh) {
-      modalOrder = fresh;
+      if (modalOrder?.id === orderId) modalOrder = fresh;
       const idx = (state.orders || []).findIndex((x) => x.id === fresh.id);
       if (idx >= 0) state.orders[idx] = fresh;
     }
   } catch (e) {
     console.warn('[shop/admin] reload order failed:', e);
   }
-  await repaintOrderModalBody();
+  if (modalOrder?.id === orderId) await repaintOrderModalBody();
   renderOrdersTable();
   renderStats();
 }
@@ -1505,10 +1503,13 @@ async function reloadModalOrderFromServer() {
 /** Save all edits for one existing line item (ไซส์ / สี / จำนวน / ราคา /
  *  ประเภท) in a single PATCH, then recompute totals + reload. */
 async function onSaveOrderItem(btn, body) {
-  if (!modalOrder) return;
+  // Captured before any await: the admin can close this order or open another
+  // while the save is in flight, and `modalOrder` then names THAT one (or null).
+  const order = modalOrder;
+  if (!order) return;
   const itemId = btn.dataset.itemId;
   const row = body.querySelector(`[data-edit-row="${CSS.escape(String(itemId))}"]`);
-  const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
+  const item = (order.items || []).find((i) => String(i.id) === String(itemId));
   if (!row || !item) return;
   const size = (row.querySelector('[data-edit-size]')?.value || 'F').trim() || 'F';
   const color = (row.querySelector('[data-edit-color]')?.value || 'default').trim() || 'default';
@@ -1518,9 +1519,9 @@ async function onSaveOrderItem(btn, body) {
   btn.disabled = true;
   try {
     await updateOrderItem(itemId, { size, color, qty, unit_price: unitPrice, is_preorder: isPreorder });
-    await recomputeOrderTotals(modalOrder.id);
+    await recomputeOrderTotals(order.id);
     showShopToast('บันทึกรายการแล้ว', 'success');
-    await reloadModalOrderFromServer();
+    await reloadModalOrderFromServer(order.id);
     if (state.tab === 'preorder') refreshPreorder();
   } catch (e) {
     showShopToast(`บันทึกล้มเหลว: ${e.message || e}`, 'error');
@@ -1529,8 +1530,9 @@ async function onSaveOrderItem(btn, body) {
 }
 
 async function onRemoveOrderItem(itemId) {
-  if (!modalOrder || !itemId) return;
-  const items = (modalOrder.items || []).filter(Boolean);
+  const order = modalOrder;
+  if (!order || !itemId) return;
+  const items = (order.items || []).filter(Boolean);
   if (items.length <= 1) {
     showShopToast('คำสั่งซื้อต้องมีสินค้าอย่างน้อย 1 รายการ — ลบทั้งคำสั่งซื้อแทน', 'warn');
     return;
@@ -1538,16 +1540,17 @@ async function onRemoveOrderItem(itemId) {
   if (!confirm('ลบรายการนี้ออกจากคำสั่งซื้อ?')) return;
   try {
     await removeOrderItem(itemId);
-    await recomputeOrderTotals(modalOrder.id);
+    await recomputeOrderTotals(order.id);
     showShopToast('ลบรายการแล้ว', 'success');
-    await reloadModalOrderFromServer();
+    await reloadModalOrderFromServer(order.id);
   } catch (e) {
     showShopToast(`ลบล้มเหลว: ${e.message || e}`, 'error');
   }
 }
 
 async function onAddOrderItem(body) {
-  if (!modalOrder) return;
+  const order = modalOrder;
+  if (!order) return;
   const productId = body.querySelector('[data-add-product]')?.value;
   const size = (body.querySelector('[data-add-size]')?.value || 'F').trim() || 'F';
   const color = (body.querySelector('[data-add-color]')?.value || 'default').trim() || 'default';
@@ -1564,14 +1567,14 @@ async function onAddOrderItem(body) {
   const btn = body.querySelector('[data-add-item-btn]');
   if (btn) { btn.disabled = true; }
   try {
-    await addOrderItem(modalOrder.id, {
+    await addOrderItem(order.id, {
       productId, size, color, qty, unitPrice,
       isPreorder,
       itemStatus: 'paid', // admin advances it per-item afterwards
     });
-    await recomputeOrderTotals(modalOrder.id);
+    await recomputeOrderTotals(order.id);
     showShopToast('เพิ่มสินค้าแล้ว', 'success');
-    await reloadModalOrderFromServer();
+    await reloadModalOrderFromServer(order.id);
   } catch (e) {
     showShopToast(`เพิ่มล้มเหลว: ${e.message || e}`, 'error');
     if (btn) btn.disabled = false;
@@ -1579,10 +1582,11 @@ async function onAddOrderItem(body) {
 }
 
 async function onItemStatusClick(btn, body) {
-  if (!modalOrder) return;
+  const order = modalOrder;
+  if (!order) return;
   const itemId = btn.dataset.itemId;
   const status = btn.dataset.itemStatus;
-  const item = (modalOrder.items || []).find((i) => String(i.id) === String(itemId));
+  const item = (order.items || []).find((i) => String(i.id) === String(itemId));
   if (!item || (item.item_status || 'paid') === status) return;
   const rowChips = btn.parentElement?.querySelectorAll('[data-item-status]') || [];
   rowChips.forEach((b) => { b.disabled = true; });
@@ -1594,13 +1598,15 @@ async function onItemStatusClick(btn, body) {
     // Sync local state so the repaint + orders table reflect the change.
     item.item_status = updated.item_status;
     item.item_timeline = updated.item_timeline;
-    const row = state.orders.find((x) => x.id === modalOrder.id);
+    const row = state.orders.find((x) => x.id === order.id);
     const rowItem = row && (row.items || []).find((i) => String(i.id) === String(itemId));
     if (rowItem) { rowItem.item_status = updated.item_status; rowItem.item_timeline = updated.item_timeline; }
-    showShopToast(`${modalOrder.id}: ${itemStatusMeta(status).label}`, 'success');
-    // Repaint the modal body in place.
-    body.innerHTML = orderModalBodyHtml(modalOrder);
-    wireOrderModalBody(body);
+    showShopToast(`${order.id}: ${itemStatusMeta(status).label}`, 'success');
+    // Repaint the modal body in place — if this order is still the open one.
+    if (modalOrder === order) {
+      body.innerHTML = orderModalBodyHtml(order);
+      wireOrderModalBody(body);
+    }
     renderOrdersTable();
     renderStats();
   } catch (e) {
@@ -1611,16 +1617,19 @@ async function onItemStatusClick(btn, body) {
 }
 
 async function deleteCurrentOrder() {
-  if (!modalOrder) return;
-  if (!confirm(`ลบคำสั่งซื้อ ${modalOrder.id} ถาวร? ไม่สามารถกู้คืนได้`)) return;
+  const order = modalOrder;
+  if (!order) return;
+  if (!confirm(`ลบคำสั่งซื้อ ${order.id} ถาวร? ไม่สามารถกู้คืนได้`)) return;
   const btn = document.getElementById('shopAdminOrderModalDelete');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังลบ…'; }
   try {
-    await deleteOrder(modalOrder.id);
-    showShopToast(`ลบคำสั่งซื้อ ${modalOrder.id} แล้ว`, 'success');
-    const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
-    inst?.hide();
-    modalOrder = null;
+    await deleteOrder(order.id);
+    showShopToast(`ลบคำสั่งซื้อ ${order.id} แล้ว`, 'success');
+    if (modalOrder === order) {
+      const inst = window.bootstrap?.Modal.getInstance(document.getElementById('shopAdminOrderModal'));
+      inst?.hide();
+      modalOrder = null;
+    }
     await refreshOrders();
   } catch (e) {
     showShopToast(`ลบล้มเหลว: ${e.message || e}`, 'error');
@@ -1903,27 +1912,33 @@ function orderModalBodyHtml(o) {
  *  close. Each is only written when its text actually changed; both ride
  *  in one PATCH when both changed. */
 async function persistAdminNoteIfChanged() {
-  if (!modalOrder) return;
+  // Captured: the modal is closing, and by the time the PATCH returns the admin
+  // may have opened ANOTHER order — whose notes this must never touch, and whose
+  // `modalOrder` this must never clear.
+  const order = modalOrder;
+  if (!order) return;
   const noteEl = document.getElementById('shopAdminOrderModalNote');
   const custEl = document.getElementById('shopAdminOrderModalCustomerNote');
-  if (!noteEl && !custEl) { modalOrder = null; return; }
   const body = {};
-  if (noteEl && noteEl.value !== (modalOrder.admin_note || '')) body.admin_note = noteEl.value;
-  if (custEl && custEl.value !== (modalOrder.customer_note || '')) body.customer_note = custEl.value;
-  if (Object.keys(body).length === 0) { modalOrder = null; return; }
+  if (noteEl && noteEl.value !== (order.admin_note || '')) body.admin_note = noteEl.value;
+  if (custEl && custEl.value !== (order.customer_note || '')) body.customer_note = custEl.value;
+  modalOrder = null;
+  if (Object.keys(body).length === 0) return;
   try {
-    const idEsc = encodeURIComponent(modalOrder.id);
-    const { error } = await dbRest(
+    const idEsc = encodeURIComponent(order.id);
+    // return=representation + a row check: a refused PATCH answers 204 with no
+    // error, and the customer note is something the BUYER reads.
+    const { data, error } = await dbRest(
       `/shop_orders?id=eq.${idEsc}`,
-      { method: 'PATCH', body, prefer: 'return=minimal' },
+      { method: 'PATCH', body, prefer: 'return=representation' },
     );
     if (error) throw new Error(error.message || 'บันทึกหมายเหตุไม่สำเร็จ');
-    const row = state.orders.find((x) => x.id === modalOrder.id);
+    if (!Array.isArray(data) || data.length === 0) throw new Error('ไม่มีสิทธิ์แก้ไขคำสั่งซื้อนี้');
+    const row = state.orders.find((x) => x.id === order.id);
     if (row) Object.assign(row, body);
   } catch (e) {
     console.warn('[shop/admin] persistAdminNote failed:', e);
-  } finally {
-    modalOrder = null;
+    showShopToast(`บันทึกหมายเหตุของ ${order.id} ไม่สำเร็จ: ${e.message || e}`, 'error');
   }
 }
 
@@ -2006,22 +2021,26 @@ function renderVerifyQueue() {
 
   document.getElementById('shopVerifyPrev')?.addEventListener('click', () => { state.verifyIdx = Math.max(0, idx - 1); renderVerifyQueue(); });
   document.getElementById('shopVerifyNext')?.addEventListener('click', () => { state.verifyIdx = Math.min(queue.length - 1, idx + 1); renderVerifyQueue(); });
-  document.getElementById('shopVerifyApprove')?.addEventListener('click', async () => {
+  // One decision per render: both buttons lock on the first click (a double
+  // click appended the timeline entry twice), and the write only lands if the
+  // order is still the version on screen (expectUpdatedAt).
+  const decide = async (next, okMsg, tone) => {
+    ['shopVerifyApprove', 'shopVerifyReject'].forEach((id) => {
+      const b = document.getElementById(id); if (b) b.disabled = true;
+    });
     try {
-      await updateOrderStatus(current.id, 'paid', { label: STAGES_META.paid.label });
-      showShopToast('อนุมัติสลิป — ย้ายไป "ชำระแล้ว"', 'success');
-      await refreshOrders();
-      renderVerifyQueue();
+      await updateOrderStatus(current.id, next, {
+        label: STAGES_META[next].label, expectUpdatedAt: current.updated_at,
+      });
+      showShopToast(okMsg, tone);
     } catch (e) { showShopToast(`ล้มเหลว: ${e.message || e}`, 'error'); }
-  });
-  document.getElementById('shopVerifyReject')?.addEventListener('click', async () => {
-    try {
-      await updateOrderStatus(current.id, 'slip_mismatch', { label: STAGES_META.slip_mismatch.label });
-      showShopToast('แจ้งสลิปไม่ถูกต้อง — ลูกค้าจะอัปโหลดสลิปใหม่ได้', 'warn');
-      await refreshOrders();
-      renderVerifyQueue();
-    } catch (e) { showShopToast(`ล้มเหลว: ${e.message || e}`, 'error'); }
-  });
+    await refreshOrders().catch(() => {});
+    renderVerifyQueue();
+  };
+  document.getElementById('shopVerifyApprove')?.addEventListener('click',
+    () => decide('paid', 'อนุมัติสลิป — ย้ายไป "ชำระแล้ว"', 'success'));
+  document.getElementById('shopVerifyReject')?.addEventListener('click',
+    () => decide('slip_mismatch', 'แจ้งสลิปไม่ถูกต้อง — ลูกค้าจะอัปโหลดสลิปใหม่ได้', 'warn'));
 }
 
 // ---------------------------------------------------------------------
@@ -2519,6 +2538,10 @@ function wireBatchEditor() {
     // The bytes, not the handle — the upload waits for save (read-file.js).
     let f;
     try { f = await holdInMemory(picked); } catch (err) { showShopToast(err.message, 'error'); return; }
+    if (state.batchEditor !== b) {
+      showShopToast('เปลี่ยนประกาศที่แก้ไขไปแล้ว — รูปนี้ไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
+      return;
+    }
     collectBatchEditorState();
     if (b._imagePreview) URL.revokeObjectURL(b._imagePreview);
     b._imageFile = f;
@@ -2568,13 +2591,16 @@ function wireBatchEditor() {
     const prev = String(state.batches.find((x) => x.id === b.id)?.image_url || '').trim();
     const btn = document.getElementById('shopBatchSave');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก…'; }
+    let uploadedNow = null;   // see saveProductForm: trashed if the write fails
     try {
       if (b._imageFile) {
         const ext = (b._imageFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
         payload.image_url = await uploadShopFile(b._imageFile, 'Shop/Batches',
           { fileName: `batch_${Date.now()}.${ext}`, maxEdge: 2000 });
+        uploadedNow = payload.image_url;
       }
       await upsertBatch(payload);
+      uploadedNow = null;
       // Trash the replaced picture AFTER the write, and only if nothing else
       // still shows it — another announcement, or a product.
       if (prev && prev !== (payload.image_url || '')
@@ -2587,6 +2613,7 @@ function wireBatchEditor() {
       state.batchEditor = null;
       refreshBatches();
     } catch (e) {
+      if (uploadedNow) deleteShopFile(uploadedNow).catch(() => {});
       showShopToast(`บันทึกล้มเหลว: ${e.message || e}`, 'error');
       if (btn) { btn.disabled = false; btn.innerHTML = `<i class="bi bi-megaphone me-1"></i> ${b.id ? 'บันทึก' : 'ประกาศ'}`; }
     }
@@ -2650,6 +2677,7 @@ async function refreshProducts() {
   try {
     state.products = await listProducts({ activeOnly: false });
     renderProductsTable();
+    collectProductEditorState();
     renderProductEditor();
   } catch (e) { showShopToast(`โหลดสินค้าล้มเหลว: ${e.message || e}`, 'error'); }
 }
@@ -2715,8 +2743,11 @@ function renderProductsTable() {
     btn.addEventListener('click', async () => {
       const pid = btn.dataset.productDelete;
       if (!confirm(`ลบสินค้า ${pid}?`)) return;
+      const image = state.products.find((x) => x.id === pid)?.image_url;
       try {
         await deleteProduct(pid);
+        state.products = state.products.filter((x) => x.id !== pid);
+        trashImageIfUnused(image);
         showShopToast('ลบสินค้าแล้ว', 'success');
         refreshProducts();
       } catch (e) {
@@ -2749,7 +2780,7 @@ function renderProductEditor() {
       <div class="row g-3">
         <div class="col-md-3">
           <label class="small text-muted mb-1">รหัสสินค้า (id ภายใน)</label>
-          <input id="shopProdId" class="form-control font-mono" value="${escHtml(p.id)}" ${p.id ? 'disabled' : ''} placeholder="auto-generate ถ้าว่าง" />
+          <input id="shopProdId" class="form-control font-mono" value="${escHtml(p.id || p._typedId || '')}" ${p.id ? 'disabled' : ''} placeholder="auto-generate ถ้าว่าง" />
           ${p.id ? '<div class="form-text">id ภายในแก้ไขไม่ได้ (เป็นกุญแจที่คำสั่งซื้อเก่าอ้างถึง)</div>' : ''}
         </div>
         <div class="col-md-2">
@@ -2830,9 +2861,9 @@ function renderProductEditor() {
           <div class="p-3 rounded" style="background: var(--shop-50, #f0f7f1); border: 1px solid var(--shop-100, #d6e9da);">
             <label class="small fw-bold mb-1">สถานะผลิตสินค้านี้ (กระทบกับคำสั่งซื้อ)</label>
             <select id="shopProdProductionStatus" class="form-select mb-2" style="max-width:280px;">
-              <option value="pending"   ${p.production_status === 'pending'   || !p.production_status ? 'selected' : ''}>ยังไม่ผลิต — ไม่ขยับคำสั่งซื้อ</option>
-              <option value="produced"  ${p.production_status === 'produced'  ? 'selected' : ''}>สินค้าผลิตเสร็จแล้ว — ย้าย "ยืนยันการชำระเงิน" → "ผลิตเสร็จ"</option>
-              <option value="announced" ${p.production_status === 'announced' ? 'selected' : ''}>ประกาศรอบรับสินค้า — ย้ายต่อไป "ประกาศแล้ว"</option>
+              <option value="pending"   ${(p._prodStatusDraft || p.production_status || 'pending') === 'pending' ? 'selected' : ''}>ยังไม่ผลิต — ไม่ขยับคำสั่งซื้อ</option>
+              <option value="produced"  ${(p._prodStatusDraft || p.production_status) === 'produced'  ? 'selected' : ''}>สินค้าผลิตเสร็จแล้ว — ย้าย "ยืนยันการชำระเงิน" → "ผลิตเสร็จ"</option>
+              <option value="announced" ${(p._prodStatusDraft || p.production_status) === 'announced' ? 'selected' : ''}>ประกาศรอบรับสินค้า — ย้ายต่อไป "ประกาศแล้ว"</option>
             </select>
             <div class="form-text mb-0">
               เลือก "สินค้าผลิตเสร็จแล้ว" จะย้ายเฉพาะคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน". เลือก "ประกาศรอบรับสินค้า" จะย้ายทั้ง "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว".
@@ -2911,10 +2942,18 @@ function renderProductEditor() {
   document.getElementById('shopProdImageFile')?.addEventListener('change', async (e) => {
     const picked = e.target.files?.[0] || null;
     // The bytes, not the handle — the upload waits for save (read-file.js).
-    try { p._imageFile = picked && await holdInMemory(picked); } catch (err) {
+    let held;
+    try { held = picked && await holdInMemory(picked); } catch (err) {
       showShopToast(err.message, 'error');
       return;
     }
+    // The editor may have moved to another product (or closed) during the copy.
+    if (state.productEditor !== p) {
+      showShopToast('เปลี่ยนสินค้าที่แก้ไขไปแล้ว — รูปนี้ไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
+      return;
+    }
+    collectProductEditorState();
+    p._imageFile = held;
     renderProductEditor();
   });
 
@@ -2922,6 +2961,9 @@ function renderProductEditor() {
   // immediately after editing variants. Color rows handle their own
   // refresh below via the colors-list delegated handler.
   document.getElementById('shopProdSizes')?.addEventListener('change', refreshMatrixOnly);
+  // Stock typed HERE is sent on save; untouched, the editor's copy (taken when
+  // it opened) is NOT — the สต็อก tab or another admin may have changed it since.
+  document.getElementById('shopProdStockMatrix')?.addEventListener('input', () => { p._stockTouched = true; });
 
   // Live hue swatch
   const hueInput = document.getElementById('shopProdHue');
@@ -2957,8 +2999,11 @@ function renderProductEditor() {
 function refreshMatrixOnly() {
   const p = state.productEditor;
   if (!p) return;
-  // Keep what was typed in the per-size price table across the re-render.
+  // Keep what was typed in the per-size price table AND the stock grid across
+  // the re-render (stock used to reset to the saved numbers on every size or
+  // colour keystroke).
   Object.assign(p, readSizePrices());
+  p.stock_matrix = readStockMatrix();
   // pull live values, replace in-memory + re-render only the matrix area
   p.sizes  = (document.getElementById('shopProdSizes')?.value || '').split(',').map((s) => s.trim()).filter(Boolean);
   // Read colors from the row picker (replaces the old JSON textarea).
@@ -3062,26 +3107,26 @@ function readStockMatrix() {
   return matrix;
 }
 
-async function saveProductForm() {
-  const e = state.productEditor;
-  if (!e) return;
-  const name = document.getElementById('shopProdName')?.value.trim() || '';
-  if (!name) { showShopToast('กรุณากรอกชื่อสินค้า', 'warn'); return; }
-
+/** Every field of the product editor as it stands in the DOM. ONE reader for
+ *  both saving and "collect before a re-render": the editor re-renders from
+ *  state.productEditor (picking an image, changing sizes/colours, reloading
+ *  products), and without collecting first everything typed since it opened —
+ *  name, prices, stock numbers — was reset to the saved values. */
+function readProductForm() {
   // Read color rows out of the picker UI. Each row contributes
   // { id, label, hex } — id falls back to a slug of the label so admin
   // doesn't have to think about it.
   const colors = readColorRows();
-
-  const payload = {
-    id: e.id || `p-${slugify(name)}-${Math.floor(Math.random() * 999)}`,
+  return {
     code: sanitizeOrderCode(document.getElementById('shopProdCode')?.value || ''),
-    name,
+    name: document.getElementById('shopProdName')?.value.trim() || '',
     sub: document.getElementById('shopProdSub')?.value.trim() || null,
     description: document.getElementById('shopProdDesc')?.value || null,
     source: document.getElementById('shopProdSource')?.value || 'md',
     type: document.getElementById('shopProdType')?.value || 'apparel-shirt',
-    price: Math.max(0, Number(document.getElementById('shopProdPrice')?.value) || 0),
+    // Whole baht: every price column is integer, and 199.5 used to come back
+    // as a raw Postgres error.
+    price: Math.max(0, Math.round(Number(document.getElementById('shopProdPrice')?.value) || 0)),
     preorder_price: (() => {
       const raw = document.getElementById('shopProdPreorderPrice')?.value;
       if (raw == null || String(raw).trim() === '') return null;
@@ -3110,8 +3155,52 @@ async function saveProductForm() {
     // account / no pickup line).
     promptpay_qr_id: (() => { const v = document.getElementById('shopProdQr')?.value; return v ? Number(v) : null; })(),
     pickup_location_id: (() => { const v = document.getElementById('shopProdPickup')?.value; return v ? Number(v) : null; })(),
+  };
+}
+
+/** Fold what is typed into state.productEditor. A no-op when the form is not
+ *  on screen (it was never rendered, or has closed). */
+function collectProductEditorState() {
+  const p = state.productEditor;
+  if (!p || !document.getElementById('shopProdName')) return;
+  Object.assign(p, readProductForm());
+  // A DRAFT, not production_status: save compares the dropdown with the SAVED
+  // value to decide whether to cascade the change onto orders.
+  const ps = document.getElementById('shopProdProductionStatus')?.value;
+  if (ps) p._prodStatusDraft = ps;
+  if (!p.id) p._typedId = document.getElementById('shopProdId')?.value || '';
+}
+
+async function saveProductForm() {
+  const e = state.productEditor;
+  if (!e) return;
+  const name = document.getElementById('shopProdName')?.value.trim() || '';
+  if (!name) { showShopToast('กรุณากรอกชื่อสินค้า', 'warn'); return; }
+
+  // A NEW product: the id typed in the form (it says "auto-generate ถ้าว่าง" —
+  // it used to be ignored), else a generated one. Either way it must not be an
+  // existing product's, because the save is an upsert and would overwrite it.
+  let newProductIdTaken = false;
+  const newProductId = (nm) => {
+    const raw = (document.getElementById('shopProdId')?.value || '').trim();
+    const typed = raw ? slugify(raw) : '';   // slugify('') is 'item', not ''
+    const taken = new Set((state.products || []).map((x) => x.id));
+    if (typed) { newProductIdTaken = taken.has(typed); return typed; }
+    let id;
+    do { id = `p-${slugify(nm)}-${Math.floor(Math.random() * 999)}`; } while (taken.has(id));
+    return id;
+  };
+  const payload = {
+    id: e.id || newProductId(name),
+    ...readProductForm(),
+    name,
     image_url: e.image_url || null,
   };
+  if (e.id && !e._stockTouched) delete payload.stock_matrix;
+  if (newProductIdTaken) {
+    showShopToast(`มีสินค้ารหัส ${payload.id} อยู่แล้ว — ใช้รหัสอื่น หรือเว้นว่างให้ระบบสร้างให้`, 'warn');
+    return;
+  }
 
   const btn = document.getElementById('shopProdSave');
   const original = btn?.innerHTML;
@@ -3120,13 +3209,21 @@ async function saveProductForm() {
   // The image the row is about to stop pointing at. Captured before the upload
   // overwrites payload.image_url.
   const prevImage = String(e.image_url || '').trim();
+  // Set once THIS attempt has put a file in Drive, cleared once the row points
+  // at it. A failed save trashes it: nothing references it, and a retry
+  // uploads again — each failure used to leave another public copy behind.
+  let uploadedNow = null;
   try {
     if (e._imageFile) {
       const ext = (e._imageFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
       const fileName = `${slugify(name)}_${Date.now()}.${ext}`;
-      payload.image_url = await uploadShopFile(e._imageFile, `Shop/Products/${payload.id}`, { fileName });
+      // Downscaled like batch images and slips — a raw phone photo is several
+      // MB of base64 through Apps Script, for a card shown at a few hundred px.
+      payload.image_url = await uploadShopFile(e._imageFile, `Shop/Products/${payload.id}`, { fileName, maxEdge: 2000 });
+      uploadedNow = payload.image_url;
     }
     await upsertProduct(payload);
+    uploadedNow = null;
     // Trash the replaced image, AFTER the write — the row now points elsewhere,
     // so this cannot destroy a picture the catalogue is still using. Skipped
     // when any OTHER product shares the URL: a shop admin can read every
@@ -3161,6 +3258,7 @@ async function saveProductForm() {
     state.productEditor = null;
     refreshProducts();
   } catch (err) {
+    if (uploadedNow) deleteShopFile(uploadedNow).catch(() => {});
     showShopToast(`บันทึกล้มเหลว: ${err.message || err}`, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = original || 'บันทึก'; }
   }
@@ -3202,9 +3300,11 @@ async function refreshStock() {
     ]);
     state.products = products;
     if (orders && orders.length) state.orders = orders;
-    // Drop any pending edits that no longer apply
-    for (const id of Array.from(state.stockEdits.keys())) {
-      if (!state.products.find((p) => p.id === id)) state.stockEdits.delete(id);
+    // Keep only UNSAVED edits for products that still exist. An untouched
+    // entry is just a copy of old numbers: kept, it showed stale stock and,
+    // after one + on any cell, saved that whole stale grid back.
+    for (const [id, edit] of Array.from(state.stockEdits.entries())) {
+      if (!edit.dirty || !state.products.find((p) => p.id === id)) state.stockEdits.delete(id);
     }
     renderStock();
   } catch (e) {
@@ -3648,8 +3748,10 @@ async function refreshCatalog() {
 /** Parse to an integer, preserving a legitimate 0 (unlike `Number(x) || d`,
  *  which would coerce 0 to the default). Falls back to `d` for empty/NaN. */
 function intOr(v, d) {
+  // Blank means "the default", not 0 — Number('') is 0.
+  if (v == null || String(v).trim() === '') return d;
   const n = Number(v);
-  return Number.isFinite(n) ? n : d;
+  return Number.isFinite(n) ? Math.round(n) : d;
 }
 
 // ---- Product types ---------------------------------------------------
@@ -3990,9 +4092,19 @@ async function onQrEditorFileChosen(e) {
   if (!file) return;
   if (file.size > 5 * 1024 * 1024) { showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn'); return; }
   const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'png').toLowerCase();
+  // The account this image was picked FOR. The upload takes seconds; if the
+  // admin opens another account meanwhile, writing to "whatever editor is open
+  // now" put account A's QR on account B — and B's buyers paid A.
+  const ed = state.qrEditor;
+  if (!ed) return;
   try {
     const url = await uploadShopFile(file, 'Shop/QR', { fileName: `promptpay_${Date.now()}.${ext}` });
-    if (state.qrEditor) state.qrEditor.qr_url = url;
+    if (state.qrEditor !== ed) {
+      deleteShopFile(url);
+      showShopToast('เปลี่ยนบัญชีที่แก้ไขไปแล้ว — รูป QR นี้ไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
+      return;
+    }
+    ed.qr_url = url;
     const prev = document.getElementById('shopQrPreview');
     if (prev) prev.innerHTML = `<img src="${safeUrl(url)}" alt="" style="width:100%;height:100%;object-fit:cover;" />`;
     showShopToast('อัปโหลด QR สำเร็จ', 'success');
@@ -4115,7 +4227,9 @@ function renderBannerList() {
       handle: '.banner-handle',
       animation: 150,
       onEnd: async () => {
-        const ids = Array.from(list.querySelectorAll('[data-banner-id]'))
+        // The <li> rows only — its caption/link/toggle/delete controls carry the
+        // same attribute, and matching them sent five PATCHes per banner.
+        const ids = Array.from(list.querySelectorAll(':scope > li[data-banner-id]'))
           .map((li) => li.dataset.bannerId)
           .filter(Boolean);
         try {
@@ -4201,10 +4315,25 @@ async function onBannerFilePicked(e) {
   }
 }
 
+/** Trash a Drive image a deleted row pointed at — AFTER the delete, and only
+ *  when no product, pickup announcement or banner still shows it (a shop
+ *  admin reads every such row, so these lists are complete for this caller).
+ *  Deleting a product or banner used to leave its picture public in Drive. */
+function trashImageIfUnused(url) {
+  const u = String(url || '').trim();
+  if (!u) return;
+  const used = [...(state.products || []), ...(state.batches || []), ...(state.banners || [])]
+    .some((x) => x.image_url === u);
+  if (!used) deleteShopFile(u).catch(() => {});
+}
+
 async function onBannerDelete(id) {
   if (!confirm('ลบแบนเนอร์นี้?')) return;
+  const image = (state.banners || []).find((x) => x.id === id)?.image_url;
   try {
     await deleteShopBanner(id);
+    state.banners = (state.banners || []).filter((x) => x.id !== id);
+    trashImageIfUnused(image);
     await refreshBanners();
     showShopToast('ลบแล้ว', 'success');
   } catch (e) {
@@ -4237,6 +4366,10 @@ async function onBannerCaptionChange(id, caption) {
 async function onBannerLinkChange(id, link) {
   const b = (state.banners || []).find((x) => x.id === id);
   if (!b || (b.link_url || '') === link) return;
+  if (link && !bannerLinkTarget(link)) {
+    showShopToast('ลิงก์ต้องขึ้นต้นด้วย https:// หรือ / (หน้าในเว็บนี้)', 'warn');
+    return;
+  }
   try {
     await updateShopBanner(id, { link_url: link || null });
     b.link_url = link;

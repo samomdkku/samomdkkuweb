@@ -398,14 +398,14 @@ a class — tighten this paragraph first.
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
-- `authz-rls.md` *(32)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
+- `authz-rls.md` *(33)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(22)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
-- `postgres-schema.md` *(31)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(97)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
-- `app-state.md` *(24)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
+- `postgres-schema.md` *(32)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
+- `frontend-ui.md` *(99)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `app-state.md` *(25)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(32)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(26)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(65)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(66)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(40)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

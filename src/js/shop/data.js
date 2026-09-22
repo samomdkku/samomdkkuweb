@@ -379,3 +379,84 @@ export function batchDateEntries(batch) {
   const sharedHours = String(batch.hours || '');
   return legacy.filter(Boolean).map((d) => ({ date: String(d), hours: sharedHours }));
 }
+
+/** A banner's link_url, if it is one the storefront may follow; else null.
+ *  http(s) opens a new tab; a same-site path or #fragment navigates here.
+ *  Anything else (javascript:, data:, //host) is refused — the value is typed
+ *  by a shop admin and followed by every visitor, dev and master included. */
+export function bannerLinkTarget(href) {
+  const h = String(href || '').trim();
+  if (/^https?:\/\/[^\s]+$/i.test(h)) return { href: h, external: true };
+  if (/^\/(?!\/)[^\s]*$/.test(h) || /^#[^\s]*$/.test(h)) return { href: h, external: false };
+  return null;
+}
+
+/**
+ * Why each cart line cannot be sold right now, by line index — the same
+ * refusals place_shop_order makes (PRODUCT/SIZE/COLOR_UNAVAILABLE,
+ * OUT_OF_STOCK), asked BEFORE the buyer is shown a QR to pay. The server
+ * refusing after the transfer left a student with money sent and no order.
+ * Stock is summed per variant across lines, as the server now does (0202).
+ * @returns {Map<number,string>} index → Thai reason
+ */
+export function cartLineProblems(cart, products) {
+  const out = new Map();
+  const wanted = new Map();
+  for (const it of cart || []) {
+    const k = `${it.productId}|${stockKey(it.size, it.color)}`;
+    wanted.set(k, (wanted.get(k) || 0) + (Number(it.qty) || 0));
+  }
+  (cart || []).forEach((it, i) => {
+    const p = products?.[it.productId];
+    const size = it.size || 'F';
+    const color = it.color || 'default';
+    if (!p || !p.is_active || ['sold_out', 'production_closed'].includes(p.stock_status)) {
+      out.set(i, 'สินค้านี้ปิดขายแล้ว'); return;
+    }
+    const sizes = Array.isArray(p.sizes) ? p.sizes : [];
+    if (sizes.length ? !sizes.includes(size) : size !== 'F') { out.set(i, 'ไม่มีไซส์นี้แล้ว'); return; }
+    const colors = Array.isArray(p.colors) ? p.colors : [];
+    if (colors.length ? !colors.some((c) => c.id === color) : color !== 'default') {
+      out.set(i, 'ไม่มีสีนี้แล้ว'); return;
+    }
+    if (isUnlimitedBuying(p)) return;
+    const left = availableForVariant(p, size, color);
+    const want = wanted.get(`${it.productId}|${stockKey(size, color)}`) || 0;
+    if (left != null && want > left) out.set(i, left > 0 ? `เหลือเพียง ${left} ชิ้น` : 'สินค้าหมดแล้ว');
+  });
+  return out;
+}
+
+/**
+ * One CSV cell, RFC 4180-quoted, SAFE TO OPEN IN A SPREADSHEET. A cell that
+ * begins with = + - @ (or tab / CR) is a FORMULA to Excel and Sheets, and a
+ * buyer's name or note lands in the export verbatim — so `=HYPERLINK(…)` in
+ * a buyer note became a live link in the shop team's sheet. Such text is
+ * prefixed with ' (shown as text, not run). Numbers pass through untouched.
+ * `{ text }` from csvTextCell is written as-is: a value we built ourselves.
+ */
+export function csvCell(v) {
+  if (v == null) return '';
+  if (typeof v === 'object' && 'text' in v) return v.text;
+  if (typeof v === 'number') return String(v);
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+/** A phone number the spreadsheet keeps as TEXT — opened raw, 0812345678
+ *  became the number 812345678. Only digits, +, - and spaces are kept, so
+ *  the ="…" wrapper can never carry anything but a phone number. */
+export function csvPhoneCell(v) {
+  const digits = String(v || '').replace(/[^0-9+\- ]/g, '');
+  return digits ? { text: `"=""${digits}"""` } : '';
+}
+
+/** A timestamp as Bangkok wall-clock time, `YYYY-MM-DD HH:mm:ss` — the raw
+ *  UTC value put a 01:00 order on the previous day. '' for empty/invalid. */
+export function bkkTime(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' });
+}

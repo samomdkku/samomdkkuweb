@@ -1056,3 +1056,33 @@ to get a silent second definition.* After extracting a shared predicate,
 check every RENDERER of its output, not only every OTHER computer of the same
 input — a legend, a printed report, an export column can each independently
 restate what a style map already says.
+
+---
+
+## Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
+
+**Symptom (found in the 2026-09-22 shop sweep)**: four admin paths read a
+module variable AFTER an `await`:
+- **The order modal** (`modalOrder`): closing order A and opening B during
+  A's note save copied A's notes onto B's row and nulled `modalOrder` while B
+  was open. An item save followed by Esc threw on `modalOrder.id`, AFTER the
+  item was saved, so the total was never recomputed.
+- **The PromptPay QR editor**: an upload finished into "whichever account
+  editor is open now", which put A's QR on account B, so B's buyers paid A.
+- **The product editor**: it re-rendered from saved state on image pick,
+  size/colour change or reload, discarding every typed field and stock number.
+- **The stock tab**: it cached each product's grid for ever and wrote the
+  stale grid back.
+
+**Cause**: state named by "current", read after the moment it was current.
+
+**Fix**: each handler captures its object before the first await, and redraws
+or writes only if that object is still the current one. `readProductForm()`
+is the one reader behind both save and `collectProductEditorState()`. The
+product save sends `stock_matrix` only if the grid was touched, and the stock
+tab drops unedited cache entries on reload. The verify queue writes only if
+`updated_at` still matches what was on screen (`expectUpdatedAt`).
+
+**The general rule**: *after an await, "current" is a different question.*
+Capture the object you are acting on, and compare identity before you touch
+the screen or the row.

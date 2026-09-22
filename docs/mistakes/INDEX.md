@@ -36,7 +36,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(32)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(33)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -72,6 +72,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - 0182 — a schema move carried the GRANTS and dropped the ROW SECURITY, and the table it happened to was the one nothing…
 - `docs/CONTEXT.md` said "any authenticated user can SELECT all" of `public.users`
 - "Make admin samoshop can custom the price for each size"
+- A buyer could write status, timeline and slips on their own order
 
 ## `authz-grants.md` — The permission / seat / scope channel *(22)*
 
@@ -100,7 +101,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(31)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(32)*
 
 Open when: writing a migration.
 
@@ -135,8 +136,9 @@ Open when: writing a migration.
 - The test data used keys that turned out to be real
 - "The registry wins" was implemented as "the import never speaks"
 - "why does that photo and cohort year bug exist"
+- The storefront said "sold out" for a size the server would sell
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(97)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(99)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -237,8 +239,10 @@ Open when: markup, modals, layout, touch, icons.
 - A layout fix scoped to ONE tab hid an overlap that existed on every tab
 - "when thumbnail show preorder, after i click into the product … i dont see where it said preorder"
 - "อัปโหลดสลิป กดยืนยันแล้ว แต่ขึ้นว่า สั่งซื้อไม่สำเร็จ: [object ProgressEvent]"
+- "scan for bugs in samoshop, all thoroughly"
+- Checkout: a buyer who came back from the bank app could place the order twice
 
-## `app-state.md` — Routing, read-state, caches & serialization *(24)*
+## `app-state.md` — Routing, read-state, caches & serialization *(25)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -266,6 +270,7 @@ Open when: URL state, per-user "seen", import/export.
 - sai-grid.js's held-row split was a paraphrase of splitHeld(), not a call to it
 - sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
 - The ผังตามสาย legend was a fourth copy of the same rule
+- Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(32)*
 
@@ -335,7 +340,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(65)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(66)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -404,6 +409,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - The year-admin CSV's ชื่อเล่น column was blank for every held row
 - "Run failed: build" on a push whose `npm test` was green
 - The night agent's memory lived on the VM and nothing ever synced it
+- shop0202's "non-Google slip URL is refused" was GREEN on the code it exists to catch
 
 ## `passport.md` — The Passport app's own write-ups *(40)*
 
@@ -450,4 +456,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_388 entries across 10 files._
+_394 entries across 10 files._

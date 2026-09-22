@@ -16,6 +16,7 @@ import { mountShopBrowse, reloadShop, setShopNavigators } from './products.js';
 import { mountShopCart, setCartNavigators, setShopCartProducts, showCartFab } from './cart.js';
 import { mountCheckout, renderCheckout, setCheckoutNavigators } from './checkout.js';
 import { mountOrdersView, renderOrdersView, refreshReadyCountBadge } from './orders.js';
+import { onCartChange } from './state.js';
 import { openShopAdmin, openShopAdminOrder } from './admin.js';
 
 let view = 'shop'; // 'shop' | 'orders' | 'checkout'
@@ -100,6 +101,10 @@ export function initShop() {
     if (view === 'orders')   renderOrdersView();
     if (view === 'checkout') renderCheckout();
   });
+  // A cart re-priced (repriceCart on a product reload) or edited while the
+  // checkout is open must re-draw it: the QR amount on screen is what the buyer
+  // transfers. renderCheckout is a no-op while an order is being placed.
+  onCartChange(() => { if (view === 'checkout') renderCheckout(); });
 
   // Cart offcanvas open/close → toggle the FAB so they don't overlap.
   const oc = document.getElementById('shopCartOffcanvas');

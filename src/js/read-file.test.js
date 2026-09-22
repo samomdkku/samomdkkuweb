@@ -120,7 +120,7 @@ describe('every picked file is either held or read in its own handler', () => {
     'src/js/team/index.js':       { n: 2, kind: 'immediate' }, // cropImage; import .text()
     'src/js/team/terms.js':       { n: 1, kind: 'immediate' }, // onArchivePhoto → cropImage
     'src/js/projects/inbox.js':   { n: 3, kind: 'immediate' }, // uploads in the handler
-    'src/js/shop/orders.js':      { n: 2, kind: 'immediate' }, // handleSlipAdd
+    'src/js/shop/orders.js':      { n: 2, kind: 'held' },      // handleSlipAdd → prepareSlip
     'src/js/shop/qr.js':          { n: 1, kind: 'immediate' }, // scanFile
     'src/js/main.js':             { n: 2, kind: 'immediate' }, // quill image upload
     'src/js/admin-main.js':       { n: 4, kind: 'immediate' }, // quill upload; cover → cropper
@@ -153,10 +153,19 @@ describe('every picked file is either held or read in its own handler', () => {
     expect(seen).toEqual(want);
   });
 
+  // prepareSlip (shop/uploads.js) is a hold too — asserted below, not assumed.
+  const HOLDS = /\b(hold(All)?InMemory|prepareSlip)\(/;
+
   it('every held module really copies the bytes', () => {
     const missing = Object.entries(REGISTRY)
-      .filter(([f, { kind }]) => kind === 'held' && !/\bhold(All)?InMemory\(/.test(counts[f]?.src || ''))
+      .filter(([f, { kind }]) => kind === 'held' && !HOLDS.test(counts[f]?.src || ''))
       .map(([f]) => f);
     expect(missing).toEqual([]);
+  });
+
+  it('prepareSlip itself copies the bytes', () => {
+    const src = stripComments(readFileSync('src/js/shop/uploads.js', 'utf8'));
+    const body = src.slice(src.indexOf('export async function prepareSlip'));
+    expect(body).toMatch(/\bholdInMemory\(/);
   });
 });

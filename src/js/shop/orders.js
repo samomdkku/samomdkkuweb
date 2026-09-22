@@ -13,7 +13,7 @@ import {
 } from './data.js';
 import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip, updateOrderContact } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
-import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE } from './uploads.js';
+import { uploadShopFile, deleteShopFile, slipFolderForNow, SLIP_MAX_EDGE, prepareSlip } from './uploads.js';
 import { showShopToast } from './products.js';
 import { showOrderQrModal } from './qr.js';
 
@@ -146,9 +146,12 @@ function orderSlips(o) {
   return arr.filter((s) => s && s.url);
 }
 
-async function handleSlipAdd(orderId, file) {
-  if (file.size > 5 * 1024 * 1024) {
-    showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn');
+async function handleSlipAdd(orderId, picked) {
+  let file;
+  try {
+    file = await prepareSlip(picked);   // copy, check it opens, shrink — at pick time
+  } catch (err) {
+    showShopToast(err.message, 'error');
     return;
   }
   const user = getUser();
@@ -159,21 +162,28 @@ async function handleSlipAdd(orderId, file) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลด…';
   }
+  let slipUrl = null;
   try {
     const ext = (file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
     const slipName = `${user.id}_${Date.now()}.${ext}`;
     const folder = slipFolderForNow(new Date());
-    const slipUrl = await uploadShopFile(file, folder, { fileName: slipName, maxEdge: SLIP_MAX_EDGE });
+    slipUrl = await uploadShopFile(file, folder, { fileName: slipName, maxEdge: SLIP_MAX_EDGE });
     await addOrderSlip(orderId, slipUrl);
     showShopToast('เพิ่มสลิปแล้ว — รอ admin ตรวจสอบ', 'success');
     await renderOrdersView();
   } catch (err) {
     console.error('[shop/orders] add slip failed:', err);
+    // Uploaded but not attached (the order moved on, or the write was refused):
+    // that file is a public picture of a bank slip nothing points at. Trash it.
+    // Not on a dropped connection — the slip may have been attached after all.
+    if (slipUrl && !err?.ambiguous) deleteShopFile(slipUrl);
     showShopToast(`ส่งสลิปไม่สำเร็จ: ${err.message || err}`, 'error');
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = originalHTML || '<i class="bi bi-cloud-upload me-1"></i> เพิ่มสลิป';
     }
+    // The order may have moved on (paid) — show its real state, not a stale button.
+    renderOrdersView().catch(() => {});
   }
 }
 
@@ -327,7 +337,7 @@ function orderCardHtml(o) {
             <div class="small text-muted">ทักมาที่ช่องทางต่อไปนี้เพื่อนัดรับเพิ่มได้</div>
           </div>
           <div class="cf-icons">
-            ${state.contact.gmail ? `<a href="mailto:${safeUrl('mailto:' + state.contact.gmail)}"><i class="bi bi-envelope"></i> Gmail</a>` : ''}
+            ${state.contact.gmail ? `<a href="${safeUrl('mailto:' + state.contact.gmail)}"><i class="bi bi-envelope"></i> Gmail</a>` : ''}
             ${state.contact.instagram ? `<a href="${safeUrl('https://instagram.com/' + state.contact.instagram.replace(/^@/, ''))}" target="_blank" rel="noreferrer"><i class="bi bi-instagram"></i> ${escHtml(state.contact.instagram)}</a>` : ''}
           </div>
         </div>` : ''}

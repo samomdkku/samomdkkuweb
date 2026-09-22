@@ -27,7 +27,7 @@
 
 import QRCode from 'qrcode';
 import { Html5Qrcode } from 'html5-qrcode';
-import { copyText } from '../utils.js';
+import { copyText, escHtml } from '../utils.js';
 import { showShopToast } from './products.js';
 
 const ADMIN_SCAN_BASE = '/admin/?scan=';
@@ -58,8 +58,11 @@ export function parseScannedText(raw) {
       if (fromQuery) return fromQuery.trim();
     } catch { /* fall through */ }
   }
-  // Raw id form — order ids in this app are alnum + maybe a separator.
-  if (/^[A-Za-z0-9_-]{1,40}$/.test(text)) return text;
+  // Raw id form — order ids in this app are alnum + maybe a separator. Typed
+  // by hand as often as scanned, so case and stray spaces ("sh 1234") are
+  // forgiven: ids are generated upper-case.
+  const typed = text.replace(/\s+/g, '').toUpperCase();
+  if (/^[A-Z0-9_-]{1,40}$/.test(typed)) return typed;
   return '';
 }
 
@@ -132,8 +135,14 @@ export function openScannerModal(onResult) {
   if (cameraRow) cameraRow.classList.add('d-none');
 
   const inst = window.bootstrap?.Modal.getOrCreateInstance(modalEl);
+  // One per open. At 10 fps the decode callback fires again while stop() is
+  // still pending, and a close during the camera prompt used to start the
+  // camera in a hidden modal — every await below re-checks this.
+  const session = { done: false, closed: false };
 
   const finish = (id) => {
+    if (session.done) return;
+    session.done = true;
     teardownScanner();
     inst?.hide();
     if (id) onResult?.(id);
@@ -163,9 +172,17 @@ export function openScannerModal(onResult) {
       const f = imageInput.files?.[0];
       if (!f) return;
       try {
-        // Use a transient Html5Qrcode instance bound to nothing —
-        // scanFile() doesn't need a viewfinder.
-        const tmp = new Html5Qrcode('shopScanRegion');
+        // scanFile() needs no viewfinder, but Html5Qrcode still needs an
+        // element to bind to — and #shopScanRegion only exists once the camera
+        // started, i.e. never on the camera-refused path this fallback is for.
+        let region = document.getElementById('shopScanFileRegion');
+        if (!region) {
+          region = document.createElement('div');
+          region.id = 'shopScanFileRegion';
+          region.hidden = true;
+          modalEl.appendChild(region);
+        }
+        const tmp = new Html5Qrcode('shopScanFileRegion');
         const decoded = await tmp.scanFile(f, /* showImage */ false);
         try { await tmp.clear(); } catch {}
         const id = parseScannedText(decoded);
@@ -177,7 +194,9 @@ export function openScannerModal(onResult) {
       } catch (e) {
         if (errEl) {
           errEl.classList.remove('d-none');
-          errEl.textContent = 'อ่าน QR จากภาพไม่ออก: ' + (e?.message || e);
+          // The library's reasons are English ("No MultiFormat Readers…").
+          console.warn('[shop/qr] image scan failed:', e);
+          errEl.textContent = 'อ่าน QR จากภาพไม่ออก — ลองภาพที่คมชัดกว่า หรือพิมพ์รหัสแทน';
         }
       }
     };
@@ -187,7 +206,7 @@ export function openScannerModal(onResult) {
   if (cameraSelect) {
     cameraSelect.onchange = () => {
       if (cameraSelect.value) {
-        startScanner(cameraSelect.value, errEl, (text) => {
+        startScanner(cameraSelect.value, errEl, session, (text) => {
           const id = parseScannedText(text);
           if (id) finish(id);
         });
@@ -200,13 +219,14 @@ export function openScannerModal(onResult) {
     modalEl.removeEventListener('shown.bs.modal', onShown);
     try {
       const cameras = await Html5Qrcode.getCameras();
+      if (session.closed) return;
       if (!cameras || cameras.length === 0) {
         throw new Error('ไม่พบกล้องในอุปกรณ์นี้');
       }
       // Populate the camera <select> if more than one device.
       if (cameraSelect) {
         cameraSelect.innerHTML = cameras.map((c) =>
-          `<option value="${c.id}">${c.label || c.id}</option>`).join('');
+          `<option value="${escHtml(c.id)}">${escHtml(c.label || c.id)}</option>`).join('');
       }
       if (cameraRow && cameras.length > 1) cameraRow.classList.remove('d-none');
 
@@ -216,7 +236,7 @@ export function openScannerModal(onResult) {
         /back|rear|environment/i.test(c.label || '')) || cameras[cameras.length - 1];
       if (cameraSelect) cameraSelect.value = back.id;
 
-      await startScanner(back.id, errEl, (text) => {
+      await startScanner(back.id, errEl, session, (text) => {
         const id = parseScannedText(text);
         if (id) finish(id);
       });
@@ -231,13 +251,20 @@ export function openScannerModal(onResult) {
     }
   };
   modalEl.addEventListener('shown.bs.modal', onShown);
-  modalEl.addEventListener('hidden.bs.modal', teardownScanner, { once: true });
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    session.closed = true;
+    // Closed before it was ever shown: this open's onShown must not fire on
+    // the NEXT open, or that one starts two scanners.
+    modalEl.removeEventListener('shown.bs.modal', onShown);
+    teardownScanner();
+  }, { once: true });
 
   inst?.show();
 }
 
-async function startScanner(cameraId, errEl, onText) {
+async function startScanner(cameraId, errEl, session, onText) {
   await teardownScanner();
+  if (session.closed) return;
   const viewer = document.getElementById('shopScanViewfinder');
   if (!viewer) return;
   viewer.innerHTML = '<div id="shopScanRegion" style="width:100%; height:100%; min-height:280px;"></div>';
@@ -249,6 +276,9 @@ async function startScanner(cameraId, errEl, onText) {
       (decoded) => onText(decoded),
       () => {},  // per-frame "no QR yet" — noisy, ignore.
     );
+    // Closed while the camera was starting: stop it rather than leave it
+    // running in a hidden modal.
+    if (session.closed) { await teardownScanner(); return; }
     // iOS Safari needs playsinline on the <video> to render in-page
     // instead of fullscreening. html5-qrcode creates the element with
     // it set in newer releases, but stamp it just in case.

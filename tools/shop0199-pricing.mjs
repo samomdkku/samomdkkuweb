@@ -59,7 +59,7 @@ do $$ declare v_id text; v_total int; v_fee int; v_price int; begin
   insert into probe values ('subject: the buyer is not a shop admin', 'false', public.current_user_is_shop_admin()::text);
   -- ALLOW: own order, but the SENT price (1) and fee (50) are ignored.
   begin
-    v_id := public.place_shop_order((select buyer from who), 'p','p','p@x','0','','','',null,'[]'::jsonb,
+    v_id := public.place_shop_order((select buyer from who), 'p','p','p@x','0','','','https://lh3.googleusercontent.com/d/probe0199=w1200',null,'[]'::jsonb,
       '[{"product_id":"probe0199","size":"XL","qty":2,"unit_price":1}]'::jsonb, 50);
     select total, fee into v_total, v_fee from public.shop_orders where id = v_id;
     select unit_price into v_price from public.shop_order_items where order_id = v_id;
@@ -69,13 +69,13 @@ do $$ declare v_id text; v_total int; v_fee int; v_price int; begin
   exception when others then insert into probe values ('buyer: own order is placed', 'placed', sqlerrm); end;
   -- DENY: ordering in someone else's name.
   begin
-    perform public.place_shop_order((select other from who), 'p','p','p@x','0','','','',null,'[]'::jsonb,
+    perform public.place_shop_order((select other from who), 'p','p','p@x','0','','','https://lh3.googleusercontent.com/d/probe0199=w1200',null,'[]'::jsonb,
       '[{"product_id":"probe0199","size":"M","qty":1,"unit_price":0}]'::jsonb, 0);
     insert into probe values ('buyer: cannot order as someone else', 'NOT_YOUR_ORDER', 'ACCEPTED');
   exception when others then insert into probe values ('buyer: cannot order as someone else', 'NOT_YOUR_ORDER', sqlerrm); end;
   -- DENY: a size the product does not have (it would fall back to the base price).
   begin
-    perform public.place_shop_order((select buyer from who), 'p','p','p@x','0','','','',null,'[]'::jsonb,
+    perform public.place_shop_order((select buyer from who), 'p','p','p@x','0','','','https://lh3.googleusercontent.com/d/probe0199=w1200',null,'[]'::jsonb,
       '[{"product_id":"probe0199","size":"ZZ","qty":1}]'::jsonb, 0);
     insert into probe values ('buyer: an unknown size is refused', 'refused', 'ACCEPTED');
   exception when others then insert into probe values ('buyer: an unknown size is refused', 'refused',
@@ -94,7 +94,7 @@ select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
 do $$ begin
   begin
-    perform public.place_shop_order((select buyer from who), 'p','p','p@x','0','','','',null,'[]'::jsonb,
+    perform public.place_shop_order((select buyer from who), 'p','p','p@x','0','','','https://lh3.googleusercontent.com/d/probe0199=w1200',null,'[]'::jsonb,
       '[{"product_id":"probe0199","size":"M","qty":1,"unit_price":0}]'::jsonb, 0);
     insert into probe values ('anon: cannot place an order', 'refused', 'ACCEPTED');
   exception when others then insert into probe values ('anon: cannot place an order', 'refused', 'refused'); end;

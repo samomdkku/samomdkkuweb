@@ -121,3 +121,67 @@ describe('unitPriceFor mirrors public.shop_unit_price', () => {
     expect(priceRange({ price: 100 })).toEqual({ min: 100, max: 100 });
   });
 });
+
+import { bannerLinkTarget } from './data.js';
+describe('bannerLinkTarget', () => {
+  it('follows http(s) in a new tab and a same-site path here', () => {
+    expect(bannerLinkTarget('https://instagram.com/x')).toEqual({ href: 'https://instagram.com/x', external: true });
+    expect(bannerLinkTarget('/shop#p-1')).toEqual({ href: '/shop#p-1', external: false });
+    expect(bannerLinkTarget('#new')).toEqual({ href: '#new', external: false });
+  });
+  it('refuses every other scheme — an admin types it, every visitor follows it', () => {
+    for (const h of ['javascript:alert(1)', ' JavaScript:alert(1)', 'data:text/html,x', '//evil.example', 'vbscript:x', '', null]) {
+      expect(bannerLinkTarget(h), String(h)).toBeNull();
+    }
+  });
+});
+
+import { cartLineProblems } from './data.js';
+describe('cartLineProblems — the server\'s refusals, asked before the buyer pays', () => {
+  const tee = { id: 't', is_active: true, stock_status: 'available', sizes: ['S', 'M'],
+    colors: [{ id: 'black' }], stock_matrix: { 'M-black': 3 }, reserved_matrix: { 'M-black': 1 } };
+  const line = (o) => ({ productId: 't', size: 'M', color: 'black', qty: 1, ...o });
+  it('passes a line that can be sold', () => {
+    expect(cartLineProblems([line()], { t: tee }).size).toBe(0);
+  });
+  it('names each refusal', () => {
+    const p = cartLineProblems([
+      line({ productId: 'gone' }), line({ size: 'XL' }), line({ color: 'red' }), line({ color: undefined }),
+    ], { t: tee });
+    expect([...p.values()]).toEqual(['สินค้านี้ปิดขายแล้ว', 'ไม่มีไซส์นี้แล้ว', 'ไม่มีสีนี้แล้ว', 'ไม่มีสีนี้แล้ว']);
+  });
+  it('counts stock per variant ACROSS lines (2 left: 1 + 2 is too many)', () => {
+    const p = cartLineProblems([line({ qty: 1, fit: 'a' }), line({ qty: 2, fit: 'b' })], { t: tee });
+    expect(p.get(1)).toBe('เหลือเพียง 2 ชิ้น');
+  });
+  it('treats sold_out / hidden as closed, and preorder as unlimited', () => {
+    expect(cartLineProblems([line()], { t: { ...tee, stock_status: 'sold_out' } }).get(0)).toBe('สินค้านี้ปิดขายแล้ว');
+    expect(cartLineProblems([line()], { t: { ...tee, is_active: false } }).get(0)).toBe('สินค้านี้ปิดขายแล้ว');
+    expect(cartLineProblems([line({ qty: 50 })], { t: { ...tee, is_presale: true } }).size).toBe(0);
+  });
+  it('a colourless product takes no colour', () => {
+    const plain = { ...tee, colors: [], stock_matrix: {} };
+    expect(cartLineProblems([line({ color: null })], { t: plain }).size).toBe(0);
+    expect(cartLineProblems([line({ color: 'black' })], { t: plain }).get(0)).toBe('ไม่มีสีนี้แล้ว');
+  });
+});
+
+import { csvCell, csvPhoneCell, bkkTime } from './data.js';
+describe('CSV export cells', () => {
+  it('neutralises a cell a spreadsheet would run as a formula', () => {
+    for (const bad of ['=HYPERLINK("http://x","a")', '+1+1', '-2+3', '@SUM(A1)', '\t=1', '\r=1']) {
+      expect(csvCell(bad).startsWith(`"'`), bad).toBe(true);
+    }
+    expect(csvCell('น้องเอ, "ไซส์ M"')).toBe('"น้องเอ, ""ไซส์ M"""');
+    expect(csvCell(-5)).toBe('-5'); // a real number is still a number
+  });
+  it('keeps a phone number as text with its leading zero, and nothing else', () => {
+    expect(csvPhoneCell('081-234-5678')).toEqual({ text: '"=""081-234-5678"""' });
+    expect(csvPhoneCell('08")&CMD|x')).toEqual({ text: '"=""08"""' });
+    expect(csvCell(csvPhoneCell('0812345678'))).toBe('"=""0812345678"""');
+  });
+  it('writes Bangkok time, not UTC', () => {
+    expect(bkkTime('2026-09-21T18:30:00Z')).toBe('2026-09-22 01:30:00');
+    expect(bkkTime('')).toBe('');
+  });
+});

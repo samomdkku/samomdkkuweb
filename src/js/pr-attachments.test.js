@@ -90,7 +90,9 @@ describe('renderPrAttachments', () => {
   it('escapes a url that tries to break out of the href', () => {
     const html = renderPrAttachments('ลิงก์เสริม: https://x.test/" onmouseover="alert(1)');
     expect(html).not.toContain('onmouseover="alert(1)"');
-    expect(html).toContain('&quot;');
+    // The PROPERTY, not the mechanism (it was `&quot;`; safeUrl now
+    // percent-encodes the quote first): the payload stays INSIDE the href.
+    expect(html).toMatch(/href="[^"]*onmouseover[^"]*"/);
   });
 
   it('opens links in a new tab without handing over window.opener', () => {

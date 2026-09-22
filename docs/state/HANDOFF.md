@@ -1557,3 +1557,39 @@ then `bash server/night-agent/install.sh --arm` — installing no longer arms.
 | the passport merge, start to finish | `docs/PASSPORT-MONOREPO.md` |
 | bugs already paid for | `docs/mistakes/*.md` — `grep -rin "<symptom>" docs/mistakes/` |
 | what production serves | `npm run deploy:owed` — **the only authority** |
+
+## 18b. SAMO Shop full bug sweep (2026-09-22) — what is left
+
+**Status: VERIFIED 2026-09-22 — how:** three code reviewers plus a database
+review; every finding re-traced before it was fixed. 0202 is applied on dev AND
+production: `shop0202-stock-rule` is 22/22 on both, 14/14 of its refusals red on
+the pre-0202 bodies, and `shop0199` is 20/20. Unit tests: `read-file`,
+`reserved-rule`, `data` (cartLineProblems, bannerLinkTarget, CSV cells), `qr`,
+`utils` (safeUrl), all mutation-checked. The write-ups name each bug.
+⚠️ NOT driven in a browser signed in as a buyer or admin. The checkout lock,
+the unsure-network lookup and the before-payment block are traced and
+unit-tested, not clicked.
+
+**Owner-only**
+- **OWED — the Apps Script upload handler for shop files needs server-side
+  limits** (what it accepts, and where it may write). It needs a production
+  Apps Script redeploy, which is owner-approved per CLAUDE.md. The detail
+  stays out of `docs/` until it is fixed (the repo and `docs/` are public).
+
+**Shop team decisions**
+- **OWED — the "รายรับสะสม" card now counts ONLY orders whose slip was
+  checked** (it used to include slips waiting for review, and rejected ones).
+  The number went DOWN on purpose; tell the shop team why.
+- **OWED — checkout has no note box, but the code still sends one** (always
+  empty). Restore the field, or drop the dead code. It is a shop-team call.
+
+**Buildable, small**
+- **OWED — the cart drawer's + button is capped at 99, not at stock.**
+  Harmless now: checkout names the line and hides the QR before payment. It
+  would be nicer to cap it in the drawer.
+- **HYPOTHESIS — the team/house CSV exports may have the same formula-injection
+  shape** (`src/js/team/io.js`, `src/js/house/io.js`). Not checked; out of the
+  shop's scope. Use the shared `csvCell` in `src/js/shop/data.js` if so.
+- **HYPOTHESIS — QR scanner double-fire / camera left on** were PLAUSIBLE in
+  review and fixed defensively (a per-open session with a latch). They were not
+  reproduced on a device.

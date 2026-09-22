@@ -3307,3 +3307,23 @@ had deliberately disabled. Arming is now `--arm`, typed on purpose.
    looks.** Not in a log nobody opens: in the message that is already being sent.
 3. **Deploying is not enabling.** A script that installs and arms in one step
    will eventually undo a deliberate "off".
+
+---
+
+## shop0202's "non-Google slip URL is refused" was GREEN on the code it exists to catch
+
+**Symptom**: running the new proof against production's OLD function bodies,
+13 of 14 DENY rows went red, and one stayed green: "self: a non-Google slip URL
+is refused".
+
+**Cause**: the evil URL was a hand-escaped JSON literal inside a JS template
+literal inside SQL. One escaping layer ate a backslash, the `::jsonb` cast
+failed, and the `exception when others` branch recorded "refused". It was
+refused, but for the wrong reason.
+
+**Fix**: the value is built with `jsonb_build_object(… chr(34) …)`, so there is
+no hand escaping. Re-run: 14/14 red on the old bodies, 22/22 green on 0202.
+
+**The general rule**: the ritual caught it — *reintroduce the bug and watch
+EVERY deny go red*. A catch-all handler scores any error as the refusal you
+wanted. Where the expected refusal has a name, assert the name, not "an error".

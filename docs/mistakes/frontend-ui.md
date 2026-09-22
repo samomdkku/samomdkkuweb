@@ -3987,3 +3987,64 @@ mutation-checked.
 read it (or copy its bytes) when it is picked if the send happens after a wait.
 And *reject with an Error, never an event*: every `${e.message || e}` in a
 toast trusts that whatever was thrown has a message.
+
+---
+
+## "scan for bugs in samoshop, all thoroughly" — safeUrl said "pair with escHtml()" and 27 call sites did not
+
+**Symptom (as found in the 2026-09-22 shop sweep)**: a slip URL is buyer-writable,
+and `admin.js` rendered it as `<img src="${safeUrl(s.url)}">`. `safeUrl` only
+checked the SCHEME, so `https://x/"onerror="…` came back unchanged and would
+have closed the attribute in a shop admin's browser.
+
+**Cause**: the safety was a sentence in a doc comment ("Always pair with
+escHtml()"), and 27 of 28 call sites did not read it. A rule held at every
+call site instead of in the function is the class-4 shape.
+
+**Fix**: `safeUrl` now percent-encodes every character that can end an
+attribute or a CSS `url('…')` (quotes, `<`, `>`, backtick, whitespace,
+backslash), so its result is safe BARE. The database now refuses a non-Google
+slip URL from a buyer as well (0202). `utils.test.js` breaks out of `"…"`,
+`'…'` and `url('…')` and fails if any case works; mutation-checked.
+
+**Where it lives now**: `src/js/utils.js` `safeUrl`; `shop_slip_url_ok` (0202).
+
+**The general rule**: *a helper whose output is only safe with a second helper
+is not safe.* Make the function's output safe on its own; a comment asking
+every caller to remember something is a bug that has not happened yet.
+
+---
+
+## Checkout: a buyer who came back from the bank app could place the order twice
+
+**Symptom (found in the sweep, not yet reported)**: tapping "ส่งสลิป & สั่งซื้อ",
+switching to the bank app, and coming back showed a fresh, ENABLED button while
+the first order was still being saved. A second tap placed a second order for
+one transfer.
+
+**Cause**: three separate things.
+(1) supabase-js fires `SIGNED_IN` every time the tab becomes visible;
+`index.js` re-renders checkout on every auth event; the re-render built an
+enabled button, and `placeOrder` had no lock.
+(2) The order call timed out at 15 s. A timeout means "unsure", but it was
+reported as failed, the items went back in the cart, and a retry duplicated
+the order.
+(3) Nothing checked the cart (closed product, removed size or colour, stock)
+until the server refused. That happened AFTER the buyer had transferred the
+money.
+
+**Fix**: a `placing` lock covers the whole placement, and nothing re-renders
+checkout while it is set. An unsure failure (no HTTP status) looks up "my order
+with this slip URL" (the URL is unique per upload), and so does any retry that
+reuses an uploaded slip. The call waits 45 s. `cartLineProblems()` is the
+server's refusals asked BEFORE the QR: a bad line hides the QR and is named with
+a remove button. It is checked again inside the lock, against fresh stock.
+
+**Where it lives now**: `src/js/shop/checkout.js` (`placing`,
+`placeShopOrderOrFindIt`, `refreshStock`), `src/js/shop/data.js`
+`cartLineProblems` (tests in `data.test.js`).
+
+**The general rule**: *a re-render is an entry point too.* A button disabled
+by the click handler is re-enabled by any code that re-draws it; put the lock
+in the action, and have the renderer read it. And *a timeout is not a failure*:
+before offering a retry, ask the server whether the first try landed.

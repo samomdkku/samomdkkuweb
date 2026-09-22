@@ -10,19 +10,54 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb, getDefaultQr, findQr, findPickupLocation } from './data.js';
-import { getCart, cartSubtotal, clearCart, addItem } from './state.js';
-import { getSettings, placeShopOrder } from './api.js';
-import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE } from './uploads.js';
-import { holdInMemory, readAsDataURL } from '../read-file.js';
+import { thb, getDefaultQr, findQr, findPickupLocation, cartLineProblems } from './data.js';
+import { getCart, cartSubtotal, clearCart, addItem, removeItem } from './state.js';
+import { getSettings, placeShopOrder, findMyOrderBySlip, listProducts, fetchReservedMatrixAll } from './api.js';
+import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE, prepareSlip } from './uploads.js';
+import { readAsDataURL } from '../read-file.js';
 import { sendNotify } from '../notify.js';
 import { currentAccessToken } from '../db.js';
-import { getProductMap, ensureProductsLoaded } from './cart.js';
+import { getProductMap, ensureProductsLoaded, setShopCartProducts } from './cart.js';
 import { showShopToast } from './products.js';
 
 let onAfterPlace = () => {};
 let onBack = () => {};
 let settingsCache = null;
+// TRUE from the moment placeOrder passes validation until it has finished.
+// Checkout re-renders on every auth event — and supabase-js fires SIGNED_IN
+// each time the tab becomes visible — so a buyer who switched to the bank app
+// mid-order came back to a fresh, ENABLED button and could place it twice.
+// While this is set, nothing re-renders the checkout and a second tap is a no-op.
+let placing = false;
+// What is on sale and what is LEFT, as of `stockAt` — refetched when checkout
+// renders and it is older than STOCK_TTL_MS. The cart's product map is loaded
+// once per shop visit and carries no reserved counts, so checking a cart
+// against it would call a sold-out size available.
+let reservedAll = {};
+let stockAt = 0;
+const STOCK_TTL_MS = 20000;
+
+async function refreshStock() {
+  if (Date.now() - stockAt < STOCK_TTL_MS) return;
+  try {
+    const [list, reserved] = await Promise.all([
+      listProducts({ activeOnly: false }), fetchReservedMatrixAll(),
+    ]);
+    setShopCartProducts(list);
+    reservedAll = reserved || {};
+    stockAt = Date.now();
+  } catch (e) {
+    console.warn('[shop/checkout] stock refresh failed — the server still checks:', e?.message || e);
+  }
+}
+
+/** The product map with each product's reserved counts spliced on. */
+function productsWithStock() {
+  const map = getProductMap();
+  const out = {};
+  for (const [id, p] of Object.entries(map)) out[id] = { ...p, reserved_matrix: reservedAll[id] || {} };
+  return out;
+}
 
 const state = {
   // Since migration 0057 a cart can span multiple PromptPay accounts, so
@@ -30,6 +65,11 @@ const state = {
   // 'default'). One order is placed per group.
   slipFiles: {},        // key → File
   slipPreviews: {},     // key → data-URL preview string
+  // key → { file, url, at }: the slip already uploaded for this group, reused
+  // on a retry instead of uploading the same image again (each retry used to
+  // leave another unreferenced copy in Drive). Tied to the FILE: a new pick
+  // for the group uploads anew.
+  slipUploads: {},
   buyerNote: '',
   buyerName: '',
   buyerEmail: '',
@@ -68,6 +108,13 @@ const state = {
 export function applyBuyerPrefill(state_, user) {
   if (!user) return state_;
   if (state_.prefillUid !== user.id) {
+    // A different person: nothing the last one picked or agreed to carries over.
+    if (state_.prefillUid) {
+      state_.slipFiles = {};
+      state_.slipPreviews = {};
+      state_.slipUploads = {};
+      state_.agree = false;
+    }
     state_.prefillUid   = user.id;
     state_.buyerName    = user.name  || '';
     state_.buyerEmail   = user.email || '';
@@ -150,6 +197,7 @@ export async function mountCheckout() {
 
 /** Show the checkout view (called by index.js when sub-nav switches). */
 export async function renderCheckout() {
+  if (placing) return; // see `placing` — placeOrder re-renders when it is done
   const user = getUser();
   const gate = document.getElementById('shopCheckoutAuthGate');
   const body = document.getElementById('shopCheckoutBody');
@@ -164,6 +212,8 @@ export async function renderCheckout() {
   body.classList.remove('d-none');
 
   await ensureProductsLoaded();
+  await refreshStock();
+  if (placing) return;
   if (!settingsCache) {
     try { settingsCache = await getSettings(); } catch { settingsCache = null; }
   }
@@ -204,6 +254,8 @@ function renderHtml() {
 
   const groups = buildGroups(cart, products);
   const split = groups.length > 1;
+  const problems = cartLineProblems(cart, productsWithStock());
+  const blocked = problems.size > 0;
 
   return `
     <div>
@@ -261,6 +313,10 @@ function renderHtml() {
                 <div style="font-weight:600;">${escHtml(name)}</div>
                 <div class="small text-muted">${escHtml(variantParts.join(' · '))}</div>
                 ${pickup ? `<div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>รับที่: ${escHtml(pickup.label)}</div>` : ''}
+                ${problems.has(i) ? `<div class="small text-danger fw-bold mt-1">
+                  <i class="bi bi-exclamation-triangle me-1"></i>${escHtml(problems.get(i))}
+                  <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline text-danger" data-checkout-remove="${i}">ลบออก</button>
+                </div>` : ''}
               </div>
               <div style="font-weight:700;">฿${thb(it.price * it.qty)}</div>
             </div>`;
@@ -279,7 +335,10 @@ function renderHtml() {
           สินค้าในตะกร้าใช้บัญชีรับเงินต่างกัน — กรุณาโอนแยกตามแต่ละบัญชีด้านล่าง และแนบสลิปของแต่ละบัญชี
           (จะแยกเป็น ${groups.length} คำสั่งซื้อ)
         </div>` : ''}
-        ${groups.map((g, gi) => renderGroupCard(g, gi, split, devSkip)).join('')}
+        ${blocked ? `<div class="alert alert-warning small py-2 mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          สินค้าบางรายการด้านบนสั่งไม่ได้แล้ว กรุณาลบหรือแก้ไขก่อน แล้วจึงโอนเงิน
+        </div>` : groups.map((g, gi) => renderGroupCard(g, gi, split, devSkip)).join('')}
       </div>
 
       <div class="checkout-panel">
@@ -336,7 +395,7 @@ function renderHtml() {
           </label>
         </div>
         <button type="button" class="btn btn-shop w-100 mt-3" id="shopPlaceOrderBtn"
-                ${(!groupsSatisfied(groups, devSkip) || !state.agree) ? 'disabled' : ''}>
+                ${(blocked || !groupsSatisfied(groups, devSkip) || !state.agree) ? 'disabled' : ''}>
           <i class="bi bi-send-check me-1"></i> ${devSkip && !groupsSatisfied(groups, false) ? 'สั่งซื้อ (โหมด dev)' : 'ส่งสลิป & สั่งซื้อ'}
         </button>
         <div class="small text-muted mt-2 text-center ${(groupsSatisfied(groups, false) || devSkip) ? 'd-none' : ''}">
@@ -437,6 +496,8 @@ function wireEvents() {
     });
     input?.addEventListener('change', () => {
       const f = input.files?.[0];
+      // Cleared so picking the SAME file again (after "pick it again") fires.
+      input.value = '';
       if (f) onSlipChosen(f, key);
     });
   });
@@ -464,6 +525,10 @@ function wireEvents() {
   });
 
   document.getElementById('shopPlaceOrderBtn')?.addEventListener('click', placeOrder);
+  document.querySelectorAll('[data-checkout-remove]').forEach((b) => b.addEventListener('click', () => {
+    removeItem(Number(b.dataset.checkoutRemove));
+    renderCheckout();
+  }));
 }
 
 /** Paint the recap from state. An empty field says so in its own words rather
@@ -482,22 +547,21 @@ function syncRecap() {
 }
 
 async function onSlipChosen(file, key) {
-  if (file.size > 5 * 1024 * 1024) {
-    showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn');
-    return;
-  }
+  if (placing) { showShopToast('กำลังบันทึกคำสั่งซื้อ กรุณารอสักครู่', 'warn'); return; }
   // Keep the BYTES, not the picked handle: the upload runs at submit time,
   // after the buyer has filled the form or left for their bank app, and by
   // then the phone may refuse a second read of the original (read-file.js).
+  // prepareSlip also shrinks it and refuses an image this browser cannot open.
   let held;
   let preview;
   try {
-    held = await holdInMemory(file);
+    held = await prepareSlip(file);
     preview = await readAsDataURL(held);
   } catch (e) {
     showShopToast(e.message, 'error');
     return;
   }
+  if (placing) return;
   state.slipFiles[key] = held;
   state.slipPreviews[key] = preview;
   renderCheckout();
@@ -532,107 +596,163 @@ async function placeOrder() {
     return;
   }
 
-  const place = document.getElementById('shopPlaceOrderBtn');
-  const originalLabel = place?.innerHTML;
-  if (place) {
-    place.disabled = true;
-    place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
-  }
-
-  // One order per account group. Placed sequentially — each order is
-  // committed independently, so on a mid-way failure the already-placed
-  // orders stand and we drop only their items from the cart so a retry
-  // can't double-charge them.
-  const placedOrders = [];
-  let failure = null;
+  if (placing) return;
+  placing = true;
+  // Released on every path below; the finally is for the one nobody wrote.
   try {
-    for (let gi = 0; gi < groups.length; gi++) {
-      const g = groups[gi];
-      if (place) {
-        place.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>`
-          + (groups.length > 1 ? `กำลังบันทึกบัญชี ${gi + 1}/${groups.length}…` : 'กำลังบันทึกคำสั่งซื้อ…');
-      }
-      let slipUrl = null;
-      let slipUploadedAt = null;
-      const slipFile = state.slipFiles[g.key];
-      if (slipFile) {
-        const ext = (slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
-        const slipName = `${user.id}_${Date.now()}_${gi}.${ext}`;
-        const folder = slipFolderForNow(new Date());
-        slipUrl = await uploadShopFile(slipFile, folder, { fileName: slipName, maxEdge: SLIP_MAX_EDGE });
-        slipUploadedAt = new Date().toISOString();
-      }
-      // Order-id prefix from the group's first product (falls back to "SH"
-      // in the RPC when product.code is missing / pre-0023).
-      const firstProduct = products[g.items[0].productId] || null;
-      const order = await placeShopOrder({
-        buyerId: user.id,
-        buyerLabel: buyerName || user.name || user.username || user.email || '',
-        buyerName,
-        buyerEmail,
-        buyerPhone,
-        items: g.items,
-        subtotal: g.subtotal,
-        fee: 0,
-        slipUrl,
-        slipUploadedAt,
-        pickupLocation: null,
-        buyerNote: state.buyerNote,
-        code: firstProduct?.code || '',
-      });
-      placedOrders.push({ order, key: g.key });
+    // The last look before anything is uploaded or ordered. Inside the lock, so
+    // a second tap during this fetch is still a no-op.
+    stockAt = 0;
+    await refreshStock();
+    if (cartLineProblems(cart, productsWithStock()).size) {
+      placing = false;
+      showShopToast('สินค้าบางรายการสั่งไม่ได้แล้ว กรุณาลบหรือแก้ไขก่อน', 'warn');
+      renderCheckout();
+      return;
     }
-  } catch (e) {
-    console.error('[shop/checkout] placeOrder failed:', e);
-    failure = e;
-  }
+    const place = document.getElementById('shopPlaceOrderBtn');
+    const originalLabel = place?.innerHTML;
+    if (place) {
+      place.disabled = true;
+      place.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกคำสั่งซื้อ…';
+    }
 
-  // Tell the shop team on Discord — one message per order actually placed,
-  // including the ones that made it before a later group failed. Only the id
-  // and this session travel: the server reads the real order back as this
-  // buyer, so nothing here can make it announce something that is not so.
-  for (const { order } of placedOrders) {
-    if (order?.id) sendNotify('shop', { orderId: order.id, accessToken: currentAccessToken() });
-  }
+    // One order per account group. Placed sequentially — each order is
+    // committed independently, so on a mid-way failure the already-placed
+    // orders stand and we drop only their items from the cart so a retry
+    // can't double-charge them.
+    const placedOrders = [];
+    let failure = null;
+    try {
+      for (let gi = 0; gi < groups.length; gi++) {
+        const g = groups[gi];
+        if (place) {
+          place.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>`
+            + (groups.length > 1 ? `กำลังบันทึกบัญชี ${gi + 1}/${groups.length}…` : 'กำลังบันทึกคำสั่งซื้อ…');
+        }
+        let slipUrl = null;
+        let slipUploadedAt = null;
+        let isRetry = false;
+        const slipFile = state.slipFiles[g.key];
+        if (slipFile) {
+          const done = state.slipUploads[g.key];
+          if (done && done.file === slipFile) {
+            ({ url: slipUrl, at: slipUploadedAt } = done);
+            isRetry = true;
+          } else {
+            const ext = (slipFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
+            const slipName = `${user.id}_${Date.now()}_${gi}.${ext}`;
+            const folder = slipFolderForNow(new Date());
+            slipUrl = await uploadShopFile(slipFile, folder, { fileName: slipName, maxEdge: SLIP_MAX_EDGE });
+            slipUploadedAt = new Date().toISOString();
+            state.slipUploads[g.key] = { file: slipFile, url: slipUrl, at: slipUploadedAt };
+          }
+        }
+        // Order-id prefix from the group's first product (falls back to "SH"
+        // in the RPC when product.code is missing / pre-0023).
+        const firstProduct = products[g.items[0].productId] || null;
+        const order = await placeShopOrderOrFindIt(user.id, slipUrl, isRetry, {
+          buyerId: user.id,
+          buyerLabel: buyerName || user.name || user.username || user.email || '',
+          buyerName,
+          buyerEmail,
+          buyerPhone,
+          items: g.items,
+          subtotal: g.subtotal,
+          fee: 0,
+          slipUrl,
+          slipUploadedAt,
+          pickupLocation: null,
+          buyerNote: state.buyerNote,
+          code: firstProduct?.code || '',
+        });
+        placedOrders.push({ order, key: g.key });
+        delete state.slipUploads[g.key];
+      }
+    } catch (e) {
+      console.error('[shop/checkout] placeOrder failed:', e);
+      failure = e;
+    }
 
-  const placedKeys = new Set(placedOrders.map((p) => p.key));
+    // Tell the shop team on Discord — one message per order actually placed,
+    // including the ones that made it before a later group failed. Only the id
+    // and this session travel: the server reads the real order back as this
+    // buyer, so nothing here can make it announce something that is not so.
+    for (const { order } of placedOrders) {
+      if (order?.id) sendNotify('shop', { orderId: order.id, accessToken: currentAccessToken() });
+    }
 
-  if (placedOrders.length === groups.length && !failure) {
-    // All groups placed.
+    const placedKeys = new Set(placedOrders.map((p) => p.key));
+
+    if (placedOrders.length === groups.length && !failure) {
+      // All groups placed.
+      clearCart();
+      state.slipFiles = {};
+      state.slipPreviews = {};
+      state.slipUploads = {};
+      state.buyerNote = '';
+      state.buyerName = '';
+      state.buyerEmail = '';
+      state.buyerPhone = '';
+      state.agree = false;
+      const msg = placedOrders.length > 1
+        ? `สั่งซื้อสำเร็จ ${placedOrders.length} รายการ — รอ admin ตรวจสอบสลิป`
+        : `สั่งซื้อ ${placedOrders[0].order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`;
+      showShopToast(msg, 'success');
+      placing = false;
+      onAfterPlace(placedOrders[0].order);
+      return;
+    }
+
+    // Partial / total failure. Keep any committed orders, rebuild the cart
+    // from the still-unplaced groups, and clear their spent slips.
+    const remaining = groups.filter((g) => !placedKeys.has(g.key));
     clearCart();
-    state.slipFiles = {};
-    state.slipPreviews = {};
-    state.buyerNote = '';
-    state.buyerName = '';
-    state.buyerEmail = '';
-    state.buyerPhone = '';
-    state.agree = false;
-    const msg = placedOrders.length > 1
-      ? `สั่งซื้อสำเร็จ ${placedOrders.length} รายการ — รอ admin ตรวจสอบสลิป`
-      : `สั่งซื้อ ${placedOrders[0].order.id} สำเร็จ — รอ admin ตรวจสอบสลิป`;
-    showShopToast(msg, 'success');
-    onAfterPlace(placedOrders[0].order);
-    return;
+    for (const g of remaining) for (const it of g.items) addItem(it);
+    for (const key of placedKeys) { delete state.slipFiles[key]; delete state.slipPreviews[key]; }
+    if (placedOrders.length > 0) {
+      showShopToast(
+        `บันทึกได้ ${placedOrders.length} บัญชีแล้ว แต่บัญชีที่เหลือล้มเหลว: ${failure?.message || failure}. ` +
+        `รายการที่เหลืออยู่ในตะกร้า ลองสั่งใหม่อีกครั้ง`, 'error');
+    } else {
+      showShopToast(failure?.ambiguous ? failure.message
+      : `สั่งซื้อไม่สำเร็จ: ${failure?.message || failure}`, 'error');
+    }
+    if (place) {
+      place.disabled = false;
+      place.innerHTML = originalLabel || 'ส่งสลิป & สั่งซื้อ';
+    }
+    placing = false;
+    renderCheckout();
+  } finally {
+    placing = false;
   }
+}
 
-  // Partial / total failure. Keep any committed orders, rebuild the cart
-  // from the still-unplaced groups, and clear their spent slips.
-  const remaining = groups.filter((g) => !placedKeys.has(g.key));
-  clearCart();
-  for (const g of remaining) for (const it of g.items) addItem(it);
-  for (const key of placedKeys) { delete state.slipFiles[key]; delete state.slipPreviews[key]; }
-  if (placedOrders.length > 0) {
-    showShopToast(
-      `บันทึกได้ ${placedOrders.length} บัญชีแล้ว แต่บัญชีที่เหลือล้มเหลว: ${failure?.message || failure}. ` +
-      `รายการที่เหลืออยู่ในตะกร้า ลองสั่งใหม่อีกครั้ง`, 'error');
-  } else {
-    showShopToast(`สั่งซื้อไม่สำเร็จ: ${failure?.message || failure}`, 'error');
+/**
+ * placeShopOrder, but a failure the app cannot be sure of — the connection
+ * dropped or timed out, so the order may well have been saved — is checked
+ * before it is called a failure. The slip URL is unique to this attempt (a
+ * fresh file name per upload), so "an order of mine carrying this slip" is
+ * exactly "the order this call created". Without it, the buyer was told
+ * "สั่งซื้อไม่สำเร็จ", the items went back in the cart with the slip, and the
+ * retry placed the same order twice.
+ */
+async function placeShopOrderOrFindIt(buyerId, slipUrl, isRetry, payload) {
+  // A retry with the SAME uploaded slip: the last attempt may have gone
+  // through even if its answer never came back. Look before placing again.
+  if (isRetry && slipUrl) {
+    const earlier = await findMyOrderBySlip(buyerId, slipUrl).catch(() => null);
+    if (earlier) return earlier;
   }
-  if (place) {
-    place.disabled = false;
-    place.innerHTML = originalLabel || 'ส่งสลิป & สั่งซื้อ';
+  try {
+    return await placeShopOrder(payload);
+  } catch (e) {
+    if (!e?.ambiguous || !slipUrl) throw e;
+    const found = await findMyOrderBySlip(buyerId, slipUrl).catch(() => null);
+    if (found) return found;
+    throw e;
   }
-  renderCheckout();
 }
 
 // Decorative placeholder QR when no admin-uploaded image exists yet.
