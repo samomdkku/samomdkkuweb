@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `f83e81d` (2026-09-22)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step RAN (web 08:45:32Z, docs 08:45:46Z). SERVED: the PR upload alert's new `err.message` line in the public chunk (only in `f83e81d`). Same day: `ed39203` (slip `[object ProgressEvent]`). Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
+- ✅ **DEPLOYED = `5fbfaa9` (2026-09-22)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step RAN (web 09:37:19Z, docs 09:37:33Z). SERVED: headless load of `/#shop` boots (`__samoBooted`), all JS 200, no console errors, and the LOADED `core-*` chunk carries the new checkout strings (control `ส่งสลิป & สั่งซื้อ` in the same chunk). Same day: `ed39203`, `f83e81d` (slip `[object ProgressEvent]` + the pick-time sweep). Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
