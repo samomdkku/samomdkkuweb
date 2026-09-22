@@ -1641,6 +1641,21 @@ colour. The full design, with the measured facts it rests on, is
   2. reorder them, tag one with a colour, and save;
   3. remove one and save again. Its Drive file should go, and a picture another
      product shares should stay.
+- **HYPOTHESIS (network, not ours) — from inside KKU, the public site stopped
+  answering around 10:31Z on 2026-09-22.** How it was narrowed down:
+  - `curl https://samo.md.kku.ac.th` timed out from a laptop on the KKU LAN;
+  - check-host.net got **200** from Canada, Germany and Spain, and timed out
+    from Moscow;
+  - on the VM, nginx answers locally, and tcpdump showed the inbound SYNs
+    arriving and the VM answering;
+  - the VM serves a self-signed certificate for 10.101.111.181. The public
+    certificate is on KKU's reverse proxy at 202.28.95.46, so the break is in
+    that proxy's route back to KKU-internal clients.
+
+  Nothing in the deploy touched nginx. To verify from inside KKU when it
+  happens: `ssh -L 8443:127.0.0.1:443 samo-vm`, then Chrome with
+  `--host-resolver-rules="MAP samo.md.kku.ac.th:443 127.0.0.1:8443"
+  --ignore-certificate-errors`. If it lasts, tell KKU IT.
 - **DECIDED — the three §10 defaults were built:**
   - at most 8 pictures;
   - picking a colour jumps to its picture and never filters the others;

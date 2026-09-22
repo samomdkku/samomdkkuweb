@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2a59df4` (2026-09-22)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; docs step RAN (web 10:07:01Z, docs 10:07:15Z). SERVED: the live `core-*` chunk carries the second-pass retry string; `/docs/SHOP-GALLERY` serves its own content (not the SPA fallback). The day's work — slip bug, pick-time sweep, full shop sweep (0202), second pass, gallery DESIGN — and how each was checked: `docs/state/claude-2026-09-22.md`. Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
+- ✅ **DEPLOYED = `0c94df4` (2026-09-22)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. SERVED (through an ssh tunnel to the VM's nginx — see HANDOFF §18c's network note): boots, a real product opens in the new gallery, lightbox loads its picture, Esc closes only the viewer, the photoswipe chunk is 200, no console errors. The day's work and how each was checked: `docs/state/claude-2026-09-22.md`. Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
