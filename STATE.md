@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `332d09c` (2026-09-22)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. Includes the gallery review fixes (`a720728`: strip CSS on /admin/, lightbox, 0204's client half) — SERVED: the admin stylesheet carries `.shop-img-strip`; production storefront drive (gallery + lightbox, no console errors); the published SHOP-GALLERY/HANDOFF/CONTEXT pages carry this pass's text. The day's work and how each was checked: `docs/state/claude-2026-09-22.md`. Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
+- ✅ **DEPLOYED = `d382b50` (2026-09-22)** — v4.7.0 still, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. The last docs-only deploy of the day (the cold-read audit's wording fixes) — SERVED: the published session notes and SHOP-GALLERY carry them. Code verified on production earlier the same day: admin stylesheet carries `.shop-img-strip`; storefront gallery + lightbox driven, no console errors. The day's work and how each was checked: `docs/state/claude-2026-09-22.md`. Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
@@ -245,7 +245,7 @@ teaching two people. See A1.
 their version lands. An IT-built page is a page IT owns, which is the bottleneck
 that design removes.
 
-**⚠️ A DOCS-ONLY DEPLOY IS OWED (2026-09-22):** 3 wording edits in published docs, pushed; the VM was unreachable (no VPN). Code, DB and Apps Script are current. Run `skills/deploy-vm.md`, then update ✅ DEPLOYED. Check, do not trust this line — and note that it names no sha, on purpose. Retyping one into a `git diff` is the bug that opened
+**No deploy is owed.** Check, do not trust this line — and note that it names no sha, on purpose.
 2026-08-28, and `state-handoff.test.js` now forbids the shape:
 ```bash
 npm run deploy:owed
