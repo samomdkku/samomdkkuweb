@@ -185,3 +185,36 @@ describe('CSV export cells', () => {
     expect(bkkTime('')).toBe('');
   });
 });
+
+import { imageBase, pictureAt, productImages, imageIndexForColor, pictureFor, imageAlt } from './data.js';
+describe('product pictures', () => {
+  const L = (id, s = '') => `https://lh3.googleusercontent.com/d/${id}${s}`;
+  const tee = {
+    name: 'เสื้อ', colors: [{ id: 'black', label: 'ดำ' }, { id: 'red', label: 'แดง' }],
+    images: [{ url: L('A'), w: 10, h: 20, color: null }, { url: L('B'), color: 'black' }, { url: L('C'), color: 'gone' }],
+    image_url: L('A', '=w1200'),
+  };
+  it('sizes one stored lh3 URL, and leaves other URLs alone', () => {
+    expect(imageBase(L('A', '=w1200'))).toBe(L('A'));
+    expect(pictureAt(L('A', '=w1200'), 200)).toBe(L('A', '=w200'));
+    expect(pictureAt('https://drive.google.com/file/d/X/view', 200)).toBe('https://drive.google.com/file/d/X/view');
+    expect(pictureAt('', 200)).toBe('');
+  });
+  it('reads images, falling back to the legacy cover', () => {
+    expect(productImages(tee).map((x) => x.url)).toEqual([L('A'), L('B'), L('C')]);
+    expect(productImages({ image_url: L('Z', '=w1200') })).toEqual([{ url: L('Z'), w: null, h: null, color: null }]);
+    expect(productImages({})).toEqual([]);
+  });
+  it('finds a colour\'s first picture; a deleted colour\'s tag counts as none', () => {
+    expect(imageIndexForColor(tee, 'black')).toBe(1);
+    expect(imageIndexForColor(tee, 'red')).toBe(-1);
+    expect(imageIndexForColor(tee, 'gone')).toBe(-1);
+    expect(pictureFor(tee, 'black')).toBe(L('B'));
+    expect(pictureFor(tee, 'red')).toBe(L('A'));    // no tagged picture → cover
+    expect(pictureFor({}, 'red')).toBe('');
+  });
+  it('generates alt text', () => {
+    expect(imageAlt(tee, tee.images[1], 1, 3)).toBe('เสื้อ สีดำ (รูปที่ 2 จาก 3)');
+    expect(imageAlt(tee, tee.images[0], 0, 1)).toBe('เสื้อ');
+  });
+});

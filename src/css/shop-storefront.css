@@ -657,3 +657,76 @@ body.shop-mode .samo-footer {
 @media (prefers-reduced-motion: reduce) {
   #pills-shop *, #pills-shop *::before, #pills-shop *::after { transition: none !important; }
 }
+
+/* ---------- Product gallery (docs/SHOP-GALLERY.md §4) ----------
+   The hero used to BE the picture (a 4:5 background). It now holds a 4:5
+   STAGE plus a thumbnail row under it, so it lets go of its own ratio/crop. */
+#shopProductModal .detail-hero.pg {
+  aspect-ratio: auto; overflow: visible; background: none; border-radius: 0;
+}
+#shopProductModal .pg-stage {
+  position: relative; aspect-ratio: 4 / 5; overflow: hidden;
+  border-radius: var(--sf-radius-md); background: var(--sf-sky);
+}
+#shopProductModal .pg-empty { position: absolute; inset: 0; }
+#shopProductModal .pg-track {
+  display: flex; height: 100%;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+#shopProductModal .pg-track::-webkit-scrollbar { display: none; }
+#shopProductModal .pg-track:focus-visible { outline: 2px solid var(--sf-espresso); outline-offset: -2px; }
+#shopProductModal .pg-slide {
+  flex: 0 0 100%; height: 100%; scroll-snap-align: start;
+  border: 0; padding: 0; margin: 0; background: none; cursor: zoom-in;
+}
+#shopProductModal .pg-slide img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+#shopProductModal .pg-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 36px; height: 36px; border-radius: 50%; border: 0;
+  background: rgba(255, 255, 255, .88); color: var(--sf-espresso);
+  display: none; place-items: center; box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .25);
+}
+#shopProductModal .pg-prev { left: 8px; }
+#shopProductModal .pg-next { right: 8px; }
+#shopProductModal .pg-nav:disabled { opacity: 0; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) {
+  #shopProductModal .pg-nav { display: grid; }
+}
+#shopProductModal .pg-dots {
+  position: absolute; left: 0; right: 0; bottom: 10px; z-index: 2;
+  display: flex; justify-content: center; gap: 6px; pointer-events: none;
+}
+#shopProductModal .pg-dots span {
+  width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .65);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); transition: width .2s;
+}
+#shopProductModal .pg-dots span.is-active { width: 16px; background: #fff; }
+#shopProductModal .pg-zoom-hint {
+  position: absolute; right: 10px; top: 10px; z-index: 2; pointer-events: none;
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255, 255, 255, .8); color: var(--sf-espresso); font-size: .8rem;
+}
+#shopProductModal .pg-thumbs {
+  display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+#shopProductModal .pg-thumb {
+  flex: 0 0 56px; height: 70px; padding: 0; border-radius: 8px; overflow: hidden;
+  border: 2px solid transparent; background: var(--sf-sky); opacity: .72;
+}
+#shopProductModal .pg-thumb.is-active { border-color: var(--sf-espresso); opacity: 1; }
+#shopProductModal .pg-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A narrow phone: dots on the picture instead of a thumbnail row. */
+@media (max-width: 767.98px) {
+  #shopProductModal .pg-thumbs { display: none; }
+}
+@media (min-width: 768px) {
+  #shopProductModal .pg-dots { display: none; }
+}
+/* The lightbox sits inside the modal (focus trap) — above everything in it. */
+#shopProductModal .pswp { z-index: 2000; }

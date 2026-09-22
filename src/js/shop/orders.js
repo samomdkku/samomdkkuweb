@@ -10,6 +10,7 @@ import { getUser } from '../auth.js';
 import {
   thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries,
   rollupOrderStage, ITEM_STAGES_ORDER, itemStatusMeta,
+  thumbStyle,
 } from './data.js';
 import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip, updateOrderContact, getOrder } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
@@ -507,7 +508,7 @@ function plainItemsRowHtml(o, products) {
         const variant = variantLabel(p, it);
         return `
           <div class="order-mini">
-            <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
+            <div class="om-thumb" style="${thumbStyle(p, it.color)}"></div>
             <span>${escHtml(p?.name || it.product_id)}</span>
             ${it.is_preorder ? '<span class="preorder-tag">พรีออเดอร์</span>' : ''}
             ${variant ? `<span class="text-muted small">(${escHtml(variant)})</span>` : ''}
@@ -523,7 +524,7 @@ function itemBlockHtml(it, products) {
   return `
     <div class="order-item-block">
       <div class="oib-head">
-        <div class="om-thumb" style="${miniThumbStyle(p)}"></div>
+        <div class="om-thumb" style="${thumbStyle(p, it.color)}"></div>
         <div class="oib-info">
           <div class="oib-name">
             ${escHtml(p?.name || it.product_id)}
@@ -599,10 +600,3 @@ function variantLabel(p, it) {
   return parts.join(' · ');
 }
 
-function miniThumbStyle(p) {
-  if (p?.image_url) {
-    return `background-image: url('${escHtml(p.image_url)}'); background-size: cover; background-position: center;`;
-  }
-  const h = Number(p?.hue) || 220;
-  return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
-}

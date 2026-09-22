@@ -1,7 +1,27 @@
 # SAMO Shop — product gallery, zoom, and colour-linked pictures
 
-**DESIGN ONLY — nothing here is built yet.** Written 2026-09-22 from the owner's
-request:
+**BUILT 2026-09-22 (all five steps of §9, the §10 defaults).** Where it lives:
+
+| Piece | File |
+|---|---|
+| column, cover trigger, shape check | `supabase/migrations/0203_shop_product_gallery.sql`; proof `tools/shop0203-gallery.mjs` |
+| shared picture helpers | `src/js/shop/data.js` (`productImages`, `pictureAt`, `pictureFor`, `imageIndexForColor`, `thumbStyle`) |
+| popup gallery / lightbox | `src/js/shop/gallery.js`, `src/js/shop/lightbox.js` |
+| admin picture strip | `src/js/shop/admin.js` (`renderImageStrip`, `wireImageStrip`, `addPickedImages`) |
+| reader registry | `src/js/shop/pictures-readers.test.js` |
+
+**Where the build differs from this design:**
+- Every picture is fetched with `referrerpolicy="no-referrer"`. From localhost,
+  lh3 refused a request that carried a Referer, and Chrome blocked the
+  response (`ERR_BLOCKED_BY_ORB`); from `samo.md.kku.ac.th` it served. Measured
+  in headless Chrome.
+- Thumbnails are hidden on a narrow phone and dots show instead.
+
+**Not yet checked:**
+- The admin strip has NOT been driven signed in as an admin.
+- Pinch-zoom has not been tried on a real iPhone.
+
+The original request (kept for context):
 
 1. an admin can upload **more than one picture** per product;
 2. **กดที่รูปแล้วรูปใหญ่ขึ้น ซูมได้** — tap a picture to see it big and zoom it;

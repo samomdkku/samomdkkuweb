@@ -7,7 +7,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { thb, unitPriceFor } from './data.js';
+import { thb, unitPriceFor, thumbStyle } from './data.js';
 import { onCartChange, cartCount, cartSubtotal, getCart, updateQty, removeItem, repriceCart } from './state.js';
 import { listProducts } from './api.js';
 
@@ -92,7 +92,7 @@ function render() {
     const name = p?.name || it.productId;
     const colors = Array.isArray(p?.colors) ? p.colors : [];
     const colorLabel = colors.find((c) => c.id === it.color)?.label || it.color || '';
-    const thumb = thumbStyle(p);
+    const thumb = thumbStyle(p, it.color);
     const variantParts = [];
     if (it.size && it.size !== 'F') variantParts.push(`ไซส์ ${it.size}`);
     if (colors.length > 1 && colorLabel) variantParts.push(colorLabel);
@@ -139,13 +139,6 @@ function render() {
   if (gr)  gr.textContent  = `฿${thb(subtotal)}`;
 }
 
-function thumbStyle(p) {
-  if (p?.image_url) {
-    return `background-image: url('${escHtml(p.image_url)}'); background-size: cover; background-position: center;`;
-  }
-  const h = Number(p?.hue) || 220;
-  return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
-}
 
 /**
  * Convenience accessor for other modules that need the products map

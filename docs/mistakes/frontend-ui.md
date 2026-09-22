@@ -4073,3 +4073,26 @@ than guessing.
 it recovers from can have changed.* When you add "if the last try landed,
 use it", trace the retry from the top of the function, not from where you
 inserted the lookup.
+
+---
+
+## Every product picture was broken on localhost and fine in production — lh3 refuses some Referers
+
+**Symptom (found while building the shop gallery, 2026-09-22)**: in a headless
+run against `npm run dev`, every `<img>` of an lh3 picture failed, and the
+lightbox said "โหลดรูปไม่สำเร็จ". The same image loaded fine with `curl`, and
+from `samo.md.kku.ac.th`.
+
+**Cause**: lh3 answers a request carrying certain Referers (here
+`http://localhost:5199/`) with a body that is not the image, and Chrome blocks
+it as `net::ERR_BLOCKED_BY_ORB`. With `referrerPolicy = 'no-referrer'` the same
+URL served a real image, measured side by side in the same page.
+
+**Fix**: every gallery and lightbox picture, including the size-measuring load,
+is fetched with no referrer (`gallery.js`, `lightbox.js`). The passport's
+certificate loader already did this, because lh3 also throttles on Referer.
+
+**The general rule**: *an image host that works in production can still refuse
+your dev origin.* Before calling a picture feature broken or fine, load it
+from the origin being tested and read the NETWORK result, not just what a
+screenshot shows. For lh3, send no referrer.

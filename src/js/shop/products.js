@@ -15,8 +15,9 @@ import {
   unitPriceFor, priceRange, isUnlimitedBuying,
   availableForVariant, availableTotal,
   getShopTypes, findPickupLocation,
-  bannerLinkTarget,
+  bannerLinkTarget, imageIndexForColor,
 } from './data.js';
+import { renderGallery, galleryGoTo } from './gallery.js';
 import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll, getSettings } from './api.js';
 import { addItem } from './state.js';
 import { getProductMap } from './cart.js';
@@ -643,18 +644,16 @@ function openProductModal(product) {
       product.is_presale ? '<span class="ribbon-preorder">PREORDER</span>' : '',
       oos ? `<span class="ribbon-oos">${escHtml(STOCK_STATUS_META[product.stock_status]?.ribbon || '')}</span>` : '',
     ].join('');
-    hero.innerHTML = tags ? `<div class="ribbons">${tags}</div>` : '';
-    // Reset the SHORTHAND, not just the image: the no-picture branch below sets
-    // `background`, which also writes inline size/position (auto / 0 0) over the
-    // stylesheet's cover/center — so the next product WITH a picture drew it
-    // tiled from the corner until reload.
-    hero.style.background = '';
-    if (product.image_url) {
-      hero.style.backgroundImage = `url('${safeUrl(product.image_url)}')`;
-    } else {
-      const h = Number(product.hue) || 220;
-      hero.style.background = `repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 6px, hsl(${h} 28% 90%) 6px 12px)`;
-    }
+    // The gallery (docs/SHOP-GALLERY.md) opens on the picture of the colour
+    // the popup opens pre-selected, not blindly on the cover.
+    const start = Math.max(0, imageIndexForColor(product, modalState.color));
+    renderGallery(hero, product, {
+      start,
+      overlayHtml: tags ? `<div class="ribbons">${tags}</div>` : '',
+    });
+    // A hidden modal has no width, so the start picture settles once it shows.
+    const modalEl = document.getElementById('shopProductModal');
+    modalEl?.addEventListener('shown.bs.modal', () => galleryGoTo(hero, start, { instant: true }), { once: true });
   }
   setText('shopProductModalSub',   product.sub || '');
   setText('shopProductModalPrice', thb(unitPriceFor(product, modalState.size)));
@@ -823,6 +822,10 @@ function renderColorOptions(colors) {
     modalState.color = btn.dataset.color;
     host.querySelectorAll('.variant-swatch').forEach((el) =>
       el.classList.toggle('is-selected', el.dataset.color === modalState.color));
+    // Jump to this colour's picture; never hide the others. Untagged colour:
+    // stay where the buyer is (SHOP-GALLERY §4).
+    galleryGoTo(document.getElementById('shopProductModalHero'),
+      imageIndexForColor(modalState.product, modalState.color));
     if (label) {
       const found = colors.find((c) => c.id === modalState.color);
       label.textContent = found?.label || '';

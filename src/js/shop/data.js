@@ -5,6 +5,8 @@
 // products / orders / admin. Pure functions only; safe to unit-test.
 // ==============================================
 
+import { safeUrl } from '../utils.js';
+
 export const SHOP_SOURCES = [
   { id: 'all',      label: 'ทั้งหมด',            en: 'All' },
   { id: 'md',       label: 'MD',                en: 'MD',            color: 'var(--src-md)' },
@@ -459,4 +461,72 @@ export function bkkTime(v) {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' });
+}
+
+// ── Product pictures (0203, docs/SHOP-GALLERY.md) ─────────────────────────
+// ONE set of helpers for every reader of a product's pictures: the popup
+// gallery, the lightbox, the cart / checkout / order thumbnails, the admin
+// editor. A rule written in four places drifts in four directions.
+
+export const MAX_PRODUCT_IMAGES = 8;
+const LH3 = /^https:\/\/lh3\.googleusercontent\.com\/d\//;
+
+/** An lh3 URL without its size suffix (`=w1200`); anything else unchanged.
+ *  Mirrors public.shop_image_base — `images[].url` is stored in this form. */
+export function imageBase(url) {
+  const u = String(url || '');
+  return LH3.test(u) ? u.replace(/=[A-Za-z0-9-]+$/, '') : u;
+}
+
+/** The same picture at a given width. lh3 resizes on its side, so one stored
+ *  URL serves the thumbnail, the card and the zoom. Non-lh3 URLs come back as-is. */
+export function pictureAt(url, w) {
+  if (!url) return '';
+  return LH3.test(url) ? `${imageBase(url)}=w${Math.round(w)}` : url;
+}
+
+/** A product's pictures, cover first: `images` when it has any, else the
+ *  legacy single `image_url` (a row read before 0203, or a stale cache). */
+export function productImages(p) {
+  const list = Array.isArray(p?.images) ? p.images.filter((x) => x && x.url) : [];
+  if (list.length) {
+    return list.map((x) => ({ url: imageBase(x.url), w: x.w || null, h: x.h || null, color: x.color || null }));
+  }
+  return p?.image_url ? [{ url: imageBase(p.image_url), w: null, h: null, color: null }] : [];
+}
+
+/** Index of the first picture tagged with this colour, or -1. A tag naming a
+ *  colour the product no longer offers counts as untagged (SHOP-GALLERY §4). */
+export function imageIndexForColor(p, colorId) {
+  if (!colorId) return -1;
+  const known = new Set((Array.isArray(p?.colors) ? p.colors : []).map((c) => c.id));
+  if (!known.has(colorId)) return -1;
+  return productImages(p).findIndex((x) => x.color === colorId);
+}
+
+/** The picture for a cart / order line: its colour's first, else the cover. */
+export function pictureFor(p, colorId) {
+  const imgs = productImages(p);
+  if (!imgs.length) return '';
+  const i = imageIndexForColor(p, colorId);
+  return imgs[i >= 0 ? i : 0].url;
+}
+
+/** Alt text, generated — there is no field for an admin to leave blank. */
+export function imageAlt(p, img, i, n) {
+  const color = img?.color && (Array.isArray(p?.colors) ? p.colors : []).find((c) => c.id === img.color);
+  const base = `${p?.name || 'สินค้า'}${color ? ` สี${color.label || color.id}` : ''}`;
+  return n > 1 ? `${base} (รูปที่ ${i + 1} จาก ${n})` : base;
+}
+
+/** Inline style for a small product thumbnail (cart, checkout, my orders) —
+ *  the line's colour picture, else the cover, else the product's stripe.
+ *  ONE copy: there were three identical ones, one per file. */
+export function thumbStyle(p, colorId, w = 200) {
+  const url = pictureFor(p, colorId);
+  if (url) {
+    return `background-image: url('${safeUrl(pictureAt(url, w))}'); background-size: cover; background-position: center;`;
+  }
+  const h = Number(p?.hue) || 220;
+  return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
 }

@@ -1609,7 +1609,21 @@ unit-tested, not clicked.
 
 ## 18c. SAMO Shop — product gallery (several pictures, zoom, colour pictures)
 
-**Status: DECIDED 2026-09-22 — design only, nothing built.** The owner asked for
+**Status: VERIFIED 2026-09-22 — how: `shop0203-gallery` 16/16 on dev and production, plus a headless-Chrome drive of the popup.** In detail:
+- migration 0203 is applied to dev and production. Before the migration the
+  proof errors, as documented;
+- the popup gallery and lightbox were driven in headless Chrome at 390 px and
+  1280 px:
+  - the pictures load, the colour jump and the swipe work;
+  - tapping opens the viewer inside the modal, and Esc and the back button each
+    close only the viewer;
+  - no console errors;
+- a reader-registry test, mutation-checked.
+
+⚠️ **The admin picture strip was NOT driven signed in**, and pinch was not tried
+on a real iPhone. The first real admin upload is its check.
+
+~~Earlier status: DECIDED 2026-09-22 — design only.~~ The owner asked for
 several pictures per product, tap-to-zoom, and a picture that follows the chosen
 colour. The full design, with the measured facts it rests on, is
 `docs/SHOP-GALLERY.md`:
@@ -1620,11 +1634,19 @@ colour. The full design, with the measured facts it rests on, is
 - picking a colour jumps to that colour's picture and never filters the rest;
 - five steps, each shippable on its own (§9).
 
-- **OWED — the build (§9 steps 1–5).** Start with migration 0203 and its proof,
-  including the stale-tab trigger branch.
-- **OWED (owner) — three defaults in §10:** 8 pictures at most; jump, not
-  filter; cart thumbnails follow the colour. Build with the defaults unless
-  told otherwise.
+- **BUILT — all five steps of §9.** Where each piece lives is in the header of
+  `docs/SHOP-GALLERY.md`.
+- **OWED — drive the admin strip as a real admin once:**
+  1. pick 3 pictures;
+  2. reorder them, tag one with a colour, and save;
+  3. remove one and save again. Its Drive file should go, and a picture another
+     product shares should stay.
+- **DECIDED — the three §10 defaults were built:**
+  - at most 8 pictures;
+  - picking a colour jumps to its picture and never filters the others;
+  - cart and order thumbnails follow the chosen colour.
+
+  The owner can override any of them.
 - ⚠️ **The picture in-use check must learn `images[]` in the same step as the
   editor**, or saving a product can trash a picture another product still
   shows (§3, §8).

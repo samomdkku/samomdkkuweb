@@ -17,7 +17,9 @@ import {
   getShopTypes, setShopTypes, getPromptpayQrs, setPromptpayQrs,
   getPickupLocations, setPickupLocations,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
+  productImages, pictureAt, imageBase, MAX_PRODUCT_IMAGES,
 } from './data.js';
+import { downscaleImage, decode } from '../image-resize.js';
 import {
   listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus,
   addOrderItem, updateOrderItem, removeOrderItem, recomputeOrderTotals, adminCreateOrder,
@@ -2605,11 +2607,7 @@ function wireBatchEditor() {
       uploadedNow = null;
       // Trash the replaced picture AFTER the write, and only if nothing else
       // still shows it — another announcement, or a product.
-      if (prev && prev !== (payload.image_url || '')
-          && !state.batches.some((x) => x.id !== b.id && x.image_url === prev)
-          && !(state.products || []).some((p) => p.image_url === prev)) {
-        deleteShopFile(prev).catch(() => {});
-      }
+      if (prev && prev !== (payload.image_url || '')) trashImageIfUnused(prev);
       if (b._imagePreview) URL.revokeObjectURL(b._imagePreview);
       showShopToast('บันทึกประกาศแล้ว', 'success');
       state.batchEditor = null;
@@ -2671,7 +2669,7 @@ function blankProduct() {
     preorder_price_by_size: {},
     promptpay_qr_id: null,
     pickup_location_id: null,
-    _imageFile: null,
+    _images: [],
   };
 }
 
@@ -2738,18 +2736,18 @@ function renderProductsTable() {
   tbody.querySelectorAll('[data-product-edit]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const p = state.products.find((x) => x.id === btn.dataset.productEdit);
-      if (p) { state.productEditor = { ...p, _imageFile: null, stock_matrix: { ...(p.stock_matrix || {}) } }; renderProductEditor(); }
+      if (p) { state.productEditor = { ...p, _images: null, stock_matrix: { ...(p.stock_matrix || {}) } }; renderProductEditor(); }
     });
   });
   tbody.querySelectorAll('[data-product-delete]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const pid = btn.dataset.productDelete;
       if (!confirm(`ลบสินค้า ${pid}?`)) return;
-      const image = state.products.find((x) => x.id === pid)?.image_url;
+      const images = productImages(state.products.find((x) => x.id === pid)).map((x) => x.url);
       try {
         await deleteProduct(pid);
         state.products = state.products.filter((x) => x.id !== pid);
-        trashImageIfUnused(image);
+        images.forEach((u) => trashImageIfUnused(u));
         showShopToast('ลบสินค้าแล้ว', 'success');
         refreshProducts();
       } catch (e) {
@@ -2888,16 +2886,13 @@ function renderProductEditor() {
           <label class="small text-muted mb-1">รายละเอียด</label>
           <textarea id="shopProdDesc" class="form-control" rows="3">${escHtml(p.description || '')}</textarea>
         </div>
-        <div class="col-md-6">
-          <label class="small text-muted mb-1">รูปสินค้า</label>
-          <div class="d-flex gap-3 align-items-center">
-            ${p.image_url ? `<img src="${safeUrl(convertDriveUrl(p.image_url))}" alt="" style="width:80px; height:100px; object-fit:cover; border-radius:6px; border:1px solid var(--shop-ink-100, #ebecee);" />` : ''}
-            <label class="btn btn-ghost btn-sm mb-0">
-              <i class="bi bi-cloud-upload me-1"></i> ${p.image_url ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
-              <input id="shopProdImageFile" type="file" accept="image/*" hidden />
-            </label>
-            ${p._imageFile ? `<span class="small text-muted">${escHtml(p._imageFile.name)} (รอบันทึก)</span>` : ''}
-          </div>
+        <div class="col-12">
+          <label class="small text-muted mb-1 d-flex justify-content-between gap-2">
+            <span>รูปสินค้า · ลากหรือกด ◀ ▶ เพื่อเรียง · รูปแรก = รูปปก · เลือกสีให้รูปได้</span>
+            <span id="shopProdImgCount"></span>
+          </label>
+          <div class="shop-img-strip" id="shopProdImages"></div>
+          <div class="form-text" id="shopProdImgNote"></div>
         </div>
         <div class="col-md-6 d-flex align-items-end gap-3 flex-wrap">
           <div class="form-check">
@@ -2941,23 +2936,7 @@ function renderProductEditor() {
       </div>
     </div>`;
 
-  document.getElementById('shopProdImageFile')?.addEventListener('change', async (e) => {
-    const picked = e.target.files?.[0] || null;
-    // The bytes, not the handle — the upload waits for save (read-file.js).
-    let held;
-    try { held = picked && await holdInMemory(picked); } catch (err) {
-      showShopToast(err.message, 'error');
-      return;
-    }
-    // The editor may have moved to another product (or closed) during the copy.
-    if (state.productEditor !== p) {
-      showShopToast('เปลี่ยนสินค้าที่แก้ไขไปแล้ว — รูปนี้ไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
-      return;
-    }
-    collectProductEditorState();
-    p._imageFile = held;
-    renderProductEditor();
-  });
+  wireImageStrip(p);
 
   // Re-render the matrix when sizes change so admin can dial in stock
   // immediately after editing variants. Color rows handle their own
@@ -2998,6 +2977,137 @@ function renderProductEditor() {
   document.getElementById('shopProdSave')?.addEventListener('click', saveProductForm);
 }
 
+// ── Product pictures editor (docs/SHOP-GALLERY.md §3) ─────────────────────
+// p._images: [{ url?, w, h, color, file?, preview? }] — a saved picture has a
+// `url`; a picked one has a `file` (bytes held in memory, already shrunk) and a
+// blob `preview`. Nothing reaches Drive until SAVE (upload-on-save), and a
+// removed saved picture is trashed only after the save, only if unused.
+
+function ensureImages(p) {
+  if (!Array.isArray(p._images)) p._images = productImages(p).map((x) => ({ ...x }));
+  return p._images;
+}
+
+function renderImageStrip(p) {
+  const host = document.getElementById('shopProdImages');
+  if (!host || state.productEditor !== p) return;
+  const imgs = ensureImages(p);
+  const colors = Array.isArray(p.colors) ? p.colors.filter((c) => c && c.id) : [];
+  const known = new Set(colors.map((c) => c.id));
+  const src = (im) => (im.preview && im.preview.startsWith('blob:')
+    ? escHtml(im.preview)                      // minted by this page; safeUrl would drop blob:
+    : safeUrl(pictureAt(im.url, 240)));
+  host.innerHTML = imgs.map((im, i) => `
+    <div class="shop-img-tile" data-img-idx="${i}">
+      ${i === 0 ? '<span class="shop-img-cover">ปก</span>' : ''}
+      ${im.file ? '<span class="shop-img-new">ใหม่</span>' : ''}
+      <img src="${src(im)}" alt="" draggable="false" />
+      <select class="form-select form-select-sm" data-img-color="${i}" aria-label="สีของรูปที่ ${i + 1}">
+        <option value="">ทุกสี</option>
+        ${colors.map((c) => `<option value="${escHtml(c.id)}" ${im.color === c.id ? 'selected' : ''}>${escHtml(c.label || c.id)}</option>`).join('')}
+      </select>
+      <div class="shop-img-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-img-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="เลื่อนไปทางซ้าย">◀</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-img-move="${i}" data-dir="1" ${i === imgs.length - 1 ? 'disabled' : ''} aria-label="เลื่อนไปทางขวา">▶</button>
+        <button type="button" class="btn btn-ghost btn-sm text-danger" data-img-remove="${i}" aria-label="ลบรูปที่ ${i + 1}">✕</button>
+      </div>
+    </div>`).join('') + (imgs.length < MAX_PRODUCT_IMAGES ? `
+    <label class="shop-img-add">
+      <i class="bi bi-plus-lg"></i><span>เพิ่มรูป</span>
+      <input type="file" accept="image/*" multiple hidden data-img-add />
+    </label>` : '');
+  const count = document.getElementById('shopProdImgCount');
+  if (count) count.textContent = `${imgs.length} / ${MAX_PRODUCT_IMAGES}`;
+  const note = document.getElementById('shopProdImgNote');
+  if (note) {
+    const orphan = imgs.some((im) => im.color && !known.has(im.color));
+    const pending = imgs.filter((im) => im.file).length;
+    note.textContent = [
+      pending ? `รูปใหม่ ${pending} รูปจะอัปโหลดตอนกดบันทึก` : '',
+      orphan ? 'บางรูปติดสีที่ลบไปแล้ว — จะถือเป็น "ทุกสี"' : '',
+    ].filter(Boolean).join(' · ');
+  }
+}
+
+/** Wired once per editor render, on the strip CONTAINER (it survives strip
+ *  re-renders, which replace only its children) — so no listener piles up. */
+function wireImageStrip(p) {
+  const host = document.getElementById('shopProdImages');
+  if (!host) return;
+  renderImageStrip(p);
+  host.addEventListener('change', async (e) => {
+    const sel = e.target.closest('[data-img-color]');
+    if (sel) { ensureImages(p)[Number(sel.dataset.imgColor)].color = sel.value || null; return; }
+    const input = e.target.closest('[data-img-add]');
+    if (input) await addPickedImages(p, Array.from(input.files || []));
+  });
+  host.addEventListener('click', (e) => {
+    const mv = e.target.closest('[data-img-move]');
+    const rm = e.target.closest('[data-img-remove]');
+    const imgs = ensureImages(p);
+    if (mv) {
+      const i = Number(mv.dataset.imgMove); const j = i + Number(mv.dataset.dir);
+      if (j < 0 || j >= imgs.length) return;
+      [imgs[i], imgs[j]] = [imgs[j], imgs[i]];
+      renderImageStrip(p);
+    } else if (rm) {
+      const [gone] = imgs.splice(Number(rm.dataset.imgRemove), 1);
+      if (gone?.preview) URL.revokeObjectURL(gone.preview);
+      renderImageStrip(p);
+    }
+  });
+  if (window.Sortable) {
+    window.Sortable.create(host, {
+      draggable: '.shop-img-tile',
+      filter: 'select, button',
+      preventOnFilter: false,
+      animation: 150,
+      onEnd: () => {
+        const imgs = ensureImages(p);
+        const order = Array.from(host.querySelectorAll('.shop-img-tile')).map((t) => Number(t.dataset.imgIdx));
+        p._images = order.map((i) => imgs[i]);
+        renderImageStrip(p);
+      },
+    });
+  }
+}
+
+/** Picked files → held, shrunk, measured — at pick time (read-file.js). */
+async function addPickedImages(p, files) {
+  if (!files.length) return;
+  const room = MAX_PRODUCT_IMAGES - ensureImages(p).length;
+  if (files.length > room) {
+    showShopToast(`ใส่ได้สูงสุด ${MAX_PRODUCT_IMAGES} รูป — เพิ่มได้อีก ${Math.max(0, room)} รูป`, 'warn');
+    files = files.slice(0, Math.max(0, room));
+  }
+  const note = document.getElementById('shopProdImgNote');
+  if (note) note.textContent = 'กำลังเตรียมรูป…';
+  const ready = [];
+  for (const f of files) {
+    try {
+      const held = await holdInMemory(f);
+      const small = await downscaleImage(held, { maxEdge: PRODUCT_IMAGE_EDGE, quality: 0.9 });
+      const bmp = await decode(small);
+      const w = bmp.width || bmp.naturalWidth; const h = bmp.height || bmp.naturalHeight;
+      bmp.close?.();
+      ready.push({ file: small, preview: URL.createObjectURL(small), w, h, color: null });
+    } catch (err) {
+      showShopToast(`${f.name}: ${err?.message || 'เปิดรูปนี้ไม่ได้'}`, 'error');
+    }
+  }
+  if (state.productEditor !== p) {
+    ready.forEach((x) => URL.revokeObjectURL(x.preview));
+    showShopToast('เปลี่ยนสินค้าที่แก้ไขไปแล้ว — รูปที่เลือกไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
+    return;
+  }
+  ensureImages(p).push(...ready.slice(0, MAX_PRODUCT_IMAGES - ensureImages(p).length));
+  renderImageStrip(p);
+}
+
+/** The long edge a product picture is stored at: zoom can only show pixels
+ *  that were stored (the first picture was 1200 px — SHOP-GALLERY §0). */
+const PRODUCT_IMAGE_EDGE = 2400;
+
 function refreshMatrixOnly() {
   const p = state.productEditor;
   if (!p) return;
@@ -3015,6 +3125,7 @@ function refreshMatrixOnly() {
   if (host) host.innerHTML = stockMatrixHtml(p);
   const prices = document.getElementById('shopProdSizePrices');
   if (prices) prices.innerHTML = sizePricesHtml(p);
+  renderImageStrip(p);   // its colour menus list p.colors
 }
 
 /** Per-size price table (0199): one row per size, a normal and a preorder
@@ -3196,7 +3307,7 @@ async function saveProductForm() {
     id: e.id || newProductId(name),
     ...readProductForm(),
     name,
-    image_url: e.image_url || null,
+    image_url: e.image_url || null,   // dropped before the write — the trigger derives it
   };
   if (e.id && !e._stockTouched) delete payload.stock_matrix;
   if (newProductIdTaken) {
@@ -3208,33 +3319,37 @@ async function saveProductForm() {
   const original = btn?.innerHTML;
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก…'; }
 
-  // The image the row is about to stop pointing at. Captured before the upload
-  // overwrites payload.image_url.
-  const prevImage = String(e.image_url || '').trim();
-  // Set once THIS attempt has put a file in Drive, cleared once the row points
-  // at it. A failed save trashes it: nothing references it, and a retry
-  // uploads again — each failure used to leave another public copy behind.
-  let uploadedNow = null;
+  // The pictures the row is about to stop pointing at are trashed only AFTER
+  // the write, and only if nothing else shows them (trashImageIfUnused).
+  const prevUrls = productImages(e).map((x) => x.url);
+  // Everything THIS attempt put in Drive; trashed if the write fails, so a
+  // retry does not leave another public copy behind.
+  let uploadedNow = [];
   try {
-    if (e._imageFile) {
-      const ext = (e._imageFile.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
-      const fileName = `${slugify(name)}_${Date.now()}.${ext}`;
-      // Downscaled like batch images and slips — a raw phone photo is several
-      // MB of base64 through Apps Script, for a card shown at a few hundred px.
-      payload.image_url = await uploadShopFile(e._imageFile, `Shop/Products/${payload.id}`, { fileName, maxEdge: 2000 });
-      uploadedNow = payload.image_url;
+    const colorIds = new Set((payload.colors || []).map((c) => c.id));
+    const list = ensureImages(e);
+    const images = [];
+    for (let k = 0; k < list.length; k += 1) {
+      const im = list[k];
+      let url = im.url;
+      if (im.file) {
+        if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดรูป ${k + 1}/${list.length}…`;
+        const ext = im.file.type === 'image/webp' ? 'webp' : 'jpg';
+        url = imageBase(await uploadShopFile(im.file, `Shop/Products/${payload.id}`,
+          { fileName: `${slugify(name)}_${Date.now()}_${k}.${ext}` }));
+        uploadedNow.push(url);
+      }
+      images.push({ url, w: im.w || null, h: im.h || null,
+        color: im.color && colorIds.has(im.color) ? im.color : null });
     }
+    // image_url is the database's to derive (0203) — the cover is images[0].
+    payload.images = images;
+    delete payload.image_url;
+    if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก…';
     await upsertProduct(payload);
-    uploadedNow = null;
-    // Trash the replaced image, AFTER the write — the row now points elsewhere,
-    // so this cannot destroy a picture the catalogue is still using. Skipped
-    // when any OTHER product shares the URL: a shop admin can read every
-    // product row, so this list is complete for this caller (unlike the
-    // RLS-blocked client-side count that made the ทีม SAMO refcount fail open).
-    if (prevImage && prevImage !== (payload.image_url || '')
-        && !(state.products || []).some((p) => p.id !== payload.id && p.image_url === prevImage)) {
-      deleteShopFile(prevImage).catch(() => {});
-    }
+    uploadedNow = [];
+    const kept = new Set(images.map((x) => x.url));
+    for (const u of prevUrls) if (!kept.has(u)) trashImageIfUnused(u);
 
     // Production status cascade — only when the dropdown changed from
     // the original. The RPC owns the field + the order cascade so this
@@ -3260,7 +3375,7 @@ async function saveProductForm() {
     state.productEditor = null;
     refreshProducts();
   } catch (err) {
-    if (uploadedNow) deleteShopFile(uploadedNow).catch(() => {});
+    for (const u of uploadedNow) deleteShopFile(u).catch(() => {});
     showShopToast(`บันทึกล้มเหลว: ${err.message || err}`, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = original || 'บันทึก'; }
   }
@@ -4339,12 +4454,18 @@ async function trashImageIfUnused(url) {
     const [products, batches, banners] = await Promise.all([
       listProducts({ activeOnly: false }), listAllBatches(), bannerRead,
     ]);
-    rows = [...products, ...batches, ...banners];
+    // EVERY picture of every product (0203), not just its cover — or saving
+    // product A would trash picture 2 of product B. Compared by lh3 base, since
+    // a cover carries =w1200 and images[] does not.
+    rows = [
+      ...products.flatMap((p) => productImages(p).map((x) => x.url)),
+      ...batches.map((b) => b.image_url), ...banners.map((b) => b.image_url),
+    ].filter(Boolean).map(imageBase);
   } catch (e) {
     console.warn('[shop/admin] image kept — could not confirm it is unused:', e?.message || e);
     return;
   }
-  if (!rows.some((x) => x.image_url === u)) deleteShopFile(u).catch(() => {});
+  if (!rows.includes(imageBase(u))) deleteShopFile(u).catch(() => {});
 }
 
 async function onBannerDelete(id) {

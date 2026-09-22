@@ -10,7 +10,7 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import { getUser } from '../auth.js';
-import { thb, getDefaultQr, findQr, findPickupLocation, cartLineProblems } from './data.js';
+import { thb, getDefaultQr, findQr, findPickupLocation, cartLineProblems, thumbStyle } from './data.js';
 import { getCart, cartSubtotal, clearCart, addItem, removeItem } from './state.js';
 import { getSettings, placeShopOrder, findMyOrderBySlip, listProducts, fetchReservedMatrixAll } from './api.js';
 import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE, prepareSlip } from './uploads.js';
@@ -319,7 +319,7 @@ function renderHtml() {
             <div class="d-flex gap-3 align-items-center py-2"
                  style="border-bottom: ${i < cart.length - 1 ? '1px solid var(--shop-ink-100, #ebecee)' : 'none'};">
               <div style="width:36px; height:48px; border-radius:6px; flex:0 0 auto;
-                          ${miniThumbStyle(p)}"></div>
+                          ${thumbStyle(p, it.color)}"></div>
               <div class="flex-grow-1">
                 <div style="font-weight:600;">${escHtml(name)}</div>
                 <div class="small text-muted">${escHtml(variantParts.join(' · '))}</div>
@@ -462,13 +462,6 @@ function renderGroupCard(g, gi, split, devSkip) {
     </div>`;
 }
 
-function miniThumbStyle(p) {
-  if (p?.image_url) {
-    return `background-image: url('${escHtml(p.image_url)}'); background-size: cover; background-position: center;`;
-  }
-  const h = Number(p?.hue) || 220;
-  return `background: repeating-linear-gradient(135deg, hsl(${h} 30% 96%) 0 4px, hsl(${h} 28% 90%) 4px 8px);`;
-}
 
 function wireEvents() {
   document.getElementById('shopCheckoutBackToShop')?.addEventListener('click', () => onBack());
