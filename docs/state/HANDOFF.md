@@ -1689,7 +1689,7 @@ colour. The full design, with the measured facts it rests on, is
   `--host-resolver-rules="MAP samo.md.kku.ac.th:443 127.0.0.1:8443"
   --ignore-certificate-errors`. If it lasts, tell KKU IT.
 - **DECIDED — the three §10 defaults were built:**
-  - at most 8 pictures;
+  - ~~at most 8 pictures~~ → UNLIMITED (owner, 2026-09-22; 0205 applied dev+prod; picking >20 at once asks first);
   - picking a colour jumps to its picture and never filters the others;
   - cart and order thumbnails follow the chosen colour.
 
@@ -1697,3 +1697,12 @@ colour. The full design, with the measured facts it rests on, is
 - ✅ **DONE — the picture in-use check reads `images[]`**
   (`trashImageIfUnused` in `admin.js` flattens every product's pictures, and
   reads the server, not `state.*`). `pictures-readers.test.js` asserts it.
+
+## 18d. Shop pictures: unlimited — what the session ran out before finishing
+
+**Status: OWED 2026-09-22 — the session hit its token limit mid-change.** Done and deployed: 0205 (no count check, dev + prod,
+`shop0203-gallery` 19/19), the admin strip with no cap (counter "N รูป", a confirm above 20 files at once). NOT done:
+- a gallery with many pictures shows one DOT per picture on a phone (`gallery.js`) — switch to a "3 / N" counter above ~8;
+- uploads on save are not paced for a big batch (`saveProductForm` loop) — add ~500 ms between uploads;
+- docs still say 8 in places: `README.md` "up to 8", `docs/CONTEXT.md` "≤ 8", `docs/SHOP-GALLERY.md` §2/§3/§9/§10,
+  the PENDING changelog entry "สูงสุด 8 รูป" (`src/data/changelog.js`). `grep -rn "8 pictures\|≤ 8\|สูงสุด 8"`.

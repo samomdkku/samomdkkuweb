@@ -17,7 +17,7 @@ import {
   getShopTypes, setShopTypes, getPromptpayQrs, setPromptpayQrs,
   getPickupLocations, setPickupLocations,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
-  productImages, pictureAt, imageBase, MAX_PRODUCT_IMAGES,
+  productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
 } from './data.js';
 import { downscaleImage, decode } from '../image-resize.js';
 import {
@@ -3021,13 +3021,13 @@ function renderImageStrip(p) {
         <button type="button" class="btn btn-ghost btn-sm" data-img-move="${i}" data-dir="1" ${i === imgs.length - 1 ? 'disabled' : ''} aria-label="เลื่อนไปทางขวา">▶</button>
         <button type="button" class="btn btn-ghost btn-sm text-danger" data-img-remove="${i}" aria-label="ลบรูปที่ ${i + 1}">✕</button>
       </div>
-    </div>`).join('') + (imgs.length < MAX_PRODUCT_IMAGES ? `
+    </div>`).join('') + `
     <label class="shop-img-add">
       <i class="bi bi-plus-lg"></i><span>เพิ่มรูป</span>
       <input type="file" accept="image/*" multiple hidden data-img-add />
-    </label>` : '');
+    </label>`;
   const count = document.getElementById('shopProdImgCount');
-  if (count) count.textContent = `${imgs.length} / ${MAX_PRODUCT_IMAGES}`;
+  if (count) count.textContent = `${imgs.length} รูป`;
   const note = document.getElementById('shopProdImgNote');
   if (note) {
     const orphan = imgs.some((im) => im.color && !known.has(im.color));
@@ -3086,11 +3086,10 @@ function wireImageStrip(p) {
 /** Picked files → held, shrunk, measured — at pick time (read-file.js). */
 async function addPickedImages(p, files) {
   if (!files.length) return;
-  const room = MAX_PRODUCT_IMAGES - ensureImages(p).length;
-  if (files.length > room) {
-    showShopToast(`ใส่ได้สูงสุด ${MAX_PRODUCT_IMAGES} รูป — เพิ่มได้อีก ${Math.max(0, room)} รูป`, 'warn');
-    files = files.slice(0, Math.max(0, room));
-  }
+  // No limit (0205) — but a pick this large is usually a whole folder dragged by
+  // accident, and each picture is an upload on save. Ask once; any answer goes.
+  if (files.length > CONFIRM_PICK_OVER
+      && !confirm(`เพิ่มรูปทั้งหมด ${files.length} รูปใช่ไหม? (แต่ละรูปจะอัปโหลดตอนกดบันทึก)`)) return;
   const note = document.getElementById('shopProdImgNote');
   if (note) note.textContent = 'กำลังเตรียมรูป…';
   p._preparing = (p._preparing || 0) + 1;   // saveProductForm waits for this
@@ -3116,9 +3115,7 @@ async function addPickedImages(p, files) {
     showShopToast('เปลี่ยนสินค้าที่แก้ไขไปแล้ว — รูปที่เลือกไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
     return;
   }
-  const fit = MAX_PRODUCT_IMAGES - ensureImages(p).length;
-  ready.slice(fit).forEach((x) => URL.revokeObjectURL(x.preview));   // over the limit: released, not leaked
-  ensureImages(p).push(...ready.slice(0, fit));
+  ensureImages(p).push(...ready);
   renderImageStrip(p);
 }
 

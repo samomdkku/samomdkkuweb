@@ -11,7 +11,8 @@
 //     gallery of one; and (0204) a null, or a URL already in the gallery — what
 //     a stale tab re-sends on every save — changes nothing. The branch nobody
 //     clicks on purpose, so it is asserted.
-//  3. SHAPE. The constraint refuses a 9th picture, a non-Google URL, an unknown
+//  3. SHAPE. Any number of pictures is allowed (0205 — the owner asked for no
+//     limit; 40 is asserted); the constraint refuses a non-Google URL, an unknown
 //     key and a non-positive size — each DENY beside an ALLOW.
 //  4. RLS unchanged: anon cannot write a product's pictures; a real shop admin,
 //     as `authenticated` over the same row, can (the ALLOW beside the DENY).
@@ -69,13 +70,12 @@ update public.shop_products set images = '[]' where id = 'probe0203';
 insert into probe values ('cover: no pictures, no cover', 'null',
   coalesce((select image_url from public.shop_products where id = 'probe0203'), 'null'));
 
--- 3. SHAPE — ALLOW 8, then each DENY
+-- 3. SHAPE — ALLOW many (0205: no count limit), then each DENY
 do $$ begin
-  update public.shop_products set images = ${J(Array.from({ length: 8 }, (_, i) => img(`P${i}`)))} where id = 'probe0203';
-  insert into probe values ('shape: 8 pictures are allowed', 'allowed', 'allowed');
-exception when others then insert into probe values ('shape: 8 pictures are allowed', 'allowed', sqlerrm); end $$;
+  update public.shop_products set images = ${J(Array.from({ length: 40 }, (_, i) => img(`P${i}`)))} where id = 'probe0203';
+  insert into probe values ('shape: 40 pictures are allowed (no limit)', 'allowed', 'allowed');
+exception when others then insert into probe values ('shape: 40 pictures are allowed (no limit)', 'allowed', sqlerrm); end $$;
 ${[
-    ['a 9th picture', Array.from({ length: 9 }, (_, i) => img(`P${i}`))],
     ['a non-Google URL', [{ url: 'https://evil.example/x.png', w: 1, h: 1, color: null }]],
     ['a URL with a quote', [{ url: `${L('Q')}"onerror="1`, w: 1, h: 1, color: null }]],
     ['an unknown key', [{ ...img('K'), onclick: 'x' }]],

@@ -469,7 +469,10 @@ export function bkkTime(v) {
 // gallery, the lightbox, the cart / checkout / order thumbnails, the admin
 // editor. A rule written in four places drifts in four directions.
 
-export const MAX_PRODUCT_IMAGES = 8;
+/** No limit on a product's pictures (owner, 2026-09-22 — 0205). Picking more
+ *  than this many AT ONCE asks first: an accidental whole-folder drag should
+ *  not start hundreds of uploads. A confirm, not a cap. */
+export const CONFIRM_PICK_OVER = 20;
 const LH3 = /^https:\/\/lh3\.googleusercontent\.com\/d\//;
 
 /** An lh3 URL without its size suffix (`=w1200`). A Drive-style link
