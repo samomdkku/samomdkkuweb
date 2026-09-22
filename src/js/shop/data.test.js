@@ -197,7 +197,8 @@ describe('product pictures', () => {
   it('sizes one stored lh3 URL, and leaves other URLs alone', () => {
     expect(imageBase(L('A', '=w1200'))).toBe(L('A'));
     expect(pictureAt(L('A', '=w1200'), 200)).toBe(L('A', '=w200'));
-    expect(pictureAt('https://drive.google.com/file/d/X/view', 200)).toBe('https://drive.google.com/file/d/X/view');
+    expect(pictureAt('https://drive.google.com/file/d/X/view', 200)).toBe(L('X', '=w200'));   // converted, like the cards
+    expect(pictureAt('https://example.com/a.png', 200)).toBe('https://example.com/a.png');     // not Google: as-is
     expect(pictureAt('', 200)).toBe('');
   });
   it('reads images, falling back to the legacy cover', () => {
@@ -212,6 +213,15 @@ describe('product pictures', () => {
     expect(pictureFor(tee, 'black')).toBe(L('B'));
     expect(pictureFor(tee, 'red')).toBe(L('A'));    // no tagged picture → cover
     expect(pictureFor({}, 'red')).toBe('');
+  });
+  it('treats a Drive-style link like the cards do', () => {
+    const d = 'https://drive.google.com/file/d/XYZ/view?usp=sharing';
+    expect(imageBase(d)).toBe(L('XYZ'));
+    expect(pictureAt(d, 300)).toBe(L('XYZ', '=w300'));
+    expect(productImages({ images: [{ url: d }] })[0].url).toBe(L('XYZ'));
+  });
+  it('an order line that stored the colour LABEL still finds its picture', () => {
+    expect(pictureFor(tee, 'ดำ')).toBe(L('B'));
   });
   it('generates alt text', () => {
     expect(imageAlt(tee, tee.images[1], 1, 3)).toBe('เสื้อ สีดำ (รูปที่ 2 จาก 3)');

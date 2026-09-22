@@ -245,6 +245,7 @@ function ensureMounted() {
 
   // Products
   document.getElementById('shopAdminProductsNew')?.addEventListener('click', () => {
+    releasePreviews(state.productEditor);
     state.productEditor = blankProduct();
     renderProductEditor();
   });
@@ -2736,7 +2737,7 @@ function renderProductsTable() {
   tbody.querySelectorAll('[data-product-edit]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const p = state.products.find((x) => x.id === btn.dataset.productEdit);
-      if (p) { state.productEditor = { ...p, _images: null, stock_matrix: { ...(p.stock_matrix || {}) } }; renderProductEditor(); }
+      if (p) { releasePreviews(state.productEditor); state.productEditor = { ...p, _images: null, stock_matrix: { ...(p.stock_matrix || {}) } }; renderProductEditor(); }
     });
   });
   tbody.querySelectorAll('[data-product-delete]').forEach((btn) => {
@@ -2973,7 +2974,7 @@ function renderProductEditor() {
     colorsList.addEventListener('input', refreshMatrixOnly);
   }
 
-  document.getElementById('shopProdCancel')?.addEventListener('click', () => { state.productEditor = null; renderProductEditor(); });
+  document.getElementById('shopProdCancel')?.addEventListener('click', () => { releasePreviews(state.productEditor); state.productEditor = null; renderProductEditor(); });
   document.getElementById('shopProdSave')?.addEventListener('click', saveProductForm);
 }
 
@@ -2982,6 +2983,14 @@ function renderProductEditor() {
 // `url`; a picked one has a `file` (bytes held in memory, already shrunk) and a
 // blob `preview`. Nothing reaches Drive until SAVE (upload-on-save), and a
 // removed saved picture is trashed only after the save, only if unused.
+
+let _imgSortable = null;
+/** Release the blob previews of a picture list (cancel / save / switch). */
+function releasePreviews(p) {
+  for (const im of (Array.isArray(p?._images) ? p._images : [])) {
+    if (im.preview) { URL.revokeObjectURL(im.preview); im.preview = null; }
+  }
+}
 
 function ensureImages(p) {
   if (!Array.isArray(p._images)) p._images = productImages(p).map((x) => ({ ...x }));
@@ -2993,6 +3002,7 @@ function renderImageStrip(p) {
   if (!host || state.productEditor !== p) return;
   const imgs = ensureImages(p);
   const colors = Array.isArray(p.colors) ? p.colors.filter((c) => c && c.id) : [];
+  p._stripColorsKey = JSON.stringify((p.colors || []).map((c) => [c.id, c.label]));
   const known = new Set(colors.map((c) => c.id));
   const src = (im) => (im.preview && im.preview.startsWith('blob:')
     ? escHtml(im.preview)                      // minted by this page; safeUrl would drop blob:
@@ -3057,7 +3067,8 @@ function wireImageStrip(p) {
     }
   });
   if (window.Sortable) {
-    window.Sortable.create(host, {
+    try { _imgSortable?.destroy(); } catch { /* its container is gone — fine */ }
+    _imgSortable = window.Sortable.create(host, {
       draggable: '.shop-img-tile',
       filter: 'select, button',
       preventOnFilter: false,
@@ -3082,10 +3093,14 @@ async function addPickedImages(p, files) {
   }
   const note = document.getElementById('shopProdImgNote');
   if (note) note.textContent = 'กำลังเตรียมรูป…';
+  p._preparing = (p._preparing || 0) + 1;   // saveProductForm waits for this
   const ready = [];
-  for (const f of files) {
+  // Copy EVERY file's bytes first, then shrink: shrinking one takes seconds,
+  // and the phone may revoke the next file's handle meanwhile (read-file.js).
+  const heldAll = await Promise.all(files.map((f) => holdInMemory(f).then((h) => ({ f, h }), (err) => ({ f, err }))));
+  for (const { f, h: held, err: holdErr } of heldAll) {
     try {
-      const held = await holdInMemory(f);
+      if (holdErr) throw holdErr;
       const small = await downscaleImage(held, { maxEdge: PRODUCT_IMAGE_EDGE, quality: 0.9 });
       const bmp = await decode(small);
       const w = bmp.width || bmp.naturalWidth; const h = bmp.height || bmp.naturalHeight;
@@ -3095,12 +3110,15 @@ async function addPickedImages(p, files) {
       showShopToast(`${f.name}: ${err?.message || 'เปิดรูปนี้ไม่ได้'}`, 'error');
     }
   }
+  p._preparing -= 1;
   if (state.productEditor !== p) {
     ready.forEach((x) => URL.revokeObjectURL(x.preview));
     showShopToast('เปลี่ยนสินค้าที่แก้ไขไปแล้ว — รูปที่เลือกไม่ได้ถูกใส่ กรุณาเลือกใหม่', 'warn');
     return;
   }
-  ensureImages(p).push(...ready.slice(0, MAX_PRODUCT_IMAGES - ensureImages(p).length));
+  const fit = MAX_PRODUCT_IMAGES - ensureImages(p).length;
+  ready.slice(fit).forEach((x) => URL.revokeObjectURL(x.preview));   // over the limit: released, not leaked
+  ensureImages(p).push(...ready.slice(0, fit));
   renderImageStrip(p);
 }
 
@@ -3125,7 +3143,11 @@ function refreshMatrixOnly() {
   if (host) host.innerHTML = stockMatrixHtml(p);
   const prices = document.getElementById('shopProdSizePrices');
   if (prices) prices.innerHTML = sizePricesHtml(p);
-  renderImageStrip(p);   // its colour menus list p.colors
+  // Its colour menus list p.colors — re-render only when THAT changed: this
+  // runs on the sizes field's change, which fires on blur, i.e. at mousedown
+  // on a strip button, and replacing the strip there swallowed the click.
+  const key = JSON.stringify((p.colors || []).map((c) => [c.id, c.label]));
+  if (key !== p._stripColorsKey) renderImageStrip(p);
 }
 
 /** Per-size price table (0199): one row per size, a normal and a preorder
@@ -3289,6 +3311,15 @@ async function saveProductForm() {
   if (!e) return;
   const name = document.getElementById('shopProdName')?.value.trim() || '';
   if (!name) { showShopToast('กรุณากรอกชื่อสินค้า', 'warn'); return; }
+  if (e._preparing > 0) { showShopToast('กำลังเตรียมรูป — รอสักครู่แล้วกดบันทึกอีกครั้ง', 'warn'); return; }
+  // Two colour rows with one id (the new-product template starts with 'black';
+  // add another 'ดำ' and both slug to it) merge into ONE stock cell and one
+  // picture tag, silently. Refuse, and name it.
+  {
+    const ids = readColorRows().map((c) => c.id);
+    const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+    if (dup) { showShopToast(`มีสีที่รหัสซ้ำกัน: "${dup}" — ลบแถวที่ซ้ำ หรือใส่ id ให้ต่างกัน`, 'warn'); return; }
+  }
 
   // A NEW product: the id typed in the form (it says "auto-generate ถ้าว่าง" —
   // it used to be ignored), else a generated one. Either way it must not be an
@@ -3334,7 +3365,8 @@ async function saveProductForm() {
       let url = im.url;
       if (im.file) {
         if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดรูป ${k + 1}/${list.length}…`;
-        const ext = im.file.type === 'image/webp' ? 'webp' : 'jpg';
+        const ext = ({ 'image/webp': 'webp', 'image/png': 'png', 'image/gif': 'gif', 'image/jpeg': 'jpg' })[im.file.type]
+          || (im.file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
         url = imageBase(await uploadShopFile(im.file, `Shop/Products/${payload.id}`,
           { fileName: `${slugify(name)}_${Date.now()}_${k}.${ext}` }));
         uploadedNow.push(url);
@@ -3350,6 +3382,7 @@ async function saveProductForm() {
     uploadedNow = [];
     const kept = new Set(images.map((x) => x.url));
     for (const u of prevUrls) if (!kept.has(u)) trashImageIfUnused(u);
+    releasePreviews(e);
 
     // Production status cascade — only when the dropdown changed from
     // the original. The RPC owns the field + the order cascade so this

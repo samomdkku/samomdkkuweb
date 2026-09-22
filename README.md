@@ -137,7 +137,9 @@ triggered over ssh (needs the KKU VPN).
   and quick-edit modal.
 - **SAMO Shop.** Its own storefront look ("samo shop" wordmark, espresso /
   milk / sky palette) inside the portal. Product catalogue (filter by source /
-  admin-managed type, sort, search), **prices per size (normal and preorder),
+  admin-managed type, sort, search), **up to 8 pictures per product** (swipe
+  gallery, tap to zoom full-screen, picking a colour jumps to its picture;
+  admins pick several, reorder, tag a colour), **prices per size (normal and preorder),
   always charged by the database — never the price the browser sends**, cart
   with localStorage persistence (re-priced from the current catalogue), checkout with required
   name+email+phone contact step (phone auto-fills from the signed-in

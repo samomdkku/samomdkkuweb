@@ -6,6 +6,7 @@
 // ==============================================
 
 import { safeUrl } from '../utils.js';
+import { convertDriveUrl } from '../uploads.js';
 
 export const SHOP_SOURCES = [
   { id: 'all',      label: 'ทั้งหมด',            en: 'All' },
@@ -471,10 +472,13 @@ export function bkkTime(v) {
 export const MAX_PRODUCT_IMAGES = 8;
 const LH3 = /^https:\/\/lh3\.googleusercontent\.com\/d\//;
 
-/** An lh3 URL without its size suffix (`=w1200`); anything else unchanged.
- *  Mirrors public.shop_image_base — `images[].url` is stored in this form. */
+/** An lh3 URL without its size suffix (`=w1200`). A Drive-style link
+ *  (`drive.google.com/file/d/<id>/…`) becomes its lh3 form first, through the
+ *  SAME convertDriveUrl the product cards use — written here a second way, a
+ *  row that showed on its card was broken in the gallery. Mirrors
+ *  public.shop_image_base for lh3 URLs; `images[].url` is stored in this form. */
 export function imageBase(url) {
-  const u = String(url || '');
+  const u = convertDriveUrl(String(url || ''));
   return LH3.test(u) ? u.replace(/=[A-Za-z0-9-]+$/, '') : u;
 }
 
@@ -482,7 +486,8 @@ export function imageBase(url) {
  *  URL serves the thumbnail, the card and the zoom. Non-lh3 URLs come back as-is. */
 export function pictureAt(url, w) {
   if (!url) return '';
-  return LH3.test(url) ? `${imageBase(url)}=w${Math.round(w)}` : url;
+  const base = imageBase(url);
+  return LH3.test(base) ? `${base}=w${Math.round(w)}` : base;
 }
 
 /** A product's pictures, cover first: `images` when it has any, else the
@@ -499,9 +504,12 @@ export function productImages(p) {
  *  colour the product no longer offers counts as untagged (SHOP-GALLERY §4). */
 export function imageIndexForColor(p, colorId) {
   if (!colorId) return -1;
-  const known = new Set((Array.isArray(p?.colors) ? p.colors : []).map((c) => c.id));
-  if (!known.has(colorId)) return -1;
-  return productImages(p).findIndex((x) => x.color === colorId);
+  // An older order line can carry the colour's LABEL, not its id (orders.js
+  // variantLabel accepts both) — resolve it to the id the pictures are tagged with.
+  const colors = Array.isArray(p?.colors) ? p.colors : [];
+  const c = colors.find((x) => x.id === colorId) || colors.find((x) => x.label === colorId);
+  if (!c) return -1;
+  return productImages(p).findIndex((x) => x.color === c.id);
 }
 
 /** The picture for a cart / order line: its colour's first, else the cover. */

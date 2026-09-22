@@ -4096,3 +4096,29 @@ certificate loader already did this, because lh3 also throttles on Referer.
 your dev origin.* Before calling a picture feature broken or fine, load it
 from the origin being tested and read the NETWORK result, not just what a
 screenshot shows. For lh3, send no referrer.
+
+---
+
+## The admin picture strip worked and was UNSTYLED — its CSS sat in a stylesheet /admin/ never loads
+
+**Symptom (found by a cold review of the gallery build, 2026-09-22, before any
+admin used it)**: every `.shop-img-*` class the admin strip emits had no rule
+on `/admin/`. Tiles stacked as bare blocks, and a picked picture's preview
+showed at its natural 2400 px. The behaviour test that drove the strip signed in
+passed: clicks, uploads and saves all worked.
+
+**Cause**: the rules were written into `src/css/shop-storefront.css`, next to
+the storefront gallery's. `src/main.css` imports that file; `src/admin.css`
+imports only `shop.css`. The rules existed, just not where the page looks. A
+dead rule looks exactly like a feature nobody built (class 6).
+
+**Fix**: the strip's rules moved to `src/css/shop.css`.
+`src/js/shop/css-rules.test.js` asserts that every class a module emits has a
+rule in the CSS **its entry loads**, reading each entry's `@import`s rather than
+a typed list. It is mutation-checked (remove the rules and it names
+`admin.js`). The browser tool now asserts a computed width.
+
+**The general rule**: *"the rule exists" is the wrong question; ask whether
+the page that renders the class LOADS it.* Two entries share modules but not
+stylesheets. A behaviour check cannot see styling; assert a computed style,
+or screenshot the thing itself.

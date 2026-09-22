@@ -149,20 +149,29 @@ async function probeLive() {
   const ep = liveEndpoint();
   if (!ep) return { ok: false, reason: 'could not find GAS_API_URL in src/js/config.js' };
   const { url } = ep;
-  try {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'uploadTeamFile' }),
-      signal: AbortSignal.timeout(30000),
-    });
-    const body = await r.text();
-    if (/folderPath is required/.test(body)) return { ok: true, url, body };
-    if (/Unknown action/.test(body)) return { ok: false, url, body, stale: true };
-    return { ok: false, url, body, reason: 'unrecognised response' };
-  } catch (e) {
-    return { ok: false, url, reason: String(e.message || e) };
+  // Google intermittently answers /exec with an HTML "busy" page instead of
+  // running the script (src/js/gas-post.js). One such page is not an answer
+  // about the code — measured 2026-09-22: 2 HTML pages, then the real JSON.
+  // Retry it, as the app does; report "unrecognised" only if it persists.
+  let last = null;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'uploadTeamFile' }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const body = await r.text();
+      if (/folderPath is required/.test(body)) return { ok: true, url, body };
+      if (/Unknown action/.test(body)) return { ok: false, url, body, stale: true };
+      last = { ok: false, url, body: body.slice(0, 200), reason: `unrecognised response (${attempt} tries — Google's busy page?)` };
+    } catch (e) {
+      last = { ok: false, url, reason: String(e.message || e) };
+    }
+    await new Promise((res) => setTimeout(res, 2500 * attempt));
   }
+  return last;
 }
 
 async function main() {

@@ -1457,3 +1457,29 @@ in the migration history carries the filter; with 0202 removed it names 0040.
 **The general rule**: `skills/ship-a-migration.md` step 1 — rebuild from
 `pg_get_functiondef`, never from a file. A migration that edits ONE thing in a
 function silently reverts every change since the copy it started from.
+
+---
+
+## A tab opened before a migration re-sends what it LOADED — 0203's compatibility branch read that as a change
+
+**Symptom (found by a cold review, 2026-09-22; fixed before any admin hit
+it)**: 0203 kept `image_url` as a trigger-derived cover. Its "stale tab" branch
+treated ANY `image_url`-only write as "set the cover". But an old admin tab
+sends `image_url` on EVERY product save, as whatever it loaded:
+- `null`, for a product that had no picture when the tab opened, deleted
+  `images[0]`, a picture another admin had since added;
+- the old cover, after someone reordered, overwrote `images[0]`, so the old
+  cover appeared twice and the new one was lost.
+
+Proved on the 0203 body: `shop0203-gallery` rows "stale: a null …" and
+"stale: a URL already in the gallery …" both red.
+
+**Cause**: the branch modelled what an old client CAN do ("เปลี่ยนรูป"), not
+what it DOES on every save: resend unchanged fields.
+
+**Fix**: 0204 acts only on a URL NEW to the gallery. A null, or a picture
+already present, is a no-op. Proof: 18/18 on dev and production.
+
+**The general rule**: when a migration keeps an old column alive for old
+clients, the old client's normal SAVE, which resends everything it loaded, is
+the case to design for, not its rare edit. Ask what an unchanged form submits.

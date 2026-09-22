@@ -192,6 +192,15 @@ shop_products (text id PK, name, sub, description, type, source,
     shop_admin sees all). Future Model B scopes writes/reads per source — see STATE.md.
   ↳ type = loose text; picker source is shop_product_types (NOT an FK, so
     deleting a type never breaks a product)
+  ↳ images jsonb [{url,w,h,color}…] (mig 0203, ≤ 8, [0] = cover) — a product's
+    pictures. `url` is a Google-hosted URL stored WITHOUT an lh3 size suffix;
+    `color` is a colors[].id or null. CHECK shop_images_ok (shape, count, host via
+    shop_drive_url_ok). image_url is now the DERIVED COVER: trigger
+    shop_products_cover is its only writer (images[0] + '=w1200'); a stale
+    client's image_url-only write replaces the cover only when it is a picture
+    NEW to the gallery (0204). Readers: src/js/shop/data.js productImages /
+    pictureFor / pictureAt; registry src/js/shop/pictures-readers.test.js;
+    design docs/SHOP-GALLERY.md.
 
 shop_orders (text id PK ["<CODE>NNNN"], buyer_id FK users(id) [null=admin-created],
              buyer_label, buyer_name, buyer_email, buyer_phone, status,
@@ -242,6 +251,15 @@ Reserved-stock aggregates (`shop_reserved_matrix_all`) count at the item
 level (an item stops reserving once `item_status='done'`). Migration 0038:
 they also count ONLY `is_preorder=false` items — preorder is made-to-order
 and must not deplete finite stock (or over-count the oversell guard).
+⚠️ 0040 rebuilt the two display functions from a pre-0038 copy and LOST that
+filter; 0202 restored it (`src/js/shop/reserved-rule.test.js` asserts the
+LATEST definition of all three carries it).
+**0202 refusals** (buyers; admins keep the walk-in path): `COLOR_UNAVAILABLE`
+(colour not on the product), `NO_SLIP`, `BAD_SLIP_URL` (not Google-hosted),
+`INVALID_QTY` (≤ 0 or > 99), and stock counted ACROSS the lines of one call.
+Every refusal is translated to Thai in ONE place, `placeOrderErrorMessage`
+(`src/js/shop/api.js`), and the checkout asks the same questions BEFORE showing
+the QR (`cartLineProblems`, `src/js/shop/data.js`). Proof `tools/shop0202-stock-rule.mjs`.
 ```
 
 shop_pickup_batches (bigserial id PK, title, product_ids text[],
@@ -1091,17 +1109,20 @@ victim's browser has no matching cookie and is refused.
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
   `is_active = true`; admin (shop_admin or dev) full write.
-- **shop_orders**: SELECT for buyer (own rows) or admin. INSERT for the
-  buyer (`buyer_id = auth.uid()`) OR admin (0035 — walk-in/phone orders,
-  buyer_id null). UPDATE allowed for admin always; allowed for buyer only
-  while status is `pending` / `review` / `slip_mismatch`. DELETE admin-only.
+- **shop_orders**: SELECT for buyer (own rows) or admin. INSERT is admin-only
+  (`shop_orders_insert_admin`); a buyer creates an order ONLY through
+  `place_shop_order` — 0199 removed the buyer INSERT this line used to
+  describe. UPDATE allowed for admin always; allowed for buyer only while
+  status is `pending` / `review` / `slip_mismatch`. DELETE admin-only.
   **The row policy is NOT the boundary for a buyer** — it is a row filter, and
   0100 found it let a buyer rewrite prices. The column boundary is the
   `shop_orders_self_update_guard` BEFORE-UPDATE trigger, which for a buyer
   self-update permits ONLY `buyer_phone`, `buyer_email` (added 0150), `slips`,
   `slip_url`, `slip_uploaded_at`, `status`, `timeline`, `updated_at`, and
   enforces an append-only timeline whose new entries may not claim an author.
-  Everything else raises P0001. Buyer-facing writers: `addOrderSlip` /
+  Since 0202 it also limits the VALUES: a buyer may set status only to
+  `pending`/`review`, append only `pending`/`review` stages, and write only
+  Google-hosted slip URLs (`shop_slip_url_ok`). Everything else raises P0001. Buyer-facing writers: `addOrderSlip` /
   `removeOrderSlip` / `updateOrderContact` in `src/js/shop/api.js`.
   Proof: `tools/shop0150-buyer-contact.sql` — and note its subject must be
   MANUFACTURED, because every real order belongs to a shop admin and the guard

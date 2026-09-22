@@ -44,27 +44,56 @@ const ZOOM_W = 2400;
 let open = null;   // the live PhotoSwipe, while one is showing
 
 export async function openLightbox(product, index = 0, { appendTo } = {}) {
+  // Claimed BEFORE any await: the chunk load and the size probe take a moment,
+  // and a second tap in that window opened a second viewer (and a second
+  // history entry).
   if (open) return;
+  open = 'pending';
+  try {
+    await show(product, index, appendTo);
+  } catch (e) {
+    console.warn('[shop/lightbox] could not open:', e?.message || e);
+    if (open === 'pending') open = null;
+  }
+}
+
+async function show(product, index, appendTo) {
   const imgs = productImages(product);
-  if (!imgs.length) return;
+  if (!imgs.length) { open = null; return; }
+  const start = Math.max(0, Math.min(index, imgs.length - 1));
   let PhotoSwipe;
   try {
     PhotoSwipe = await loadPhotoSwipe();
   } catch (e) {
     // Offline or blocked: open the picture itself rather than doing nothing.
+    open = null;
     console.warn('[shop/lightbox] load failed:', e?.message || e);
-    window.open(pictureAt(imgs[index]?.url, ZOOM_W), '_blank', 'noopener');
+    window.open(pictureAt(imgs[start]?.url, ZOOM_W), '_blank', 'noopener');
     return;
   }
-  const dataSource = await Promise.all(imgs.map(async (im, i) => {
-    const src = pictureAt(im.url, ZOOM_W);
-    const { w, h } = im.w && im.h ? { w: im.w, h: im.h } : await measure(src);
-    return { src, width: w, height: h, alt: imageAlt(product, im, i, imgs.length) };
+  // Only the picture being opened is measured up front (it is the one the
+  // buyer waits for). The others open at a placeholder size and take their
+  // real one when they load — measuring all of them first downloaded every
+  // picture at full size before anything appeared.
+  const dataSource = imgs.map((im, i) => ({
+    src: pictureAt(im.url, ZOOM_W),
+    width: im.w || 1600, height: im.h || 2000, _measured: !!(im.w && im.h),
+    alt: imageAlt(product, im, i, imgs.length),
   }));
+  if (!dataSource[start]._measured) {
+    const { w, h } = await measure(dataSource[start].src);
+    Object.assign(dataSource[start], { width: w, height: h, _measured: true });
+  }
+  // The popup it belongs to was closed while this loaded: do not open a
+  // viewer inside a hidden modal, where it would still take Esc and Back.
+  if (appendTo && appendTo.classList.contains('modal') && !appendTo.classList.contains('show')) {
+    open = null;
+    return;
+  }
 
   const pswp = new PhotoSwipe({
     dataSource,
-    index: Math.max(0, Math.min(index, dataSource.length - 1)),
+    index: start,
     appendToEl: appendTo || document.body,
     bgOpacity: 0.94,
     showHideAnimationType: 'fade',
@@ -80,6 +109,14 @@ export async function openLightbox(product, index = 0, { appendTo } = {}) {
   pswp.on('contentLoadImage', ({ content }) => {
     if (content?.element) content.element.referrerPolicy = 'no-referrer';
   });
+  // A placeholder-sized picture takes its real size once it has loaded.
+  pswp.on('loadComplete', ({ content, slide }) => {
+    const d = content?.data;
+    const el = content?.element;
+    if (!d || d._measured || !el?.naturalWidth) return;
+    d.width = el.naturalWidth; d.height = el.naturalHeight; d._measured = true;
+    if (slide) pswp.refreshSlideContent(slide.index);
+  });
 
   const onKey = (e) => {
     if (e.key !== 'Escape') return;
@@ -87,20 +124,24 @@ export async function openLightbox(product, index = 0, { appendTo } = {}) {
     e.preventDefault();
     pswp.close();
   };
-  window.addEventListener('keydown', onKey, true);
-
   // Back button: a history entry of our own; back closes the viewer. Closing
   // it any other way (✕, swipe, Esc) removes that entry again.
-  history.pushState({ samoLightbox: true }, '');
   let closedByBack = false;
   const onPop = () => { closedByBack = true; pswp.close(); };
-  window.addEventListener('popstate', onPop);
-
-  pswp.on('destroy', () => {
+  const cleanup = () => {
     window.removeEventListener('keydown', onKey, true);
     window.removeEventListener('popstate', onPop);
     if (!closedByBack && history.state?.samoLightbox) history.back();
     open = null;
-  });
-  pswp.init();
+  };
+  pswp.on('destroy', cleanup);
+  window.addEventListener('keydown', onKey, true);
+  history.pushState({ samoLightbox: true }, '');
+  window.addEventListener('popstate', onPop);
+  try {
+    pswp.init();
+  } catch (e) {
+    cleanup();       // listeners, the history entry and `open` — nothing left stuck
+    throw e;
+  }
 }

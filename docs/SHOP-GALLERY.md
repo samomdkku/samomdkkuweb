@@ -4,11 +4,13 @@
 
 | Piece | File |
 |---|---|
-| column, cover trigger, shape check | `supabase/migrations/0203_shop_product_gallery.sql`; proof `tools/shop0203-gallery.mjs` |
+| column, cover trigger, shape check | `supabase/migrations/0203_shop_product_gallery.sql`, stale-tab fix `0204_shop_gallery_stale_tab_keeps_pictures.sql`; proof `tools/shop0203-gallery.mjs` (18 cases) |
 | shared picture helpers | `src/js/shop/data.js` (`productImages`, `pictureAt`, `pictureFor`, `imageIndexForColor`, `thumbStyle`) |
 | popup gallery / lightbox | `src/js/shop/gallery.js`, `src/js/shop/lightbox.js` |
 | admin picture strip | `src/js/shop/admin.js` (`renderImageStrip`, `wireImageStrip`, `addPickedImages`) |
 | reader registry | `src/js/shop/pictures-readers.test.js` |
+| CSS | storefront `src/css/shop-storefront.css` (`.pg-*`); admin strip `src/css/shop.css` (`.shop-img-*`) — guard `src/js/shop/css-rules.test.js` |
+| signed-in admin browser test | `tools/browser/shop-admin-strip.mjs` (samo-dev, Apps Script intercepted) |
 
 **Where the build differs from this design:**
 - Every picture is fetched with `referrerpolicy="no-referrer"`. From localhost,
@@ -16,10 +18,35 @@
   response (`ERR_BLOCKED_BY_ORB`); from `samo.md.kku.ac.th` it served. Measured
   in headless Chrome.
 - Thumbnails are hidden on a narrow phone and dots show instead.
+- A picture from before 0203 has no stored size; the lightbox measures only the
+  picture being opened and sizes the others when they load. Sizes are NOT
+  healed on save (this doc once said they were).
+
+**Fixed by the review pass the same day** (a fresh reviewer read the commit cold):
+- the admin strip's CSS had been put in `shop-storefront.css`, which `/admin/`
+  never loads, so the strip was unstyled. It now lives in `shop.css`, with a
+  guard;
+- a stale tab could drop or duplicate a picture (0204);
+- a second tap could open two viewers;
+- several picked files are now copied before any is shrunk;
+- save waits while pictures are being prepared;
+- preview URLs and drag handlers are released;
+- Drive-style URLs are converted like the cards convert them;
+- an order line that stored a colour label still finds its picture;
+- duplicate colour ids are refused at save.
+
+**Verified 2026-09-22:**
+- the admin strip, driven signed in on samo-dev with every Apps Script call
+  intercepted:
+  - pick 3, reorder, tag a colour, save (3 uploads);
+  - reopen (the tag is kept), remove 1, save (exactly one delete);
+  - the rendered strip looked right;
+- the storefront gallery and lightbox on dev and on production.
 
 **Not yet checked:**
-- The admin strip has NOT been driven signed in as an admin.
-- Pinch-zoom has not been tried on a real iPhone.
+- pinch-zoom on a real iPhone;
+- a REAL Drive upload from the strip (the test intercepted it);
+- the first real admin upload.
 
 The original request (kept for context):
 
@@ -274,8 +301,9 @@ is a desktop-only nicety and is left out (§11).
     import only, never the entry bundle), with its CSS alongside. Buyers who
     never tap pay nothing.
   - **It needs each picture's `w`/`h`,** which we store at upload (§2). Legacy
-    pictures with `w: null` are measured by loading the image once before
-    opening. That covers the backfilled cover, and it heals on the next save.
+    pictures with `w: null`: only the picture being opened is measured before
+    opening; the others take their real size when they load. (As built: sizes
+    are NOT healed on save — an earlier draft said they were.)
   - **The Thai labels are set,** not left in English: ปิด, ถัดไป, ก่อนหน้า,
     ซูม.
 

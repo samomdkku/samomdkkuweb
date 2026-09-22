@@ -2005,3 +2005,42 @@
   .shop-tab .product-name { font-size: .88rem; }
   .shop-tab .launch-big { flex-basis: 78%; }
 }
+
+/* ---------- Admin: product picture strip (docs/SHOP-GALLERY.md §3) ----------
+   Lives HERE, not in shop-storefront.css: /admin/ loads shop.css only
+   (src/admin.css), and the first build put these rules where the admin page
+   never reads them — every tile rendered as a bare, full-size image. */
+.shop-img-strip {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start;
+}
+.shop-img-tile {
+  position: relative; width: 116px; flex: 0 0 116px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 6px; border: 1px solid var(--shop-ink-100, #ebecee); border-radius: 10px;
+  background: #fff; cursor: grab;
+}
+.shop-img-tile img {
+  width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block;
+  border-radius: 6px; background: var(--shop-ink-50, #f5f6f7);
+  -webkit-user-drag: none; user-select: none;
+}
+.shop-img-tile select { font-size: .78rem; padding-top: 2px; padding-bottom: 2px; }
+.shop-img-actions { display: flex; justify-content: space-between; gap: 2px; }
+.shop-img-actions .btn { padding: 1px 7px; line-height: 1.3; }
+.shop-img-cover,
+.shop-img-new {
+  position: absolute; top: 10px; z-index: 1;
+  font-size: .68rem; font-weight: 700; line-height: 1;
+  padding: 3px 7px; border-radius: 999px; pointer-events: none;
+}
+.shop-img-cover { left: 10px; background: var(--brand-primary, #105922); color: #fff; }
+.shop-img-new   { right: 10px; background: var(--brand-orange, #FF6F30); color: #fff; }
+.shop-img-add {
+  width: 116px; flex: 0 0 116px; aspect-ratio: 4 / 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 2px dashed var(--shop-ink-200, #d6d8dc); border-radius: 10px;
+  color: var(--shop-ink-500, #6b7280); font-size: .85rem; cursor: pointer; margin: 0;
+}
+.shop-img-add:hover { border-color: var(--brand-primary, #105922); color: var(--brand-primary, #105922); }
+.shop-img-add i { font-size: 1.3rem; }
+.shop-img-tile.sortable-ghost { opacity: .4; }

@@ -6,9 +6,11 @@
 //
 //  1. COVER. image_url is derived from images[0] (+ =w1200 for lh3) on insert,
 //     reorder and clear — the trigger is image_url's one writer.
-//  2. STALE TAB. A client from before 0203 writes image_url ONLY: that replaces
-//     the cover and KEEPS the other pictures; an old-client insert becomes a
-//     gallery of one. The branch nobody clicks on purpose — so it is asserted.
+//  2. STALE TAB. A client from before 0203 writes image_url ONLY: a NEW picture
+//     replaces the cover and KEEPS the others; an old-client insert becomes a
+//     gallery of one; and (0204) a null, or a URL already in the gallery — what
+//     a stale tab re-sends on every save — changes nothing. The branch nobody
+//     clicks on purpose, so it is asserted.
 //  3. SHAPE. The constraint refuses a 9th picture, a non-Google URL, an unknown
 //     key and a non-positive size — each DENY beside an ALLOW.
 //  4. RLS unchanged: anon cannot write a product's pictures; the admin path can.
@@ -54,6 +56,14 @@ insert into probe values ('stale: an old-client insert becomes a gallery of one'
   (select (images -> 0 ->> 'url') || '/' || jsonb_array_length(images) from public.shop_products where id = 'probe0203old')
   );
 update probe set expected = '${L('OLD')}/1' where k = 'stale: an old-client insert becomes a gallery of one';
+-- 0204: a stale tab re-sends what it LOADED, not a change.
+update public.shop_products set images = ${J([img('A'), img('B', 'black'), img('C', 'red')])} where id = 'probe0203';
+update public.shop_products set image_url = null where id = 'probe0203';
+insert into probe values ('stale: a null image_url (tab loaded with no picture) deletes nothing', '3/${L('A')}=w1200',
+  (select jsonb_array_length(images) || '/' || image_url from public.shop_products where id = 'probe0203'));
+update public.shop_products set image_url = '${L('C')}=w1200' where id = 'probe0203';
+insert into probe values ('stale: a URL already in the gallery (the old cover) duplicates nothing', '${L('A')},${L('B')},${L('C')}',
+  (select string_agg(e ->> 'url', ',' order by o) from public.shop_products, jsonb_array_elements(images) with ordinality x(e, o) where id = 'probe0203'));
 update public.shop_products set images = '[]' where id = 'probe0203';
 insert into probe values ('cover: no pictures, no cover', 'null',
   coalesce((select image_url from public.shop_products where id = 'probe0203'), 'null'));

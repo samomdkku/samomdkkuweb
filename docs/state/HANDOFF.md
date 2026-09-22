@@ -1590,6 +1590,12 @@ unit-tested, not clicked.
 - **HYPOTHESIS — the team/house CSV exports may have the same formula-injection
   shape** (`src/js/team/io.js`, `src/js/house/io.js`). Not checked; out of the
   shop's scope. Use the shared `csvCell` in `src/js/shop/data.js` if so.
+- **VERIFIED 2026-09-22 — how: `npm run deploy:gas -- --verify` → "live
+  endpoint runs the NEW code"; `--dry-run` → remote code matches
+  `appscript/prform.gs` byte for byte.** The Apps Script is fully deployed; no
+  `.gs` changed today. (The probe now retries Google's intermittent HTML "busy"
+  page; before, one such page read as "unrecognised response".) The upload
+  limits above are the only Apps Script work owed.
 - **VERIFIED 2026-09-22 — how: a fresh reviewer read the whole day's diff
   cold, beside my own pass.** No blocker. Fixed in the commit
   "second-pass review of the sweep":
@@ -1609,7 +1615,7 @@ unit-tested, not clicked.
 
 ## 18c. SAMO Shop — product gallery (several pictures, zoom, colour pictures)
 
-**Status: VERIFIED 2026-09-22 — how: `shop0203-gallery` 16/16 on dev and production, plus a headless-Chrome drive of the popup.** In detail:
+**Status: VERIFIED 2026-09-22 — how: `shop0203-gallery` 18/18 on dev and production (0203 + 0204), headless Chrome on the popup, and `tools/browser/shop-admin-strip.mjs` driving the admin strip SIGNED IN.** In detail:
 - migration 0203 is applied to dev and production. Before the migration the
   proof errors, as documented;
 - the popup gallery and lightbox were driven in headless Chrome at 390 px and
@@ -1620,8 +1626,32 @@ unit-tested, not clicked.
   - no console errors;
 - a reader-registry test, mutation-checked.
 
-⚠️ **The admin picture strip was NOT driven signed in**, and pinch was not tried
-on a real iPhone. The first real admin upload is its check.
+- **The admin strip, driven signed in** on samo-dev with a throwaway account
+  and every Apps Script call intercepted. Command:
+  `node tools/browser/shop-admin-strip.mjs` (needs `npm run dev`). What it
+  checked:
+  - pick 3, styled (the tiles' computed width is asserted);
+  - reorder and a colour tag;
+  - save: 3 uploads, the cover is derived, the tag is kept;
+  - reopen, remove 1, save: exactly 1 delete;
+  - no console errors, and cleanup to 0.
+- **A cold review of the build found and fixed**:
+  - the strip's CSS was on a page that never loads it;
+  - a stale-tab trigger gap (0204);
+  - a double-open of the lightbox;
+  - late file reads when several files are picked;
+  - saving while pictures were still being prepared;
+  - leaked previews and drag handlers;
+  - Drive-style URLs;
+  - colour labels on old order lines;
+  - duplicate colour ids.
+
+  `docs/SHOP-GALLERY.md` header has them.
+
+⚠️ **Still NOT checked:**
+- pinch-zoom on a real iPhone;
+- a REAL Drive upload from the strip (the tool intercepts Apps Script by
+  design). The first real admin upload is that check.
 
 ~~Earlier status: DECIDED 2026-09-22 — design only.~~ The owner asked for
 several pictures per product, tap-to-zoom, and a picture that follows the chosen
@@ -1636,11 +1666,10 @@ colour. The full design, with the measured facts it rests on, is
 
 - **BUILT — all five steps of §9.** Where each piece lives is in the header of
   `docs/SHOP-GALLERY.md`.
-- **OWED — drive the admin strip as a real admin once:**
-  1. pick 3 pictures;
-  2. reorder them, tag one with a colour, and save;
-  3. remove one and save again. Its Drive file should go, and a picture another
-     product shares should stay.
+- **OWED (owner / shop team) — one REAL upload.** Add a picture to a real
+  product in `/admin/` and save, then check it shows on the storefront. This is
+  the only part no test covers: the real Apps Script → Drive path for product
+  pictures.
 - **HYPOTHESIS (network, not ours) — from inside KKU, the public site stopped
   answering around 10:31Z on 2026-09-22.** How it was narrowed down:
   - `curl https://samo.md.kku.ac.th` timed out from a laptop on the KKU LAN;

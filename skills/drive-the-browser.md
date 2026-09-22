@@ -511,3 +511,38 @@ Three traps, each hit once:
 - **A probe whose values differ from the stored ones can trigger the very write
   that hides a sync bug** (0200) — for DB-side proofs see
   `docs/mistakes/postgres-schema.md`.
+
+---
+
+## 11. A committed worked example of §4 — shop admin, Apps Script intercepted
+
+`tools/browser/shop-admin-strip.mjs` (2026-09-22) runs §4's recipe end to end
+as ONE command, and is a template for any "needs a signed-in admin" check. §4
+explains why the grant goes in `permissions`, never `managed_*`. §10 is the
+no-account alternative, for when nothing real should be written at all.
+
+- **A throwaway account on samo-dev.** It is registered through the app's own
+  `registerWithPassword` (username accounts need no email confirmation). The
+  permission is written to `public.users.permissions` with the dev PAT. The
+  tool REFUSES unless the target resolves to samo-dev.
+- **Apps Script intercepted.** `GAS_API_URL` is the LIVE endpoint even in dev,
+  so an unintercepted upload would write to the real Drive. CDP
+  `Fetch.enable {urlPattern:'*script.google.com*'}` plus `Fetch.fulfillRequest`
+  answer every call locally, and the tool records what was asked.
+- **Picking files:** `DOM.setFileInputFiles` on the real `<input type=file>`.
+  It fires `change`, like a person picking.
+- **Assert the COMPUTED style, not just behaviour.** The admin strip once worked
+  perfectly and was UNSTYLED: its CSS sat in a stylesheet `/admin/` never loads.
+  Clicks cannot see that. `getComputedStyle(tile).width === '116px'` does.
+- **Cleanup in a `finally`,** and print what is left: auth user, `users` row,
+  test products. It must be 0.
+
+`npm run dev` (port 5174, samo-dev) must be running.
+
+⚠️ **From inside the KKU network the PUBLIC address can stop answering** (seen
+2026-09-22 — KKU's reverse proxy, not the VM). To drive PRODUCTION from inside
+KKU anyway:
+- `ssh -f -N -L 8443:127.0.0.1:443 samo-vm`;
+- Chrome with `--host-resolver-rules="MAP samo.md.kku.ac.th:443 127.0.0.1:8443"`
+  and `--ignore-certificate-errors`. The VM's own certificate is self-signed
+  for its internal IP.
