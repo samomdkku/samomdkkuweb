@@ -294,7 +294,7 @@ shop_pickup_locations (bigserial id PK, label, detail, is_active,
 Also: `users.role` check constraint expanded to admit `shop_admin`.
 Helper `public.current_user_is_shop_admin()` returns true for role
 `shop_admin` or `dev`, OR the `samoshop` permission (either column —
-`current_user_has_permission`). Live body read 2026-09-22; the permission is how
+`current_user_has_permission`). Live body read with `pg_get_functiondef` 2026-09-22; the permission is how
 real shop staff hold it (ทีม SAMO), not the role.
 
 ### Project tracking (canonical: `0005_project_tracking_schema.sql`, `0006_seed_project_accounts.sql`)

@@ -1670,9 +1670,11 @@ colour. The full design, with the measured facts it rests on, is
   product in `/admin/` and save, then check it shows on the storefront. This is
   the only part no test covers: the real Apps Script → Drive path for product
   pictures.
-- **HYPOTHESIS (network, not ours) — from inside KKU, the public site stopped
-  answering around 10:31Z on 2026-09-22; RECOVERED by 11:10Z** (200 from the
-  KKU LAN again, nothing changed on our side). How it was narrowed down:
+- **VERIFIED 2026-09-22 — how: `curl` from the KKU LAN timed out around 10:31Z
+  and answered 200 again by 11:10Z; check-host.net got 200 from outside
+  throughout.** Nothing is owed. It recovered by itself, with nothing changed
+  on our side. The CAUSE (KKU's reverse proxy failing KKU-internal clients) is a
+  hypothesis, and the recipe for next time is in `skills/deploy-vm.md`. How it was narrowed down:
   - `curl https://samo.md.kku.ac.th` timed out from a laptop on the KKU LAN;
   - check-host.net got **200** from Canada, Germany and Spain, and timed out
     from Moscow;

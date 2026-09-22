@@ -240,10 +240,10 @@ Replace the single "อัปโหลดรูป" button with a **picture stri
      already does today (`uploadedNow`).
 - **Progress:** "กำลังอัปโหลดรูป 2/3…" on the save button, like the PR form.
 
-✅ **DONE (`trashImageIfUnused`).** ⚠️ **A reader of the new column that must not be missed:** the in-use check.
-Today it compares `image_url`. After this change it must look inside every
-`images` array, or it will trash picture 2 of product A because product B's
-cover is different. See the reader registry in §8.
+✅ **DONE: `trashImageIfUnused` reads every `images[].url` of every product**
+(and reads the server, not `state.*`). Why it mattered: an in-use check that
+compared only `image_url` would trash picture 2 of product A, because product
+B's cover is different. See the reader registry in §8.
 
 ---
 
