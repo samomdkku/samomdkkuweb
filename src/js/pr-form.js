@@ -15,6 +15,7 @@ import { generatePRTicketId } from './ticket-ids.js';
 import { restErrorMessage } from './rest-error.js';
 import { escHtml } from './utils.js';
 import { fillPrDeptSelect } from './pr-depts.js';
+import { readAsDataURL } from './read-file.js';
 
 // ----------------------------------------------------
 // Idempotent PR insert via raw fetch.
@@ -493,11 +494,7 @@ async function handlePrFormSubmit(e) {
       const file = fileInput.files[i];
       btnLoading.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> กำลังอัปโหลดรูปที่ ${i + 1}/${fileInput.files.length}...`;
       try {
-        const base64 = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => resolve(event.target.result);
-          reader.readAsDataURL(file);
-        });
+        const base64 = await readAsDataURL(file);
         // postGAS retries the one failure that is safe to retry: Google
         // answering with an HTML page instead of running the script. This is
         // the PUBLIC form, so the person hitting it is often a guest with no

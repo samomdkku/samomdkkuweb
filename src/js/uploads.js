@@ -15,15 +15,8 @@ import { GAS_API_URL } from './config.js';
 import { postGAS } from './gas-post.js';
 import { downscaleImage } from './image-resize.js';
 import { currentAccessToken } from './db.js';
+import { readAsDataURL } from './read-file.js';
 
-function readAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 /**
  * Upload an image File to Drive via GAS and return its public-thumbnail URL.

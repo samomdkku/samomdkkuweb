@@ -14,6 +14,7 @@ import { thb, getDefaultQr, findQr, findPickupLocation } from './data.js';
 import { getCart, cartSubtotal, clearCart, addItem } from './state.js';
 import { getSettings, placeShopOrder } from './api.js';
 import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE } from './uploads.js';
+import { holdInMemory, readAsDataURL } from '../read-file.js';
 import { sendNotify } from '../notify.js';
 import { currentAccessToken } from '../db.js';
 import { getProductMap, ensureProductsLoaded } from './cart.js';
@@ -480,15 +481,26 @@ function syncRecap() {
   set('shopRecapPhone', state.buyerPhone, 'ยังไม่ได้กรอกเบอร์โทรศัพท์');
 }
 
-function onSlipChosen(file, key) {
+async function onSlipChosen(file, key) {
   if (file.size > 5 * 1024 * 1024) {
     showShopToast('ไฟล์ใหญ่เกิน 5 MB', 'warn');
     return;
   }
-  state.slipFiles[key] = file;
-  const reader = new FileReader();
-  reader.onload = (e) => { state.slipPreviews[key] = e.target.result; renderCheckout(); };
-  reader.readAsDataURL(file);
+  // Keep the BYTES, not the picked handle: the upload runs at submit time,
+  // after the buyer has filled the form or left for their bank app, and by
+  // then the phone may refuse a second read of the original (read-file.js).
+  let held;
+  let preview;
+  try {
+    held = await holdInMemory(file);
+    preview = await readAsDataURL(held);
+  } catch (e) {
+    showShopToast(e.message, 'error');
+    return;
+  }
+  state.slipFiles[key] = held;
+  state.slipPreviews[key] = preview;
+  renderCheckout();
 }
 
 async function placeOrder() {

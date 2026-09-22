@@ -9,15 +9,8 @@
 import { GAS_API_URL } from '../config.js';
 import { postGAS } from '../gas-post.js';
 import { currentAccessToken } from '../db.js';
+import { readAsDataURL } from '../read-file.js';
 
-function readAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = (e) => resolve(e.target.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
 
 /**
  * Upload `file` to Drive into `folderPath` (must start with `Projects/`).

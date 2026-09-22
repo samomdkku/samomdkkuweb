@@ -3934,3 +3934,38 @@ same tags as the card. `src/html/modal-shop-product.html`,
 showed* — the tap that opens it is the moment someone is deciding. And a label
 whose only wording is free text an admin types is not a label: put the fixed
 word in the markup, and let the typed text add to it.
+
+---
+
+## "อัปโหลดสลิป กดยืนยันแล้ว แต่ขึ้นว่า สั่งซื้อไม่สำเร็จ: [object ProgressEvent]"
+
+**Symptom (as reported)**: a student uploaded a payment slip in the shop
+checkout (the preview showed), pressed confirm, and got
+`สั่งซื้อไม่สำเร็จ: [object ProgressEvent]`.
+
+**Cause**: two defects. (1) A picked `File` is a HANDLE, not the bytes. The
+checkout read it once for the preview at pick time, then again at SUBMIT time
+to upload; in between the buyer fills the form or leaves for their bank app,
+and the phone may revoke the handle, so the second read fails with
+`NotReadableError`. (2) The upload helper's `FileReader` did
+`r.onerror = reject`, which rejects with the ProgressEvent itself. It has no
+`.message`, so the toast's `${e.message || e}` printed `[object ProgressEvent]`.
+Three modules carried that copy. The public PR form's fourth copy had NO
+`onerror`, so the same failure there never settled: an endless spinner.
+Reproduced in headless Chrome by changing the file on disk after the preview
+read: the exact reported string, `NotReadableError` underneath.
+
+**Fix**: `src/js/read-file.js`. `holdInMemory()` copies the bytes at pick time
+(`onSlipChosen` in `src/js/shop/checkout.js`), so the submit-time read cannot
+go stale. `readAsDataURL()` always rejects with a Thai `Error` telling the
+person to pick the file again. It is the ONE reader behind `uploads.js`,
+`shop/uploads.js`, `projects/uploads.js` and `pr-form.js`.
+
+**Where it lives now**: `src/js/read-file.js`. `read-file.test.js` sweeps
+`src/js` + `passport/js` for any FileReader inside a `new Promise(` lacking an
+`onerror` or rejecting with the event (mutation-checked against both old shapes).
+
+**The general rule**: *a picked file is a promise the OS may break later* —
+read it (or copy its bytes) when it is picked if the send happens after a wait.
+And *reject with an Error, never an event*: every `${e.message || e}` in a
+toast trusts that whatever was thrown has a message.
