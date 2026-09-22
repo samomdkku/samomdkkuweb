@@ -127,6 +127,10 @@ environment, not the code. Do this before reporting an image bug.
 
 ## 5. Verify against PRODUCTION, not just localhost
 
+⚠️ **If the public URL TIMES OUT from inside KKU while the VM is healthy**
+(seen 2026-09-22, KKU's reverse proxy), that is not a broken deploy. Drive
+production through the ssh tunnel in §11.
+
 `npm run preview` serves `dist/` on `:4173`. Verify there while iterating, then
 re-run the same script against `https://samo.md.kku.ac.th/` after deploying. The
 VM builds its own asset hashes, so a localhost pass proves nothing about prod —
@@ -295,7 +299,7 @@ relative to the scratchpad and fails. Use absolute paths.
 
 ---
 
-## 4. Signing the driver IN — and the two traps that eat an hour
+## 4b. Signing the driver IN — and the two traps that eat an hour
 
 Most of this app is behind auth, so a driver that cannot log in can only ever
 see the public mirror. Both shortcuts you will reach for first do not work.
@@ -347,7 +351,9 @@ exactly why `tools/dev-grants.mjs` writes THAT column and not a `managed_*` one.
 Flattening the two is how a session concludes that no hand-written grant can
 survive a login, and abandons a working approach.
 
-**The grant has to come from the tree.** Give the probe a `team_members` row:
+**A `managed_*` grant (a seat, a ฝ่าย scope) has to come from the tree** — a
+`permissions` grant can be written directly, as §11 does. For the tree, give
+the probe a `team_members` row:
 
 ```sql
 select set_config('app.team_sync','1',true);   -- the columns are guarded
@@ -514,10 +520,10 @@ Three traps, each hit once:
 
 ---
 
-## 11. A committed worked example of §4 — shop admin, Apps Script intercepted
+## 11. A committed worked example of §4b — shop admin, Apps Script intercepted
 
-`tools/browser/shop-admin-strip.mjs` (2026-09-22) runs §4's recipe end to end
-as ONE command, and is a template for any "needs a signed-in admin" check. §4
+`tools/browser/shop-admin-strip.mjs` (2026-09-22) runs §4b's recipe end to end
+as ONE command, and is a template for any "needs a signed-in admin" check. §4b
 explains why the grant goes in `permissions`, never `managed_*`. §10 is the
 no-account alternative, for when nothing real should be written at all.
 

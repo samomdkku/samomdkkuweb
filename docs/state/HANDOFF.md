@@ -11,13 +11,12 @@ shipped, verified state. These are choices and errands, not loose ends.
 
 ## 0. How to read this file
 
-⚠️ **RENUMBERED 2026-09-06.** This file had two sections numbered 7 and two
-numbered 8, and "Where to look for anything else" sat in the middle. It is now
-**0–10 in order**, with that table at the end. A section number quoted in an
-older note or memory may be stale.
+⚠️ **Section numbers are not strictly in order** (§16b sits before §15;
+§18b/§18c come after "Where to look for anything else"). Find a section by its
+heading. A section number quoted in an older note or memory may be stale.
 
-📌 **The most recent session's REASONING is in `docs/state/claude-2026-09-21.md`**
-(SAMO Shop redesign, prices, Discord, registry sync — its open items are §18).
+📌 **The most recent session's REASONING is in the NEWEST `docs/state/claude-*.md`**
+(sort by name; each one says which HANDOFF sections hold its open items).
 Older: `docs/state/claude-2026-09-18.md`, `docs/state/phuriphatma.md`. This file
 holds only what is NOT done.
 
@@ -1572,7 +1571,8 @@ unit-tested, not clicked.
 
 **Owner-only**
 - **OWED — the Apps Script upload handler for shop files needs server-side
-  limits** (what it accepts, and where it may write). It needs a production
+  limits** beyond the existing top-folder allow-list (what it accepts, and
+  exactly where it may write). It needs a production
   Apps Script redeploy, which is owner-approved per CLAUDE.md. The detail
   stays out of `docs/` until it is fixed (the repo and `docs/` are public).
 
@@ -1615,7 +1615,7 @@ unit-tested, not clicked.
 
 ## 18c. SAMO Shop — product gallery (several pictures, zoom, colour pictures)
 
-**Status: VERIFIED 2026-09-22 — how: `shop0203-gallery` 18/18 on dev and production (0203 + 0204), headless Chrome on the popup, and `tools/browser/shop-admin-strip.mjs` driving the admin strip SIGNED IN.** In detail:
+**Status: VERIFIED 2026-09-22 — how: `shop0203-gallery` 20/20 on dev and production (0203 + 0204, the RLS allow beside the deny), headless Chrome on the popup, and `tools/browser/shop-admin-strip.mjs` driving the admin strip SIGNED IN.** In detail:
 - migration 0203 is applied to dev and production. Before the migration the
   proof errors, as documented;
 - the popup gallery and lightbox were driven in headless Chrome at 390 px and
@@ -1671,7 +1671,8 @@ colour. The full design, with the measured facts it rests on, is
   the only part no test covers: the real Apps Script → Drive path for product
   pictures.
 - **HYPOTHESIS (network, not ours) — from inside KKU, the public site stopped
-  answering around 10:31Z on 2026-09-22.** How it was narrowed down:
+  answering around 10:31Z on 2026-09-22; RECOVERED by 11:10Z** (200 from the
+  KKU LAN again, nothing changed on our side). How it was narrowed down:
   - `curl https://samo.md.kku.ac.th` timed out from a laptop on the KKU LAN;
   - check-host.net got **200** from Canada, Germany and Spain, and timed out
     from Moscow;
@@ -1691,6 +1692,6 @@ colour. The full design, with the measured facts it rests on, is
   - cart and order thumbnails follow the chosen colour.
 
   The owner can override any of them.
-- ⚠️ **The picture in-use check must learn `images[]` in the same step as the
-  editor**, or saving a product can trash a picture another product still
-  shows (§3, §8).
+- ✅ **DONE — the picture in-use check reads `images[]`**
+  (`trashImageIfUnused` in `admin.js` flattens every product's pictures, and
+  reads the server, not `state.*`). `pictures-readers.test.js` asserts it.

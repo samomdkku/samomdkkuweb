@@ -49,7 +49,7 @@ TRUE. That is what the grep is for.
 - **Apps Script = prform v12** (2026-09-10), `/exec` unchanged — the two
   read-only Drive handlers §13a needs. ⛔ Calling them hard degrades the endpoint
   real uploads SHARE; measured in `docs/state/HANDOFF.md` §13a.
-- **Migrations through 0204. 47 of 51 LIVE PROOFS GREEN on production (2026-09-22) — the 4 red are house/team/dept proof-subject drift: `docs/state/HANDOFF.md` §16b.** 0202 shop sweep: stock shown = stock sold, colour/slip/qty checked, a buyer's own-order edits limited to what the slip flows write (`shop0202-stock-rule` 22/22). 0203 product gallery — several pictures, cover derived by trigger; 0204 a pre-gallery tab cannot drop or duplicate a picture (`shop0203-gallery` 18/18). 0199 shop per-size pricing (`shop0199-pricing` 20/20); 0200 the three copies of a person stay in sync + admin mismatch panel (`house0200-three-copies` 13/13, `house0194` back to 20/20), both dev AND production — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
+- **Migrations through 0204. 47 of 51 LIVE PROOFS GREEN on production (2026-09-22) — the 4 red are house/team/dept proof-subject drift: `docs/state/HANDOFF.md` §16b.** 0202 shop sweep: stock shown = stock sold, colour/slip/qty checked, a buyer's own-order edits limited to what the slip flows write (`shop0202-stock-rule` 22/22). 0203 product gallery — several pictures, cover derived by trigger; 0204 a pre-gallery tab cannot drop or duplicate a picture (`shop0203-gallery` 20/20). 0199 shop per-size pricing (`shop0199-pricing` 20/20); 0200 the three copies of a person stay in sync + admin mismatch panel (`house0200-three-copies` 13/13, `house0194` back to 20/20), both dev AND production — what each one changed and which hole it closed is `docs/state-archive/2026-09-19-state-prune.md`; the proofs themselves are the authority. ⛔ Ask `npm run migrate:status`, never this line.
   ⚠️ A proof can be GREEN WHILE BROKEN because the environment happened to be
   quiet — both Claude quota proofs were, until they CONSTRUCTED the absence
   they assume (`docs/mistakes/tooling-proofs.md`; counts live in the proofs).
@@ -152,7 +152,7 @@ those four items and drifted from them; do not re-add a copy here.
   `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, SHOP
-  CHECKOUT. `docs/NEXT.md` §1. The auth blocker is solved; §4 of that skill has
+  CHECKOUT. `docs/NEXT.md` §1. The auth blocker is solved; §4b of that skill has
   the recipe and both traps.
 - **ทีม SAMO restructure — read `docs/INVARIANTS.md` before reparenting a ฝ่าย.**
 - `docs/NEXT.md` carries the rest. Genuinely un-started: §0c (two latent

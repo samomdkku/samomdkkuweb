@@ -13,7 +13,8 @@
 //     clicks on purpose, so it is asserted.
 //  3. SHAPE. The constraint refuses a 9th picture, a non-Google URL, an unknown
 //     key and a non-positive size — each DENY beside an ALLOW.
-//  4. RLS unchanged: anon cannot write a product's pictures; the admin path can.
+//  4. RLS unchanged: anon cannot write a product's pictures; a real shop admin,
+//     as `authenticated` over the same row, can (the ALLOW beside the DENY).
 //
 //   node tools/shop0203-gallery.mjs                    # production
 //   VITE_SUPABASE_URL=$SUPABASE_DEV_URL SUPABASE_ACCESS_TOKEN=$SUPABASE_DEV_ACCESS_TOKEN node tools/shop0203-gallery.mjs
@@ -87,7 +88,8 @@ ${[
 exception when others then insert into probe values ('shape: ${name} is refused', 'refused',
   case when sqlerrm like '%shop_products_images_ok%' then 'refused' else sqlerrm end); end $$;`).join('\n')}
 
--- 4. RLS — anon is refused, over the same row the admin path writes
+-- 4. RLS — anon is refused; a real shop admin, over the SAME row, is allowed
+--    (a deny with no allow cannot tell a working policy from a broken one).
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
 update public.shop_products set images = ${J([img('ANON')])} where id = 'probe0203';
@@ -95,6 +97,19 @@ reset role;
 insert into probe values ('rls: anon cannot change a product''s pictures', 'unchanged',
   case when (select images -> 0 ->> 'url' from public.shop_products where id = 'probe0203') = '${L('ANON')}'
        then 'CHANGED' else 'unchanged' end);
+create temporary table adm as
+select u.id from public.users u
+ where u.role in ('shop_admin','dev') or 'samoshop' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+ order by u.id limit 1;
+grant select on adm to authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', (select id from adm), 'role','authenticated')::text, true);
+set local role authenticated;
+insert into probe values ('subject: the admin is a shop admin', 'true', public.current_user_is_shop_admin()::text);
+update public.shop_products set images = ${J([img('ADM')])} where id = 'probe0203';
+reset role;
+insert into probe values ('rls: a shop admin CAN change a product''s pictures (the allow)', 'changed',
+  case when (select images -> 0 ->> 'url' from public.shop_products where id = 'probe0203') = '${L('ADM')}'
+       then 'changed' else 'UNCHANGED' end);
 
 select k, expected, got, case when expected = got then 'PASS' else 'FAIL' end as verdict from probe;
 rollback;

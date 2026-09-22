@@ -105,11 +105,12 @@ build if it grows back.
   write-ups, not their titles. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
   SECURITY DEFINER function, `server/deploy.sh`, or `appscript/*.gs`.**
-- `README.md` / `CONTRIBUTING.md` — human onboarding and collaborator guide.
-  Not for agents; open only to verify or when editing project policy.
+- `README.md` / `CONTRIBUTING.md` — human onboarding; open only to verify or
+  when editing project policy.
 - `docs/TEAM-WORKFLOW.md` — multi-dev plan (dev env, previews, credentials).
   **DESIGN ONLY**; §0 = owner decisions, do not re-litigate
 - `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT (content / embed / native). **DESIGN ONLY**; §10, §13
+- `docs/SHOP-GALLERY.md` — shop pictures; read before touching `images`
 - `docs/CONTEXT.md` — architecture, RLS, schema, deploy plumbing, workflows
 - `docs/HOUSE-DATA-REPAIR.md` — ระบบบ้าน: which broken field a STUDENT fixes, an
   ADMIN must, or only ฝ่ายข้อมูล can; the one case that fails OPEN. READ BEFORE
@@ -128,8 +129,8 @@ build if it grows back.
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal. DEFERRED
 - `docs/DISCORD-ROLE-SYNC.md` — ทีม SAMO → Discord roles. **DESIGN ONLY**; §7 is
   owner-only and blocks the rest. READ BEFORE any Discord bot code.
-- `docs/demos/*/README.md` — published comparisons the owner is choosing
-  between. Not shipped code; each says what is decided
+- `docs/demos/*/README.md` — comparisons the owner is choosing between; not
+  shipped code
 - `skills/*.md` — playbooks for the non-obvious workflows.
 
 ## Handoff loop (MANDATORY)

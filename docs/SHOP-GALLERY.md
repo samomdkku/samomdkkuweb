@@ -4,7 +4,7 @@
 
 | Piece | File |
 |---|---|
-| column, cover trigger, shape check | `supabase/migrations/0203_shop_product_gallery.sql`, stale-tab fix `0204_shop_gallery_stale_tab_keeps_pictures.sql`; proof `tools/shop0203-gallery.mjs` (18 cases) |
+| column, cover trigger, shape check | `supabase/migrations/0203_shop_product_gallery.sql`, stale-tab fix `0204_shop_gallery_stale_tab_keeps_pictures.sql`; proof `tools/shop0203-gallery.mjs` (its count lives in STATE.md) |
 | shared picture helpers | `src/js/shop/data.js` (`productImages`, `pictureAt`, `pictureFor`, `imageIndexForColor`, `thumbStyle`) |
 | popup gallery / lightbox | `src/js/shop/gallery.js`, `src/js/shop/lightbox.js` |
 | admin picture strip | `src/js/shop/admin.js` (`renderImageStrip`, `wireImageStrip`, `addPickedImages`) |
@@ -13,7 +13,9 @@
 | signed-in admin browser test | `tools/browser/shop-admin-strip.mjs` (samo-dev, Apps Script intercepted) |
 
 **Where the build differs from this design:**
-- Every picture is fetched with `referrerpolicy="no-referrer"`. From localhost,
+- Every gallery and lightbox `<img>` is fetched with
+  `referrerpolicy="no-referrer"` (the CSS-background thumbnails in cart,
+  checkout and orders cannot set it, and still send one). From localhost,
   lh3 refused a request that carried a Referer, and Chrome blocked the
   response (`ERR_BLOCKED_BY_ORB`); from `samo.md.kku.ac.th` it served. Measured
   in headless Chrome.
@@ -41,7 +43,8 @@
   - pick 3, reorder, tag a colour, save (3 uploads);
   - reopen (the tag is kept), remove 1, save (exactly one delete);
   - the rendered strip looked right;
-- the storefront gallery and lightbox on dev and on production.
+- the storefront gallery and lightbox on dev and on production (re-checked on
+  production after the review fixes were deployed).
 
 **Not yet checked:**
 - pinch-zoom on a real iPhone;
@@ -60,7 +63,7 @@ each with a default, so the build does not wait on them.
 
 ---
 
-## 0. What exists today (measured 2026-09-22, not assumed)
+## 0. What existed BEFORE the build (measured 2026-09-22, not assumed)
 
 | Fact | Where / how it was checked |
 |---|---|
@@ -150,6 +153,8 @@ client**. A second writable copy of one fact is how this repo's worst drift
 happened (mistakes class 6, `students`/`team_members`).
 
 ```sql
+-- ⚠️ SUPERSEDED — the pre-0204 sketch. Its stale branch deleted/duplicated
+-- pictures; read supabase/migrations/0204_*.sql, not this.
 -- sketch for migration 0203 (to be written against the LIVE schema)
 alter table public.shop_products add column images jsonb not null default '[]';
 
@@ -235,7 +240,7 @@ Replace the single "อัปโหลดรูป" button with a **picture stri
      already does today (`uploadedNow`).
 - **Progress:** "กำลังอัปโหลดรูป 2/3…" on the save button, like the PR form.
 
-⚠️ **A reader of the new column that must not be missed:** the in-use check.
+✅ **DONE (`trashImageIfUnused`).** ⚠️ **A reader of the new column that must not be missed:** the in-use check.
 Today it compares `image_url`. After this change it must look inside every
 `images` array, or it will trash picture 2 of product A because product B's
 cover is different. See the reader registry in §8.

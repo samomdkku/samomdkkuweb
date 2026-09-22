@@ -321,6 +321,13 @@ Both are load-bearing. Deploy through the script, not by hand.
 
 ## Verifying from the served artefact — and the control is half of it
 
+⚠️ **From inside KKU the public address can time out while the VM is fine**
+(2026-09-22, KKU's reverse proxy; it recovered on its own). Don't read that as a
+failed deploy. `ssh -f -N -L 8443:127.0.0.1:443 samo-vm`, then point Chrome at
+it with `--host-resolver-rules="MAP samo.md.kku.ac.th:443 127.0.0.1:8443"
+--ignore-certificate-errors` (the VM's own certificate is self-signed).
+`skills/drive-the-browser.md` §11.
+
 Two checks, always, after `<== exit 0`:
 
 ```bash

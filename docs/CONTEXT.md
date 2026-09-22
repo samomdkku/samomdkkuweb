@@ -292,8 +292,10 @@ shop_pickup_locations (bigserial id PK, label, detail, is_active,
 ```
 
 Also: `users.role` check constraint expanded to admit `shop_admin`.
-Helper `public.current_user_is_shop_admin()` returns true for
-`shop_admin` or `dev`.
+Helper `public.current_user_is_shop_admin()` returns true for role
+`shop_admin` or `dev`, OR the `samoshop` permission (either column —
+`current_user_has_permission`). Live body read 2026-09-22; the permission is how
+real shop staff hold it (ทีม SAMO), not the role.
 
 ### Project tracking (canonical: `0005_project_tracking_schema.sql`, `0006_seed_project_accounts.sql`)
 
@@ -1108,7 +1110,8 @@ victim's browser has no matching cookie and is refused.
   own dept; super users get a dept picker).
 - **pr_agents**: any staff role read; pr_staff/dev write.
 - **shop_products / shop_pickup_batches**: public SELECT when
-  `is_active = true`; admin (shop_admin or dev) full write.
+  `is_active = true`; shop admin (`current_user_is_shop_admin()` — role
+  shop_admin/dev or the `samoshop` permission) full write.
 - **shop_orders**: SELECT for buyer (own rows) or admin. INSERT is admin-only
   (`shop_orders_insert_admin`); a buyer creates an order ONLY through
   `place_shop_order` — 0199 removed the buyer INSERT this line used to
