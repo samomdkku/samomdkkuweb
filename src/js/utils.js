@@ -226,9 +226,11 @@ export function stripHtmlToText(html, max) {
 export function safeUrl(s) {
   const u = String(s == null ? '' : s).trim();
   if (/^https?:\/\//i.test(u) || /^mailto:/i.test(u) || /^tel:/i.test(u)) {
-    // Explicit %XX: encodeURIComponent leaves `'` alone.
+    // encodeURIComponent for correct UTF-8 (\s also matches U+00A0 / U+3000,
+    // which a hand-built %XX got wrong); it leaves `'` alone, so that one is
+    // spelled out.
     return u.replace(/["'<>`\s\\]/g,
-      (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+      (c) => (c === "'" ? '%27' : encodeURIComponent(c)));
   }
   return '#';
 }

@@ -85,13 +85,20 @@ export function placeOrderErrorMessage(msg = '') {
   return 'สั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง' + (code ? ` (${code})` : '');
 }
 
+/** A write whose outcome is UNKNOWN: no answer at all (timeout, dropped
+ *  connection), or a gateway 5xx — which can arrive after the database has
+ *  committed. Neither may be reported as "it failed". */
+export function isAmbiguousFailure(error) {
+  return error?.status == null || Number(error.status) >= 500;
+}
+
 /** The caller's own order carrying this slip URL, or null. A slip URL is
  *  unique to one upload, so this identifies the order one attempt created. */
 export async function findMyOrderBySlip(buyerId, slipUrl) {
   if (!buyerId || !slipUrl) return null;
   const { data, error } = await dbRest(
     `/shop_orders?buyer_id=eq.${encodeURIComponent(buyerId)}`
-    + `&slip_url=eq.${encodeURIComponent(slipUrl)}&select=*&limit=1`);
+    + `&slip_url=eq.${encodeURIComponent(slipUrl)}&select=${ORDER_FIELDS}&limit=1`);
   if (error) throw new Error(error.message || 'lookup failed');
   return (data && data[0]) || null;
 }
@@ -128,7 +135,7 @@ export async function placeShopOrder(payload) {
     // No HTTP status = the request never got an answer (timeout, dropped
     // connection). The order may have been saved; say so, and let the caller
     // check (checkout's placeShopOrderOrFindIt) before offering a retry.
-    if (error.status == null) {
+    if (isAmbiguousFailure(error)) {
       const err = new Error('การเชื่อมต่อขาดระหว่างสั่งซื้อ ระบบไม่แน่ใจว่าบันทึกแล้วหรือยัง '
         + 'กรุณาเปิดหน้า "คำสั่งซื้อของฉัน" ตรวจก่อนสั่งซ้ำ');
       err.ambiguous = true;
@@ -653,10 +660,10 @@ async function patchOwnOrderSlips(id, build) {
       { method: 'PATCH', body: build(current), prefer: 'return=representation' },
     );
     if (error) {
-      const err = new Error(error.status == null
+      const err = new Error(isAmbiguousFailure(error)
         ? 'การเชื่อมต่อขาด กรุณาโหลดหน้าใหม่เพื่อตรวจว่าบันทึกแล้วหรือยัง'
         : (error.message || 'บันทึกไม่สำเร็จ'));
-      err.ambiguous = error.status == null;
+      err.ambiguous = isAmbiguousFailure(error);
       throw err;
     }
     if (Array.isArray(data) && data.length) return data[0];

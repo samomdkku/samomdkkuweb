@@ -11,7 +11,7 @@ import {
   thb, fmtDateTime, STAGES_ORDER, STAGES_META, statusMetaFor, batchDateEntries,
   rollupOrderStage, ITEM_STAGES_ORDER, itemStatusMeta,
 } from './data.js';
-import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip, updateOrderContact } from './api.js';
+import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrderSlip, updateOrderContact, getOrder } from './api.js';
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 import { uploadShopFile, deleteShopFile, slipFolderForNow, SLIP_MAX_EDGE, prepareSlip } from './uploads.js';
 import { showShopToast } from './products.js';
@@ -176,7 +176,14 @@ async function handleSlipAdd(orderId, picked) {
     // Uploaded but not attached (the order moved on, or the write was refused):
     // that file is a public picture of a bank slip nothing points at. Trash it.
     // Not on a dropped connection — the slip may have been attached after all.
-    if (slipUrl && !err?.ambiguous) deleteShopFile(slipUrl);
+    // Unsure (dropped / 5xx): trash only after a re-read shows it NOT attached.
+    if (slipUrl) {
+      const attached = err?.ambiguous
+        ? await getOrder(orderId).then((o) => (o?.slips || []).some((x) => x?.url === slipUrl) || o?.slip_url === slipUrl)
+          .catch(() => true)          // cannot tell → keep it
+        : false;
+      if (!attached) deleteShopFile(slipUrl);
+    }
     showShopToast(`ส่งสลิปไม่สำเร็จ: ${err.message || err}`, 'error');
     if (btn) {
       btn.disabled = false;

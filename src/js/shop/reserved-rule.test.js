@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { placeOrderErrorMessage } from './api.js';
+import { placeOrderErrorMessage, isAmbiguousFailure } from './api.js';
 
 const DIR = 'supabase/migrations';
 const files = readdirSync(DIR).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
@@ -82,5 +82,17 @@ describe('every refusal place_shop_order can raise reaches the buyer in Thai', (
       expect(out).toMatch(/[\u0E00-\u0E7F]/); // Thai
       expect(out).not.toMatch(/\[object /);
     }
+  });
+});
+
+describe('which failed writes are UNSURE (the order or slip may have landed)', () => {
+  it('no answer, or a gateway 5xx after a possible commit — never "it failed"', () => {
+    expect(isAmbiguousFailure({ message: 'signal is aborted without reason' })).toBe(true);
+    expect(isAmbiguousFailure({ status: 502 })).toBe(true);
+    expect(isAmbiguousFailure({ status: 504 })).toBe(true);
+  });
+  it('a refusal the server stated is an answer', () => {
+    expect(isAmbiguousFailure({ status: 400, message: 'OUT_OF_STOCK' })).toBe(false);
+    expect(isAmbiguousFailure({ status: 403 })).toBe(false);
   });
 });

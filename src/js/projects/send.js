@@ -88,7 +88,9 @@ export function mountSendFlow({ onCreated: cb } = {}) {
     if (!btn) return;
     const idx = parseInt(btn.dataset.projectsRemoveFile, 10);
     pendingFiles.splice(idx, 1);
-    renderFileList();
+    // Re-stage what is left: if the removed file was the unreadable one, its
+    // failed hold must not keep blocking the send (a held File re-copies fine).
+    stageFiles(pendingFiles);
   });
 
   // Submit

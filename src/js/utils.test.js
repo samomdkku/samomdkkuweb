@@ -103,6 +103,10 @@ describe('safeUrl', () => {
       expect(html.match(/"/g)).toHaveLength(2); // still one attribute
     }
   });
+  it('encodes non-ASCII whitespace as valid UTF-8', () => {
+    expect(safeUrl('https://x/a\u00a0b')).toBe('https://x/a%C2%A0b');
+    expect(safeUrl('https://x/a\u3000b')).toBe('https://x/a%E3%80%80b');
+  });
   it('leaves an ordinary Drive / lh3 URL unchanged', () => {
     const u = 'https://lh3.googleusercontent.com/d/1AbC_d-E=w1200?x=1&y=2#f';
     expect(safeUrl(u)).toBe(u);

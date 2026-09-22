@@ -1934,8 +1934,10 @@ async function persistAdminNoteIfChanged() {
     );
     if (error) throw new Error(error.message || 'บันทึกหมายเหตุไม่สำเร็จ');
     if (!Array.isArray(data) || data.length === 0) throw new Error('ไม่มีสิทธิ์แก้ไขคำสั่งซื้อนี้');
+    // The whole returned row, not just the notes: the write bumped updated_at,
+    // and the verify queue refuses an order whose updated_at it did not see.
     const row = state.orders.find((x) => x.id === order.id);
-    if (row) Object.assign(row, body);
+    if (row) Object.assign(row, data[0]);
   } catch (e) {
     console.warn('[shop/admin] persistAdminNote failed:', e);
     showShopToast(`บันทึกหมายเหตุของ ${order.id} ไม่สำเร็จ: ${e.message || e}`, 'error');
@@ -4319,12 +4321,30 @@ async function onBannerFilePicked(e) {
  *  when no product, pickup announcement or banner still shows it (a shop
  *  admin reads every such row, so these lists are complete for this caller).
  *  Deleting a product or banner used to leave its picture public in Drive. */
-function trashImageIfUnused(url) {
+async function trashImageIfUnused(url) {
   const u = String(url || '').trim();
   if (!u) return;
-  const used = [...(state.products || []), ...(state.batches || []), ...(state.banners || [])]
-    .some((x) => x.image_url === u);
-  if (!used) deleteShopFile(u).catch(() => {});
+  // Asked of the SERVER, not state.*: state.batches is only filled once the
+  // ประกาศรับสินค้า tab has been opened, so a product deleted from the products
+  // tab could trash a picture an announcement still shows. If this read fails,
+  // keep the file — a leftover image is recoverable, a deleted one is not.
+  let rows;
+  try {
+    // Banners read directly: listShopBanners answers [] on an error (a
+    // pre-0019 fallback), and [] here would mean "unused" — fail OPEN.
+    const bannerRead = dbRest('/shop_banners?select=image_url').then(({ data, error }) => {
+      if (error || !Array.isArray(data)) throw new Error(error?.message || 'banners unreadable');
+      return data;
+    });
+    const [products, batches, banners] = await Promise.all([
+      listProducts({ activeOnly: false }), listAllBatches(), bannerRead,
+    ]);
+    rows = [...products, ...batches, ...banners];
+  } catch (e) {
+    console.warn('[shop/admin] image kept — could not confirm it is unused:', e?.message || e);
+    return;
+  }
+  if (!rows.some((x) => x.image_url === u)) deleteShopFile(u).catch(() => {});
 }
 
 async function onBannerDelete(id) {

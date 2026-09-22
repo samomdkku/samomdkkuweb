@@ -37,18 +37,29 @@ let reservedAll = {};
 let stockAt = 0;
 const STOCK_TTL_MS = 20000;
 
+let stockInFlight = null;
 async function refreshStock() {
   if (Date.now() - stockAt < STOCK_TTL_MS) return;
-  try {
-    const [list, reserved] = await Promise.all([
-      listProducts({ activeOnly: false }), fetchReservedMatrixAll(),
-    ]);
-    setShopCartProducts(list);
-    reservedAll = reserved || {};
-    stockAt = Date.now();
-  } catch (e) {
-    console.warn('[shop/checkout] stock refresh failed — the server still checks:', e?.message || e);
-  }
+  // One fetch at a time: a render that starts while one is running waits for it.
+  if (stockInFlight) return stockInFlight;
+  stockInFlight = (async () => {
+    try {
+      const [list, reserved] = await Promise.all([
+        listProducts({ activeOnly: false }), fetchReservedMatrixAll(),
+      ]);
+      // Recorded BEFORE setShopCartProducts: it re-prices the cart, a price
+      // change notifies, and that re-renders checkout — which must find this
+      // refresh done, not start another with the old reserved counts.
+      reservedAll = reserved || {};
+      stockAt = Date.now();
+      setShopCartProducts(list);
+    } catch (e) {
+      console.warn('[shop/checkout] stock refresh failed — the server still checks:', e?.message || e);
+    } finally {
+      stockInFlight = null;
+    }
+  })();
+  return stockInFlight;
 }
 
 /** The product map with each product's reserved counts spliced on. */
@@ -602,9 +613,32 @@ async function placeOrder() {
   try {
     // The last look before anything is uploaded or ordered. Inside the lock, so
     // a second tap during this fetch is still a no-op.
+    // A RETRY FIRST: a group whose slip was already uploaded may already have
+    // its order (the answer was lost). Look it up BEFORE the stock check — the
+    // lost order holds stock, so checking first would refuse the retry with
+    // "out of stock" and never reach the lookup built for exactly this case.
+    const alreadyPlaced = new Map();
+    for (const g of groups) {
+      const done = state.slipUploads[g.key];
+      if (!done || done.file !== state.slipFiles[g.key]) continue;
+      const earlier = await findMyOrderBySlip(user.id, done.url).catch(() => null);
+      if (!earlier) continue;
+      const qtyOf = (items) => (items || []).reduce((n, it) => n + (Number(it.qty) || 0), 0);
+      if (Number(earlier.subtotal) !== g.subtotal || qtyOf(earlier.items) !== qtyOf(g.items)) {
+        // Saved with what the cart held THEN; it has changed since. Say so —
+        // guessing either way loses items or orders them twice.
+        placing = false;
+        showShopToast(`คำสั่งซื้อ ${earlier.id} ถูกบันทึกไว้แล้วด้วยรายการเดิม แต่ตะกร้าเปลี่ยนไป `
+          + 'กรุณาเปิด "คำสั่งซื้อของฉัน" ตรวจก่อนสั่งเพิ่ม', 'warn');
+        renderCheckout();
+        return;
+      }
+      alreadyPlaced.set(g.key, earlier);
+    }
     stockAt = 0;
     await refreshStock();
-    if (cartLineProblems(cart, productsWithStock()).size) {
+    const toCheck = groups.filter((g) => !alreadyPlaced.has(g.key)).flatMap((g) => g.items);
+    if (cartLineProblems(toCheck, productsWithStock()).size) {
       placing = false;
       showShopToast('สินค้าบางรายการสั่งไม่ได้แล้ว กรุณาลบหรือแก้ไขก่อน', 'warn');
       renderCheckout();
@@ -626,6 +660,11 @@ async function placeOrder() {
     try {
       for (let gi = 0; gi < groups.length; gi++) {
         const g = groups[gi];
+        if (alreadyPlaced.has(g.key)) {
+          placedOrders.push({ order: alreadyPlaced.get(g.key), key: g.key });
+          delete state.slipUploads[g.key];
+          continue;
+        }
         if (place) {
           place.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>`
             + (groups.length > 1 ? `กำลังบันทึกบัญชี ${gi + 1}/${groups.length}…` : 'กำลังบันทึกคำสั่งซื้อ…');
