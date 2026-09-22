@@ -138,7 +138,7 @@ Open when: writing a migration.
 - "why does that photo and cohort year bug exist"
 - The storefront said "sold out" for a size the server would sell
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(99)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(100)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -241,6 +241,7 @@ Open when: markup, modals, layout, touch, icons.
 - "อัปโหลดสลิป กดยืนยันแล้ว แต่ขึ้นว่า สั่งซื้อไม่สำเร็จ: [object ProgressEvent]"
 - "scan for bugs in samoshop, all thoroughly"
 - Checkout: a buyer who came back from the bank app could place the order twice
+- A recovery path placed AFTER the check its own failure trips
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(25)*
 
@@ -456,4 +457,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_394 entries across 10 files._
+_395 entries across 10 files._

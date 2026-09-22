@@ -5,7 +5,7 @@ CLASSES and nothing that grows.** Write-ups are in `docs/mistakes/*.md`, read
 on demand.
 
 **To find one**: `grep -rin "<phrase>" docs/mistakes/` — it searches the
-write-ups, not just titles, and is fastest given a symptom. To SCAN
+write-ups, not just titles; fastest given a symptom. To SCAN
 headings, read `docs/mistakes/INDEX.md`. Read near-matches; most recurred in
 different clothes.
 
@@ -401,7 +401,7 @@ a class — tighten this paragraph first.
 - `authz-rls.md` *(33)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(22)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(32)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(99)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(100)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(25)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(32)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(26)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

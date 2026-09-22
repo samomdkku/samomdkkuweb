@@ -1590,6 +1590,41 @@ unit-tested, not clicked.
 - **HYPOTHESIS — the team/house CSV exports may have the same formula-injection
   shape** (`src/js/team/io.js`, `src/js/house/io.js`). Not checked; out of the
   shop's scope. Use the shared `csvCell` in `src/js/shop/data.js` if so.
+- **VERIFIED 2026-09-22 — how: a fresh reviewer read the whole day's diff
+  cold, beside my own pass.** No blocker. Fixed in the commit
+  "second-pass review of the sweep":
+  - the retry lookup now runs before the stock check;
+  - a 5xx counts as an unsure write;
+  - the image in-use check reads the server;
+  - the verify queue now sees the new `updated_at` after a note edit;
+  - one stock fetch at a time;
+  - projects send re-stages the files after one is removed;
+  - safeUrl encodes UTF-8 correctly.
+
+  Checked on live data and clean: 0 banner links in an odd format, and 0 colours
+  without an id.
 - **HYPOTHESIS — QR scanner double-fire / camera left on** were PLAUSIBLE in
   review and fixed defensively (a per-open session with a latch). They were not
   reproduced on a device.
+
+## 18c. SAMO Shop — product gallery (several pictures, zoom, colour pictures)
+
+**Status: DECIDED 2026-09-22 — design only, nothing built.** The owner asked for
+several pictures per product, tap-to-zoom, and a picture that follows the chosen
+colour. The full design, with the measured facts it rests on, is
+`docs/SHOP-GALLERY.md`:
+
+- an `images jsonb` column, with `image_url` kept as a cover that a trigger
+  maintains;
+- PhotoSwipe loaded with a dynamic import;
+- picking a colour jumps to that colour's picture and never filters the rest;
+- five steps, each shippable on its own (§9).
+
+- **OWED — the build (§9 steps 1–5).** Start with migration 0203 and its proof,
+  including the stale-tab trigger branch.
+- **OWED (owner) — three defaults in §10:** 8 pictures at most; jump, not
+  filter; cart thumbnails follow the colour. Build with the defaults unless
+  told otherwise.
+- ⚠️ **The picture in-use check must learn `images[]` in the same step as the
+  editor**, or saving a product can trash a picture another product still
+  shows (§3, §8).

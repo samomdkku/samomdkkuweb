@@ -4048,3 +4048,28 @@ a remove button. It is checked again inside the lock, against fresh stock.
 by the click handler is re-enabled by any code that re-draws it; put the lock
 in the action, and have the renderer read it. And *a timeout is not a failure*:
 before offering a retry, ask the server whether the first try landed.
+
+---
+
+## A recovery path placed AFTER the check its own failure trips — the checkout retry lookup could never run
+
+**Symptom (found by the second-pass review of the shop sweep, 2026-09-22,
+before any buyer hit it)**: the retry-safety built earlier that day was
+unreachable in exactly the case it was built for. An order is placed, the answer
+is lost, and the follow-up lookup also fails. The buyer taps again. The fresh
+stock check now counts the buyer's OWN saved order as holding the last units,
+says "สั่งไม่ได้แล้ว", and returns — before the "find my order by this slip"
+lookup that would have recognised it.
+
+**Cause**: the recovery step (look up what the lost attempt created) was
+ordered after a check (stock) whose input the lost attempt had changed.
+
+**Fix**: `placeOrder` resolves every group with a reused upload FIRST
+(`alreadyPlaced`), checks stock only for the rest, and places only the rest. A
+found order whose items differ from the cart now stops with a message rather
+than guessing.
+
+**The general rule**: *a recovery path must run before anything the failure
+it recovers from can have changed.* When you add "if the last try landed,
+use it", trace the retry from the top of the function, not from where you
+inserted the lookup.
