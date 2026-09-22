@@ -245,8 +245,14 @@ teaching two people. See A1.
 their version lands. An IT-built page is a page IT owns, which is the bottleneck
 that design removes.
 
-**No deploy is owed.** Check, do not trust this line — and note that it names
-no sha, on purpose. Retyping one into a `git diff` is the bug that opened
+**⚠️ A DOCS-ONLY DEPLOY IS OWED (2026-09-22, end of session).** The last commit
+before this STATE edit changed only wording in published docs (SHOP-GALLERY,
+HANDOFF, CONTEXT, the session notes). It is pushed but NOT deployed: the
+laptop moved to a network without a route to the VM (ssh and the public URL
+both timed out; the VPN is needed). The served docs lag that wording by three
+small edits; code, database and Apps Script are all current. Run
+`skills/deploy-vm.md` on the VPN, then update the ✅ DEPLOYED line. Check, do
+not trust this line — and note that it names no sha, on purpose. Retyping one into a `git diff` is the bug that opened
 2026-08-28, and `state-handoff.test.js` now forbids the shape:
 ```bash
 npm run deploy:owed
