@@ -191,7 +191,7 @@ end $$;
 
 `check (public.shop_images_ok(images))`:
 
-- it is an array of **at most 8** entries (§10 Q1);
+- it is an array — of ANY length since 0205 (the owner asked for no limit; the design's 8 is gone, §10 Q1);
 - each entry is an object with exactly the keys `url`, `w`, `h`, `color`;
 - `url` is Google-hosted: reuse `shop_slip_url_ok` (0202), renamed
   `shop_drive_url_ok` with the old name kept as a wrapper;
@@ -209,7 +209,7 @@ database. Deleting a colour must not fail a save; an orphan tag is treated as
 Replace the single "อัปโหลดรูป" button with a **picture strip**:
 
 ```
-รูปสินค้า (ลากเพื่อเรียง · รูปแรก = รูปปก)                 3 / 8
+รูปสินค้า (ลากเพื่อเรียง · รูปแรก = รูปปก)                 3 รูป
 ┌──────┐ ┌──────┐ ┌──────┐ ┌ ─ ─ ─ ┐
 │ ปก   │ │      │ │      │ │   +   │   ← picks several at once (multiple)
 │ [img]│ │ [img]│ │ [img]│ │ เพิ่มรูป │
@@ -399,8 +399,9 @@ button**, because headless Chrome has no touch.
 
 ## 10. Owner decisions — each has a default, so nothing waits
 
-- **Q1. Most pictures per product?** Default **8**. That covers colours ×
-  front/back plus a size chart. Each is an Apps Script upload on save.
+- **Q1. Most pictures per product?** ~~Default 8~~ → **ANSWERED: no limit**
+  (owner, 2026-09-22, 0205). Picking more than 20 at once asks first. Each
+  picture is still an Apps Script upload on save.
 - **Q2. Picking a colour: jump to its picture, or show ONLY its pictures?**
   Default **jump** (§1). Filtering hides the size chart and shared shots, and
   shows an empty gallery for an untagged colour.

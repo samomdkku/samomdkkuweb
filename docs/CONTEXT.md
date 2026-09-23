@@ -203,7 +203,7 @@ shop_products (text id PK, name, sub, description, type, source,
     shop_admin sees all). Future Model B scopes writes/reads per source — see STATE.md.
   ↳ type = loose text; picker source is shop_product_types (NOT an FK, so
     deleting a type never breaks a product)
-  ↳ images jsonb [{url,w,h,color}…] (mig 0203, ≤ 8, [0] = cover) — a product's
+  ↳ images jsonb [{url,w,h,color}…] (mig 0203; any length since 0205; [0] = cover) — a product's
     pictures. `url` is a Google-hosted URL stored WITHOUT an lh3 size suffix;
     `color` is a colors[].id or null. CHECK shop_images_ok (shape, count, host via
     shop_drive_url_ok). image_url is now the DERIVED COVER: trigger

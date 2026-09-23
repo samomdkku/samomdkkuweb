@@ -34,8 +34,8 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `6941739` (2026-09-23)** — v4.7.0 still, read back from the VM's
-  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. The last docs-only deploy of the day (the cold-read audit's wording fixes) — SERVED: the published session notes and SHOP-GALLERY carry them. Code verified on production earlier the same day: admin stylesheet carries `.shop-img-strip`; storefront gallery + lightbox driven, no console errors. The day's work and how each was checked: `docs/state/claude-2026-09-22.md`. Previous: `95a31e0` (`docs/state/claude-2026-09-21.md`).
+- ✅ **DEPLOYED = `d08ffcb` (2026-09-23)** — **v4.8.0**, tagged on this commit, read back from the VM's
+  own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; production serves `build.json` 4.8.0 and the release notes. The day: shop pictures via the VM's `/img/` cache (47 MB → 212 KB on /shop), the shop's Discord totals (0206), Discord nicknames (0207) and the บอท Discord admin panel (0208). How each was checked: `docs/state/claude-2026-09-23.md`; owed: HANDOFF §18e. Previous: `6941739` (`docs/state/claude-2026-09-22.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on

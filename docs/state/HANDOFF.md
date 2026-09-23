@@ -1705,8 +1705,8 @@ colour. The full design, with the measured facts it rests on, is
 `shop0203-gallery` 19/19), the admin strip with no cap (counter "N รูป", a confirm above 20 files at once). NOT done:
 - a gallery with many pictures shows one DOT per picture on a phone (`gallery.js`) — switch to a "3 / N" counter above ~8;
 - uploads on save are not paced for a big batch (`saveProductForm` loop) — add ~500 ms between uploads;
-- docs still say 8 in places: `README.md` "up to 8", `docs/CONTEXT.md` "≤ 8", `docs/SHOP-GALLERY.md` §2/§3/§9/§10,
-  the PENDING changelog entry "สูงสุด 8 รูป" (`src/data/changelog.js`). `grep -rn "8 pictures\|≤ 8\|สูงสุด 8"`.
+- ~~docs still say 8 in places~~ → DONE 2026-09-23 (README, CONTEXT, SHOP-GALLERY §2/§3/§10, and the
+  release note, which shipped in v4.8.0 saying "ไม่จำกัดจำนวน").
 
 ## 18e. Discord bot: nicknames, the admin panel — what is left (2026-09-23)
 
