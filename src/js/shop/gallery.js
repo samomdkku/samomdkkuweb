@@ -40,14 +40,19 @@ export function renderGallery(host, product, { start = 0, overlayHtml = '' } = {
     return;
   }
 
+  // What shows while the sharp picture loads, instead of the stage's blank
+  // blue: for the cover, the grid card's own picture (same URL, so already in
+  // the browser's cache — the buyer just tapped it); for the others their
+  // small thumbnail, so a swipe never lands on nothing.
+  const placeholder = (im, i) => `background: center / cover no-repeat url('${safeUrl(pictureAt(im.url, i === 0 ? 600 : 200))}')`;
   const slide = (im, i) => `
     <button type="button" class="pg-slide" data-pg-open="${i}"
             aria-label="ดูรูปใหญ่ — ${escHtml(imageAlt(product, im, i, n))}">
-      <img src="${safeUrl(pictureAt(im.url, 800))}"
-           srcset="${safeUrl(pictureAt(im.url, 800))} 800w, ${safeUrl(pictureAt(im.url, 1200))} 1200w"
+      <img src="${safeUrl(pictureAt(im.url, 1200))}"
+           srcset="${safeUrl(pictureAt(im.url, 600))} 600w, ${safeUrl(pictureAt(im.url, 1200))} 1200w"
            sizes="(min-width: 768px) 380px, 92vw"
-           alt="${escHtml(imageAlt(product, im, i, n))}"
-           ${i === 0 ? '' : 'loading="lazy"'} decoding="async" draggable="false" referrerpolicy="no-referrer" />
+           alt="${escHtml(imageAlt(product, im, i, n))}" style="${escHtml(placeholder(im, i))}"
+           ${i === start ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" draggable="false" referrerpolicy="no-referrer" />
     </button>`;
 
   host.innerHTML = `
@@ -105,8 +110,22 @@ export function renderGallery(host, product, { start = 0, overlayHtml = '' } = {
     if (b) goTo(host, Number(b.dataset.pgGo));
   });
 
-  // The start picture, without an animation (the popup is still opening).
-  goTo(host, start, { instant: true });
+  // The start picture, placed BEFORE the first frame anyone sees. The popup is
+  // still hidden here (width 0), so a scroll now lands on 0; placing it on
+  // Bootstrap's `shown` (the old way) came after the fade, so the buyer
+  // watched the cover scroll away to their colour. A ResizeObserver fires
+  // after the layout that gives the track its width and before that frame is
+  // painted — the popup's first visible frame is already on the right picture.
+  const place = () => { track.scrollTo({ left: start * track.clientWidth, behavior: 'instant' }); mark(); };
+  if (track.clientWidth || typeof ResizeObserver !== 'function') place();
+  else {
+    const ro = new ResizeObserver(() => {
+      if (!track.clientWidth) return;
+      ro.disconnect();
+      place();
+    });
+    ro.observe(track);
+  }
   mark();
 }
 
@@ -115,15 +134,10 @@ function goTo(host, i, { instant = false } = {}) {
   if (!track) return;
   const n = track.children.length;
   const to = Math.max(0, Math.min(n - 1, i));
-  track.scrollTo({ left: to * track.clientWidth, behavior: instant ? 'auto' : 'smooth' });
-  if (instant) {
-    // A just-shown modal may not have its width yet; settle once it does.
-    requestAnimationFrame(() => track.scrollTo({ left: to * track.clientWidth, behavior: 'auto' }));
-  }
+  track.scrollTo({ left: to * track.clientWidth, behavior: instant ? 'instant' : 'smooth' });
 }
 
-/** Jump to picture `i` (used by the colour swatches). A no-op for -1.
- *  `instant` for the popup's first paint, once the modal has its width. */
+/** Jump to picture `i` (used by the colour swatches). A no-op for -1. */
 export function galleryGoTo(host, i, { instant = false } = {}) {
   if (i == null || i < 0) return;
   goTo(host, i, { instant });

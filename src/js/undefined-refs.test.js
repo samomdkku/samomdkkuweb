@@ -61,7 +61,7 @@ const BROWSER_GLOBALS = new Set([
   'Node', 'NodeFilter', 'DOMParser', 'XMLHttpRequest', 'Worker',
   'MediaRecorder', 'Notification', 'ClipboardItem', 'CSS', 'Option',
   'IDBKeyRange', 'indexedDB', 'caches', 'devicePixelRatio',
-  'HTMLCanvasElement', 'HTMLImageElement', 'HTMLInputElement', 'Range',
+  'HTMLCanvasElement', 'HTMLImageElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'Range',
   'getSelection', 'visualViewport', 'beforeunload',
   // `createImageBitmap` is a real browser global that Node does not expose; the
   // one call site already feature-detects it.

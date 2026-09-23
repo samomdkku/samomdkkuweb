@@ -128,6 +128,7 @@ function ensureMounted() {
   if (mounted) return;
   mounted = true;
   applySourceDefaultOnce();
+  wireAutogrowFallback();
 
   // Tab switcher
   document.getElementById('shopAdminTabs')?.addEventListener('click', (e) => {
@@ -308,6 +309,23 @@ function setTab(name) {
   if (name === 'stock')    refreshStock();
   if (name === 'qr')       { loadSettingsIntoForm(); refreshQrList(); }
   if (name === 'catalog')  refreshCatalog();
+}
+
+/** Text boxes that grow with what is typed (`.shop-autogrow`, shop.css). CSS
+ *  `field-sizing: content` does it alone where supported; this is for browsers
+ *  without it (Safari before 26 — iPads here stay on old versions). One
+ *  delegated listener, so it covers editors rendered later too. A box is sized
+ *  on focus as well, so saved long text shows in full once it is clicked. */
+function wireAutogrowFallback() {
+  if (globalThis.CSS?.supports?.('field-sizing', 'content')) return;
+  const fit = (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('shop-autogrow')) return;
+    t.style.height = 'auto';
+    t.style.height = `${t.scrollHeight + 2}px`;   // + the 1px borders
+  };
+  document.addEventListener('input', fit);
+  document.addEventListener('focusin', fit);
 }
 
 /** Entry point — call from main.js when the shop admin section opens. */
@@ -1902,11 +1920,11 @@ function orderModalBodyHtml(o) {
 
         <h5 class="mt-3">หมายเหตุสำหรับลูกค้า</h5>
         <p class="small text-muted mb-1">ข้อความนี้จะแสดงในหน้า "คำสั่งซื้อ" ของลูกค้า</p>
-        <textarea id="shopAdminOrderModalCustomerNote" class="form-control" rows="2"
+        <textarea id="shopAdminOrderModalCustomerNote" class="form-control shop-autogrow" rows="2"
           placeholder="เช่น โอนเกินมา 20 บาท เดี๋ยวคืนให้ในรอบรับสินค้า — บันทึกเมื่อปิดหน้านี้">${escHtml(o.customer_note || '')}</textarea>
 
         <h5 class="mt-3">หมายเหตุภายใน admin</h5>
-        <textarea id="shopAdminOrderModalNote" class="form-control" rows="3"
+        <textarea id="shopAdminOrderModalNote" class="form-control shop-autogrow" rows="3"
           placeholder="ระบุหมายเหตุ — บันทึกเมื่อปิดหน้านี้">${escHtml(o.admin_note || '')}</textarea>
       </div>
     </div>`;
@@ -2487,7 +2505,7 @@ function batchEditorHtml(b) {
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1">หมายเหตุ (ไม่บังคับ)</label>
-          <textarea id="shopBatchNote" class="form-control" rows="2" placeholder="เช่น กรุณานำบัตรนักศึกษามาด้วย">${escHtml(b.note || '')}</textarea>
+          <textarea id="shopBatchNote" class="form-control shop-autogrow" rows="2" placeholder="เช่น กรุณานำบัตรนักศึกษามาด้วย">${escHtml(b.note || '')}</textarea>
         </div>
       </div>
       <div class="d-flex justify-content-end gap-2 mt-3">
@@ -2886,7 +2904,7 @@ function renderProductEditor() {
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1">รายละเอียด</label>
-          <textarea id="shopProdDesc" class="form-control" rows="3">${escHtml(p.description || '')}</textarea>
+          <textarea id="shopProdDesc" class="form-control shop-autogrow" rows="3">${escHtml(p.description || '')}</textarea>
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1 d-flex justify-content-between gap-2">
@@ -4082,7 +4100,7 @@ function pickupEditorHtml(ed) {
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1">รายละเอียด / วิธีเดินทาง (ไม่บังคับ)</label>
-          <textarea id="shopPickupDetail" class="form-control" rows="2">${escHtml(ed.detail || '')}</textarea>
+          <textarea id="shopPickupDetail" class="form-control shop-autogrow" rows="2">${escHtml(ed.detail || '')}</textarea>
         </div>
         <div class="col-12">
           <div class="form-check">
@@ -4213,7 +4231,7 @@ function qrEditorHtml(ed) {
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1">คำสั่งเฉพาะบัญชีนี้ (ไม่บังคับ — ว่าง = ใช้ข้อความรวมด้านล่าง)</label>
-          <textarea id="shopQrInstructions" class="form-control" rows="2">${escHtml(ed.instructions || '')}</textarea>
+          <textarea id="shopQrInstructions" class="form-control shop-autogrow" rows="2">${escHtml(ed.instructions || '')}</textarea>
         </div>
         <div class="col-12">
           <div class="form-check">

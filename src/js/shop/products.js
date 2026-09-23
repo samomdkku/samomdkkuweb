@@ -425,7 +425,7 @@ function dropCardHtml(p) {
     <div class="sf-drop-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
       <div class="sf-drop-thumb">
         ${p.image_url
-          ? `<img src="${safeUrl(pictureAt(p.image_url, 800))}" alt="${escHtml(p.name)}" loading="lazy" />`
+          ? `<img src="${safeUrl(pictureAt(p.image_url, 600))}" alt="${escHtml(p.name)}" loading="lazy" />`
           : `<div class="stripe-placeholder" style="background-image: repeating-linear-gradient(135deg, hsl(${Number(p.hue) || 220} 30% 96%) 0 6px, hsl(${Number(p.hue) || 220} 28% 90%) 6px 12px);"></div>`}
         <div class="ribbons">
           <span class="ribbon-new">NEW</span>
@@ -650,9 +650,6 @@ function openProductModal(product) {
       start,
       overlayHtml: tags ? `<div class="ribbons">${tags}</div>` : '',
     });
-    // A hidden modal has no width, so the start picture settles once it shows.
-    const modalEl = document.getElementById('shopProductModal');
-    modalEl?.addEventListener('shown.bs.modal', () => galleryGoTo(hero, start, { instant: true }), { once: true });
   }
   setText('shopProductModalSub',   product.sub || '');
   setText('shopProductModalPrice', thb(unitPriceFor(product, modalState.size)));

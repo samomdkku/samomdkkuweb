@@ -2044,3 +2044,15 @@
 .shop-img-add:hover { border-color: var(--brand-primary, #105922); color: var(--brand-primary, #105922); }
 .shop-img-add i { font-size: 1.3rem; }
 .shop-img-tile.sortable-ghost { opacity: .4; }
+
+/* Shop admin text boxes grow with their text instead of cutting it off
+   (owner, 2026-09-23 — รายละเอียด hid its 4th line). `field-sizing` is the
+   whole mechanism where supported; admin.js wireAutogrowFallback() covers
+   older Safari. Capped so a very long text scrolls inside the box rather than
+   pushing the Save button a screen away. */
+.shop-autogrow {
+  field-sizing: content;
+  min-height: 4.5em;
+  max-height: 70vh;
+  resize: vertical;
+}

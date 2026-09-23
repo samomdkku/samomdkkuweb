@@ -4169,3 +4169,34 @@ fetches images (and runs `onerror=`); parse data with `DOMParser`. And *a
 fallback keyed on `null` misses the spec's real fallback*: ask what an API
 returns when it CANNOT do the thing, not what you hope it returns. Measure page
 weight from the NETWORK, by phase, before optimising the part you were told about.
+
+---
+
+## "กดสินค้าแล้วเลื่อนไปหน้าปกแล้วเลื่อนกลับมาสีดำ" — the popup gallery visibly scrolled from the cover to the selected colour
+
+**Symptom (owner, 2026-09-23)**: opening a product showed the cover, then
+scrolled on its own to the pre-selected colour's picture (ดำ). Measured per
+frame on a production build: the popup's visible frames sat at scroll 0, then
+684.
+
+**Cause**: `renderGallery` positioned the track while the modal was still
+hidden (`clientWidth` 0, so `0 × width` = the cover), and the correction ran on
+Bootstrap's `shown.bs.modal` — AFTER the fade, i.e. after the buyer had
+already watched the cover. Positioning by width needs a width, and "when the
+modal has finished showing" is later than "when it has one".
+
+**Fix**: a `ResizeObserver` on the track places the start picture the first
+time the track has a width. It fires after that layout and before that frame
+is painted, so the first visible frame is already right (measured: every
+visible frame at 684; the old code, same run, 0 then 684). The `shown`
+listener is gone. Also: the start picture loads first (`fetchpriority`), and
+each slide carries a placeholder (the cover shows the grid card's own, cached,
+picture) so the stage never shows its blank blue.
+
+**Where it lives now**: `src/js/shop/gallery.js` (`place`, `placeholder`).
+
+**The general rule**: *to set up geometry for a thing that is about to appear,
+hook the first moment it HAS geometry (ResizeObserver), not the moment it has
+FINISHED appearing (`shown`, `transitionend`)* — the second is after the user
+has seen the wrong state. Measure it per frame; a screenshot after the fact
+shows only the right answer.

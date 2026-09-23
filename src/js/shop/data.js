@@ -491,9 +491,19 @@ export function imageBase(url) {
   return LH3.test(u) ? u.replace(/=[A-Za-z0-9-]+$/, '') : u;
 }
 
-/** The same picture at a given width, as JPEG. lh3 resizes on its side, so one
- *  stored URL serves the thumbnail, the card and the zoom. Non-lh3 URLs come
- *  back as-is.
+/** The widths pictureAt() serves. The VM's picture cache (server/nginx-samo.conf,
+ *  `location ~ "^/img/..."`) admits exactly these and quality 95 — a test holds
+ *  the two to each other. Fewer sizes also means fewer COLD fetches at lh3,
+ *  which takes ~2 s the first time any size of a picture is asked for. */
+export const PICTURE_WIDTHS = [200, 600, 1200, 2400];
+
+/** The same picture at a given width, as JPEG, from this site's own picture
+ *  cache. `w` rounds UP to the next PICTURE_WIDTHS (never a blurrier picture).
+ *  Non-lh3 URLs come back as-is.
+ *
+ *  WHY THE CACHE: lh3 takes 0.5-2.6 s before its first byte (measured
+ *  2026-09-23 from a laptop and from the VM); the VM answers a cached picture
+ *  in ~0.1 s. Outside a web page (no `location`, e.g. a test) it is lh3 direct.
  *
  *  `-rj` is not optional: lh3 answers in the MASTER's format, and the live
  *  masters are 2 MB PNGs (an upload from Safari, which cannot encode WebP —
@@ -504,12 +514,18 @@ export function imageBase(url) {
  *  JPEG has no transparency; no shop picture uses it (every alpha is 255).
  *  lh3's default JPEG quality is 90 (`-l90` returns the same bytes): 40.6 dB
  *  PSNR against the PNG, no difference visible at 2x on the pattern's edges.
- *  `quality` raises it where a buyer magnifies (the lightbox asks 95). */
+ *  `quality` 95 is for where a buyer magnifies (the lightbox); any other value
+ *  is ignored, because the cache admits only that one. */
 export function pictureAt(url, w, quality) {
   if (!url) return '';
   const base = imageBase(url);
   if (!LH3.test(base)) return base;
-  return `${base}=w${Math.round(w)}-rj${quality ? `-l${Math.round(quality)}` : ''}`;
+  const width = PICTURE_WIDTHS.find((x) => x >= Number(w)) || PICTURE_WIDTHS[PICTURE_WIDTHS.length - 1];
+  const opts = `=w${width}-rj${Number(quality) === 95 ? '-l95' : ''}`;
+  const origin = globalThis.location?.origin;
+  return /^https?:\/\//.test(origin || '')
+    ? `${origin}/img/d/${base.slice(base.lastIndexOf('/') + 1)}${opts}`
+    : `${base}${opts}`;
 }
 
 /** A product's pictures, cover first: `images` when it has any, else the

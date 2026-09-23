@@ -1,6 +1,6 @@
 // Pure-function tests for shop/data.js.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   sanitizeOrderCode, genOrderId, STAGES_META, ISSUE_STATUSES,
   rollupOrderStage, itemStageRank,
@@ -197,6 +197,9 @@ describe('product pictures', () => {
   it('sizes one stored lh3 URL, and leaves other URLs alone', () => {
     expect(imageBase(L('A', '=w1200'))).toBe(L('A'));
     expect(pictureAt(L('A', '=w1200'), 200)).toBe(L('A', '=w200-rj'));
+    expect(pictureAt(L('A'), 240)).toBe(L('A', '=w600-rj'));    // rounds UP to a cached width
+    expect(pictureAt(L('A'), 5000)).toBe(L('A', '=w2400-rj'));
+    expect(pictureAt(L('A'), 600, 80)).toBe(L('A', '=w600-rj')); // only 95 is cached
     expect(pictureAt('https://drive.google.com/file/d/X/view', 200)).toBe(L('X', '=w200-rj'));   // converted, like the cards
     expect(pictureAt('https://example.com/a.png', 200)).toBe('https://example.com/a.png');     // not Google: as-is
     expect(pictureAt('', 200)).toBe('');
@@ -219,7 +222,7 @@ describe('product pictures', () => {
   it('treats a Drive-style link like the cards do', () => {
     const d = 'https://drive.google.com/file/d/XYZ/view?usp=sharing';
     expect(imageBase(d)).toBe(L('XYZ'));
-    expect(pictureAt(d, 300)).toBe(L('XYZ', '=w300-rj'));
+    expect(pictureAt(d, 300)).toBe(L('XYZ', '=w600-rj'));
     expect(productImages({ images: [{ url: d }] })[0].url).toBe(L('XYZ'));
   });
   it('an order line that stored the colour LABEL still finds its picture', () => {
@@ -246,5 +249,31 @@ describe('revenue rule — dashboard and Discord agree', () => {
   });
   it('awaiting review is exactly the status the dashboard counts', () => {
     expect(sql).toMatch(/'awaiting_review',\s*count\(\*\) filter \(where status = 'review'\)/);
+  });
+});
+
+// The VM's picture cache (server/nginx-samo.conf) admits exactly the sizes
+// pictureAt() writes. If they part, a picture is served the SPA's index.html
+// (an unmatched path answers 200 with HTML) — a broken image on every card.
+import { PICTURE_WIDTHS } from './data.js';
+describe('picture cache — the page and nginx agree', () => {
+  const L = (id, x = '') => `https://lh3.googleusercontent.com/d/${id}${x}`;
+  const conf = readFileSync('server/nginx-samo.conf', 'utf8');
+  const m = conf.match(/location ~ "\^\/img\/d\/\(\[A-Za-z0-9_-\]\{20,100\}\)=\(w\(\?:([\d|]+)\)-rj\(\?:-l95\)\?\)\$"/);
+  it('nginx has the /img location (control)', () => { expect(m, 'location not found — update this test with the config').toBeTruthy(); });
+  it('nginx admits exactly PICTURE_WIDTHS', () => {
+    expect(m[1].split('|').map(Number)).toEqual(PICTURE_WIDTHS);
+  });
+  it('in a page, every picture comes from this site, at a size nginx admits', () => {
+    vi.stubGlobal('location', { origin: 'https://samo.md.kku.ac.th' });
+    try {
+      const id = '15FVJRgNTQNsR-I_sgWl90mN5dcZSJolq';
+      const re = new RegExp(`^https://samo\\.md\\.kku\\.ac\\.th/img/d/${id}=w(${m[1]})-rj(-l95)?$`);
+      for (const w of [1, 200, 240, 600, 800, 1200, 2000, 2400, 9999]) {
+        expect(pictureAt(L(id, '=w1200'), w)).toMatch(re);
+        expect(pictureAt(L(id), w, 95)).toMatch(re);
+      }
+      expect(pictureAt('https://example.com/a.png', 600)).toBe('https://example.com/a.png');
+    } finally { vi.unstubAllGlobals(); }
   });
 });

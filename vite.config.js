@@ -232,6 +232,15 @@ const config = {
         changeOrigin: false,
         ws: true,
       },
+      // Shop pictures: production serves /img/d/<id>=<size> from the VM's
+      // cache of lh3 (server/nginx-samo.conf). In dev, straight to lh3 — with
+      // no Referer, which lh3 refuses from localhost (SHOP-GALLERY.md).
+      '/img': {
+        target: 'https://lh3.googleusercontent.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/img/, ''),
+        configure: (proxy) => proxy.on('proxyReq', (req) => req.removeHeader('referer')),
+      },
     },
   },
 };
