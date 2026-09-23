@@ -23,7 +23,7 @@ EnvironmentFile=/etc/samo-notify.env
 # power key is HELD and reported. Role NAMES, comma-separated.
 Environment="DISCORD_SYNC_ALLOW_POWER=สมาชิก SAMO Buddy,📇 ฝ่ายเลขานุการนายกฯ"
 # Nicknames follow ทีม SAMO (0207): off | plan (log only, write no name) | apply.
-Environment="DISCORD_SYNC_NICKNAMES=plan"
+Environment="DISCORD_SYNC_NICKNAMES=apply"
 Restart=always
 RestartSec=10
 NoNewPrivileges=true
