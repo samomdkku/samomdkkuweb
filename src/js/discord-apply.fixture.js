@@ -98,6 +98,20 @@ export function serve(w) {
       return undefined;
     }
     if (p === `/api/v10/guilds/${w.guildId}/roles`) return json(w.roles);
+    if (req.method === 'GET' && p === `/api/v10/guilds/${w.guildId}`) return json({ id: w.guildId, owner_id: w.ownerId || 'OWNER' });
+    // discord-sync.mjs sets a member's NICKNAME (0207). Body kept: the name is
+    // the thing under test. `w.nickStatus[id]` makes Discord refuse one.
+    if (req.method === 'PATCH' && /^\/api\/v10\/guilds\/[^/]+\/members\/[^/]+$/.test(p)) {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => {
+        const id = p.split('/').pop();
+        const code = w.nickStatus?.[id];
+        if (code) { res.writeHead(code, { 'content-type': 'application/json' }); return res.end('{"message":"Missing Permissions","code":50013}'); }
+        (w.nicked ||= []).push({ id, ...JSON.parse(b) });
+        return json({ user: { id }, ...JSON.parse(b) });
+      });
+      return undefined;
+    }
     if (p === `/api/v10/guilds/${w.guildId}/members/${w.botId}`) {
       return json({ user: { id: w.botId, bot: true }, roles: w.botRoles });
     }
@@ -137,6 +151,15 @@ export function serve(w) {
     if (p === '/rest/v1/team_nodes') return json(w.ticked);
     if (p === '/rest/v1/rpc/discord_role_targets') return json(w.targets);
     if (p === '/rest/v1/discord_orphaned_accounts') return json(w.orphans);
+    if (p === '/rest/v1/rpc/discord_nickname_inputs') return w.nickInputsFail ? (res.writeHead(500), res.end('boom')) : json(w.nickInputs || []);
+    if (p === '/rest/v1/rpc/get_academic_year') return json(w.academicYear ?? 2569);
+    // The service loop: the queue, and the DELETE of what it processed (kept
+    // with its query — WHICH rows it deletes is the thing under test).
+    if (p === '/rest/v1/discord_sync_queue') {
+      if (req.method === 'DELETE') { (w.queueDeletes ||= []).push(url.search); json([]); return undefined; }
+      if (w.queueFail) { res.writeHead(503); return res.end('down'); }
+      const q = w.queue || []; w.queue = []; return json(q);
+    }
 
     res.writeHead(404); res.end(`no stub route for ${req.method} ${p}`);
   });

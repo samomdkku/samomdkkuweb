@@ -257,3 +257,21 @@ A new key with SERVER-WIDE power is HELD until its name is added to
 `DISCORD_SYNC_ALLOW_POWER` in `server/samo-discord-sync.service` (deploy
 refreshes the unit). A bulk removal (>10 keys / >5 people) is held and
 reported — if it is intended, run `discord-apply.mjs` by hand.
+
+## Nicknames (since 2026-09-23, 0207)
+
+The service also sets each LINKED member's server nickname to
+`ชื่อเล่น_#ชั้นปี_XXX-X` from ทีม SAMO — full pass every 15 min, and within
+seconds of a ชื่อเล่น / รหัส / year_offset edit (the `people` trigger queues
+the person). Never-linked members are not touched.
+
+- **Switch:** `DISCORD_SYNC_NICKNAMES` in `server/samo-discord-sync.service` —
+  `off` · `plan` (logs `NICK PLAN …`, writes no name) · `apply`. Change it in
+  the REPO and deploy; `deploy.sh` installs a changed unit file.
+- **See the plan / what it did:** `journalctl -u samo-discord-sync | grep -E "NICK|nick "`.
+- **Cannot rename:** the server owner, and anyone whose top role is at/above the
+  bot — reported once per service start in the channel, never retried in a loop.
+- **A person keeps putting back their own name:** that is the design; the web
+  is the truth. They change ชื่อเล่น in ข้อมูลของฉัน / ทีม SAMO instead.
+- ชั้นปี comes from the admin-set ปีการศึกษา (`get_academic_year`). If that read
+  fails, NO name is planned that pass (a clock guess would flap at the rollover).

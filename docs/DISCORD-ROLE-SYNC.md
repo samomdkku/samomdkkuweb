@@ -20,7 +20,7 @@ section below that still says otherwise is out of date:
 | §5f Supabase Realtime as the trigger | a trigger-filled **queue table** (0197) polled every 5 s — survives restarts, needs no websocket |
 | §7 step 5, kick the old bot | still owed — HANDOFF §1 |
 | §8e linking by OAuth only | plus a ONE-TIME nickname import of 167 accounts (0195 `link_source`) |
-| §8e.2 bot writes nicknames from the registry | not built |
+| §8e.2 bot writes nicknames from the registry | **built 2026-09-23** (0207): `ชื่อเล่น_#ชั้นปี_XXX-X` for LINKED members, ชั้นปี from `src/js/study-year.js`; `DISCORD_SYNC_NICKNAMES` = off / plan / apply in the unit file |
 
 📌 The same material, formatted for reading rather than for agents:
 `https://claude.ai/code/artifact/cfd900a6-3f6b-42ab-a8d4-13cf013065de`

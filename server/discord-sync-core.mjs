@@ -15,6 +15,9 @@
 // are channel overwrites, not keys — nothing here reads or changes them.
 // ============================================================
 
+import { studyYear, setAcademicYear } from '../src/js/study-year.js';
+import { arabicDigits } from '../src/js/utils.js';
+
 export const POWER_BITS = {
   1: 'KICK_MEMBERS', 2: 'BAN_MEMBERS', 3: 'ADMINISTRATOR', 4: 'MANAGE_CHANNELS',
   5: 'MANAGE_GUILD', 13: 'MANAGE_MESSAGES', 17: 'MENTION_EVERYONE', 22: 'MUTE_MEMBERS',
@@ -83,6 +86,60 @@ export function gate({ adds, removes }, { roles, guildId, allowPower = [], botTo
   return { ...ok, held };
 }
 
+// ── Nicknames (0207, DISCORD-ROLE-SYNC §8e.2) ───────────────────────────────
+// The server's pattern, which the old bot set and people read:
+//   ชื่อเล่น_#ชั้นปี_XXX-X      e.g. บอส_#5_033-4
+// XXX-X is the last four digits of รหัสนักศึกษา. ชั้นปี comes from
+// src/js/study-year.js — the ONE implementation the website shows — with the
+// admin-set ปีการศึกษา (get_academic_year) primed into it.
+export const NICK_MAX = 32;   // Discord's limit, in UTF-16 units (JS .length)
+
+/** The nickname ทีม SAMO says this person should carry, or { skip: why }. */
+export function wantedNickname(p, academicYear) {
+  const nick = String(p?.nickname ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (!nick) return { skip: 'ไม่มีชื่อเล่นในเว็บ' };
+  const d = arabicDigits(p?.student_id).replace(/\D/g, '');
+  if (d.length < 4) return { skip: 'ไม่มีรหัสนักศึกษาในเว็บ' };
+  setAcademicYear(academicYear);
+  const y = studyYear(p);
+  if (!Number.isInteger(y) || y < 1 || y > 6) return { skip: `ชั้นปีคำนวณได้ ${y ?? '—'} (นอกช่วงปี 1–6)` };
+  const name = `${nick}_#${y}_${d.slice(-4, -1)}-${d.slice(-1)}`;
+  if (name.length > NICK_MAX) return { skip: `ยาวเกิน ${NICK_MAX} ตัวอักษร (${name})` };
+  return { name };
+}
+
+/**
+ * Which members to rename. Only LINKED members (the inputs are keyed by the
+ * Discord id the person proved by OAuth or the approved import), never someone
+ * who never linked. A bot cannot rename the server owner or anyone whose top
+ * role is at/above its own — those are SKIPPED with a reason, never attempted
+ * (Discord answers 403 and, unhandled, that aborted the whole pass).
+ * `academicYear` must be the admin-set value: on a failed read the caller
+ * passes null and NOTHING is planned — a clock guess near the rollover would
+ * be reverted by the next pass, renaming people back and forth.
+ */
+export function planNicknames({ members, inputs, roles, botTop, ownerId, academicYear, onlyDiscordIds = null }) {
+  const out = { renames: [], skipped: [] };
+  if (!Number.isFinite(Number(academicYear)) || Number(academicYear) < 2400) return out;
+  const pos = new Map(roles.map((r) => [r.id, r.position]));
+  const byUser = new Map(inputs.map((i) => [i.discord_user_id, i]));
+  for (const m of members) {
+    if (m.user?.bot) continue;
+    const id = m.user.id;
+    if (onlyDiscordIds && !onlyDiscordIds.has(id)) continue;
+    const p = byUser.get(id);
+    if (!p) continue;                                   // never linked: not ours to name
+    const w = wantedNickname(p, academicYear);
+    if (w.skip) { out.skipped.push({ member: id, why: w.skip }); continue; }
+    if ((m.nick ?? null) === w.name) continue;
+    if (id === ownerId) { out.skipped.push({ member: id, want: w.name, why: 'เจ้าของเซิร์ฟเวอร์ — บอทเปลี่ยนชื่อให้ไม่ได้' }); continue; }
+    const top = Math.max(0, ...m.roles.map((r) => pos.get(r) ?? 0));
+    if (top >= botTop) { out.skipped.push({ member: id, want: w.name, why: 'role สูงกว่าบอท — บอทเปลี่ยนชื่อให้ไม่ได้' }); continue; }
+    out.renames.push({ member: id, from: m.nick ?? null, shown: display(m), to: w.name });
+  }
+  return out;
+}
+
 const short = (x) => String(x).replace(/\([^)]*\)/g, '').replace(/^ฝ่าย\s*/, '').trim();
 
 /**
@@ -137,8 +194,8 @@ export function planProvision(nodes, roles, { cap = 245 } = {}) {
  * (allowed_mentions: none) and sends silently (flag 4096).
  * Returns message bodies, each under Discord's 2000-character limit.
  */
-export function formatReport({ queue = [], adds = [], removes = [], held = [], renamed = [], full = false }) {
-  if (!adds.length && !removes.length && !held.length && !renamed.length) return [];
+export function formatReport({ queue = [], adds = [], removes = [], held = [], renamed = [], nicks = [], nickHeld = [], full = false }) {
+  if (!adds.length && !removes.length && !held.length && !renamed.length && !nicks.length && !nickHeld.length) return [];
   const lines = [];
   const actors = [...new Set(queue.map((q) => q.actor_name).filter(Boolean))];
   const details = [...new Set(queue.map((q) => q.detail).filter(Boolean))];
@@ -158,13 +215,24 @@ export function formatReport({ queue = [], adds = [], removes = [], held = [], r
       lines.push(`• <@${m}> ${parts.join(' · ')}`);
     }
   }
+  if (nicks.length) {
+    lines.push('**ตั้งชื่อใน Discord ตามเว็บทีม SAMO:**');
+    // The OLD name as text: after the rename <@id> renders the NEW one.
+    for (const n of nicks) lines.push(`• <@${n.member}> ← เดิม "${String(n.from ?? n.shown ?? '').replace(/["`*_~|]/g, '')}"`);
+  }
+  if (nickHeld.length) {
+    lines.push('**ตั้งชื่อไม่ได้ (ต้องแก้ในเว็บหรือให้แอดมินเปลี่ยนเอง):**');
+    for (const h of nickHeld.slice(0, 30)) lines.push(`• <@${h.member}> — ${h.why}`);
+    if (nickHeld.length > 30) lines.push(`• …และอีก ${nickHeld.length - 30} คน`);
+  }
   if (held.length) {
     lines.push('**⏸ รอคนตรวจ (ยังไม่ได้ทำ):**');
     for (const h of held.slice(0, 15)) lines.push(`• ${h.member ? `<@${h.member}> ` : ''}${h.role ? `<@&${h.role}> ` : ''}— ${h.why}`);
     if (held.length > 15) lines.push(`• …และอีก ${held.length - 15} รายการ`);
   }
   const out = []; let cur = '';
-  for (const l of lines) {
+  for (const raw of lines) {
+    const l = raw.length > 1900 ? `${raw.slice(0, 1890)}…` : raw;   // one line alone must fit too
     if ((cur + '\n' + l).length > 1900) { out.push(cur); cur = l; } else cur = cur ? `${cur}\n${l}` : l;
   }
   if (cur) out.push(cur);
