@@ -42,6 +42,13 @@ Browser (SPA served by nginx on the KKU VM)
   │                        in เชื่อมบัญชี Discord. Same Node service as /notify.
   │                        Both locations are in server/nginx-samo.conf; the
   │                        SERVED routes are checked by `npm run check:routes`.
+  └─→ /img/d/<id>=<size> — shop pictures: nginx fetches each from lh3 ONCE and
+  │                        caches it (/var/cache/nginx/img, 7 d, 2 GB cap);
+  │                        lh3 takes 0.5-2.6 s to first byte, a hit ~0.02 s.
+  │                        Only the sizes pictureAt() writes are admitted
+  │                        (data.test.js holds the two lists together).
+  │                        A picture removed from Drive stays served here up
+  │                        to 7 d — clear /var/cache/nginx/img to drop it.
   └─→ /notify (all Discord) — nginx proxies it to the samo-notify Node
         service on 127.0.0.1:8787 (server/notify-server.mjs)
         ↳ notifyPROnly                    → PR-team webhook
