@@ -137,7 +137,7 @@ triggered over ssh (needs the KKU VPN).
   and quick-edit modal.
 - **SAMO Shop.** Its own storefront look ("samo shop" wordmark, espresso /
   milk / sky palette) inside the portal. Product catalogue (filter by source /
-  admin-managed type, sort, search), **up to 8 pictures per product** (swipe
+  admin-managed type, sort, search), **any number of pictures per product** (swipe
   gallery, tap to zoom full-screen, picking a colour jumps to its picture;
   admins pick several, reorder, tag a colour), **prices per size (normal and preorder),
   always charged by the database — never the price the browser sends**, cart
@@ -147,7 +147,7 @@ triggered over ssh (needs the KKU VPN).
   mixed-account cart splits into one order + slip per account) and per-product
   pickup locations shown at buy-time, slip upload to Drive (several slips per
   order, shrunk before upload), a Discord message to the shop team for every
-  web order (who, what, how much, slip status — no contact details), order timeline
+  web order (who, what, how much, slip status — no contact details — plus the shop's running totals: slips awaiting review, all orders and their total, checked revenue), pictures served from the VM's own cache as sized JPEGs, order timeline
   (pending → review → paid → produce → ready → done), per-order QR codes
   (customers show, admins scan via the camera viewfinder in the orders
   tab — `/admin/?scan=<id>` also opens the order directly), pickup-batch
@@ -193,6 +193,16 @@ triggered over ssh (needs the KKU VPN).
   inheritance (in a separate "จัดการสิทธิ์" mode). Live multi-editor sync
   (Supabase Realtime) and JSON / CSV import-export. Responsive
   desktop / iPad / phone.
+- **Discord follows ทีม SAMO.** A member links their Discord account once
+  (ข้อมูลของฉัน → เชื่อมบัญชี Discord, OAuth2 — the Discord id is the key,
+  never the name). From then on the `samo-discord-sync` service on the VM
+  keeps their Discord ROLES and their NICKNAME (`ชื่อเล่น_#ชั้นปี_XXX-X`)
+  matching ทีม SAMO: a web edit reaches Discord in seconds, a full pass every
+  15 min reverts hand edits, and every change is logged in the bot's channel
+  naming who edited what. Staff with the `บอท Discord` permission see its
+  health and can pause it, switch nicknames or silent messages, or run a full
+  check from /admin/ → บอท Discord. Design: `docs/DISCORD-ROLE-SYNC.md`;
+  operations: `skills/discord-role-sync.md`.
 - **Global auth.** One sign-in, two routes: **any Google account** (a KKU
   address is not required — that misreading was reported six times and the
   screen is now written to prevent it), or a **username/password account for

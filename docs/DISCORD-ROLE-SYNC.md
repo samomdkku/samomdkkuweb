@@ -21,6 +21,7 @@ section below that still says otherwise is out of date:
 | §7 step 5, kick the old bot | still owed — HANDOFF §1 |
 | §8e linking by OAuth only | plus a ONE-TIME nickname import of 167 accounts (0195 `link_source`) |
 | §8e.2 bot writes nicknames from the registry | **built 2026-09-23** (0207): `ชื่อเล่น_#ชั้นปี_XXX-X` for LINKED members, ชั้นปี from `src/js/study-year.js`; `DISCORD_SYNC_NICKNAMES` = off / plan / apply in the unit file |
+| (not in the design) an on/off switch | **built 2026-09-23** (0208): /admin/ → บอท Discord, permission `discord_bot` — pause (with a reason), nicknames, silent, "check everything now", and the bot's health from its own heartbeat |
 
 📌 The same material, formatted for reading rather than for agents:
 `https://claude.ai/code/artifact/cfd900a6-3f6b-42ab-a8d4-13cf013065de`

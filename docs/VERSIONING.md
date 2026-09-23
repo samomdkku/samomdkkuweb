@@ -105,13 +105,19 @@ What the tool does:
 that a student could read — no table names, no migration numbers, no permission
 keys. `changelog.test.js` fails the build if an identifier leaks through.
 
-Finish with:
+Finish with — and tag AFTER the commit:
 
 ```bash
 npm test && npm run build
 git add -A && git commit -m "chore(release): v4.5.0"
+git tag -a v4.5.0 -m v4.5.0            # the RELEASE commit — see below
 git push && git push origin v4.5.0     # tags are pushed deliberately, never automatically
 ```
+
+⚠️ **Do not use `--write --tag` together** (found cutting 4.8.0): `--tag` tags
+the current HEAD while the version bump and changelog are still UNcommitted,
+so the tag lands one commit early and the release commit itself falls into the
+NEXT release's range. Write, rewrite the TODOs, commit, then tag by hand.
 
 ### Why not `semantic-release`
 
@@ -171,7 +177,8 @@ by hand.
 | **4.0.0** | 2026-07-24 | สื่อสารสองทาง — นักศึกษาเห็นว่าปัญหาถูกแก้ถึงไหนแล้ว |
 | 4.5.0 | 2026-08-06 | — |
 | 4.6.0 | 2026-08-10 | — |
-| 4.7.0 | 2026-09-05 | current |
+| 4.7.0 | 2026-09-05 | — |
+| 4.8.0 | 2026-09-23 | current |
 
 Versions `1.0.0`–`4.4.0` were assigned **retroactively** when this scheme was
 adopted (2026-08-04), by replaying the release history against the rules above.

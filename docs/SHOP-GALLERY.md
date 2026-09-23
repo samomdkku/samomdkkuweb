@@ -288,16 +288,26 @@ is a desktop-only nicety and is left out (§11).
   edge (today 2000), at the `image-resize.js` default quality.
   - Zoom is worth something only if those pixels exist.
   - Drive cost: about 600 KB a picture, which is nothing against 2 TB.
-- **Serve by size from the one URL** (`pictureAt(url, w)` appends `=w{w}-rj`
-  — JPEG, since lh3 otherwise answers in the master's format and the live
-  masters are 2 MB PNGs; `docs/mistakes/frontend-ui.md`, 2026-09-23):
+- **Serve by size from the one URL — through this site's picture cache**
+  (as built 2026-09-23). `pictureAt(url, w)` writes
+  `https://samo.md.kku.ac.th/img/d/<id>=w{w}-rj`: nginx fetches each size from
+  lh3 ONCE and serves it from the VM after that (lh3 takes 0.5–2.6 s before
+  its first byte; a cache hit ~0.02 s — `docs/CONTEXT.md`, the `/img/` line).
+  - `-rj` = JPEG. lh3 answers in the MASTER's format, the live masters are
+    2 MB PNGs, and `-rw` on a PNG stays lossless (`docs/mistakes/frontend-ui.md`).
+  - `w` ROUNDS UP to `PICTURE_WIDTHS` = 200 · 600 · 1200 · 2400 — the only
+    widths nginx admits (`data.test.js` holds the two lists together; an
+    unadmitted path answers 200 with the SPA's HTML, a broken image). Fewer
+    widths also means fewer cold fetches at lh3.
+  - Outside a page (tests, no `location`) it returns the lh3 URL directly.
 
   | Where | Size | Note |
   |---|---|---|
-  | thumbnails | `=w200` | |
-  | card | `=w600` (drop card `=w800`) | |
-  | popup main | `srcset` `=w800 800w, =w1200 1200w` | |
-  | lightbox | `=w2400-rj-l95` | ask the master, don't upscale; quality 95 where people magnify |
+  | thumbnails, cart/order thumbs | `=w200-rj` | |
+  | grid card, drop card, pickup card | `=w600-rj` | ONE URL, so the grid and the drop card share a download |
+  | popup main | `srcset` `=w600-rj 600w, =w1200-rj 1200w` | each slide's background is its small picture (slide 1: the card's, already cached), so the stage never shows blank blue |
+  | banners | `=w1200-rj` | |
+  | lightbox | `=w2400-rj-l95` | never upscaled; quality 95 where people magnify; PhotoSwipe `msrc` = the popup picture if loaded |
 
 - **Lightbox: PhotoSwipe 5** (MIT, v5.4.4 on 2026-09-22), not hand-written.
   - **Why a library:** pinch-zoom, double-tap zoom, pan limits, momentum,
@@ -318,8 +328,13 @@ is a desktop-only nicety and is left out (§11).
 
 ## 6. Performance budget
 
-- **The popup costs nothing extra on open:** one `=w800` picture, as today,
-  plus about 5 KB thumbnails.
+- **Measured 2026-09-23 (production, phone, cache off):** opening /shop 212 KB
+  of pictures (was ~47 MB — 45 MB of it news pictures a detached `<div>`
+  downloaded, `docs/mistakes/frontend-ui.md`), a product popup 1.1 MB (was
+  16 MB), the zoom ~1 MB at full resolution (was 6.5 MB).
+- **The popup opens ON the pre-selected colour's picture**, placed before the
+  first painted frame (a ResizeObserver, not Bootstrap's `shown`) — it used to
+  show the cover and then scroll.
 - **PhotoSwipe** is roughly 20 KB gzipped of JS + CSS, and only after the
   first tap.
 - **Nothing is added to `core-*`.** The gallery module is part of the shop's

@@ -1226,8 +1226,9 @@ now. This section is the current picture. The DESIGN is
   `DISCORD_SYNC_ALLOW_POWER` in `server/samo-discord-sync.service` (today
   `สมาชิก SAMO Buddy`, `📇 ฝ่ายเลขานุการนายกฯ`). A role above the bot → skipped.
   An EMPTY target set → nothing applied. Retry-After honoured.
-- **The change log.** Every pass that changes Discord posts, silently and
-  pinging nobody, to `🤖┆samo-role-assignment-bot`: who edited ทีม SAMO, what,
+- **The change log.** Every pass that changes Discord posts (a normal message
+  since 2026-09-23 — silent is a switch in /admin/ → บอท Discord — pinging
+  nobody, people named in text), to `🤖┆samo-role-assignment-bot`: who edited ทีม SAMO, what,
   and whose keys moved. Held items / alerts: there too, once per 6 h. Webhook:
   `DISCORD_SYNC_LOG_WEBHOOK` in `/etc/samo-notify.env` on the VM ONLY — it was
   pasted in a chat once; regenerate it if in doubt. The announcement (how to

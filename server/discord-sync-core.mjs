@@ -204,9 +204,11 @@ export function planProvision(nodes, roles, { cap = 245 } = {}) {
 
 /**
  * The change log posted to the role-bot channel (owner, 2026-09-19): WHO edited
- * ทีม SAMO, WHAT they changed, and WHOSE Discord keys moved. Mentions use
- * Discord's <@id> / <@&id> so names render — the sender turns every ping OFF
- * (allowed_mentions: none) and sends silently (flag 4096).
+ * ทีม SAMO, WHAT they changed, WHOSE Discord keys moved and whose NAME the bot
+ * set. People are NAMED in text (nameText) — a <@id> showed @unknown-user,
+ * because the sender turns mention parsing off (allowed_mentions: none) so
+ * nobody is pinged; roles are <@&id>, which every reader's app has loaded.
+ * Silent (flag 4096) only when the admin panel says so (0208).
  * Returns message bodies, each under Discord's 2000-character limit.
  */
 export function formatReport({ queue = [], adds = [], removes = [], held = [], renamed = [], nicks = [], nickHeld = [], full = false }) {

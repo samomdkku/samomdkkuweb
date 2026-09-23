@@ -9,8 +9,12 @@ the mechanics, because they are non-obvious in ways that cost time.
 
 Since 2026-09-19 the `samo-discord-sync` service (VM, systemd) keeps Discord
 matching ทีม SAMO: a web change reaches Discord in ~5–10 s, and a full pass
-every 15 min also REVERTS hand edits made in Discord. Each change is posted
-silently to `🤖┆samo-role-assignment-bot` with who edited what.
+every 15 min also REVERTS hand edits made in Discord — roles AND, since
+2026-09-23, nicknames (0207). Each change is posted to
+`🤖┆samo-role-assignment-bot` with who edited what — a NORMAL message since
+2026-09-23 (silent is now a switch in /admin/ → บอท Discord), pinging nobody,
+people NAMED in text (a `<@id>` showed as @unknown-user). The same panel
+pauses the bot (0208).
 
 ```bash
 ssh samo-vm 'journalctl -u samo-discord-sync -f'        # what it is doing, live
