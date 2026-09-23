@@ -290,7 +290,10 @@ describe('the service sets nicknames — for real, against the stub', () => {
     expect(w.nicked).toEqual([{ id: 'U1', nick: 'บอส_#5_033-4' }, { id: 'U2', nick: 'ปอม_#3_054-6' }]);
     const all = w.posted.map((m) => m.content).join('\n');
     expect(all).toMatch(/ตั้งชื่อใน Discord[\s\S]*<@U1> ← เดิม "old1"/);
-    expect(all).toMatch(/<@OWN> — เจ้าของเซิร์ฟเวอร์/);
+    // The owner is structural and permanent: logged, never posted (every
+    // deploy restarts the service and would repeat it).
+    expect(all).not.toMatch(/<@OWN>/);
+    expect(r.out).toMatch(/NICK SKIP OWN: เจ้าของเซิร์ฟเวอร์/);
     for (const m of w.posted) { expect(m.allowed_mentions).toEqual({ parse: [] }); expect(m.flags).toBeUndefined(); }
     // The role changes of the same pass still happened.
     expect(r.writes).toContain('PUT /api/v10/guilds/G/members/U1/roles/RA');
@@ -357,5 +360,29 @@ describe('the service loop', () => {
     // different error). The reason must survive into the message.
     const out = await loop(2500, { SUPABASE_URL: 'http://127.0.0.1:59999' });
     expect(out).toMatch(/Supabase discord_sync_queue: fetch failed \(ECONNREFUSED/);
+  });
+});
+
+describe('a name the bot cannot build is reported where a human can act', () => {
+  beforeEach(() => {
+    w.members = [{ ...M('U1', []), nick: 'x' }, { ...M('U2', []), nick: 'y' }, M('BOT', ['RBOT'], true)];
+    w.nickInputs = [
+      { discord_user_id: 'U1', person_id: 'p1', nickname: '', student_id: '653070033-4' },   // no ชื่อเล่น
+      { discord_user_id: 'U2', person_id: 'p2', nickname: '', student_id: '653070034-4' },
+    ];
+    w.targets = [];   // keep the role half quiet: this is about names
+    w.targets.push({ discord_user_id: 'U9', person_id: 'p9', role_ids: [], placements: 1 });
+  });
+  it('the periodic full pass only LOGS it', async () => {
+    const r = await once({ DISCORD_SYNC_NICKNAMES: 'apply' });
+    expect(r.out).toMatch(/NICK SKIP U1: ไม่มีชื่อเล่น/);
+    expect((w.posted || []).map((m) => m.content).join('\n')).not.toMatch(/ชื่อเล่น/);
+  });
+  it('an edit to that person POSTS it — for them only', async () => {
+    w.queue = [{ id: 1, kind: 'person', person_id: 'p1', actor_name: 'admin', detail: 'แก้ข้อมูลของ U1' }];
+    await loop(2500, { DISCORD_SYNC_NICKNAMES: 'apply' });
+    const all = (w.posted || []).map((m) => m.content).join('\n');
+    expect(all).toMatch(/<@U1> — ไม่มีชื่อเล่นในเว็บ/);
+    expect(all).not.toMatch(/<@U2>/);
   });
 });

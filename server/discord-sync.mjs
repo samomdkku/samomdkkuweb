@@ -219,8 +219,15 @@ async function pass(queue, forceFull = false) {
   if (NICKS !== 'off' && nickInputs) {
     const plan = planNicknames({ members: everyone, inputs: nickInputs, roles, botTop, ownerId, academicYear, onlyDiscordIds: only });
     if (academicYear == null) log('nicknames: no ปีการศึกษา — no name planned this pass');
+    // Posted only when a web EDIT named this person (a human is looking, and
+    // can fix the data); a full pass only logs. The owner / above-the-bot cases
+    // are structural and permanent — never posted: every deploy restarts this
+    // service, and "the owner cannot be renamed" after each one is noise.
+    const queuedPeople = new Set(queue.map((q) => q.person_id).filter(Boolean));
+    const named = new Set(nickInputs.filter((i) => queuedPeople.has(i.person_id)).map((i) => i.discord_user_id));
     for (const k of plan.skipped) {
       log(`NICK SKIP ${k.member}: ${k.why}`);
+      if (k.structural || !named.has(k.member)) continue;
       if (!nickReported.has(`${k.member}:${k.why}`)) { nickReported.add(`${k.member}:${k.why}`); nickHeld.push(k); }
     }
     for (const r of plan.renames) {
