@@ -127,6 +127,12 @@ export const ISSUE_STATUSES = Object.entries(STAGES_META)
  *  excluded here even though it's tagged issue:true above. */
 export const ORDER_ISSUE_STATUSES = ['slip_mismatch', 'cancel'];
 
+/** Orders whose money is NOT revenue yet: no slip, a slip nobody has checked,
+ *  a slip that was rejected, or cancelled. The admin's รายรับสะสม card and the
+ *  shop Discord message (public.shop_order_totals, 0206) both use this rule;
+ *  data.test.js holds the SQL to this list. */
+export const NOT_YET_REVENUE_STATUSES = ['pending', 'review', 'slip_mismatch', 'cancel'];
+
 /** Returns the display label for an order. Currently a plain lookup;
  *  kept as a wrapper so call sites stay future-proof if labels ever
  *  need to vary on side-state again. */

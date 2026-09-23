@@ -18,6 +18,7 @@ import {
   getPickupLocations, setPickupLocations,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
+  NOT_YET_REVENUE_STATUSES,
 } from './data.js';
 import { downscaleImage, decode } from '../image-resize.js';
 import {
@@ -839,7 +840,7 @@ function renderStats() {
   // 'slip_mismatch' is a slip that was REJECTED — both were being counted as
   // money received under a label that said only cancel/pending were left out.
   const revenue = state.orders
-    .filter((o) => !['pending', 'review', 'slip_mismatch', 'cancel'].includes(o.status))
+    .filter((o) => !NOT_YET_REVENUE_STATUSES.includes(o.status))
     .reduce((s, o) => s + (Number(o.total) || 0), 0);
   host.innerHTML = `
     <div class="stat-card is-warning">

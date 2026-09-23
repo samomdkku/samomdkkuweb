@@ -424,6 +424,28 @@ export async function loadShopOrderForNotify(env = {}, data = {}, { fetchImpl = 
   return { order, products, pickups, qrs };
 }
 
+/** The shop's running totals for the message (0206), or null. READ WITH THE
+ *  SERVICE KEY, which bypasses every RLS policy — so its whole use here is ONE
+ *  RPC that returns three numbers and no row (notify.test.js pins it). Called
+ *  only after loadShopOrderForNotify() has proved, with the buyer's session,
+ *  that a real new order exists: an anonymous POST never reaches this. A
+ *  failure leaves the message without the overview, never unsent. */
+export async function loadShopTotals(env = {}, { fetchImpl = fetch } = {}) {
+  const base = env.SUPABASE_URL;
+  const sk = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !sk) return null;
+  try {
+    const r = await fetchImpl(`${base.replace(/\/+$/, '')}/rest/v1/rpc/shop_order_totals`, {
+      method: 'POST',
+      headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!r.ok) return null;
+    const t = await r.json();
+    return t && typeof t === 'object' && 'orders' in t ? t : null;
+  } catch { return null; }
+}
+
 const SHOP_COLOR_PAID = 0x105922;    // slip attached — brand green
 const SHOP_COLOR_WAITING = 0xE0A100; // no slip yet — amber: someone must follow up
 const baht = (n) => `฿${(Number(n) || 0).toLocaleString('en-US')}`;
@@ -487,6 +509,15 @@ export function buildShopOrderPayload(loaded = {}, origin = '') {
   const qrLabels = [...new Set(items.map((it) => qrs[products[it.product_id]?.promptpay_qr_id]).filter(Boolean))];
   if (qrLabels.length) fields.push({ name: 'บัญชีรับเงิน', value: qrLabels.join('\n').substring(0, 1024), inline: true });
   if (order.is_preorder) fields.push({ name: 'ประเภท', value: 'มีสินค้า Preorder', inline: true });
+  // Whole-shop totals (0206) — the dashboard's two cards, where the team is.
+  const t = loaded.totals;
+  if (t) {
+    fields.push({ name: 'ภาพรวมร้าน', value: [
+      `รอตรวจสลิป **${Number(t.awaiting_review) || 0}** รายการ`,
+      `คำสั่งซื้อทั้งหมด **${Number(t.orders) || 0}** รายการ รวม ${baht(t.orders_total)} (ไม่นับที่ยกเลิก)`,
+      `รายรับที่ตรวจสลิปแล้ว **${baht(t.revenue)}**`,
+    ].join('\n') });
+  }
   if (order.buyer_note && String(order.buyer_note).trim()) {
     fields.push({ name: 'หมายเหตุจากผู้สั่ง', value: String(order.buyer_note).trim().substring(0, 1024) });
   }

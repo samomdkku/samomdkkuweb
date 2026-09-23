@@ -29,7 +29,7 @@
 //           | notifyShopOrder (reads the order from the DB — see _discord.js)
 // ==============================================
 
-import { resolveTarget, postToDiscord, logNotifyOutcome, loadShopOrderForNotify } from './_discord.js';
+import { resolveTarget, postToDiscord, logNotifyOutcome, loadShopOrderForNotify, loadShopTotals } from './_discord.js';
 
 /** Orders already announced by THIS process — a buyer re-posting their own
  *  order id must not post it twice. In-memory is enough: loadShopOrderForNotify
@@ -77,6 +77,7 @@ export async function onRequestPost(context) {
     const loaded = await loadShopOrderForNotify(env, data, context.fetchImpl ? { fetchImpl: context.fetchImpl } : {});
     if (loaded.error) { announcedShopOrders.delete(key); return json({ success: false, message: loaded.error }); }
     for (const [k, t] of announcedShopOrders) if (Date.now() - t > 60 * 60 * 1000) announcedShopOrders.delete(k);
+    loaded.totals = await loadShopTotals(env, context.fetchImpl ? { fetchImpl: context.fetchImpl } : {});
     data.__shop = loaded;
     delete data.accessToken; // never logged, never forwarded
   }

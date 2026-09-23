@@ -681,12 +681,14 @@ describe('notifyShopOrder', () => {
       if (String(url).includes('/rest/v1/shop_pickup_locations')) return jsonResp([{ id: 7, label: 'ห้องสโม ชั้น 1' }]);
       if (String(url).includes('/rest/v1/shop_promptpay_qrs')) return jsonResp([{ id: 3, label: 'บัญชีฝ่ายสวัสดิการ' }]);
       if (String(url).includes('/rest/v1/notify_log')) return jsonResp([]);
+      if (String(url).includes('/rest/v1/rpc/shop_order_totals')) return jsonResp(TOTALS);
       return resp(204);
     });
     vi.stubGlobal('fetch', f);
     return calls;
   }
-  const post = (body) => onRequestPost({ request: { text: async () => JSON.stringify(body) }, env: SHOP_ENV, waitUntil: () => {} });
+  const TOTALS = { awaiting_review: 6, orders: 11, orders_total: 2926, revenue: 1045 };
+  const post = (body, env = SHOP_ENV) => onRequestPost({ request: { text: async () => JSON.stringify(body) }, env, waitUntil: () => {} });
   let n = 0;
   const freshId = () => `SH${9000 + (n++)}`;
 
@@ -716,6 +718,42 @@ describe('notifyShopOrder', () => {
     expect(body).not.toContain('FAKE');
     expect(body).not.toContain('TOKEN');
     expect(body).toContain(`/admin/?scan=${id}`);
+  });
+
+  // 0206 — the shop overview. The service key bypasses every RLS policy, so
+  // what it is SENT to is asserted from the requests, not from the source.
+  it('adds the shop overview, read with the service key from ONE rpc only', async () => {
+    const id = freshId();
+    const calls = stub([row({ id })]);
+    await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'TOKEN' },
+      { ...SHOP_ENV, SUPABASE_SERVICE_ROLE_KEY: 'SERVICEKEY' });
+    const body = calls.find((c) => c.url === 'https://discord/shop').init.body;
+    expect(body).toContain('ภาพรวมร้าน');
+    expect(body).toContain('รอตรวจสลิป **6** รายการ');
+    expect(body).toContain('คำสั่งซื้อทั้งหมด **11** รายการ รวม ฿2,926');
+    expect(body).toContain('รายรับที่ตรวจสลิปแล้ว **฿1,045**');
+    const withKey = calls.filter((c) => JSON.stringify(c.init.headers || {}).includes('SERVICEKEY'));
+    expect(withKey.map((c) => c.url)).toEqual(['https://db/rest/v1/rpc/shop_order_totals']);
+    expect(body).not.toContain('SERVICEKEY');
+    // The ORDER is still read as the buyer — the key never replaces RLS there.
+    expect(calls.find((c) => c.url.includes('/rest/v1/shop_orders')).init.headers.Authorization).toBe('Bearer TOKEN');
+  });
+
+  it('no service key → the order is still announced, without the overview', async () => {
+    const id = freshId();
+    const calls = stub([row({ id })]);
+    const res = await post({ action: 'notifyShopOrder', orderId: id, accessToken: 'T' });
+    expect(JSON.parse(await res.text()).success).toBe(true);
+    const body = calls.find((c) => c.url === 'https://discord/shop').init.body;
+    expect(body).not.toContain('ภาพรวมร้าน');
+    expect(calls.some((c) => c.url.includes('shop_order_totals'))).toBe(false);
+  });
+
+  it("a stranger's order id never reaches the service key", async () => {
+    const calls = stub([]);
+    await post({ action: 'notifyShopOrder', orderId: freshId(), accessToken: 'T' },
+      { ...SHOP_ENV, SUPABASE_SERVICE_ROLE_KEY: 'SERVICEKEY' });
+    expect(calls.some((c) => JSON.stringify(c.init.headers || {}).includes('SERVICEKEY'))).toBe(false);
   });
 
   it('no slip yet → amber, and it says so', async () => {

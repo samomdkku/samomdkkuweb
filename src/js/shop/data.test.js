@@ -230,3 +230,21 @@ describe('product pictures', () => {
     expect(imageAlt(tee, tee.images[0], 0, 1)).toBe('เสื้อ');
   });
 });
+
+// The admin's รายรับสะสม card (JS) and the shop Discord message (SQL, 0206)
+// state one rule twice. Differential: the SQL's revenue exclusion must be this
+// list, read from the migration rather than retyped.
+import { NOT_YET_REVENUE_STATUSES } from './data.js';
+import { readFileSync } from 'node:fs';
+describe('revenue rule — dashboard and Discord agree', () => {
+  const sql = readFileSync('supabase/migrations/0206_shop_order_totals.sql', 'utf8');
+  it('the SQL revenue filter excludes exactly the dashboard list', () => {
+    const m = sql.match(/'revenue',\s*coalesce\(sum\(total\) filter \(where status not in \(([^)]*)\)\)/);
+    expect(m, 'revenue line not found — the test must be updated with the SQL').toBeTruthy();
+    const inSql = m[1].split(',').map((x) => x.trim().replace(/'/g, '')).sort();
+    expect(inSql).toEqual([...NOT_YET_REVENUE_STATUSES].sort());
+  });
+  it('awaiting review is exactly the status the dashboard counts', () => {
+    expect(sql).toMatch(/'awaiting_review',\s*count\(\*\) filter \(where status = 'review'\)/);
+  });
+});
