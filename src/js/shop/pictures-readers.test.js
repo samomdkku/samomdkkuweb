@@ -51,6 +51,16 @@ describe('readers of a product\'s pictures', () => {
     expect(body.slice(0, 1500)).toMatch(/productImages\(/);
   });
 
+  // convertDriveUrl() hands an lh3 cover back untouched — 1200 px in the
+  // master's format (a 530 KB PNG on a 300 px card). pictureAt() sizes it and
+  // asks for JPEG. A storefront picture that skips it is the slow one.
+  it('the storefront sizes every picture through pictureAt', () => {
+    for (const f of ['products.js', 'gallery.js', 'lightbox.js']) {
+      expect(src[f], f).toMatch(/\bpictureAt\(/);        // control
+      expect(src[f], f).not.toMatch(/\bconvertDriveUrl\(/);
+    }
+  });
+
   it('cart, checkout and my-orders thumbnails go through the shared helper', () => {
     for (const f of ['cart.js', 'checkout.js', 'orders.js']) {
       expect(src[f], f).toMatch(/\bthumbStyle\(p, it\.color\)/);

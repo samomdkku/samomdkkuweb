@@ -485,12 +485,25 @@ export function imageBase(url) {
   return LH3.test(u) ? u.replace(/=[A-Za-z0-9-]+$/, '') : u;
 }
 
-/** The same picture at a given width. lh3 resizes on its side, so one stored
- *  URL serves the thumbnail, the card and the zoom. Non-lh3 URLs come back as-is. */
-export function pictureAt(url, w) {
+/** The same picture at a given width, as JPEG. lh3 resizes on its side, so one
+ *  stored URL serves the thumbnail, the card and the zoom. Non-lh3 URLs come
+ *  back as-is.
+ *
+ *  `-rj` is not optional: lh3 answers in the MASTER's format, and the live
+ *  masters are 2 MB PNGs (an upload from Safari, which cannot encode WebP —
+ *  image-resize.js). Measured 2026-09-23 on the live gallery, 1080x1440:
+ *    =w800        PNG   1,040 KB
+ *    =w800-rw     WebP    801 KB   (lossless — a PNG master stays lossless)
+ *    =w800-rj     JPEG    183 KB
+ *  JPEG has no transparency; no shop picture uses it (every alpha is 255).
+ *  lh3's default JPEG quality is 90 (`-l90` returns the same bytes): 40.6 dB
+ *  PSNR against the PNG, no difference visible at 2x on the pattern's edges.
+ *  `quality` raises it where a buyer magnifies (the lightbox asks 95). */
+export function pictureAt(url, w, quality) {
   if (!url) return '';
   const base = imageBase(url);
-  return LH3.test(base) ? `${base}=w${Math.round(w)}` : base;
+  if (!LH3.test(base)) return base;
+  return `${base}=w${Math.round(w)}-rj${quality ? `-l${Math.round(quality)}` : ''}`;
 }
 
 /** A product's pictures, cover first: `images` when it has any, else the

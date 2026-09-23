@@ -139,7 +139,7 @@ Open when: writing a migration.
 - The storefront said "sold out" for a size the server would sell
 - A tab opened before a migration re-sends what it LOADED
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(102)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(103)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -245,6 +245,7 @@ Open when: markup, modals, layout, touch, icons.
 - A recovery path placed AFTER the check its own failure trips
 - Every product picture was broken on localhost and fine in production
 - The admin picture strip worked and was UNSTYLED
+- "รูปใน samoshop โหลดนานมาก" — the shop tab downloaded ~47 MB of pictures, 45 of them news pictures nobody could see
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(25)*
 
@@ -460,4 +461,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_398 entries across 10 files._
+_399 entries across 10 files._

@@ -41,6 +41,8 @@ function measure(src) {
 }
 
 const ZOOM_W = 2400;
+// Above lh3's default 90: this is where a buyer magnifies. +13% bytes (data.js).
+const ZOOM_Q = 95;
 let open = null;   // the live PhotoSwipe, while one is showing
 
 export async function openLightbox(product, index = 0, { appendTo } = {}) {
@@ -68,15 +70,21 @@ async function show(product, index, appendTo) {
     // Offline or blocked: open the picture itself rather than doing nothing.
     open = null;
     console.warn('[shop/lightbox] load failed:', e?.message || e);
-    window.open(pictureAt(imgs[start]?.url, ZOOM_W), '_blank', 'noopener');
+    window.open(pictureAt(imgs[start]?.url, ZOOM_W, ZOOM_Q), '_blank', 'noopener');
     return;
   }
   // Only the picture being opened is measured up front (it is the one the
   // buyer waits for). The others open at a placeholder size and take their
   // real one when they load — measuring all of them first downloaded every
   // picture at full size before anything appeared.
+  // `msrc`: the popup's own picture, already downloaded, shown at once while
+  // the sharp one loads — only when it is COMPLETE, or it is a second download.
+  const shown = (i) => {
+    const el = appendTo?.querySelector?.(`[data-pg-open="${i}"] img`);
+    return el?.complete && el.naturalWidth ? el.currentSrc : undefined;
+  };
   const dataSource = imgs.map((im, i) => ({
-    src: pictureAt(im.url, ZOOM_W),
+    src: pictureAt(im.url, ZOOM_W, ZOOM_Q), msrc: shown(i),
     width: im.w || 1600, height: im.h || 2000, _measured: !!(im.w && im.h),
     alt: imageAlt(product, im, i, imgs.length),
   }));

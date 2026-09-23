@@ -288,14 +288,16 @@ is a desktop-only nicety and is left out (§11).
   edge (today 2000), at the `image-resize.js` default quality.
   - Zoom is worth something only if those pixels exist.
   - Drive cost: about 600 KB a picture, which is nothing against 2 TB.
-- **Serve by size from the one URL** (`pictureAt(url, w)` appends `=w{w}`):
+- **Serve by size from the one URL** (`pictureAt(url, w)` appends `=w{w}-rj`
+  — JPEG, since lh3 otherwise answers in the master's format and the live
+  masters are 2 MB PNGs; `docs/mistakes/frontend-ui.md`, 2026-09-23):
 
   | Where | Size | Note |
   |---|---|---|
   | thumbnails | `=w200` | |
-  | card | `=w600` | |
+  | card | `=w600` (drop card `=w800`) | |
   | popup main | `srcset` `=w800 800w, =w1200 1200w` | |
-  | lightbox | `=w2400` | ask the master, don't upscale |
+  | lightbox | `=w2400-rj-l95` | ask the master, don't upscale; quality 95 where people magnify |
 
 - **Lightbox: PhotoSwipe 5** (MIT, v5.4.4 on 2026-09-22), not hand-written.
   - **Why a library:** pinch-zoom, double-tap zoom, pan limits, momentum,

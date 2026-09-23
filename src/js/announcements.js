@@ -742,19 +742,23 @@ function renderHomeAnnouncements({ error = false } = {}) {
 const PLACEHOLDER_IMG =
   'https://images.unsplash.com/photo-1576091160550-2173ff9e5ee5?w=600&h=400&fit=crop';
 
+/** A post's HTML, parsed where nothing in it can load. A DETACHED <div> is not
+ *  that: `div.innerHTML = html` fetches every <img> in it at once. These two
+ *  run for every post on every page load, so the shop tab downloaded ~45 MB of
+ *  news pictures nobody could see (docs/mistakes/frontend-ui.md). */
+function inertBody(html) {
+  return new DOMParser().parseFromString(html || '', 'text/html').body;
+}
+
 function pickCover(post) {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = post.content || '';
-  const firstImg = tempDiv.querySelector('img');
+  const firstImg = inertBody(post.content).querySelector('img');
   return convertDriveUrl(post.thumbnail)
-    || convertDriveUrl(firstImg?.src)
+    || convertDriveUrl(firstImg?.getAttribute('src'))
     || PLACEHOLDER_IMG;
 }
 
 function extractSnippet(content, max = 140) {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = content || '';
-  let text = (tempDiv.textContent || tempDiv.innerText || '').replace(/\s+/g, ' ').trim();
+  let text = (inertBody(content).textContent || '').replace(/\s+/g, ' ').trim();
   if (text.length > max) text = text.slice(0, max).trim() + '…';
   return text;
 }

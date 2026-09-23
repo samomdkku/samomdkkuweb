@@ -4122,3 +4122,50 @@ a typed list. It is mutation-checked (remove the rules and it names
 the page that renders the class LOADS it.* Two entries share modules but not
 stylesheets. A behaviour check cannot see styling; assert a computed style,
 or screenshot the thing itself.
+
+---
+
+## "รูปใน samoshop โหลดนานมาก" — the shop tab downloaded ~47 MB of pictures, 45 of them news pictures nobody could see
+
+**Symptom (owner, 2026-09-23)**: shop pictures took very long to load.
+Measured on production (headless Chrome, 390 px, DPR 3, cache off): opening
+`/shop` downloaded **~47 MB** of lh3 pictures before a tap, opening one product
+**~16 MB**, and the zoom viewer **~6.5 MB** — against one product with six
+pictures.
+
+**Cause — three, the biggest not in the shop at all**:
+1. `announcements.js` `pickCover()` / `extractSnippet()` parsed every post's
+   HTML with `document.createElement('div').innerHTML = post.content`. A
+   detached element belongs to the live document, so **every `<img>` in every
+   post is fetched at once**, attached or not — 8 MB PNGs at `=w2000`, on every
+   page load of every tab. The Network initiator reads `other` and the URLs are
+   in no DOM node, which is why it looks like nobody asked for them.
+2. The product pictures are **2 MB PNGs**. lh3 answers in the master's format,
+   so `=w800` was a 1 MB PNG; `-rw` (WebP) on a PNG master is LOSSLESS and
+   saved only 20%. They were stored as PNG because `downscaleImage` asks for
+   WebP and only handled a `null` blob — but an unsupported type is not null,
+   the spec says encode PNG, and Safari (every iOS browser) cannot encode
+   WebP. The PNG was larger than the input, so the "never worse" check kept
+   the ORIGINAL.
+3. The storefront cards used `convertDriveUrl(p.image_url)`, which hands an
+   lh3 cover back untouched — 1200 px, in the master's format, on a 300 px card.
+
+**Fix**: (1) `inertBody()` parses with `DOMParser`, a document with no
+browsing context, which loads nothing; guard `src/js/inert-parse.test.js`
+sweeps `src/js` with a control. (2) `pictureAt` asks lh3 for `-rj` (JPEG,
+default quality 90 = 40.6 dB PSNR against the PNG, no visible difference at
+2× on the pattern's edges); the zoom viewer asks `-l95`. `downscaleImage`
+re-encodes as JPEG on white whenever the blob is not the type asked for.
+(3) every storefront picture goes through `pictureAt` at a card size; guard in
+`pictures-readers.test.js`. Result, same measurement on the new build: grid
+**212 KB**, popup **1.1 MB**, zoom **1.0 MB** at full resolution. Control: the
+same build with only (1) reverted downloaded 14.8 MB in its first 9 s.
+
+**Where it lives now**: `src/js/announcements.js` `inertBody`,
+`src/js/shop/data.js` `pictureAt`, `src/js/image-resize.js` `onWhite`.
+
+**The general rule**: *a detached element is not inert* — `innerHTML` on one
+fetches images (and runs `onerror=`); parse data with `DOMParser`. And *a
+fallback keyed on `null` misses the spec's real fallback*: ask what an API
+returns when it CANNOT do the thing, not what you hope it returns. Measure page
+weight from the NETWORK, by phase, before optimising the part you were told about.

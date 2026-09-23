@@ -7,7 +7,6 @@
 // ==============================================
 
 import { escHtml, safeUrl } from '../utils.js';
-import { convertDriveUrl } from '../uploads.js';
 import {
   SHOP_SOURCES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
@@ -15,7 +14,7 @@ import {
   unitPriceFor, priceRange, isUnlimitedBuying,
   availableForVariant, availableTotal,
   getShopTypes, findPickupLocation,
-  bannerLinkTarget, imageIndexForColor,
+  bannerLinkTarget, imageIndexForColor, pictureAt,
 } from './data.js';
 import { renderGallery, galleryGoTo } from './gallery.js';
 import { listProducts, listActiveBatches, listShopBanners, fetchReservedMatrixAll, getSettings } from './api.js';
@@ -279,7 +278,7 @@ function pickupBannerCardHtml(b) {
   return `
     <div class="sf-announce">
       ${img
-        ? `<div class="sf-announce-art has-img"><img src="${safeUrl(convertDriveUrl(img))}" alt="${escHtml(b.title)}" loading="lazy" /></div>`
+        ? `<div class="sf-announce-art has-img"><img src="${safeUrl(pictureAt(img, 600))}" alt="${escHtml(b.title)}" loading="lazy" /></div>`
         : '<div class="sf-announce-art" aria-hidden="true"><div class="sf-announce-mark">samo</div></div>'}
       <div class="sf-announce-body">
         <div class="sf-announce-main">
@@ -407,7 +406,7 @@ function bannerSlideHtml(b) {
     <div class="launch-big" ${link}>
       <div class="launch-big-thumb">
         ${b.image_url
-          ? `<img src="${safeUrl(convertDriveUrl(b.image_url))}" alt="${escHtml(b.caption || '')}" loading="lazy" />`
+          ? `<img src="${safeUrl(pictureAt(b.image_url, 1200))}" alt="${escHtml(b.caption || '')}" loading="lazy" />`
           : '<div class="stripe-placeholder"></div>'}
       </div>
       ${b.caption ? `
@@ -426,7 +425,7 @@ function dropCardHtml(p) {
     <div class="sf-drop-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
       <div class="sf-drop-thumb">
         ${p.image_url
-          ? `<img src="${safeUrl(convertDriveUrl(p.image_url))}" alt="${escHtml(p.name)}" loading="lazy" />`
+          ? `<img src="${safeUrl(pictureAt(p.image_url, 800))}" alt="${escHtml(p.name)}" loading="lazy" />`
           : `<div class="stripe-placeholder" style="background-image: repeating-linear-gradient(135deg, hsl(${Number(p.hue) || 220} 30% 96%) 0 6px, hsl(${Number(p.hue) || 220} 28% 90%) 6px 12px);"></div>`}
         <div class="ribbons">
           <span class="ribbon-new">NEW</span>
@@ -565,7 +564,7 @@ function productCardHtml(p) {
     <div class="product-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
       <div class="product-thumb">
         ${p.image_url
-          ? `<img class="product-thumb-img" src="${safeUrl(convertDriveUrl(p.image_url))}" alt="${escHtml(p.name)}" loading="lazy" />`
+          ? `<img class="product-thumb-img" src="${safeUrl(pictureAt(p.image_url, 600))}" alt="${escHtml(p.name)}" loading="lazy" />`
           : `<div class="stripe-placeholder"><span>PRODUCT · ${escHtml(p.id)}</span></div>`}
         <div class="ribbons">
           ${p.is_new ? '<span class="ribbon-new">NEW</span>' : ''}

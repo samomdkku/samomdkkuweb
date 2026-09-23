@@ -90,6 +90,18 @@ export function drawStepped(src, srcW, srcH, outW, outH) {
   return out;
 }
 
+/** `canvas` flattened onto white — for an encoder with no alpha channel. */
+function onWhite(canvas) {
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(canvas, 0, 0);
+  return out;
+}
+
 function toBlob(canvas, mime, quality) {
   return new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
 }
@@ -140,8 +152,13 @@ export async function downscaleImage(file, opts = {}) {
   try {
     const canvas = drawStepped(bmp, srcW, srcH, box.w, box.h);
     blob = await toBlob(canvas, mime, quality);
-    // Safari < 14 and some Android WebViews return null for an unsupported mime.
-    if (!blob) blob = await toBlob(canvas, 'image/jpeg', 0.92);
+    // An unsupported mime does NOT come back null: the spec says encode PNG
+    // instead, and Safari (every iOS browser) cannot encode WebP. That PNG was
+    // bigger than the photo, so the size check below kept the ORIGINAL — the
+    // shop's gallery went up as 2 MB PNGs (docs/mistakes/frontend-ui.md).
+    // Some old Android WebViews do return null. Either way: JPEG, on white,
+    // because JPEG has no alpha and a transparent pixel would come out black.
+    if (!blob || blob.type !== mime) blob = await toBlob(onWhite(canvas), 'image/jpeg', 0.92);
   } catch {
     return file;
   } finally {
