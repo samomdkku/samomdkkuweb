@@ -6,7 +6,7 @@
 
 import { dbRest } from './db.js';
 import { deletePRFile, driveIdsInHtml } from './uploads.js';
-import { convertDriveUrl } from './uploads.js';
+import { convertDriveUrl, pictureAt } from './uploads.js';
 import { escHtml } from './utils.js';
 
 /** In-memory cache of loaded announcements */
@@ -750,11 +750,15 @@ function inertBody(html) {
   return new DOMParser().parseFromString(html || '', 'text/html').body;
 }
 
-function pickCover(post) {
+/** The post's cover at a display width `w`: its thumbnail, else the first
+ *  picture in its body, else the placeholder. A Drive picture goes through
+ *  pictureAt — this site's /img/ cache, as a JPEG at a cached width — where it
+ *  used to be the 1200 px master (the live masters are PNG, up to 8 MB).
+ *  Anything not on Drive comes back unchanged. */
+function pickCover(post, w = 600) {
   const firstImg = inertBody(post.content).querySelector('img');
-  return convertDriveUrl(post.thumbnail)
-    || convertDriveUrl(firstImg?.getAttribute('src'))
-    || PLACEHOLDER_IMG;
+  const src = convertDriveUrl(post.thumbnail) || convertDriveUrl(firstImg?.getAttribute('src'));
+  return src ? pictureAt(src, w) : PLACEHOLDER_IMG;
 }
 
 function extractSnippet(content, max = 140) {
@@ -781,7 +785,7 @@ function formatEditorialDate(post) {
 }
 
 function renderNewsFeatured(post) {
-  const cover = pickCover(post);
+  const cover = pickCover(post, 1200);
   // Author-written subhead wins; fall back to extracted snippet for pre-0008 posts.
   const blurb = (post.excerpt || '').trim() || extractSnippet(post.content, 180);
   return `
@@ -846,7 +850,7 @@ function renderNewsCard(post) {
  */
 export function renderArticleView(post, { isPreview = false } = {}) {
   if (!post) return '';
-  const cover = pickCover(post);
+  const cover = pickCover(post, 1200);
   const dept = post.department || 'ประกาศ';
   const dateLabel = formatEditorialDate(post);
   const blurb = (post.excerpt || '').trim();

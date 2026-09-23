@@ -21,6 +21,10 @@ import { escHtml, safeUrl } from '../utils.js';
 import { pictureAt, productImages, imageAlt } from './data.js';
 import { openLightbox } from './lightbox.js';
 
+/** Above this many pictures a phone shows "3 / 12" instead of a dot each: the
+ *  limit went away in 0205, and 20 dots across a phone are unreadable. */
+export const DOTS_MAX = 8;
+
 /**
  * Render the gallery for `product` into `host`, starting at picture `start`.
  * `overlayHtml` (the NEW / PREORDER / หมด ribbons) sits over the picture.
@@ -63,7 +67,9 @@ export function renderGallery(host, product, { start = 0, overlayHtml = '' } = {
       ${n > 1 ? `
         <button type="button" class="pg-nav pg-prev" data-pg-step="-1" aria-label="รูปก่อนหน้า"><i class="bi bi-chevron-left"></i></button>
         <button type="button" class="pg-nav pg-next" data-pg-step="1" aria-label="รูปถัดไป"><i class="bi bi-chevron-right"></i></button>
-        <div class="pg-dots" aria-hidden="true">${imgs.map((_, i) => `<span data-pg-dot="${i}"></span>`).join('')}</div>` : ''}
+        ${n > DOTS_MAX
+          ? `<div class="pg-count" aria-hidden="true"><span data-pg-count>1</span> / ${n}</div>`
+          : `<div class="pg-dots" aria-hidden="true">${imgs.map((_, i) => `<span data-pg-dot="${i}"></span>`).join('')}</div>`}` : ''}
       <span class="pg-zoom-hint" aria-hidden="true"><i class="bi bi-arrows-fullscreen"></i></span>
     </div>
     ${n > 1 ? `<div class="pg-thumbs">${imgs.map((im, i) => `
@@ -81,6 +87,8 @@ export function renderGallery(host, product, { start = 0, overlayHtml = '' } = {
       if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
     });
     host.querySelectorAll('[data-pg-dot]').forEach((d) => d.classList.toggle('is-active', Number(d.dataset.pgDot) === i));
+    const count = host.querySelector('[data-pg-count]');
+    if (count) count.textContent = String(i + 1);
     const prev = host.querySelector('.pg-prev');
     const next = host.querySelector('.pg-next');
     if (prev) prev.disabled = i <= 0;

@@ -706,6 +706,12 @@ body.shop-mode .samo-footer {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); transition: width .2s;
 }
 #shopProductModal .pg-dots span.is-active { width: 16px; background: #fff; }
+/* Many pictures (> DOTS_MAX in gallery.js): a counter where the dots were. */
+#shopProductModal .pg-count {
+  position: absolute; left: 50%; bottom: 10px; z-index: 2; transform: translateX(-50%);
+  pointer-events: none; padding: 2px 10px; border-radius: 999px;
+  background: rgba(0, 0, 0, .55); color: #fff; font-size: .78rem; font-variant-numeric: tabular-nums;
+}
 #shopProductModal .pg-zoom-hint {
   position: absolute; right: 10px; top: 10px; z-index: 2; pointer-events: none;
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
@@ -726,7 +732,7 @@ body.shop-mode .samo-footer {
   #shopProductModal .pg-thumbs { display: none; }
 }
 @media (min-width: 768px) {
-  #shopProductModal .pg-dots { display: none; }
+  #shopProductModal .pg-dots, #shopProductModal .pg-count { display: none; }
 }
 /* The lightbox sits inside the modal (focus trap) — above everything in it. */
 #shopProductModal .pswp { z-index: 2000; }

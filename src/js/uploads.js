@@ -254,6 +254,58 @@ export function convertDriveUrl(url, size = 1200) {
 }
 
 // ============================================================
+// SIZED PICTURES — the shop's and the news cards' (from shop/data.js, 2026-09-23)
+// ============================================================
+const LH3 = /^https:\/\/lh3\.googleusercontent\.com\/d\//;
+
+/** An lh3 URL without its size suffix (`=w1200`). A Drive-style link
+ *  (`drive.google.com/file/d/<id>/…`) becomes its lh3 form first, through the
+ *  SAME convertDriveUrl the cards use — written here a second way, a
+ *  row that showed on its card was broken in the gallery. Mirrors
+ *  public.shop_image_base for lh3 URLs; `images[].url` is stored in this form. */
+export function imageBase(url) {
+  const u = convertDriveUrl(String(url || ''));
+  return LH3.test(u) ? u.replace(/=[A-Za-z0-9-]+$/, '') : u;
+}
+
+/** The widths pictureAt() serves. The VM's picture cache (server/nginx-samo.conf,
+ *  `location ~ "^/img/..."`) admits exactly these and quality 95 — a test holds
+ *  the two to each other. Fewer sizes also means fewer COLD fetches at lh3,
+ *  which takes ~2 s the first time any size of a picture is asked for. */
+export const PICTURE_WIDTHS = [200, 600, 1200, 2400];
+
+/** The same picture at a given width, as JPEG, from this site's own picture
+ *  cache. `w` rounds UP to the next PICTURE_WIDTHS (never a blurrier picture).
+ *  Non-lh3 URLs come back as-is.
+ *
+ *  WHY THE CACHE: lh3 takes 0.5-2.6 s before its first byte (measured
+ *  2026-09-23 from a laptop and from the VM); the VM answers a cached picture
+ *  in ~0.1 s. Outside a web page (no `location`, e.g. a test) it is lh3 direct.
+ *
+ *  `-rj` is not optional: lh3 answers in the MASTER's format, and the live
+ *  masters are 2 MB PNGs (an upload from Safari, which cannot encode WebP —
+ *  image-resize.js). Measured 2026-09-23 on the live gallery, 1080x1440:
+ *    =w800        PNG   1,040 KB
+ *    =w800-rw     WebP    801 KB   (lossless — a PNG master stays lossless)
+ *    =w800-rj     JPEG    183 KB
+ *  JPEG has no transparency; no shop picture uses it (every alpha is 255).
+ *  lh3's default JPEG quality is 90 (`-l90` returns the same bytes): 40.6 dB
+ *  PSNR against the PNG, no difference visible at 2x on the pattern's edges.
+ *  `quality` 95 is for where a buyer magnifies (the lightbox); any other value
+ *  is ignored, because the cache admits only that one. */
+export function pictureAt(url, w, quality) {
+  if (!url) return '';
+  const base = imageBase(url);
+  if (!LH3.test(base)) return base;
+  const width = PICTURE_WIDTHS.find((x) => x >= Number(w)) || PICTURE_WIDTHS[PICTURE_WIDTHS.length - 1];
+  const opts = `=w${width}-rj${Number(quality) === 95 ? '-l95' : ''}`;
+  const origin = globalThis.location?.origin;
+  return /^https?:\/\//.test(origin || '')
+    ? `${origin}/img/d/${base.slice(base.lastIndexOf('/') + 1)}${opts}`
+    : `${base}${opts}`;
+}
+
+// ============================================================
 // PORTRAIT DELIVERY — lh3 option strings for the ทีม SAMO photo grid
 //
 // lh3 is not a dumb file host; it is an image CDN and the option suffix after

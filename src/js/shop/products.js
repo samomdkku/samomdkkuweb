@@ -606,13 +606,19 @@ function openProductModal(product) {
   // configured we let the buyer pick anything (untracked stock).
   const matrix = product.stock_matrix || {};
   const configured = Object.values(matrix).some((v) => typeof v === 'number');
+  // NO colour is chosen for the buyer when there is a choice to make (owner,
+  // 2026-09-23: it opened on "black" and scrolled the gallery to it). A single
+  // colour has nothing to choose — its picker is hidden — so it is set.
   let pickedSize = sizes[0] || 'F';
-  let pickedColor = colors[0]?.id || null;
+  const pickedColor = colors.length === 1 ? colors[0].id : null;
   if (configured && !isUnlimitedBuying(product)) {
+    // The size still defaults to one the buyer can buy — in ANY colour when
+    // the colour is theirs to pick.
+    const tryColors = pickedColor ? [{ id: pickedColor }] : (colors.length ? colors : [{ id: 'default' }]);
     outer: for (const s of sizes) {
-      for (const c of (colors.length ? colors : [{ id: 'default' }])) {
+      for (const c of tryColors) {
         const avail = availableForVariant(product, s, c.id);
-        if (avail != null && avail > 0) { pickedSize = s; pickedColor = c.id; break outer; }
+        if (avail != null && avail > 0) { pickedSize = s; break outer; }
       }
     }
   }
@@ -643,9 +649,9 @@ function openProductModal(product) {
       product.is_presale ? '<span class="ribbon-preorder">PREORDER</span>' : '',
       oos ? `<span class="ribbon-oos">${escHtml(STOCK_STATUS_META[product.stock_status]?.ribbon || '')}</span>` : '',
     ].join('');
-    // The gallery (docs/SHOP-GALLERY.md) opens on the picture of the colour
-    // the popup opens pre-selected, not blindly on the cover.
-    const start = Math.max(0, imageIndexForColor(product, modalState.color));
+    // The gallery opens on the COVER (owner, 2026-09-23) — the picture the
+    // buyer just tapped. Picking a colour then jumps to its picture.
+    const start = 0;
     renderGallery(hero, product, {
       start,
       overlayHtml: tags ? `<div class="ribbons">${tags}</div>` : '',
@@ -722,6 +728,7 @@ function openProductModal(product) {
       // during the fade used to add the item twice.
       if (!document.getElementById('shopProductModal')?.classList.contains('show')) return;
       if (isBlockedForPurchase()) return;
+      if (colorMissing()) return;   // the button says เลือกสีก่อน and is disabled; belt and braces
       addItem({
         productId: product.id,
         size: modalState.size,
@@ -810,7 +817,7 @@ function renderColorOptions(colors) {
   }).join('');
   if (label) {
     const found = colors.find((c) => c.id === modalState.color);
-    label.textContent = found?.label || '';
+    label.textContent = found?.label || (colors.length > 1 ? 'ยังไม่ได้เลือก' : '');
   }
   host.onclick = (e) => {
     const btn = e.target.closest('[data-color]:not([disabled])');
@@ -838,21 +845,41 @@ function renderQty() {
   }
   const qty = document.getElementById('shopProductModalQty');
   if (qty) qty.value = String(modalState.qty);
+  const product = modalState.product;
+  // The size can change the price (0199), so the headline follows it too.
+  if (product) setText('shopProductModalPrice', thb(unitPriceFor(product, modalState.size)));
+  paintAddButton();
+}
+
+/** A colour still to be picked: the product offers more than one and the
+ *  buyer has not chosen. */
+function colorMissing() {
+  const p = modalState.product;
+  return !!p && Array.isArray(p.colors) && p.colors.length > 1 && !modalState.color;
+}
+
+/** The add button's label AND whether it can be pressed — ONE function, called
+ *  from every path that changes either (two passes over one control is a bug
+ *  class here: docs/mistakes/frontend-ui.md). */
+function paintAddButton() {
+  const addBtn = document.getElementById('shopProductModalAdd');
   const addLabel = document.getElementById('shopProductModalAddLabel');
   const product = modalState.product;
-  if (addLabel && product) {
-    addLabel.textContent = `เพิ่มลงตะกร้า · ฿${thb(unitPriceFor(product, modalState.size) * modalState.qty)}`;
-    // The size can change the price (0199), so the headline follows it too.
-    setText('shopProductModalPrice', thb(unitPriceFor(product, modalState.size)));
+  if (!addBtn || !product) return;
+  const pick = colorMissing();
+  addBtn.disabled = isBlockedForPurchase() || pick || isVariantOOS();
+  if (addLabel) {
+    addLabel.textContent = pick ? 'เลือกสีก่อน'
+      : `เพิ่มลงตะกร้า · ฿${thb(unitPriceFor(product, modalState.size) * modalState.qty)}`;
   }
 }
 function renderOOS() {
   const box = document.getElementById('shopProductModalOOS');
-  const addBtn = document.getElementById('shopProductModalAdd');
-  const variantOOS = isVariantOOS();
+  // With no colour chosen there is no variant to be out of stock yet.
+  const variantOOS = !colorMissing() && isVariantOOS();
   const blocked = isBlockedForPurchase();
   if (box) box.classList.toggle('d-none', !variantOOS || blocked);
-  if (addBtn) addBtn.disabled = blocked || variantOOS;
+  paintAddButton();
   renderStockLeftHint();
 }
 
@@ -867,7 +894,7 @@ function renderStockLeftHint() {
   const host = document.getElementById('shopProductModalStockLeft');
   if (!host) return;
   const p = modalState.product;
-  if (!p || isBlockedForPurchase() || isUnlimitedBuying(p)) {
+  if (!p || isBlockedForPurchase() || isUnlimitedBuying(p) || colorMissing()) {
     host.classList.add('d-none'); host.textContent = ''; return;
   }
   const left = availableForVariant(p, modalState.size, modalState.color);

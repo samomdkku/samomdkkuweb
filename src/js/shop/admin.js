@@ -3141,6 +3141,8 @@ async function addPickedImages(p, files) {
 /** The long edge a product picture is stored at: zoom can only show pixels
  *  that were stored (the first picture was 1200 px — SHOP-GALLERY §0). */
 const PRODUCT_IMAGE_EDGE = 2400;
+/** The pause between two picture uploads in one save (see saveProductForm). */
+const UPLOAD_GAP_MS = 500;
 
 function refreshMatrixOnly() {
   const p = state.productEditor;
@@ -3376,10 +3378,15 @@ async function saveProductForm() {
     const colorIds = new Set((payload.colors || []).map((c) => c.id));
     const list = ensureImages(e);
     const images = [];
+    let uploads = 0;
     for (let k = 0; k < list.length; k += 1) {
       const im = list[k];
       let url = im.url;
       if (im.file) {
+        // Paced (0205 made a product's pictures unlimited): Apps Script called
+        // back-to-back starts answering with an HTML page and the upload fails
+        // (memory: gas-is-an-unauthenticated-api). One gap per upload after the first.
+        if (uploads++) await new Promise((ok) => setTimeout(ok, UPLOAD_GAP_MS));
         if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดรูป ${k + 1}/${list.length}…`;
         const ext = ({ 'image/webp': 'webp', 'image/png': 'png', 'image/gif': 'gif', 'image/jpeg': 'jpg' })[im.file.type]
           || (im.file.name.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();

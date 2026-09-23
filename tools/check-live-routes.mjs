@@ -71,6 +71,17 @@ const ROUTES = [
       ? null : `served HTML that names no /passport/assets/ bundle`),
   },
   {
+    // The shop's picture cache (2026-09-23). Marker = the X-Img-Cache header,
+    // which nginx adds `always` — even when lh3 answers an error — so this
+    // asks whether the LOCATION exists, and cannot go red because one picture
+    // was later deleted from Drive (a subject that rots is a guard failure).
+    // The repo half: src/js/shop/data.test.js.
+    path: '/img/d/15FVJRgNTQNsR-I_sgWl90mN5dcZSJolq=w200-rj',
+    breaks: 'every shop picture is served the SPA\'s HTML — broken images everywhere (pictureAt writes /img/)',
+    want: (r) => (r.imgCache
+      ? null : `${r.status} ${r.type} — no X-Img-Cache header, so the /img/ location is gone`),
+  },
+  {
     path: '/docs/',
     breaks: 'the docs site stops serving',
     want: (r, b) => (/\/docs\/assets\//.test(b)
@@ -89,6 +100,7 @@ async function probe(path) {
   return {
     status: r.status,
     type: r.headers.get('content-type') || '',
+    imgCache: r.headers.get('x-img-cache'),
     body: r.status >= 300 && r.status < 400 ? '' : await r.text(),
   };
 }

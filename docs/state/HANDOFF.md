@@ -1703,8 +1703,8 @@ colour. The full design, with the measured facts it rests on, is
 
 **Status: OWED 2026-09-22 — the session hit its token limit mid-change.** Done and deployed: 0205 (no count check, dev + prod,
 `shop0203-gallery` 19/19), the admin strip with no cap (counter "N รูป", a confirm above 20 files at once). NOT done:
-- a gallery with many pictures shows one DOT per picture on a phone (`gallery.js`) — switch to a "3 / N" counter above ~8;
-- uploads on save are not paced for a big batch (`saveProductForm` loop) — add ~500 ms between uploads;
+- ~~one DOT per picture on a phone~~ → DONE 2026-09-23: above `DOTS_MAX` (8) a "3 / N" counter (driven in a browser: 6 → dots, 12 → "3 / 12");
+- ~~uploads on save not paced~~ → DONE 2026-09-23: `UPLOAD_GAP_MS` 500 between uploads in `saveProductForm`;
 - ~~docs still say 8 in places~~ → DONE 2026-09-23 (README, CONTEXT, SHOP-GALLERY §2/§3/§10, and the
   release note, which shipped in v4.8.0 saying "ไม่จำกัดจำนวน").
 
