@@ -1706,3 +1706,18 @@ colour. The full design, with the measured facts it rests on, is
 - uploads on save are not paced for a big batch (`saveProductForm` loop) — add ~500 ms between uploads;
 - docs still say 8 in places: `README.md` "up to 8", `docs/CONTEXT.md` "≤ 8", `docs/SHOP-GALLERY.md` §2/§3/§9/§10,
   the PENDING changelog entry "สูงสุด 8 รูป" (`src/data/changelog.js`). `grep -rn "8 pictures\|≤ 8\|สูงสุด 8"`.
+
+## 18e. Discord bot: nicknames, the admin panel — what is left (2026-09-23)
+
+**Status: OWED 2026-09-23 — owner decision on one link; everything else VERIFIED how: 0207 `discord0207-nicknames` 9/9 and 0208 `discord0208-panel` 14/14 on dev + production; the live bot's first pass after apply renamed 4, the next renamed 0 (idempotent); `discord_bot_status` heartbeat read back from production.**
+
+- **Check the ธิเบธ → เซฟ link (owner / ฝ่าย data).** Discord account `…6758`
+  was linked on 19 Sep by the nickname import as a HAND-CONFIRMED near match
+  (same last 4 digits, 334-2, different ชื่อเล่น). The bot has now named it
+  `เซฟ_#3_334-2` from the website. If that is a different person, the link is
+  wrong and has been steering that account's ROLES too since 19 Sep: unlink in
+  ทีม SAMO, and have the right person press เชื่อมบัญชี Discord.
+- **Grant `discord_bot`** to whoever should run the bot from /admin/ →
+  บอท Discord (masters already can).
+- The Claude page's `card-soft` class has no CSS rule anywhere (found while
+  building the bot panel) — decorative dead class, harmless; delete or style.
