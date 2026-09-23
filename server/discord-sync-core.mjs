@@ -96,7 +96,8 @@ export const NICK_MAX = 32;   // Discord's limit, in UTF-16 units (JS .length)
 
 /** The nickname ทีม SAMO says this person should carry, or { skip: why }. */
 export function wantedNickname(p, academicYear) {
-  const nick = String(p?.nickname ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  // Zero-width characters survive \s: a ชื่อเล่น of only U+200B would be an INVISIBLE name.
+  const nick = String(p?.nickname ?? '').normalize('NFC').replace(/[\u200B-\u200D\u2060\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
   if (!nick) return { skip: 'ไม่มีชื่อเล่นในเว็บ' };
   const d = arabicDigits(p?.student_id).replace(/\D/g, '');
   if (d.length < 4) return { skip: 'ไม่มีรหัสนักศึกษาในเว็บ' };
@@ -152,7 +153,11 @@ export function planNicknames({ members, inputs, roles, botTop, ownerId, academi
  *  be opened (owner, 2026-09-23). A name in the text always reads. */
 /** Markdown-escaped, never stripped: the server's own pattern is full of `_`
  *  (บอส_#5_033-4), and stripping it rewrote every name it printed. */
-export const mdEscape = (x) => String(x ?? '').replace(/([\\*_`~|>#:<-])/g, '\\$1');
+export const mdEscape = (x) => String(x ?? '').replace(/([\\*_`~|>#:<\[\]-])/g, '\\$1');
+/** Text from the WEBSITE (an edit's detail, an editor's name, a pause
+ *  reason) as one markdown-inert line: a ชื่อเล่น of `<@123>`, a masked
+ *  `[link](url)` or newlines faking a section would otherwise render as such. */
+export const mdLine = (x) => mdEscape(String(x ?? '').replace(/\s+/g, ' ').trim());
 export const nameText = (x) => `**${mdEscape(String(x ?? '').trim()) || 'ไม่ทราบชื่อ'}**`;
 
 const short = (x) => String(x).replace(/\([^)]*\)/g, '').replace(/^ฝ่าย\s*/, '').trim();
@@ -216,9 +221,9 @@ export function formatReport({ queue = [], adds = [], removes = [], held = [], r
   const lines = [];
   const actors = [...new Set(queue.map((q) => q.actor_name).filter(Boolean))];
   const details = [...new Set(queue.map((q) => q.detail).filter(Boolean))];
-  if (actors.length) lines.push(`**แก้โดย:** ${actors.join(', ')}`);
+  if (actors.length) lines.push(`**แก้โดย:** ${actors.map(mdLine).join(', ')}`);
   else if (full) lines.push('**ตรวจรอบอัตโนมัติ** — ปรับ Discord ให้ตรงกับหน้าเว็บทีม SAMO (อาจมีคนแก้ role ใน Discord เอง)');
-  if (details.length) { lines.push('**สิ่งที่แก้ในเว็บ:**'); for (const d of details.slice(0, 20)) lines.push(`• ${d}`); if (details.length > 20) lines.push(`• …และอีก ${details.length - 20} รายการ`); }
+  if (details.length) { lines.push('**สิ่งที่แก้ในเว็บ:**'); for (const d of details.slice(0, 20)) lines.push(`• ${mdLine(d)}`); if (details.length > 20) lines.push(`• …และอีก ${details.length - 20} รายการ`); }
   if (renamed.length) { lines.push('**เปลี่ยนชื่อ role:**'); for (const r of renamed) lines.push(`• <@&${r.role}> ← เดิม "${r.from}"`); }
   const by = new Map();
   for (const a of adds) (by.get(a.member) || by.set(a.member, { who: a.who, add: [], rm: [] }).get(a.member)).add.push(a.role);
