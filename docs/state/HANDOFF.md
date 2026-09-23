@@ -1722,3 +1722,30 @@ colour. The full design, with the measured facts it rests on, is
   บอท Discord (masters already can).
 - The Claude page's `card-soft` class has no CSS rule anywhere (found while
   building the bot panel) — decorative dead class, harmless; delete or style.
+
+## 18f. Cold review of 2026-09-23's work — findings NOT yet fixed on main
+
+**Status: OWED 2026-09-23 — session ran out of budget mid-fix. Two independent reviewers read the day's diff cold; each finding below is theirs, re-read by me against the code (agree with all). Fixes for the BOT half are on branch `wip/discord-review-fixes` — 2 tests there still red (the loop tests' expectations, after the loop was restructured). Finish, get `npm test` green, merge, deploy.**
+
+Discord bot (`server/discord-sync.mjs`) — fixed on the branch, not merged:
+1. a pause does not stop a pass already running (write() now re-checks the switch every 3 s; `Paused` is not a failure);
+2. empty `discord_role_targets()` counted as success (posts "recovered", retries every 5 s, no heartbeat) → now a failure;
+3. web text (edit detail, editor name, pause reason) posted unescaped → `mdLine` (a ชื่อเล่น `<@id>` / `[x](url)` renders);
+4. start-up failure crash-loops with no alert → boot() inside the retry loop;
+5. `alerted` stuck across a pause → one `succeeded()` for every good round;
+6. failed nickname writes re-posted after every restart → posted only for a person a web edit named;
+7. "check now" compared two machines' clocks → compares the request value;
+9. missing settings row fails OPEN → now paused. (8, queue rows dropped on a failed write, left: the 15-min pass heals it.)
+
+Front end — NOT started:
+- **CONFIRMED** popup: with no colour picked, + goes to 99; picking a colour calls renderOOS but not renderQty, so qty 10 of 3-left gets added. Call `renderQty()` in the colour handler; cap + at 1 while `colorMissing()`.
+- **CONFIRMED** cart: `addItem` merges quantities with no stock check; the drawer only disables +, never lowers qty.
+- **CONFIRMED** บอท Discord tab: every 20 s poll `say('')` clears a save error; `#dbotStatus` (aria-live) re-announces unchanged text. Paint only on change.
+- **CONFIRMED** CSV: a real value `'=x` exports unchanged and imports as `=x` — make `csvGuard` also prefix values starting with `'`.
+- **PLAUSIBLE** news covers forced to JPEG (`-rj`) — a transparent PNG logo would go black; the no-alpha check was measured on shop pictures only.
+- **PLAUSIBLE** `image-resize.js`: Safari's JPEG-on-white fallback now applies to EVERY caller (dept pages, crop, banners, slips) — flattens a transparent PNG; the fallback also ignores the caller's quality.
+- **PLAUSIBLE** nginx `/img/`: default cache key includes the query string → `?n=1,2,…` are all cold lh3 fetches. Add `proxy_cache_key "$1=$2";` (install by hand, `nginx -t`).
+- minor: the lh3 `preconnect` in index.html is now unused; a stored lh3 URL with `?authuser=0` breaks through `/img/`.
+
+Also still owed from §18e: the ธิเบธ → เซฟ link (owner) and granting `discord_bot`.
+Unreleased notes are staged in `PENDING` (the popup colour change, news covers, cart cap, admin dialogs, CSV).
