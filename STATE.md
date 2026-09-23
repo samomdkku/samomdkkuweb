@@ -34,7 +34,7 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `d08ffcb` (2026-09-23)** — **v4.8.0**, tagged on this commit, read back from the VM's
+- ✅ **DEPLOYED = `27533c4` (2026-09-23)** — **v4.8.0** (tag `v4.8.0` = `d08ffcb`; this is the docs commit after it), read back from the VM's
   own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`; production serves `build.json` 4.8.0 and the release notes. The day: shop pictures via the VM's `/img/` cache (47 MB → 212 KB on /shop), the shop's Discord totals (0206), Discord nicknames (0207) and the บอท Discord admin panel (0208). How each was checked: `docs/state/claude-2026-09-23.md`; owed: HANDOFF §18e. Previous: `6941739` (`docs/state/claude-2026-09-22.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
