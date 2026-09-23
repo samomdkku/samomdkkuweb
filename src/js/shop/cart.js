@@ -7,7 +7,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { thb, unitPriceFor, thumbStyle } from './data.js';
+import { thb, unitPriceFor, thumbStyle, availableForVariant, isUnlimitedBuying } from './data.js';
 import { onCartChange, cartCount, cartSubtotal, getCart, updateQty, removeItem, repriceCart } from './state.js';
 import { listProducts } from './api.js';
 
@@ -87,8 +87,19 @@ function render() {
   list.classList.remove('d-none');
   foot.classList.remove('d-none');
 
+  // The most of one line a buyer can ask for: what is left of that size and
+  // colour (the popup's own rule), or the cart's 99 for a preorder / untracked
+  // product. Checkout still re-checks against the live reservation count; this
+  // only stops the drawer's + from promising what is not there.
+  const maxFor = (p, it) => {
+    if (!p || isUnlimitedBuying(p)) return 99;
+    const left = availableForVariant(p, it.size, it.color);
+    return left == null ? 99 : Math.max(1, Math.min(99, left));
+  };
+
   list.innerHTML = cart.map((it, idx) => {
     const p = productMap[it.productId];
+    const max = maxFor(p, it);
     const name = p?.name || it.productId;
     const colors = Array.isArray(p?.colors) ? p.colors : [];
     const colorLabel = colors.find((c) => c.id === it.color)?.label || it.color || '';
@@ -108,7 +119,7 @@ function render() {
             <div class="cart-qty-mini">
               <button type="button" data-cart-qty="-1" data-idx="${idx}">−</button>
               <span>${it.qty}</span>
-              <button type="button" data-cart-qty="+1" data-idx="${idx}">+</button>
+              <button type="button" data-cart-qty="+1" data-idx="${idx}" ${it.qty >= max ? 'disabled title="ครบจำนวนที่เหลือแล้ว"' : ''}>+</button>
             </div>
             <button type="button" class="cart-item-remove" data-cart-remove="${idx}">
               <i class="bi bi-trash3"></i> ลบ
@@ -126,7 +137,7 @@ function render() {
       const idx = Number(qtyBtn.dataset.idx);
       const delta = qtyBtn.dataset.cartQty === '+1' ? 1 : -1;
       const cur = getCart()[idx];
-      if (cur) updateQty(idx, cur.qty + delta);
+      if (cur) updateQty(idx, Math.min(cur.qty + delta, delta > 0 ? maxFor(productMap[cur.productId], cur) : 99));
     } else if (rmBtn) {
       removeItem(Number(rmBtn.dataset.cartRemove));
     }

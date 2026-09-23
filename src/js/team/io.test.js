@@ -223,3 +223,28 @@ describe('buildExportJson round-trip fidelity', () => {
     expect(n.discord_role_id).toBe(null);
   });
 });
+
+// ── CSV formula guard (2026-09-23) — the exports carry student-typed text ────
+import { csvGuard, csvUnguard } from '../utils.js';
+describe('a spreadsheet formula cannot ride out in an export', () => {
+  it('a student-typed formula is neutralised, a plain number is not', () => {
+    expect(csvGuard('=HYPERLINK("x","y")')).toBe('\'=HYPERLINK("x","y")');
+    for (const f of ['+1+1', '-2+3', '@SUM(A1)', '\t=1']) expect(csvGuard(f).startsWith("'")).toBe(true);
+    for (const n of ['-1', '+5', '12.5', 'อั้ม', '', null]) expect(csvGuard(n)).toBe(n == null ? '' : n);
+  });
+  it('round-trips: export → parse gives back EXACTLY what was typed', () => {
+    const tricky = ['=HYPERLINK("http://x","ok")', '-อั้ม', '@me', 'ปกติ', '-1', "'quoted"];
+    const csv = buildMembersCsv(tricky.map((t) => ({ full_name: t, nickname: t })));
+    const back = parseCsv(csv).slice(1);
+    const header = parseCsv(csv)[0];
+    const col = header.indexOf('full_name');
+    expect(back.map((r) => r[col])).toEqual(tricky);
+    // …and in the file itself, nothing starts with a formula character.
+    for (const r of parseCsv(csv.replace(/'/g, '\u0000'))) for (const c of r) expect(/^[=+@]/.test(c)).toBe(false);
+  });
+  it('csvUnguard leaves everything else alone', () => {
+    expect(csvUnguard("'hello")).toBe("'hello");
+    expect(csvUnguard("'-1")).toBe("'-1");
+    expect(csvUnguard('=x')).toBe('=x');
+  });
+});

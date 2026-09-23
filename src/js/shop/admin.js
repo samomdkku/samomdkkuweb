@@ -21,6 +21,7 @@ import {
   NOT_YET_REVENUE_STATUSES,
 } from './data.js';
 import { downscaleImage, decode } from '../image-resize.js';
+import { askConfirm } from '../confirm-modal.js';
 import {
   listAllOrders, getOrder, updateOrderStatus, deleteOrder, setOrderItemStatus,
   addOrderItem, updateOrderItem, removeOrderItem, recomputeOrderTotals, adminCreateOrder,
@@ -1009,7 +1010,7 @@ function syncBulkBar() {
 async function bulkDeleteSelectedOrders() {
   const ids = [...state.ordersSelected];
   if (ids.length === 0) return;
-  if (!confirm(`ลบ ${ids.length} คำสั่งซื้อถาวร? ไม่สามารถกู้คืนได้`)) return;
+  if (!await askConfirm({ title: `ลบ ${ids.length} คำสั่งซื้อถาวร?`, body: 'ไม่สามารถกู้คืนได้', yes: 'ลบถาวร' })) return;
   const btn = document.getElementById('shopAdminOrdersBulkDelete');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังลบ…'; }
   let ok = 0;
@@ -1559,7 +1560,7 @@ async function onRemoveOrderItem(itemId) {
     showShopToast('คำสั่งซื้อต้องมีสินค้าอย่างน้อย 1 รายการ — ลบทั้งคำสั่งซื้อแทน', 'warn');
     return;
   }
-  if (!confirm('ลบรายการนี้ออกจากคำสั่งซื้อ?')) return;
+  if (!await askConfirm({ title: 'ลบรายการนี้ออกจากคำสั่งซื้อ?', yes: 'ลบ' })) return;
   try {
     await removeOrderItem(itemId);
     await recomputeOrderTotals(order.id);
@@ -1585,7 +1586,8 @@ async function onAddOrderItem(body) {
     : unitPriceFor(product, size);
   const isPreorder = body.querySelector('[data-add-preorder]')?.value === 'true';
   const variant = [size !== 'F' ? `ไซส์ ${size}` : '', colorLabelFor(product, color)].filter(Boolean).join(' · ');
-  if (!confirm(`เพิ่ม "${product?.name || productId}"${variant ? ` (${variant})` : ''} × ${qty} (฿${unitPrice}/ชิ้น) เข้าคำสั่งซื้อ?`)) return;
+  if (!await askConfirm({ title: `เพิ่ม "${product?.name || productId}"${variant ? ` (${variant})` : ''} × ${qty} เข้าคำสั่งซื้อ?`,
+    body: `฿${unitPrice}/ชิ้น`, yes: 'เพิ่ม', danger: false })) return;
   const btn = body.querySelector('[data-add-item-btn]');
   if (btn) { btn.disabled = true; }
   try {
@@ -1641,7 +1643,7 @@ async function onItemStatusClick(btn, body) {
 async function deleteCurrentOrder() {
   const order = modalOrder;
   if (!order) return;
-  if (!confirm(`ลบคำสั่งซื้อ ${order.id} ถาวร? ไม่สามารถกู้คืนได้`)) return;
+  if (!await askConfirm({ title: `ลบคำสั่งซื้อ ${order.id} ถาวร?`, body: 'ไม่สามารถกู้คืนได้', yes: 'ลบถาวร' })) return;
   const btn = document.getElementById('shopAdminOrderModalDelete');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังลบ…'; }
   try {
@@ -2762,7 +2764,7 @@ function renderProductsTable() {
   tbody.querySelectorAll('[data-product-delete]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const pid = btn.dataset.productDelete;
-      if (!confirm(`ลบสินค้า ${pid}?`)) return;
+      if (!await askConfirm({ title: `ลบสินค้า ${pid}?`, yes: 'ลบ' })) return;
       const images = productImages(state.products.find((x) => x.id === pid)).map((x) => x.url);
       try {
         await deleteProduct(pid);
@@ -2774,7 +2776,9 @@ function renderProductsTable() {
         // Product has order history → can't hard-delete. Offer to archive
         // (hide from shop) instead, which keeps the order records intact.
         if (e.code === 'PRODUCT_HAS_ORDERS') {
-          if (confirm('สินค้านี้มีประวัติการสั่งซื้อ จึงลบถาวรไม่ได้ (เพื่อรักษาบันทึกคำสั่งซื้อเดิม)\n\nต้องการ "ปิดการขาย" แทนไหม? สินค้าจะถูกซ่อนจากหน้าร้าน แต่ยังเห็นและเปิดขายใหม่ได้ในแอดมิน')) {
+          if (await askConfirm({ title: 'ลบถาวรไม่ได้ — ปิดการขายแทนไหม?',
+            body: 'สินค้านี้มีประวัติการสั่งซื้อ จึงลบถาวรไม่ได้ (เพื่อรักษาบันทึกคำสั่งซื้อเดิม) ถ้าปิดการขาย สินค้าจะถูกซ่อนจากหน้าร้าน แต่ยังเห็นและเปิดขายใหม่ได้ในแอดมิน',
+            yes: 'ปิดการขาย', danger: false })) {
             try {
               await archiveProduct(pid);
               showShopToast('ปิดการขายแล้ว (ซ่อนจากหน้าร้าน)', 'success');
@@ -3108,7 +3112,7 @@ async function addPickedImages(p, files) {
   // No limit (0205) — but a pick this large is usually a whole folder dragged by
   // accident, and each picture is an upload on save. Ask once; any answer goes.
   if (files.length > CONFIRM_PICK_OVER
-      && !confirm(`เพิ่มรูปทั้งหมด ${files.length} รูปใช่ไหม? (แต่ละรูปจะอัปโหลดตอนกดบันทึก)`)) return;
+      && !await askConfirm({ title: `เพิ่มรูปทั้งหมด ${files.length} รูปใช่ไหม?`, body: 'แต่ละรูปจะอัปโหลดตอนกดบันทึก', yes: 'เพิ่ม', danger: false })) return;
   const note = document.getElementById('shopProdImgNote');
   if (note) note.textContent = 'กำลังเตรียมรูป…';
   p._preparing = (p._preparing || 0) + 1;   // saveProductForm waits for this
@@ -3437,12 +3441,13 @@ async function saveProductForm() {
   }
 }
 
+/** Resolves true/false — ALWAYS a promise, so both callers' `await` reads it. */
 function maybeConfirmCascade(nextStatus) {
-  if (nextStatus === 'pending') return true; // no cascade
+  if (nextStatus === 'pending') return Promise.resolve(true); // no cascade
   const msg = nextStatus === 'produced'
     ? 'จะย้ายคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน" ที่มีสินค้านี้ทั้งหมดไปเป็น "สินค้าผลิตเสร็จแล้ว". ยืนยัน?'
     : 'จะย้ายคำสั่งซื้อสถานะ "ยืนยันการชำระเงิน" และ "สินค้าผลิตเสร็จแล้ว" ที่มีสินค้านี้ทั้งหมดไปเป็น "ประกาศแล้ว". ยืนยัน?';
-  return window.confirm(msg);
+  return askConfirm({ title: 'ย้ายสถานะคำสั่งซื้อที่มีสินค้านี้ด้วย?', body: msg.replace(/ ยืนยัน\?$/, ''), yes: 'ย้ายสถานะ', danger: false });
 }
 
 function miniStyle(p) {
@@ -4038,9 +4043,9 @@ async function onTypeSave() {
 async function onTypeDelete(id) {
   const inUse = (state.products || []).filter((p) => p.type === id).length;
   const warn = inUse > 0
-    ? `\n\nมีสินค้า ${inUse} รายการใช้ประเภทนี้อยู่ — สินค้าจะยังอยู่ แต่จะแสดงรหัสประเภทแทนชื่อ`
+    ? `มีสินค้า ${inUse} รายการใช้ประเภทนี้อยู่ — สินค้าจะยังอยู่ แต่จะแสดงรหัสประเภทแทนชื่อ`
     : '';
-  if (!confirm(`ลบประเภท "${id}"?${warn}`)) return;
+  if (!await askConfirm({ title: `ลบประเภท "${id}"?`, body: warn, yes: 'ลบ' })) return;
   try {
     await deleteProductType(id);
     showShopToast('ลบประเภทแล้ว', 'success');
@@ -4145,8 +4150,8 @@ async function onPickupSave() {
 
 async function onPickupDelete(id) {
   const inUse = (state.products || []).filter((p) => String(p.pickup_location_id) === String(id)).length;
-  const warn = inUse > 0 ? `\n\nมีสินค้า ${inUse} รายการใช้สถานที่นี้ — จะถูกตั้งกลับเป็น "ไม่ระบุ"` : '';
-  if (!confirm(`ลบสถานที่นี้?${warn}`)) return;
+  const warn = inUse > 0 ? `มีสินค้า ${inUse} รายการใช้สถานที่นี้ — จะถูกตั้งกลับเป็น "ไม่ระบุ"` : '';
+  if (!await askConfirm({ title: 'ลบสถานที่นี้?', body: warn, yes: 'ลบ' })) return;
   try {
     await deletePickupLocation(id);
     showShopToast('ลบสถานที่แล้ว', 'success');
@@ -4323,8 +4328,8 @@ async function onQrDelete(id) {
   const q = (state.promptpayQrs || []).find((x) => String(x.id) === String(id));
   if (q?.is_default) { showShopToast('ตั้งบัญชีอื่นเป็นค่าเริ่มต้นก่อนจึงจะลบได้', 'warn'); return; }
   const inUse = (state.products || []).filter((p) => String(p.promptpay_qr_id) === String(id)).length;
-  const warn = inUse > 0 ? `\n\nมีสินค้า ${inUse} รายการใช้บัญชีนี้ — จะถูกตั้งกลับเป็นบัญชีเริ่มต้น` : '';
-  if (!confirm(`ลบบัญชีนี้?${warn}`)) return;
+  const warn = inUse > 0 ? `มีสินค้า ${inUse} รายการใช้บัญชีนี้ — จะถูกตั้งกลับเป็นบัญชีเริ่มต้น` : '';
+  if (!await askConfirm({ title: 'ลบบัญชีนี้?', body: warn, yes: 'ลบ' })) return;
   try {
     await deletePromptpayQr(id);
     showShopToast('ลบบัญชีแล้ว', 'success');
@@ -4525,7 +4530,7 @@ async function trashImageIfUnused(url) {
 }
 
 async function onBannerDelete(id) {
-  if (!confirm('ลบแบนเนอร์นี้?')) return;
+  if (!await askConfirm({ title: 'ลบแบนเนอร์นี้?', yes: 'ลบ' })) return;
   const image = (state.banners || []).find((x) => x.id === id)?.image_url;
   try {
     await deleteShopBanner(id);

@@ -1086,3 +1086,31 @@ tab drops unedited cache entries on reload. The verify queue writes only if
 **The general rule**: *after an await, "current" is a different question.*
 Capture the object you are acting on, and compare identity before you touch
 the screen or the row.
+
+---
+
+## A student's ชื่อเล่น could run as a formula in an admin's spreadsheet — the ทีม SAMO and ระบบบ้าน exports had no CSV formula guard
+
+**Symptom (found 2026-09-23 checking HANDOFF §18b's hypothesis, not reported
+by a user)**: the shop's order CSV had been fixed on 2026-09-22 to neutralise
+cells starting with `= + - @` (Excel and Sheets run those as formulas). The
+ทีม SAMO members export (`team/io.js`) and the ระบบบ้าน students export
+(`house/io.js`) had their OWN `csvCell`, which only quoted — and they carry
+text students type themselves (ชื่อเล่น, bio, names). `=HYPERLINK(…)` as a
+ชื่อเล่น would run in whichever admin's spreadsheet opened the file.
+
+**Cause**: three exports, three `csvCell`s. The fix went into the one being
+looked at (class 6 — a rule applied to the writers you HAPPENED to be looking
+at). And these two files are ROUND-TRIPPED (export → edit → re-import), so
+the shop's fix copied as-is would have stored its apostrophe on every re-import.
+
+**Fix**: ONE rule, `csvGuard` / `csvUnguard` in `src/js/utils.js`, used by all
+three exports; the shared `parseCsv` (team/io.js, also ระบบบ้าน's) takes the
+apostrophe off on the way back in. A plain number (`-1`, a year_offset) is
+never prefixed. `src/js/team/io.test.js` round-trips `=HYPERLINK(…)`, `-อั้ม`,
+`@me` and `'quoted` back to exactly what was typed — mutation-checked (guard
+removed → red).
+
+**The general rule**: *a fix to one of N implementations of a rule is a
+fix to 1/N* — grep for the other `csvCell`s before calling a hole closed; and
+an escape added to an export needs its inverse on every import that reads it.

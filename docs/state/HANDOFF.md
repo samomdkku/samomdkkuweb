@@ -1585,12 +1585,12 @@ unit-tested, not clicked.
   empty). Restore the field, or drop the dead code. It is a shop-team call.
 
 **Buildable, small**
-- **OWED — the cart drawer's + button is capped at 99, not at stock.**
-  Harmless now: checkout names the line and hides the QR before payment. It
-  would be nicer to cap it in the drawer.
-- **HYPOTHESIS — the team/house CSV exports may have the same formula-injection
-  shape** (`src/js/team/io.js`, `src/js/house/io.js`). Not checked; out of the
-  shop's scope. Use the shared `csvCell` in `src/js/shop/data.js` if so.
+- ~~the cart drawer's + button is capped at 99, not at stock~~ → DONE
+  2026-09-23: capped at what is left of that size/colour (the popup's rule,
+  `availableForVariant`); disabled at the cap. Checkout still re-checks.
+- ~~HYPOTHESIS — the team/house CSV exports may have the same formula-injection
+  shape~~ → **CONFIRMED and FIXED 2026-09-23**: one `csvGuard`/`csvUnguard` in
+  `utils.js` for all three exports, undone on import (`docs/mistakes/app-state.md`).
 - **VERIFIED 2026-09-22 — how: `npm run deploy:gas -- --verify` → "live
   endpoint runs the NEW code"; `--dry-run` → remote code matches
   `appscript/prform.gs` byte for byte.** The Apps Script is fully deployed; no

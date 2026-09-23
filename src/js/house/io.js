@@ -8,6 +8,7 @@
 // to be caught here or not at all.
 // ==============================================
 import { parseCsv } from '../team/io.js';
+import { csvGuard } from '../utils.js';
 import {
   normalizeSai, normalizeStudentId, normalizeMajor, normalizeKkumail,
   auditSaiWidths, cleanCell, cleanSpace, houseOf, cohortLabel, studyYearLabel,
@@ -581,7 +582,7 @@ export const PREVIEW_COLUMN_LABEL = {
 };
 
 const csvCell = (v) => {
-  const s = String(v ?? '');
+  const s = csvGuard(v);   // utils.js — a student-typed "=…" must not run as a formula
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

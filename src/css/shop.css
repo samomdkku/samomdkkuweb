@@ -741,6 +741,8 @@
 }
 .shop-tab .cart-qty-mini button { width: 24px; height: 24px; border: 0; background: transparent; color: var(--shop-ink-700); padding: 0; line-height: 1; }
 .shop-tab .cart-qty-mini span { padding: 0 .45rem; font-weight: 600; font-size: .8rem; min-width: 28px; text-align: center; }
+/* + at the stock that is left (cart.js maxFor) — visibly off, not just inert. */
+.shop-tab .cart-qty-mini button:disabled { opacity: .3; cursor: not-allowed; }
 .shop-tab .cart-item-price { font-weight: 700; color: var(--shop-ink-900); font-size: .95rem; }
 
 .shop-tab .cart-total-row { display: flex; justify-content: space-between; padding: .25rem 0; font-size: .9rem; color: var(--shop-ink-500); }

@@ -248,7 +248,7 @@ Open when: markup, modals, layout, touch, icons.
 - "รูปใน samoshop โหลดนานมาก" — the shop tab downloaded ~47 MB of pictures, 45 of them news pictures nobody could see
 - "กดสินค้าแล้วเลื่อนไปหน้าปกแล้วเลื่อนกลับมาสีดำ"
 
-## `app-state.md` — Routing, read-state, caches & serialization *(25)*
+## `app-state.md` — Routing, read-state, caches & serialization *(26)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -277,6 +277,7 @@ Open when: URL state, per-user "seen", import/export.
 - sai-grid.js's numeric-สาย grouping was a third re-typing, and its own comment named the wrong gaps.js group
 - The ผังตามสาย legend was a fourth copy of the same rule
 - Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
+- A student's ชื่อเล่น could run as a formula in an admin's spreadsheet
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(33)*
 
@@ -463,4 +464,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_401 entries across 10 files._
+_402 entries across 10 files._

@@ -41,7 +41,6 @@ const SRC = new URL('.', import.meta.url);
  * put an input in the form it affects (that is why there is no askPrompt).
  */
 const STILL_NATIVE = new Set([
-  'shop/admin.js',
   'vs-staff.js',
   'pr-staff.js',
   'announcements.js',

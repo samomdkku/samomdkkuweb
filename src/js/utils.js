@@ -276,3 +276,25 @@ export function orderIdChipHtml(id) {
     </button>
   </span>`;
 }
+
+// ---------------------------------------------------------------------------
+// CSV FORMULA GUARD — one rule for every export (shop, ทีม SAMO, ระบบบ้าน).
+//
+// A cell that starts with = + - @ (or a tab / CR) is run as a FORMULA when the
+// file is opened in Excel or Sheets, and several exported fields are typed by
+// students themselves (ชื่อเล่น, bio, names). A leading apostrophe makes the
+// spreadsheet show it as text. A plain number (`-1`, a year_offset) cannot be
+// a formula and is left alone. The ทีม SAMO / ระบบบ้าน files are ROUND-TRIPPED
+// (export → edit → import), so parseCsv takes the apostrophe off again with
+// csvUnguard — or every re-import would store it.
+// ---------------------------------------------------------------------------
+const CSV_FORMULA_START = /^[=+\-@\t\r]/;
+const CSV_PLAIN_NUMBER = /^[-+]?\d+(\.\d+)?$/;
+export function csvGuard(v) {
+  const s = v == null ? '' : String(v);
+  return CSV_FORMULA_START.test(s) && !CSV_PLAIN_NUMBER.test(s) ? `'${s}` : s;
+}
+export function csvUnguard(s) {
+  const t = String(s ?? '');
+  return t.startsWith("'") && CSV_FORMULA_START.test(t.slice(1)) && !CSV_PLAIN_NUMBER.test(t.slice(1)) ? t.slice(1) : t;
+}

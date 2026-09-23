@@ -5,7 +5,7 @@
 // products / orders / admin. Pure functions only; safe to unit-test.
 // ==============================================
 
-import { safeUrl } from '../utils.js';
+import { safeUrl, csvGuard } from '../utils.js';
 import { imageBase, pictureAt } from '../uploads.js';
 
 export const SHOP_SOURCES = [
@@ -448,8 +448,7 @@ export function csvCell(v) {
   if (v == null) return '';
   if (typeof v === 'object' && 'text' in v) return v.text;
   if (typeof v === 'number') return String(v);
-  let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  const s = csvGuard(v);   // the one formula rule (utils.js)
   return `"${s.replace(/"/g, '""')}"`;
 }
 

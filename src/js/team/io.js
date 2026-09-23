@@ -18,6 +18,7 @@ import {
 // ชั้นปี is COMPUTED for the export column and IGNORED on import (0145) — see
 // src/js/study-year.js for why storing it is what made three screens disagree.
 import { studyYearLabel } from '../study-year.js';
+import { csvGuard, csvUnguard } from '../utils.js';
 
 /**
  * `first_name_th` / `last_name_th` joined `full_name` in 0135, and all three are
@@ -185,7 +186,7 @@ export function validateExportJson(data) {
 // ---- CSV ----
 
 function csvCell(v) {
-  const s = v == null ? '' : String(v);
+  const s = csvGuard(v);   // a student-typed "=…" must not run as a formula
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -218,12 +219,12 @@ export function parseCsv(text) {
         if (s[i + 1] === '"') { field += '"'; i++; } else inQ = false;
       } else field += ch;
     } else if (ch === '"') inQ = true;
-    else if (ch === ',') { row.push(field); field = ''; }
-    else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else if (ch === ',') { row.push(csvUnguard(field)); field = ''; }
+    else if (ch === '\n') { row.push(csvUnguard(field)); rows.push(row); row = []; field = ''; }
     else if (ch === '\r') { /* swallow; \n ends the row */ }
     else field += ch;
   }
-  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (field.length || row.length) { row.push(csvUnguard(field)); rows.push(row); }
   return rows.filter((r) => r.length && !(r.length === 1 && r[0] === ''));
 }
 
