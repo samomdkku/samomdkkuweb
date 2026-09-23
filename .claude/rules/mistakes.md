@@ -403,7 +403,7 @@ a class — tighten this paragraph first.
 - `postgres-schema.md` *(33)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(104)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(25)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
-- `integrations.md` *(32)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
+- `integrations.md` *(33)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(26)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(66)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(40)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.

@@ -278,7 +278,7 @@ Open when: URL state, per-user "seen", import/export.
 - The ผังตามสาย legend was a fourth copy of the same rule
 - Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(32)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(33)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -314,6 +314,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The Discord app id was redacted from `docs/` and left in `.claude/rules/`
 - Every Discord role write would have thrown before it was sent
 - Provisioning created a duplicate Discord role beside one that held 5 channels
+- "Discord sync — error — retrying in 10s: fetch failed" — one network blip posted as an outage, and three quieter defect…
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(26)*
 
@@ -462,4 +463,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_400 entries across 10 files._
+_401 entries across 10 files._

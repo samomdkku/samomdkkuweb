@@ -1392,3 +1392,44 @@ left. Stripping a prefix CHARACTER leaves the separator that followed it — tes
 a normaliser on the decorated forms the real data uses (this server prefixes
 emoji: 👑 นายกฯ, 🏅 อุปนายกฯ), and after any bulk CREATE, list what was
 created beside what already existed.
+
+---
+
+## "Discord sync — error — retrying in 10s: fetch failed" — one network blip posted as an outage, and three quieter defects behind it
+
+**Symptom (owner, 2026-09-23, 13:57)**: the role-bot channel got
+`⚠️ Discord sync — error — retrying in 10s: fetch failed`, with nothing else.
+
+**What it was**: one transient network failure, the only one in a week of the
+service's journal; the next full pass, ~100 s later, was clean. Nothing else
+on the VM logged a network problem that minute. WHICH host (Discord or
+Supabase) and WHY cannot be recovered: see cause 1.
+
+**Causes**:
+1. `fetch` says only "fetch failed"; the reason (ECONNRESET, a DNS error,
+   ECONNREFUSED) is in `e.cause`, which was dropped — and neither `dc()` nor
+   `pg()` named its host.
+2. The alert fired on the FIRST failure of a loop that already retries, and
+   nothing ever withdrew it — a warning on the healthy case (class 6).
+3. Found while tracing it: the queue was drained with `id <= max(seen)`.
+   bigserial ids are not committed in order, so a row that took a lower id and
+   committed after the read was deleted unprocessed (healed only by the next
+   15-minute full pass). And one refused Discord write threw out of the pass,
+   abandoning every later change until the retry.
+4. Found shipping the nickname sync (0207) the same day: a skip reported "once
+   per service start" is re-posted by every DEPLOY, which restarts the service
+   — the owner saw "the server owner cannot be renamed" twice in minutes.
+
+**Fix** (`server/discord-sync.mjs`): `net()` names the host and keeps
+`e.cause`; HTTP errors say `Discord HTTP …` / `Supabase HTTP …`; the channel is
+told only after 3 consecutive failures, and told again on recovery; the queue
+is deleted by exact `id=in.(…)`; role and nickname writes fail per item and are
+reported with the others; permanent skips (owner, above the bot) are logged,
+never posted; a data skip is posted only for the person a web edit named.
+Each is a case in `src/js/discord-sync.test.js` against the stub guild, the
+range-delete and owner guards mutation-checked.
+
+**The general rule**: *an alert from a loop that retries must wait for the
+retry to fail too, and must be withdrawn* — and "once per process" is not
+"once" on a service every deploy restarts. Keep the `cause` of a network
+error; "fetch failed" alone cannot be diagnosed after the fact.
