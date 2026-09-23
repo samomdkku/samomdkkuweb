@@ -131,7 +131,12 @@ export function planNicknames({ members, inputs, roles, botTop, ownerId, academi
     if (!p) continue;                                   // never linked: not ours to name
     const w = wantedNickname(p, academicYear);
     if (w.skip) { out.skipped.push({ member: id, why: w.skip }); continue; }
-    if ((m.nick ?? null) === w.name) continue;
+    // Already READS right: the server nickname, or — with none set — the name
+    // Discord shows instead. The first plan wanted to set 25 members' nick to
+    // the exact text they already displayed; a write that changes nothing on
+    // screen is only noise in the channel. If they change that global name
+    // later, the next pass sets the nickname.
+    if ((m.nick ?? display(m)) === w.name) continue;
     if (id === ownerId) { out.skipped.push({ member: id, want: w.name, why: 'เจ้าของเซิร์ฟเวอร์ — บอทเปลี่ยนชื่อให้ไม่ได้' }); continue; }
     const top = Math.max(0, ...m.roles.map((r) => pos.get(r) ?? 0));
     if (top >= botTop) { out.skipped.push({ member: id, want: w.name, why: 'role สูงกว่าบอท — บอทเปลี่ยนชื่อให้ไม่ได้' }); continue; }

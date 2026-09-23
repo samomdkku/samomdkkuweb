@@ -239,18 +239,23 @@ describe('planNicknames — who is renamed', () => {
     { discord_user_id: 'u2', person_id: 'p2', nickname: 'ปอม', student_id: '653070054-6' },
     { discord_user_id: 'own', person_id: 'p3', nickname: 'x', student_id: '653070001-1' },
     { discord_user_id: 'hi', person_id: 'p4', nickname: 'y', student_id: '653070002-2' },
+    { discord_user_id: 'g1', person_id: 'p5', nickname: 'ก', student_id: '653070011-1' },
+    { discord_user_id: 'g2', person_id: 'p6', nickname: 'ข', student_id: '653070012-2' },
   ];
   const mem = [
     { ...M('u1', ['LOW']), nick: 'บอส_#4_033-4' },        // stale year → renamed
     { ...M('u2', ['LOW']), nick: 'ปอม_#5_054-6' },         // already right → untouched
     M('stranger', ['LOW']),                                 // never linked → untouched
+    { user: { id: 'g1', username: 'g1', global_name: 'ก_#5_011-1' }, nick: null, roles: [] },   // no nick, SHOWS right → untouched
+    { user: { id: 'g2', username: 'g2', global_name: 'wrong' }, nick: null, roles: [] },         // no nick, shows wrong → renamed
     M('own', []), M('hi', ['HIGH']),
     M('b', [], true),
   ];
   const base = { members: mem, inputs, roles: rs, botTop: 50, ownerId: 'own', academicYear: 2569 };
   it('renames only linked members whose name differs', () => {
     const p = planNicknames(base);
-    expect(p.renames).toEqual([{ member: 'u1', from: 'บอส_#4_033-4', shown: 'บอส_#4_033-4', to: 'บอส_#5_033-4' }]);
+    expect(p.renames).toEqual([{ member: 'u1', from: 'บอส_#4_033-4', shown: 'บอส_#4_033-4', to: 'บอส_#5_033-4' },
+      { member: 'g2', from: null, shown: 'wrong', to: 'ข_#5_012-2' }]);
   });
   it('the owner and anyone above the bot are reported, never attempted', () => {
     const p = planNicknames(base);
