@@ -441,6 +441,10 @@
             <svg class="claude-mark" viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3.4v17.2"/><path d="M3.4 12h17.2"/><path d="M5.9 5.9l12.2 12.2"/><path d="M18.1 5.9L5.9 18.1"/></g></svg><span>จองโควตา Claude</span>
           </button>
 
+          <button type="button" class="workspace-side-item d-none" data-admin-side="discordbot">
+            <i class="bi bi-discord"></i><span>บอท Discord</span>
+          </button>
+
           <div class="workspace-side-section">รายงาน</div>
           <button type="button" class="workspace-side-item d-none" data-admin-side="analytics">
             <i class="bi bi-graph-up-arrow"></i><span>สถิติการใช้งาน</span>
@@ -660,6 +664,17 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="discordbot">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-media);"
+                  onclick="openAdminSection('discordbot')">
+                  <span class="admin-card-icon"><i class="bi bi-discord"></i></span>
+                  <div class="admin-card-body">
+                    <h5>บอท Discord</h5>
+                    <p>ดูสถานะ และเปิด/ปิดบอทที่จัด role และชื่อใน Discord ตามทีม SAMO</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
               <div class="col-md-6 col-lg-4 d-none" data-admin-side="analytics">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
                   onclick="openAdminSection('analytics')">
@@ -736,6 +751,10 @@
 
           <section data-admin-pane="claude" class="d-none">
             <include src="./src/html/tab-claude.html" />
+          </section>
+
+          <section data-admin-pane="discordbot" class="d-none">
+            <include src="./src/html/tab-discord-bot.html" />
           </section>
 
           <section data-admin-pane="deptpage" class="d-none">

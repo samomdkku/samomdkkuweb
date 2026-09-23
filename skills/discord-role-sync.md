@@ -275,3 +275,19 @@ the person). Never-linked members are not touched.
   is the truth. They change ชื่อเล่น in ข้อมูลของฉัน / ทีม SAMO instead.
 - ชั้นปี comes from the admin-set ปีการศึกษา (`get_academic_year`). If that read
   fails, NO name is planned that pass (a clock guess would flap at the rollover).
+
+## The admin panel (since 2026-09-23, 0208)
+
+`/admin/` → **บอท Discord**, for anyone holding `discord_bot` (or `master`):
+the bot's health (judged from `discord_bot_status` against the server clock —
+over 25 min without a sign of life reads as "may be down"), and switches for
+the bot, nicknames and silent messages, plus "ตรวจทุกคนตอนนี้". The bot
+re-reads `discord_bot_settings` every loop (~5 s).
+
+- **Paused** = the bot reads nothing but the switch and writes nothing to
+  Discord; the queue waits. Resuming forces a full pass. Pause/resume is posted
+  once per CHANGE (the stored state decides), never once per restart.
+- **Nicknames**: the unit file's `DISCORD_SYNC_NICKNAMES` is the CEILING; the
+  panel can only turn it off. The panel says so when the server holds it off.
+- `systemctl disable` still exists and still wins — the panel then shows
+  "may be down", which is the truth.

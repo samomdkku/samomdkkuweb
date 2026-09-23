@@ -113,8 +113,8 @@ describe('the service never does anything outside its five write shapes', () => 
   });
   it('the service key reaches only these PostgREST paths', () => {
     const paths = [...CODE.matchAll(/pg\(\s*[`'"]([a-z_/]+)/g)].map((m) => m[1]).sort();
-    expect([...new Set(paths)]).toEqual(['discord_orphaned_accounts', 'discord_sync_queue', 'rpc/discord_nickname_inputs',
-      'rpc/discord_role_targets', 'rpc/get_academic_year', 'team_nodes']);
+    expect([...new Set(paths)]).toEqual(['discord_bot_settings', 'discord_bot_status', 'discord_orphaned_accounts', 'discord_sync_queue',
+      'rpc/discord_nickname_inputs', 'rpc/discord_role_targets', 'rpc/get_academic_year', 'team_nodes']);
   });
   it('a member PATCH carries a nickname and nothing else', () => {
     const patches = [...CODE.matchAll(/\/members\/\$\{[^}]+\}`,\s*\{\s*method:\s*'PATCH',\s*body:\s*JSON\.stringify\(([^)]*)\)/g)].map((m) => m[1]);
@@ -173,8 +173,8 @@ describe('one full pass, for real, against a stub guild', () => {
     expect(w.posted).toHaveLength(1);
     expect(w.posted[0].flags).toBeUndefined();
     expect(w.posted[0].allowed_mentions).toEqual({ parse: [] });
-    expect(w.posted[0].content).toMatch(/<@U1> ได้ <@&RA> · ถูกเอาออก <@&RB>/);
-    expect(w.posted[0].content).toMatch(/รอคนตรวจ[\s\S]*<@U2> <@&RP> — power key/);
+    expect(w.posted[0].content).toMatch(/\*\*U1\*\* ได้ <@&RA> · ถูกเอาออก <@&RB>/);
+    expect(w.posted[0].content).toMatch(/รอคนตรวจ[\s\S]*\*\*U2\*\* <@&RP> — power key/);
   });
   it('with the power key approved, U2 gets it', async () => {
     const r = await once({ DISCORD_SYNC_ALLOW_POWER: 'Power' });
@@ -194,7 +194,7 @@ describe('formatReport — what the role-bot channel reads', () => {
     const [m] = formatReport({ queue: q, adds: [{ member: 'u1', role: 'B' }], removes: [{ member: 'u1', role: 'A' }] });
     expect(m).toMatch(/แก้โดย:\*\* มุกโกะ/);
     expect(m).toMatch(/• ย้าย อั้ม จาก ฝ่าย A ไป ฝ่าย B/);
-    expect(m).toMatch(/• <@u1> ได้ <@&B> · ถูกเอาออก <@&A>/);
+    expect(m).toMatch(/• \*\*u1\*\* ได้ <@&B> · ถูกเอาออก <@&A>/);
   });
   it('a change with no Discord effect posts NOTHING (e.g. the person never linked)', () => {
     expect(formatReport({ queue: q })).toEqual([]);
@@ -289,7 +289,7 @@ describe('the service sets nicknames — for real, against the stub', () => {
     expect(r.code, r.out).toBe(0);
     expect(w.nicked).toEqual([{ id: 'U1', nick: 'บอส_#5_033-4' }, { id: 'U2', nick: 'ปอม_#3_054-6' }]);
     const all = w.posted.map((m) => m.content).join('\n');
-    expect(all).toMatch(/ตั้งชื่อใน Discord[\s\S]*<@U1> ← เดิม "old1"/);
+    expect(all).toContain('**บอส\\_\\#5\\_033\\-4** ← เดิม **old1**');
     // The owner is structural and permanent: logged, never posted (every
     // deploy restarts the service and would repeat it).
     expect(all).not.toMatch(/<@OWN>/);
@@ -309,7 +309,7 @@ describe('the service sets nicknames — for real, against the stub', () => {
     const r = await once({ DISCORD_SYNC_NICKNAMES: 'apply' });
     expect(r.code, r.out).toBe(0);
     expect(w.nicked).toEqual([{ id: 'U2', nick: 'ปอม_#3_054-6' }]);
-    expect(w.posted.map((m) => m.content).join('\n')).toMatch(/<@U1> — Discord ไม่อนุญาต/);
+    expect(w.posted.map((m) => m.content).join('\n')).toMatch(/\*\*old1\*\* — Discord ไม่อนุญาต/);
   });
   it('a failed read of the name inputs leaves the ROLE sync running', async () => {
     w.nickInputsFail = true;
@@ -359,7 +359,7 @@ describe('the service loop', () => {
     // A port nothing listens on (port 1 is on Node's forbidden list, which is a
     // different error). The reason must survive into the message.
     const out = await loop(2500, { SUPABASE_URL: 'http://127.0.0.1:59999' });
-    expect(out).toMatch(/Supabase discord_sync_queue: fetch failed \(ECONNREFUSED/);
+    expect(out).toMatch(/Supabase [a-z_]+: fetch failed \(ECONNREFUSED/);
   });
 });
 
@@ -382,7 +382,89 @@ describe('a name the bot cannot build is reported where a human can act', () => 
     w.queue = [{ id: 1, kind: 'person', person_id: 'p1', actor_name: 'admin', detail: 'แก้ข้อมูลของ U1' }];
     await loop(2500, { DISCORD_SYNC_NICKNAMES: 'apply' });
     const all = (w.posted || []).map((m) => m.content).join('\n');
-    expect(all).toMatch(/<@U1> — ไม่มีชื่อเล่นในเว็บ/);
-    expect(all).not.toMatch(/<@U2>/);
+    expect(all).toMatch(/\*\*x\*\* — ไม่มีชื่อเล่นในเว็บ/);
+    expect(all).not.toMatch(/\*\*y\*\*/);
+  });
+});
+
+// The channel shows @unknown-user for a <@id> its reader's app has not loaded,
+// because the sender turns mention parsing off (owner, 2026-09-23). A person is
+// NAMED in text; only ROLE mentions (always loaded) are used.
+describe('no message names a person by mention', () => {
+  it('formatReport — every section', () => {
+    const out = formatReport({ queue: [{ actor_name: 'a', detail: 'd' }],
+      adds: [{ member: '123', who: 'บอส', role: 'R' }], removes: [{ member: '456', who: 'ปอม', role: 'R' }],
+      held: [{ member: '789', who: 'x', role: 'R', why: 'w' }], nicks: [{ member: '1', to: 'n', from: 'o' }],
+      nickHeld: [{ member: '2', shown: 's', why: 'w' }] }).join('\n');
+    expect(out).not.toMatch(/<@!?\d/);
+    for (const n of ['บอส', 'ปอม', 'x', 'n', 's']) expect(out).toContain(`**${n}**`);
+  });
+  it('a name cannot break the formatting', () => {
+    expect(formatReport({ adds: [{ member: '1', who: 'a*b_c`d', role: 'R' }] })[0]).toContain('**a\\*b\\_c\\`d**');
+  });
+  it('the server pattern survives, character for character', () => {
+    // Discord shows a backslash-escaped character literally; unescaping must
+    // give back EXACTLY the name — stripping `_` once rewrote every one.
+    const shown = formatReport({ nicks: [{ member: '1', to: 'บอส_#5_033-4', from: 'Erin_#3_139-0' }] })[0];
+    const unescape = (t) => t.replace(/\\(.)/g, '$1');
+    expect(unescape(shown)).toContain('**บอส_#5_033-4** ← เดิม **Erin_#3_139-0**');
+  });
+});
+
+// ── The admin panel's switches (0208) ──────────────────────────────────────
+describe('the admin panel controls the service', () => {
+  const posts = () => (w.posted || []).map((m) => m.content);
+  it('paused: --once writes nothing at all', async () => {
+    w.settings = { sync_enabled: false, note: 'จัดทีมใหม่' };
+    const r = await once();
+    expect(r.code, r.out).toBe(0);
+    expect(r.writes).toEqual([]);
+    expect(r.out).toMatch(/paused in the admin panel/);
+  });
+  it('paused: announced ONCE with who and why, the queue is not touched, the panel hears "paused"', async () => {
+    w.settings = { sync_enabled: false, note: 'จัดทีมใหม่', changed_by_label: 'มุกโกะ' };
+    w.queue = [{ id: 3, kind: 'person', person_id: 'p1' }];
+    await loop(2000);
+    expect(posts().filter((c) => /ถูกปิด/.test(c))).toEqual([expect.stringMatching(/โดย มุกโกะ — จัดทีมใหม่/)]);
+    expect(w.queueDeletes).toBeUndefined();
+    expect(stub.requests.some((x) => /^(PUT|DELETE|PATCH) \/api\//.test(x))).toBe(false);
+    expect(w.statusWrites.some((s) => s.state === 'paused')).toBe(true);
+  });
+  it('a RESTART while paused does not announce it again (every deploy restarts)', async () => {
+    w.settings = { sync_enabled: false, note: 'x' };
+    w.status = { state: 'paused' };
+    await loop(1500);
+    expect(posts().filter((c) => /ถูกปิด/.test(c))).toEqual([]);
+  });
+  it('switched back on: announced, and a full pass runs', async () => {
+    w.settings = { sync_enabled: true, changed_by_label: 'มุกโกะ' };
+    w.status = { state: 'paused' };
+    const out = await loop(4000);   // the announcement's post waits 1 s before the pass
+    expect(posts().filter((c) => /กลับมาทำงาน/.test(c))).toHaveLength(1);
+    expect(out).toMatch(/full pass:/);
+  });
+  it('silent on: every message carries the silent flag, and still pings nobody', async () => {
+    w.settings = { silent: true };
+    await once();
+    expect(w.posted.length).toBeGreaterThan(0);
+    for (const m of w.posted) { expect(m.flags).toBe(4096); expect(m.allowed_mentions).toEqual({ parse: [] }); }
+  });
+  it('nicknames off in the panel: no name is written even with the server allowing it', async () => {
+    w.settings = { nicknames_enabled: false };
+    w.nickInputs = [{ discord_user_id: 'U1', person_id: 'p1', nickname: 'บอส', student_id: '653070033-4' }];
+    await once({ DISCORD_SYNC_NICKNAMES: 'apply' });
+    expect(w.nicked).toBeUndefined();
+  });
+  it('"check everything now" runs ONE extra full pass before the 15 minutes are up', async () => {
+    // One process: its start-up pass, then the request arrives mid-run.
+    setTimeout(() => { w.settings = { full_pass_requested_at: new Date().toISOString() }; }, 1500);
+    const out = await loop(3500, { DISCORD_SYNC_FULL_MS: '3600000' });
+    expect((out.match(/full pass:/g) || []).length, out).toBe(2);   // not 1 (ignored), not a loop
+  });
+  it('after a pass the panel is told when and what', async () => {
+    await loop(1500);
+    const s = w.statusWrites.find((x) => x.last_pass_at);
+    expect(s).toMatchObject({ state: 'running' });
+    expect(s.last_summary).toMatch(/ตรวจทั้งหมด: ได้ role \d+ · เอาออก \d+/);
   });
 });

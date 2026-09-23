@@ -40,8 +40,24 @@ const ALLOW_POWER = (env.DISCORD_SYNC_ALLOW_POWER || '').split(',').map((s) => s
 const ONCE = process.argv.includes('--once');
 // Nicknames (0207): 'apply' writes them; 'plan' (or --nick-plan) only logs what
 // it would write; anything else leaves every nickname alone.
-const NICKS = process.argv.includes('--nick-plan') ? 'plan'
+// The env value is the CEILING; the admin panel (0208) can only turn it off.
+const NICKS_CEILING = process.argv.includes('--nick-plan') ? 'plan'
   : (['apply', 'plan'].includes(env.DISCORD_SYNC_NICKNAMES) ? env.DISCORD_SYNC_NICKNAMES : 'off');
+let NICKS = NICKS_CEILING;
+// The admin panel's switches (discord_bot_settings, 0208), re-read every loop.
+let settings = { sync_enabled: true, nicknames_enabled: true, silent: false };
+async function readSettings() {
+  const [row] = await pg('discord_bot_settings?select=sync_enabled,nicknames_enabled,silent,note,changed_by_label,full_pass_requested_at');
+  if (row) settings = row;
+  NICKS = settings.nicknames_enabled === false ? 'off' : NICKS_CEILING;
+  return settings;
+}
+/** The panel's view of the bot. Best-effort: a failed write must never stop
+ *  the sync it describes. */
+async function status(patch) {
+  try { await pg('discord_bot_status?id=eq.true', { method: 'PATCH', body: JSON.stringify(patch) }); }
+  catch (e) { log(`status write: ${e.message}`); }
+}
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 for (const n of ['DISCORD_TOKEN', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
@@ -98,7 +114,8 @@ async function post(content) {
   for (let i = 0; i < 5; i++) {
     try {
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }) });
+        // Silent only if the admin panel says so (0208); pings nobody either way.
+        body: JSON.stringify({ content, allowed_mentions: { parse: [] }, ...(settings.silent ? { flags: 4096 } : {}) }) });
       if (r.status === 429) { const b = await r.json().catch(() => ({})); await sleep(Math.ceil((b.retry_after ?? 1) * 1000) + 100); continue; }
       if (!r.ok) log(`log webhook ${r.status}`);
       await sleep(1000);
@@ -148,7 +165,7 @@ async function pass(queue, forceFull = false) {
   ]);
   // ⛔ An empty target set is "nobody linked" OR "this credential sees nothing";
   // to a diff those are the same input as "remove everything". Never act on it.
-  if (!targets.length) { await alert('empty', 'discord_role_targets() returned NO rows — nothing applied.'); return false; }
+  if (!targets.length) { await alert('empty', 'discord_role_targets() returned NO rows — nothing applied.'); return null; }
   const bot = await dc(`/guilds/${guildId}/members/${botId}`);
   const botTop = Math.max(...bot.roles.map((r) => roles.find((x) => x.id === r)?.position ?? 0));
 
@@ -190,7 +207,7 @@ async function pass(queue, forceFull = false) {
     only = new Set(targets.filter((t) => persons.has(t.person_id)).map((t) => t.discord_user_id));
     for (const o of orphanRows) if (persons.has(o.person_id)) only.add(o.discord_user_id);
     for (const i of nickInputs || []) if (persons.has(i.person_id)) only.add(i.discord_user_id);
-    if (!only.size && !renamed.length) return true;   // nobody linked among them: nothing on Discord to change
+    if (!only.size && !renamed.length) return 'ไม่มีอะไรต้องเปลี่ยนใน Discord';   // nobody linked among them
   }
   // Re-derive the managed set AFTER provisioning, from the nodes this pass saw.
   const managed = new Set(nodes.filter((n) => n.discord_role && n.discord_role_id).map((n) => n.discord_role_id));
@@ -238,7 +255,7 @@ async function pass(queue, forceFull = false) {
       } catch (e) {
         log(`FAILED nick ${r.member}: ${e.message}`);
         const why = /HTTP 403/.test(e.message) ? 'Discord ไม่อนุญาตให้บอทเปลี่ยนชื่อคนนี้' : `เปลี่ยนชื่อไม่สำเร็จ (${e.message.slice(0, 60)})`;
-        if (!nickReported.has(`${r.member}:${why}`)) { nickReported.add(`${r.member}:${why}`); nickHeld.push({ member: r.member, why }); }
+        if (!nickReported.has(`${r.member}:${why}`)) { nickReported.add(`${r.member}:${why}`); nickHeld.push({ member: r.member, shown: r.from ?? r.shown, why }); }
       }
     }
     if (NICKS === 'plan') log(`nick plan: ${plan.renames.length} to rename, ${plan.skipped.length} skipped`);
@@ -246,7 +263,7 @@ async function pass(queue, forceFull = false) {
 
   for (const m of formatReport({ queue, adds, removes, held: newHeld, renamed, nicks, nickHeld, full: !queue.length })) await post(m);
   if (full || adds.length || removes.length || nicks.length) log(`${full ? 'full' : 'event'} pass: +${adds.length} −${removes.length} held ${g.held.length} nicks ${nicks.length}`);
-  return true;
+  return `${full ? 'ตรวจทั้งหมด' : 'ตามการแก้ในเว็บ'}: ได้ role ${adds.length} · เอาออก ${removes.length} · รอคนตรวจ ${g.held.length} · ตั้งชื่อ ${nicks.length}`;
 }
 
 async function main() {
@@ -258,21 +275,51 @@ async function main() {
   }
   ownerId = (await dc(`/guilds/${guildId}`)).owner_id || null;
   log(`discord-sync up as ${me.username}; poll ${POLL_MS} ms, full pass every ${Math.round(FULL_MS / 60000)} min; power keys allowed: ${ALLOW_POWER.join(', ') || '(none)'}; nicknames: ${NICKS}`);
-  if (ONCE) { await pass([], true); return; }
+  await readSettings();
+  if (ONCE) {
+    if (!settings.sync_enabled) { log(`paused in the admin panel — nothing done (${settings.note || ''})`); return; }
+    await pass([], true); return;
+  }
+  const [st0] = await pg('discord_bot_status?select=state');
+  // Announce a pause/resume once per CHANGE, not per restart: every deploy
+  // restarts this service (the owner saw one line repeated per deploy).
+  let paused = st0?.state === 'paused';
+  await status({ running_since: new Date().toISOString(), state: settings.sync_enabled ? 'running' : 'paused', nicknames: NICKS });
 
   // A blip is not news. The loop already retries; the channel hears about a
   // failure only once it has PERSISTED (FAILS_BEFORE_ALERT in a row, ~1 min),
   // and hears that it has recovered — a warning nobody withdraws reads as a
   // standing outage (2026-09-23: one "fetch failed" that healed in 100 s).
   const FAILS_BEFORE_ALERT = 3;
-  let lastFull = 0; let backoff = 0; let fails = 0; let alerted = false;
+  let lastFull = 0; let backoff = 0; let fails = 0; let alerted = false; let lastBeat = 0;
   for (;;) {
     try {
+      await readSettings();
+      if (!settings.sync_enabled) {
+        if (!paused) {
+          paused = true;
+          await post(`**⏸ บอท Discord ถูกปิด**${settings.changed_by_label ? ` โดย ${settings.changed_by_label}` : ''} — ${settings.note || ''}\nระหว่างนี้ role และชื่อใน Discord จะไม่เปลี่ยนตามเว็บ`);
+          await status({ state: 'paused' });
+        }
+        // Still seen while paused, so the panel can tell "paused" from "dead".
+        if (Date.now() - lastBeat >= FULL_MS) { lastBeat = Date.now(); await status({ state: 'paused', last_seen_at: new Date().toISOString() }); }
+        backoff = 0; fails = 0;
+        await sleep(POLL_MS);
+        continue;
+      }
+      if (paused) {
+        paused = false; lastFull = 0;   // catch up on everything missed
+        await post(`**▶️ บอท Discord กลับมาทำงานแล้ว**${settings.changed_by_label ? ` โดย ${settings.changed_by_label}` : ''} — กำลังตรวจทุกคนให้ตรงกับเว็บ`);
+      }
       const queue = await pg('discord_sync_queue?select=id,kind,person_id,node_id,actor_name,detail&order=id&limit=1000');
-      const due = Date.now() - lastFull >= FULL_MS;
+      const asked = settings.full_pass_requested_at && Date.parse(settings.full_pass_requested_at) > lastFull;
+      const due = Date.now() - lastFull >= FULL_MS || asked;
       if (queue.length || due) {
-        const ok = await pass(queue, due);
-        if (due && ok) lastFull = Date.now();
+        const started = Date.now();
+        const summary = await pass(queue, due);
+        const ok = summary != null;
+        if (due && ok) lastFull = started;
+        if (ok) { lastBeat = Date.now(); await status({ state: 'running', last_seen_at: new Date().toISOString(), last_pass_at: new Date().toISOString(), last_summary: summary, nicknames: NICKS }); }
         // Delete only what this pass SAW, and only after it succeeded — a row
         // queued mid-pass has a higher id and waits for the next one.
         // By id, not `id <= max`: ids are not committed in order, so a row
@@ -287,6 +334,7 @@ async function main() {
       fails += 1;
       backoff = Math.min((backoff || BACKOFF_MS) * 2, 5 * 60 * 1000);
       log(`error #${fails} — retrying in ${Math.round(backoff / 1000)}s: ${e.message}`);
+      await status({ last_error: e.message.slice(0, 500), last_error_at: new Date().toISOString() });
       if (fails >= FAILS_BEFORE_ALERT && !alerted) {
         alerted = true;
         lastAlert.delete(`err`);

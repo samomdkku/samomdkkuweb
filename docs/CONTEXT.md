@@ -42,6 +42,10 @@ Browser (SPA served by nginx on the KKU VM)
   │                        in เชื่อมบัญชี Discord. Same Node service as /notify.
   │                        Both locations are in server/nginx-samo.conf; the
   │                        SERVED routes are checked by `npm run check:routes`.
+  (บอท Discord panel, 0208: /admin/ → บอท Discord reads get_discord_bot_panel()
+   and writes set_discord_bot() / request_discord_full_pass() — definer RPCs on
+   permission `discord_bot`; the tables have no client grant. The bot re-reads
+   discord_bot_settings every loop and writes discord_bot_status.)
   └─→ /img/d/<id>=<size> — shop pictures: nginx fetches each from lh3 ONCE and
   │                        caches it (/var/cache/nginx/img, 7 d, 2 GB cap);
   │                        lh3 takes 0.5-2.6 s to first byte, a hit ~0.02 s.

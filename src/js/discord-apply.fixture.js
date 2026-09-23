@@ -153,6 +153,14 @@ export function serve(w) {
     if (p === '/rest/v1/discord_orphaned_accounts') return json(w.orphans);
     if (p === '/rest/v1/rpc/discord_nickname_inputs') return w.nickInputsFail ? (res.writeHead(500), res.end('boom')) : json(w.nickInputs || []);
     if (p === '/rest/v1/rpc/get_academic_year') return json(w.academicYear ?? 2569);
+    // 0208 — the admin panel's switches (read every loop) and the bot's status.
+    if (p === '/rest/v1/discord_bot_settings') {
+      return json([{ sync_enabled: true, nicknames_enabled: true, silent: false, note: null, changed_by_label: null, full_pass_requested_at: null, ...(w.settings || {}) }]);
+    }
+    if (p === '/rest/v1/discord_bot_status') {
+      if (req.method === 'PATCH') { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { (w.statusWrites ||= []).push(JSON.parse(b)); json([]); }); return undefined; }
+      return json([w.status || {}]);
+    }
     // The service loop: the queue, and the DELETE of what it processed (kept
     // with its query — WHICH rows it deletes is the thing under test).
     if (p === '/rest/v1/discord_sync_queue') {

@@ -40,3 +40,4 @@
 /* จองโควตา Claude (0154). ADMIN-ONLY by import graph — the pane is included
    only from admin/index.html, so this must NOT also go in main.css. */
 @import './css/claude.css';
+@import './css/discord-bot.css';

@@ -365,6 +365,7 @@ const SECTION_META = {
   house:    { pane: 'house',    title: 'ระบบบ้าน',           sub: 'บ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษา' },
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
   claude:   { pane: 'claude',   title: 'จองโควตา Claude',   sub: 'จองช่วงเวลาใช้งาน Claude ของสโม' },
+  discordbot: { pane: 'discordbot', title: 'บอท Discord',     sub: 'สถานะ และเปิด/ปิดบอทที่จัด role และชื่อใน Discord ตามทีม SAMO' },
   deptpage: { pane: 'deptpage', title: 'หน้าฝ่าย',           sub: 'แก้เนื้อหาหน้าฝ่ายของคุณเอง เผยแพร่ทันทีโดยไม่ต้องรอไอที' },
 };
 
@@ -505,6 +506,12 @@ function showAdminSide(which) {
   // จองโควตา Claude (0154): same lazy-on-entry shape as ทีม SAMO / ระบบบ้าน.
   if (which === 'claude') {
     enterClaudeWorkspace();
+  }
+
+  // บอท Discord (0208): a dynamic import — nothing of it in the entry bundle.
+  if (which === 'discordbot') {
+    import('./discord-bot-admin.js').then((m) => m.enterDiscordBot())
+      .catch((e) => console.warn('[admin] discord bot panel failed to load:', e?.message || e));
   }
 
   // หน้าฝ่าย (0177): same lazy-on-entry shape. Mounted with the CURRENT user
@@ -710,6 +717,7 @@ const SIDE_FEATURE = {
   team:     'team',
   house:    'house',
   claude:   'claude',    // จองโควตา Claude (0154)
+  discordbot: 'discord_bot', // บอท Discord (0208)
   // หน้าฝ่าย (0177). `userCanAccess` answers true for the BLANKET permission
   // and, separately, for a per-ฝ่าย scope — a scoped editor holds no
   // permission key at all, so gating on the key alone would hide their own

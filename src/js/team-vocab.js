@@ -41,6 +41,10 @@ export const PERM_CATALOG = [
   // and that is not what anyone asked for.
   { key: 'claude',    label: 'จองโควตา Claude', icon: 'bi-stars',
     hint: 'จองช่วงเวลาใช้งาน Claude ของสโม และดูว่าใครจองอะไรไว้บ้าง' },
+  // Migration 0208. ONE rung: see the bot's health AND switch it — a panel you
+  // may read but never act on would only tell you something is wrong.
+  { key: 'discord_bot', label: 'บอท Discord', icon: 'bi-discord',
+    hint: 'ดูสถานะและเปิด/ปิดบอทที่จัด role และชื่อใน Discord ให้ตรงกับทีม SAMO' },
   // Migration 0177. THE BLANKET RUNG: every ฝ่าย page. Most holders should get
   // a SCOPE instead (DEPT_PAGES below) — one ฝ่าย, their own. The two are
   // mutually exclusive by construction, see the ⛔ on DEPT_PAGES.
@@ -170,7 +174,7 @@ export const PROJECT_SEAT_LABEL = byKey(PROJECT_SEATS.map((s) => [s.value, s.lab
 // whole point: they can open ทีม SAMO and look. `team_edit` is listed too so a
 // hypothetical editor who somehow lacks the view rung is not locked out; the
 // list is OR-ed, so naming both costs nothing and cannot fail closed.
-export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house', 'claude', 'dept_pages'];
+export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house', 'claude', 'discord_bot', 'dept_pages'];
 
 // ---------------------------------------------------------------------------
 // หน้าฝ่าย — the per-ฝ่าย page-editing scope (migration 0177).

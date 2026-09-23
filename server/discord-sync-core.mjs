@@ -130,20 +130,30 @@ export function planNicknames({ members, inputs, roles, botTop, ownerId, academi
     const p = byUser.get(id);
     if (!p) continue;                                   // never linked: not ours to name
     const w = wantedNickname(p, academicYear);
-    if (w.skip) { out.skipped.push({ member: id, why: w.skip }); continue; }
+    if (w.skip) { out.skipped.push({ member: id, shown: display(m), why: w.skip }); continue; }
     // Already READS right: the server nickname, or — with none set — the name
     // Discord shows instead. The first plan wanted to set 25 members' nick to
     // the exact text they already displayed; a write that changes nothing on
     // screen is only noise in the channel. If they change that global name
     // later, the next pass sets the nickname.
     if ((m.nick ?? display(m)) === w.name) continue;
-    if (id === ownerId) { out.skipped.push({ member: id, want: w.name, why: 'เจ้าของเซิร์ฟเวอร์ — บอทเปลี่ยนชื่อให้ไม่ได้', structural: true }); continue; }
+    if (id === ownerId) { out.skipped.push({ member: id, shown: display(m), want: w.name, why: 'เจ้าของเซิร์ฟเวอร์ — บอทเปลี่ยนชื่อให้ไม่ได้', structural: true }); continue; }
     const top = Math.max(0, ...m.roles.map((r) => pos.get(r) ?? 0));
-    if (top >= botTop) { out.skipped.push({ member: id, want: w.name, why: 'role สูงกว่าบอท — บอทเปลี่ยนชื่อให้ไม่ได้', structural: true }); continue; }
+    if (top >= botTop) { out.skipped.push({ member: id, shown: display(m), want: w.name, why: 'role สูงกว่าบอท — บอทเปลี่ยนชื่อให้ไม่ได้', structural: true }); continue; }
     out.renames.push({ member: id, from: m.nick ?? null, shown: display(m), to: w.name });
   }
   return out;
 }
+
+/** A person as TEXT for the channel. A <@id> mention is resolved by each
+ *  reader's Discord app from the members it has loaded — and the sender turns
+ *  mention parsing off (so nobody is pinged), which leaves the message with no
+ *  user data: members the app has not loaded show as @unknown-user and cannot
+ *  be opened (owner, 2026-09-23). A name in the text always reads. */
+/** Markdown-escaped, never stripped: the server's own pattern is full of `_`
+ *  (บอส_#5_033-4), and stripping it rewrote every name it printed. */
+export const mdEscape = (x) => String(x ?? '').replace(/([\\*_`~|>#:<-])/g, '\\$1');
+export const nameText = (x) => `**${mdEscape(String(x ?? '').trim()) || 'ไม่ทราบชื่อ'}**`;
 
 const short = (x) => String(x).replace(/\([^)]*\)/g, '').replace(/^ฝ่าย\s*/, '').trim();
 
@@ -209,30 +219,30 @@ export function formatReport({ queue = [], adds = [], removes = [], held = [], r
   if (details.length) { lines.push('**สิ่งที่แก้ในเว็บ:**'); for (const d of details.slice(0, 20)) lines.push(`• ${d}`); if (details.length > 20) lines.push(`• …และอีก ${details.length - 20} รายการ`); }
   if (renamed.length) { lines.push('**เปลี่ยนชื่อ role:**'); for (const r of renamed) lines.push(`• <@&${r.role}> ← เดิม "${r.from}"`); }
   const by = new Map();
-  for (const a of adds) (by.get(a.member) || by.set(a.member, { add: [], rm: [] }).get(a.member)).add.push(a.role);
-  for (const r of removes) (by.get(r.member) || by.set(r.member, { add: [], rm: [] }).get(r.member)).rm.push(r.role);
+  for (const a of adds) (by.get(a.member) || by.set(a.member, { who: a.who, add: [], rm: [] }).get(a.member)).add.push(a.role);
+  for (const r of removes) (by.get(r.member) || by.set(r.member, { who: r.who, add: [], rm: [] }).get(r.member)).rm.push(r.role);
   if (by.size) {
     lines.push('**ผลใน Discord:**');
     for (const [m, x] of by) {
       const parts = [];
       if (x.add.length) parts.push(`ได้ ${x.add.map((r) => `<@&${r}>`).join(' ')}`);
       if (x.rm.length) parts.push(`ถูกเอาออก ${x.rm.map((r) => `<@&${r}>`).join(' ')}`);
-      lines.push(`• <@${m}> ${parts.join(' · ')}`);
+      lines.push(`• ${nameText(x.who ?? m)} ${parts.join(' · ')}`);
     }
   }
   if (nicks.length) {
     lines.push('**ตั้งชื่อใน Discord ตามเว็บทีม SAMO:**');
     // The OLD name as text: after the rename <@id> renders the NEW one.
-    for (const n of nicks) lines.push(`• <@${n.member}> ← เดิม "${String(n.from ?? n.shown ?? '').replace(/["`*_~|]/g, '')}"`);
+    for (const n of nicks) lines.push(`• ${nameText(n.to)} ← เดิม ${nameText(n.from ?? n.shown)}`);
   }
   if (nickHeld.length) {
     lines.push('**ตั้งชื่อไม่ได้ (ต้องแก้ในเว็บหรือให้แอดมินเปลี่ยนเอง):**');
-    for (const h of nickHeld.slice(0, 30)) lines.push(`• <@${h.member}> — ${h.why}`);
+    for (const h of nickHeld.slice(0, 30)) lines.push(`• ${nameText(h.shown ?? h.member)} — ${h.why}`);
     if (nickHeld.length > 30) lines.push(`• …และอีก ${nickHeld.length - 30} คน`);
   }
   if (held.length) {
     lines.push('**⏸ รอคนตรวจ (ยังไม่ได้ทำ):**');
-    for (const h of held.slice(0, 15)) lines.push(`• ${h.member ? `<@${h.member}> ` : ''}${h.role ? `<@&${h.role}> ` : ''}— ${h.why}`);
+    for (const h of held.slice(0, 15)) lines.push(`• ${h.member ? `${nameText(h.who ?? h.member)} ` : ''}${h.role ? `<@&${h.role}> ` : ''}— ${h.why}`);
     if (held.length > 15) lines.push(`• …และอีก ${held.length - 15} รายการ`);
   }
   const out = []; let cur = '';
