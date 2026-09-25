@@ -5,8 +5,8 @@
 | Token / value | Bundle / git? | Where it lives |
 |---|---|---|
 | `VITE_SUPABASE_URL` | ✅ yes | bundled at build time ON THE VM, public |
-| `VITE_SUPABASE_ANON_KEY` | ✅ yes | bundled at build time, public (RLS gates) |
-| Supabase `service_role` key (`SUPABASE_SERVICE_ROLE_KEY=…`) | ❌ NEVER in git or the browser | **RE-INTRODUCED 2026-09-12, VM-ONLY**, in `/etc/samo-notify.env` (root, `0600`) beside the Discord webhooks. Why: the Discord OAuth2 callback must spend a link code, and `redeem_discord_link_code` is deliberately ungranted to `authenticated` — a client that could call it could bind a code to a Discord id it does not control (0185 §4). It bypasses EVERY RLS policy, so its uses are PINNED: `POST /rest/v1/rpc/redeem_discord_link_code` (`src/js/discord-oauth.test.js`), and since 2026-09-19 the `samo-discord-sync` service — exactly `team_nodes`, `rpc/discord_role_targets`, `discord_orphaned_accounts`, `discord_sync_queue`, and since 2026-09-23 `rpc/discord_nickname_inputs`, `rpc/get_academic_year`, `discord_bot_settings`, `discord_bot_status` (`src/js/discord-sync.test.js`), and since 2026-09-23 the shop Discord message — exactly `rpc/shop_order_totals`, three numbers, called only after the buyer's session proved the order (`functions/notify.test.js`). ⛔ Never in `.env.local`, never in a `VITE_*` var, never under `src/`. Rotate at dashboard → Project Settings → API → service_role → Reset |
+| `VITE_SUPABASE_ANON_KEY` | ✅ yes | bundled at build time, public (RLS gates). **ROTATED 2026-09-25** from JWT (`eyJ…`) to publishable key (`sb_publishable_…`). Legacy JWT keys are DISABLED and the old HS256 signing secret is REVOKED. |
+| Supabase `service_role` key (`SUPABASE_SERVICE_ROLE_KEY=…`) | ❌ NEVER in git or the browser | **ROTATED 2026-09-25** from JWT (`eyJ…`) to `sb_secret_…` (`vm-server`). The old JWT key was leaked in commit e0a6e4e3 (2026-05-24) via an unignored `env.local` file — readable on GitHub through `refs/pull/8` and `refs/pull/9` even though it's on no branch. It bypasses EVERY RLS policy, so its uses are PINNED: `POST /rest/v1/rpc/redeem_discord_link_code` (`src/js/discord-oauth.test.js`), the `samo-discord-sync` service, and `rpc/shop_order_totals` (`functions/notify.test.js`). ⛔ Never in `.env.local`, never in a `VITE_*` var, never under `src/`. Rotate at dashboard → Project Settings → API Keys → Secret keys |
 | Google OAuth client secret | ❌ NEVER | Supabase dashboard only |
 | Discord webhook URLs | ❌ NEVER (in frontend code) | embedded in `appscript/*.gs` only |
 | Apps Script `/exec` URLs | ✅ yes (treated as public webhooks) | `src/js/config.js` |
@@ -39,10 +39,13 @@
 4. **Discord webhook URLs are sensitive.** Embedding them in `appscript/*.gs`
    is acceptable because that file isn't served to browsers. Do not import
    them into frontend modules.
-5. **The legacy `appscript/*.gs` Discord webhook URLs were exposed in chat
-   history during the session.** Rotate them when convenient: Discord channel
-   settings → Integrations → Webhooks → Regenerate URL. Update the .gs files
-   afterward.
+5. **✅ The legacy Discord webhook URLs were ROTATED (2026-09-25).** The 12 VS
+   + 1 PR webhooks committed to `appscript/*.gs` in 972229c (2026-05-21) were
+   exploited by an automated bot posting Russian test messages. All 13 old
+   webhooks are DELETED and 13 new ones (`samoweb`, IDs `1553044*`) are
+   installed on the VM and in `.env.local`. ⛔ The old URLs are still readable
+   in git history — this is exactly why they were replaced rather than
+   regenerated. **Never commit a webhook URL to a tracked file again.**
 6. **If the user pastes a key in chat that should be private, advise rotation
    in your next reply.** Don't quietly continue.
 
