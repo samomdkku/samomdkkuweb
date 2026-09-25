@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 // build env is missing they must NOT fall back to the retired project B, or the
 // app would split-brain (write to B while the DB of record is A).
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || "https://fheueuowbchsnsvbcgil.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoZXVldW93YmNoc25zdmJjZ2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjU4MjMsImV4cCI6MjA5NTAwMTgyM30.m_xNPmSX4W_UuI4K_pIqixK61CGmoIpmBjnFNHktb0w";
+const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || "sb_publishable_-pPHqzUCF-0jOGgPMKnDTg_Rt46laZ9";
 
 export let supabase;
 try {
