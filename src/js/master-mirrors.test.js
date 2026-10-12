@@ -73,6 +73,11 @@ const REGISTRY = {
   current_user_has_permission: ['auth.js', 'holdsMaster(user)'],
   // The seats. JS mirror: projectSeatRole() → holdsMaster(). Added 2026-08-18.
   current_user_project_seats: ['projects/index.js', 'holdsMaster(user)'],
+  // 0211: the account dashboard is master-ONLY. The page asks holdsMaster()
+  // before calling either RPC (and the sidebar's `accounts: 'master'` entry
+  // reaches it through userCanAccess()).
+  account_dashboard: ['accounts/admin.js', 'holdsMaster(getUser())'],
+  account_dashboard_pulse: ['accounts/admin.js', 'holdsMaster(getUser())'],
 };
 
 describe('every SQL function that folds `master` has a named JS mirror', () => {

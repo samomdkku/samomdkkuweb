@@ -1,0 +1,105 @@
+<!-- บัญชีผู้ใช้ (0211) — every account on the database, for `master`.
+     Everything here is read from account_dashboard(); the page polls
+     account_dashboard_pulse() and re-reads only when something changed.
+     Painted by src/js/accounts/admin.js; what it SAYS is src/js/accounts/checks.js. -->
+<div class="acct">
+  <div class="acct-live acct-card">
+    <span class="acct-live-dot" id="acctLiveDot" aria-hidden="true"></span>
+    <div class="acct-live-text">
+      <div class="acct-live-main" id="acctLiveMain">กำลังโหลด…</div>
+      <div class="acct-live-sub" id="acctLiveSub">อัปเดตเองเมื่อมีคนสมัคร เข้าสู่ระบบ หรือเปลี่ยนสิทธิ์ (ตรวจทุก 15 วินาที)</div>
+    </div>
+    <div class="acct-live-actions">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="acctRefresh">
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i><span class="d-none d-sm-inline"> โหลดใหม่</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="acct-kpis" id="acctKpis" aria-live="polite"></div>
+
+  <div class="acct-grid">
+    <section class="acct-card">
+      <h3 class="acct-h">เข้าสู่ระบบด้วยอะไร</h3>
+      <div id="acctSignin"></div>
+    </section>
+    <section class="acct-card">
+      <h3 class="acct-h">อีเมลที่ใช้</h3>
+      <div id="acctDomain"></div>
+    </section>
+    <section class="acct-card">
+      <h3 class="acct-h">อยู่ในระบบไหนบ้าง</h3>
+      <div id="acctSystems"></div>
+    </section>
+    <section class="acct-card">
+      <h3 class="acct-h">เข้าใช้ครั้งล่าสุด</h3>
+      <div id="acctRecency"></div>
+    </section>
+    <section class="acct-card acct-wide">
+      <h3 class="acct-h">สมัครใหม่รายสัปดาห์</h3>
+      <div id="acctSignups"></div>
+    </section>
+    <section class="acct-card">
+      <h3 class="acct-h">นักศึกษาในทะเบียนที่มีบัญชีแล้ว <span class="acct-h-sub">แยกตามรุ่น</span></h3>
+      <div id="acctRoster"></div>
+    </section>
+    <section class="acct-card">
+      <h3 class="acct-h">ความเคลื่อนไหวล่าสุด</h3>
+      <div id="acctFeed"></div>
+    </section>
+  </div>
+
+  <section class="acct-card acct-checks-card">
+    <h3 class="acct-h">ตรวจความผิดปกติ <span class="acct-h-sub">กดที่หัวข้อเพื่อดูบัญชีที่เข้าข่าย</span></h3>
+    <div id="acctChecks"></div>
+  </section>
+
+  <section class="acct-card" id="acctListCard">
+    <div class="acct-toolbar">
+      <div class="acct-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" class="form-control form-control-sm" id="acctSearch"
+               placeholder="ค้นหาชื่อ อีเมล username รหัสนักศึกษา ตำแหน่ง" aria-label="ค้นหาบัญชี">
+      </div>
+      <select class="form-select form-select-sm acct-sort" id="acctSort" aria-label="เรียงตาม"></select>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="acctCsv">
+        <i class="bi bi-download" aria-hidden="true"></i> CSV
+      </button>
+    </div>
+    <div class="acct-filters" id="acctFilters"></div>
+    <div class="acct-count small text-muted" id="acctCount"></div>
+    <div class="acct-table-wrap">
+      <table class="table table-sm acct-table mb-0">
+        <thead>
+          <tr>
+            <th scope="col">บัญชี</th>
+            <th scope="col">เข้าด้วย</th>
+            <th scope="col" class="d-none d-md-table-cell">ระบบ</th>
+            <th scope="col" class="d-none d-lg-table-cell">สมัคร</th>
+            <th scope="col">เข้าล่าสุด</th>
+            <th scope="col" class="text-end">ปัญหา</th>
+          </tr>
+        </thead>
+        <tbody id="acctRows"></tbody>
+      </table>
+    </div>
+    <div class="text-center mt-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="acctMore" hidden>แสดงเพิ่ม</button>
+    </div>
+  </section>
+
+  <div class="small text-muted mt-2" id="acctMsg" role="status"></div>
+  <div class="acct-tip" id="acctTip" role="tooltip" hidden></div>
+</div>
+
+<div class="modal fade" id="acctDetailModal" tabindex="-1" aria-labelledby="acctDetailTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="acctDetailTitle">บัญชี</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <div class="modal-body" id="acctDetailBody"></div>
+    </div>
+  </div>
+</div>

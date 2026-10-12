@@ -38,6 +38,13 @@ triggered over ssh (needs the KKU VPN).
   not the rest of the page. That isolation is the reason it is safe to accept
   HTML at all, and the reason it is deliberately **not** filtered. A grant names
   exactly one ฝ่าย, and the database — not the screen — is what enforces it.
+- **บัญชีผู้ใช้.** Master-only admin page over every account on the database:
+  how it signs in (Google, username, both), which email, and which other
+  systems it is in (ระบบบ้าน, Passport, ทีม SAMO, Discord). Charts, a filterable
+  list with a per-account detail view, CSV export, and a screen of anomaly
+  checks that each say why they matter and what fixes them. It updates live: it
+  polls a cheap fingerprint every 15 s and re-reads only when something changed.
+  Read-only for now; nothing on it writes to an account.
 - **จองโควตา Claude.** SAMO has one Claude Pro subscription; this is the admin
   page people use to claim a share of it. A week calendar shows who booked what,
   for what, and how much is left. The unit is *session percent* — a 5-hour

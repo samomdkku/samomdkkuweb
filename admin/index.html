@@ -449,6 +449,9 @@
           <button type="button" class="workspace-side-item d-none" data-admin-side="analytics">
             <i class="bi bi-graph-up-arrow"></i><span>สถิติการใช้งาน</span>
           </button>
+          <button type="button" class="workspace-side-item d-none" data-admin-side="accounts">
+            <i class="bi bi-person-badge"></i><span>บัญชีผู้ใช้</span>
+          </button>
 
           <div class="workspace-side-section">เนื้อหา</div>
           <button type="button" class="workspace-side-item d-none" data-admin-side="creator">
@@ -675,6 +678,17 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="accounts">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-digital);"
+                  onclick="openAdminSection('accounts')">
+                  <span class="admin-card-icon"><i class="bi bi-person-badge"></i></span>
+                  <div class="admin-card-body">
+                    <h5>บัญชีผู้ใช้</h5>
+                    <p>ทุกบัญชีในระบบ เข้าด้วยอะไร อีเมลแบบไหน อยู่ระบบไหนบ้าง และจุดที่ผิดปกติ</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
               <div class="col-md-6 col-lg-4 d-none" data-admin-side="analytics">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--dept-quality);"
                   onclick="openAdminSection('analytics')">
@@ -751,6 +765,10 @@
 
           <section data-admin-pane="claude" class="d-none">
             <include src="./src/html/tab-claude.html" />
+          </section>
+
+          <section data-admin-pane="accounts" class="d-none">
+            <include src="./src/html/tab-accounts.html" />
           </section>
 
           <section data-admin-pane="discordbot" class="d-none">

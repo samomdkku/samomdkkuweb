@@ -46,6 +46,13 @@ Browser (SPA served by nginx on the KKU VM)
    and writes set_discord_bot() / request_discord_full_pass() — definer RPCs on
    permission `discord_bot`; the tables have no client grant. The bot re-reads
    discord_bot_settings every loop and writes discord_bot_status.)
+  (บัญชีผู้ใช้, 0211: /admin/ → บัญชีผู้ใช้ reads account_dashboard() — one
+   definer RPC, `master` ONLY, returning every auth.users account joined to
+   public.users, people (by kkumail, as my_person_id()), ทีม SAMO, ระบบบ้าน,
+   Discord and the passport profile + scans. The page polls
+   account_dashboard_pulse() every 15 s and re-reads only when it changes —
+   auth.users has no realtime feed and public.users is self-only. No table
+   grant changed. What the page SAYS is src/js/accounts/checks.js.)
   └─→ /img/d/<id>=<size> — shop pictures: nginx fetches each from lh3 ONCE and
   │                        caches it (/var/cache/nginx/img, 7 d, 2 GB cap);
   │                        lh3 takes 0.5-2.6 s to first byte, a hit ~0.02 s.

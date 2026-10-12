@@ -101,7 +101,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(33)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(34)*
 
 Open when: writing a migration.
 
@@ -138,6 +138,7 @@ Open when: writing a migration.
 - "why does that photo and cohort year bug exist"
 - The storefront said "sold out" for a size the server would sell
 - A tab opened before a migration re-sends what it LOADED
+- Google accounts were saved as "password"
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(104)*
 
@@ -350,7 +351,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(67)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(68)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -421,6 +422,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - The night agent's memory lived on the VM and nothing ever synced it
 - shop0202's "non-Google slip URL is refused" was GREEN on the code it exists to catch
 - "pr0149 5 failed — A0b. READ allows the staff-role user" and "shop0206: the student is not a shop admin: expected false…
+- `npm run dev`: /admin/ never boots — 504 on `qrcode.js`, `__samoBooted` false
 
 ## `passport.md` — The Passport app's own write-ups *(40)*
 
@@ -467,4 +469,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_405 entries across 10 files._
+_407 entries across 10 files._

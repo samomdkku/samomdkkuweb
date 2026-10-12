@@ -1483,3 +1483,37 @@ already present, is a no-op. Proof: 18/18 on dev and production.
 **The general rule**: when a migration keeps an old column alive for old
 clients, the old client's normal SAVE, which resends everything it loaded, is
 the case to design for, not its rare edit. Ask what an unchanged form submits.
+
+---
+
+## Google accounts were saved as "password" — the account switcher sent them to a password form they could not fill
+
+**Symptom (found 2026-10-12 while building the บัญชีผู้ใช้ dashboard, not
+reported by anyone)**: `public.users.method` said `password` for 687 of the 693
+accounts that sign in with Google only. The account switcher labelled them
+"รหัสผ่าน", and switching to one whose saved session had expired opened the
+username/password form instead of Google. Confirmed on production before the fix:
+a probe Google sign-up in a rolled-back transaction was born `method='password'`.
+
+**Cause**: `handle_new_auth_user()` read the method from
+`raw_USER_meta_data->>'method'`, which only the username sign-up sets. An OAuth
+sign-up carries its provider in `raw_APP_meta_data->>'provider'`, so every Google
+account took the `'password'` default. Then `auth.js` preferred the stored copy
+(`profile?.method || <real provider>`), so the correct fallback never ran.
+Two homes for one fact, and the reader trusted the wrong one.
+
+**Fix**: 0211 back-fills `method` from the provider auth recorded (bypassing
+`users_self_update_guard` for that one statement, because it raises for a
+caller with no `auth.uid()`), and the trigger now reads
+`raw_app_meta_data.provider`. `auth.js` asks auth FIRST and uses the stored copy
+only as a fallback.
+
+**Where it lives now**: `supabase/migrations/0211_account_dashboard.sql`,
+`src/js/auth.js` (the `method:` line), the proof
+`tools/accounts0211-dashboard.mjs` (a new Google sign-up is born `google`), and
+the dashboard's own `method_drift` check, which reads 0 while this stays fixed.
+
+**The general rule**: when a trigger copies a fact out of `auth.users`, check
+WHICH metadata column each sign-up path fills. `raw_user_meta_data` is what the
+CLIENT sent; `raw_app_meta_data` is what AUTH decided. Then make the reader prefer
+the authority over the copy.

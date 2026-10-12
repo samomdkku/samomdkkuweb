@@ -366,6 +366,7 @@ const SECTION_META = {
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
   claude:   { pane: 'claude',   title: 'จองโควตา Claude',   sub: 'จองช่วงเวลาใช้งาน Claude ของสโม' },
   discordbot: { pane: 'discordbot', title: 'บอท Discord',     sub: 'สถานะ และเปิด/ปิดบอทที่จัด role และชื่อใน Discord ตามทีม SAMO' },
+  accounts: { pane: 'accounts', title: 'บัญชีผู้ใช้',         sub: 'ทุกบัญชีในฐานข้อมูล วิธีเข้าสู่ระบบ อีเมล ระบบที่อยู่ และจุดผิดปกติ — อัปเดตสด' },
   deptpage: { pane: 'deptpage', title: 'หน้าฝ่าย',           sub: 'แก้เนื้อหาหน้าฝ่ายของคุณเอง เผยแพร่ทันทีโดยไม่ต้องรอไอที' },
 };
 
@@ -512,6 +513,12 @@ function showAdminSide(which) {
   if (which === 'discordbot') {
     import('./discord-bot-admin.js').then((m) => m.enterDiscordBot())
       .catch((e) => console.warn('[admin] discord bot panel failed to load:', e?.message || e));
+  }
+
+  // บัญชีผู้ใช้ (0211): dynamic import, same as the bot panel.
+  if (which === 'accounts') {
+    import('./accounts/admin.js').then((m) => m.enterAccounts())
+      .catch((e) => console.warn('[admin] accounts dashboard failed to load:', e?.message || e));
   }
 
   // หน้าฝ่าย (0177): same lazy-on-entry shape. Mounted with the CURRENT user
@@ -718,6 +725,10 @@ const SIDE_FEATURE = {
   house:    'house',
   claude:   'claude',    // จองโควตา Claude (0154)
   discordbot: 'discord_bot', // บอท Discord (0208)
+  // บัญชีผู้ใช้ (0211). `master` itself, not a feature key: the page maps every
+  // account's email to what it holds, which only master may see (the RPC asks
+  // current_user_has_permission('master'), the same test holdsMaster() makes).
+  accounts: 'master',
   // หน้าฝ่าย (0177). `userCanAccess` answers true for the BLANKET permission
   // and, separately, for a per-ฝ่าย scope — a scoped editor holds no
   // permission key at all, so gating on the key alone would hide their own

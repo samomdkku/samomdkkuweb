@@ -249,7 +249,13 @@ async function buildCurrentUser(session) {
   const emailConfirmed = !!authUser.email_confirmed_at && !isSynthetic;
   return {
     id: authUser.id,
-    method: profile?.method || (authUser.app_metadata?.provider === 'google' ? 'google' : 'password'),
+    // Auth's own record FIRST. public.users.method was 'password' for every
+    // Google sign-up until 0211 (the trigger read raw_USER_meta_data, which
+    // OAuth never sets), and preferring it sent a Google account in the
+    // account switcher to the password form. The stored copy is the fallback.
+    method: authUser.app_metadata?.provider === 'google' ? 'google'
+      : authUser.app_metadata?.provider ? 'password'
+      : (profile?.method || 'password'),
     username: profile?.username || authUser.user_metadata?.username || '',
     email: isSynthetic ? '' : rawEmail,
     emailVerified: emailConfirmed,

@@ -1319,7 +1319,7 @@ node tools/db-query.mjs tools/team019{5,6,7,8}-*.sql # the proofs
 ## 16b. Five live proofs RED on production (found 2026-09-21) — none from shop 0199
 
 **Status: VERIFIED 2026-09-21 — how:** `npm run proofs` against production: 43/48 green, 5 not; house0194 then FIXED by 0200 — 4 remain OWED.
-**Re-run 2026-10-12:** 52/56 green — the SAME 4 red (house0188, house0191, dept0177, team0135). Two new reds that day (pr0149, shop0206) were proof subjects moved by samomdkkudev's role change and are fixed (`docs/mistakes/tooling-proofs.md`).
+**Re-run 2026-10-13:** 53/57 green, the SAME 4 red (the +1 is `accounts0211-dashboard`). **Re-run 2026-10-12:** 52/56 green — the SAME 4 red (house0188, house0191, dept0177, team0135). Two new reds that day (pr0149, shop0206) were proof subjects moved by samomdkkudev's role change and are fixed (`docs/mistakes/tooling-proofs.md`).
 None of the five reads a shop table; 0199 touches only shop tables and
 functions, and `shop0199-pricing` + `shop0150` are green. They drifted after
 the last all-green run (09-14/09-19). Two are REAL data drift, the rest look
@@ -1750,3 +1750,11 @@ Front end — NOT started:
 
 Also still owed from §18e: the ธิเบธ → เซฟ link (owner) and granting `discord_bot`.
 Unreleased notes are staged in `PENDING` (the popup colour change, news covers, cart cap, admin dialogs, CSV).
+
+## 19. บัญชีผู้ใช้ dashboard (0211) — what it leaves open (2026-10-13)
+
+**Status: VERIFIED 2026-10-13 — how:** `accounts0211-dashboard` 15/15 on production; `tools/browser/accounts-dashboard.mjs` 14/14 signed in as a throwaway master on samo-dev (the total on screen = `auth.users`, a sign-in written to the database appears with no reload, a 390px phone does not scroll sideways, no console error). The anomaly checks were run against the real production payload before shipping (`bug` checks all 0). The items below are OWED.
+
+1. **samo-dev has NO triggers on `auth.users`** (production has five: `on_auth_user_created`, `…_passport_link`, `…_email_change`, `…_password_sync_insert/_update`). On dev a sign-up creates NO `public.users` row, and the has-password mirror never runs. Every harness that registers an account on dev writes that row by hand, which hides the gap. Fix: re-create the five on samo-dev from production's `pg_get_functiondef`/`pg_get_triggerdef`. Check: `accounts0211-dashboard` on dev goes from 13/15 (its row "on_auth_user_created is installed" says why) to 15/15.
+2. **Managing accounts is read-only for now.** The page shows, filters, explains and exports; it does not delete, ban, reset passwords or merge. Those write to `auth.users`, which needs its own definer RPCs with a confirm step, a log, and a both-direction proof. Ask the owner which actions they actually want before building any.
+3. **What the first production read found** (counts move; re-read the page, not this line): 2 people moved Passport to kkumail and still hold their old gmail account (`ย้ายไปบัญชีใหม่แล้ว แต่บัญชีเก่ายังอยู่`); 5 accounts created 2026-05-22 never signed in (test names: Ung, Qwerty, Dog, se); 94 kkumail accounts are not in the person registry; 158 carried Passport profiles have no account (EXPECTED, see INVARIANTS "Passport totals"). Deleting any of them is the owner's call, not a session's.

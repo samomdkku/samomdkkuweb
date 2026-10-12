@@ -3369,3 +3369,26 @@ first — class 5.
 account change is a change to every proof whose query it satisfied. Derive the
 subject from the gate's own predicate, and when the population a control needs
 can run out, CREATE the subject inside the rollback instead of finding one.*
+
+---
+
+## `npm run dev`: /admin/ never boots — 504 on `qrcode.js`, `__samoBooted` false
+
+**Symptom (2026-10-13)**: with `npm run dev` (portal + passport together), the
+admin page loaded its HTML and CDN scripts but its entry module never ran
+(`window.__samoBooted === false` after 60 s). The Network tab showed
+`504 /node_modules/.vite/deps/qrcode.js?v=ed5aaf5b` and the same for
+`html5-qrcode.js`. Reloading did not help.
+
+**Cause**: both Vite servers used the SAME dependency cache, the repo's
+`node_modules/.vite`. The passport server re-optimised on start ("vite config
+has changed") and rewrote `_metadata.json` (browserHash `65ee4079`) under the
+portal, whose page still asked for deps by the old hash. Vite answers a stale
+optimised-dep hash with 504.
+
+**Fix**: `passport/vite.config.js` sets
+`cacheDir: '../node_modules/.vite-passport'`, so each server owns its cache.
+
+**The general rule**: two dev servers started together must not share a cache
+directory. And a boot failure that survives a reload is not warm-up: read the
+NETWORK, not the console. The console showed nothing at all.

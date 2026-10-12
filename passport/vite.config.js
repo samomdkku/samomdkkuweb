@@ -13,6 +13,12 @@ import { applyDevDatabaseEnv } from '../tools/dev-env.mjs';
 const config = {
   root: __dirname,
 
+  // Its OWN dependency cache. Left at the default, both `npm run dev` servers
+  // shared the repo's node_modules/.vite: the passport one re-optimised and
+  // rewrote it under the portal, whose page then requested deps by a stale
+  // hash, got 504 for qrcode.js, and /admin/ never booted (2026-10-13).
+  cacheDir: resolve(__dirname, '../node_modules/.vite-passport'),
+
   // ⛔ ENV COMES FROM THE REPO ROOT, NOT FROM passport/.
   // Vite's `envDir` defaults to `root`, which is pinned above to passport/ —
   // a directory with no `.env*` in it since the merge. That made

@@ -92,6 +92,7 @@ const PROOFS = [
   ['discord0208-panel.mjs', 'the Discord bot\'s switch and panel: definer RPCs only, the database stamps who'],
   ['shop0209-preorder-limit.mjs', 'a preorder\'s numbers run down; a delivered preorder counts, a cancelled one does not'],
   ['shop0210-two-tables.mjs', 'preorder and in-stock have their own tables; the Preorder tick picks which one the guard enforces'],
+  ['accounts0211-dashboard.mjs', 'the account dashboard: master only, every account once, and a Google sign-up is stored as Google'],
   // Not a database proof — the repo's own branch protection, which lives on
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.

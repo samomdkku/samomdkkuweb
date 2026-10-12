@@ -41,3 +41,4 @@
    only from admin/index.html, so this must NOT also go in main.css. */
 @import './css/claude.css';
 @import './css/discord-bot.css';
+@import './css/accounts.css';
