@@ -3430,3 +3430,36 @@ into must be re-read after every write. And never let an error and a verdict
 share an exit code: the failure then reports itself as the success it
 prevented. Rehearse with a fake model and a queue where a verdict lands BEFORE
 the next task is read: it costs nothing and found both.
+
+---
+
+## "migration workflow run: all jobs have failed" — reported as green for a session, because only OTHER workflows ran after it
+
+**Symptom (owner, 2026-10-13)**: "at 00:25 it said samomdkkuweb migration
+workflow run all jobs have failed, i've seen a lot of message like this and you
+keep missing it." The session summary had said "GitHub's checks pass on every
+push", relayed from an earlier session rather than looked at.
+
+**Cause**: two. (1) The `migrations` workflow replays every migration onto an
+empty database whose `auth` schema is a minimal stub (`tools/ci/supabase-platform.sql`).
+0211's `method` back-fill read `auth.users.raw_app_meta_data` at the top level,
+the stub lacked it, and the replay failed with 42703. Real Supabase has the
+column, so production was unaffected. (2) Nothing in the routine looked:
+`handoff:check` did not ask GitHub, and this workflow runs ONLY when a
+migration changes, so the pushes after it ran `build`/`docs`/`preview-mirror`
+(all green) and both "the latest run" and "the runs on HEAD" looked clean.
+
+**Fix**: the stub carries the `auth.users` columns and `auth.identities` that
+0211 reads (replay green: 211 migrations, 73 tables). And `tools/ci-status.mjs`
+asks each workflow for ITS OWN newest completed run on main; `handoff:check`
+fails on any red one. Run on the real history with the fix removed, it names
+`migrations.yml (3345f94)`.
+
+**Where it lives now**: `tools/ci/supabase-platform.sql`, `tools/ci-status.mjs`
+(+ `src/js/ci-status.test.js`), section 6 of `tools/handoff-check.mjs`.
+
+**The general rule**: a workflow with a `paths:` filter is silent until its
+paths change again, so its last verdict can be days old and still the truth.
+Ask each check for its own latest result. Never "is CI green on HEAD". And
+"checks pass" in a summary must come from looking this session, not from the
+last summary.

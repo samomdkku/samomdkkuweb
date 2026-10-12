@@ -164,11 +164,10 @@ git, the filesystem and the database, so it is right when you are not.
    `docs/CONTEXT.md` · build/install/env changed → `README.md`.
    **Internal-only (refactor, bugfix, test, comment) — SKIP.** Doc edits are a
    side-effect of meaningful change, not a tax on every commit.
-6. **RUN `npm run handoff:check`** — the step that can FAIL. Checks the
-   mechanical part: uncommitted work, unpushed HEAD, unindexed memories, dead
+6. **RUN `npm run handoff:check`** — the step that can FAIL. It checks: uncommitted work, unpushed HEAD, unindexed memories, dead
    pointers in them, a HANDOFF section with no `Status:`, STATE.md over budget
    or behind the work, prod behind the sha STATE.md claims, the VM's agent
-   memory out of sync, **a count in a doc the DATABASE contradicts**.
+   memory out of sync, a red CI workflow, **a count in a doc the DATABASE contradicts**.
    ⛔ A skip is NOT green. ⚠️ It cannot tell if a sentence is TRUE.
 7. Say "Updated STATE.md / docs/mistakes / changelog / skills/* as needed" and
    paste its verdict.

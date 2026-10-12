@@ -351,7 +351,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(69)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(70)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -424,6 +424,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - "pr0149 5 failed — A0b. READ allows the staff-role user" and "shop0206: the student is not a shop admin: expected false…
 - `npm run dev`: /admin/ never boots — 504 on `qrcode.js`, `__samoBooted` false
 - Night agent: task 3 was handed task 2's prompt
+- "migration workflow run: all jobs have failed"
 
 ## `passport.md` — The Passport app's own write-ups *(40)*
 
@@ -470,4 +471,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_408 entries across 10 files._
+_409 entries across 10 files._

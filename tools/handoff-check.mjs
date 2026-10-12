@@ -26,6 +26,7 @@
 //
 //   npm run handoff:check          # everything it can reach
 //   npm run handoff:check -- --local   # skip VM/DB/CI, for offline work
+//   (CI = tools/ci-status.mjs: every workflow's own newest run on main)
 // ============================================================
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -231,6 +232,21 @@ if (LOCAL_ONLY) {
     if (there !== here) bad('the VM memory matches this laptop', `VM has ${there}, laptop has ${here} — run bash server/night-agent/install.sh`);
     else ok('the VM memory matches this laptop', `${here} files`);
   }
+}
+
+// ── 6. every GitHub workflow, EACH ONE, green on main ───────────────────────
+// Owner, 2026-10-13: "migration workflow run all jobs have failed, i've seen a
+// lot of message like this and you keep missing it". `migrations` runs only
+// when a migration changes, so later pushes running OTHER workflows looked
+// green while it stayed red. Per workflow, its newest completed run on main.
+if (LOCAL_ONLY) {
+  skip('every CI workflow is green on main', '--local');
+} else {
+  const r = spawnSync('node', ['tools/ci-status.mjs'], { cwd: ROOT, encoding: 'utf8' });
+  const lines = (r.stdout || '').trim().split('\n').filter(Boolean);
+  if (r.status === 0) ok('every CI workflow is green on main', `${lines.filter((l) => l.startsWith('GREEN')).length} workflows`);
+  else if (r.status === 1) bad('every CI workflow is green on main', lines.filter((l) => l.startsWith('RED')).join('\n      '));
+  else skip('every CI workflow is green on main', (lines[0] || 'could not ask GitHub').replace(/^SKIP /, ''));
 }
 
 // ── report ──────────────────────────────────────────────────────────────────
