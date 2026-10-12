@@ -34,7 +34,7 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `69f3f5e` (2026-10-12)** — v4.8.0 + unreleased fixes (tag `v4.8.0` = `d08ffcb`; notes staged in PENDING), read back from the VM's
+- ✅ **DEPLOYED = `4af3b7c` (2026-10-12)** — v4.8.0 + unreleased fixes (tag `v4.8.0` = `d08ffcb`; notes staged in PENDING), read back from the VM's
   own HEAD, not retyped. `<== exit 0 — ran to the end` + `DEPLOY_EXIT=0`. Since `c7412f2`: credential rotation (2026-09-25 — Supabase keys now `sb_publishable_`/`sb_secret_`, legacy JWT keys off, HS256 revoked; 12 leaked webhooks replaced, old ones 404), the new welcome banner, and the `no-secrets-in-git` guard. Then `f6cef24`: a preorder's stock grid is a limit (0209); `9e9cba8`: preorder and in-stock have separate tables (0210); `69f3f5e`: the สต็อก tab shows both tables per card. Browser smoke 18/18. Write-ups: `docs/mistakes/integrations.md`. Previous: `c7412f2` (`docs/state/claude-2026-09-23.md`).
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
