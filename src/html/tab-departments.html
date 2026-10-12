@@ -1,8 +1,8 @@
-      <!-- TAB: DEPARTMENTS — 10 ฝ่ายในสโมสร, drill-down into per-dept tool list.
+      <!-- TAB: DEPARTMENTS — 12 ฝ่ายในสโมสร, drill-down into per-dept tool list.
            Content (icon / color / wording) mirrors the original "Our Departments"
-           section that used to live in tab-about.html. Each card opens an inline
-           detail panel listing that ฝ่าย's tools; "เร็วๆ นี้" cards stay as
-           placeholders until that ฝ่าย ships a tool. -->
+           section that used to live in tab-about.html. Every card opens — a ฝ่าย
+           with no tools yet just shows an empty tools grid, never "เร็วๆ นี้"
+           (0213: every ฝ่าย in the tree gets a real page, not a placeholder). -->
       <div class="tab-pane fade an-tab" id="pills-departments" role="tabpanel">
         <div class="container">
 
@@ -12,12 +12,20 @@
               <span class="about-section-eyebrow">Our Departments</span>
               <h2 class="about-section-title">ฝ่ายในสโมสร</h2>
               <p class="about-section-lead">
-                10 ฝ่ายภายในสโมสร แต่ละฝ่ายดูแลงานในขอบเขตของตนเอง
+                12 ฝ่ายภายในสโมสร แต่ละฝ่ายดูแลงานในขอบเขตของตนเอง
                 และจะมีเครื่องมือเฉพาะของฝ่ายเปิดให้ใช้งานในอนาคต
               </p>
             </header>
 
             <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5" id="deptsGrid">
+              <div class="col">
+                <a class="dept-card" data-dept-open="office"
+                  style="--dept-color: var(--dept-office); --dept-hover-color: var(--dept-hover-office);">
+                  <span class="dept-icon"><i class="bi bi-building"></i></span>
+                  <span class="dept-name">สำนักนายกฯ</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
               <div class="col">
                 <a class="dept-card" data-dept-open="admin"
                   style="--dept-color: var(--dept-admin); --dept-hover-color: var(--dept-hover-admin);">
@@ -35,27 +43,27 @@
                 </a>
               </div>
               <div class="col">
-                <a class="dept-card is-disabled" data-dept="internal"
+                <a class="dept-card" data-dept-open="internal"
                   style="--dept-color: var(--dept-internal); --dept-hover-color: var(--dept-hover-internal);">
                   <span class="dept-icon"><i class="bi bi-people"></i></span>
                   <span class="dept-name">ฝ่ายกิจการภายใน</span>
-                  <span class="dept-tool">เร็วๆ นี้</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
                 </a>
               </div>
               <div class="col">
-                <a class="dept-card is-disabled" data-dept="external"
+                <a class="dept-card" data-dept-open="external"
                   style="--dept-color: var(--dept-external); --dept-hover-color: var(--dept-hover-external);">
                   <span class="dept-icon"><i class="bi bi-globe"></i></span>
                   <span class="dept-name">ฝ่ายกิจการภายนอก</span>
-                  <span class="dept-tool">เร็วๆ นี้</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
                 </a>
               </div>
               <div class="col">
-                <a class="dept-card is-disabled" data-dept="university"
+                <a class="dept-card" data-dept-open="university"
                   style="--dept-color: var(--dept-university); --dept-hover-color: var(--dept-hover-university);">
                   <span class="dept-icon"><i class="bi bi-buildings"></i></span>
                   <span class="dept-name">ฝ่ายกิจการมหาวิทยาลัย</span>
-                  <span class="dept-tool">เร็วๆ นี้</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
                 </a>
               </div>
               <div class="col">
@@ -75,11 +83,19 @@
                 </a>
               </div>
               <div class="col">
-                <a class="dept-card is-disabled" data-dept="quality"
+                <a class="dept-card" data-dept-open="quality"
                   style="--dept-color: var(--dept-quality); --dept-hover-color: var(--dept-hover-quality);">
                   <span class="dept-icon"><i class="bi bi-hospital"></i></span>
                   <span class="dept-name">ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม</span>
-                  <span class="dept-tool">เร็วๆ นี้</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
+                </a>
+              </div>
+              <div class="col">
+                <a class="dept-card" data-dept-open="rt"
+                  style="--dept-color: var(--dept-projects); --dept-hover-color: var(--dept-hover-projects);">
+                  <span class="dept-icon"><i class="bi bi-stars"></i></span>
+                  <span class="dept-name">ฝ่ายรังสีเทคนิค</span>
+                  <span class="dept-tool">ดูเครื่องมือ</span>
                 </a>
               </div>
               <div class="col">
@@ -91,10 +107,10 @@
                 </a>
               </div>
               <div class="col">
-                <a class="dept-card" data-dept-open="rt"
-                  style="--dept-color: var(--dept-projects); --dept-hover-color: var(--dept-hover-projects);">
-                  <span class="dept-icon"><i class="bi bi-stars"></i></span>
-                  <span class="dept-name">ฝ่ายรังสีเทคนิค</span>
+                <a class="dept-card" data-dept-open="hospital"
+                  style="--dept-color: var(--dept-hospital); --dept-hover-color: var(--dept-hover-hospital);">
+                  <span class="dept-icon"><i class="bi bi-heart-pulse"></i></span>
+                  <span class="dept-name">ฝ่าย รพ. ร่วมผลิต</span>
                   <span class="dept-tool">ดูเครื่องมือ</span>
                 </a>
               </div>

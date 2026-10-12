@@ -18,6 +18,12 @@
 // ============================================================
 
 export const DEPT_DEFS = {
+  office: {
+    eyebrow: 'Department',
+    title: 'สำนักนายกฯ',
+    icon: 'bi-building',
+    colorVar: '--dept-office',
+  },
   admin: {
     eyebrow: 'Department',
     title: 'ฝ่ายบริหารองค์กร',
@@ -29,6 +35,24 @@ export const DEPT_DEFS = {
     title: 'ฝ่ายดิจิทัลและสื่อสารองค์กร',
     icon: 'bi-megaphone',
     colorVar: '--dept-digital',
+  },
+  internal: {
+    eyebrow: 'Department',
+    title: 'ฝ่ายกิจการภายใน',
+    icon: 'bi-people',
+    colorVar: '--dept-internal',
+  },
+  external: {
+    eyebrow: 'Department',
+    title: 'ฝ่ายกิจการภายนอก',
+    icon: 'bi-globe',
+    colorVar: '--dept-external',
+  },
+  university: {
+    eyebrow: 'Department',
+    title: 'ฝ่ายกิจการมหาวิทยาลัย',
+    icon: 'bi-buildings',
+    colorVar: '--dept-university',
   },
   academic: {
     eyebrow: 'Department',
@@ -42,17 +66,29 @@ export const DEPT_DEFS = {
     icon: 'bi-puzzle',
     colorVar: '--dept-strategy',
   },
-  media: {
+  quality: {
     eyebrow: 'Department',
-    title: 'ฝ่ายเวชนิทัศน์',
-    icon: 'bi-camera',
-    colorVar: '--dept-media',
+    title: 'ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม',
+    icon: 'bi-hospital',
+    colorVar: '--dept-quality',
   },
   rt: {
     eyebrow: 'Department',
     title: 'ฝ่ายรังสีเทคนิค',
     icon: 'bi-stars',
     colorVar: '--dept-projects',
+  },
+  media: {
+    eyebrow: 'Department',
+    title: 'ฝ่ายเวชนิทัศน์',
+    icon: 'bi-camera',
+    colorVar: '--dept-media',
+  },
+  hospital: {
+    eyebrow: 'Department',
+    title: 'ฝ่าย รพ. ร่วมผลิต',
+    icon: 'bi-heart-pulse',
+    colorVar: '--dept-hospital',
   },
 };
 
