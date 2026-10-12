@@ -14,6 +14,80 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## 2026-10-13 — Task 4: security review (deep) — the app, the servers, Apps Script
+
+Claims to have: read every file in scope end to end (`src/`, `server/*.mjs`,
+`server/nginx-samo.conf`, `appscript/prform.gs`, `passport/js/`) and written
+`~/samo-night/reports/2026-10-13-security-app.md` (outside the repo, per the
+queue's public-repo rule), ending `## Verdict`. One real finding fixed, one
+informational finding left open, several already-known/already-ranked items
+re-confirmed still accurate rather than re-raised as new. Full reasoning is in
+the report; this block is the pointer + what changed on disk.
+
+**Fixed: `server/nginx-samo.conf` — no clickjacking/MIME-sniffing headers
+anywhere on the site.** Added `X-Frame-Options: SAMEORIGIN`,
+`Content-Security-Policy: frame-ancestors 'self'`, `X-Content-Type-Options:
+nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` to every
+HTML-serving location (`/admin/`, `/passport/`, `/docs/`, the public
+catch-all `/`) — each repeated PER LOCATION, never once at server level,
+because `add_header` does not inherit into a location that already sets one
+of its own (every location above already sets `Cache-Control`), and a
+server-level copy would also have reached `/vault/`, which sets none of its
+own HERE and would have inherited it — stacking a second frame/XFO header on
+top of whatever Vaultwarden's own response already carries. That is the exact
+failure shape this same file's `/vault/` block already documents for
+`Cache-Control` (two headers, browser honours the strictest, whole vault
+re-downloaded every load) — this is that lesson applied, not re-learned.
+⛔ **THIS IS A CONFIG FILE CHANGE, NOT A MIGRATION — it needs
+`sudo cp server/nginx-samo.conf /etc/nginx/sites-available/default &&
+sudo nginx -t && sudo systemctl reload nginx` on the VM (`skills/deploy-vm.md`)
+before it does anything; nothing is served differently yet.** No HSTS added —
+left for the owner to verify the KKU edge never serves this host over plain
+HTTP before adding it (getting that wrong locks users out for `max-age` with
+no undo).
+
+**Left open, informational, not fixed:** migration 0212's
+`projects_samo_depts_guard` trigger checks WHO may touch `samo_depts`, not
+WHAT values land in it (the allow-list lives only in the RPC,
+`set_project_samo_depts`, which a direct PATCH from an already-authorized
+sender-desk account could bypass). Not fixed tonight because it is inert —
+every render path I found (including this same migration's OWN new render
+code) passes the value through `escHtml()`, so a smuggled garbage value
+cannot become a stored XSS payload, only a weird-looking tag. Not worth a
+reserved migration number (0215) in isolation; fold the value check into the
+trigger whenever 0212 is next touched for something else.
+
+**Re-confirmed, not re-raised as new** (all three already tracked elsewhere,
+none actioned, none requiring action tonight): `notifyProjectEmail`'s
+subject/body still caller-controlled within the domain allow-list
+(`docs/NEXT.md`, ranked options, needs a GAS redeploy this run can't make);
+passport's per-ฝ่าย WRITE scoping gap (`admin-scope.js`'s own comment /
+Finding 4 of the companion DB report); the legacy passport `admin`/`1234`
+door (accepted "speed bump, not a secret" trade-off).
+
+`npm test` (2,579/2,579) and `npm run build` both green — the change touches
+no JS, so this was really about not having silently broken the conf's syntax
+(brace-balance checked by hand; no `nginx -t` available off the VM).
+
+**`npm run handoff:check` could not run to a verdict in this sandbox** —
+pasting the actual failure rather than skipping silently, per CLAUDE.md's "a
+skip is NOT green." Two environment-specific crashes, neither caused by
+tonight's change: (1) it diffs against `origin/agent/2026-10-13`, which does
+not exist — this branch is correctly unpushed per the queue's own constraint,
+so the script's assumption (a tracking remote) does not hold for ANY
+night-agent branch, not just this run; `git branch -a` confirms no
+`remotes/origin/agent/2026-10-13`. (2) it then reads memory from
+`~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md`, which does not
+exist in this sandbox — the real memory index this run was told to read lives
+at `~/samo-night/memory/MEMORY.md` (a different path, stated in this session's
+own system preamble). Neither task 1's nor task 2's block above mentions
+running this check either, so this looks like a standing gap in the
+night-agent workflow rather than something new tonight — worth the owner's
+attention before trusting a GREEN from this script on an unpushed
+night-agent branch at all.
+
+---
+
 ## 2026-10-13 — Task 2: หน้าฝ่าย for every ฝ่าย, and the permission (0213)
 
 Claims to have: grown `DEPT_DEFS` (src/data/depts.js) from 6 to all 12
