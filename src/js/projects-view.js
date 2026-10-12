@@ -5,6 +5,12 @@
 // mountCustomerProjects(), which configures the existing projects
 // module in role='customer' mode (no actions, no notifications,
 // no markDocSeen mutations).
+//
+// ฝ่ายสโม tags (projects.samo_depts, migration 0212) ride along for free:
+// mountCustomerProjects() reuses projects/inbox.js's renderers, so the same
+// ฝ่าย filter dropdown and read-only chips the admin inbox shows also render
+// here — nothing customer-specific to wire. Tagging itself is vpa-desk-only
+// and stays gated out of this read-only mode.
 // ==============================================
 
 import { mountCustomerProjects } from './projects/index.js';

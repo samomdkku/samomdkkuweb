@@ -120,6 +120,21 @@ export async function cacheProjectFolder(id, { folderUrl, folderId } = {}) {
   } catch { /* best-effort — never block the QR on the cache write */ }
 }
 
+/** Set a โครงการ's ฝ่ายสโม tags — the ONE write path (migration 0212).
+ *  A SECURITY DEFINER RPC, not a PATCH: `projects_update` would let ANY
+ *  project actor (staff/prof too) touch this column through a row-level
+ *  grant, so the DB restricts it to the vpa desk (or master) in a column
+ *  trigger regardless of path — this call exists for the friendly Thai
+ *  error, not for the safety, which holds even against a raw PATCH. */
+export async function setProjectSamoDepts(projectId, depts) {
+  const { data, error } = await dbRest('/rpc/set_project_samo_depts', {
+    method: 'POST',
+    body: { p_project: projectId, p_depts: Array.isArray(depts) ? depts : [] },
+  });
+  if (error) throw new Error(error.message || 'บันทึกฝ่ายสโมไม่สำเร็จ');
+  return data;
+}
+
 export async function deleteProject(id) {
   const idEsc = encodeURIComponent(id);
   const { data, error } = await dbRest(
