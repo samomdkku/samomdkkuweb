@@ -63,7 +63,27 @@ create table if not exists auth.users (
   email              text unique,
   encrypted_password text,
   raw_user_meta_data jsonb default '{}'::jsonb,
-  created_at         timestamptz default now()
+  created_at         timestamptz default now(),
+  -- 0211 (the account dashboard + the `method` back-fill) reads these. Its
+  -- back-fill reads raw_app_meta_data at the TOP LEVEL, so without it the
+  -- replay stopped at 0211 with 42703 (2026-10-12, unseen for a session —
+  -- this workflow only runs when a migration changes, and later pushes went
+  -- green by not running it). Function bodies are not checked at creation, so
+  -- a column used only inside one would NOT fail here — add it anyway.
+  raw_app_meta_data  jsonb default '{}'::jsonb,
+  last_sign_in_at    timestamptz,
+  email_confirmed_at timestamptz,
+  banned_until       timestamptz,
+  deleted_at         timestamptz,
+  updated_at         timestamptz default now()
+);
+
+-- One row per sign-in method per account (0211 reads user_id, provider).
+create table if not exists auth.identities (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users(id) on delete cascade,
+  provider   text,
+  updated_at timestamptz default now()
 );
 
 -- Supabase reads the signed-in person out of the request's JWT claims. With no
