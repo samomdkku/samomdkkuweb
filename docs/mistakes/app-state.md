@@ -1114,3 +1114,77 @@ removed → red).
 **The general rule**: *a fix to one of N implementations of a rule is a
 fix to 1/N* — grep for the other `csvCell`s before calling a hole closed; and
 an escape added to an export needs its inverse on every import that reads it.
+
+---
+
+## Switching to หน้าฝ่าย a second time snapped the ฝ่าย picker back and could wipe an unsaved edit
+
+**Symptom**: an account that manages several ฝ่าย (the blanket `dept_pages`/
+`master` grant) opens หน้าฝ่าย, picks the second ฝ่าย in the dropdown, starts
+editing a card — then clicks to another admin section and back (or just
+clicks the already-open หน้าฝ่าย sidebar item again). The picker has snapped
+back to the FIRST ฝ่าย in the list, and anything typed but not yet saved is
+gone with no warning.
+
+**Cause**: `admin-main.js` calls `initDeptPageAdmin(authGetUser())` on EVERY
+entry into the section, by design — the comment there explains this is needed
+so a real account SWITCH gets the new account's own ฝ่าย list rather than the
+previous account's. But `dept-page-admin.js`'s `initDeptPageAdmin()` reset
+`state.dept = mine[0].value` and called `refresh()` (which re-fetches and
+repaints `#dpaRows` from the server) unconditionally, every single call — not
+only on account switches. Every other admin workspace in this app
+(`team/index.js`, `house/index.js`) uses a `loaded`-style flag so a same-
+account re-entry is a no-op; this one didn't, so a sidebar click that should
+have been free re-ran the whole mount.
+
+**Fix**: track which uid the editor is currently wired for
+(`wiredUserId`), and skip the picker reset + refetch on a same-account
+re-entry — `src/js/dept-page-admin.js`. A real account switch is moot in
+practice anyway: `admin-main.js`'s `onAuthChange` hard-reloads the whole page
+before `initDeptPageAdmin` could ever see a different uid
+(`swapAccountReload`), so the guard only needs to cover, and does cover, the
+same-account case that was actually breaking. `dept-page-admin.test.js`
+drives this with a hand-built DOM stand-in (no jsdom here) and asserts a
+second call doesn't re-fetch or reset the picker's value; mutation-checked
+(guard removed → red, `dbRest` called twice instead of once).
+
+**The general rule**: *a function called "every time a section opens" is
+called on a same-account RE-ENTRY too, not only on the account switch its
+comment was written to justify* — match this app's "load once, re-entry is a
+no-op" convention unless the function is cheap AND stateless, and if it isn't,
+say what state would be lost by résetting it.
+
+---
+
+## Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
+
+**Symptom**: on a โครงการ's detail header, a sender-desk account (vpa/dev)
+clicks one ฝ่ายสโม tag chip, then a different chip, before the first click's
+round trip has returned. Only ONE of the two tags ends up saved — no error,
+no indication either chip's click "didn't count".
+
+**Cause**: `onToggleProjectDept()` (`src/js/projects/inbox.js`) is a classic
+read-modify-write on a shared array column (`projects.samo_depts`): it reads
+the project's CURRENT tags from `cache.projects`, computes the whole new
+array, and writes the whole array back — there is no per-tag column to PATCH
+independently. `btn.disabled = true` only guards the ONE button clicked
+twice; it does nothing for two DIFFERENT chips on the same โครงการ. Both
+reads saw the same pre-toggle array, each computed and wrote its own version
+of "current + my one change", and whichever request's response landed last
+silently won, discarding the other chip's change.
+
+**Fix**: chain every call through one module-scope promise
+(`deptEditorQueue`) and await `onChanged()` (which is what refreshes
+`cache.projects`) before the function returns — so a second chip clicked
+before the first lands now waits for the first's write to be reflected in
+`cache` before it computes its own `next`. `src/js/projects/dept-chip-
+race.test.js` fires two toggles back-to-back against a mocked
+`setProjectSamoDepts` and asserts both tags land; mutation-checked (queue
++ await removed → red, only the second chip's tag survives).
+
+**The general rule**: *a button-disable guards one button against itself, not
+several buttons against each other* — a read-modify-write on one shared
+field, reachable from more than one control, needs a SERIALIZATION point
+(a queue, a mutex, re-reading after every await), not a per-control disabled
+flag. The tell is several independent UI elements that each read, then later
+write, the SAME array/object field.

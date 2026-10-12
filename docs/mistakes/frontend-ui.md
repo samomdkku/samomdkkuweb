@@ -4200,3 +4200,41 @@ hook the first moment it HAS geometry (ResizeObserver), not the moment it has
 FINISHED appearing (`shown`, `transitionend`)* — the second is after the user
 has seen the wrong state. Measure it per frame; a screenshot after the fact
 shows only the right answer.
+
+---
+
+## One click on "ลบคำสั่งซื้อ" in the shop admin order modal could delete the same order several times over
+
+**Symptom**: an admin opens an order's detail modal, closes it, opens a
+different order, closes it, opens a third — then clicks "ลบคำสั่งซื้อ" once.
+Several DELETE requests for the SAME order id fire at once (duplicate
+success/error toasts, a confirm dialog that behaves oddly, redundant
+`refreshOrders()` calls).
+
+**Cause**: `openOrderModal(orderId)` (`src/js/shop/admin.js`) repaints
+`#shopAdminOrderModalBody` with `innerHTML` on every open — that part is
+fine. But it ALSO ran
+`document.getElementById('shopAdminOrderModalDelete')?.addEventListener('click', deleteCurrentOrder)`
+on every open. The delete button lives in the modal FOOTER
+(`modal-shop-order-detail.html`), outside `#shopAdminOrderModalBody`, so it
+is never touched by the repaint and survives across opens — and so does
+every listener ever attached to it. The Nth order opened leaves N
+accumulated click handlers on one static button. Exactly the shape
+`my-house.test.js` already pins for a different module under "the re-render
+trap": a listener attached inside a function that repaints AROUND the node
+it is listening on, instead of wiring that node once, outside the repaint.
+
+**Fix**: moved the registration into `ensureMounted()` — the function this
+file already uses to wire every OTHER static control exactly once, guarded
+by its own `mounted` flag — and left `openOrderModal()` only resetting the
+button's idle label (which is safe to repeat; it doesn't accumulate).
+`src/js/shop/admin-order-modal.test.js` pins this structurally (no jsdom
+here): the registration must appear inside `ensureMounted`'s function body
+and must NOT appear inside `openOrderModal`'s; mutation-checked (moved back
+→ both assertions go red).
+
+**The general rule**: *a button outside the element you repaint needs to be
+wired OUTSIDE the function that repaints*, exactly once, the same way this
+file already wires its filters, search box and refresh buttons in
+`ensureMounted()` — the delete button was the one control in this file that
+didn't follow its own neighbours' convention.

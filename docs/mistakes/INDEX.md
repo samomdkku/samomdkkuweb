@@ -140,7 +140,7 @@ Open when: writing a migration.
 - A tab opened before a migration re-sends what it LOADED
 - Google accounts were saved as "password"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(104)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(105)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -248,8 +248,9 @@ Open when: markup, modals, layout, touch, icons.
 - The admin picture strip worked and was UNSTYLED
 - "รูปใน samoshop โหลดนานมาก" — the shop tab downloaded ~47 MB of pictures, 45 of them news pictures nobody could see
 - "กดสินค้าแล้วเลื่อนไปหน้าปกแล้วเลื่อนกลับมาสีดำ"
+- One click on "ลบคำสั่งซื้อ" in the shop admin order modal could delete the same order several times over
 
-## `app-state.md` — Routing, read-state, caches & serialization *(26)*
+## `app-state.md` — Routing, read-state, caches & serialization *(28)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -279,6 +280,8 @@ Open when: URL state, per-user "seen", import/export.
 - The ผังตามสาย legend was a fourth copy of the same rule
 - Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
 - A student's ชื่อเล่น could run as a formula in an admin's spreadsheet
+- Switching to หน้าฝ่าย a second time snapped the ฝ่าย picker back and could wipe an unsaved edit
+- Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
 
@@ -470,4 +473,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_408 entries across 10 files._
+_411 entries across 10 files._

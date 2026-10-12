@@ -2236,24 +2236,44 @@ async function onToggleProjectPublic(btn) {
  *  at the DB), so this is reachable only by the desk allowed to call it —
  *  the server-side guard (migration 0212) is what actually stops anyone
  *  else; this is just the matching UI gate. */
-async function onToggleProjectDept(btn) {
+/** Every ฝ่ายสโม toggle chains through this, so a second chip clicked before
+ *  the first's round trip lands waits its turn instead of racing it. */
+let deptEditorQueue = Promise.resolve();
+
+/** ⛔ READ-MODIFY-WRITE ON A SHARED ARRAY, FROM SEVERAL BUTTONS. Each chip
+ *  computes `next` from the project's CURRENT samo_depts and writes the
+ *  whole array back — there is no per-tag column to PATCH independently.
+ *  `btn.disabled` only guards the ONE button clicked twice; it does nothing
+ *  for two DIFFERENT chips clicked close together, and both would then read
+ *  the same pre-toggle array and write their own version of it — whichever
+ *  request's response lands last wins, silently dropping the other tag.
+ *  Chaining every call through `deptEditorQueue` (and awaiting `onChanged()`,
+ *  which is what refreshes `cache.projects`) makes the second click's read
+ *  happen only after the first click's write is reflected in `cache`. */
+export async function onToggleProjectDept(btn) {
   const projectId = btn.dataset.projectsToggleDept;
   const value = btn.dataset.dept;
-  const p = cache.projects.find((x) => x.id === projectId);
-  if (!p) return;
-  const current = projectSamoDepts(p);
-  const next = current.includes(value)
-    ? current.filter((d) => d !== value)
-    : [...current, value];
-  btn.disabled = true;
-  try {
-    await setProjectSamoDepts(projectId, next);
-    onChanged();
-  } catch (e) {
-    alert(e.message || 'บันทึกฝ่ายสโมไม่สำเร็จ');
-  } finally {
-    btn.disabled = false;
-  }
+  const run = deptEditorQueue.then(async () => {
+    const p = cache.projects.find((x) => x.id === projectId);
+    if (!p) return;
+    const current = projectSamoDepts(p);
+    const next = current.includes(value)
+      ? current.filter((d) => d !== value)
+      : [...current, value];
+    btn.disabled = true;
+    try {
+      await setProjectSamoDepts(projectId, next);
+      await onChanged();
+    } catch (e) {
+      alert(e.message || 'บันทึกฝ่ายสโมไม่สำเร็จ');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  // Swallow here so one failed toggle doesn't wedge the queue for the next
+  // chip — the failure is already reported to the user above.
+  deptEditorQueue = run.catch(() => {});
+  await run;
 }
 
 /** Show / hide ONE หนังสือ. No confirm — it is one row, instantly reversible,

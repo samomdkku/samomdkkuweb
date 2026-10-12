@@ -469,9 +469,28 @@ async function move(root, id, dir) {
   await patchRow(root, b.id, { position: pa });
 }
 
+// The account this editor is currently mounted for. admin-main.js calls
+// initDeptPageAdmin(authGetUser()) on EVERY entry into the หน้าฝ่าย section —
+// including clicking the already-open section again, or just coming back from
+// another admin tab — not only on first load. Re-running the picker/state
+// reset on a same-account re-entry threw away whatever the ฝ่าย had open: the
+// dept picker snapped back to the first ฝ่าย in the list, and refresh(root)
+// overwrote #dpaRows with freshly-fetched rows, silently discarding any
+// typed-but-unsaved edit in the form (the save button only sends bytes on
+// click; nothing before that point is persisted). A real account switch is a
+// different uid, and admin-main.js's onAuthChange already hard-reloads the
+// whole page before that can happen (see swapAccountReload there) — so this
+// only needs to guard the SAME-account case, matching the "load once, re-entry
+// is a no-op" convention every other admin workspace already uses
+// (team/index.js's `loaded` flag, house/index.js's own copy of it).
+let wiredUserId;
+
 export function initDeptPageAdmin(user) {
   const root = document.querySelector('[data-admin-pane="deptpage"]');
   if (!root) return;
+  const uid = user?.id || null;
+  if (root.dataset.dpaWired === '1' && wiredUserId === uid) return;
+  wiredUserId = uid;
   const picker = root.querySelector('#dpaDept');
   const mine = editableDepts(user);
   if (picker) {
@@ -492,7 +511,6 @@ export function initDeptPageAdmin(user) {
   state.dept = mine[0].value;
   refresh(root);
 
-  if (root.dataset.dpaWired === '1') return;
   root.dataset.dpaWired = '1';
 
   picker?.addEventListener('change', () => { clearPending(); state.dept = picker.value; refresh(root); });

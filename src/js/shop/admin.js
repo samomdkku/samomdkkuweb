@@ -184,6 +184,18 @@ function ensureMounted() {
   // CSV export — see exportOrdersCsv below.
   document.getElementById('shopAdminOrdersExport')?.addEventListener('click', exportOrdersCsv);
 
+  // The order detail modal's delete button lives in the modal FOOTER
+  // (modal-shop-order-detail.html), outside #shopAdminOrderModalBody — the
+  // only part openOrderModal() repaints with innerHTML on every open. Wiring
+  // it there (as it used to) attached one more listener per order opened, so
+  // after viewing a few orders a single click fired deleteCurrentOrder()
+  // that many times at once — concurrent DELETE requests for the same row,
+  // duplicate toasts, and a stacked confirm dialog. Same re-render-listener
+  // trap as my-house.js's; the fix is the same one: wire the static button
+  // exactly ONCE, here, guarded by `mounted` like everything else in this
+  // function, instead of inside the function that repaints around it.
+  document.getElementById('shopAdminOrderModalDelete')?.addEventListener('click', deleteCurrentOrder);
+
   // Open the camera scanner. On a successful scan, jump straight to the
   // order's detail modal if it exists in the loaded list; otherwise
   // refresh + retry (the order might be newer than the last load).
@@ -1406,9 +1418,9 @@ function openOrderModal(orderId) {
 
   wireOrderModalBody(body);
 
-  // Status chips now write immediately (no staged Save bar). Only the
-  // Delete button needs footer wiring.
-  document.getElementById('shopAdminOrderModalDelete')?.addEventListener('click', deleteCurrentOrder);
+  // The Delete button itself is wired exactly once, in ensureMounted() —
+  // it is outside `body` so it survives every repaint here, and wiring it
+  // again on each open was the bug (see ensureMounted's comment).
 
   // Reset the delete button to its idle label every time the modal
   // opens — the previous open may have left it in the "กำลังลบ…"
