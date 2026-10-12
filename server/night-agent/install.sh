@@ -69,7 +69,8 @@ if [ "${1:-}" = "--arm" ] || [ "${2:-}" = "--arm" ]; then
   # old fingerprint stamp, which nothing reads since 2026-10-13.
   ssh -o BatchMode=yes samo-vm 'rm -f ~/samo-night/STOPPED ~/samo-night/.last-queue-sha'
   ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S systemctl enable --now samo-night-agent.timer 2>&1" | { grep -v '^\[sudo' || true; }
-  echo "armed. NEXT: $(ssh -o BatchMode=yes samo-vm 'systemctl list-timers --all --no-pager | grep samo-night-agent | awk "{print \$1, \$2, \$3}"')"
+  # NextElapseUSecRealtime, never is-enabled: "enable is not schedule".
+  echo "armed. NEXT: $(ssh -o BatchMode=yes samo-vm 'systemctl show samo-night-agent.timer -p NextElapseUSecRealtime --value')"
 else
   echo "installed (NOT armed). Write a queue, then: bash server/night-agent/install.sh --arm"
   echo "timer now: $(ssh -o BatchMode=yes samo-vm 'systemctl is-enabled samo-night-agent.timer 2>&1')"
