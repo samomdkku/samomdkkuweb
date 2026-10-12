@@ -18,7 +18,7 @@ import {
   getPickupLocations, setPickupLocations,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
-  NOT_YET_REVENUE_STATUSES,
+  NOT_YET_REVENUE_STATUSES, takesPreorderSlot,
 } from './data.js';
 import { downscaleImage, decode } from '../image-resize.js';
 import { askConfirm } from '../confirm-modal.js';
@@ -2949,6 +2949,7 @@ function renderProductEditor() {
           <div id="shopProdStockMatrix">${stockMatrixHtml(p)}</div>
           <div class="small text-muted mt-1">
             ตั้งค่า "0" สำหรับตัวเลือกที่หมด — เว้นว่างไว้แปลว่ายังไม่ระบุ
+            · สินค้า Preorder: ตัวเลขคือจำนวนที่เปิดรับ นับลดลงเมื่อมีคนสั่ง (ยกเลิกออเดอร์ = คืนจำนวน) — เว้นว่างทั้งตาราง = รับไม่จำกัด
           </div>
         </div>
       </div>
@@ -3504,6 +3505,21 @@ const RESERVED_STATUSES = new Set(['review', 'paid', 'produce', 'ready', 'done']
  *    outstanding = reserved - delivered (paid-for, not yet picked up) */
 function computeProductSales(productId) {
   const orders = Array.isArray(state.orders) ? state.orders : [];
+  // PREORDER (0209): the grid is the size of the production run, so every
+  // preorder item counts until its order is cancelled — delivered too.
+  // `taken` is what the headline subtracts from the grid.
+  if (state.products.find((x) => x.id === productId)?.is_presale) {
+    let taken = 0, delivered = 0;
+    for (const o of orders) {
+      for (const it of (o.items || [])) {
+        if (it.product_id !== productId || !takesPreorderSlot(o, it)) continue;
+        const q = Number(it.qty) || 0;
+        taken += q;
+        if (o.status === 'done' || it.item_status === 'done') delivered += q;
+      }
+    }
+    return { reserved: taken, delivered, outstanding: taken - delivered, taken, preorder: true };
+  }
   let reserved = 0, delivered = 0;
   for (const o of orders) {
     if (!RESERVED_STATUSES.has(o.status)) continue;
@@ -3517,7 +3533,7 @@ function computeProductSales(productId) {
       if (o.status === 'done') delivered += q;
     }
   }
-  return { reserved, delivered, outstanding: reserved - delivered };
+  return { reserved, delivered, outstanding: reserved - delivered, taken: reserved - delivered, preorder: false };
 }
 
 /** Same accounting, but bucketed per variant (size + color). Returns
@@ -3526,12 +3542,17 @@ function computeProductSales(productId) {
  *  missing color defaults to 'default' — matches stockKey(). */
 function computeVariantReservedMap() {
   const orders = Array.isArray(state.orders) ? state.orders : [];
+  const presale = new Set(state.products.filter((p) => p.is_presale).map((p) => p.id));
   const out = new Map();
   for (const o of orders) {
-    if (!RESERVED_STATUSES.has(o.status)) continue;
     for (const it of (o.items || [])) {
-      // Preorder doesn't reserve finite stock (see migration 0038).
-      if (it.is_preorder) continue;
+      if (presale.has(it.product_id)) {
+        // A preorder product's grid is its run size (0209).
+        if (!takesPreorderSlot(o, it)) continue;
+      } else {
+        // In stock: preorder items were never part of it (0038).
+        if (!RESERVED_STATUSES.has(o.status) || it.is_preorder) continue;
+      }
       const size  = it.size  || 'F';
       const color = it.color || 'default';
       const key = `${it.product_id}|${size}|${color}`;
@@ -3667,13 +3688,13 @@ function stockCardHtml(p, reservedMap = new Map()) {
           ${total === null ? `
             <span class="stock-total is-unset">— ยังไม่ตั้งสต็อก —</span>
           ` : (() => {
-            const available = total - sales.outstanding;
+            const available = total - sales.taken;
             const cls = available < 0 ? 'is-over'
               : available === 0 ? 'is-zero'
               : available <= 5 ? 'is-low'
               : 'is-ok';
             return `<span class="stock-available-headline ${cls}">
-              พร้อมขาย <b>${available}</b> ชิ้น
+              ${sales.preorder ? 'รับพรีออเดอร์ได้อีก' : 'พร้อมขาย'} <b>${available}</b> ชิ้น
             </span>`;
           })()}
           <select class="form-select form-select-sm" data-stock-status-sel="${escHtml(p.id)}" style="max-width:200px;">
@@ -3688,9 +3709,16 @@ function stockCardHtml(p, reservedMap = new Map()) {
            number went down because of recent orders or shipments. -->
       ${total !== null ? `
         <div class="stock-sales-summary small text-muted mb-2">
+          ${sales.preorder ? `
+          เปิดรับพรีออเดอร์ <b>${total}</b>
+          · สั่งแล้ว <b>${sales.taken}</b>
+          · ส่งมอบแล้ว <b>${sales.delivered}</b>
+          <span class="text-muted small ms-1">(ยกเลิกออเดอร์ = คืนจำนวน)</span>
+          ` : `
           ในคลังรวม <b>${total}</b>
           · ลูกค้าจองอยู่ <b>${sales.outstanding}</b>${sales.outstanding > 0 ? `<span class="text-muted small ms-1">(ยังไม่ส่งมอบ)</span>` : ''}
           · ส่งมอบแล้ว <b>${sales.delivered}</b>
+          `}
         </div>
       ` : ''}
 

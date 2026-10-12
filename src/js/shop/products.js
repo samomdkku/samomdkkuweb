@@ -11,7 +11,7 @@ import {
   SHOP_SOURCES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META, stockKey, totalStock,
-  unitPriceFor, priceRange, isUnlimitedBuying,
+  unitPriceFor, priceRange, isUnlimitedBuying, hasStockNumbers,
   availableForVariant, availableTotal,
   getShopTypes, findPickupLocation,
   bannerLinkTarget, imageIndexForColor, pictureAt,
@@ -709,9 +709,9 @@ function openProductModal(product) {
     modalState.qty = Math.max(1, modalState.qty - 1); renderQty();
   }));
   document.getElementById('shopProductModalQtyPlus')?.replaceWith(rebuildBtn('shopProductModalQtyPlus', '+', () => {
-    // Cap at available qty for in-stock products so a buyer can't
-    // request more than they can have. Preorder products keep the
-    // legacy 99 ceiling (unlimited buying).
+    // Cap at available qty so a buyer can't request more than they can
+    // have. An unlimited product (a preorder with an empty grid) keeps the
+    // 99 ceiling.
     const p = modalState.product;
     let ceiling = 99;
     if (p && !isUnlimitedBuying(p)) {
@@ -745,9 +745,8 @@ function openProductModal(product) {
 
 /** Is this size entirely out across every color? Used to grey out the
  *  size button. "Entirely" = matrix configured AND every color cell for
- *  this size is either explicitly 0 or undefined. Preorder products
- *  never grey out — buyers can order any variant regardless of admin's
- *  internal numbers. */
+ *  this size is either explicitly 0 or undefined. An unlimited preorder
+ *  (empty grid) never greys out; one with numbers does (0209). */
 function isSizeAllOOS(size) {
   const p = modalState.product;
   if (!p || isUnlimitedBuying(p) || !matrixIsConfigured(p)) return false;
@@ -887,9 +886,9 @@ function renderOOS() {
  *  on the product modal. Hidden when the admin hasn't filled in the
  *  matrix value for this cell (undefined → display nothing). Stays
  *  hidden too when the product is globally blocked (sold_out / closed)
- *  because the OOS pill already covers that case. Preorder products
- *  don't show any number — the whole point of preorder is unlimited
- *  buying before admin commits to a production run. */
+ *  because the OOS pill already covers that case. A preorder with an
+ *  EMPTY grid shows no number (unlimited, isUnlimitedBuying); one with
+ *  numbers counts down like stock (0209). */
 function renderStockLeftHint() {
   const host = document.getElementById('shopProductModalStockLeft');
   if (!host) return;
@@ -917,18 +916,14 @@ function renderStockLeftHint() {
  *  (the global stock_status / production_status pills handle the broader
  *  block). */
 function matrixIsConfigured(p) {
-  const m = p?.stock_matrix || {};
-  for (const v of Object.values(m)) {
-    if (typeof v === 'number' && Number.isFinite(v)) return true;
-  }
-  return false;
+  return hasStockNumbers(p);
 }
 
 function isVariantOOS() {
   const p = modalState.product;
   if (!p) return false;
-  // Preorder products bypass stock entirely — no variant ever blocks
-  // add-to-cart, no matter what the admin's internal numbers look like.
+  // A preorder with an EMPTY grid never blocks; one with numbers runs
+  // down like stock (0209).
   if (isUnlimitedBuying(p)) return false;
   const avail = availableForVariant(p, modalState.size, modalState.color);
   if (avail != null) return avail <= 0;

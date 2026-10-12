@@ -244,30 +244,46 @@ export function priceRange(p) {
   return { min: Math.min(...prices), max: Math.max(...prices) };
 }
 
-/** Preorder products are sold without a stock check — the admin
- *  hasn't manufactured them yet and is collecting indications of
- *  interest. matrixIsConfigured / global stock_status still apply
- *  in admin views, but for buyer-side gating (variant OOS, qty cap,
- *  add-to-cart block) we treat is_presale = true as unlimited. */
+/** Has the admin typed ANY number into this product's size × colour grid? */
+export function hasStockNumbers(p) {
+  return Object.values(p?.stock_matrix || {}).some((v) => typeof v === 'number' && Number.isFinite(v));
+}
+
+/** A preorder product with an EMPTY grid is sold without a limit — the admin
+ *  is collecting interest before choosing a run size. Since 0209 a preorder
+ *  WITH numbers runs down like stock (the shop team had already typed them:
+ *  polo-caffeine, 100 across 8 sizes, ignored until then). Every buyer-side
+ *  gate — variant sold out, qty cap, add-to-cart, the checkout pre-check —
+ *  asks this one function. What counts as taken comes from the server
+ *  (shop_reserved_matrix), never from a rule written here. */
 export function isUnlimitedBuying(p) {
-  return !!p?.is_presale;
+  return !!p?.is_presale && !hasStockNumbers(p);
+}
+
+/** Does this order item use up a slot of a PREORDER product's grid? Every
+ *  preorder item until its order is cancelled — delivered ones included,
+ *  because the grid is the size of the production run. JS twin of
+ *  shop_reserved_matrix's preorder branch (0209), for the admin's stock tab,
+ *  which counts from its own orders cache. */
+export function takesPreorderSlot(order, item) {
+  return !!item?.is_preorder && order?.status !== 'cancel';
 }
 
 /** Buyer-facing available qty for one (size, color) cell.
  *
  *  Math:  available = max(0, stock - reserved)
  *    stock     comes from `p.stock_matrix[key]` (what admin loaded)
- *    reserved  comes from `p.reserved_matrix[key]` (sum of qty in
- *              every active order, computed server-side by
- *              shop_reserved_matrix_all in migration 0030)
+ *    reserved  comes from `p.reserved_matrix[key]` — what is taken,
+ *              computed server-side by shop_reserved_matrix_all (one rule
+ *              for in-stock and preorder since 0209)
  *
  *  Returns:
  *    - null when admin hasn't configured a number for this cell —
  *      "untracked" stock, no display, no gate.
  *    - a non-negative integer otherwise. 0 = out, blocks add-to-cart.
  *
- *  Preorder products bypass this entirely (caller should check
- *  isUnlimitedBuying first). */
+ *  An unlimited product (a preorder with an empty grid) skips this —
+ *  callers check isUnlimitedBuying first. */
 export function availableForVariant(p, size, color) {
   if (!p) return null;
   const stockMatrix = p.stock_matrix || {};

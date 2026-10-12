@@ -1,9 +1,15 @@
-// The "reserved stock" rule lives in three SQL functions: the one that REFUSES
-// an order (place_shop_order) and the two the storefront reads to show what is
-// LEFT (shop_reserved_matrix, shop_reserved_matrix_all). 0038 taught all three
-// to ignore preorder items; 0040 rebuilt the display pair from an older copy
-// and lost it, so the storefront could call a size sold out that the server
-// would sell (0202). Nothing failed — only a number was wrong.
+// The "reserved stock" rule — what is TAKEN from a product's size × colour
+// grid — decides both what the storefront shows as LEFT and what the server
+// will SELL. It used to live in three SQL functions (place_shop_order inline,
+// shop_reserved_matrix, shop_reserved_matrix_all); 0040 rebuilt two of them
+// from an older copy and lost 0038's preorder filter, so the storefront could
+// call a size sold out that the server would sell (0202). Nothing failed —
+// only a number was wrong.
+//
+// 0209 gave the rule ONE home, shop_reserved_matrix, and taught it preorder:
+// a preorder product's grid is its run size, so every preorder item counts
+// until its order is cancelled. The other two ASK it. This file asserts that
+// shape — a copy creeping back is how the drift starts again.
 //
 // A migration history is the source of truth for a fresh database, so assert
 // the LATEST definition of each, not the one that first got it right.
@@ -35,25 +41,41 @@ function latestDefinition(name) {
 }
 
 const FUNCTIONS = ['place_shop_order', 'shop_reserved_matrix', 'shop_reserved_matrix_all'];
-const PREORDER_FILTER = /coalesce\(\s*oi\.is_preorder\s*,\s*false\s*\)\s*=\s*false/i;
-const STATUSES = /o\.status\s+in\s*\(([^)]*)\)/i;
+const ASKS_THE_HOME = /public\.shop_reserved_matrix\s*\(/i;
+const OWN_RULE = /\boi\.(is_preorder|item_status)\b|o\.status\s+in\s*\(/i;
 
-describe('reserved stock: one rule in three functions', () => {
+describe('reserved stock: one rule, one home', () => {
   const defs = Object.fromEntries(FUNCTIONS.map((n) => [n, latestDefinition(n)]));
+  const home = () => defs.shop_reserved_matrix.body;
 
   it('finds a definition of each (the control)', () => {
     for (const n of FUNCTIONS) expect(defs[n], n).not.toBeNull();
+    // the OWN_RULE pattern sees a rule where one is written
+    expect(OWN_RULE.test(home())).toBe(true);
   });
 
-  it('every latest definition leaves preorder items out of reserved stock', () => {
-    const missing = FUNCTIONS.filter((n) => !PREORDER_FILTER.test(defs[n].body))
-      .map((n) => `${n} (${defs[n].file})`);
-    expect(missing).toEqual([]);
+  it('the guard and the catalogue copy ASK the home, and carry no rule of their own', () => {
+    for (const n of ['place_shop_order', 'shop_reserved_matrix_all']) {
+      expect(ASKS_THE_HOME.test(defs[n].body), `${n} (${defs[n].file}) asks shop_reserved_matrix`).toBe(true);
+      expect(OWN_RULE.test(defs[n].body), `${n} (${defs[n].file}) has its own copy of the rule`).toBe(false);
+    }
   });
 
-  it('the display pair counts the same order statuses as each other', () => {
-    const set = (n) => defs[n].body.match(STATUSES)[1].replace(/\s+/g, '');
-    expect(set('shop_reserved_matrix')).toBe(set('shop_reserved_matrix_all'));
+  it('IN STOCK: preorder items are not stock, and a delivered item stops counting', () => {
+    expect(home()).toMatch(/coalesce\(\s*oi\.is_preorder\s*,\s*false\s*\)\s*=\s*false/i);
+    expect(home()).toMatch(/coalesce\(\s*oi\.item_status\s*,\s*'paid'\s*\)\s*<>\s*'done'/i);
+  });
+
+  it('PREORDER: preorder items count until the order is cancelled — delivered included', () => {
+    const branch = home().match(/when\s+coalesce\(\s*p\.is_presale[\s\S]*?else/i)?.[0] || '';
+    expect(branch).toMatch(/coalesce\(\s*oi\.is_preorder\s*,\s*false\s*\)\s*=\s*true/i);
+    expect(branch).toMatch(/o\.status\s+is\s+distinct\s+from\s+'cancel'/i);
+    expect(branch, 'a delivered preorder must keep its slot').not.toMatch(/item_status/i);
+  });
+
+  it('the guard checks the grid for preorder products too', () => {
+    // Before 0209 the stock check sat in the ELSE of `if v_item_is_preorder`.
+    expect(defs.place_shop_order.body).not.toMatch(/if\s+v_item_is_preorder\s+then[^;]*;\s*else/i);
   });
 });
 

@@ -154,10 +154,18 @@ describe('cartLineProblems — the server\'s refusals, asked before the buyer pa
     const p = cartLineProblems([line({ qty: 1, fit: 'a' }), line({ qty: 2, fit: 'b' })], { t: tee });
     expect(p.get(1)).toBe('เหลือเพียง 2 ชิ้น');
   });
-  it('treats sold_out / hidden as closed, and preorder as unlimited', () => {
+  it('treats sold_out / hidden as closed', () => {
     expect(cartLineProblems([line()], { t: { ...tee, stock_status: 'sold_out' } }).get(0)).toBe('สินค้านี้ปิดขายแล้ว');
     expect(cartLineProblems([line()], { t: { ...tee, is_active: false } }).get(0)).toBe('สินค้านี้ปิดขายแล้ว');
-    expect(cartLineProblems([line({ qty: 50 })], { t: { ...tee, is_presale: true } }).size).toBe(0);
+  });
+  // REPORTED 2026-10-12: the shop team typed preorder numbers (polo-caffeine,
+  // 100 across 8 sizes) and wanted them to run down like stock (0209).
+  it('a preorder with an EMPTY grid is unlimited; one with numbers runs down', () => {
+    const open = { ...tee, is_presale: true, stock_matrix: {}, reserved_matrix: {} };
+    expect(cartLineProblems([line({ qty: 50 })], { t: open }).size).toBe(0);
+    const limited = { ...tee, is_presale: true };              // 3 in the grid, 1 taken
+    expect(cartLineProblems([line({ qty: 2 })], { t: limited }).size).toBe(0);
+    expect(cartLineProblems([line({ qty: 3 })], { t: limited }).get(0)).toBe('เหลือเพียง 2 ชิ้น');
   });
   it('a colourless product takes no colour', () => {
     const plain = { ...tee, colors: [], stock_matrix: {} };
@@ -275,5 +283,27 @@ describe('picture cache — the page and nginx agree', () => {
       }
       expect(pictureAt('https://example.com/a.png', 600)).toBe('https://example.com/a.png');
     } finally { vi.unstubAllGlobals(); }
+  });
+});
+
+import { isUnlimitedBuying, hasStockNumbers, takesPreorderSlot } from './data.js';
+describe('preorder limit (0209)', () => {
+  it('only a preorder with no number anywhere in its grid is unlimited', () => {
+    expect(isUnlimitedBuying({ is_presale: true, stock_matrix: {} })).toBe(true);
+    expect(isUnlimitedBuying({ is_presale: true })).toBe(true);
+    expect(isUnlimitedBuying({ is_presale: true, stock_matrix: { 'M-default': 0 } })).toBe(false);
+    expect(isUnlimitedBuying({ is_presale: false, stock_matrix: {} })).toBe(false);
+  });
+  it('a blank cell is not a number', () => {
+    expect(hasStockNumbers({ stock_matrix: { 'M-default': null } })).toBe(false);
+    expect(hasStockNumbers({ stock_matrix: { 'M-default': 4 } })).toBe(true);
+  });
+  it('a preorder slot is taken until the order is CANCELLED — delivery keeps it', () => {
+    const pre = { is_preorder: true, item_status: 'done' };
+    expect(takesPreorderSlot({ status: 'done' }, pre)).toBe(true);
+    expect(takesPreorderSlot({ status: 'paid' }, { is_preorder: true, item_status: 'paid' })).toBe(true);
+    expect(takesPreorderSlot({ status: 'pending' }, pre)).toBe(true);
+    expect(takesPreorderSlot({ status: 'cancel' }, pre)).toBe(false);
+    expect(takesPreorderSlot({ status: 'paid' }, { is_preorder: false })).toBe(false);
   });
 });

@@ -88,8 +88,8 @@ function render() {
   foot.classList.remove('d-none');
 
   // The most of one line a buyer can ask for: what is left of that size and
-  // colour (the popup's own rule), or the cart's 99 for a preorder / untracked
-  // product. Checkout still re-checks against the live reservation count; this
+  // colour (the popup's own rule), or the cart's 99 for an unlimited preorder
+  // (empty grid) / untracked product. Checkout still re-checks against the live reservation count; this
   // only stops the drawer's + from promising what is not there.
   const maxFor = (p, it) => {
     if (!p || isUnlimitedBuying(p)) return 99;
