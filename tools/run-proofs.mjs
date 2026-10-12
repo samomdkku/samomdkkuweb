@@ -68,6 +68,7 @@ const PROOFS = [
   ['dept0179-kinds.sql', 'each ฝ่าย content kind carries the body it renders'],
   ['proj0181-prof-upload.sql', 'an อาจารย์ saves a signed file on a หนังสือ that is NOT published'],
   ['passport0182-continents-lockdown.sql', 'the anon key reads the passport theming and cannot change it'],
+  ['passport0214-lockdown-committed.sql', 'the passport write lockdown is actually COMMITTED, not merely provable in a rolled-back txn'],
   ['authz0182-insert-returning-seam.sql', 'an INSERT that asks for the row back can read what it wrote'],
   ['team0183-discord-mapping.sql', 'a Discord identity is not shareable and two same-named ตำแหน่ง cannot claim one role'],
   ['team0184-discord-targets.sql', 'which Discord roles a person is DUE — own ตำแหน่ง plus every ticked ฝ่าย above it'],

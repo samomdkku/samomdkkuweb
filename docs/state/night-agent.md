@@ -133,3 +133,33 @@ hash-persistent would be the inconsistent choice.
 See the migration's own header comment for the rest of the design, and
 `current_user_project_seats()` (0111) for the master→vpa fold this predicate
 depends on.
+
+---
+
+## 2026-10-13 — Task 3: deep DB security review
+
+⛔ **Full write-up is PRIVATE, not here**: `~/samo-night/reports/2026-10-13-security-db.md`
+(outside the repo, per `both-repos-are-public.md` / `docs-are-published.md` —
+this file is under `docs/`, which is served at `/docs`, so a still-open
+finding's detail does not belong here). Read that report, not this entry, for
+what was actually found.
+
+One-line summary of what happened, safe to say here: read every RLS policy /
+SECURITY DEFINER function / GRANT / trigger in `supabase/migrations/` (through
+this branch's 0214) plus `passport/db/*.sql`, cross-checked against
+`docs/mistakes/authz-rls.md` + `authz-grants.md` in full so nothing
+already-fixed got re-reported. Wrote migration 0214 (not applied) and
+`tools/passport0214-lockdown-committed.sql` (registered in `run-proofs.mjs`,
+now 60 live proofs) addressing the one finding that needed a fix; `STATE.md`
+updated to match. **Before applying 0214 or anything else on this branch,
+run `node tools/pass-anon-probe.mjs` against production first** — the private
+report says why, and the answer changes how urgently the rest of the review
+should be treated.
+
+Three already-known, already-documented, low-severity open items were
+reconfirmed still open on the latest migration state and intentionally not
+touched (one is the owner's call per existing guidance, two are real features
+rather than lockdown gaps) — named in the private report, not here.
+Everything else checked (this branch's own 0211–0213, every `create table`
+has matching RLS, no permanently-disabled trigger, a handful of previously-
+unreviewed migrations) came back clean.
