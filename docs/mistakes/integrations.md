@@ -1433,3 +1433,69 @@ range-delete and owner guards mutation-checked.
 retry to fail too, and must be withdrawn* — and "once per process" is not
 "once" on a service every deploy restarts. Keep the `cause` of a network
 error; "fetch failed" alone cannot be diagnosed after the fact.
+
+---
+
+## "тест / сообщение 1…10" in vs-ดิจิทัล — webhook URLs and the service_role key were readable in the public repo's history
+
+**Symptom**: "тест / сообщение 1…10" posted to vs-ดิจิทัล by "VitalSound Hook".
+Nobody in SAMO sent it.
+
+**Cause**: commit 972229c (2026-05-21) put 12 real Discord webhook URLs into
+`appscript/*.gs`. The code was removed on 2026-06-05, but the repo is public
+and git history keeps every old version. Bots scan GitHub for Discord webhook
+URLs, test them, and later use the working ones for spam. The `service_role`
+Supabase key was also leaked the same way (commit e0a6e4e3, a file named
+`env.local` without the leading dot, bypassing `.gitignore`).
+
+**Fix** (2026-09-25):
+1. Supabase: generated new `sb_publishable_` / `sb_secret_` keys, disabled
+   legacy JWT keys, revoked the old HS256 signing secret. The old key returns
+   401.
+2. Discord: created 13 new webhooks (`samoweb`) via the bot on the VM, deleted
+   all 13 old ones. The old ดิจิทัล webhook returns 404.
+3. `.claude/rules/security.md` rule 5 and the key rows updated (34fcc96).
+4. `env.local` added to `.gitignore`.
+
+**Where it lives now**: `security.md` rule 5 (webhooks), rows for
+`VITE_SUPABASE_ANON_KEY` and `service_role` (keys). The guard is
+`src/js/no-secrets-in-git.test.js` (every tracked env-shaped file is an
+`.example`; no tracked file holds a JWT, `sb_secret_`, PAT, webhook URL or
+hosted DB URL — each pattern with a control). Mutation-checked: a tracked
+`env.local` holding a JWT turns exactly two assertions red.
+⚠️ A plain clone does NOT see what leaked here: the key sat on no branch, only
+under GitHub's `refs/pull/8` and `refs/pull/9`. A history scan must fetch
+`--mirror`.
+
+**The general rule**: *rewriting git history does not help once the repo is
+public — anyone has already cloned it. Replace the credential, not the commit.*
+A file named `env.local` (no dot) bypasses `.gitignore`'s `.env.local` pattern;
+assert the PROPERTY (`git ls-files` contains no file matching a secret shape).
+
+---
+
+## "no webhook configured" after the webhook rotation — a shell rewrite ate the JSON's quotes
+
+**Symptom**: VS notifications stopped after the webhook rotation. The log said
+`[notify] no webhook configured for action "notifyVSOnly" (dept="SE")`.
+
+**Cause**: the bash script that updated `/etc/samo-notify.env` used shell
+variable expansion (`echo "$VAR"`) inside a heredoc, which stripped the double
+quotes from JSON keys. The value became `{SE:https://...}` instead of
+`{"SE":"https://..."}`, so `JSON.parse()` returned `{}` and every department
+fell through to "not configured".
+
+**Fix**: rewrote the env file using a Python script that writes JSON directly
+with `json.dumps()`, no shell interpolation. Restarted `samo-notify`. Verified
+by inspecting `/proc/<pid>/environ` — the process sees valid JSON with 12 keys.
+
+**Where it lives now**: `parseVsWebhooks()` in `functions/_discord.js` returned
+`{}` on bad JSON WITHOUT A WORD, so the only log line named the wrong cause.
+It now logs `DISCORD_VS_WEBHOOKS is not valid JSON (<length>, error at <pos>)`
+— never `e.message`, because V8 quotes a slice of the input, i.e. of a token.
+Test in `functions/notify.test.js`, mutation-checked (printing the value turns
+it red). A tolerant parser must still SAY it fell back.
+
+**The general rule**: *never pass structured data through shell expansion —
+double quotes in a JSON string are indistinguishable from shell quoting. Write
+it with a tool that knows JSON (Python, Node, jq), not echo/sed/heredoc.*

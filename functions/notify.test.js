@@ -128,8 +128,25 @@ describe('buildProjectPayload', () => {
 
 describe('parseVsWebhooks / resolveTarget', () => {
   it('tolerates malformed JSON (returns {})', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(parseVsWebhooks({ DISCORD_VS_WEBHOOKS: '{bad' })).toEqual({});
     expect(parseVsWebhooks({})).toEqual({});
+    err.mockRestore();
+  });
+
+  // REPORTED 2026-09-26: after the webhook rotation, VS notices stopped and the
+  // log said only "no webhook configured" — the env value had lost its JSON
+  // quotes. The parse failure must be named, and must never print the URLs.
+  it('says the map is unreadable, without printing a webhook URL', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // valid up to the token, so V8's message would quote it
+    parseVsWebhooks({ DISCORD_VS_WEBHOOKS: '{"SE":"https://discord.com/api/webhooks/1/tok" x}' });
+    expect(err).toHaveBeenCalledTimes(1);
+    const line = err.mock.calls[0].join(' ');
+    expect(line).toContain('DISCORD_VS_WEBHOOKS is not valid JSON');
+    expect(line).not.toContain('discord.com');
+    expect(line).not.toContain('tok');
+    err.mockRestore();
   });
 
   it('routes each action to the right webhook', () => {

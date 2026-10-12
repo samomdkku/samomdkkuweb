@@ -279,7 +279,7 @@ Open when: URL state, per-user "seen", import/export.
 - Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
 - A student's ชื่อเล่น could run as a formula in an admin's spreadsheet
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(33)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -316,6 +316,8 @@ Open when: notify, GAS handlers, Drive URLs.
 - Every Discord role write would have thrown before it was sent
 - Provisioning created a duplicate Discord role beside one that held 5 channels
 - "Discord sync — error — retrying in 10s: fetch failed" — one network blip posted as an outage, and three quieter defect…
+- "тест / сообщение 1…10" in vs-ดิจิทัล
+- "no webhook configured" after the webhook rotation
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(26)*
 
@@ -464,4 +466,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 
-_402 entries across 10 files._
+_404 entries across 10 files._

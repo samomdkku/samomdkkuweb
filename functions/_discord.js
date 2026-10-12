@@ -162,10 +162,23 @@ export function buildProjectPayload(data = {}) {
   };
 }
 
-/** Parse the VS dept→webhook JSON map from env (tolerant of bad JSON). */
+/**
+ * Parse the VS dept→webhook JSON map from env (tolerant of bad JSON).
+ *
+ * Tolerant, but NOT silent: on 2026-09-26 a shell rewrite of the env file ate
+ * the JSON's double quotes, this returned {}, and every VS ticket logged only
+ * "no webhook configured" — which named the wrong cause. Say the map is
+ * unreadable, with its LENGTH only: the value is the webhook URLs themselves.
+ */
 export function parseVsWebhooks(env = {}) {
-  try { return JSON.parse(env.DISCORD_VS_WEBHOOKS || '{}'); }
-  catch { return {}; }
+  const raw = env.DISCORD_VS_WEBHOOKS || '{}';
+  try { return JSON.parse(raw); }
+  catch (e) {
+    // Never e.message: V8 quotes a slice of the input, i.e. of a token.
+    const at = /position (\d+)/.exec(e.message)?.[1] ?? '?';
+    console.error(`[notify] DISCORD_VS_WEBHOOKS is not valid JSON (${raw.length} chars, error at ${at}) — every VS notice will say "no webhook configured"`);
+    return {};
+  }
 }
 
 /**

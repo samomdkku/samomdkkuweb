@@ -22,6 +22,9 @@ externaldata/
 # Environment files — secrets live here
 .env
 .env.local
+# no leading dot: a service_role key was once committed as `env.local`
+# (no-secrets-in-git.test.js asserts the property).
+env.local
 # `npm run setup` copies .env.local here before changing it. On a
 # maintainer's machine that copy holds PRODUCTION credentials and the VM sudo
 # password. Named exactly, not as `.env.local.*`, because that wildcard would
