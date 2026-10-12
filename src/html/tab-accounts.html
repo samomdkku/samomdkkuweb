@@ -66,25 +66,23 @@
         <i class="bi bi-download" aria-hidden="true"></i> CSV
       </button>
     </div>
+    <div class="acct-filter-bar" id="acctFilterBar"></div>
     <div class="acct-filters" id="acctFilters"></div>
     <div class="acct-count small text-muted" id="acctCount"></div>
     <div class="acct-table-wrap">
       <table class="table table-sm acct-table mb-0">
         <thead>
           <tr>
-            <th scope="col">บัญชี</th>
-            <th scope="col">เข้าด้วย</th>
+            <th scope="col" data-sort-col="name" title="กดเพื่อเรียงตามชื่อ">บัญชี</th>
+            <th scope="col" data-sort-col="method" title="กดเพื่อเรียงตามวิธีเข้าสู่ระบบ">เข้าด้วย</th>
             <th scope="col" class="d-none d-md-table-cell">ระบบ</th>
-            <th scope="col" class="d-none d-lg-table-cell">สมัคร</th>
-            <th scope="col">เข้าล่าสุด</th>
-            <th scope="col" class="text-end">ปัญหา</th>
+            <th scope="col" class="d-none d-lg-table-cell" data-sort-col="created" title="กดเพื่อเรียงตามวันสมัคร">สมัคร</th>
+            <th scope="col" data-sort-col="signin" title="กดเพื่อเรียงตามการเข้าล่าสุด">เข้าล่าสุด</th>
+            <th scope="col" class="text-end" data-sort-col="issues" title="กดเพื่อเรียงตามปัญหา">ปัญหา</th>
           </tr>
         </thead>
         <tbody id="acctRows"></tbody>
       </table>
-    </div>
-    <div class="text-center mt-2">
-      <button type="button" class="btn btn-outline-secondary btn-sm" id="acctMore" hidden>แสดงเพิ่ม</button>
     </div>
   </section>
 

@@ -118,6 +118,8 @@ try {
     rows: document.querySelectorAll('#acctRows tr[data-open]').length,
     count: document.getElementById('acctCount').textContent,
     msg: document.getElementById('acctMsg').textContent,
+    more: !!document.getElementById('acctMore'),
+    selects: document.querySelectorAll('#acctFilterBar select').length,
     cssLive: getComputedStyle(document.querySelector('.acct-card')).borderRadius,
   });`));
   say('sidebar entry visible to a master', page.side, page.side);
@@ -128,7 +130,7 @@ try {
   say('tiles · stacked segments · system rows · columns · roster · feed · checks',
     [page.tiles, page.segs, page.sysRows, page.cols, page.roster, page.feed, page.checks].join(' · '),
     page.tiles >= 6 && page.segs >= 2 && page.sysRows === 6 && page.cols > 6 && page.roster > 0 && page.feed > 0 && page.checks > 10);
-  say('rows painted (first page)', `${page.rows} · ${page.count}`, page.rows > 0 && page.rows <= 50);
+  say('EVERY account painted, no paging', `${page.rows} rows · ${page.count}`, page.rows === dbCount && !page.more);
   say('live strip', `${page.live} [${page.dot}]`, /is-live/.test(page.dot));
   await shot('desktop.png');
 
@@ -139,6 +141,20 @@ try {
     document.querySelector('#acctFilters .acct-chip').click(); await new Promise(r=>setTimeout(r,200));
     return JSON.stringify({ a, chips, b: document.getElementById('acctCount').textContent });`));
   say('a legend click filters the list, its chip clears it', `${filt.a} → ${filt.b}`, filt.chips === 1 && filt.a !== filt.b);
+
+  // dropdown filters + header sort
+  const fs = JSON.parse(await ev(`const sel = document.querySelector('[data-filter-select="signin"]');
+    sel.value = 'password'; sel.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r=>setTimeout(r,200));
+    const rowsPw = document.querySelectorAll('#acctRows tr[data-open]').length, chip = document.querySelectorAll('#acctFilters .acct-chip').length;
+    sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r=>setTimeout(r,200));
+    const th = document.querySelector('th[data-sort-col="created"]'); th.click(); await new Promise(r=>setTimeout(r,200));
+    const s1 = th.getAttribute('aria-sort'); th.click(); await new Promise(r=>setTimeout(r,200));
+    return JSON.stringify({ rowsPw, chip, s1, s2: th.getAttribute('aria-sort'), sort: document.getElementById('acctSort').value,
+      back: document.querySelectorAll('#acctRows tr[data-open]').length });`));
+  say('filter dropdowns rendered', page.selects, page.selects >= 7);
+  say('a dropdown filters and shows its chip', `${fs.rowsPw} rows · ${fs.chip} chip`, fs.rowsPw > 0 && fs.rowsPw < dbCount && fs.chip === 1);
+  say('a header click sorts, a second flips it', `${fs.s1} → ${fs.s2} (${fs.sort})`, fs.s1 === 'descending' && fs.s2 === 'ascending' && fs.sort === 'created_asc');
+  say('clearing the filter brings every row back', fs.back, fs.back === dbCount);
 
   // 3. LIVE — change the database, touch nothing on the page
   await sql(`update auth.users set last_sign_in_at = now() where id = ${lit(uid)};`);

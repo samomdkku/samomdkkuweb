@@ -64,6 +64,12 @@ export const RECENCY = [
 ];
 
 const DAY = 86400000;
+export const JOINED = [
+  { key: 'd1', label: '24 ชม.', days: 1 },
+  { key: 'd7', label: '7 วัน', days: 7 },
+  { key: 'd30', label: '30 วัน', days: 30 },
+  { key: 'd90', label: '90 วัน', days: 90 },
+];
 const KNOWN_PERMS = new Set(PERM_CATALOG.map((p) => p.key));
 /** `team` is held implicitly by everyone posted in the tree (0110), so it is
  *  not evidence of back-office power by itself. */
@@ -321,40 +327,145 @@ export function haystack(a) {
     .filter(Boolean).join(' ').toLowerCase();
 }
 
+/** The name a row is sorted and shown by: the registry's, else the account's. */
+export function displayName(a) {
+  return a.p?.n || a.n || a.u || String(a.e || '').split('@')[0] || '';
+}
+
+/** The รุ่น year of the row's registry person, or null. Its LABEL ("MD54") is
+ *  study-year.js's cohortLabel, handed in through ctx — one implementation. */
+const cohortOf = (a) => (a.p?.co ? Number(a.p.co) : null);
+
 /**
- * filters: { q, signin, domain, system, recency, check } — each optional.
- * `check` is a check id; `issues` is issuesById(...) for it.
+ * THE FILTERS — one entry per dropdown above the list. Adding a filter is one
+ * entry here; the page renders the dropdown, the chip and the reset from it.
+ *   options(ctx) → [{ value, label }]   ctx = { accounts, checks, cohortLabel }
+ *   test(a, value, ctx) → boolean
+ * A value starting with '!' on `system` means "NOT in that system".
+ */
+export const FILTERS = [
+  { key: 'signin', label: 'เข้าด้วย',
+    options: () => SIGNIN.map((s) => ({ value: s.key, label: s.label })),
+    test: (a, v) => signinOf(a) === v },
+  { key: 'domain', label: 'อีเมล',
+    options: () => DOMAINS.map((d) => ({ value: d.key, label: d.label })),
+    test: (a, v) => domainOf(a.e) === v },
+  { key: 'system', label: 'ระบบ',
+    options: () => SYSTEMS.flatMap((s) => [
+      { value: s.key, label: `อยู่ใน ${s.label}` },
+      { value: `!${s.key}`, label: `ไม่อยู่ใน ${s.label}` },
+    ]),
+    test: (a, v) => (v.startsWith('!') ? !systemsOf(a)[v.slice(1)] : !!systemsOf(a)[v]) },
+  { key: 'recency', label: 'เข้าล่าสุด',
+    options: () => RECENCY.map((r) => ({ value: r.key, label: r.key === 'never' ? r.label : `ภายใน ${r.label}` })),
+    test: (a, v, ctx) => recencyOf(a, ctx.nowMs) === v },
+  // Cumulative on purpose (unlike เข้าล่าสุด's buckets): "สมัครใหม่ 30 วัน" on
+  // the tile counts EVERY account made in the last 30 days, and this filter is
+  // what that tile opens — the list must hold exactly the number it showed.
+  { key: 'joined', label: 'สมัครภายใน',
+    options: () => JOINED.map((j) => ({ value: j.key, label: j.label })),
+    test: (a, v, ctx) => {
+      const days = JOINED.find((j) => j.key === v)?.days;
+      return days != null && (ctx.nowMs - Date.parse(a.c)) / DAY <= days;
+    } },
+  { key: 'cohort', label: 'รุ่น',
+    options: (ctx) => {
+      const years = [...new Set((ctx.accounts || []).map(cohortOf).filter(Boolean))].sort((x, y) => x - y);
+      return [...years.map((y) => ({ value: String(y), label: ctx.cohortLabel?.(y) || String(y) })),
+        { value: 'none', label: 'ไม่อยู่ในทะเบียน' }];
+    },
+    test: (a, v) => (v === 'none' ? !cohortOf(a) : String(cohortOf(a)) === v) },
+  { key: 'grant', label: 'สิทธิ์',
+    options: () => [
+      { value: 'master', label: 'มี Master' },
+      { value: 'any', label: 'มีสิทธิ์หลังบ้าน' },
+      { value: 'manual', label: 'สิทธิ์ที่ไม่ได้มาจากทีม SAMO' },
+      { value: 'none', label: 'ไม่มีสิทธิ์หลังบ้าน' },
+    ],
+    test: (a, v) => {
+      const s = systemsOf(a);
+      if (v === 'master') return s.master;
+      if (v === 'any') return s.grants;
+      if (v === 'manual') return Array.isArray(a.pm) && a.pm.length > 0;
+      return !s.grants;
+    } },
+  { key: 'check', label: 'ปัญหา',
+    options: (ctx) => [
+      { value: '*', label: 'มีปัญหาอย่างน้อยหนึ่งข้อ' },
+      ...(ctx.checks || []).filter((c) => c.ids && c.count > 0)
+        .map((c) => ({ value: c.id, label: `${c.title} (${c.count})` })),
+    ],
+    test: (a, v, ctx) => (v === '*'
+      ? (ctx.checks || []).some((c) => c.ids && c.sev !== 'expected' && c.ids.includes(a.id))
+      : !!ctx.hit?.has(a.id)) },
+];
+
+/**
+ * filters: { q, <FILTERS key>: value } — every one optional, combined with AND.
  */
 export function filterAccounts(accounts, f, checks, nowMs) {
   const q = String(f.q || '').trim().toLowerCase();
-  const hit = f.check ? new Set(checks.find((c) => c.id === f.check)?.ids || []) : null;
+  const hit = f.check && f.check !== '*' ? new Set(checks.find((c) => c.id === f.check)?.ids || []) : null;
+  const ctx = { checks, nowMs, hit };
+  const active = FILTERS.filter((d) => f[d.key]);
   return accounts.filter((a) => {
-    if (f.signin && signinOf(a) !== f.signin) return false;
-    if (f.domain && domainOf(a.e) !== f.domain) return false;
-    if (f.system && !systemsOf(a)[f.system]) return false;
-    if (f.recency && recencyOf(a, nowMs) !== f.recency) return false;
-    if (hit && !hit.has(a.id)) return false;
+    for (const d of active) if (!d.test(a, f[d.key], ctx)) return false;
     if (q && !haystack(a).includes(q)) return false;
     return true;
   });
 }
 
+const issueWeight = (issues) => (a) => {
+  const mine = issues.get(a.id) || [];
+  return mine.filter((c) => c.sev === 'bug').length * 1e6
+    + mine.filter((c) => c.sev === 'review').length * 1e3 + mine.length;
+};
+const rank = (list) => (k) => { const i = list.findIndex((x) => x.key === k); return i < 0 ? list.length : i; };
+
+/**
+ * THE SORT ORDERS. `key(a, issues)` returns a number or a string; `missing`
+ * says where a row with NO value goes (a never-signed-in account has no
+ * "last sign-in") — 'last' keeps blanks at the bottom whichever way it runs.
+ * Ties fall back to the name, then the id, so the order is stable.
+ */
 export const SORTS = {
-  signin:  { label: 'เข้าใช้ล่าสุด', key: (a) => (a.s ? Date.parse(a.s) : -Infinity), desc: true },
-  created: { label: 'สมัครล่าสุด',  key: (a) => Date.parse(a.c) || 0, desc: true },
-  name:    { label: 'ชื่อ',         key: (a) => nameKey(a.p?.n || a.n || a.e), desc: false },
-  issues:  { label: 'ปัญหามากสุด',   key: null, desc: true },
+  signin_desc:  { label: 'เข้าล่าสุด: ใหม่ → เก่า', key: (a) => (a.s ? Date.parse(a.s) : null), desc: true },
+  signin_asc:   { label: 'เข้าล่าสุด: เก่า → ใหม่ (ไม่เคยเข้าอยู่ท้าย)', key: (a) => (a.s ? Date.parse(a.s) : null), desc: false },
+  created_desc: { label: 'สมัคร: ใหม่ → เก่า', key: (a) => Date.parse(a.c) || null, desc: true },
+  created_asc:  { label: 'สมัคร: เก่า → ใหม่', key: (a) => Date.parse(a.c) || null, desc: false },
+  name_asc:     { label: 'ชื่อ: ก → ฮ, A → Z', key: (a) => displayName(a).toLowerCase() || null, desc: false },
+  name_desc:    { label: 'ชื่อ: ฮ → ก, Z → A', key: (a) => displayName(a).toLowerCase() || null, desc: true },
+  method:       { label: 'วิธีเข้าสู่ระบบ (Google → รหัสผ่าน)', key: (a) => rank(SIGNIN)(signinOf(a)), desc: false },
+  domain:       { label: 'อีเมล (kkumail → อื่น ๆ)', key: (a) => rank(DOMAINS)(domainOf(a.e)), desc: false },
+  cohort_asc:   { label: 'รุ่น: เก่า → ใหม่', key: (a) => cohortOf(a), desc: false },
+  cohort_desc:  { label: 'รุ่น: ใหม่ → เก่า', key: (a) => cohortOf(a), desc: true },
+  km_desc:      { label: 'Passport: กม. มาก → น้อย', key: (a) => (a.pp ? Number(a.pp.km) || 0 : null), desc: true },
+  systems_desc: { label: 'อยู่หลายระบบก่อน', key: (a) => Object.entries(systemsOf(a)).filter(([k, v]) => v && k !== 'master').length, desc: true },
+  grants_desc:  { label: 'สิทธิ์มากก่อน (Master ก่อน)', key: (a) => (systemsOf(a).master ? 1000 : 0) + grantsOf(a).length, desc: true },
+  issues:       { label: 'ปัญหามากสุด', key: null, desc: true },
+};
+export const DEFAULT_SORT = 'signin_desc';
+
+/** Column header → the two sorts a click toggles between. */
+export const HEADER_SORTS = {
+  name: ['name_asc', 'name_desc'],
+  method: ['method', 'method'],
+  created: ['created_desc', 'created_asc'],
+  signin: ['signin_desc', 'signin_asc'],
+  issues: ['issues', 'issues'],
 };
 
 export function sortAccounts(list, sortKey, issues) {
-  const s = SORTS[sortKey] || SORTS.signin;
-  const key = s.key || ((a) => (issues.get(a.id) || []).filter((c) => c.sev !== 'info').length * 1000
-    + (issues.get(a.id) || []).length);
+  const s = SORTS[sortKey] || SORTS[DEFAULT_SORT];
+  const key = s.key || issueWeight(issues);
   const dir = s.desc ? -1 : 1;
-  return [...list].sort((x, y) => {
-    const kx = key(x), ky = key(y);
-    if (kx < ky) return -dir;
-    if (kx > ky) return dir;
-    return String(x.id).localeCompare(String(y.id));
+  const cmp = (x, y) => (typeof x === 'string' ? x.localeCompare(y, 'th') : x - y);
+  const keyed = list.map((a) => ({ a, k: key(a), n: displayName(a).toLowerCase() }));
+  keyed.sort((x, y) => {
+    const xm = x.k == null || Number.isNaN(x.k), ym = y.k == null || Number.isNaN(y.k);
+    if (xm !== ym) return xm ? 1 : -1;            // a blank goes LAST, either direction
+    if (!xm) { const c = cmp(x.k, y.k); if (c) return c * dir; }
+    return x.n.localeCompare(y.n, 'th') || String(x.a.id).localeCompare(String(y.a.id));
   });
+  return keyed.map((x) => x.a);
 }

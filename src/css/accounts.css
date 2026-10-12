@@ -129,6 +129,15 @@ div.acct-hrow:hover { background: none; }
 .acct-search i { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); color: var(--acct-ink-2); font-size: .8rem; }
 .acct-search input { padding-left: 1.8rem; }
 .acct-sort { width: auto; }
+.acct-filter-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: .5rem; margin-bottom: .6rem; }
+.acct-fsel { display: grid; gap: .15rem; font-size: .75rem; color: var(--acct-ink-2); min-width: 0; }
+.acct-fsel select { min-width: 0; }
+.acct-table th[data-sort-col] { cursor: pointer; user-select: none; }
+.acct-table th[data-sort-col]:hover { color: var(--acct-ink); }
+.acct-table th[data-sort-col]::after { content: ''; display: inline-block; margin-left: .25rem; }
+.acct-table th.is-sorted { color: var(--acct-mag); }
+.acct-table th[aria-sort="ascending"]::after { content: '▲'; font-size: .6rem; }
+.acct-table th[aria-sort="descending"]::after { content: '▼'; font-size: .6rem; }
 .acct-filters { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .4rem; }
 .acct-filters:empty { display: none; }
 .acct-chip { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid rgba(16, 89, 34, .3); background: var(--acct-mag-soft);

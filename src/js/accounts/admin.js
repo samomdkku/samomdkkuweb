@@ -24,24 +24,16 @@ import { ago } from '../discord-bot-admin.js';
 import { PERM_LABEL } from '../team-vocab.js';
 import { cohortLabel, studyYearLabel } from '../study-year.js';
 import {
-  SIGNIN, DOMAINS, SYSTEMS, RECENCY, SEVERITY, SORTS,
-  signinOf, domainOf, systemsOf, grantsOf, recencyOf, summarize, runChecks,
-  issuesById, activity, filterAccounts, sortAccounts,
+  SIGNIN, DOMAINS, SYSTEMS, RECENCY, SEVERITY, SORTS, FILTERS, HEADER_SORTS, DEFAULT_SORT,
+  signinOf, domainOf, systemsOf, grantsOf, summarize, runChecks,
+  issuesById, activity, filterAccounts, sortAccounts, displayName,
 } from './checks.js';
 
 const POLL_MS = 15000;
-const PAGE = 50;
 const SLOT = ['var(--acct-c1)', 'var(--acct-c2)', 'var(--acct-c3)', 'var(--acct-c4)', 'var(--acct-c5)'];
 /** Fixed colour per entity, never per rank (a filter must not repaint). */
 const SIGNIN_COLOR = { google: SLOT[0], both: SLOT[2], password: SLOT[1], none: 'var(--acct-bug)' };
 const DOMAIN_COLOR = { kkumail: SLOT[0], kku: SLOT[2], gmail: SLOT[1], synthetic: SLOT[3], other: SLOT[4] };
-const FILTER_LABEL = {
-  signin: (v) => SIGNIN.find((x) => x.key === v)?.label,
-  domain: (v) => DOMAINS.find((x) => x.key === v)?.label,
-  system: (v) => SYSTEMS.find((x) => x.key === v)?.label,
-  recency: (v) => (v === 'never' ? 'ไม่เคยเข้า' : `เข้าล่าสุด: ${RECENCY.find((x) => x.key === v)?.label}`),
-  check: (v) => checks.find((c) => c.id === v)?.title,
-};
 
 const $ = (id) => document.getElementById(id);
 let data = null;
@@ -50,8 +42,7 @@ let checks = [];
 let issues = new Map();
 let byId = new Map();
 let filters = {};
-let sortKey = 'signin';
-let shown = PAGE;
+let sortKey = DEFAULT_SORT;
 let pulseV = null;
 let checkedAt = 0;
 let fresh = new Set();
@@ -83,7 +74,7 @@ function say(text, tone = 'muted') {
 
 /** Who a row is, for a human: the registry name, else the account's own. */
 function whoName(a) {
-  return a.p?.n || a.n || a.u || (a.e || '').split('@')[0] || 'ไม่มีชื่อ';
+  return displayName(a) || 'ไม่มีชื่อ';
 }
 function whoSub(a) {
   const synthetic = domainOf(a.e) === 'synthetic';
@@ -173,6 +164,7 @@ function paintAll() {
   paintRoster();
   paintFeed();
   paintChecks();
+  paintFilterBar();
   paintList();
 }
 
@@ -190,7 +182,7 @@ function paintKpis() {
     tile(sum.active1, 'เข้าใช้ใน 24 ชม.', { filter: { recency: 'd1' } }),
     tile(sum.active7, 'เข้าใช้ใน 7 วัน'),
     tile(sum.active30, 'เข้าใช้ใน 30 วัน'),
-    tile(sum.new30, 'สมัครใหม่ 30 วัน', { filter: { sort: 'created' } }),
+    tile(sum.new30, 'สมัครใหม่ 30 วัน', { filter: { joined: 'd30', sort: 'created_desc' } }),
     tile(bugs, bugs ? 'จุดผิดพลาดที่ต้องแก้' : 'ไม่พบจุดผิดพลาด', { cls: bugs ? 'is-bug' : 'is-clean' }),
     tile(review, 'รายการควรตรวจ'),
   ].join('');
@@ -352,19 +344,58 @@ function currentList() {
   return sortAccounts(list, sortKey, issues);
 }
 
+/** What every dropdown offers, from FILTERS — rebuilt per read, since some
+ *  options (รุ่น, the checks that currently have hits) come from the data. */
+function filterCtx() {
+  return { accounts: data.accounts || [], checks, cohortLabel: cohortName };
+}
+function optionLabel(def, value) {
+  return def.options(filterCtx()).find((o) => o.value === value)?.label || value;
+}
+
+let filterBarSig = '';
+function paintFilterBar() {
+  const ctx = filterCtx();
+  // A live reload lands whenever anyone signs in. Rebuilding the dropdowns
+  // every time would snap shut one an admin has open, so only when the
+  // OPTIONS changed (paintList re-syncs the selected values either way).
+  const sig = JSON.stringify(FILTERS.map((d) => d.options(ctx)));
+  if (sig === filterBarSig) return;
+  filterBarSig = sig;
+  $('acctFilterBar').innerHTML = FILTERS.map((d) => `<label class="acct-fsel">
+      <span>${escHtml(d.label)}</span>
+      <select class="form-select form-select-sm" data-filter-select="${d.key}">
+        <option value="">ทั้งหมด</option>
+        ${d.options(ctx).map((o) => `<option value="${escHtml(o.value)}"${filters[d.key] === o.value ? ' selected' : ''}>${escHtml(o.label)}</option>`).join('')}
+      </select></label>`).join('');
+}
+
+function paintHeaders() {
+  document.querySelectorAll('#acctListCard th[data-sort-col]').forEach((th) => {
+    const pair = HEADER_SORTS[th.dataset.sortCol] || [];
+    const on = pair.includes(sortKey);
+    th.setAttribute('aria-sort', on ? (SORTS[sortKey].desc ? 'descending' : 'ascending') : 'none');
+    th.classList.toggle('is-sorted', on);
+  });
+}
+
+// Every row, always: 756 rows paint in well under a frame budget's worth of
+// work, and an admin hunting an anomaly should never have to page for it.
 function paintList() {
   const list = currentList();
-  $('acctRows').innerHTML = list.slice(0, shown).map(rowHtml).join('')
+  $('acctRows').innerHTML = list.map(rowHtml).join('')
     || '<tr><td colspan="6" class="text-center text-muted py-4">ไม่พบบัญชีที่ตรงกับตัวกรอง</td></tr>';
-  $('acctCount').textContent = `แสดง ${fmt(Math.min(shown, list.length))} จาก ${fmt(list.length)} บัญชี`
-    + (list.length !== sum.total ? ` (ทั้งหมด ${fmt(sum.total)})` : '');
-  const more = $('acctMore');
-  more.hidden = list.length <= shown;
-  more.textContent = `แสดงเพิ่ม (${fmt(Math.min(PAGE, list.length - shown))})`;
-  const chips = Object.entries(filters).filter(([k, v]) => v && k !== 'q').map(([k, v]) =>
-    `<button type="button" class="acct-chip" data-clear="${k}">${escHtml(FILTER_LABEL[k]?.(v) || v)} <i class="bi bi-x" aria-hidden="true"></i></button>`);
+  $('acctCount').textContent = list.length === sum.total
+    ? `แสดงทั้งหมด ${fmt(list.length)} บัญชี · เรียง${SORTS[sortKey].label}`
+    : `แสดง ${fmt(list.length)} จาก ${fmt(sum.total)} บัญชี · เรียง${SORTS[sortKey].label}`;
+  const chips = FILTERS.filter((d) => filters[d.key]).map((d) =>
+    `<button type="button" class="acct-chip" data-clear="${d.key}">${escHtml(`${d.label}: ${optionLabel(d, filters[d.key])}`)} <i class="bi bi-x" aria-hidden="true"></i></button>`);
+  if (filters.q) chips.push(`<button type="button" class="acct-chip" data-clear="q">${escHtml(`ค้นหา: ${filters.q}`)} <i class="bi bi-x" aria-hidden="true"></i></button>`);
   if (chips.length > 1) chips.push('<button type="button" class="acct-chip" data-clear="*">ล้างทั้งหมด</button>');
   $('acctFilters').innerHTML = chips.join('');
+  document.querySelectorAll('[data-filter-select]').forEach((sel) => { sel.value = filters[sel.dataset.filterSelect] || ''; });
+  $('acctSort').value = sortKey;
+  paintHeaders();
 }
 
 function setFilter(kind, value) {
@@ -374,7 +405,6 @@ function setFilter(kind, value) {
 
 /** Everything that shows which filter is on, plus the list itself. */
 function repaintFiltered() {
-  shown = PAGE;
   paintStack('acctSignin', SIGNIN, sum.signin, SIGNIN_COLOR, 'signin');
   paintStack('acctDomain', DOMAINS, sum.domain, DOMAIN_COLOR, 'domain');
   paintSystems();
@@ -481,13 +511,26 @@ function wire() {
   const root = document.querySelector('.acct');
   $('acctSort').innerHTML = Object.entries(SORTS).map(([k, s]) => `<option value="${k}">เรียง: ${escHtml(s.label)}</option>`).join('');
   $('acctSort').value = sortKey;
-  $('acctSort').addEventListener('change', (e) => { sortKey = e.target.value; shown = PAGE; paintList(); });
+  $('acctSort').addEventListener('change', (e) => { sortKey = e.target.value; if (data) paintList(); });
+  $('acctFilterBar').addEventListener('change', (e) => {
+    const sel = e.target.closest('[data-filter-select]');
+    if (!sel || !data) return;
+    filters[sel.dataset.filterSelect] = sel.value || undefined;
+    repaintFiltered();
+  });
+  // A header click sorts by that column; a second click flips it.
+  document.querySelector('#acctListCard thead').addEventListener('click', (e) => {
+    const th = e.target.closest('th[data-sort-col]');
+    if (!th || !data) return;
+    const [first, second] = HEADER_SORTS[th.dataset.sortCol];
+    sortKey = sortKey === first ? second : first;
+    paintList();
+  });
   let qTimer = null;
   $('acctSearch').addEventListener('input', (e) => {
     clearTimeout(qTimer);
-    qTimer = setTimeout(() => { filters.q = e.target.value; shown = PAGE; if (data) paintList(); }, 150);
+    qTimer = setTimeout(() => { filters.q = e.target.value; if (data) paintList(); }, 150);
   });
-  $('acctMore').addEventListener('click', () => { shown += PAGE; paintList(); });
   $('acctRefresh').addEventListener('click', () => { load(); });
   $('acctCsv').addEventListener('click', () => { if (data) exportCsv(); });
 
@@ -502,15 +545,15 @@ function wire() {
       for (const [k, v] of Object.entries(want)) {
         if (k === 'sort') { sortKey = v; $('acctSort').value = v; } else filters[k] = v;
       }
-      shown = PAGE;
       paintAll();
       scrollToList();
       return;
     }
     const clear = e.target.closest('[data-clear]');
     if (clear) {
-      if (clear.dataset.clear === '*') filters = { q: filters.q };
+      if (clear.dataset.clear === '*') filters = {};
       else filters[clear.dataset.clear] = undefined;
+      if (!filters.q) $('acctSearch').value = '';
       repaintFiltered();
       return;
     }

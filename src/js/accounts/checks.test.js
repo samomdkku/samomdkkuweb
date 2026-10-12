@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   domainOf, signinOf, realMethod, systemsOf, recencyOf, summarize, runChecks,
   issuesById, filterAccounts, sortAccounts, activity, weekStart, ACCOUNT_CHECKS,
-  SIGNIN, DOMAINS, RECENCY,
+  SIGNIN, DOMAINS, RECENCY, FILTERS, SORTS, HEADER_SORTS, DEFAULT_SORT,
 } from './checks.js';
 
 const NOW = '2026-10-12T12:00:00Z';
@@ -143,16 +143,81 @@ describe('the overview', () => {
 });
 
 describe('the list', () => {
-  const rows = [google(), userpass(), both({ m: 'password' })];
+  const rows = [
+    google({ id: 'g1', n: 'Beta', c: daysAgo(40), s: daysAgo(2), p: { id: 'p1', n: 'Beta', co: 2568 }, pp: { km: 5, sc: 1 } }),
+    userpass({ id: 'u1', n: 'alpha', c: daysAgo(100), s: daysAgo(50) }),
+    both({ id: 'b1', m: 'password', n: 'Gamma', c: daysAgo(10), s: daysAgo(0.5), p: { id: 'p3', n: 'Gamma', co: 2569 }, mp: ['master'], pp: { km: 40, sc: 3 } }),
+    google({ id: 'n1', n: 'Never', e: 'z@gmail.com', c: daysAgo(5), s: undefined, p: undefined }),
+  ];
   const d = dash(rows);
   const checks = runChecks(d);
+  const ids = (list) => list.map((a) => a.id);
+  const f = (filters) => ids(filterAccounts(rows, filters, checks, nowMs));
+
   it('filters combine (AND) and a check filter keeps only its hits', () => {
-    expect(filterAccounts(rows, { domain: 'kkumail' }, checks, nowMs).map((a) => a.id)).toEqual(['g1', 'b1']);
-    expect(filterAccounts(rows, { domain: 'kkumail', signin: 'both' }, checks, nowMs).map((a) => a.id)).toEqual(['b1']);
-    expect(filterAccounts(rows, { check: 'method_drift' }, checks, nowMs).map((a) => a.id)).toEqual(['b1']);
-    expect(filterAccounts(rows, { q: 'BOB' }, checks, nowMs).map((a) => a.id)).toEqual(['u1']);
+    expect(f({ domain: 'kkumail' })).toEqual(['g1', 'b1']);
+    expect(f({ domain: 'kkumail', signin: 'both' })).toEqual(['b1']);
+    expect(f({ check: 'method_drift' })).toEqual(['b1']);
+    expect(f({ q: 'BOB' })).toEqual(['u1']);
+  });
+  it('a system can be filtered IN and OUT', () => {
+    expect(f({ system: 'passport' })).toEqual(['g1', 'b1']);
+    expect(f({ system: '!passport' })).toEqual(['u1', 'n1']);
+  });
+  it('"สมัครภายใน 30 วัน" holds exactly what the tile counts', () => {
+    expect(f({ joined: 'd30' }).length).toBe(summarize(d).new30);
+    expect(f({ joined: 'd30' }).sort()).toEqual(['b1', 'n1']);
+  });
+  it('รุ่น, grants and "any problem" filters', () => {
+    expect(f({ cohort: '2569' })).toEqual(['b1']);
+    expect(f({ cohort: 'none' })).toEqual(['u1', 'n1']);
+    expect(f({ grant: 'master' })).toEqual(['b1']);
+    expect(f({ grant: 'none' })).toEqual(['g1', 'u1', 'n1']);
+    expect(f({ check: '*' })).toContain('b1');
+  });
+  it('each exclusive filter splits the accounts exactly — no row lost, none counted twice', () => {
+    const ctx = { accounts: rows, checks, cohortLabel: String };
+    for (const key of ['signin', 'domain', 'recency', 'cohort']) {
+      const def = FILTERS.find((x) => x.key === key);
+      const counted = def.options(ctx).reduce((n, o) => n + f({ [key]: o.value }).length, 0);
+      expect([key, counted]).toEqual([key, rows.length]);
+    }
+  });
+  it('every filter offers options and every option is a distinct value', () => {
+    const ctx = { accounts: rows, checks, cohortLabel: String };
+    for (const def of FILTERS) {
+      const vals = def.options(ctx).map((o) => o.value);
+      expect(vals.length).toBeGreaterThan(0);
+      expect(new Set(vals).size).toBe(vals.length);
+    }
+  });
+
+  it('oldest and newest, both ways, with a never-signed-in account LAST either way', () => {
+    expect(ids(sortAccounts(rows, 'signin_desc', new Map()))).toEqual(['b1', 'g1', 'u1', 'n1']);
+    expect(ids(sortAccounts(rows, 'signin_asc', new Map()))).toEqual(['u1', 'g1', 'b1', 'n1']);
+    expect(ids(sortAccounts(rows, 'created_asc', new Map()))).toEqual(['u1', 'g1', 'b1', 'n1']);
+    expect(ids(sortAccounts(rows, 'created_desc', new Map()))).toEqual(['n1', 'b1', 'g1', 'u1']);
+  });
+  it('by name, method, รุ่น, km and grants', () => {
+    expect(ids(sortAccounts(rows, 'name_asc', new Map()))).toEqual(['u1', 'g1', 'b1', 'n1']);
+    expect(ids(sortAccounts(rows, 'method', new Map()))[0]).toMatch(/g1|n1/);
+    expect(ids(sortAccounts(rows, 'cohort_asc', new Map())).slice(0, 2)).toEqual(['g1', 'b1']);
+    expect(ids(sortAccounts(rows, 'km_desc', new Map())).slice(0, 2)).toEqual(['b1', 'g1']);
+    expect(ids(sortAccounts(rows, 'grants_desc', new Map()))[0]).toBe('b1');
   });
   it('"ปัญหามากสุด" puts the account with a bug first', () => {
     expect(sortAccounts(rows, 'issues', issuesById(checks))[0].id).toBe('b1');
+  });
+  it('every sort is labelled, the default exists, and each header names real sorts', () => {
+    for (const [k, s] of Object.entries(SORTS)) expect([k, typeof s.label]).toEqual([k, 'string']);
+    expect(SORTS[DEFAULT_SORT]).toBeTruthy();
+    for (const pair of Object.values(HEADER_SORTS)) for (const k of pair) expect(SORTS[k]).toBeTruthy();
+  });
+  it('every sort is total: same rows in, same rows out, in a stable order', () => {
+    for (const k of Object.keys(SORTS)) {
+      const a = ids(sortAccounts(rows, k, issuesById(checks)));
+      expect([...a].sort()).toEqual(ids(rows).sort());
+      expect(ids(sortAccounts([...rows].reverse(), k, issuesById(checks)))).toEqual(a);
+    }
   });
 });
