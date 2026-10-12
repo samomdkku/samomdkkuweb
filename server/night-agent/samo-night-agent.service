@@ -2,6 +2,11 @@
 Description=SAMO night agent - work the NIGHT-TASKS queue while the 5-hour window is open
 After=network-online.target
 Wants=network-online.target
+# ⛔ THE OFF SWITCH THAT COSTS NOTHING. run-night.sh writes this file when the
+# queue is over (every task done/blocked, budget spent, or past `Until:`). From
+# then on systemd does not start the script at all — no node, no git, no log,
+# no Discord — until `install.sh --arm` ships a new queue and removes it.
+ConditionPathExists=!/home/ubuntu/samo-night/STOPPED
 
 [Service]
 Type=oneshot

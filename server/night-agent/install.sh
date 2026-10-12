@@ -64,6 +64,10 @@ ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S bash -c '
 # reason it is disabled is that a queue must be WRITTEN before a night is worth
 # spending. `--arm` is the word for that, and it has to be typed.
 if [ "${1:-}" = "--arm" ] || [ "${2:-}" = "--arm" ]; then
+  # A finished queue left STOPPED behind, and the service will not start while
+  # it exists — arming a NEW queue is exactly the moment to clear it. Also the
+  # old fingerprint stamp, which nothing reads since 2026-10-13.
+  ssh -o BatchMode=yes samo-vm 'rm -f ~/samo-night/STOPPED ~/samo-night/.last-queue-sha'
   ssh -o BatchMode=yes samo-vm "printf '%s\n' '$PW' | sudo -S systemctl enable --now samo-night-agent.timer 2>&1" | { grep -v '^\[sudo' || true; }
   echo "armed. NEXT: $(ssh -o BatchMode=yes samo-vm 'systemctl list-timers --all --no-pager | grep samo-night-agent | awk "{print \$1, \$2, \$3}"')"
 else

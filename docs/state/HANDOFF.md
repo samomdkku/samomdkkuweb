@@ -1449,7 +1449,14 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ---
 
-## 17. The night agent is STOPPED, and what it is holding (2026-09-18)
+## 17. The night agent — RE-ARMED 2026-10-13 (history below is September's)
+
+**2026-10-13: ARMED again with a new queue and a new runner — see §20 for what
+it is doing and the morning checklist.** Everything below this line is the
+September record; its "STOPPED", "fires 15:41" and "fingerprint" statements are
+superseded (`skills/night-agent.md`, top section).
+
+### (September) The night agent is STOPPED, and what it is holding (2026-09-18)
 
 **Status: VERIFIED 2026-09-18 — how: `systemctl is-active` returned inactive,
 `systemctl list-timers --all` no longer lists the unit at all, and `pgrep -af
@@ -1758,3 +1765,20 @@ Unreleased notes are staged in `PENDING` (the popup colour change, news covers, 
 1. **samo-dev has NO triggers on `auth.users`** (production has five: `on_auth_user_created`, `…_passport_link`, `…_email_change`, `…_password_sync_insert/_update`). On dev a sign-up creates NO `public.users` row, and the has-password mirror never runs. Every harness that registers an account on dev writes that row by hand, which hides the gap. Fix: re-create the five on samo-dev from production's `pg_get_functiondef`/`pg_get_triggerdef`. Check: `accounts0211-dashboard` on dev goes from 13/15 (its row "on_auth_user_created is installed" says why) to 15/15.
 2. **Managing accounts is read-only for now.** The page shows, filters, explains and exports; it does not delete, ban, reset passwords or merge. Those write to `auth.users`, which needs its own definer RPCs with a confirm step, a log, and a both-direction proof. Ask the owner which actions they actually want before building any.
 3. **What the first production read found** (counts move; re-read the page, not this line): 2 people moved Passport to kkumail and still hold their old gmail account (`ย้ายไปบัญชีใหม่แล้ว แต่บัญชีเก่ายังอยู่`); 5 accounts created 2026-05-22 never signed in (test names: Ung, Qwerty, Dog, se); 94 kkumail accounts are not in the person registry; 158 carried Passport profiles have no account (EXPECTED, see INVARIANTS "Passport totals"). Deleting any of them is the owner's call, not a session's.
+
+## 20. Night agent run of 2026-10-13 — the MORNING CHECKLIST
+
+**Status: OWED — the agent is working it; nothing on the branch has been reviewed or applied.** Armed ~01:30 ICT 2026-10-13 after a rehearsal on the VM with a fake `claude` (the rehearsal's results are in the commit that armed it). Queue: `server/night-agent/NIGHT-TASKS.md`; live state with the runner's verdicts: `ssh samo-vm 'cat ~/samo-night/NIGHT-TASKS.md'`.
+
+What it is doing (owner's asks, 2026-10-13): (1) หนังสือโครงการ — ผู้ส่งหนังสือ tags a โครงการ with ฝ่ายสโม (VS_DEPTS), filter in admin AND `/projects-view` — migration **0212**; (2) หน้าฝ่าย — all 12 top-level ฝ่าย (6 were missing) + the per-ฝ่าย edit permission — migration **0213**; (3)–(4) deep security review, DB and app; (5)–(6) deep bug review, admin and public.
+
+How it stops (owner: no wasted tokens, keep one session): ticks every 20 min; a tick with nothing to do calls no model; no run while the 5-hour window is ≥90% or the week is within one session + 6% of full; hard end `Until: 2026-10-14T08:00Z` (before the weekly reset); queue over → `~/samo-night/STOPPED` and systemd stops starting it. Check: `ssh samo-vm 'ls ~/samo-night/STOPPED; systemctl list-timers --all | grep night'`.
+
+**The morning checklist, in order:**
+1. `ssh samo-vm 'cat ~/samo-night/NIGHT-TASKS.md; ls -t ~/samo-night/logs | head'` — the RUNNER's verdict per task (done / blocked / needs-review), not the agent's.
+2. Bring the branch to the laptop: `git fetch samo-vm:samo-agent agent/2026-10-13:agent/2026-10-13` (the VM cannot push). Read `docs/state/night-agent.md` on it (the agent's handoff), then `git log --oneline main..agent/2026-10-13`.
+3. Review like a PR (`/code-review` on the branch). Nothing on it ran against a database.
+4. Migrations 0212/0213 (+0214… if the security review wrote any): read each, apply **samo-dev first** (`node tools/apply-migration.mjs <file> --dev`), run its proof on dev, then production, then the proof on production. ADD before deploy (`skills/ship-a-migration.md`). ⚠️ 0213 grants a whole ฝ่าย edit rights on its page — confirm the scope the agent chose with the owner before applying.
+5. `scp samo-vm:samo-night/reports/2026-10-13-security-*.md` to somewhere PRIVATE (never into the repo — it may describe open holes). Act on its `## Verdict`.
+6. Merge to `main`, `npm run build && npm test`, deploy (`skills/deploy-vm.md`), verify from the SERVED bundle.
+7. Re-arming later: write a new queue, `bash server/night-agent/install.sh --arm` (clears STOPPED, syncs memory).

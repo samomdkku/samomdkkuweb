@@ -3,6 +3,47 @@
 Runs `claude -p` through a queue of tasks while the subscription's 5-hour window
 is open, on the KKU VM, with nobody's laptop on. Built 2026-09-15.
 
+## ⛔ SINCE 2026-10-13 IT RUNS BY THE WINDOW, NOT BY THE NIGHT — read this first
+
+The owner asked for "as many 5-hour sessions as the work needs, but leave one
+for me", and for a finished agent to stop waking up. What changed, and where
+each older paragraph below is now WRONG:
+
+| | before | now |
+|---|---|---|
+| timer | once, 15:41 UTC | **a tick every 20 min** (`*:07/20`) — the runner decides |
+| a tick with nothing to do | posted "ไม่ได้เริ่มงาน" | **silent exit, no model call** |
+| queue over (all terminal / Budget spent / past `Until:`) | gate refused every night | writes **`~/samo-night/STOPPED`**; the unit's `ConditionPathExists=!` means systemd never starts the script again. One Discord post. `install.sh --arm` clears it |
+| quota | clock only (22:41 → 03:30) | **`~/samo-night/usage.json`**, left by `samo-claude-usage` every 15 min: no run while the 5-hour window is ≥90%, and none once the week is within `Reserve sessions:` (+6% margin) of full — checked at start AND between tasks. No file / older than 45 min → wait |
+| run length | wall-clock 03:30 | ≤245 min from its own start, then the handoff |
+| branch | `checkout -B agent/<date> origin/main` every run — a second run the same day DELETED the first's commits | `Branch:` in the queue header; a later run CONTINUES it and sweeps up uncommitted leftovers |
+| task cut off by the quota | counted as an attempt | WIP committed, no attempt counted — it resumes next window |
+| revise passes | up to 6 when the queue finished early | **off** (`NIGHT_REVISE=1` to enable) — a finished queue stops |
+| queue fingerprint guard | refused an unchanged queue | **removed**: it stamped AFTER the run rewrote the file, so a multi-night budget could never use night 2. `gate` + the per-task pre-check do its job |
+| per task | 60 min, 120 turns | `TASK_TIMEOUT_SEC` 5400, `TASK_MAX_TURNS` 200 |
+| handoff | wrote into `docs/state/phuriphatma.md` (the owner's own file) with a hardcoded date | `docs/state/night-agent.md` |
+
+New queue header fields (`server/night-agent/queue.mjs`, tests in
+`src/js/night-queue.test.js`):
+
+```markdown
+Budget: 6 runs              ← runs, not nights now; decremented per run
+Until: 2026-10-14T08:00:00Z ← hard end: past it the queue STOPS for good
+Reserve sessions: 1         ← 5-hour sessions of the WEEK kept for humans (absent → 1)
+Branch: agent/2026-10-13    ← one branch for every run of this queue
+```
+
+Gate exit codes (the contract with `run-night.sh`): `0` run · `1` over →
+STOPPED · `3` not now (quota), silent.
+
+⚠️ If Claude monitoring is switched off on `/admin#claude`, the reporter writes
+no `usage.json` and the agent WAITS. That is deliberate — the reserve cannot be
+honoured blind.
+
+**Security findings never go in the repo** (it and `docs/` are public): tasks
+write them to `~/samo-night/reports/`. Pull them with
+`scp samo-vm:samo-night/reports/* <somewhere private>`.
+
 ## Why it exists
 
 The 5-hour window resets at a fixed time and unused quota is lost. The owner

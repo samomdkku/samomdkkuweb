@@ -141,7 +141,7 @@
 // restore the exact behaviour the switch exists to stop.
 // ============================================================
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync, renameSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir, platform, tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -492,6 +492,29 @@ async function main() {
   const sevenDay = readWindow(usage, 'seven_day', 'weekly_all');
   if (fiveHour.pct == null && sevenDay.pct == null) {
     die(`neither five_hour nor seven_day found. Keys: ${Object.keys(usage).join(', ')}`);
+  }
+
+  // ---- 3b. the night agent's copy (2026-10-13) ----
+  // The night agent decides whether a run may START from these four numbers —
+  // it keeps one 5-hour session of the week for the owner — but it has no
+  // database access by design, and polling oauth/usage itself would compete
+  // with this sampler. So the one poller leaves a local copy beside the agent.
+  // Only percentages and reset times: nothing in it is a credential. Written
+  // only where the agent is installed, and atomically, so the runner never
+  // reads half a file.
+  const nightHome = join(homedir(), 'samo-night');
+  if (existsSync(nightHome)) {
+    try {
+      const tmp = join(nightHome, '.usage.json.tmp');
+      writeFileSync(tmp, JSON.stringify({
+        sampled_at: new Date().toISOString(),
+        five_hour_pct: fiveHour.pct, five_hour_resets_at: fiveHour.resetsAt,
+        seven_day_pct: sevenDay.pct, seven_day_resets_at: sevenDay.resetsAt,
+      }));
+      renameSync(tmp, join(nightHome, 'usage.json'));
+    } catch (e) {
+      console.error(`  (could not leave the night agent its usage copy: ${e.message})`);
+    }
   }
 
   // ---- 4. write the sample ----

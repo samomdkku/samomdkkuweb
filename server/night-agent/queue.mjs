@@ -39,7 +39,8 @@
 // out-of-budget queue spends no tokens at all. That is why the timer can stay
 // armed: there is nothing to disable.
 //
-//   node queue.mjs gate   <file>              → exit 0 = there is work to do
+//   node queue.mjs gate   <file> [usage.json] → exit 0 run · 1 STOP for good · 3 wait
+//   node queue.mjs usage  <file> <usage.json> → exit 0 keep going · 3 stop this run
 //   node queue.mjs list   <file>              → JSON: budget + every task
 //   node queue.mjs set    <file> <n> <status> → write one task's verdict
 //   node queue.mjs spend  <file>              → count one night against Budget
@@ -65,6 +66,9 @@ export function parseQueue(text) {
   const header = lines.slice(0, headerEnd).join('\n');
   const budgetM = header.match(/^Budget:\s*(\d+)/mi);
   const usedM = header.match(/^Nights used:\s*(\d+)/mi);
+  const untilM = header.match(/^Until:\s*(\S+)/mi);
+  const reserveM = header.match(/^Reserve sessions:\s*(\d+)/mi);
+  const branchM = header.match(/^Branch:\s*(agent\/[\w.-]+)\s*$/mi);
 
   const field = (block, name) => {
     const m = block.match(new RegExp(`^${name}:[ \\t]*(.*)$`, 'mi'));
@@ -94,6 +98,15 @@ export function parseQueue(text) {
     // an omitted field must fail toward stopping.
     budget: budgetM ? Number(budgetM[1]) : 1,
     used: usedM ? Number(usedM[1]) : 0,
+    // A hard end. Past it the queue STOPS for good, finished or not — the
+    // quota after that instant is somebody else's (next week's, the owner's).
+    until: untilM && Number.isFinite(Date.parse(untilM[1])) ? Date.parse(untilM[1]) : null,
+    // 5-hour sessions of the WEEKLY pool kept back for the humans. Absent → 1:
+    // an omitted field fails toward leaving the owner something.
+    reserveSessions: reserveM ? Number(reserveM[1]) : 1,
+    // One branch for the whole queue, so run 2 builds on run 1. Absent → the
+    // runner names one by date, as before.
+    branch: branchM ? branchM[1] : null,
     tasks,
   };
 }
@@ -107,8 +120,11 @@ export function pending(q) {
  * PURE. Should tonight run at all, and if not, why — in words a person reads
  * off a Discord post at 22:41 without opening anything.
  */
-export function gate(q) {
+export function gate(q, nowMs = Date.now()) {
   if (!q.tasks.length) return { run: false, why: 'ไม่มีงานในคิว' };
+  if (q.until != null && nowMs >= q.until) {
+    return { run: false, why: `เลยเวลาสิ้นสุดของคิวนี้แล้ว (${new Date(q.until).toISOString()}) — หยุดถาวร ยังเหลือ ${pending(q).length} งาน` };
+  }
   const left = pending(q);
   if (!left.length) {
     const done = q.tasks.filter((t) => t.status === 'done').length;
@@ -124,6 +140,46 @@ export function gate(q) {
     };
   }
   return { run: true, why: `เหลือ ${left.length} งาน · คืนที่ ${q.used + 1} จาก ${q.budget}` };
+}
+
+// ── the quota ─────────────────────────────────────────────────────────────
+// One 5-hour session is 1/7 of the weekly pool on this plan (claude_settings:
+// session_pool_pct 100, week_pool_pct 700 — measured, 2026-10-13).
+export const SESSION_SHARE_OF_WEEK = 100 / 7;
+// A task can run up to an hour between two looks at the numbers, and the
+// numbers are up to 15 minutes old. Heavy use spends ~4-6% of the week per
+// hour, so stop starting work this far BEFORE the reserve, or the reserve is
+// what gets spent.
+export const WEEK_SAFETY_PCT = 6;
+export const FIVE_HOUR_CEIL_PCT = 90;
+export const SNAPSHOT_MAX_AGE_MIN = 45;
+
+/**
+ * PURE. May work START (or continue) right now, given the usage reporter's
+ * latest snapshot? Never a permanent stop — a full window or week resets, so
+ * the answer is "wait", and waiting costs nothing.
+ *
+ * ⛔ NO SNAPSHOT MEANS WAIT, NOT GO. Without the numbers the reserve cannot be
+ * honoured, and the reserve is the owner's.
+ */
+export function usageGate(snap, nowMs, reserveSessions = 1) {
+  const sampled = snap && Date.parse(snap.sampled_at);
+  if (!snap || !Number.isFinite(sampled)) {
+    return { run: false, why: 'ยังไม่มีข้อมูลการใช้งาน Claude ล่าสุด — รอรอบหน้า' };
+  }
+  if (nowMs - sampled > SNAPSHOT_MAX_AGE_MIN * 60000) {
+    return { run: false, why: `ข้อมูลการใช้งานเก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — รอรอบหน้า` };
+  }
+  const weekCap = 100 - reserveSessions * SESSION_SHARE_OF_WEEK - WEEK_SAFETY_PCT;
+  const weekLive = Date.parse(snap.seven_day_resets_at) > nowMs;
+  if (weekLive && Number(snap.seven_day_pct) >= weekCap) {
+    return { run: false, why: `ใช้โควตาสัปดาห์ไป ${snap.seven_day_pct}% แล้ว — เก็บที่เหลือไว้ให้เจ้าของ ${reserveSessions} รอบ (หยุดที่ ${weekCap.toFixed(0)}%)` };
+  }
+  const windowLive = Date.parse(snap.five_hour_resets_at) > nowMs;
+  if (windowLive && Number(snap.five_hour_pct) >= FIVE_HOUR_CEIL_PCT) {
+    return { run: false, why: `รอบ 5 ชั่วโมงนี้ใช้ไป ${snap.five_hour_pct}% แล้ว — รอรีเซ็ต ${snap.five_hour_resets_at}` };
+  }
+  return { run: true, why: `สัปดาห์ ${snap.seven_day_pct ?? '?'}% (หยุดที่ ${weekCap.toFixed(0)}%) · รอบนี้ ${snap.five_hour_pct ?? '?'}%` };
 }
 
 /**
@@ -188,15 +244,33 @@ export function spendNight(text) {
 const [, , cmd, file, ...rest] = process.argv;
 if (cmd && file) {
   const read = () => readFileSync(file, 'utf8');
+  const readUsage = (p) => { try { return p ? JSON.parse(readFileSync(p, 'utf8')) : null; } catch { return null; } };
   if (cmd === 'gate') {
-    const g = gate(parseQueue(read()));
-    console.log(g.why);
-    process.exit(g.run ? 0 : 1);
+    // Exit codes are the contract with run-night.sh:
+    //   0 run · 1 the queue is OVER (the runner writes STOPPED; systemd then
+    //   never starts it again) · 3 not now (quota) — try at the next tick.
+    const q = parseQueue(read());
+    const g = gate(q);
+    if (!g.run) { console.log(g.why); process.exit(1); }
+    if (rest[0]) {
+      const u = usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
+      if (!u.run) { console.log(u.why); process.exit(3); }
+      console.log(`${g.why} · ${u.why}`);
+    } else {
+      console.log(g.why);
+    }
+    process.exit(0);
+  } else if (cmd === 'usage') {
+    const q = parseQueue(read());
+    const u = usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
+    console.log(u.why);
+    process.exit(u.run ? 0 : 3);
   } else if (cmd === 'list') {
     const q = parseQueue(read());
     console.log(JSON.stringify({
       budget: q.budget,
       used: q.used,
+      branch: q.branch,
       tasks: q.tasks.map(({ index, title, check, status, attempts }) =>
         ({ index, title, check, status, attempts })),
     }));

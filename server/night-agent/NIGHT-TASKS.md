@@ -1,203 +1,200 @@
-# NIGHT-TASKS — 2026-09-15 → 16
+# NIGHT-TASKS — 2026-10-13 (written by the owner's session before /clear)
+Budget: 6 runs
+Until: 2026-10-14T08:00:00Z
+Reserve sessions: 1
+Branch: agent/2026-10-13
 
-⛔ **CONSTRAINTS THAT APPLY TO EVERY TASK. Read these before task 1 or you will
-waste the window discovering them.**
+⛔ **CONSTRAINTS THAT APPLY TO EVERY TASK. Read them before you start.**
 
 - **You have NO database access.** `tools/db-query.mjs`, `apply-migration` and
-  anything reading `.env.local` are denied, and the file is invisible to you.
-  You cannot query real students. Anything needing live data must be written as
-  a TOOL the owner runs tomorrow with credentials — never as a query you attempt.
-- **You have NO Google credentials.** You cannot create a Google Sheet, upload
-  one, or call Drive. You CAN write the CSV format, the column spec, the
-  protection rules, and step-by-step instructions the owner follows once.
-- **You cannot push, deploy, or touch production.** Commit to the branch; a human
-  reviews in the morning.
-- **You have 51 memory files** at the path named in your preamble. Read the ones
-  whose descriptions match what you are doing. They contain decided things that
-  are nowhere in the repo, and re-deciding them is the most common way an
-  unattended agent wastes a night.
-- Follow `CLAUDE.md`'s end-of-turn loop: write up bugs in `docs/mistakes/`, add a
-  `PENDING` changelog entry for anything a person would NOTICE, keep `STATE.md`
-  short. **Do NOT run `npm run mistakes:index` if it needs network or a secret** —
-  if it fails, say so and move on.
-- Thai UI text, no emojis in UI strings, light theme only.
+  `.env.local` are denied. You may WRITE a migration and a proof script; you
+  cannot RUN either. The owner's next session applies them (dev first, then
+  production) and runs the proof. Say "written, not applied" wherever it matters.
+- **You cannot push, deploy, or touch production.** Commit on this branch. Every
+  run of this queue continues the SAME branch (`agent/2026-10-13`): read
+  `git log --oneline origin/main..HEAD` first — an earlier run may already have
+  done part of your task. Never reset, rebase or merge the branch.
+- **Migration numbers are RESERVED:** task 1 owns `0212`, task 2 owns `0213`.
+  A security fix from tasks 3–4 that needs SQL takes `0214`, `0215`, … in order.
+  `migration-numbers.test.js` must stay green.
+- **`STATE.md` is checked by `state-handoff.test.js`:** its "Migrations through
+  NNNN" must equal the highest file on disk, and its live-proof count must
+  equal what `tools/run-proofs.mjs` registers. When you add a migration or a
+  proof, update those two facts in the SAME commit, and write next to them that
+  0212+ are WRITTEN BY THE NIGHT AGENT, NOT APPLIED. Never claim a proof passed.
+- **The repo AND `docs/` are PUBLIC** (docs/ is served at samo.md.kku.ac.th/docs).
+  Never commit detail of a STILL-OPEN security hole. Security findings go to
+  `~/samo-night/reports/` (outside the repo; create the directory). Commit
+  messages for security fixes say what was tightened, not how to exploit it.
+- **Memory**: ~60 files at the path in your preamble. Read the ones relevant to
+  your task — they hold decisions that are nowhere in the repo.
+- Follow `CLAUDE.md`: bug write-ups in `docs/mistakes/*.md` for bugs you FIX, a
+  `PENDING` entry in `src/data/changelog.js` for anything a person would NOTICE
+  (plain Thai, `changelog.test.js` enforces the rules), keep `STATE.md` short.
+  Run `npm run mistakes:index` after a write-up. Thai UI text, no emojis in UI,
+  light theme only. `npm test` and `npm run build` green before every commit.
+- **Commit as you go** (`git commit` per meaningful step). A run can be cut off by
+  the quota at any moment; uncommitted work is swept into a WIP commit, but a
+  coherent commit is worth more to the morning reviewer.
 
 ⛔ **THERE IS NO HUMAN AWAKE. NEVER END A TASK BY ASKING A QUESTION.**
-You are running headless at 2am. Nobody can grant a permission, pick an option
-or answer a clarification — a turn that ends in a question has produced NOTHING,
-and it is scored as a failure, not as a polite pause. This happened repeatedly
-while this setup was being tested.
-
-So: when something is ambiguous, **decide**, act on the decision, and record it —
-what you chose, what you rejected, and what would change your mind — in the file
-you are writing. A defended decision the owner can overturn in the morning is
-worth enormously more than a question they wake up to.
-If you are genuinely blocked, do the part you CAN do, then write the question
-into `docs/state/agent-notes/2026-09-16-questions.md` with your recommendation,
-and move on. Never stop and wait.
+When something is ambiguous, decide, act, and record what you chose, what you
+rejected and what would change your mind — in the file you are writing, or in
+`docs/state/night-agent.md`. A defended decision the owner can overturn is
+worth far more than a question nobody reads until morning.
 
 ---
 
-## 1. PLAN FIRST — no code this task, and say what you cannot do
+## 1. หนังสือโครงการ: ผู้ส่งหนังสือ tags each โครงการ with ฝ่ายสโม, and everyone can filter by it
+Done when: test -f supabase/migrations/0212_project_samo_depts.sql && test -f tools/proj0212-samo-depts.mjs && grep -rq samo_depts src/js/projects && grep -q samo_depts src/js/projects-view.js && npm test --silent && npm run --silent build
 
-The owner's goal, in their words: *"I'll ask every admin of every year for these
-lists of people. But I need a proper format to send each year like MD50, 51, 52,
-49 — lists of people who have issues. Maybe I provide a table/CSV with some cells
-blank to fill in. You'll have to set a rule: can they, and should they, modify
-name, surname, student id, sai? I think Google Sheets is best — I can see in real
-time who fills it in. I'm not afraid of one year's data being visible to another;
-we're all coworkers."*
+ASKED by the owner: "for each โครงการ ผู้ส่งหนังสือ can tag the โครงการ to
+ฝ่ายสโม … then they can filter it by ฝ่ายสโม … also do filter for the normal
+people view from the samoweb that isn't in the admin".
 
-Read first, do not re-derive: `docs/HOUSE-DATA-REPAIR.md`, `docs/house-data-spec-th.md`,
-`src/js/house/gaps.js`, `src/js/house/census.js`, `skills/import-the-house-roster.md`,
-and the 2026-09-15 blocks in `docs/state/phuriphatma.md`.
+Facts measured on production 2026-10-13 (you cannot query them):
+- `public.projects` (41 rows): id text, name, description, status, created_by,
+  created_at, updated_at, drive_folder_url, drive_folder_id, is_public boolean,
+  fiscal_year_be smallint. Policies: projects_read, projects_read_public,
+  projects_insert, projects_update, projects_delete. anon has SELECT (public
+  projects via projects_read_public).
+- "ฝ่ายสโม" = the ฝ่ายของอุปนายก list the site already uses: **`VS_DEPTS` in
+  `src/js/team-vocab.js`** (12 values: นายกสโม, SE, อุปนายกฝ่าย…). Use THOSE
+  values. Do not invent a second list (mistakes class 6).
+- The public view is the `/projects-view` route: `src/js/projects-view.js`,
+  which mounts the projects module in role='customer' mode. The admin side is
+  `src/js/projects/` (inbox.js, manage.js, index.js, data.js, api.js).
+- The ผู้ส่งหนังสือ desk is project seat `vpa` (PROJECT_SEATS in team-vocab.js;
+  `current_user_project_seats()` in SQL; `master` folds into every seat — read
+  memory `master-grants-all-project-seats.md` and `.claude/rules/mistakes.md`
+  class 5 before writing any seat check).
 
-Write `docs/HOUSE-YEAR-HANDOVER.md` — the PLAN, covering:
+Build:
+1. `supabase/migrations/0212_project_samo_depts.sql`: `projects.samo_depts
+   text[] not null default '{}'`. Writes go through ONE SECURITY DEFINER RPC
+   `set_project_samo_depts(p_project text, p_depts text[])` that checks the
+   caller holds the vpa desk (or master), refuses an unknown value, and writes
+   only that column. ⛔ `projects_update` is a ROW policy, which grants every
+   column (mistakes class 1): make sure a caller who can update a project row
+   for another reason cannot set `samo_depts` directly — a column guard in a
+   BEFORE UPDATE trigger, exempting the RPC, is the usual shape here. If the
+   allowed list is written in SQL, add a vitest that parses the migration and
+   asserts it EQUALS `VS_DEPTS` values (a differential test, not a comment).
+2. `tools/proj0212-samo-depts.mjs`, in the shape of `tools/discord0208-panel.mjs`
+   (rolled-back transaction, DENY beside ALLOW over the same rows): a non-vpa
+   user is refused, a vpa holder and a master can tag, an unknown ฝ่าย is
+   refused, a direct UPDATE of the column by a non-vpa row-editor changes
+   nothing, anon reads tags only on public projects. Register it in
+   `tools/run-proofs.mjs`. You cannot run it — say so.
+3. Admin (`src/js/projects/`): on a project, a ฝ่าย tag picker (chips, several
+   allowed) shown to the vpa desk; tags shown as chips on the project in the
+   inbox/list; a "ฝ่าย" filter in the list toolbar that combines (AND) with the
+   filters already there and survives the module's URL/hash state if it has one.
+4. Public (`/projects-view`): the same chips and a ฝ่าย filter. Read-only.
+5. Pure filter logic in a function with vitest coverage (one tag, several tags,
+   no tag, unknown tag value from old data still renders).
+6. Two `PENDING` changelog entries (staff: tagging; public: filtering).
 
-**(a) What each year's admin is actually asked to fix.** Ground this in
-`gaps.js`, which already classifies every gap by WHO CAN FIX IT. A year admin is
-not the same actor as ฝ่ายข้อมูล or the student themself — be explicit about
-which gaps belong to them and which do not.
+## 2. หน้าฝ่าย: every ฝ่าย exists, and its people can be given the right to edit it
+Done when: test -f supabase/migrations/0213_dept_pages_for_every_dept.sql && node --input-type=module -e "import('./src/data/depts.js').then(({DEPT_DEFS})=>{const have=Object.values(DEPT_DEFS).map(d=>d.title);const want=['สำนักนายกฯ','ฝ่ายบริหารองค์กร','ฝ่ายดิจิทัลและสื่อสารองค์กร','ฝ่ายกิจการภายใน','ฝ่ายกิจการภายนอก','ฝ่ายกิจการมหาวิทยาลัย','ฝ่ายวิชาการ','ฝ่ายยุทธศาสตร์และพัฒนาองค์กร','ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม','ฝ่ายรังสีเทคนิค','ฝ่ายเวชนิทัศน์','ฝ่าย รพ. ร่วมผลิต'];process.exit(want.every(w=>have.includes(w))?0:1)})" && npm test --silent && npm run --silent build
 
-**(b) The per-รุ่น sheet format.** Exact columns. Which are READ-ONLY context and
-which are blank-for-them-to-fill. State the rule for each of ชื่อ, นามสกุล,
-ชื่อเล่น, รหัสนักศึกษา, สาย: may they change it, SHOULD they, and what happens
-downstream if they do. ⚠️ Two facts that must shape this, both already paid for:
-**บ้าน is the last digit of สาย**, so a wrong สาย puts a real student in the wrong
-บ้าน; and **kkumail is the identity** — a wrong email means that person signs in
-and never finds themselves, which is the one error that cannot be recovered from
-(`docs/house-data-spec-th.md` says so explicitly).
+ASKED by the owner: "the หน้าฝ่าย tab, currently there's not all ฝ่าย exist,
+people have complaint that there isnt their ฝ่าย and cant go in to edit, add all
+ฝ่าย, and the permission".
 
-**(c) The Google Sheets workflow.** The owner is right that Sheets gives live
-visibility, and you should plan for it — but say plainly which steps a human must
-do by hand, because you have no Google credentials. Cover: one sheet with a tab
-per รุ่น vs one sheet per รุ่น (recommend one, with reasons); which ranges to
-protect so an admin cannot overwrite the read-only context columns; how a filled
-sheet comes back (File → Download → CSV) and what the owner runs on it. Consider
-and REJECT-WITH-REASONS at least one alternative, so the choice is defended
-rather than assumed.
+Facts measured on production 2026-10-13: the ทีม SAMO tree (`team_nodes`, kind
+'division', parent NULL) has these 12 top-level ฝ่าย, EXACT names:
+สำนักนายกฯ · ฝ่ายบริหารองค์กร · ฝ่ายดิจิทัลและสื่อสารองค์กร · ฝ่ายกิจการภายใน ·
+ฝ่ายกิจการภายนอก · ฝ่ายกิจการมหาวิทยาลัย · ฝ่ายวิชาการ ·
+ฝ่ายยุทธศาสตร์และพัฒนาองค์กร · ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม · ฝ่ายรังสีเทคนิค ·
+ฝ่ายเวชนิทัศน์ · ฝ่าย รพ. ร่วมผลิต
+(also at top level and NOT ฝ่าย: อาจารย์, เจ้าหน้าที่คณะแพทย์, and a test node
+"เอิงtesting" — leave those out). `DEPT_DEFS` in `src/data/depts.js` has only 6
+(admin, digital, academic, strategy, media, rt). Missing: สำนักนายกฯ,
+กิจการภายใน, กิจการภายนอก, กิจการมหาวิทยาลัย, คุณภาพชีวิตและสิ่งแวดล้อม,
+รพ. ร่วมผลิต. `src/css/base.css` already has `--dept-internal`,
+`--dept-external`, `--dept-university`, `--dept-quality`; สำนักนายกฯ and
+รพ. ร่วมผลิต need tokens of their own (distinct from the other ten). The SQL
+side deliberately does NOT hardcode the key list (0177 line 58).
 
-**(d) The UI.** The owner wants it in the **นักศึกษา tab**: *"like how the file
-has it — e.g. MD50 list from สาย 001, 002… and highlight in colour what
-information is missing. Like this สาย has nobody, data missing, error etc."*
-Design it: pick รุ่น, list สาย in order, show who occupies each, and colour the
-problems. Say which existing module supplies each number (`gaps.js` and
-`census.js` already compute most of it — reuse, do not recompute) and how you
-will avoid the defect shipped on 2026-09-15, where a LABEL claimed a cause the
-arithmetic never checked (`docs/mistakes/frontend-ui.md`).
+Build:
+1. Add the six to `DEPT_DEFS` (stable lowercase keys, e.g. office, internal,
+   external, university, quality, hospital; titles EXACTLY as above). Everything
+   that derives from DEPT_DEFS (the ฝ่าย page grant picker DEPT_PAGES in
+   team-vocab.js, the public หน้าฝ่าย routes in `src/js/departments.js`, the
+   tools registry `src/data/tools.js`, `src/html/tab-departments.html` if it
+   lists ฝ่าย) must show all 12. A new ฝ่าย with no content yet shows a calm
+   empty state, never a broken page. Check `src/js/dept-page-admin.js`: the
+   /admin/ → หน้าฝ่าย picker must offer the new ones to a scoped editor.
+2. Permission. Read `current_user_dept_page_scope()` (0177, ~line 130) and
+   decide from the CODE whether a `dept_page` set on a node is inherited by
+   everyone posted under it. Write `supabase/migrations/0213_dept_pages_for_every_dept.sql`
+   (NOT applied) that sets `team_nodes.dept_page` on each of the 12 top-level
+   ฝ่าย nodes, matched by EXACT name, only where it is NULL, so the people of a
+   ฝ่าย can edit that ฝ่าย's page. If inheritance would also let someone edit a
+   page they should not, or let a member PUBLISH without review, narrow it and
+   say why. Record the decision at the top of the migration. A proof
+   `tools/dept0213-every-dept.mjs` (rolled back; a member of one ฝ่าย can edit
+   theirs and NOT another's), registered in run-proofs.
+3. vitest: DEPT_DEFS ⊇ the 12 titles; every key has a colour token that exists
+   in base.css; DEPT_PAGES offers all 12.
+4. A `PENDING` changelog entry: every ฝ่าย has its page now.
 
-**(e) A "what I could not verify" section.** Anything you are assuming because
-you cannot reach the database. Be specific. This section is the most valuable
-part of the document for the person reading it in the morning.
+## 3. SECURITY REVIEW (deep) — the database
+Done when: test -s "$HOME/samo-night/reports/2026-10-13-security-db.md" && grep -q '^## Verdict' "$HOME/samo-night/reports/2026-10-13-security-db.md" && npm test --silent
 
-## 2. ANSWER THE TESTING QUESTION — trace it, do not guess
+Thorough and adversarial. The owner asked for "thoroughly intensive".
+Scope: every RLS policy, every SECURITY DEFINER function, every GRANT/REVOKE,
+every trigger, across `supabase/migrations/` — take the LATEST definition of
+each object (a later migration replaces an earlier one; build an index first).
+Include this branch's 0212/0213 and 0211 (`account_dashboard`, master-only).
+`passport` schema too (memory `passport-security-hardening-inflight.md`).
+Method: the seven classes in `.claude/rules/mistakes.md` are your checklist —
+go object by object, not class by class. Read `docs/mistakes/authz-rls.md` and
+`authz-grants.md` first; do not re-report what they record as fixed.
+For each finding: severity (critical/high/medium/low), object + file:line,
+who can do what to whom, the fix. FIX what you can safely fix: frontend code
+directly; SQL as a new migration (0214+, NOT applied) with a proof script.
+Report: `~/samo-night/reports/2026-10-13-security-db.md` (OUTSIDE the repo —
+it may describe open holes), ending with `## Verdict` (what is fixed on the
+branch, what is open, what the owner must do first).
 
-The owner asks: *"How do I test what a person who has a kkumail but is NOT in
-ระบบบ้าน sees? How do I test the เจ้าตัวยืนยันเองได้ เมื่อเข้าสู่ระบบ flow? All
-of it is weak."*
+## 4. SECURITY REVIEW (deep) — the app, the servers, Apps Script
+Done when: test -s "$HOME/samo-night/reports/2026-10-13-security-app.md" && grep -q '^## Verdict' "$HOME/samo-night/reports/2026-10-13-security-app.md" && npm test --silent && npm run --silent build
 
-They are right that it is weak — there is no way to see those screens without
-being such a person. Trace the ACTUAL code path for both cases: start at
-`src/js/house/`, find where a signed-in user with no `students` row is handled,
-and find every branch of the self-claim flow (`claim_my_student_seat` is the RPC;
-the front-end half is what you can read). Enumerate every distinct outcome a real
-person can hit — found, not found, wrong รหัส, right รหัส wrong ชื่อ, already
-claimed, not a kkumail account.
+Scope: `src/` (every `innerHTML`/template with data in it, `safeUrl`, iframes
+and the ฝ่าย tool sandbox — memory and `docs/INVARIANTS.md` "A ฝ่าย's own HTML is
+ISOLATED", auth flows in `auth.js`, open redirects, CSV injection, anything that
+trusts a client-side role), `server/*.mjs` (notify, discord oauth + sync —
+injection, SSRF, auth on every route), `server/nginx-samo.conf`, `appscript/*.gs`
+(memory `gas-is-an-unauthenticated-api.md`: Execute-as-Me + Anyone — every
+handler that takes an id or address), `passport/js/`, secrets in tracked files.
+Same reporting and fixing rules as task 3; report
+`~/samo-night/reports/2026-10-13-security-app.md` ending `## Verdict`.
 
-Append your findings to `docs/HOUSE-YEAR-HANDOVER.md` as a section **"วิธีทดสอบ"**,
-and write a vitest file that exercises every branch you can reach without a
-database, using fixtures in the style of `src/js/house/gaps.test.js`. Run it and
-make it pass. For the branches that genuinely need a live session, write the
-manual steps instead — numbered, so a human can follow them in five minutes.
+## 5. BUG REVIEW (deep) — the admin app
+Done when: test -s docs/state/agent-notes/2026-10-13-bug-review-admin.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-13-bug-review-admin.md && npm test --silent && npm run --silent build
 
-## 3. BUILD THE GENERATOR — the owner runs it tomorrow, with credentials
+Scope: `admin/index.html`, `src/js/admin-main.js` and every admin module —
+projects, shop admin, team, house, VS/PR, creator/announcements, dept pages,
+discord bot, accounts (บัญชีผู้ใช้, new this week), and this branch's own work
+from tasks 1–2. Hunt REAL bugs: wrong results, stale state across re-renders
+and account switches, listeners added per render, a message turned on and never
+off, a filter that loses rows, a count that disagrees with its list, error
+paths that fail silently, mobile overflow. `docs/mistakes/frontend-ui.md` and
+`app-state.md` hold the shapes this repo keeps repeating — read them first.
+For each CONFIRMED bug: fix it with a test that fails without the fix (do the
+mutation ritual: break it, see red, restore), write it up in `docs/mistakes/`.
+Report `docs/state/agent-notes/2026-10-13-bug-review-admin.md` (public — fixed
+bugs only; anything security-flavoured goes to the private report of task 4),
+ending `## Verdict`.
 
-Write `tools/house-year-sheets.mjs`: reads the live data the same way
-`tools/house-gaps.mjs` does, and emits ONE CSV PER รุ่น in the format task 1
-specified, into `externaldata/house-year-sheets/`.
+## 6. BUG REVIEW (deep) — the public site and Passport
+Done when: test -s docs/state/agent-notes/2026-10-13-bug-review-public.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-13-bug-review-public.md && npm test --silent && npm run --silent build
 
-⚠️ `externaldata/` is gitignored and holds PII — never move its contents under
-`src/`, `docs/` or `tools/`, and never commit any row.
-
-Requirements: `--dry-run` by default like every other tool here; print a per-รุ่น
-count; refuse to overwrite existing files without `--force`; and **reuse
-`src/js/house/gaps.js`** so the sheet and the ข้อมูลไม่ครบ tab can never disagree
-about what counts as a gap. You cannot run it against the database — so write a
-unit test over fixtures that proves the CSV shape, the header, and the
-blank-cell rule, and say clearly in your final message that the live run is
-unverified and belongs to the owner.
-
-## 4. BUILD THE UI — the นักศึกษา tab, per รุ่น, by สาย
-
-Implement section (d) of your own plan. Follow the repo's shape: a PURE module in
-`src/js/house/` computing the rows, a vitest file beside it, and the rendering in
-`src/js/house/index.js` with markup in `src/html/tab-house.html`.
-
-Must: pick a รุ่น, list its สาย in numeric order, show occupants, and visibly mark
-— สาย with nobody · rows missing a required field · the duplicate-สาย and
-skipped-สาย cases `gaps.js` already detects. Colour must not be the ONLY signal
-(use an icon or text too). Mobile width 390px must not overflow — most of this
-app's traffic is phones.
-
-⛔ Every label you write must claim only what its number actually tests. That
-exact defect shipped this morning and the audit in
-`docs/state/agent-notes/2026-09-15-label-audit.md` found three more instances —
-read it first and do not add a fourth.
-
-Run `npm test` and `npm run build`. Both must pass before you finish.
-
-## 5. SCRUTINIZE YOUR OWN WORK — be your own harshest reviewer
-
-Re-read everything you produced in tasks 1–4 with fresh eyes, as if reviewing
-someone else's PR you distrust. For each piece ask: does it do what it claims;
-is there a simpler version; what did I assume because I could not reach the
-database; what would a careful reviewer object to first.
-
-Then **verify, do not trust**: re-run `npm test` and `npm run build`. For at
-least one guard test you wrote, reintroduce the bug it exists for, confirm it
-goes RED on the assertion you expect, and restore it — this repo has shipped
-guards that were green against broken code, and an unverified guard is worse
-than none.
-
-Fix what you can. Write `docs/state/agent-notes/2026-09-16-self-review.md` with:
-what you changed and why, what you chose NOT to change and why, and every
-weakness you know remains. **A short honest list beats a long reassuring one.**
-
-## 6. THE WHOLE WORKFLOW, END TO END — plan it, no code
-
-The owner: *"I want it to provide the full workflow built and implemented on the
-samoweb ระบบบ้าน if it's needed — like download CSV for each to send, or
-something else. Be the best way, best practice."*
-
-Tasks 1–5 designed the sheet and the UI. This task designs the LOOP AROUND them,
-and it is a PLAN — write no code.
-
-Append a section **"ขั้นตอนการทำงานทั้งหมด"** to `docs/HOUSE-YEAR-HANDOVER.md`
-covering the full round trip:
-
-1. **Produce** — who runs what to generate each รุ่น's file, and when.
-2. **Send** — how it reaches each year's admin. The owner leans towards Google
-   Sheets for live visibility. Decide whether a **download-CSV button inside the
-   ระบบบ้าน admin UI** is better, worse, or complementary — a button means no
-   manual export step and the file always matches what the app believes, but it
-   loses the live "who has filled theirs in" view. Recommend one, defend it, and
-   say what would change your mind.
-3. **Fill in** — what the admin actually does, in their words, in Thai. Two
-   sentences they could be sent verbatim.
-4. **Come back** — how the filled file returns and what validates it BEFORE
-   anything is written. ⚠️ A wrong สาย moves a real student to the wrong บ้าน and
-   a wrong kkumail locks someone out permanently, so say exactly what is checked
-   and what is rejected.
-5. **Apply** — how corrections reach the database. Read
-   `skills/import-the-house-roster.md` and `docs/HOUSE-DATA-REPAIR.md` first:
-   there is already an import path with hard-won rules, and a second one that
-   ignores them would be a new class of bug. Say whether this reuses that path
-   or needs its own, and why.
-6. **Chase** — how the owner sees which รุ่น have replied and which have not.
-
-For every step say whether it EXISTS today, needs BUILDING, or is MANUAL FOREVER.
-A step marked "needs building" must name the file it would live in.
-
-<!-- The handoff is NOT a task here. It lives in ~/samo-night/HANDOFF.md and runs
-     on reserved time after this queue stops, so it cannot be the first thing
-     lost when the queue overruns. -->
+Scope: `index.html`, `src/js/main.js` and every public module (home, news,
+VS/PR forms, shop storefront + checkout, my-seat/my-house, about/org chart,
+projects-view including task 1's filter, dept pages including task 2's new
+ones), and `passport/` (scan, dashboard, admin). Same method and rules as task
+5; report `docs/state/agent-notes/2026-10-13-bug-review-public.md` ending
+`## Verdict`.

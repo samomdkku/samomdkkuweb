@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseQueue, gate, verdict, writeTask, spendNight, pending, MAX_ATTEMPTS,
+  usageGate, SESSION_SHARE_OF_WEEK, WEEK_SAFETY_PCT,
 } from '../../server/night-agent/queue.mjs';
 
 const Q = `# NIGHT-TASKS
@@ -150,5 +151,58 @@ describe('writeTask / spendNight — the runner owns the file', () => {
     expect(gate(end).run).toBe(false);
     expect(end.tasks.slice(0, 2).every((t) => t.status === 'blocked')).toBe(true);
     expect(end.used).toBeLessThanOrEqual(end.budget);
+  });
+});
+
+// ── 2026-10-13: several 5-hour windows in a row, one session kept for the owner ──
+describe('the header: a hard end, the reserve, one branch for the whole queue', () => {
+  const H = `# q\nBudget: 6 runs\nUntil: 2026-10-14T08:00:00Z\nReserve sessions: 1\nBranch: agent/2026-10-13\n\n## 1. a\nDone when: false\n`;
+  it('reads them', () => {
+    const q = parseQueue(H);
+    expect(q.until).toBe(Date.parse('2026-10-14T08:00:00Z'));
+    expect(q.reserveSessions).toBe(1);
+    expect(q.branch).toBe('agent/2026-10-13');
+  });
+  it('past Until the queue stops FOR GOOD, finished or not', () => {
+    const q = parseQueue(H);
+    expect(gate(q, Date.parse('2026-10-14T07:59:00Z')).run).toBe(true);
+    const g = gate(q, Date.parse('2026-10-14T08:00:00Z'));
+    expect(g.run).toBe(false);
+    expect(g.why).toMatch(/หยุดถาวร/);
+  });
+  it('an omitted reserve keeps ONE session back, never zero', () => {
+    expect(parseQueue('Budget: 1\n\n## a\nDone when: once\n').reserveSessions).toBe(1);
+  });
+  it('a branch line that is not agent/<name> is ignored, not trusted', () => {
+    expect(parseQueue('Branch: main\n\n## a\nDone when: once\n').branch).toBe(null);
+  });
+});
+
+describe('usageGate — the owner\'s session is never the one spent', () => {
+  const now = Date.parse('2026-10-13T00:00:00Z');
+  const snap = (o) => ({ sampled_at: '2026-10-12T23:55:00Z', five_hour_pct: 10,
+    five_hour_resets_at: '2026-10-13T03:00:00Z', seven_day_pct: 13,
+    seven_day_resets_at: '2026-10-14T08:59:59Z', ...o });
+  const cap = 100 - SESSION_SHARE_OF_WEEK - WEEK_SAFETY_PCT;
+
+  it('runs with room in the window and the week (the real numbers on 2026-10-13)', () => {
+    expect(usageGate(snap(), now, 1).run).toBe(true);
+  });
+  it('stops starting work a safety margin BEFORE the reserve, not at it', () => {
+    expect(cap).toBeGreaterThan(75);
+    expect(cap).toBeLessThan(85.72);           // 100 − one session
+    expect(usageGate(snap({ seven_day_pct: cap - 0.1 }), now, 1).run).toBe(true);
+    expect(usageGate(snap({ seven_day_pct: cap }), now, 1).run).toBe(false);
+  });
+  it('two sessions reserved stops earlier than one', () => {
+    expect(usageGate(snap({ seven_day_pct: cap - 5 }), now, 2).run).toBe(false);
+  });
+  it('a spent 5-hour window waits for its reset, then runs again', () => {
+    expect(usageGate(snap({ five_hour_pct: 95 }), now, 1).run).toBe(false);
+    expect(usageGate(snap({ five_hour_pct: 95, five_hour_resets_at: '2026-10-12T23:00:00Z' }), now, 1).run).toBe(true);
+  });
+  it('NO numbers, or stale numbers, means wait — the reserve cannot be honoured blind', () => {
+    expect(usageGate(null, now, 1).run).toBe(false);
+    expect(usageGate(snap({ sampled_at: '2026-10-12T22:00:00Z' }), now, 1).run).toBe(false);
   });
 });

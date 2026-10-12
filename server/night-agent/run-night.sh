@@ -2,8 +2,12 @@
 # ============================================================
 # run-night.sh — work the NIGHT-TASKS queue while the 5-hour window is open.
 #
-# Fires from samo-night-agent.timer at 15:41 UTC = 22:41 ICT, one minute after
-# the subscription's 5-hour window resets.
+# Fires from samo-night-agent.timer every 20 minutes (since 2026-10-13). Almost
+# every tick is a GATE that ends in milliseconds without calling claude: the
+# queue is finished (→ STOPPED, and systemd never starts this again), or the
+# usage reporter's numbers say the 5-hour window is spent or the week is down
+# to the owner's reserve (→ wait, silently). Only a tick with work, budget AND
+# quota starts a run, and a run lasts at most one window.
 #
 # ⛔ IT DOES NOT POLL oauth/usage. That endpoint rate-limits, and the booking
 # board already samples it every 15 minutes from samo-claude-usage.timer — a
@@ -34,32 +38,21 @@ MEM_DIR="$NIGHT_HOME/memory"   # the 51 memory files — read by every task, nev
 TASKS="${NIGHT_TASKS:-$NIGHT_HOME/NIGHT-TASKS.md}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG="$LOG_DIR/$STAMP.log"
-BRANCH="agent/$(date -u +%Y-%m-%d)"
+USAGE="$NIGHT_HOME/usage.json"    # written by samo-claude-usage every 15 min
+STOPPED="$NIGHT_HOME/STOPPED"     # the service's ConditionPathExists=! — see below
 
-# Stop 10 minutes before the window closes (03:40 ICT = 20:40 UTC) so a task
-# cannot be cut off mid-edit and leave the tree in a state nobody chose.
-HARD_STOP_UTC="${HARD_STOP_OVERRIDE:-20:30}"
+# A run lasts at most ONE 5-hour window, measured from its own start: since
+# 2026-10-13 runs start whenever a window has room, not at a fixed 22:41, so a
+# wall-clock deadline would be wrong for every run but one.
 # ⛔ THE HANDOFF IS RESERVED TIME, NOT THE LAST ITEM IN THE QUEUE.
 # As the last task it would be the first thing lost when the queue overran — and
-# a night whose work is undocumented is a night the owner cannot use. The main
-# queue stops here; everything after is handoff.
-RESERVE_UTC="${RESERVE_UTC_OVERRIDE:-19:40}"
+# a run whose work is undocumented is a run the owner cannot use. The main
+# queue stops at RESERVE; everything after is handoff.
+RUN_START="$(date -u +%s)"
+RESERVE_EPOCH=$(( RUN_START + ${RUN_RESERVE_MIN:-245} * 60 ))
 
-# ⛔ COMPARE INSTANTS, NOT STRINGS. The first version tested
-#     [[ "$(date -u +%H:%M)" > "$RESERVE_UTC" ]]
-# which is a LEXICOGRAPHIC compare and is simply wrong once a run crosses
-# midnight: starting at 23:25 with a deadline of 08:00, "23:25" > "08:00" is
-# true, so the queue was abandoned before task 1 and it went straight to the
-# handoff. It worked only because the original schedule (15:41 → 20:30) never
-# crossed a day boundary — the bug was always there, hidden by the timetable.
-# Resolve both bounds to epoch seconds ONCE, rolling to tomorrow when the target
-# has already passed today.
-to_epoch() {
-  local hhmm="$1" today tomorrow now
-  now=$(date -u +%s)
-  today=$(date -u -d "today $hhmm" +%s 2>/dev/null) || today=0
-  if [ "$today" -gt "$now" ]; then echo "$today"; else date -u -d "tomorrow $hhmm" +%s; fi
-}
+# (Bounds are epoch seconds, never "HH:MM" strings: a lexicographic compare
+# broke the first version across midnight — docs/mistakes/tooling-proofs.md.)
 
 # ⛔ ONLY the Claude webhook, from a file holding ONLY that value — never
 # /etc/samo-notify.env, which also carries SUPABASE_SERVICE_ROLE_KEY. That key
@@ -100,14 +93,14 @@ fi
 # `claude` re-reads the credential file that the timer has since rotated.
 run_claude() {
   local prompt="$1" out="$2" rc
-  timeout 3600 claude -p "$prompt" --permission-mode bypassPermissions \
-      --max-turns 120 --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
+  timeout "${TASK_TIMEOUT_SEC:-5400}" claude -p "$prompt" --permission-mode bypassPermissions \
+      --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
   rc=$?
   if grep -qiE '401|access token has expired|Failed to authenticate' "$out"; then
     echo "!! OAuth token expired — waiting 90s for the refresh timer, then retrying ONCE"
     sleep 90
-    timeout 3600 claude -p "$prompt" --permission-mode bypassPermissions \
-        --max-turns 120 --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
+    timeout "${TASK_TIMEOUT_SEC:-5400}" claude -p "$prompt" --permission-mode bypassPermissions \
+        --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
     rc=$?
     grep -qiE '401|access token has expired' "$out" \
       && echo "!! still expired after retry — the credential needs \`claude login\` on the VM"
@@ -136,54 +129,46 @@ print("discord: posted")
 PYEOF
 }
 
-RESERVE_EPOCH="$(to_epoch "$RESERVE_UTC")"
-HARD_EPOCH="$(to_epoch "$HARD_STOP_UTC")"
+# ⛔ ONE RUN AT A TIME. The timer will not start an ACTIVE oneshot, but a manual
+# `./run-night.sh` beside a timer run would share one checkout and one queue.
+exec 9>"$NIGHT_HOME/.lock"
+flock -n 9 || { echo "another run holds $NIGHT_HOME/.lock — not starting a second"; exit 0; }
+
+# ⛔ ASK THE QUEUE, THEN THE QUOTA — BEFORE any `claude -p`, before a log file
+# exists, before Discord hears anything. Most ticks end here.
+#   rc 1  the queue is OVER (all done / budget spent / past Until). Write
+#         STOPPED: the unit carries ConditionPathExists=!STOPPED, so from now on
+#         systemd does not even start this script. Said on Discord ONCE, because
+#         there is no next time. `install.sh --arm` with a new queue removes it.
+#   rc 3  not now — the 5-hour window is spent, or the week is down to the
+#         owner's reserve. SILENT: a post every 20 minutes would bury the channel.
+QUEUE="$(dirname "$0")/queue.mjs"
+[ -r "$QUEUE" ] || QUEUE="$NIGHT_HOME/queue.mjs"
+[ -r "$QUEUE" ] && [ -r "$TASKS" ] || { echo "!! missing $QUEUE or $TASKS"; exit 1; }
+GATE_WHY="$(node "$QUEUE" gate "$TASKS" "$USAGE" 2>&1)"; GATE_RC=$?
+if [ "$GATE_RC" -eq 1 ]; then
+  echo "queue over: $GATE_WHY — writing $STOPPED"
+  printf '%s\n%s\n' "$(date -u +%FT%TZ)" "$GATE_WHY" > "$STOPPED"
+  post_discord "$(printf 'หยุดตัวเองแล้ว %s (ICT) — จะไม่ปลุกอีกจนกว่าจะติดตั้งคิวใหม่\n%s' \
+    "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$GATE_WHY")"
+  exit 0
+elif [ "$GATE_RC" -ne 0 ]; then
+  echo "not now: $GATE_WHY"
+  exit 0
+fi
 
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG") 2>&1
 echo "=== samo night agent — started $(date -u +%FT%TZ) (ICT $(TZ=Asia/Bangkok date +%H:%M)) ==="
+echo "queue: $GATE_WHY"
 
-# ⛔ THE SAME QUEUE MAY NOT RUN TWICE. Paid for on 2026-09-15→18: nothing
-# consumes NIGHT-TASKS.md, so the file sat unchanged for three nights and the
-# agent worked the SAME six tasks each time — the third night branching from a
-# `main` that already had the second night's commits, so it rebuilt work that
-# existed. Nobody noticed because every run reported success: it had genuinely
-# done the tasks it was given.
-#
-# The fix is a fingerprint of the queue, written only after a run REACHES THE
-# END, and compared on the next start. It is checked here rather than trusted to
-# a human because the whole point of this thing is that no human is awake.
-#
-# It refuses rather than warns — a warning at 22:41 ICT is read by nobody.
-# `NIGHT_FORCE=1` is the deliberate escape for re-running a queue on purpose,
-# and it has to be typed, which is the difference that matters.
-# ⛔ ASK THE QUEUE WHETHER TONIGHT SHOULD HAPPEN — BEFORE any `claude -p`, so a
-# finished or out-of-budget queue costs nothing at all. That is why the timer can
-# stay armed: there is nothing to disable, and a no-op night spends no tokens.
-QUEUE="$(dirname "$0")/queue.mjs"
-[ -r "$QUEUE" ] || QUEUE="$NIGHT_HOME/queue.mjs"
-if [ -r "$QUEUE" ] && [ -r "$TASKS" ]; then
-  GATE_WHY="$(node "$QUEUE" gate "$TASKS" 2>&1)"; GATE_RC=$?
-  if [ "$GATE_RC" -ne 0 ]; then
-    echo "!! ไม่เริ่มงานคืนนี้: $GATE_WHY"
-    post_discord "$(printf 'ไม่ได้เริ่มงานคืนนี้ %s (ICT)\n%s' \
-      "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$GATE_WHY")"
-    exit 0
-  fi
-  echo "queue: $GATE_WHY"
-fi
-
-QUEUE_STAMP="$NIGHT_HOME/.last-queue-sha"
-if [ -r "$TASKS" ]; then
-  QUEUE_SHA="$(sha256sum "$TASKS" | cut -d' ' -f1)"
-  if [ -r "$QUEUE_STAMP" ] && [ "$QUEUE_SHA" = "$(cat "$QUEUE_STAMP")" ] && [ -z "${NIGHT_FORCE:-}" ]; then
-    echo "!! NIGHT-TASKS.md has not changed since the last completed run — refusing."
-    echo "!! Write a new queue, or re-run this one on purpose with NIGHT_FORCE=1."
-    post_discord "$(printf 'ไม่ได้เริ่มงานคืนนี้ %s (ICT)\nคิวงานยังเป็นไฟล์เดิมที่ทำไปแล้ว — เขียนคิวใหม่ก่อน\n(ถ้าตั้งใจให้ทำซ้ำ ใช้ NIGHT_FORCE=1)' \
-      "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')")"
-    exit 0
-  fi
-fi
+# ⛔ THE QUEUE-FINGERPRINT GUARD (2026-09-19) IS GONE, ON PURPOSE (2026-10-13).
+# It refused a queue whose file had not changed since the last completed run —
+# but it stamped the file AFTER that run rewrote it, so the NEXT run always saw
+# "unchanged" and refused: a `Budget: 3 nights` queue could never use night 2.
+# What it guarded against (re-running finished work) is now answered by the
+# queue itself — `gate` refuses when every task is terminal, and a task whose
+# check already passes is skipped before claude is called.
 
 # ⛔ SAY "I STARTED" BEFORE DOING ANYTHING. Without it, a run that dies early —
 # OOM, a hung task, the box rebooting — is indistinguishable in the morning from
@@ -207,8 +192,23 @@ post_discord "$(printf 'เริ่มทำงานแล้ว %s (ICT)\nค
 cd "$REPO" || { echo "!! no $REPO"; exit 1; }
 
 git fetch --quiet origin main 2>/dev/null || echo "(fetch failed — using the local clone)"
-git checkout --quiet -B "$BRANCH" origin/main 2>/dev/null || git checkout --quiet -B "$BRANCH"
-echo "branch: $BRANCH  base: $(git log --oneline -1)"
+# ⛔ ONE BRANCH FOR THE WHOLE QUEUE, AND A LATER RUN CONTINUES IT. This used to
+# be `checkout -B agent/<date> origin/main` every run: with several runs a day
+# the second RESET the branch and threw away the first's commits — and the VM
+# cannot push, so they existed nowhere else.
+BRANCH="$(node "$QUEUE" list "$TASKS" 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{process.stdout.write(JSON.parse(d).branch||"")}catch{}})')"
+[ -n "$BRANCH" ] || BRANCH="agent/$(date -u +%Y-%m-%d)"
+if git rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null; then
+  git checkout --quiet "$BRANCH"
+  # A run cut off by the quota may have left edits it never committed.
+  if [ -n "$(git status --porcelain)" ]; then
+    git add -A && git commit --quiet -m "agent: work left uncommitted by the previous run" -m "Swept up at $STAMP."
+  fi
+  echo "branch: $BRANCH (continuing)  head: $(git log --oneline -1)"
+else
+  git checkout --quiet -B "$BRANCH" origin/main 2>/dev/null || git checkout --quiet -B "$BRANCH"
+  echo "branch: $BRANCH (new)  base: $(git log --oneline -1)"
+fi
 
 [ -r "$TASKS" ] || { echo "!! no task file at $TASKS"; exit 1; }
 
@@ -246,8 +246,15 @@ done_n=0; fail_n=0; stop_reason="queue finished"; SUMMARY=""; UNRUN=0; NEEDS_DEC
 
 for i in "${!STARTS[@]}"; do
   if [ "$(date -u +%s)" -ge "$RESERVE_EPOCH" ]; then
-    stop_reason="stopped at $RESERVE_UTC UTC to reserve time for the handoff"
+    stop_reason="stopped ${RUN_RESERVE_MIN:-245} min into the run to reserve time for the handoff"
     UNRUN=$(( TOTAL - i )); break
+  fi
+  # ⛔ THE RESERVE IS CHECKED BETWEEN TASKS TOO, not only at the start — a run
+  # that began at 60% of the week would otherwise spend straight through the
+  # owner's session. The numbers are ≤15 min old; usageGate keeps a margin.
+  if ! U_WHY="$(node "$QUEUE" usage "$TASKS" "$USAGE" 2>&1)"; then
+    stop_reason="quota: $U_WHY"
+    UNRUN=$(( TOTAL - i )); QUOTA_GONE=1; break
   fi
 
   start="${STARTS[$i]}"
@@ -310,7 +317,13 @@ for i in "${!STARTS[@]}"; do
 
   if grep -qiE 'session limit|usage limit|rate limit|quota|exceeded your|429|Please try again later' "$out"; then
     stop_reason="claude reported a usage/rate limit — stopped rather than hammering it"
-    fail_n=$((fail_n+1)); SUMMARY+="STOP $title — quota/rate limit"$'\n'; break
+    # No verdict: a task cut off by the quota was not ATTEMPTED, and counting
+    # it would block it after two windows that each ran out. Keep what it did.
+    if [ -n "$(git status --porcelain)" ]; then
+      git add -A && git commit --quiet -m "agent: WIP $title (cut off by the quota)" -m "Unattended run $STAMP."
+    fi
+    fail_n=$((fail_n+1)); SUMMARY+="STOP $title — quota/rate limit (work kept, will resume)"$'\n'
+    QUOTA_GONE=1; break
   fi
 
   if [ $rc -ne 0 ]; then
@@ -404,8 +417,12 @@ run_one() {
 # window that is gone at 03:40 either way. Each pass is a fresh cold run that
 # re-reads what the earlier tasks produced, so it reviews work rather than
 # continuing half-remembered work.
+# ⛔ OFF BY DEFAULT SINCE 2026-10-13 (owner: "i dont want my token to go to
+# waste"). Six open-ended "improve it" passes are exactly that when the queue is
+# done; with runs now starting every window, a finished queue should STOP.
+# NIGHT_REVISE=1 turns them back on for a run that wants them.
 pass=0
-while [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
+while [ "${NIGHT_REVISE:-0}" = "1" ] && [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
       && [ "$QUOTA_GONE" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ]; do
   pass=$((pass+1))
   [ "$pass" -gt 6 ] && { echo "(stopping after 6 revision passes — diminishing returns)"; break; }
@@ -431,11 +448,13 @@ echo ""
 # being written correctly. A mistyped `Done when:` never terminates on its own.
 [ -r "$QUEUE" ] && [ -r "$TASKS" ] && node "$QUEUE" spend "$TASKS" 2>/dev/null || true
 
-# Stamped AFTER the queue was rewritten, so the fingerprint is of the file as it
-# now stands — with tonight's verdicts in it. Stamping the file we READ would
-# make every night's own progress look like "unchanged" to the next one.
-QUEUE_SHA="$(sha256sum "$TASKS" 2>/dev/null | cut -d' ' -f1)"
-[ -n "${QUEUE_SHA:-}" ] && printf '%s\n' "$QUEUE_SHA" > "$QUEUE_STAMP"
+# Is the queue OVER now? Then stop here, rather than at the next tick: the
+# STOPPED file makes systemd skip every later tick without running anything.
+FINAL_WHY="$(node "$QUEUE" gate "$TASKS" 2>&1)"
+if [ $? -eq 1 ]; then
+  printf '%s\n%s\n' "$(date -u +%FT%TZ)" "$FINAL_WHY" > "$STOPPED"
+  stop_reason="$stop_reason · QUEUE OVER — stopped itself ($FINAL_WHY)"
+fi
 
 echo "=== finished $(date -u +%FT%TZ) — $done_n ok, $fail_n failed. $stop_reason ==="
 commits="$(git log --oneline origin/main.."$BRANCH" 2>/dev/null | wc -l)"

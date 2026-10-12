@@ -1,13 +1,18 @@
 [Unit]
-Description=Fire the SAMO night agent at 22:41 ICT, one minute after the 5-hour window resets
+Description=Tick the SAMO night agent every 20 minutes; the runner decides in milliseconds whether to work
 
 [Timer]
-# 15:41 UTC = 22:41 Asia/Bangkok. THE VM IS ON UTC — writing 22:41 here would
-# fire at 05:41 ICT, which is the classic way to get this wrong.
-OnCalendar=*-*-* 15:41:00
-# ⛔ Persistent=false ON PURPOSE. A missed run must NOT fire late: the whole
-# point is the 5-hour window that opens at 22:40 ICT, and a catch-up run at
-# breakfast would spend a window somebody is awake to use.
+# ⛔ SINCE 2026-10-13 THIS IS A TICK, NOT A SCHEDULE. It used to fire once, at
+# 15:41 UTC (22:41 ICT), into one 5-hour window. The owner asked for "as many
+# 5-hour sessions as the work needs, but leave one for me", so the runner now
+# decides each time: queue finished → write STOPPED (the service then never
+# starts again); window spent or the week down to the owner's reserve → exit
+# silently; otherwise start a run. A tick that does not run calls no model.
+# The timer cannot start a second run on top of one in progress: a oneshot that
+# is still ACTIVE is not started again.
+OnCalendar=*-*-* *:07/20:00
+# ⛔ Persistent=false ON PURPOSE. A tick missed while the box was down is not
+# owed — the next one is at most 20 minutes away.
 Persistent=false
 AccuracySec=30s
 Unit=samo-night-agent.service
