@@ -244,9 +244,17 @@ export function priceRange(p) {
   return { min: Math.min(...prices), max: Math.max(...prices) };
 }
 
-/** Has the admin typed ANY number into this product's size × colour grid? */
+/** The numbers that count RIGHT NOW: the preorder table while the Preorder
+ *  tick is on, the in-stock table otherwise. Each keeps its own numbers, so
+ *  switching modes never reuses or wipes the other (0210). JS twin of the
+ *  server's shop_active_stock() — every storefront read goes through here. */
+export function activeStock(p) {
+  return (p?.is_presale ? p?.preorder_stock_matrix : p?.stock_matrix) || {};
+}
+
+/** Has the admin typed ANY number into the table that counts right now? */
 export function hasStockNumbers(p) {
-  return Object.values(p?.stock_matrix || {}).some((v) => typeof v === 'number' && Number.isFinite(v));
+  return Object.values(activeStock(p)).some((v) => typeof v === 'number' && Number.isFinite(v));
 }
 
 /** A preorder product with an EMPTY grid is sold without a limit — the admin
@@ -272,7 +280,7 @@ export function takesPreorderSlot(order, item) {
 /** Buyer-facing available qty for one (size, color) cell.
  *
  *  Math:  available = max(0, stock - reserved)
- *    stock     comes from `p.stock_matrix[key]` (what admin loaded)
+ *    stock     comes from `activeStock(p)[key]` (what admin loaded)
  *    reserved  comes from `p.reserved_matrix[key]` — what is taken,
  *              computed server-side by shop_reserved_matrix_all (one rule
  *              for in-stock and preorder since 0209)
@@ -286,7 +294,7 @@ export function takesPreorderSlot(order, item) {
  *  callers check isUnlimitedBuying first. */
 export function availableForVariant(p, size, color) {
   if (!p) return null;
-  const stockMatrix = p.stock_matrix || {};
+  const stockMatrix = activeStock(p);
   const reservedMatrix = p.reserved_matrix || {};
   const key = stockKey(size, color);
   const stock = stockMatrix[key];
@@ -300,7 +308,7 @@ export function availableForVariant(p, size, color) {
  *  on the grid. Returns null when the matrix isn't configured. */
 export function availableTotal(p) {
   if (!p) return null;
-  const matrix = p.stock_matrix || {};
+  const matrix = activeStock(p);
   const reserved = p.reserved_matrix || {};
   let total = 0;
   let any = false;

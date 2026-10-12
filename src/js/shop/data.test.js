@@ -163,7 +163,7 @@ describe('cartLineProblems — the server\'s refusals, asked before the buyer pa
   it('a preorder with an EMPTY grid is unlimited; one with numbers runs down', () => {
     const open = { ...tee, is_presale: true, stock_matrix: {}, reserved_matrix: {} };
     expect(cartLineProblems([line({ qty: 50 })], { t: open }).size).toBe(0);
-    const limited = { ...tee, is_presale: true };              // 3 in the grid, 1 taken
+    const limited = { ...tee, is_presale: true, stock_matrix: {}, preorder_stock_matrix: { 'M-black': 3 } }; // 1 taken
     expect(cartLineProblems([line({ qty: 2 })], { t: limited }).size).toBe(0);
     expect(cartLineProblems([line({ qty: 3 })], { t: limited }).get(0)).toBe('เหลือเพียง 2 ชิ้น');
   });
@@ -288,10 +288,10 @@ describe('picture cache — the page and nginx agree', () => {
 
 import { isUnlimitedBuying, hasStockNumbers, takesPreorderSlot } from './data.js';
 describe('preorder limit (0209)', () => {
-  it('only a preorder with no number anywhere in its grid is unlimited', () => {
-    expect(isUnlimitedBuying({ is_presale: true, stock_matrix: {} })).toBe(true);
+  it('only a preorder with no number anywhere in its PREORDER table is unlimited', () => {
+    expect(isUnlimitedBuying({ is_presale: true, preorder_stock_matrix: {} })).toBe(true);
     expect(isUnlimitedBuying({ is_presale: true })).toBe(true);
-    expect(isUnlimitedBuying({ is_presale: true, stock_matrix: { 'M-default': 0 } })).toBe(false);
+    expect(isUnlimitedBuying({ is_presale: true, preorder_stock_matrix: { 'M-default': 0 } })).toBe(false);
     expect(isUnlimitedBuying({ is_presale: false, stock_matrix: {} })).toBe(false);
   });
   it('a blank cell is not a number', () => {
@@ -305,5 +305,24 @@ describe('preorder limit (0209)', () => {
     expect(takesPreorderSlot({ status: 'pending' }, pre)).toBe(true);
     expect(takesPreorderSlot({ status: 'cancel' }, pre)).toBe(false);
     expect(takesPreorderSlot({ status: 'paid' }, { is_preorder: false })).toBe(false);
+  });
+});
+
+import { activeStock, availableForVariant } from './data.js';
+// REPORTED 2026-10-12: "i want admin to can custom stocks of preorder and
+// stocks of normal". One mode at a time (owner's choice): the Preorder tick
+// picks the table, and the other keeps its numbers untouched (0210).
+describe('two stock tables, one in use (0210)', () => {
+  const both = { sizes: ['M'], stock_matrix: { 'M-default': 5 }, preorder_stock_matrix: { 'M-default': 1 },
+    reserved_matrix: {} };
+  it('the Preorder tick picks the table', () => {
+    expect(activeStock({ ...both, is_presale: true })).toEqual({ 'M-default': 1 });
+    expect(activeStock({ ...both, is_presale: false })).toEqual({ 'M-default': 5 });
+    expect(availableForVariant({ ...both, is_presale: true }, 'M', 'default')).toBe(1);
+    expect(availableForVariant({ ...both, is_presale: false }, 'M', 'default')).toBe(5);
+  });
+  it('in-stock numbers do not limit a preorder, and preorder numbers do not limit stock', () => {
+    expect(isUnlimitedBuying({ is_presale: true, stock_matrix: { 'M-default': 1 }, preorder_stock_matrix: {} })).toBe(true);
+    expect(availableForVariant({ is_presale: false, stock_matrix: {}, preorder_stock_matrix: { 'M-default': 1 } }, 'M', 'default')).toBe(null);
   });
 });

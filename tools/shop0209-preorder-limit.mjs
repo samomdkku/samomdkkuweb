@@ -4,7 +4,7 @@
 //                               nothing else about stock changed.
 //
 // One transaction that ROLLS BACK. Products only this proof uses:
-//   probe0209p — PREORDER, size M, grid M-default = 2
+//   probe0209p — PREORDER, size M, preorder table M-default = 2 (0210)
 //   probe0209u — PREORDER, size M, empty grid (unlimited, as before 0209)
 //   probe0209s — IN STOCK, size M, grid M-default = 2
 //
@@ -35,11 +35,12 @@ do $$ begin
 end $$;
 grant insert, select on probe to authenticated, anon;
 
-insert into public.shop_products (id, name, type, source, price, sizes, colors, stock_matrix, is_active, stock_status, is_presale)
+-- Since 0210 a preorder's numbers live in preorder_stock_matrix.
+insert into public.shop_products (id, name, type, source, price, sizes, colors, stock_matrix, preorder_stock_matrix, is_active, stock_status, is_presale)
 values
-  ('probe0209p', 'probe0209p', 'apparel-shirt', 'md', 100, array['M'], '[]', '{"M-default":2}', true, 'available', true),
-  ('probe0209u', 'probe0209u', 'apparel-shirt', 'md', 100, array['M'], '[]', '{}',              true, 'available', true),
-  ('probe0209s', 'probe0209s', 'apparel-shirt', 'md', 100, array['M'], '[]', '{"M-default":2}', true, 'available', false);
+  ('probe0209p', 'probe0209p', 'apparel-shirt', 'md', 100, array['M'], '[]', '{}',              '{"M-default":2}', true, 'available', true),
+  ('probe0209u', 'probe0209u', 'apparel-shirt', 'md', 100, array['M'], '[]', '{}',              '{}',              true, 'available', true),
+  ('probe0209s', 'probe0209s', 'apparel-shirt', 'md', 100, array['M'], '[]', '{"M-default":2}', '{}',              true, 'available', false);
 
 insert into public.shop_orders (id, buyer_id, status, subtotal, fee, total, placed_at, updated_at, timeline)
 values ('ZZ0209D', null, 'paid',   100, 0, 100, now(), now(), '[]'),   -- item delivered

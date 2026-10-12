@@ -18,7 +18,7 @@ import {
   getPickupLocations, setPickupLocations,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
-  NOT_YET_REVENUE_STATUSES, takesPreorderSlot,
+  NOT_YET_REVENUE_STATUSES, takesPreorderSlot, activeStock,
 } from './data.js';
 import { downscaleImage, decode } from '../image-resize.js';
 import { askConfirm } from '../confirm-modal.js';
@@ -2687,6 +2687,7 @@ function blankProduct() {
     is_active: true,
     stock_status: 'available',
     stock_matrix: {},
+    preorder_stock_matrix: {},
     price_by_size: {},
     preorder_price_by_size: {},
     promptpay_qr_id: null,
@@ -2712,7 +2713,7 @@ function renderProductsTable() {
     return;
   }
   tbody.innerHTML = state.products.map((p) => {
-    const stockSum = totalStock(p.stock_matrix);
+    const stockSum = totalStock(activeStock(p));
     return `
     <tr>
       <td>
@@ -2758,7 +2759,7 @@ function renderProductsTable() {
   tbody.querySelectorAll('[data-product-edit]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const p = state.products.find((x) => x.id === btn.dataset.productEdit);
-      if (p) { releasePreviews(state.productEditor); state.productEditor = { ...p, _images: null, stock_matrix: { ...(p.stock_matrix || {}) } }; renderProductEditor(); }
+      if (p) { releasePreviews(state.productEditor); state.productEditor = { ...p, _images: null, stock_matrix: { ...(p.stock_matrix || {}) }, preorder_stock_matrix: { ...(p.preorder_stock_matrix || {}) } }; renderProductEditor(); }
     });
   });
   tbody.querySelectorAll('[data-product-delete]').forEach((btn) => {
@@ -2945,11 +2946,18 @@ function renderProductEditor() {
           </div>
         </div>
         <div class="col-12">
-          <label class="small text-muted mb-1">สต็อกต่อไซส์ × สี</label>
-          <div id="shopProdStockMatrix">${stockMatrixHtml(p)}</div>
+          <label class="small text-muted mb-1">สต็อกพร้อมส่ง (ต่อไซส์ × สี) — ใช้เมื่อไม่ได้ติ๊ก Preorder</label>
+          <div id="shopProdStockMatrix">${stockMatrixHtml(p, 'stock_matrix')}</div>
           <div class="small text-muted mt-1">
             ตั้งค่า "0" สำหรับตัวเลือกที่หมด — เว้นว่างไว้แปลว่ายังไม่ระบุ
-            · สินค้า Preorder: ตัวเลขคือจำนวนที่เปิดรับ นับลดลงเมื่อมีคนสั่ง (ยกเลิกออเดอร์ = คืนจำนวน) — เว้นว่างทั้งตาราง = รับไม่จำกัด
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="small text-muted mb-1">จำนวนรับ Preorder (ต่อไซส์ × สี) — ใช้เมื่อติ๊ก Preorder</label>
+          <div id="shopProdPreorderStockMatrix">${stockMatrixHtml(p, 'preorder_stock_matrix')}</div>
+          <div class="small text-muted mt-1">
+            นับลดลงทุกครั้งที่มีคนสั่ง ยกเลิกออเดอร์แล้วคืนจำนวน — เว้นว่างทั้งตาราง = รับไม่จำกัด
+            · สองตารางแยกกัน สลับติ๊ก Preorder แล้วตัวเลขของอีกตารางไม่เปลี่ยน
           </div>
         </div>
       </div>
@@ -2970,6 +2978,7 @@ function renderProductEditor() {
   // Stock typed HERE is sent on save; untouched, the editor's copy (taken when
   // it opened) is NOT — the สต็อก tab or another admin may have changed it since.
   document.getElementById('shopProdStockMatrix')?.addEventListener('input', () => { p._stockTouched = true; });
+  document.getElementById('shopProdPreorderStockMatrix')?.addEventListener('input', () => { p._preorderStockTouched = true; });
 
   // Live hue swatch
   const hueInput = document.getElementById('shopProdHue');
@@ -3156,14 +3165,17 @@ function refreshMatrixOnly() {
   // the re-render (stock used to reset to the saved numbers on every size or
   // colour keystroke).
   Object.assign(p, readSizePrices());
-  p.stock_matrix = readStockMatrix();
+  p.stock_matrix = readStockMatrix('stock_matrix');
+  p.preorder_stock_matrix = readStockMatrix('preorder_stock_matrix');
   // pull live values, replace in-memory + re-render only the matrix area
   p.sizes  = (document.getElementById('shopProdSizes')?.value || '').split(',').map((s) => s.trim()).filter(Boolean);
   // Read colors from the row picker (replaces the old JSON textarea).
   // readColorRows returns [] when the list isn't rendered yet — safe.
   p.colors = readColorRows();
   const host = document.getElementById('shopProdStockMatrix');
-  if (host) host.innerHTML = stockMatrixHtml(p);
+  if (host) host.innerHTML = stockMatrixHtml(p, 'stock_matrix');
+  const preHost = document.getElementById('shopProdPreorderStockMatrix');
+  if (preHost) preHost.innerHTML = stockMatrixHtml(p, 'preorder_stock_matrix');
   const prices = document.getElementById('shopProdSizePrices');
   if (prices) prices.innerHTML = sizePricesHtml(p);
   // Its colour menus list p.colors — re-render only when THAT changed: this
@@ -3216,10 +3228,12 @@ function readSizePrices() {
   return out;
 }
 
-function stockMatrixHtml(p) {
+/** One size × colour table of the editor. `field` is the column it edits:
+ *  'stock_matrix' (in stock) or 'preorder_stock_matrix' (0210). */
+function stockMatrixHtml(p, field) {
   const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
   const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
-  const matrix = p.stock_matrix || {};
+  const matrix = p[field] || {};
   return `
     <div class="stock-matrix">
       <table class="stock-matrix-table">
@@ -3241,7 +3255,7 @@ function stockMatrixHtml(p) {
                 const v = matrix[k];
                 return `<td>
                   <input type="number" min="0" class="form-control form-control-sm"
-                    data-stock-key="${escHtml(k)}"
+                    data-stock-field="${field}" data-stock-key="${escHtml(k)}"
                     value="${v === undefined || v === null ? '' : Number(v)}"
                     placeholder="-" />
                 </td>`;
@@ -3252,9 +3266,9 @@ function stockMatrixHtml(p) {
     </div>`;
 }
 
-function readStockMatrix() {
+function readStockMatrix(field) {
   const matrix = {};
-  document.querySelectorAll('[data-stock-key]').forEach((el) => {
+  document.querySelectorAll(`[data-stock-field="${field}"][data-stock-key]`).forEach((el) => {
     const k = el.dataset.stockKey;
     const raw = el.value.trim();
     if (raw === '') return;
@@ -3299,7 +3313,8 @@ function readProductForm() {
     is_presale: !!document.getElementById('shopProdIsPresale')?.checked,
     is_active: !!document.getElementById('shopProdIsActive')?.checked,
     stock_status: document.getElementById('shopProdStockStatus')?.value || 'available',
-    stock_matrix: readStockMatrix(),
+    stock_matrix: readStockMatrix('stock_matrix'),
+    preorder_stock_matrix: readStockMatrix('preorder_stock_matrix'),
     ...(() => {
       // Drop entries for sizes no longer on the product.
       const sizes = (document.getElementById('shopProdSizes')?.value || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -3364,6 +3379,7 @@ async function saveProductForm() {
     image_url: e.image_url || null,   // dropped before the write — the trigger derives it
   };
   if (e.id && !e._stockTouched) delete payload.stock_matrix;
+  if (e.id && !e._preorderStockTouched) delete payload.preorder_stock_matrix;
   if (newProductIdTaken) {
     showShopToast(`มีสินค้ารหัส ${payload.id} อยู่แล้ว — ใช้รหัสอื่น หรือเว้นว่างให้ระบบสร้างให้`, 'warn');
     return;
@@ -3604,7 +3620,9 @@ async function onStockProductionStatusChange(sel) {
 function getStockEditState(p) {
   let edit = state.stockEdits.get(p.id);
   if (!edit) {
-    edit = { matrix: { ...(p.stock_matrix || {}) }, status: p.stock_status || 'available', dirty: false };
+    // The สต็อก tab edits the table that counts right now (0210).
+    const field = p.is_presale ? 'preorder_stock_matrix' : 'stock_matrix';
+    edit = { field, matrix: { ...(p[field] || {}) }, status: p.stock_status || 'available', dirty: false };
     state.stockEdits.set(p.id, edit);
   }
   return edit;
@@ -3737,6 +3755,9 @@ function stockCardHtml(p, reservedMap = new Map()) {
         <i class="bi bi-info-circle text-muted" tabindex="0"
            title='"ผลิตเสร็จแล้ว" ย้ายออเดอร์ "ยืนยันชำระเงิน" → "ผลิตเสร็จ" / "ประกาศรับสินค้า" ย้ายต่อไป "ประกาศแล้ว" / สถานะปัญหาไม่ถูกแตะ'></i>
       </div>
+      <div class="small fw-semibold text-muted mb-1">${edit.field === 'preorder_stock_matrix'
+        ? 'ตาราง: จำนวนรับ Preorder (สต็อกพร้อมส่งแก้ได้ในหน้าแก้สินค้า)'
+        : 'ตาราง: สต็อกพร้อมส่ง'}</div>
       <div class="stock-grid">
         <table class="stock-grid-table">
           <thead>
@@ -3853,7 +3874,7 @@ async function saveStock(productId) {
       `/shop_products?id=eq.${encodeURIComponent(productId)}`,
       {
         method: 'PATCH',
-        body: { stock_matrix: edit.matrix, stock_status: edit.status },
+        body: { [edit.field]: edit.matrix, stock_status: edit.status },
         prefer: 'return=representation',
       },
     );
@@ -3862,7 +3883,7 @@ async function saveStock(productId) {
       throw new Error('บันทึกล้มเหลว (RLS หรือสิทธิ์ไม่พอ)');
     }
     // Reflect into local cache + clear dirty flag
-    p.stock_matrix = edit.matrix;
+    p[edit.field] = edit.matrix;
     p.stock_status = edit.status;
     state.stockEdits.delete(productId);
     showShopToast(`บันทึก "${p.name}" แล้ว`, 'success');

@@ -604,8 +604,7 @@ function openProductModal(product) {
   // Default to the first variant the buyer can actually buy right now
   // — admin's stock minus active reservations. If the matrix isn't
   // configured we let the buyer pick anything (untracked stock).
-  const matrix = product.stock_matrix || {};
-  const configured = Object.values(matrix).some((v) => typeof v === 'number');
+  const configured = hasStockNumbers(product);
   // NO colour is chosen for the buyer when there is a choice to make (owner,
   // 2026-09-23: it opened on "black" and scrolled the gallery to it). A single
   // colour has nothing to choose — its picker is hidden — so it is set.

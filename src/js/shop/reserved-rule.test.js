@@ -73,6 +73,14 @@ describe('reserved stock: one rule, one home', () => {
     expect(branch, 'a delivered preorder must keep its slot').not.toMatch(/item_status/i);
   });
 
+  it('the guard reads the table the Preorder tick picks — never one table directly (0210)', () => {
+    expect(defs.place_shop_order.body).toMatch(/public\.shop_active_stock\s*\(\s*v_product\s*\)/i);
+    expect(defs.place_shop_order.body).not.toMatch(/v_product\.(preorder_)?stock_matrix/i);
+    const pick = latestDefinition('shop_active_stock');
+    expect(pick, 'shop_active_stock exists').not.toBeNull();
+    expect(pick.body).toMatch(/when\s+coalesce\(\s*p\.is_presale[\s\S]*?then\s+coalesce\(\s*p\.preorder_stock_matrix[\s\S]*?else\s+coalesce\(\s*p\.stock_matrix/i);
+  });
+
   it('the guard checks the grid for preorder products too', () => {
     // Before 0209 the stock check sat in the ELSE of `if v_item_is_preorder`.
     expect(defs.place_shop_order.body).not.toMatch(/if\s+v_item_is_preorder\s+then[^;]*;\s*else/i);
