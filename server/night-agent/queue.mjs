@@ -39,7 +39,7 @@
 // out-of-budget queue spends no tokens at all. That is why the timer can stay
 // armed: there is nothing to disable.
 //
-//   node queue.mjs gate   <file> [usage.json] → exit 0 run · 1 STOP for good · 3 wait
+//   node queue.mjs gate   <file> [usage.json] → exit 0 run · 10 STOP for good · 3 wait
 //   node queue.mjs usage  <file> <usage.json> → exit 0 keep going · 3 stop this run
 //   node queue.mjs list   <file>              → JSON: budget + every task
 //   node queue.mjs set    <file> <n> <status> → write one task's verdict
@@ -247,11 +247,15 @@ if (cmd && file) {
   const readUsage = (p) => { try { return p ? JSON.parse(readFileSync(p, 'utf8')) : null; } catch { return null; } };
   if (cmd === 'gate') {
     // Exit codes are the contract with run-night.sh:
-    //   0 run · 1 the queue is OVER (the runner writes STOPPED; systemd then
+    //   0 run · 10 the queue is OVER (the runner writes STOPPED; systemd then
     //   never starts it again) · 3 not now (quota) — try at the next tick.
+    // ⛔ "OVER" IS 10, NOT 1. A node crash also exits 1 — the rehearsal of
+    // 2026-10-13 read a MODULE_NOT_FOUND as "queue finished" and wrote STOPPED
+    // with a stack trace for a reason. Any code the runner does not know means
+    // "something is wrong: do not run, say so", never "done".
     const q = parseQueue(read());
     const g = gate(q);
-    if (!g.run) { console.log(g.why); process.exit(1); }
+    if (!g.run) { console.log(g.why); process.exit(10); }
     if (rest[0]) {
       const u = usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
       if (!u.run) { console.log(u.why); process.exit(3); }

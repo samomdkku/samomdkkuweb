@@ -142,20 +142,35 @@ flock -n 9 || { echo "another run holds $NIGHT_HOME/.lock — not starting a sec
 #         there is no next time. `install.sh --arm` with a new queue removes it.
 #   rc 3  not now — the 5-hour window is spent, or the week is down to the
 #         owner's reserve. SILENT: a post every 20 minutes would bury the channel.
-QUEUE="$(dirname "$0")/queue.mjs"
+# ⛔ ABSOLUTE. `dirname "$0"` is "." for `./run-night.sh` — the manual command
+# the playbook documents — and the script cd's into the repo below, so a
+# relative path then named ~/samo-agent/queue.mjs, which does not exist
+# (caught by the 2026-10-13 rehearsal; systemd's absolute ExecStart hid it).
+QUEUE="$(cd "$(dirname "$0")" && pwd)/queue.mjs"
 [ -r "$QUEUE" ] || QUEUE="$NIGHT_HOME/queue.mjs"
 [ -r "$QUEUE" ] && [ -r "$TASKS" ] || { echo "!! missing $QUEUE or $TASKS"; exit 1; }
 GATE_WHY="$(node "$QUEUE" gate "$TASKS" "$USAGE" 2>&1)"; GATE_RC=$?
-if [ "$GATE_RC" -eq 1 ]; then
+if [ "$GATE_RC" -eq 10 ]; then
   echo "queue over: $GATE_WHY — writing $STOPPED"
   printf '%s\n%s\n' "$(date -u +%FT%TZ)" "$GATE_WHY" > "$STOPPED"
   post_discord "$(printf 'หยุดตัวเองแล้ว %s (ICT) — จะไม่ปลุกอีกจนกว่าจะติดตั้งคิวใหม่\n%s' \
     "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$GATE_WHY")"
   exit 0
-elif [ "$GATE_RC" -ne 0 ]; then
+elif [ "$GATE_RC" -eq 3 ]; then
   echo "not now: $GATE_WHY"
   exit 0
+elif [ "$GATE_RC" -ne 0 ]; then
+  # Not a verdict — the gate itself broke. Do not run, and say so ONCE per
+  # failure kind rather than every 20 minutes.
+  echo "!! gate failed (rc $GATE_RC): $GATE_WHY"
+  ERR_STAMP="$NIGHT_HOME/.gate-error"
+  if [ ! -e "$ERR_STAMP" ] || [ "$(cat "$ERR_STAMP")" != "$GATE_RC" ]; then
+    printf '%s' "$GATE_RC" > "$ERR_STAMP"
+    post_discord "$(printf 'night agent: ตัวตรวจคิวทำงานผิดพลาด (rc %s) — ไม่ได้เริ่มงาน\n%s' "$GATE_RC" "$(printf '%s' "$GATE_WHY" | tail -3)")"
+  fi
+  exit 1
 fi
+rm -f "$NIGHT_HOME/.gate-error"
 
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG") 2>&1
@@ -257,6 +272,13 @@ for i in "${!STARTS[@]}"; do
     UNRUN=$(( TOTAL - i )); QUOTA_GONE=1; break
   fi
 
+  # ⛔ RE-READ THE HEADINGS EVERY TASK. The runner writes Status/Attempts/Note
+  # lines UNDER each heading as verdicts land, so line numbers taken once at the
+  # top go stale after the first verdict: the 2026-10-13 rehearsal handed task
+  # 3 the prompt of task 2 (already done) and never ran task 3 — re-doing
+  # finished work, the exact thing this runner exists to prevent. The NUMBER of
+  # headings never changes, so the index `i` stays valid.
+  mapfile -t STARTS < <(grep -n '^## ' "$TASKS" | cut -d: -f1)
   start="${STARTS[$i]}"
   if [ $((i+1)) -lt "$TOTAL" ]; then end=$(( STARTS[$((i+1))] - 1 )); else end=$(wc -l < "$TASKS"); fi
   title="$(sed -n "${start}p" "$TASKS" | sed 's/^## *//')"
@@ -451,7 +473,7 @@ echo ""
 # Is the queue OVER now? Then stop here, rather than at the next tick: the
 # STOPPED file makes systemd skip every later tick without running anything.
 FINAL_WHY="$(node "$QUEUE" gate "$TASKS" 2>&1)"
-if [ $? -eq 1 ]; then
+if [ $? -eq 10 ]; then
   printf '%s\n%s\n' "$(date -u +%FT%TZ)" "$FINAL_WHY" > "$STOPPED"
   stop_reason="$stop_reason · QUEUE OVER — stopped itself ($FINAL_WHY)"
 fi

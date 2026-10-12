@@ -33,7 +33,7 @@ Reserve sessions: 1         ← 5-hour sessions of the WEEK kept for humans (abs
 Branch: agent/2026-10-13    ← one branch for every run of this queue
 ```
 
-Gate exit codes (the contract with `run-night.sh`): `0` run · `1` over →
+Gate exit codes (the contract with `run-night.sh`): `0` run · `10` over →
 STOPPED · `3` not now (quota), silent.
 
 ⚠️ If Claude monitoring is switched off on `/admin#claude`, the reporter writes

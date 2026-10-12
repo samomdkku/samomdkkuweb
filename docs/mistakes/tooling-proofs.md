@@ -3392,3 +3392,41 @@ optimised-dep hash with 504.
 **The general rule**: two dev servers started together must not share a cache
 directory. And a boot failure that survives a reload is not warm-up: read the
 NETWORK, not the console. The console showed nothing at all.
+
+---
+
+## Night agent: task 3 was handed task 2's prompt — line numbers taken once went stale when the runner wrote verdicts into the file
+
+**Symptom (2026-10-13 rehearsal on the VM, fake `claude`, before any real
+run)**: queue of three tasks; task 2 was correctly skipped (its check already
+passed), then the log printed `--- [3/3] 2. already passing` and the fake
+`claude` received TASK 2's prompt in task 3's slot. Task 3's own text never ran,
+yet it was marked `needs-review` as if attempted. On a real night: a finished
+task re-done, the next one silently never started.
+
+**Cause**: `run-night.sh` read the `## ` heading line numbers ONCE before the
+loop and sliced each prompt by them. `queue.mjs set` writes `Status:` /
+`Attempts:` / `Note:` lines UNDER each heading as verdicts land, so after the
+first verdict every later heading had moved down and the slices were off.
+Present since the 2026-09-19 continuation workflow; it surfaced only now because
+that rehearsal's queue never had a verdict land before a later task was sliced.
+
+**Fix**: re-read the headings at the top of every iteration (their COUNT never
+changes, so the index stays valid).
+
+**Same rehearsal, second bug**: `QUEUE="$(dirname "$0")/queue.mjs"` is `./queue.mjs`
+for the documented manual command `./run-night.sh`; the script then `cd`s into
+the repo, so every later `node "$QUEUE"` failed with MODULE_NOT_FOUND — and the
+gate's "queue over" exit code was 1, the same as a node crash, so the crash was
+read as "finished" and wrote STOPPED with a stack trace as its reason. Fixed:
+the path is resolved absolutely, and "over" is exit **10**; any code the runner
+does not know means "do not run, say so once", never "done".
+
+**Where it lives now**: `server/night-agent/run-night.sh` (the loop head, the
+`QUEUE=` line, the gate block), `server/night-agent/queue.mjs` (exit codes).
+
+**The general rule**: a file that a loop both READS positions from and WRITES
+into must be re-read after every write. And never let an error and a verdict
+share an exit code: the failure then reports itself as the success it
+prevented. Rehearse with a fake model and a queue where a verdict lands BEFORE
+the next task is read: it costs nothing and found both.
