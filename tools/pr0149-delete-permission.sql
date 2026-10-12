@@ -55,9 +55,28 @@ select u.id as uid, u.role from public.users u
  order by u.id limit 1;
 
 -- role: holds the staff ROLE. The control that must stay ALLOWED.
+-- Since 2026-09-26 NO account holds a staff role — samomdkkudev, the last
+-- `dev`, became role 'user' + master — and this control silently lost its
+-- subject (5 rows red). So when none exists it is MADE here, on a plain user,
+-- inside this transaction, which rolls back. Do not relax the assertions.
 create temporary table subj_role on commit drop as
 select u.id as uid, u.role from public.users u
  where u.role in ('pr_staff', 'dev') order by u.id limit 1;
+insert into subj_role
+select u.id, 'pr_staff' from public.users u
+ where not exists (select 1 from subj_role)
+   and u.role = 'user'
+   and coalesce(array_length(u.permissions, 1), 0) = 0
+   and coalesce(array_length(u.managed_permissions, 1), 0) = 0
+   and u.id not in (select uid from subj_perm)
+ order by u.id limit 1;
+-- users_self_update_guard lets only STAFF change a role, and STAFF is a ROLE
+-- (current_user_is_staff) — which no account holds any more, so no caller can
+-- pass it. Skip triggers for this ONE statement (no table lock; rolled back).
+set local session_replication_role = replica;
+update public.users set role = 'pr_staff'
+ where id = (select uid from subj_role) and role not in ('pr_staff', 'dev');
+set local session_replication_role = origin;
 
 -- none: no PR access by any channel. The control that must stay DENIED —
 --       without it, "denied" proves nothing, because a broken service denies

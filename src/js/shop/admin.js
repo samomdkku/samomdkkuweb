@@ -3557,22 +3557,22 @@ function computeProductSales(productId) {
  *  matrix render can lookup in O(1). Items missing size default to 'F';
  *  missing color defaults to 'default' — matches stockKey(). */
 function computeVariantReservedMap() {
+  // One map per TABLE (0210), whatever the product is set to right now, so a
+  // card can show both tables with their own numbers:
+  //   in-stock table — non-preorder items of a reserving order (0038);
+  //   preorder table — preorder items until their order is cancelled (0209).
   const orders = Array.isArray(state.orders) ? state.orders : [];
-  const presale = new Set(state.products.filter((p) => p.is_presale).map((p) => p.id));
-  const out = new Map();
+  const out = { stock_matrix: new Map(), preorder_stock_matrix: new Map() };
   for (const o of orders) {
     for (const it of (o.items || [])) {
-      if (presale.has(it.product_id)) {
-        // A preorder product's grid is its run size (0209).
-        if (!takesPreorderSlot(o, it)) continue;
-      } else {
-        // In stock: preorder items were never part of it (0038).
-        if (!RESERVED_STATUSES.has(o.status) || it.is_preorder) continue;
-      }
+      let into = null;
+      if (it.is_preorder) { if (takesPreorderSlot(o, it)) into = out.preorder_stock_matrix; }
+      else if (RESERVED_STATUSES.has(o.status)) into = out.stock_matrix;
+      if (!into) continue;
       const size  = it.size  || 'F';
       const color = it.color || 'default';
       const key = `${it.product_id}|${size}|${color}`;
-      out.set(key, (out.get(key) || 0) + (Number(it.qty) || 0));
+      into.set(key, (into.get(key) || 0) + (Number(it.qty) || 0));
     }
   }
   return out;
@@ -3620,9 +3620,17 @@ async function onStockProductionStatusChange(sel) {
 function getStockEditState(p) {
   let edit = state.stockEdits.get(p.id);
   if (!edit) {
-    // The สต็อก tab edits the table that counts right now (0210).
-    const field = p.is_presale ? 'preorder_stock_matrix' : 'stock_matrix';
-    edit = { field, matrix: { ...(p[field] || {}) }, status: p.stock_status || 'available', dirty: false };
+    // Both tables (0210). `touched` = the tables this card changed; only
+    // those are saved, so an untouched table is never written back stale.
+    edit = {
+      matrices: {
+        stock_matrix: { ...(p.stock_matrix || {}) },
+        preorder_stock_matrix: { ...(p.preorder_stock_matrix || {}) },
+      },
+      touched: new Set(),
+      status: p.stock_status || 'available',
+      dirty: false,
+    };
     state.stockEdits.set(p.id, edit);
   }
   return edit;
@@ -3682,11 +3690,23 @@ function renderStock() {
   });
 }
 
-function stockCardHtml(p, reservedMap = new Map()) {
+const STOCK_TABLES = {
+  stock_matrix: {
+    label: 'สต็อกพร้อมส่ง', when: 'ใช้เมื่อไม่ได้ติ๊ก Preorder',
+    hint: 'ช่อง = ของในคลัง · ใต้ช่อง = พร้อมขาย (คลัง − จอง) · ติดลบ = ขายเกิน',
+  },
+  preorder_stock_matrix: {
+    label: 'จำนวนรับ Preorder', when: 'ใช้เมื่อติ๊ก Preorder',
+    hint: 'ช่อง = จำนวนที่เปิดรับ · ใต้ช่อง = รับได้อีก (เปิดรับ − สั่งแล้ว) · ยกเลิกออเดอร์ = คืนจำนวน · เว้นว่างทั้งตาราง = รับไม่จำกัด',
+  },
+};
+
+function stockCardHtml(p, reservedMaps = {}) {
   const edit = getStockEditState(p);
   const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
   const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
-  const total = totalStock(edit.matrix);
+  const active = p.is_presale ? 'preorder_stock_matrix' : 'stock_matrix';
+  const total = totalStock(edit.matrices[active]);
   const statusMeta = STOCK_STATUS_META[edit.status] || STOCK_STATUS_META.available;
   const sales = computeProductSales(p.id);
   const prod = p.production_status || 'pending';
@@ -3755,64 +3775,10 @@ function stockCardHtml(p, reservedMap = new Map()) {
         <i class="bi bi-info-circle text-muted" tabindex="0"
            title='"ผลิตเสร็จแล้ว" ย้ายออเดอร์ "ยืนยันชำระเงิน" → "ผลิตเสร็จ" / "ประกาศรับสินค้า" ย้ายต่อไป "ประกาศแล้ว" / สถานะปัญหาไม่ถูกแตะ'></i>
       </div>
-      <div class="small fw-semibold text-muted mb-1">${edit.field === 'preorder_stock_matrix'
-        ? 'ตาราง: จำนวนรับ Preorder (สต็อกพร้อมส่งแก้ได้ในหน้าแก้สินค้า)'
-        : 'ตาราง: สต็อกพร้อมส่ง'}</div>
-      <div class="stock-grid">
-        <table class="stock-grid-table">
-          <thead>
-            <tr>
-              <th></th>
-              ${sizes.map((s) => `<th>${escHtml(s)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${colors.map((c) => `
-              <tr>
-                <th>
-                  <span class="stock-color-swatch" style="background:${escHtml(c.hex || '#ccc')};"></span>
-                  ${escHtml(c.label || c.id)}
-                </th>
-                ${sizes.map((s) => {
-                  const k = stockKey(s, c.id);
-                  const v = edit.matrix[k];
-                  // Reserved = qty in active orders for this exact
-                  // variant. Cancellations are excluded, so admin
-                  // cancelling an order auto-frees that qty.
-                  const reserved = reservedMap.get(`${p.id}|${s}|${c.id}`) || 0;
-                  // Available = matrix value − reserved. Null when
-                  // admin hasn't typed anything. Negative = over-sold
-                  // and gets a loud red treatment so admin sees it.
-                  const available = typeof v === 'number' ? v - reserved : null;
-                  const wrapCls = v === undefined ? 'is-unset'
-                    : v === 0 ? 'is-zero'
-                    : v <= 3 ? 'is-low'
-                    : 'is-ok';
-                  const overSold = available !== null && available < 0;
-                  return `
-                    <td class="stock-cell-td">
-                      <div class="stock-cell-wrap ${wrapCls} ${overSold ? 'is-over' : ''}">
-                        <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|-1" title="ลด 1">−</button>
-                        <input class="stock-cell" data-stock-cell="${escHtml(p.id)}|${escHtml(k)}" inputmode="numeric"
-                               value="${v === undefined ? '' : Number(v)}" placeholder="–" />
-                        <button type="button" class="stock-step" data-stock-step="${escHtml(p.id)}|${escHtml(k)}|+1" title="เพิ่ม 1">+</button>
-                      </div>
-                      ${available !== null ? `
-                        <div class="stock-cell-avail ${overSold ? 'is-over' : available === 0 ? 'is-zero' : available <= 3 ? 'is-low' : 'is-ok'}">
-                          เหลือ ${available}
-                        </div>` : ''}
-                      ${reserved > 0 ? `<div class="stock-cell-reserved">จอง ${reserved}</div>` : ''}
-                    </td>`;
-                }).join('')}
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
+      ${[active, active === 'stock_matrix' ? 'preorder_stock_matrix' : 'stock_matrix']
+        .map((field) => stockGridHtml(p, edit, field, reservedMaps[field] || new Map(), field === active)).join('')}
       <div class="stock-card-foot">
-        <div class="small text-muted">
-          <i class="bi bi-info-circle me-1"></i>
-          ช่อง = ของในคลัง · ใต้ช่อง = พร้อมขาย (คลัง − จอง). ติดลบ = ขายเกิน
-        </div>
+        <div></div>
         <div class="d-flex gap-2">
           ${edit.dirty ? `<button class="btn btn-ghost btn-sm" data-stock-cancel="${escHtml(p.id)}">ยกเลิก</button>` : ''}
           <button class="btn btn-shop btn-sm ${edit.dirty ? '' : 'disabled'}" data-stock-save="${escHtml(p.id)}" ${edit.dirty ? '' : 'disabled'}>
@@ -3821,6 +3787,72 @@ function stockCardHtml(p, reservedMap = new Map()) {
         </div>
       </div>
     </div>`;
+}
+
+/** One table of a stock card. The table in use comes first and full colour;
+ *  the other is dimmed but stays editable, with its own เหลือ / จอง. */
+function stockGridHtml(p, edit, field, reservedMap, isActive) {
+  const meta = STOCK_TABLES[field];
+  const matrix = edit.matrices[field];
+  const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
+  const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
+  const cell = (k) => `${escHtml(p.id)}|${field}|${escHtml(k)}`;
+  return `
+      <div class="stock-table ${isActive ? 'is-active' : 'is-inactive'}">
+        <div class="small fw-semibold mb-1 ${isActive ? '' : 'text-muted'}" style="padding: 0 1rem;">
+          ตาราง: ${meta.label}
+          <span class="badge ${isActive ? 'bg-success-subtle text-success' : 'bg-light text-muted'} border ms-1">${isActive ? 'ใช้อยู่ตอนนี้' : meta.when}</span>
+        </div>
+        <div class="stock-grid">
+          <table class="stock-grid-table">
+            <thead>
+              <tr>
+                <th></th>
+                ${sizes.map((s) => `<th>${escHtml(s)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${colors.map((c) => `
+                <tr>
+                  <th>
+                    <span class="stock-color-swatch" style="background:${escHtml(c.hex || '#ccc')};"></span>
+                    ${escHtml(c.label || c.id)}
+                  </th>
+                  ${sizes.map((s) => {
+                    const k = stockKey(s, c.id);
+                    const v = matrix[k];
+                    // Taken from THIS table by live orders; cancelling frees it.
+                    const reserved = reservedMap.get(`${p.id}|${s}|${c.id}`) || 0;
+                    // Null when nothing is typed. Negative = over-sold.
+                    const available = typeof v === 'number' ? v - reserved : null;
+                    const wrapCls = v === undefined ? 'is-unset'
+                      : v === 0 ? 'is-zero'
+                      : v <= 3 ? 'is-low'
+                      : 'is-ok';
+                    const overSold = available !== null && available < 0;
+                    return `
+                      <td class="stock-cell-td">
+                        <div class="stock-cell-wrap ${wrapCls} ${overSold ? 'is-over' : ''}">
+                          <button type="button" class="stock-step" data-stock-step="${cell(k)}|-1" title="ลด 1">−</button>
+                          <input class="stock-cell" data-stock-cell="${cell(k)}" inputmode="numeric"
+                                 value="${v === undefined ? '' : Number(v)}" placeholder="–" />
+                          <button type="button" class="stock-step" data-stock-step="${cell(k)}|+1" title="เพิ่ม 1">+</button>
+                        </div>
+                        ${available !== null ? `
+                          <div class="stock-cell-avail ${overSold ? 'is-over' : available === 0 ? 'is-zero' : available <= 3 ? 'is-low' : 'is-ok'}">
+                            เหลือ ${available}
+                          </div>` : ''}
+                        ${reserved > 0 ? `<div class="stock-cell-reserved">จอง ${reserved}</div>` : ''}
+                      </td>`;
+                  }).join('')}
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="small text-muted mb-2" style="padding: .25rem 1rem 0;">
+          <i class="bi bi-info-circle me-1"></i>${meta.hint}
+        </div>
+      </div>`;
 }
 
 function stockThumbStyle(p) {
@@ -3833,17 +3865,18 @@ function stockThumbStyle(p) {
  *  WITHOUT re-rendering, so the focused input (and the mobile keyboard)
  *  survive. The full derived-number refresh happens on blur (`change`). */
 function onStockCellInput(input) {
-  const [pid, key] = input.dataset.stockCell.split('|');
+  const [pid, field, key] = input.dataset.stockCell.split('|');
   const p = state.products.find((x) => x.id === pid);
-  if (!p) return;
+  if (!p || !STOCK_TABLES[field]) return;
   const edit = getStockEditState(p);
   const raw = input.value.trim();
-  if (raw === '') { delete edit.matrix[key]; }
+  if (raw === '') { delete edit.matrices[field][key]; }
   else {
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 0) return;
-    edit.matrix[key] = Math.floor(n);
+    edit.matrices[field][key] = Math.floor(n);
   }
+  edit.touched.add(field);
   edit.dirty = true;
   // Enable Save + flag the card dirty in place (no re-render → no focus loss).
   input.closest('.stock-card')?.classList.add('is-dirty');
@@ -3852,14 +3885,15 @@ function onStockCellInput(input) {
 }
 
 function stepStock(btn) {
-  const [pid, key, deltaStr] = btn.dataset.stockStep.split('|');
+  const [pid, field, key, deltaStr] = btn.dataset.stockStep.split('|');
   const p = state.products.find((x) => x.id === pid);
-  if (!p) return;
+  if (!p || !STOCK_TABLES[field]) return;
   const edit = getStockEditState(p);
-  const cur = edit.matrix[key];
+  const cur = edit.matrices[field][key];
   const delta = Number(deltaStr);
   const next = Math.max(0, (typeof cur === 'number' ? cur : 0) + delta);
-  edit.matrix[key] = next;
+  edit.matrices[field][key] = next;
+  edit.touched.add(field);
   edit.dirty = true;
   renderStock();
 }
@@ -3874,7 +3908,10 @@ async function saveStock(productId) {
       `/shop_products?id=eq.${encodeURIComponent(productId)}`,
       {
         method: 'PATCH',
-        body: { [edit.field]: edit.matrix, stock_status: edit.status },
+        body: {
+          stock_status: edit.status,
+          ...Object.fromEntries([...edit.touched].map((f) => [f, edit.matrices[f]])),
+        },
         prefer: 'return=representation',
       },
     );
@@ -3883,7 +3920,7 @@ async function saveStock(productId) {
       throw new Error('บันทึกล้มเหลว (RLS หรือสิทธิ์ไม่พอ)');
     }
     // Reflect into local cache + clear dirty flag
-    p[edit.field] = edit.matrix;
+    for (const f of edit.touched) p[f] = edit.matrices[f];
     p.stock_status = edit.status;
     state.stockEdits.delete(productId);
     showShopToast(`บันทึก "${p.name}" แล้ว`, 'success');

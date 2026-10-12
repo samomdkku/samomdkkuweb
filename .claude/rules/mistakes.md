@@ -339,9 +339,7 @@ code not yet written.
    Pair every DENY with an ALLOW over the same rows — a table with policies but
    no GRANT denies everyone and reads like the policy working (0138); a deny-only
    probe cannot tell a working guard from a broken service.
-   **Check the PROBE SUBJECT**, derived from the gate's own predicate:
-   `current_user_has_permission()` reads the UNION of `permissions` AND
-   `managed_permissions` (0081), so `permissions='{}'` may still hold `master`.
+   **Check the PROBE SUBJECT**, from the gate's own predicate: `current_user_has_permission()` reads `permissions` + `managed_permissions` (0081), so `permissions='{}'` may hold `master`; a ROLE change moves subjects (pr0149).
    **A SEARCH RESULT ABOUT A TOOL IS NOT A MEASUREMENT OF IT AGAINST YOUR
    DEPLOYMENT.** "The Bitwarden CLI expects a bare root, so our `/vault/`
    subpath rules it out" entered the HANDOFF as a constraint, from a blog post;
@@ -405,7 +403,7 @@ a class — tighten this paragraph first.
 - `app-state.md` *(26)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(35)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(26)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(66)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(67)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(40)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

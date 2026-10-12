@@ -87,6 +87,11 @@ const PROOFS = [
   ['shop0199-pricing.mjs', 'the database charges the per-size price, and only a signed-in buyer orders, as themselves'],
   ['shop0202-stock-rule.mjs', 'shop stock shown = stock sold; colour, slip, qty and a buyer\'s own edits are checked'],
   ['shop0203-gallery.mjs', 'a product\'s pictures: the cover follows them, a stale tab keeps them, the shape is refused'],
+  ['shop0206-totals.mjs', 'the shop Discord message\'s totals: service_role only, cancelled orders out'],
+  ['discord0207-nicknames.mjs', 'Discord nicknames follow ทีม SAMO — inputs are service-only, a people change queues the linked person'],
+  ['discord0208-panel.mjs', 'the Discord bot\'s switch and panel: definer RPCs only, the database stamps who'],
+  ['shop0209-preorder-limit.mjs', 'a preorder\'s numbers run down; a delivered preorder counts, a cancelled one does not'],
+  ['shop0210-two-tables.mjs', 'preorder and in-stock have their own tables; the Preorder tick picks which one the guard enforces'],
   // Not a database proof — the repo's own branch protection, which lives on
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.

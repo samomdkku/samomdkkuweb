@@ -3327,3 +3327,45 @@ no hand escaping. Re-run: 14/14 red on the old bodies, 22/22 green on 0202.
 **The general rule**: the ritual caught it — *reintroduce the bug and watch
 EVERY deny go red*. A catch-all handler scores any error as the refusal you
 wanted. Where the expected refusal has a name, assert the name, not "an error".
+
+---
+
+## "pr0149 5 failed — A0b. READ allows the staff-role user" and "shop0206: the student is not a shop admin: expected false, got true" — one account's role change took two proofs' subjects
+
+**Symptom (as reported)**: `npm run proofs` on 2026-10-12 showed 6 of 56 not
+green, two of them new since the last run: `pr0149` (5 allow rows red) and
+`shop0206` (its "student" was a shop admin and totalled 46 orders). No app code
+behind either had changed.
+
+**Cause**: on 2026-09-26 `samomdkkudev` — the LAST account with role `dev` —
+was moved to role `user` + `permissions=['master']` (so it could reach the
+Claude and Discord-bot pages, whose RPCs ask `current_user_has_permission()`,
+which has no `dev` branch). Two proofs had silently depended on it:
+- `pr0149`'s ALLOW control was "any user whose role is `pr_staff` or `dev`".
+  After the move NO account holds a staff role, so the control had no subject.
+- `shop0206` picked its student as "role `user`, no `samoshop`". The gate it
+  probes, `current_user_is_shop_admin()`, also admits `master` — and the
+  newly-`user` dev account sorted first.
+
+**Fix**: `shop0206` derives the exclusion from the gate's own predicate
+(`samoshop` OR `master`). `pr0149` MAKES its staff-role control inside its
+rolled-back transaction when none exists — `session_replication_role = replica`
+for that one UPDATE, because `users_self_update_guard` lets only STAFF change a
+role and STAFF is a role nobody holds. 25/25 and 10/10 again. Both were also
+UNREGISTERED in `run-proofs.mjs` until this sweep (with 0207, 0208, 0209, 0210)
+— a proof the runner never runs cannot go red where anyone sees it.
+
+**Found beside it, not a bug today**: `current_user_is_staff()` is ROLE-only and
+no account holds a staff role now, so four gates admit nobody but service_role:
+`users_update_staff`, `notify_log_select_staff`, `samo-uploads staff delete`,
+`reserved_staff_usernames_read_staff`. Nothing in `src/` uses any of the four
+(checked 2026-10-12). If a feature ever needs one, the gate must learn `master`
+first — class 5.
+
+**Where it lives now**: `tools/pr0149-delete-permission.sql`,
+`tools/shop0206-totals.mjs`, the registry in `tools/run-proofs.mjs`.
+
+**The general rule**: *a proof's subject is a QUERY over live accounts, and an
+account change is a change to every proof whose query it satisfied. Derive the
+subject from the gate's own predicate, and when the population a control needs
+can run out, CREATE the subject inside the rollback instead of finding one.*

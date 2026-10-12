@@ -51,7 +51,11 @@ insert into probe select 'numbers: revenue +20 (only the checked slip)', '20',
 grant execute on function public.shop_order_totals() to authenticated;
 create temporary table stu as
 select u.id from public.users u
- where u.role = 'user' and not ('samoshop' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}')))
+ where u.role = 'user'
+   -- current_user_is_shop_admin() admits 'samoshop' AND 'master' (through
+   -- current_user_has_permission). Excluding only 'samoshop' picked
+   -- samomdkkudev once it became role 'user' + master (2026-09-26).
+   and not (array['samoshop','master'] && (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}')))
    and not exists (select 1 from public.shop_orders o where o.buyer_id = u.id)
  order by u.id limit 1;
 do $$ begin

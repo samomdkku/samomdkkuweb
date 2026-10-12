@@ -1827,6 +1827,14 @@
   padding: .5rem 1rem 0;
   overflow-x: auto;
 }
+/* Two tables per card (0210): the one the Preorder tick is NOT using is dimmed
+   but stays editable. */
+.shop-tab .stock-table + .stock-table {
+  border-top: 1px dashed var(--shop-line, #e5e7eb);
+  padding-top: .5rem;
+}
+.shop-tab .stock-table.is-inactive .stock-grid { opacity: .6; }
+.shop-tab .stock-table.is-inactive .stock-grid:focus-within { opacity: 1; }
 .shop-tab .stock-grid-table {
   border-collapse: separate;
   border-spacing: .5rem .35rem;
