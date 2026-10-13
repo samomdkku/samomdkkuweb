@@ -1783,3 +1783,11 @@ What changed from the agent's version, and why:
 3. Open, low, already known (private report `~/samo-night/reports/2026-10-13-security-*.md` on the VM — never copy into the repo): 0212's trigger checks WHO, not WHAT (inert: every render escapes), plus the three items in memory (`open-privacy-username-lookup`, passport per-ฝ่าย write scope, `activities.static_token`).
 
 Re-arming later: write a new queue in `server/night-agent/NIGHT-TASKS.md`, then `bash server/night-agent/install.sh --arm` (clears STOPPED, syncs the runner and memory).
+
+## 21. Dark mode — BUILT, DORMANT; what it owes before it is switched on (2026-10-13)
+
+**Status: DECIDED 2026-10-13** — owner: "dark mode still not polish enough, i think the web should still show light". Everyone gets light; there is no switch; the device's setting is ignored. Preview it by hand: `localStorage.setItem('samo.theme','dark')` and reload.
+
+What exists: every neutral colour literal in `src/css/` is a token or a color-mix (`tools/theme-tokens-codemod.mjs`), EXACT in light — pixel-diffed against the previous CSS, 0 px changed below the navbar on 8 pages. Dark values: `src/css/theme.css`. Switch + device-following: `src/js/theme.js` (`DARK_FOLLOWS_DEVICE = false`). Guards: `src/js/theme.test.js` (a new raw neutral colour fails the build).
+
+**Owed before switching it on — Status: OWED:** a page-by-page dark polish, seen at 390/820/1440 (`tools/browser/projects-ui.mjs` for หนังสือโครงการ; the public sweep is the pattern in skills/drive-the-browser.md): the striped shop image placeholder stays bright; the admin notifications bell is a black square in both themes; images and ฝ่าย sandboxed pages stay light by design (say so or adapt); passport (separate app) is untouched. To turn on: `DARK_FOLLOWS_DEVICE = true`, restore the head scripts' device test in BOTH entries, put back the three `data-theme-switch` slots (navbar desktop, mobile menu `segmented`, admin top bar) — the CSS for them is still in theme.css — and re-add the release note.
