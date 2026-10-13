@@ -193,7 +193,7 @@ export const TOOLS = [
     name: 'RT Website',
     desc: 'เว็บไซต์ของฝ่ายรังสีเทคนิค',
     icon: 'bi-stars',
-    color: 'var(--dept-projects)',
+    color: 'var(--dept-rt)',
     keywords: 'rt rangsi รังสีเทคนิค radiology',
     cats: 'public',
   },

@@ -68,6 +68,7 @@ const PROOFS = [
   ['dept0179-kinds.sql', 'each ฝ่าย content kind carries the body it renders'],
   ['proj0181-prof-upload.sql', 'an อาจารย์ saves a signed file on a หนังสือ that is NOT published'],
   ['passport0182-continents-lockdown.sql', 'the anon key reads the passport theming and cannot change it'],
+  ['passport0214-lockdown-committed.sql', 'the passport write lockdown is actually COMMITTED, not merely provable in a rolled-back txn'],
   ['authz0182-insert-returning-seam.sql', 'an INSERT that asks for the row back can read what it wrote'],
   ['team0183-discord-mapping.sql', 'a Discord identity is not shareable and two same-named ตำแหน่ง cannot claim one role'],
   ['team0184-discord-targets.sql', 'which Discord roles a person is DUE — own ตำแหน่ง plus every ticked ฝ่าย above it'],
@@ -93,6 +94,8 @@ const PROOFS = [
   ['shop0209-preorder-limit.mjs', 'a preorder\'s numbers run down; a delivered preorder counts, a cancelled one does not'],
   ['shop0210-two-tables.mjs', 'preorder and in-stock have their own tables; the Preorder tick picks which one the guard enforces'],
   ['accounts0211-dashboard.mjs', 'the account dashboard: master only, every account once, and a Google sign-up is stored as Google'],
+  ['proj0212-samo-depts.mjs', 'ฝ่ายสโม tags on a โครงการ: only the vpa desk (or master) sets them, an unknown value is refused, and anon reads them only on a public โครงการ'],
+  ['dept0213-every-dept.mjs', 'all 12 ฝ่าย resolve to a page grant, and a ฝ่าย\'s own person edits theirs and not another\'s'],
   // Not a database proof — the repo's own branch protection, which lives on
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.

@@ -12,9 +12,40 @@ import { onCartChange, cartCount, cartSubtotal, getCart, updateQty, removeItem, 
 import { listProducts } from './api.js';
 
 let productMap = {};
+// Reserved-qty matrix, keyed by product id — same shape as api.js's
+// fetchReservedMatrixAll(). productMap comes from listProducts(), which
+// carries NO reserved counts (they're a separate RPC); without this, the
+// drawer's own +/- cap read p.reserved_matrix as always-empty and let a
+// buyer raise qty past what checkout would actually allow. Checkout fetches
+// this matrix for its own stock check (productsWithStock() in checkout.js)
+// but never fed it back here — see docs/mistakes/app-state.md.
+let reservedMatrix = {};
 let onCheckout = () => {};
 
 export function setCartNavigators({ goCheckout }) { onCheckout = goCheckout || onCheckout; }
+
+/** Feed the drawer the same reserved-qty matrix checkout/products already
+ *  fetched, so its qty cap matches what the server will actually allow.
+ *  Safe to call with stale/partial data — missing entries read as 0. */
+export function setCartReservedMatrix(matrix) {
+  reservedMatrix = matrix || {};
+  render();
+}
+
+/** The most of one cart line a buyer can ask for: what is left of that size
+ *  and colour (the popup's own rule), or 99 for an unlimited preorder (empty
+ *  grid) / untracked product. Checkout still re-checks against the live
+ *  reservation count on submit; this only stops the drawer's + from
+ *  promising what is not there. Pure + exported so it can be tested without
+ *  the DOM `render()` needs — see cart-reserved-matrix.test.js.
+ *  `p` is whatever listProducts() returned (NO reserved_matrix of its own);
+ *  `reservedMatrixById` is the separately-fetched matrix keyed by product id. */
+export function maxQtyFor(p, it, reservedMatrixById) {
+  if (!p || isUnlimitedBuying(p)) return 99;
+  const withReserved = p.reserved_matrix ? p : { ...p, reserved_matrix: (reservedMatrixById || {})[p.id] || {} };
+  const left = availableForVariant(withReserved, it.size, it.color);
+  return left == null ? 99 : Math.max(1, Math.min(99, left));
+}
 
 /** Mount once (call from initShop). */
 export function mountShopCart() {
@@ -87,15 +118,7 @@ function render() {
   list.classList.remove('d-none');
   foot.classList.remove('d-none');
 
-  // The most of one line a buyer can ask for: what is left of that size and
-  // colour (the popup's own rule), or the cart's 99 for an unlimited preorder
-  // (empty grid) / untracked product. Checkout still re-checks against the live reservation count; this
-  // only stops the drawer's + from promising what is not there.
-  const maxFor = (p, it) => {
-    if (!p || isUnlimitedBuying(p)) return 99;
-    const left = availableForVariant(p, it.size, it.color);
-    return left == null ? 99 : Math.max(1, Math.min(99, left));
-  };
+  const maxFor = (p, it) => maxQtyFor(p, it, reservedMatrix);
 
   list.innerHTML = cart.map((it, idx) => {
     const p = productMap[it.productId];

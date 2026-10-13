@@ -244,6 +244,11 @@ export async function vsBoardOpen(id) {
   const { data, error } = await dbRest('/rpc/get_public_vs_problem', {
     method: 'POST', body: { p_id: id },
   });
+  // Guard against a stale response: the user tapped another card (or went
+  // back to the list) before this fetch resolved — openProblemId has moved
+  // on, so this slow response must not paint over whatever is on screen now.
+  // Same shape as enhanceBoardBanner's guard in vs-tracking.js.
+  if (id !== openProblemId) return;
   if (error || !data) { body.innerHTML = errorNote('ไม่พบเรื่องนี้ หรือถูกปิดการเปิดเผยแล้ว'); return; }
   renderProblemDetail(data);
 }

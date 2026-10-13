@@ -341,9 +341,18 @@ async function removeOwnScan() {
     const original = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Removing…'; }
     try {
-        const { error } = await supabase.from('scans').delete()
-            .eq('id', scan.id).eq('user_id', currentUserId);
+        // .select() + a row-count check: RLS denies by returning ZERO ROWS,
+        // not an error (this repo's own rule — see
+        // .claude/rules/mistakes.md class 7, and window.deleteActivity in
+        // admin-page.js for the same check on the admin side). Without it, a
+        // stale currentUserId or session race that matches no row still
+        // shows "Removed ✓" and reloads — and the stamp reappears right
+        // after, contradicting the toast just shown.
+        const { data, error } = await supabase.from('scans').delete()
+            .eq('id', scan.id).eq('user_id', currentUserId)
+            .select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('No matching scan found (already removed, or not yours).');
         // On-device memory/photos for this activity are no longer reachable — clean up.
         try {
             localStorage.removeItem(`mem_${currentUserId}_${activity.id}`);

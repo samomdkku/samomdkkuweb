@@ -10,10 +10,10 @@
 // ==============================================
 
 import { onAuthChange } from '../auth.js';
-import { listProducts, listProductTypes, listPromptpayQrs, listPickupLocations } from './api.js';
+import { listProducts, listProductTypes, listPromptpayQrs, listPickupLocations, fetchReservedMatrixAll } from './api.js';
 import { setShopTypes, setPromptpayQrs, setPickupLocations } from './data.js';
 import { mountShopBrowse, reloadShop, setShopNavigators } from './products.js';
-import { mountShopCart, setCartNavigators, setShopCartProducts, showCartFab } from './cart.js';
+import { mountShopCart, setCartNavigators, setShopCartProducts, setCartReservedMatrix, showCartFab } from './cart.js';
 import { mountCheckout, renderCheckout, setCheckoutNavigators } from './checkout.js';
 import { mountOrdersView, renderOrdersView, refreshReadyCountBadge } from './orders.js';
 import { onCartChange } from './state.js';
@@ -133,6 +133,9 @@ export function initShop() {
       // cart can hold an item whose product was later deactivated) to the
       // cart module so cart-line names + thumbnails render correctly.
       try { setShopCartProducts(await listProducts({ activeOnly: false })); } catch {}
+      // ...and the reserved-qty matrix, so the drawer's qty cap matches what
+      // checkout/the server will actually allow (see setCartReservedMatrix).
+      try { setCartReservedMatrix(await fetchReservedMatrixAll()); } catch {}
       if (view === 'orders') {
         await renderOrdersView();
       } else {

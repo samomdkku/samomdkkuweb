@@ -140,7 +140,7 @@ Open when: writing a migration.
 - A tab opened before a migration re-sends what it LOADED
 - Google accounts were saved as "password"
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(104)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(107)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -248,8 +248,11 @@ Open when: markup, modals, layout, touch, icons.
 - The admin picture strip worked and was UNSTYLED
 - "รูปใน samoshop โหลดนานมาก" — the shop tab downloaded ~47 MB of pictures, 45 of them news pictures nobody could see
 - "กดสินค้าแล้วเลื่อนไปหน้าปกแล้วเลื่อนกลับมาสีดำ"
+- One click on "ลบคำสั่งซื้อ" in the shop admin order modal could delete the same order several times over
+- The VS public board's problem detail could get overwritten by a stale fetch
+- ฝ่ายรังสีเทคนิค borrowed a different concept's colour, not its own
 
-## `app-state.md` — Routing, read-state, caches & serialization *(26)*
+## `app-state.md` — Routing, read-state, caches & serialization *(30)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -279,6 +282,10 @@ Open when: URL state, per-user "seen", import/export.
 - The ผังตามสาย legend was a fourth copy of the same rule
 - Shop admin: a save that awaits, then reads "the current thing", writes to whatever is current NOW
 - A student's ชื่อเล่น could run as a formula in an admin's spreadsheet
+- Switching to หน้าฝ่าย a second time snapped the ฝ่าย picker back and could wipe an unsaved edit
+- The cart drawer's qty cap never knew about anyone else's reservations
+- Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
+- The public หนังสือโครงการ mirror never refreshed after its first load
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
 
@@ -426,7 +433,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Night agent: task 3 was handed task 2's prompt
 - "migration workflow run: all jobs have failed"
 
-## `passport.md` — The Passport app's own write-ups *(40)*
+## `passport.md` — The Passport app's own write-ups *(41)*
 
 Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
@@ -470,5 +477,6 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
+- A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_409 entries across 10 files._
+_417 entries across 10 files._

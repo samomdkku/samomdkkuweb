@@ -1114,3 +1114,156 @@ removed → red).
 **The general rule**: *a fix to one of N implementations of a rule is a
 fix to 1/N* — grep for the other `csvCell`s before calling a hole closed; and
 an escape added to an export needs its inverse on every import that reads it.
+
+---
+
+## Switching to หน้าฝ่าย a second time snapped the ฝ่าย picker back and could wipe an unsaved edit
+
+**Symptom**: an account that manages several ฝ่าย (the blanket `dept_pages`/
+`master` grant) opens หน้าฝ่าย, picks the second ฝ่าย in the dropdown, starts
+editing a card — then clicks to another admin section and back (or just
+clicks the already-open หน้าฝ่าย sidebar item again). The picker has snapped
+back to the FIRST ฝ่าย in the list, and anything typed but not yet saved is
+gone with no warning.
+
+**Cause**: `admin-main.js` calls `initDeptPageAdmin(authGetUser())` on EVERY
+entry into the section, by design — the comment there explains this is needed
+so a real account SWITCH gets the new account's own ฝ่าย list rather than the
+previous account's. But `dept-page-admin.js`'s `initDeptPageAdmin()` reset
+`state.dept = mine[0].value` and called `refresh()` (which re-fetches and
+repaints `#dpaRows` from the server) unconditionally, every single call — not
+only on account switches. Every other admin workspace in this app
+(`team/index.js`, `house/index.js`) uses a `loaded`-style flag so a same-
+account re-entry is a no-op; this one didn't, so a sidebar click that should
+have been free re-ran the whole mount.
+
+**Fix**: track which uid the editor is currently wired for
+(`wiredUserId`), and skip the picker reset + refetch on a same-account
+re-entry — `src/js/dept-page-admin.js`. A real account switch is moot in
+practice anyway: `admin-main.js`'s `onAuthChange` hard-reloads the whole page
+before `initDeptPageAdmin` could ever see a different uid
+(`swapAccountReload`), so the guard only needs to cover, and does cover, the
+same-account case that was actually breaking. `dept-page-admin.test.js`
+drives this with a hand-built DOM stand-in (no jsdom here) and asserts a
+second call doesn't re-fetch or reset the picker's value; mutation-checked
+(guard removed → red, `dbRest` called twice instead of once).
+
+**The general rule**: *a function called "every time a section opens" is
+called on a same-account RE-ENTRY too, not only on the account switch its
+comment was written to justify* — match this app's "load once, re-entry is a
+no-op" convention unless the function is cheap AND stateless, and if it isn't,
+say what state would be lost by résetting it.
+
+---
+
+## The cart drawer's qty cap never knew about anyone else's reservations
+
+**Symptom**: a product's size/colour is fully claimed by OTHER buyers'
+pending orders (`shop_reserved_matrix_all` reports it as 0 left), but a
+buyer who added one unit earlier (before it sold out) opens the cart
+drawer — the `+` button is enabled and lets them raise the line's qty as if
+the full stock number were still free. Checkout still blocks the order
+correctly (`productsWithStock()`/`cartLineProblems()` catch it there), so no
+money is ever lost — only the drawer's own promise is wrong.
+
+**Cause**: `cart.js`'s `productMap` is built straight from `listProducts()`
+(`setShopCartProducts`), which never includes a `reserved_matrix` — that
+comes from a SEPARATE RPC (`fetchReservedMatrixAll`). `products.js`'s
+`reloadShop()` and `checkout.js`'s `productsWithStock()` each splice the
+reserved matrix onto their OWN copy of the product list for their own
+purposes, but neither fed it back into `cart.js`'s shared `productMap` —
+so the drawer's `maxFor()` always read `p.reserved_matrix` as `{}` and
+treated every reservation as zero. checkout.js's own comment even named the
+gap ("the cart's product map … carries no reserved counts") without closing
+it for the drawer.
+
+**Fix**: `cart.js` now holds its own `reservedMatrix` map, fed by
+`setCartReservedMatrix()` — called once when the shop tab is first shown
+(`index.js`, alongside the existing `fetchReservedMatrixAll` nobody reused)
+and again whenever `checkout.js`'s `refreshStock()` learns a fresher one, so
+the drawer and checkout never disagree for longer than one stock refresh.
+The qty-cap logic itself was extracted into an exported pure function,
+`maxQtyFor(p, it, reservedMatrixById)`, so it is unit-testable without the
+DOM `render()` needs. `src/js/shop/cart-reserved-matrix.test.js`
+mutation-checked (matrix splice removed → a fully-reserved variant reads as
+99 again, not 1).
+
+**The general rule**: *a value fetched and spliced on for ONE reader's
+purpose does not reach a SIBLING reader of the same underlying list unless
+something explicitly feeds it there* — `docs/mistakes/app-state.md`'s other
+entries are about two renderers computing a count two different ways; this
+is the same shape one layer earlier: two renderers sharing one map object,
+where only one of them was ever handed the full data.
+
+---
+
+## Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
+
+**Symptom**: on a โครงการ's detail header, a sender-desk account (vpa/dev)
+clicks one ฝ่ายสโม tag chip, then a different chip, before the first click's
+round trip has returned. Only ONE of the two tags ends up saved — no error,
+no indication either chip's click "didn't count".
+
+**Cause**: `onToggleProjectDept()` (`src/js/projects/inbox.js`) is a classic
+read-modify-write on a shared array column (`projects.samo_depts`): it reads
+the project's CURRENT tags from `cache.projects`, computes the whole new
+array, and writes the whole array back — there is no per-tag column to PATCH
+independently. `btn.disabled = true` only guards the ONE button clicked
+twice; it does nothing for two DIFFERENT chips on the same โครงการ. Both
+reads saw the same pre-toggle array, each computed and wrote its own version
+of "current + my one change", and whichever request's response landed last
+silently won, discarding the other chip's change.
+
+**Fix**: chain every call through one module-scope promise
+(`deptEditorQueue`) and await `onChanged()` (which is what refreshes
+`cache.projects`) before the function returns — so a second chip clicked
+before the first lands now waits for the first's write to be reflected in
+`cache` before it computes its own `next`. `src/js/projects/dept-chip-
+race.test.js` fires two toggles back-to-back against a mocked
+`setProjectSamoDepts` and asserts both tags land; mutation-checked (queue
++ await removed → red, only the second chip's tag survives).
+
+**The general rule**: *a button-disable guards one button against itself, not
+several buttons against each other* — a read-modify-write on one shared
+field, reachable from more than one control, needs a SERIALIZATION point
+(a queue, a mutex, re-reading after every await), not a per-control disabled
+flag. The tell is several independent UI elements that each read, then later
+write, the SAME array/object field.
+
+---
+
+## The public หนังสือโครงการ mirror never refreshed after its first load
+
+**Symptom**: a visitor opens the public หนังสือโครงการ tab, an admin tags a
+project with a ฝ่ายสโม or flips its visibility while the visitor is still on
+the page, the visitor switches to another tab and back — they keep seeing
+the pre-change state for the rest of that page session. No realtime
+subscription exists to ever correct it; only a hard reload does.
+
+**Cause**: `projects-view.js`'s `bootIfNeeded()` set its OWN `initialised`
+flag on the first call and returned immediately on every later one —
+including every later `shown.bs.tab`. Its single callee,
+`mountCustomerProjects()` (`src/js/projects/index.js`), already has the
+CORRECT re-show behaviour built in: `if (customerInitialised) { await
+reloadProjects(); return; }`. But with no caller ever reaching that branch a
+second time, it was dead code — this bug predates the ฝ่ายสโม tag feature
+that happened to expose it; both guard flags were introduced together, in
+the same commit, one redundant with the other.
+
+**Fix**: `bootIfNeeded()` no longer returns early on its own flag — it still
+uses it to decide whether to paint the loading spinner (only on a genuinely
+empty grid, i.e. the first load), but always calls `mountCustomerProjects()`,
+letting THAT function's own flag tell first-mount from re-show apart.
+`src/js/projects-view-restale.test.js` captures the `shown.bs.tab` listener
+with a hand-built `document` stand-in (no jsdom here) and asserts
+`mountCustomerProjects` is called again on a second and third tab-show, not
+just the first; mutation-checked (the early return restored → only 1 call).
+
+**The general rule**: *a refresh-on-re-show branch inside a shared function
+is only as good as its caller actually reaching it a second time* — when
+two modules each keep a "first mount vs. re-entry" flag for the same
+lifecycle, the OUTER one guarding the call site is usually the redundant,
+dangerous one: it can swallow every re-entry before the inner one's correct
+behaviour ever runs. Prefer letting the callee (which has the real
+first-mount-vs-refresh logic) decide, and use the caller's flag only for
+caller-local concerns (what to paint while waiting), never to skip the call.

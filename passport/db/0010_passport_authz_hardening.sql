@@ -116,6 +116,18 @@ grant execute on function passport.admin_covers_dept(int, int) to anon, authenti
 -- the account_migrations semantics change in js/auth.js, change it here too.
 -- (samoweb mistakes.md: "two implementations of one rule drift silently".) The
 -- server is the boundary; the client copy stays only for the friendlier UI.
+--
+-- ⛔ DO NOT RUN THIS FILE STANDALONE ON A DATABASE THAT HAS ALREADY APPLIED
+-- samoweb's supabase/migrations/0180_an_activity_belongs_to_its_season.sql (or
+-- its 0214 port of this hardening). 0180 later `create or replace`s this SAME
+-- function to add the SEASON_CLOSED guard (a QR from a finished quarter must
+-- not stamp). This file's version below has no such check — re-running it
+-- (e.g. standing up a fresh database by replaying every passport/db/*.sql file
+-- in order after supabase/migrations has already landed) SILENTLY reverts
+-- that guard, reopening "a QR from a finished quarter still awards km
+-- forever" with no error and no visible symptom until someone notices an old
+-- QR still works. If you are applying migrations to a database that already
+-- has 0180/0214, skip this `create or replace` and keep the live definition.
 
 create or replace function passport.stamp_scan(p_activity_id uuid, p_token text)
 returns passport.scans

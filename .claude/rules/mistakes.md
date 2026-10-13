@@ -399,11 +399,11 @@ a class — tighten this paragraph first.
 - `authz-rls.md` *(33)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(22)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(34)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(104)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
-- `app-state.md` *(26)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
+- `frontend-ui.md` *(107)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `app-state.md` *(30)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(35)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(26)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(70)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
-- `passport.md` *(40)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
+- `passport.md` *(41)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

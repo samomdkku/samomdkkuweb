@@ -55,6 +55,14 @@
                       <i class="bi bi-pin-angle"></i>
                     </button>
                   </div>
+                  <div class="dropdown projects-dept-filter-group">
+                    <button type="button" id="projectsDeptFilterBtn" class="projects-dept-filter-btn dropdown-toggle"
+                      data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="กรองตามฝ่ายสโม">
+                      <i class="bi bi-diagram-3 me-1"></i>ฝ่าย
+                      <span id="projectsDeptFilterCount" class="projects-dept-filter-count d-none"></span>
+                    </button>
+                    <div id="projectsDeptFilterMenu" class="dropdown-menu projects-dept-filter-menu"></div>
+                  </div>
                   <div id="projectsFilterRow" class="projects-filter-row" role="tablist"></div>
                   <div id="projectsViewToggle" class="projects-view-toggle" role="group" aria-label="สลับมุมมอง">
                     <button type="button" class="projects-view-toggle-btn" data-projects-view-mode="grid" title="มุมมองกริด" aria-label="มุมมองกริด">

@@ -33,6 +33,7 @@ import {
   deleteSignRequest,
   getMyProjectPrefs,
   saveMyProjectDefaultFY,
+  setProjectSamoDepts,
 } from './api.js';
 import {
   DOC_STATUS_META,
@@ -62,6 +63,8 @@ import {
   DEFAULT_FY_ALL,
   DEFAULT_FY_CURRENT,
 } from './fiscal-year.js';
+import { VS_DEPTS } from '../team-vocab.js';
+import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel } from './samo-depts.js';
 
 // ---------- module state ----------
 
@@ -97,6 +100,7 @@ let expandedDocsSeenAt = new Map();   // docId -> ms-since-epoch frozen at expan
 let filterKind = 'all';    // 'all' | 'mine' | 'notified' | 'waiting' | 'done'
 let searchQ    = '';
 let filterFY   = 'all';    // 'all' | '<4-digit BE year>' — ปีงบประมาณ (Thai fiscal year)
+let filterDepts = [];      // [] = no filter; else OR across selected VS_DEPTS values (migration 0212)
 // The viewer's SAVED default (project_user_prefs.default_fiscal_year, 0165):
 // 'all' | 'current' | '<4-digit BE year>'. null until the first load resolves
 // it; an absent row stays 'all', which is what the inbox did before 0165.
@@ -194,10 +198,21 @@ function projectsInSelectedFY() {
   return cache.projects.filter((p) => String(projectFiscalYear(p)) === filterFY);
 }
 
+/** ปีงบ filter AND ฝ่ายสโม filter — the base set the bucket counts and the
+ *  grid both read, so "how many show in each chip" and "what the grid
+ *  actually lists" cannot drift apart (mistakes class 6). ปีงบ-only
+ *  emptiness still needs projectsInSelectedFY() on its own (see the
+ *  fyEmpty / deptEmpty split in renderGrid's empty state). */
+function projectsInScope() {
+  const base = projectsInSelectedFY();
+  if (filterDepts.length === 0) return base;
+  return base.filter((p) => projectMatchesSamoDepts(p, filterDepts));
+}
+
 /** Counts for the level-1 filter chips, computed once per render(). */
 function projectBucketCounts(role) {
   const c = { mine: 0, notified: 0, waiting: 0, done: 0, all: 0 };
-  for (const p of projectsInSelectedFY()) {
+  for (const p of projectsInScope()) {
     c.all += 1;
     const b = projectBucket(p, role);
     if (b === 'mine') c.mine += 1;
@@ -419,6 +434,23 @@ export function mountInbox({ onChanged: changed, onAddDocument, onCreateProject,
     openFiscalYearDefaultPicker();
   });
 
+  document.getElementById('projectsDeptFilterMenu')?.addEventListener('change', (e) => {
+    const cb = e.target.closest('input[type="checkbox"][data-dept-filter-value]');
+    if (!cb) return;
+    const v = cb.dataset.deptFilterValue;
+    filterDepts = cb.checked
+      ? (filterDepts.includes(v) ? filterDepts : [...filterDepts, v])
+      : filterDepts.filter((x) => x !== v);
+    renderDeptFilterMenu();
+    render();
+  });
+  document.getElementById('projectsDeptFilterMenu')?.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-dept-filter-clear]')) return;
+    filterDepts = [];
+    renderDeptFilterMenu();
+    render();
+  });
+
   document.getElementById('projectsViewToggle')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-projects-view-mode]');
     if (!btn) return;
@@ -504,6 +536,7 @@ function render() {
     gridRoot.classList.remove('d-none');
     detailRoot.classList.add('d-none');
     renderFiscalYearOptions();
+    renderDeptFilterMenu();
     renderFilterChips();
     renderGrid();
   } else {
@@ -636,6 +669,34 @@ async function openFiscalYearDefaultPicker() {
   render();
 }
 
+/** The "ฝ่าย" filter dropdown — a checkbox per VS_DEPTS value (migration
+ *  0212). Shared markup for the admin inbox AND the public mirror; both
+ *  toolbars carry the same `#projectsDeptFilterMenu` container. Rebuilt on
+ *  every grid render so a checked box survives a data refresh, and so the
+ *  "ล้างตัวกรอง" row only appears once something is actually selected. */
+function renderDeptFilterMenu() {
+  const menu = document.getElementById('projectsDeptFilterMenu');
+  if (!menu) return;
+  menu.innerHTML = VS_DEPTS.map((d) => `
+    <label class="projects-dept-filter-item">
+      <input type="checkbox" data-dept-filter-value="${escHtml(d.value)}"
+        ${filterDepts.includes(d.value) ? 'checked' : ''} />
+      <span>${escHtml(d.label)}</span>
+    </label>
+  `).join('') + (filterDepts.length
+    ? `<button type="button" class="projects-dept-filter-clear" data-dept-filter-clear>
+        <i class="bi bi-x-circle me-1"></i>ล้างตัวกรองฝ่าย
+      </button>`
+    : '');
+  const btn = document.getElementById('projectsDeptFilterBtn');
+  const countEl = document.getElementById('projectsDeptFilterCount');
+  btn?.classList.toggle('is-active', filterDepts.length > 0);
+  if (countEl) {
+    countEl.classList.toggle('d-none', filterDepts.length === 0);
+    countEl.textContent = filterDepts.length ? String(filterDepts.length) : '';
+  }
+}
+
 function renderFilterChips() {
   const row = document.getElementById('projectsFilterRow');
   if (!row) return;
@@ -674,7 +735,7 @@ function renderGrid() {
   const empty = document.getElementById('projectsGridEmpty');
   if (!grid) return;
 
-  let rows = projectsInSelectedFY().slice();
+  let rows = projectsInScope().slice();
   // Filter by bucket / notification state
   const role = cache.role;
   if (filterKind === 'mine')         rows = rows.filter((p) => projectBucket(p, role) === 'mine');
@@ -739,12 +800,24 @@ function renderGrid() {
       // A selected fiscal year with NO projects at all takes priority — the
       // bucket/search copy ("งานเคลียร์แล้ว") would misread the emptiness.
       const fyEmpty = filterFY !== 'all' && projectsInSelectedFY().length === 0;
+      // Same idea for the ฝ่าย filter — it's an explicit toolbar choice like
+      // ปีงบ, not a bucket, so it outranks "งานเคลียร์แล้ว" too. Checked
+      // AFTER fyEmpty (that message is more specific when both are empty)
+      // and against projectsInSelectedFY() so it reads correctly on its own.
+      const deptEmpty = !fyEmpty && filterDepts.length > 0
+        && !projectsInSelectedFY().some((p) => projectMatchesSamoDepts(p, filterDepts));
       const m = (searchQ ? null : map[filterKind]);
       if (fyEmpty) {
         empty.innerHTML = `
           <i class="bi bi-calendar-x"></i>
           <h4>ไม่มีโครงการในปีงบ ${escHtml(filterFY)}</h4>
           <p class="small text-muted mb-0">ลองเลือกปีงบอื่น หรือ "ทุกปีงบ"</p>
+        `;
+      } else if (deptEmpty) {
+        empty.innerHTML = `
+          <i class="bi bi-diagram-3"></i>
+          <h4>ไม่มีโครงการในฝ่ายที่เลือก</h4>
+          <p class="small text-muted mb-0">ลองเลือกฝ่ายอื่น หรือล้างตัวกรองฝ่าย</p>
         `;
       } else if (m) {
         empty.innerHTML = `
@@ -802,6 +875,20 @@ function fyChipHtml(p) {
     ><i class="bi bi-calendar3"></i>ปีงบ ${year}${moved ? ' · ย้ายเอง' : ''}</span>`;
 }
 
+/** The ฝ่ายสโม chip on a โครงการ card/list row — ONE function shared by both
+ *  layouts (same reasoning as fyChipHtml: a card and a list row of the same
+ *  โครงการ answering differently is mistakes class 6). Empty when untagged —
+ *  most โครงการ have no tag yet, so the routine case adds nothing to scan. */
+function deptMiniHtml(p) {
+  const depts = projectSamoDepts(p);
+  if (depts.length === 0) return '';
+  const labels = depts.map(samoDeptLabel);
+  const shown = labels.slice(0, 2).join(', ');
+  const extra = labels.length > 2 ? ` +${labels.length - 2}` : '';
+  return `<span class="projects-dept-mini" title="ฝ่ายสโม: ${escHtml(labels.join(', '))}"
+    ><i class="bi bi-diagram-3"></i>${escHtml(shown)}${escHtml(extra)}</span>`;
+}
+
 // Compact one-row-per-project layout for the list view. Same data
 // surface as the card; the click target wraps the whole row.
 function renderProjectListRow(p) {
@@ -847,6 +934,7 @@ function renderProjectListRow(p) {
           <span class="projects-list-name">${escHtml(p.name)}</span>
           <span class="projects-list-id">${escHtml(p.id)}</span>
           ${fyChipHtml(p)}
+          ${deptMiniHtml(p)}
         </span>
         ${p.description ? `<span class="projects-list-desc">${escHtml(p.description)}</span>` : ''}
       </span>
@@ -915,6 +1003,7 @@ function renderProjectCard(p) {
       <div class="projects-card-foot">
         <span class="projects-card-foot-stat"><i class="bi bi-journal-text me-1"></i>${total} หนังสือ</span>
         ${fyChipHtml(p)}
+        ${deptMiniHtml(p)}
         <span class="projects-card-last"><i class="bi bi-clock-history me-1"></i>${escHtml(fmtRelative(lastTouch))}</span>
       </div>
     </button>
@@ -975,6 +1064,9 @@ function renderDetail() {
         ${projShown && hiddenDocs > 0
           ? `<span class="projects-hidden-pill is-partial" title="หนังสือบางฉบับถูกซ่อนจากเว็บสาธารณะ"><i class="bi bi-eye-slash me-1"></i>ซ่อน ${hiddenDocs} ฉบับ</span>`
           : ''}
+        ${!canManage ? projectSamoDepts(project).map((v) =>
+          `<span class="projects-dept-pill"><i class="bi bi-diagram-3 me-1"></i>${escHtml(samoDeptLabel(v))}</span>`
+        ).join('') : ''}
       </div>
       ${!projShown ? `
         <div class="projects-hidden-note">
@@ -982,6 +1074,17 @@ function renderDetail() {
           ขณะนี้ทั้งโครงการและหนังสือทุกฉบับในนี้ไม่ปรากฏบนเว็บสาธารณะ —
           เจ้าหน้าที่ที่ล็อกอินยังเห็นตามปกติ
         </div>` : ''}
+      ${canManage ? `
+        <div class="projects-dept-editor" role="group" aria-label="แท็กฝ่ายสโม">
+          <span class="projects-dept-editor-label">ฝ่ายสโม:</span>
+          ${VS_DEPTS.map((d) => {
+            const on = projectSamoDepts(project).includes(d.value);
+            return `<button type="button" class="projects-dept-chip${on ? ' is-active' : ''}"
+              data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(d.value)}"
+              title="${on ? 'กดเพื่อเอาออก' : 'กดเพื่อเพิ่ม'}">${escHtml(d.label)}</button>`;
+          }).join('')}
+        </div>
+      ` : ''}
       <div class="projects-detail-actions">
         ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(project.id)}">
           <i class="bi bi-plus-lg me-1"></i> เพิ่มหนังสือ
@@ -1930,6 +2033,11 @@ function onInboxClick(e) {
     onMoveProjectFiscalYear(moveFyProj.dataset.projectsMoveFy);
     return;
   }
+  const deptChip = e.target.closest('[data-projects-toggle-dept]');
+  if (deptChip) {
+    onToggleProjectDept(deptChip);
+    return;
+  }
 
   // Doc actions
   const statusBtn = e.target.closest('[data-projects-doc-status]');
@@ -2121,6 +2229,51 @@ async function onToggleProjectPublic(btn) {
   } finally {
     btn.disabled = false;
   }
+}
+
+/** Toggle one ฝ่ายสโม tag on/off. The chip row only renders for canManage
+ *  (vp_admin/dev → the vpa desk, same identity set_project_samo_depts checks
+ *  at the DB), so this is reachable only by the desk allowed to call it —
+ *  the server-side guard (migration 0212) is what actually stops anyone
+ *  else; this is just the matching UI gate. */
+/** Every ฝ่ายสโม toggle chains through this, so a second chip clicked before
+ *  the first's round trip lands waits its turn instead of racing it. */
+let deptEditorQueue = Promise.resolve();
+
+/** ⛔ READ-MODIFY-WRITE ON A SHARED ARRAY, FROM SEVERAL BUTTONS. Each chip
+ *  computes `next` from the project's CURRENT samo_depts and writes the
+ *  whole array back — there is no per-tag column to PATCH independently.
+ *  `btn.disabled` only guards the ONE button clicked twice; it does nothing
+ *  for two DIFFERENT chips clicked close together, and both would then read
+ *  the same pre-toggle array and write their own version of it — whichever
+ *  request's response lands last wins, silently dropping the other tag.
+ *  Chaining every call through `deptEditorQueue` (and awaiting `onChanged()`,
+ *  which is what refreshes `cache.projects`) makes the second click's read
+ *  happen only after the first click's write is reflected in `cache`. */
+export async function onToggleProjectDept(btn) {
+  const projectId = btn.dataset.projectsToggleDept;
+  const value = btn.dataset.dept;
+  const run = deptEditorQueue.then(async () => {
+    const p = cache.projects.find((x) => x.id === projectId);
+    if (!p) return;
+    const current = projectSamoDepts(p);
+    const next = current.includes(value)
+      ? current.filter((d) => d !== value)
+      : [...current, value];
+    btn.disabled = true;
+    try {
+      await setProjectSamoDepts(projectId, next);
+      await onChanged();
+    } catch (e) {
+      alert(e.message || 'บันทึกฝ่ายสโมไม่สำเร็จ');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  // Swallow here so one failed toggle doesn't wedge the queue for the next
+  // chip — the failure is already reported to the user above.
+  deptEditorQueue = run.catch(() => {});
+  await run;
 }
 
 /** Show / hide ONE หนังสือ. No confirm — it is one row, instantly reversible,

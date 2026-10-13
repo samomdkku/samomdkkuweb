@@ -17,7 +17,7 @@ import { uploadShopFile, slipFolderForNow, SLIP_MAX_EDGE, prepareSlip } from './
 import { readAsDataURL } from '../read-file.js';
 import { sendNotify } from '../notify.js';
 import { currentAccessToken } from '../db.js';
-import { getProductMap, ensureProductsLoaded, setShopCartProducts } from './cart.js';
+import { getProductMap, ensureProductsLoaded, setShopCartProducts, setCartReservedMatrix } from './cart.js';
 import { showShopToast } from './products.js';
 
 let onAfterPlace = () => {};
@@ -53,6 +53,10 @@ async function refreshStock() {
       reservedAll = reserved || {};
       stockAt = Date.now();
       setShopCartProducts(list);
+      // Keep the cart drawer's own qty cap in step with what checkout just
+      // learned — otherwise the drawer still shows the stale count fetched
+      // on shop-tab-open until the NEXT shop-tab-show.
+      setCartReservedMatrix(reservedAll);
     } catch (e) {
       console.warn('[shop/checkout] stock refresh failed — the server still checks:', e?.message || e);
     } finally {
