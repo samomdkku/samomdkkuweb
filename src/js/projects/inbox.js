@@ -63,7 +63,7 @@ import {
   DEFAULT_FY_ALL,
   DEFAULT_FY_CURRENT,
 } from './fiscal-year.js';
-import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, staleSamoDepts, SAMO_DEPT_OPTIONS } from './samo-depts.js';
+import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, samoDeptColorVar, staleSamoDepts, SAMO_DEPT_OPTIONS } from './samo-depts.js';
 
 // ---------- module state ----------
 
@@ -881,11 +881,18 @@ function fyChipHtml(p) {
 function deptMiniHtml(p) {
   const depts = projectSamoDepts(p);
   if (depts.length === 0) return '';
-  const labels = depts.map(samoDeptLabel);
-  const shown = labels.slice(0, 2).join(', ');
-  const extra = labels.length > 2 ? ` +${labels.length - 2}` : '';
-  return `<span class="projects-dept-mini" title="ฝ่ายสโม: ${escHtml(labels.join(', '))}"
-    ><i class="bi bi-diagram-3"></i>${escHtml(shown)}${escHtml(extra)}</span>`;
+  // One chip per ฝ่าย, in that ฝ่าย's own colour (a dot — several ฝ่าย colours
+  // are too light to carry text), up to three; the rest as "+N" with every
+  // name in the chip's own text, never only in a tooltip a phone cannot show.
+  const shown = depts.slice(0, 3).map((v) => {
+    const c = samoDeptColorVar(v);
+    return `<span class="projects-dept-mini"${c ? ` style="--dept-c: var(${escHtml(c)});"` : ''}
+      ><span class="projects-dept-dot" aria-hidden="true"></span>${escHtml(samoDeptLabel(v))}</span>`;
+  }).join('');
+  const rest = depts.slice(3).map(samoDeptLabel);
+  return shown + (rest.length
+    ? `<span class="projects-dept-mini is-more" aria-label="${escHtml(rest.join(', '))}">+${rest.length}</span>`
+    : '');
 }
 
 // Compact one-row-per-project layout for the list view. Same data

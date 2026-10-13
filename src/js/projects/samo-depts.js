@@ -13,7 +13,7 @@
 // and a list row answering the filter differently is the recurring bug this
 // repo keeps a class for (mistakes class 6).
 // ==============================================
-import { DEPT_OPTIONS, deptLabel } from '../../data/depts.js';
+import { DEPT_OPTIONS, DEPT_DEFS, deptLabel } from '../../data/depts.js';
 
 /** `[{ value: key, label: title }]`, in หน้าฝ่าย's order — what every chip
  *  row and filter menu in the projects module draws. */
@@ -53,4 +53,10 @@ export function samoDeptLabel(value) {
  *  refuses unknown values — locking the tags. */
 export function staleSamoDepts(project) {
   return projectSamoDepts(project).filter((d) => !SAMO_DEPT_VALUES.includes(d));
+}
+
+/** The ฝ่าย's colour token (`--dept-…`, the one its หน้าฝ่าย header uses), or
+ *  null for a key that is not a ฝ่าย — the chip then falls back to neutral. */
+export function samoDeptColorVar(value) {
+  return DEPT_DEFS[value]?.colorVar || null;
 }

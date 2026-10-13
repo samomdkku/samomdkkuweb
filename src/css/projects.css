@@ -252,18 +252,36 @@
 .projects-tab .projects-dept-filter-clear:hover { background: var(--p-danger-soft); }
 
 /* ฝ่ายสโม chip on a card/list row — quiet, same register as .projects-fy-mini */
+/* ฝ่ายสโม on a โครงการ card / list row — one chip per ฝ่าย. The ฝ่าย's colour
+   (--dept-c, its หน้าฝ่าย token) is the DOT and a light tint; the text stays
+   dark, because several ฝ่าย colours (ดิจิทัล's yellow) cannot carry text. */
 .projects-tab .projects-dept-mini {
+  --dept-c: #94a3b8;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  font-size: 0.75rem;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: var(--p-muted);
+  line-height: 1.5;
+  color: #334155;
+  background: color-mix(in srgb, var(--dept-c) 13%, #fff);
+  border: 1px solid color-mix(in srgb, var(--dept-c) 35%, #fff);
   white-space: nowrap;
-  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.projects-tab .projects-dept-mini.is-more { color: var(--p-muted); }
+.projects-tab .projects-dept-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dept-c);
 }
 
 /* ฝ่ายสโม read-only pill on the detail header (non-vpa viewers) */
