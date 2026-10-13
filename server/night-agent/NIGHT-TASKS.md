@@ -104,7 +104,7 @@ Decide, act, record what you chose, what you rejected and what would change
 your mind. A defended decision the owner can overturn beats a question nobody
 reads until morning.
 
-## FACTS MEASURED ON PRODUCTION, 2026-10-13 (you cannot query production; use these)
+**FACTS MEASURED ON PRODUCTION, 2026-10-13 (you cannot query production; use these):**
 
 - Whole database: **60 MB** (Supabase free tier: 500 MB). Biggest tables:
   `analytics_events` 26,266 rows / 10 MB since 2026-07-23 (per month: Jul 3,624 ·
