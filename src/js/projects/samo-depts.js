@@ -28,15 +28,19 @@ export function projectSamoDepts(project) {
   return Array.isArray(project?.samo_depts) ? project.samo_depts.filter(Boolean) : [];
 }
 
+/** The filter value meaning "no ฝ่าย yet" — never a stored tag (it is not a
+ *  DEPT_DEFS key, and samo_dept_keys() would refuse it). */
+export const UNTAGGED = '__untagged__';
+
 /** Does this โครงการ match the selected ฝ่ายสโม filter?
- *  An EMPTY selection means "no filter" — every โครงการ matches, including
- *  one carrying no tags at all. A non-empty selection is OR across the
- *  selected values: a โครงการ tagged with ANY of them matches; one with no
- *  tags, or only tags outside the selection, does not. */
+ *  An EMPTY selection means "no filter" — every โครงการ matches. A non-empty
+ *  selection is OR across what is selected: a ฝ่าย matches a โครงการ tagged
+ *  with it, and UNTAGGED matches a โครงการ with no tag at all — so "show what
+ *  still needs a ฝ่าย" is one tick, and can be combined with a ฝ่าย. */
 export function projectMatchesSamoDepts(project, selected) {
   if (!Array.isArray(selected) || selected.length === 0) return true;
   const depts = projectSamoDepts(project);
-  if (depts.length === 0) return false;
+  if (depts.length === 0) return selected.includes(UNTAGGED);
   return depts.some((d) => selected.includes(d));
 }
 

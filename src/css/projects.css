@@ -236,6 +236,20 @@
 }
 .projects-tab .projects-dept-filter-item:hover { background: var(--p-line-soft); }
 .projects-tab .projects-dept-filter-item input { margin: 0; flex: 0 0 auto; }
+.projects-tab .projects-dept-filter-item > span:nth-of-type(1) { flex: 1 1 auto; min-width: 0; }
+.projects-tab .projects-dept-filter-count {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-muted);
+}
+/* "ยังไม่ระบุฝ่าย" is a different KIND of choice from the 12 — set apart. */
+.projects-tab .projects-dept-filter-item.is-untagged {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--p-line);
+  border-radius: 0 0 6px 6px;
+}
 .projects-tab .projects-dept-filter-clear {
   display: flex;
   align-items: center;

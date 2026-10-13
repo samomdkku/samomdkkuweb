@@ -63,7 +63,7 @@ import {
   DEFAULT_FY_ALL,
   DEFAULT_FY_CURRENT,
 } from './fiscal-year.js';
-import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, samoDeptColorVar, staleSamoDepts, SAMO_DEPT_OPTIONS } from './samo-depts.js';
+import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, samoDeptColorVar, staleSamoDepts, SAMO_DEPT_OPTIONS, UNTAGGED } from './samo-depts.js';
 
 // ---------- module state ----------
 
@@ -676,13 +676,21 @@ async function openFiscalYearDefaultPicker() {
 function renderDeptFilterMenu() {
   const menu = document.getElementById('projectsDeptFilterMenu');
   if (!menu) return;
-  menu.innerHTML = SAMO_DEPT_OPTIONS.map((d) => `
-    <label class="projects-dept-filter-item">
-      <input type="checkbox" data-dept-filter-value="${escHtml(d.value)}"
-        ${filterDepts.includes(d.value) ? 'checked' : ''} />
-      <span>${escHtml(d.label)}</span>
-    </label>
-  `).join('') + (filterDepts.length
+  // Counts within the ปีงบ already chosen, so a number never promises rows the
+  // grid will not show. "ยังไม่ระบุฝ่าย" sits last: the list of what still
+  // needs a ฝ่าย, one tick away (owner, 2026-10-13).
+  const base = projectsInSelectedFY();
+  const countOf = (v) => base.filter((p) => projectMatchesSamoDepts(p, [v])).length;
+  const item = (value, label, extraClass = '') => `
+    <label class="projects-dept-filter-item${extraClass}">
+      <input type="checkbox" data-dept-filter-value="${escHtml(value)}"
+        ${filterDepts.includes(value) ? 'checked' : ''} />
+      <span>${escHtml(label)}</span>
+      <span class="projects-dept-filter-count">${countOf(value)}</span>
+    </label>`;
+  menu.innerHTML = SAMO_DEPT_OPTIONS.map((d) => item(d.value, d.label)).join('')
+    + item(UNTAGGED, 'ยังไม่ระบุฝ่าย', ' is-untagged')
+    + (filterDepts.length
     ? `<button type="button" class="projects-dept-filter-clear" data-dept-filter-clear>
         <i class="bi bi-x-circle me-1"></i>ล้างตัวกรองฝ่าย
       </button>`

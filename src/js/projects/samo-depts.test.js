@@ -118,6 +118,19 @@ describe('the tag list is the 12 ฝ่าย, and the SQL agrees', () => {
   });
 });
 
+describe('UNTAGGED — the filter can list what still needs a ฝ่าย', () => {
+  it('matches only a โครงการ with no tag, and ORs with a ฝ่าย', async () => {
+    const { UNTAGGED } = await import('./samo-depts.js');
+    const none = { samo_depts: [] };
+    const tagged = { samo_depts: ['office'] };
+    expect(projectMatchesSamoDepts(none, [UNTAGGED])).toBe(true);
+    expect(projectMatchesSamoDepts(tagged, [UNTAGGED])).toBe(false);
+    expect(projectMatchesSamoDepts(tagged, [UNTAGGED, 'office'])).toBe(true);
+    expect(projectMatchesSamoDepts(none, ['office'])).toBe(false);
+    expect(SAMO_DEPT_VALUES).not.toContain(UNTAGGED);   // never a value a tag could hold
+  });
+});
+
 describe('staleSamoDepts — a renamed ฝ่าย must stay removable', () => {
   it('returns only values that are not a ฝ่าย key', async () => {
     const { staleSamoDepts, SAMO_DEPT_VALUES } = await import('./samo-depts.js');
