@@ -321,15 +321,24 @@ describe('the service sets nicknames — for real, against the stub', () => {
 });
 
 // ── The loop: queue bookkeeping, and alerts that mean something ────────────
-const loop = (ms, extra = {}) => new Promise((ok) => {
+// `until` (optional) ends the run as soon as it holds, so a test can wait for
+// an EVENT with `ms` only as the ceiling.
+const loop = (ms, extra = {}, until = null) => new Promise((ok) => {
   const base = `http://127.0.0.1:${stub.port}`;
   const child = spawn('node', [join(ROOT, 'server', 'discord-sync.mjs')], { cwd: ROOT, env: { ...process.env,
     DISCORD_API_BASE: `${base}/api/v10`, DISCORD_TOKEN: 'stub', SUPABASE_URL: base, SUPABASE_SERVICE_ROLE_KEY: 'stub',
     DISCORD_SYNC_WRITE_GAP_MS: '0', DISCORD_SYNC_LOG_WEBHOOK: `${base}/webhook`, DISCORD_SYNC_POLL_MS: '30',
     DISCORD_SYNC_BACKOFF_MS: '10', ...extra } });
   let out = ''; child.stdout.on('data', (d) => { out += d; }); child.stderr.on('data', (d) => { out += d; });
-  setTimeout(() => { child.kill(); ok(out); }, ms);
+  let done = false;
+  const finish = () => { if (done) return; done = true; clearInterval(poll); child.kill(); ok(out); };
+  const poll = setInterval(() => { if (until && until()) finish(); }, 25);
+  setTimeout(finish, ms);
 });
+const waitFor = async (cond, ms) => {
+  const end = Date.now() + ms;
+  while (!cond() && Date.now() < end) await new Promise((ok) => setTimeout(ok, 25));
+};
 
 describe('the service loop', () => {
   it('deletes exactly the queue rows it processed, by id — never a range', async () => {
@@ -337,18 +346,26 @@ describe('the service loop', () => {
     await loop(2500);
     expect(w.queueDeletes).toEqual(['?id=in.(7,9)']);
   });
+  // ⛔ EVENTS, NOT A STOPWATCH. This used to heal at a fixed 2.5 s inside a
+  // 4 s run (under vitest's 5 s default): under a full parallel suite the child
+  // could take most of that just to START, see no failure, and post no alert —
+  // red on a healthy service, intermittently (2026-10-13). Heal once the alert
+  // is actually out; stop once the recovery is.
   it('one blip is retried quietly; a PERSISTING failure is posted once, and so is the recovery', async () => {
+    const texts = () => (w.posted || []).map((m) => m.content);
+    const alerted = () => texts().some((c) => /⚠️ Discord sync/.test(c));
+    const recovered = () => texts().some((c) => /กลับมาทำงานปกติ/.test(c));
     w.queueFail = true;
-    const p = loop(4000);
-    await new Promise((ok) => setTimeout(ok, 2500));
+    const p = loop(15000, {}, recovered);
+    await waitFor(alerted, 12000);
     w.queueFail = false;
     const out = await p;
-    const posts = (w.posted || []).map((m) => m.content);
+    const posts = texts();
     const alerts = posts.filter((c) => /⚠️ Discord sync/.test(c));
     expect(alerts, out).toHaveLength(1);
     expect(alerts[0]).toMatch(/Supabase HTTP 503 discord_sync_queue/);
     expect(posts.filter((c) => /กลับมาทำงานปกติ/.test(c))).toHaveLength(1);
-  });
+  }, 20000);
   it('a single failure that heals on the next try posts NOTHING', async () => {
     let n = 0; const real = w;
     Object.defineProperty(real, 'queueFail', { get: () => (n++ === 0), configurable: true });
