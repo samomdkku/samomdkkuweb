@@ -66,6 +66,11 @@ export function wantsSilence(data = {}) {
 
 // ---- payload builders (one per GAS action) ----
 
+// EXPLICITLY SAMO-YEAR-AGNOSTIC (0220, docs/YEAR-ROLLOVER.md § PR). This
+// fires ONCE, at the instant a ticket is submitted — there is no "which
+// year's notification list" to filter; "right now" and "the SAMO year the
+// ticket was just stamped with" are the same thing by construction. Nothing
+// here needs pr_tickets.samo_year_be.
 export function buildPrPayload(data = {}) {
   const isRush = data.deadlineMode === 'Rush PR Review';
 

@@ -1831,7 +1831,7 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 |---|---|---|---|---|---|
 | 1 | Design doc | — (no migration) | `scrutinize` pass on the doc | N/A | Read `docs/YEAR-ROLLOVER.md`; it is the plan every later row implements |
 | 2 | Core SAMO-year infra | 0219 | `year0219` 23/23 samo-dev | samo-dev only | Review `skills/year-rollover.md`; apply 0219 to production (`node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql`) before task 3+'s migrations land there, since they attach triggers that call `current_samo_year()` |
-| 3 | PR | 0220 | | | |
+| 3 | PR | 0220 | `pr0220` 23/23 samo-dev | samo-dev only | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0220_pr_tickets_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/pr0220-year-filter.sql` to prove it there too. Deploy the frontend bundle (ships the year picker/export/past-year lock) + run `npm run deploy:gas` (ships the per-year Drive folder + `movePRFileToYear`). AFTER that bundle is served, the owner may run `node tools/pr-organize-drive-by-year.mjs` (dry-run) to see how many existing flat `PR/` files would move, then `--apply --move N` to sort them — never required, purely organizational, and paced to avoid degrading the live upload endpoint |
 | 4 | VitalSound | 0221 | | | |
 | 5 | SAMO Shop | 0222 | | | |
 | 6 | หนังสือโครงการ | 0223 | | | |

@@ -276,6 +276,7 @@ const GAS_ACTIONS = [
   { name: 'uploadTeamFile',        label: 'อัปโหลดรูปทีม/สมาชิก',        counted: false },
   { name: 'notifyProjectEmail',    label: 'ส่งอีเมลแจ้งเตือน',           counted: true },
   { name: 'deletePRFile',          label: 'ลบไฟล์ PR',                  counted: false },
+  { name: 'movePRFileToYear',      label: 'ย้ายไฟล์ PR ไปโฟลเดอร์ปี',     counted: false },
   { name: 'deleteProjectFile',     label: 'ลบไฟล์หนังสือโครงการ',        counted: false },
   { name: 'deleteProjectFolder',   label: 'ลบโฟลเดอร์โครงการ',           counted: false },
   { name: 'deleteShopFile',        label: 'ลบไฟล์ร้านค้า',               counted: false },
@@ -348,6 +349,13 @@ function gasPanel(g) {
     </div>`;
 }
 
+// t.pr / t.pr_completed (and the matching RPC's count(*) over ALL of
+// pr_tickets) are EXPLICITLY SAMO-YEAR-AGNOSTIC (0220,
+// docs/YEAR-ROLLOVER.md § PR) — this dashboard answers "how hard is the GAS
+// quota being hit, ever", not "how is this year's team doing", so it is
+// never scoped to a single samo_year_be. A per-year PR KPI, if ever wanted,
+// belongs on the PR Staff Dashboard (src/js/pr-staff.js), which already has
+// the year picker.
 function render(body, d) {
   const t = d.totals || {};
   const a = d.active || {};

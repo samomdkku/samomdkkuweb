@@ -179,7 +179,13 @@ pr_tickets (text id PK ["PR-XXXXXX"], timestamp, department, contact,
             file_url, silent_notify boolean, project_account, copost_with,
             submitter_id FK users(id), submitter_label, status,
             remarks jsonb, assignees text[], other_platforms text[],
-            other_platform_reason, created_at)
+            other_platform_reason, created_at, samo_year_be smallint)
+  ↳ samo_year_be (migration 0220) is stamped ONCE at INSERT by a trigger
+    reading current_samo_year() (0219) — never recomputed, staff may
+    override. A FILTER for the PR Staff Dashboard's year picker, never an
+    access boundary (RLS is unchanged). Same override shape as
+    projects.fiscal_year_be, different fill timing: see
+    docs/YEAR-ROLLOVER.md § PR for why.
 
 vs_tickets (text id PK ["VS-YYMMDD-HHMM"], timestamp, display_name, year,
             submitter_id FK users(id), submitter_label, problem text,

@@ -1,5 +1,11 @@
 // ==============================================
 // PR TRACKING — User ticket tracking & history
+//
+// EXPLICITLY SAMO-YEAR-AGNOSTIC (0220, docs/YEAR-ROLLOVER.md § PR). A guest
+// tracking one ticket by ID, or a signed-in submitter loading "ประวัติของฉัน",
+// must keep reaching every ticket they ever filed — year is a FILTER for the
+// STAFF dashboard, never an access or visibility boundary for the person who
+// submitted it. Nothing here reads samo_year_be.
 // ==============================================
 
 import { renderTimeline, escHtml } from './utils.js';

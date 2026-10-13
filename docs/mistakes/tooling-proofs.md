@@ -3522,3 +3522,47 @@ paths change again, so its last verdict can be days old and still the truth.
 Ask each check for its own latest result. Never "is CI green on HEAD". And
 "checks pass" in a summary must come from looking this session, not from the
 last summary.
+
+## A proof that opens two team_terms in one transaction got the SAME `started_at` for both
+
+**Symptom (caught writing pr0220-year-filter.sql, night agent task 3,
+2026-10-14, before it ever shipped)**: a proof opened sentinel term 2693,
+inserted a PR ticket while it was current, then handed over to 2694 and ran
+0220's exact backfill expression on that ticket. Expected it to resolve to
+2693 (the term that was ACTUALLY live when the ticket was submitted); it
+resolved to 2694 (the term current when the backfill ran) instead — on the
+very first run, not a flake.
+
+**Cause**: `now()` (and `current_timestamp`) is STABLE inside a Postgres
+transaction — it returns the transaction's START time, not wall-clock time at
+each statement. Every proof in this repo runs inside one `begin; … rollback;`
+block (`skills/write-a-guard.md`'s shape), so two `start_team_term()` calls in
+the SAME proof stamp `started_at`/`ended_at` with the IDENTICAL instant — the
+two terms' windows collapse to a single point, `[T, T)`, which is empty by
+definition. A ticket timestamped `now()` always lands exactly ON that
+collapsed boundary and resolves to whichever term's range includes it
+half-open (the NEW one, since the old one's range becomes `[T, T)` — nothing
+is `< T` and `>= T` at once), which looks exactly like "the backfill used
+'now' instead of history" even though the SQL function itself was correct.
+
+**Fix**: never rely on two `now()`-stamped admin actions, inside one
+transaction, to produce two DIFFERENT instants. Manufacture the gap
+explicitly — `update team_terms set started_at = now() - interval '2 days'
+where year = <sentinel>` right after opening it — so the two terms' windows
+are genuinely disjoint before the second handover runs. A real deployment
+never hits this (two `start_team_term` calls in production are, by
+definition, minutes or days apart), so it is PURELY an artifact of testing a
+multi-step time-based handover inside one rolled-back transaction.
+
+**Where it lives now**: `tools/pr0220-year-filter.sql` §C (steps 30-35),
+`docs/mistakes/tooling-proofs.md` (this entry). Tasks 4/5/6 (VS/Shop/
+หนังสือโครงการ year backfills) will write the identical "ticket survives a
+real handover" proof — read this before assuming your handover looks
+different in time just because you called `start_team_term` twice.
+
+**The general rule**: inside a single transaction, `now()` is a CONSTANT, not
+a clock. Any proof that needs two distinct "it happened at different times"
+facts from two actions in one transaction must set at least one of those
+timestamps explicitly — `clock_timestamp()` (which DOES advance) only helps
+if the ordering you need matches which calls happen first; backdating one
+side directly is usually the more controllable shape.

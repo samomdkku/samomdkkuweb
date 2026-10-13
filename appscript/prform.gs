@@ -2,8 +2,13 @@
 // prform.gs — Drive file upload + projects email only
 //
 // Post-Supabase-migration, GAS serves these actions:
-//   - uploadPRFile         : upload an image to Drive `PR/`
+//   - uploadPRFile         : upload an image to Drive `PR/`, or `PR/<year>`
+//                            when a PR ticket submission passes folderPath
 //                            (chosen over Supabase Storage for the 2 TB quota)
+//   - movePRFileToYear     : move an EXISTING file already under `PR` into
+//                            `PR/<year>` — the one-shot organiser
+//                            (tools/pr-organize-drive-by-year.mjs) uses this
+//                            to sort files uploaded before the per-year split
 //   - uploadShopFile       : upload a file to a nested Drive folder path
 //                            (e.g. 'Shop/Slips/2026-05'). Used by the
 //                            shop module for slips, product photos, QR images.
@@ -380,6 +385,7 @@ function doPost(e) {
 
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'deletePRFile')      return handleDeletePRFile(data);
+    if (data.action === 'movePRFileToYear')  return handleMovePRFileToYear(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
@@ -415,15 +421,75 @@ function doPost(e) {
 
 // ============================================================
 // uploadPRFile — accept a base64-encoded image and write to Drive
+//
+// `folderPath` is OPTIONAL (0220, docs/YEAR-ROLLOVER.md § PR) — a PR ticket
+// submission now passes `PR/<samo_year_be>` so new attachments land in a
+// per-year subfolder instead of one flat `PR/` that keeps growing forever.
+// With no folderPath, behaviour is EXACTLY what it was before: a flat
+// `PR/` file. That matters because this same action is shared by
+// uploads.js's `uploadImageToDrive` (announcement covers, Quill images) —
+// those are NOT PR tickets and must keep writing flat, so only pr-form.js
+// sends folderPath. Same shape as uploadShopFile/uploadTeamFile: allow-list
+// the top segment so a caller cannot write outside PR/.
 // ============================================================
 
 function handleUploadPRFile(data) {
   try {
-    const folder = getOrCreateTopFolder_('PR');
+    var path = String(data.folderPath || '').trim();
+    var folder;
+    if (path) {
+      if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+      if (canonTopFolder_(firstSegment_(path)) !== 'PR') {
+        return createResponse({ success: false, message: 'folderPath must start with PR' });
+      }
+      folder = getOrCreateFolderPath_(path);
+    } else {
+      folder = getOrCreateTopFolder_('PR');
+    }
     const base64Data = data.fileData.split(',')[1];
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return createResponse({ success: true, fileUrl: file.getUrl() });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+/**
+ * movePRFileToYear — move an EXISTING file already under `PR` into
+ * `PR/<year>`, in place (same Drive file id, same sharing — Drive's
+ * `moveTo()` only changes the parent folder). Added for
+ * `tools/pr-organize-drive-by-year.mjs`, the one-shot (dry-run by default)
+ * mover that sorts the files `uploadPRFile` wrote flat before 0220 existed.
+ *
+ * Never trash-and-recreate to "move" a file — a trashed Drive file is still
+ * served (lh3 resolves it, HTTP 200) and the id would change, breaking
+ * every `pr_tickets.file_url` already pointing at it. `moveTo()` has
+ * neither problem.
+ *
+ * Ancestry-gated exactly like deletePRFile: this endpoint is UNAUTHENTICATED
+ * (Execute as: Me + Anyone), so the only thing between a caller and the
+ * owner's whole Drive is the "must already be under PR" check.
+ */
+function handleMovePRFileToYear(data) {
+  try {
+    var url = String(data.fileUrl || '').trim();
+    var year = String(data.year || '').trim();
+    if (!url) return createResponse({ success: false, message: 'fileUrl required' });
+    if (!/^\d{3,4}$/.test(year)) return createResponse({ success: false, message: 'year must be a พ.ศ. year' });
+    var id = extractDriveId_(url);
+    if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) {
+      return createResponse({ success: false, message: 'file not found' });
+    }
+    if (!fileLivesUnderTop_(file, 'PR')) {
+      return createResponse({ success: false, message: 'file is not inside PR' });
+    }
+    var target = getOrCreateFolderPath_('PR/' + year);
+    file.moveTo(target);
     return createResponse({ success: true, fileUrl: file.getUrl() });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });

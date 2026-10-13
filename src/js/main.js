@@ -239,6 +239,9 @@ window.addNewAgent = () => {};
 window.removeAgent = () => {};
 window.addPRStaffAssignee = () => {};
 window.removePRStaffAssignee = () => {};
+window.onPrStaffYearChange = () => {};
+window.togglePrPastYearOverride = () => {};
+window.exportPRStaffTicketsCsv = () => {};
 
 // VS Form (PUBLIC — visitor submits a problem report)
 window.toggleVitalSoundMode = toggleVitalSoundMode;
