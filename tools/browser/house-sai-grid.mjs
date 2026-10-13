@@ -146,6 +146,28 @@ try {
     t.notes.some((n) => n.includes('ติดต่อไม่ได้')) && t.notes.some((n) => n.includes('probe')) && t.noteVisible);
   await shot('grid-desktop.png');
 
+  // ยังนำเข้าไม่ได้: record ลาออก on the planted row through the pane's own
+  // controls and the in-page confirm, read the DATABASE, then reopen it.
+  const pick = async (act, setup) => ev(`${setup}
+    document.querySelector('tr[data-held-id="${planted.id}"] [data-held-act="${act}"]').click();
+    await new Promise(r=>setTimeout(r,600));
+    document.querySelector('[data-confirm-yes]')?.click();
+    await new Promise(r=>setTimeout(r,3500)); return 1;`);
+  await ev(`document.querySelector('[data-house-mode="held"]').click(); await new Promise(r=>setTimeout(r,2000)); return 1;`);
+  const rowThere = await ev(`return !!document.querySelector('tr[data-held-id="${planted.id}"]');`);
+  say('the planted row is in ยังนำเข้าไม่ได้, showing its answer', rowThere, rowThere === true);
+  await pick('follow', `const sel = document.querySelector('tr[data-held-id="${planted.id}"] [data-held-follow]'); sel.value = 'left';`);
+  const [afterLeft] = await sql(`select follow_up, resolved_how, resolved_at is not null as closed
+    from public.student_import_unresolved where id = ${lit(planted.id)}`);
+  say('ลาออก through the pane closes the row in the database', JSON.stringify(afterLeft),
+    afterLeft.follow_up === 'left' && afterLeft.resolved_how === 'dismissed' && afterLeft.closed);
+  await ev(`const cb = document.getElementById('houseHeldShowDone'); if (!cb.checked) cb.click(); await new Promise(r=>setTimeout(r,800)); return 1;`);
+  await pick('reopen', '');
+  const [afterOpen] = await sql(`select follow_up, resolved_at is not null as closed
+    from public.student_import_unresolved where id = ${lit(planted.id)}`);
+  say('เปิดใหม่ through the pane reopens it and clears the answer', JSON.stringify(afterOpen),
+    afterOpen.follow_up === null && afterOpen.closed === false);
+
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await sleep(1200);
   const sw = JSON.parse(await ev(`return JSON.stringify({ sw: document.documentElement.scrollWidth, w: window.innerWidth });`));
