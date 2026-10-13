@@ -1830,7 +1830,7 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 | Task | System | Migration | Proof | Applied? | Owner action |
 |---|---|---|---|---|---|
 | 1 | Design doc | — (no migration) | `scrutinize` pass on the doc | N/A | Read `docs/YEAR-ROLLOVER.md`; it is the plan every later row implements |
-| 2 | Core SAMO-year infra | 0219 | *(task 2 fills in)* | | |
+| 2 | Core SAMO-year infra | 0219 | `year0219` 23/23 samo-dev | samo-dev only | Review `skills/year-rollover.md`; apply 0219 to production (`node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql`) before task 3+'s migrations land there, since they attach triggers that call `current_samo_year()` |
 | 3 | PR | 0220 | | | |
 | 4 | VitalSound | 0221 | | | |
 | 5 | SAMO Shop | 0222 | | | |

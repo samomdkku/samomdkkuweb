@@ -98,6 +98,7 @@ const PROOFS = [
   ['accounts0211-dashboard.mjs', 'the account dashboard: master only, every account once, and a Google sign-up is stored as Google'],
   ['proj0212-samo-depts.mjs', 'ฝ่ายสโม tags on a โครงการ: only the vpa desk (or master) sets them, an unknown value is refused, and anon reads them only on a public โครงการ'],
   ['dept0213-team-samo-grant.mjs', 'a หน้าฝ่าย grant set in ทีม SAMO on a newly added ฝ่าย lets its people edit that page and not another\'s'],
+  ['year0219-samo-year.sql', 'a SAMO-year handover closes the outgoing term and opens the incoming one atomically, a stranger cannot call it, and a backfill timestamp resolves to the term that was actually live'],
   // Not a database proof — the repo's own branch protection, which lives on
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.
