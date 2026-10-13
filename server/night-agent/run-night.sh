@@ -320,7 +320,15 @@ for i in "${!STARTS[@]}"; do
   #            that is how task 2 was marked done without anyone finishing it.
   #   fresh  — never attempted: the check runs first, as the control.
   PLAN="$(node "$QUEUE" plan "$TASKS" "$i" 2>/dev/null)"
-  PLAN="${PLAN:-fresh}"
+  # ⛔ NO ANSWER MEANS DO NOTHING, never "fresh": a crashed plan defaulting to
+  # fresh re-ran the check of a FINISHED task and rewrote its verdict — the
+  # exact history loss `skip` exists to prevent. Say so instead.
+  case "$PLAN" in
+    skip|resume|fresh) ;;
+    *) echo "(queue.mjs plan gave no answer — task left untouched)"
+       SUMMARY+="ERR  $title — queue.mjs plan failed; not run, not judged"$'\n'
+       continue ;;
+  esac
   RESUMED=0
   if [ "$PLAN" = "skip" ]; then
     echo "(ปิดไปแล้วตั้งแต่รอบก่อน — ไม่ตรวจซ้ำ ไม่เขียนทับผล)"

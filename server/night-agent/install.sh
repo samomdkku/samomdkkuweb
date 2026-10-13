@@ -28,9 +28,19 @@ done
 # task to todo (finished work re-done) and erased the record of a finished one
 # (caught 2026-10-13, before it happened). A new queue is exactly what --arm
 # means, so that is the one time it is replaced; the old one is kept beside it.
+# Re-arming a PAUSED queue is not a new queue: when the live file carries the
+# same task headings as the repo's, its state is kept and only the timer is
+# re-enabled. Different headings = a new queue: the old one is kept beside it.
 if [ "${1:-}" = "--arm" ] || [ "${2:-}" = "--arm" ]; then
-  ssh -o BatchMode=yes samo-vm 'f=~/samo-night/NIGHT-TASKS.md; [ -f "$f" ] && cp "$f" "$f.$(date -u +%Y%m%dT%H%M%SZ).done"; true'
-  ssh -o BatchMode=yes samo-vm "cat > ~/samo-night/NIGHT-TASKS.md" < "$D/NIGHT-TASKS.md"
+  NEW_HEADS="$(grep '^## ' "$D/NIGHT-TASKS.md" | md5sum 2>/dev/null || grep '^## ' "$D/NIGHT-TASKS.md" | md5)"
+  LIVE_HEADS="$(ssh -o BatchMode=yes samo-vm "grep '^## ' ~/samo-night/NIGHT-TASKS.md 2>/dev/null | md5sum")"
+  if [ "${NEW_HEADS%% *}" = "${LIVE_HEADS%% *}" ]; then
+    echo "queue: same tasks as the live one — keeping its state (resuming, not replacing)"
+  else
+    ssh -o BatchMode=yes samo-vm 'f=~/samo-night/NIGHT-TASKS.md; [ -f "$f" ] && cp "$f" "$f.$(date -u +%Y%m%dT%H%M%SZ).prev"; true'
+    ssh -o BatchMode=yes samo-vm "cat > ~/samo-night/NIGHT-TASKS.md" < "$D/NIGHT-TASKS.md"
+    echo "queue: NEW — replaced (the previous one is kept as NIGHT-TASKS.md.<stamp>.prev)"
+  fi
 fi
 ssh -o BatchMode=yes samo-vm 'chmod +x ~/samo-night/run-night.sh && bash -n ~/samo-night/run-night.sh'
 ssh -o BatchMode=yes samo-vm 'cat > ~/samo-agent/.claude/settings.local.json' < "$D/settings.local.json"

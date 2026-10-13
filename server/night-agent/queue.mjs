@@ -220,6 +220,10 @@ export function plan(t) {
 export const NOTE_PASSED = 'ผ่านวิธีตรวจ';
 export const NOTE_RESUMED = 'ถูกตัดกลางทางรอบก่อน แล้วทำต่อจนผ่านวิธีตรวจ';
 export const NOTE_ALREADY = 'วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม — agent ไม่ได้ทำงานนี้ ต้องให้คนดูว่าเสร็จอยู่แล้วจริง หรือวิธีตรวจหลวมไป';
+// The agent DID work on it in an earlier run, whose check then failed; now it
+// passes with nothing done in between. Either that run's work was fine and the
+// check was flaky, or something else changed — a person decides which.
+export const NOTE_LATE_PASS = 'วิธีตรวจผ่านตอนเริ่มรอบนี้ ทั้งที่รอบก่อน agent ทำแล้วไม่ผ่าน — ต้องให้คนดูว่างานรอบก่อนใช้ได้จริง หรือวิธีตรวจไม่นิ่ง';
 
 /**
  * PURE. The verdict for one task, from facts the runner OBSERVED.
@@ -234,7 +238,9 @@ export const NOTE_ALREADY = 'วิธีตรวจผ่านตั้งแ
 export function verdict(t, passed, passedBefore = false, resumed = false) {
   // Nobody worked on it, so nobody may be credited with it. A person decides
   // whether it was done already or the check is too loose to tell.
-  if (passedBefore) return { status: 'needs-review', attempts: t.attempts, note: NOTE_ALREADY };
+  if (passedBefore) {
+    return { status: 'needs-review', attempts: t.attempts, note: t.attempts > 0 ? NOTE_LATE_PASS : NOTE_ALREADY };
+  }
   const attempts = t.attempts + 1;
   if (passed === true) return { status: 'done', attempts, note: resumed ? NOTE_RESUMED : NOTE_PASSED };
   // No check to run. ONE attempt, then a human looks — never retried, because

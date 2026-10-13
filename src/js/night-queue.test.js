@@ -277,6 +277,13 @@ Done when: test -f the-migration.sql
     expect(r).toContain('ไม่มีงานไหนถูกตัดหรือถูกข้าม');
   });
 
+  it('a check passing at the start AFTER an earlier failed attempt does not claim nobody worked on it', () => {
+    const v = verdict({ attempts: 1 }, null, true);
+    expect(v.status).toBe('needs-review');
+    expect(v.note).not.toContain('agent ไม่ได้ทำงานนี้');
+    expect(v.note).toContain('รอบก่อน');
+  });
+
   it('a check that passed before anyone worked on it is flagged, not counted as done', () => {
     const text = writeTask(Q2, 0, verdict(parseQueue(Q2).tasks[0], true, true));
     expect(report(parseQueue(text))).toMatch(/^! \[needs-review\] 1\. tags/m);
@@ -291,6 +298,10 @@ describe('run-night.sh delegates every verdict to queue.mjs', () => {
     for (const cmd of ['plan', 'judge', 'cut', 'report']) {
       expect(sh, `run-night.sh never calls queue.mjs ${cmd}`).toMatch(new RegExp(`node "\\$QUEUE" ${cmd} `));
     }
+  });
+  it('a plan with no answer leaves the task untouched — never defaults to fresh', () => {
+    expect(sh).not.toMatch(/PLAN="\$\{PLAN:-fresh\}"/);
+    expect(sh).toMatch(/skip\|resume\|fresh\) ;;/);
   });
   it('writes no status itself (no `queue.mjs set` left in the runner)', () => {
     expect(sh).not.toMatch(/node "\$QUEUE" set /);
@@ -314,13 +325,18 @@ describe('install.sh replaces the live queue only with --arm', () => {
     expect(loop[1]).toContain('queue.mjs');            // control: the list is the one we think
     expect(loop[1]).not.toContain('NIGHT-TASKS.md');
   });
-  it('every write of NIGHT-TASKS.md sits inside an --arm branch', () => {
+  it('every write of NIGHT-TASKS.md sits inside the --arm branch', () => {
     const lines = sh.split('\n');
+    const armAt = lines.findIndex((l) => /^if .*--arm/.test(l));
+    const fiAt = lines.findIndex((l, i) => i > armAt && /^fi\b/.test(l));
+    expect(armAt, 'no top-level --arm branch').toBeGreaterThan(-1);
     const writes = lines.map((l, i) => [l, i]).filter(([l]) => /cat > ~\/samo-night\/NIGHT-TASKS\.md/.test(l));
     expect(writes.length).toBeGreaterThan(0);
-    for (const [, i] of writes) {
-      const above = lines.slice(Math.max(0, i - 3), i).join('\n');
-      expect(above).toMatch(/--arm/);
-    }
+    for (const [, i] of writes) expect(i > armAt && i < fiAt, `write at line ${i + 1} is outside --arm`).toBe(true);
+  });
+  it('re-arming the SAME queue keeps its state (headings compared first)', () => {
+    const arm = sh.slice(sh.search(/^if .*--arm/m));
+    expect(arm.indexOf('LIVE_HEADS')).toBeGreaterThan(-1);
+    expect(arm.indexOf('LIVE_HEADS')).toBeLessThan(arm.indexOf('cat > ~/samo-night/NIGHT-TASKS.md'));
   });
 });
