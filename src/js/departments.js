@@ -37,7 +37,17 @@ let activeDept = null;
  * again the moment they tap another ฝ่าย, and without this check a slow
  * response for ฝ่าย A lands in ฝ่าย B's page — the classic out-of-order paint.
  */
-async function paintDeptContent(deptKey) {
+/** The note a ฝ่าย page shows when it has NOTHING yet — no tool in the
+ *  registry and no content of its own. Before 2026-10-13 every ฝ่าย with a
+ *  card had at least one tool, so this case could not happen; the six ฝ่าย
+ *  added then have neither, and a bare header reads exactly like a page that
+ *  failed to load. Exported for the test. */
+export function emptyDeptNote(toolCount, contentHtml) {
+  if (toolCount > 0 || contentHtml) return '';
+  return '<p class="text-muted small mb-0 text-center">ฝ่ายนี้ยังไม่ได้ลงข้อมูลในหน้านี้</p>';
+}
+
+async function paintDeptContent(deptKey, toolCount = 0) {
   const root = document.getElementById('deptsDetailCards');
   if (!root) return;
   root.innerHTML = '';
@@ -53,7 +63,11 @@ async function paintDeptContent(deptKey) {
     return;
   }
   const html = renderDeptContent(rows);
-  if (!html) return;
+  if (!html) {
+    const note = emptyDeptNote(toolCount, html);
+    if (note) { root.innerHTML = note; root.classList.remove('d-none'); }
+    return;
+  }
   root.innerHTML = html;
   root.classList.remove('d-none');
   watchDeptHtmlHeights();
@@ -82,13 +96,14 @@ function showDept(deptKey) {
   const lead = document.getElementById('deptsDetailLead');
   if (lead) lead.textContent = `เครื่องมือของ${def.title}`;
 
-  renderToolCards(document.getElementById('deptsDetailTools'), toolsForDept(deptKey));
+  const tools = toolsForDept(deptKey);
+  renderToolCards(document.getElementById('deptsDetailTools'), tools);
 
   // The ฝ่าย's OWN content — cards and HTML blocks they edit themselves
   // (0177). Loaded per open rather than at boot: most visitors never open a
   // ฝ่าย page, and a request for content nobody is looking at is a request
   // this app should not make.
-  paintDeptContent(deptKey);
+  paintDeptContent(deptKey, tools.length);
 
   // Hash sync — so refresh + share work.
   if (location.hash !== `#dept/${deptKey}`) {
