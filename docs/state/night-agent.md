@@ -14,6 +14,8 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+> ⛔ **Reviewed by the owner's session, 2026-10-13 — read `docs/state/HANDOFF.md` §20, not the block below, for what is true.** Its "do this first" is CLOSED (0214 was already live on production). Its "nothing was skipped" was wrong: task 2 was cut off by the quota and the runner credited the half-done work (runner fixed). 0213 was rewritten to grant nothing — หน้าฝ่าย editors are chosen in ทีม SAMO.
+
 ## ▶ HANDOFF 2026-10-13 04:11 UTC (night agent, branch agent/2026-10-13)
 
 **1. Do this first.** `node tools/pass-anon-probe.mjs` against production,
@@ -38,7 +40,7 @@ for the six fix/feature commits plus whatever this handoff adds).
   that order, dev first: 0212 (ฝ่ายสโม project tags), 0213 (dept_page grants
   for the 6 new ฝ่าย), then — only after step 1 above — 0214 (passport
   lockdown ported into tracked history). Each has a proof script
-  (`tools/proj0212-samo-depts.mjs`, `tools/dept0213-every-dept.mjs`,
+  (`tools/proj0212-samo-depts.mjs`, `tools/dept0213-team-samo-grant.mjs`,
   `tools/passport0214-lockdown-committed.sql`) registered in
   `tools/run-proofs.mjs` but **never run** — "written, not applied" for all
   three, as the night-queue rules require. STATE.md's migration/proof-count
@@ -191,8 +193,8 @@ from `DEPT_DEFS`, which is the whole point of that file existing (its own
 header comment). `npm test` and `npm run build` green.
 
 Written, NOT applied/run: migration 0213
-(`supabase/migrations/0213_dept_pages_for_every_dept.sql`) and
-`tools/dept0213-every-dept.mjs`, registered in run-proofs.mjs. STATE.md's
+(`supabase/migrations/0213_dept_page_grants_come_from_team_samo.sql`) and
+`tools/dept0213-team-samo-grant.mjs`, registered in run-proofs.mjs. STATE.md's
 migration/proof-count facts updated to match.
 
 **Decision, defended — inherit, do not widen, and do not add a review gate.**

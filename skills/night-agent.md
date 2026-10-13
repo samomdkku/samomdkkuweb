@@ -17,7 +17,7 @@ each older paragraph below is now WRONG:
 | quota | clock only (22:41 → 03:30) | **`~/samo-night/usage.json`**, left by `samo-claude-usage` every 15 min: no run while the 5-hour window is ≥90%, and none once the week is within `Reserve sessions:` (+6% margin) of full — checked at start AND between tasks. No file / older than 45 min → wait |
 | run length | wall-clock 03:30 | ≤245 min from its own start, then the handoff |
 | branch | `checkout -B agent/<date> origin/main` every run — a second run the same day DELETED the first's commits | `Branch:` in the queue header; a later run CONTINUES it and sweeps up uncommitted leftovers |
-| task cut off by the quota | counted as an attempt | WIP committed, no attempt counted — it resumes next window |
+| task cut off by the quota | counted as an attempt | WIP committed, **`Status: interrupted`** (note names the WIP sha), no attempt counted — the next run RESUMES it: the agent audits the WIP against the brief and finishes it. Its check is NOT asked first — half-done work can pass it (2026-10-13, `docs/mistakes/tooling-proofs.md`) |
 | revise passes | up to 6 when the queue finished early | **off** (`NIGHT_REVISE=1` to enable) — a finished queue stops |
 | queue fingerprint guard | refused an unchanged queue | **removed**: it stamped AFTER the run rewrote the file, so a multi-night budget could never use night 2. `gate` + the per-task pre-check do its job |
 | per task | 60 min, 120 turns | `TASK_TIMEOUT_SEC` 5400, `TASK_MAX_TURNS` 200 |
@@ -216,10 +216,10 @@ and `confirm-modal.test.js` was satisfied by a COMMENT.
 | when | what |
 |---|---|
 | before the night | `queue.mjs gate` — no work, or no budget → post why, **exit without calling claude at all** |
-| before each task | run `Done when:`. **Already passing → skip the task**, mark done, say so. It proved nothing about work that has not happened |
-| after each task | run it again. pass → `done` · fail → `todo` (retry tomorrow) · fail twice → `blocked` |
+| before each task | `queue.mjs plan`: **terminal → skip untouched** (its verdict is the record; never re-checked, never overwritten) · **interrupted → resume** · otherwise run `Done when:` first: **already passing → `needs-review`**, not done — nobody did the work, so a person decides |
+| after each task | run it again → `queue.mjs judge` (the ONE implementation; the bash copy is gone). pass → `done` · fail → `todo` (retry tomorrow) · fail twice → `blocked` |
 | `Done when: once` | one attempt → `needs-review`. Never retried |
-| end of night | `queue.mjs spend` — one night off `Budget` |
+| end of night | `queue.mjs spend` — one night off `Budget` · `queue.mjs report` — one line per task in the RUNNER's words into the log, the Discord post and the handoff (`AGENT_QUEUE_REPORT`). `!` = did not finish normally in one run; the handoff may call the night clean only if every line is `✓` |
 
 ### Two stops, deliberately independent
 

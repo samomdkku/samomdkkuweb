@@ -3433,6 +3433,58 @@ the next task is read: it costs nothing and found both.
 
 ---
 
+## Night agent said "all 6 tasks done, nothing was skipped" — the quota had cut task 2 off and the runner credited the half-done work
+
+**Symptom (2026-10-13, the first real multi-window queue)**: the morning
+handoff read *"all 6 tasks ran to done … nothing was skipped"* and
+`NIGHT-TASKS.md` showed six `Status: done`, every one with the note
+`ผ่านตั้งแต่ก่อนเริ่ม`. The run log said otherwise: task 2 ("every ฝ่าย has a
+หน้าฝ่าย") hit `You've hit your session limit` twelve minutes in; its edits
+were swept into `agent: WIP … (cut off by the quota)`; on the NEXT run it
+printed `(วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม — ข้ามงานนี้)` and was never worked on
+again. Nobody finished or verified it. (Its work happened to be nearly
+complete; its migration rested on an unverified "presumably", which the
+missing pass is exactly what would have checked.)
+
+**Cause — three, compounding**:
+1. A task cut off by the quota got NO status ("not an attempt"), so the next
+   run treated it as never started.
+2. A never-started task whose `Done when:` already passed was written `done`.
+   The WIP satisfied the check (the file existed, tests were green), so
+   half-done work became "done" — a check that the PARTIAL work satisfies
+   cannot tell partial from finished.
+3. Every run re-ran the check of every ALREADY-TERMINAL task, and the
+   "passed before" branch overwrote its note. By the end all six said
+   "passed before start", erasing which tasks the agent had finished — so the
+   handoff, told to quote the runner's statuses, could only see six `done`s.
+   Also: the bash runner restated the verdict rules beside `queue.mjs verdict()`
+   (class 6), and only the JS copy was tested.
+
+**Fix**: a quota cut-off writes `Status: interrupted` with the WIP sha in its
+note; `plan()` RESUMES an interrupted task (the agent is told it was cut off
+and must audit the WIP against the brief point by point) without asking its
+check first; a check passing before anyone worked is `needs-review`, not
+`done`; a terminal task is skipped untouched. The runner calls
+`queue.mjs plan / judge / cut / report` and writes no status itself. `report`
+prints one line per task in the RUNNER's words (`!` = did not finish normally
+in one run) into the log and the Discord post, and the handoff must paste it
+and may say "clean" only when every line is `✓`. Rehearsed on the VM with a
+fake `claude` cut off by a fake limit: run 1 → `interrupted (WIP 5670038)`,
+run 2 → resumed → `done — ถูกตัดกลางทางรอบก่อน…`, still flagged `!`.
+
+**Where it lives now**: `server/night-agent/queue.mjs` (`plan`, `verdict`,
+`interrupted`, `report`), `server/night-agent/run-night.sh` (the loop),
+`server/night-agent/HANDOFF.md`; tests in `src/js/night-queue.test.js`
+(a replay of this night, plus a check that the runner delegates every verdict).
+
+**The general rule**: a completion check is evidence only about work that
+happened AFTER it last failed. Interrupted work must carry that fact forward as
+STATE, because the artefacts it leaves look like progress to every check that
+counts artefacts. And a verdict is a record: never recompute it on a later
+run, or the history it was the only witness to is overwritten by the present.
+
+---
+
 ## "migration workflow run: all jobs have failed" — reported as green for a session, because only OTHER workflows ran after it
 
 **Symptom (owner, 2026-10-13)**: "at 00:25 it said samomdkkuweb migration

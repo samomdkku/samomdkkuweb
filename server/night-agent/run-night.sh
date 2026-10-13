@@ -309,17 +309,53 @@ for i in "${!STARTS[@]}"; do
   t_attempts="$(node "$QUEUE" list "$TASKS" 2>/dev/null \
     | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const t=JSON.parse(d).tasks[+process.argv[1]];process.stdout.write(String(t?t.attempts:0))})' "$i")"
   t_attempts=${t_attempts:-0}
+  # ⛔ WHAT TO DO WITH THIS TASK IS queue.mjs's ANSWER, NOT THIS SCRIPT'S.
+  #   skip   — terminal. Its verdict is the record: the check is NOT re-run and
+  #            the note is NOT rewritten. Re-checking every finished task every
+  #            run cost ~2 min each and overwrote "passed its check" with
+  #            "passed before start" on all six on 2026-10-13, erasing which
+  #            ones the agent had actually finished.
+  #   resume — the quota cut it off last time. The agent FINISHES it; the check
+  #            is not asked first, because the half-done WIP can satisfy it —
+  #            that is how task 2 was marked done without anyone finishing it.
+  #   fresh  — never attempted: the check runs first, as the control.
+  PLAN="$(node "$QUEUE" plan "$TASKS" "$i" 2>/dev/null)"
+  PLAN="${PLAN:-fresh}"
+  RESUMED=0
+  if [ "$PLAN" = "skip" ]; then
+    echo "(ปิดไปแล้วตั้งแต่รอบก่อน — ไม่ตรวจซ้ำ ไม่เขียนทับผล)"
+    SUMMARY+="--   $title — ปิดไปแล้วรอบก่อน"$'\n'
+    continue
+  fi
+  if [ "$PLAN" = "resume" ]; then
+    RESUMED=1
+    WIP_NOTE="$(sed -n "${start},${end}p" "$TASKS" | grep -m1 '^Note:' | sed 's/^Note: *//')"
+    echo "(ทำต่อจากรอบที่ถูกตัด: $WIP_NOTE)"
+    prompt="⛔ THIS TASK WAS CUT OFF PART-WAY BY THE USAGE LIMIT IN AN EARLIER RUN.
+The runner recorded: ${WIP_NOTE}
+Its half-done work is already committed on this branch. Do NOT start over and
+do NOT assume it is finished because files exist or tests pass. First read
+\`git log --oneline origin/main..HEAD\` and \`git show --stat\` of the WIP
+commit(s) for this task. Then go through the brief below point by point, say
+for EACH point whether the WIP already does it (with the file that shows it)
+or not, finish whatever is missing, run \`npm test\` and \`npm run build\`,
+and commit. In \`docs/state/night-agent.md\`, label this task's block
+\"RESUMED after a quota cut-off\" and list what the WIP had left undone.
+
+${prompt}"
+  fi
+
   PASSED_BEFORE=0
-  if [ -n "$CHECK" ] && [ "$CHECK" != "once" ]; then
+  if [ "$PLAN" = "fresh" ] && [ -n "$CHECK" ] && [ "$CHECK" != "once" ]; then
     if ( cd "$REPO" && eval "$CHECK" ) >/dev/null 2>&1; then
       PASSED_BEFORE=1
-      echo "(วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม — ข้ามงานนี้)"
+      echo "(วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม — agent ไม่ได้ทำ ส่งให้คนดู)"
     fi
   fi
 
   if [ "$PASSED_BEFORE" -eq 1 ]; then
-    node "$QUEUE" set "$TASKS" "$i" done "${t_attempts:-0}" "ผ่านตั้งแต่ก่อนเริ่ม"
-    SUMMARY+="SKIP $title — ผ่านตั้งแต่ก่อนเริ่ม"$'\n'
+    node "$QUEUE" judge "$TASKS" "$i" 1 1 0 >/dev/null
+    SUMMARY+="REVIEW $title — วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม ไม่มีใครทำ ต้องให้คนดู"$'\n'
     continue
   fi
 
@@ -344,7 +380,12 @@ for i in "${!STARTS[@]}"; do
     if [ -n "$(git status --porcelain)" ]; then
       git add -A && git commit --quiet -m "agent: WIP $title (cut off by the quota)" -m "Unattended run $STAMP."
     fi
-    fail_n=$((fail_n+1)); SUMMARY+="STOP $title — quota/rate limit (work kept, will resume)"$'\n'
+    # ⛔ AND SAY SO IN THE QUEUE. Leaving the status untouched let the next run
+    # treat this as never started, and its check passed on the WIP. An
+    # `interrupted` task is resumed, never skipped, and its note names the
+    # commit that holds what it left.
+    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)"
+    fail_n=$((fail_n+1)); SUMMARY+="STOP $title — quota/rate limit (work kept as WIP, the next run RESUMES it)"$'\n'
     QUOTA_GONE=1; break
   fi
 
@@ -362,27 +403,19 @@ for i in "${!STARTS[@]}"; do
   # `once` means "no mechanical check": one attempt, then a person reads it.
   # Never retried — retrying what nothing can judge is how a night is spent on
   # nothing.
+  AFTER="-"
   if [ -n "$CHECK" ] && [ "$CHECK" != "once" ]; then
-    if ( cd "$REPO" && eval "$CHECK" ) >/dev/null 2>&1; then
-      node "$QUEUE" set "$TASKS" "$i" done "$((t_attempts + 1))" "ผ่านวิธีตรวจ"
-      echo "check: PASS"
-      SUMMARY+="DONE $title — ผ่านวิธีตรวจ"$'\n'
-    else
-      t_attempts=$((t_attempts + 1))
-      if [ "$t_attempts" -ge 2 ]; then
-        node "$QUEUE" set "$TASKS" "$i" blocked "$t_attempts" "ลองแล้ว $t_attempts ครั้ง ยังไม่ผ่าน"
-        echo "check: FAIL — blocked after $t_attempts attempts"
-        SUMMARY+="BLOCK $title — ลอง $t_attempts ครั้งแล้วยังไม่ผ่านวิธีตรวจ"$'\n'
-      else
-        node "$QUEUE" set "$TASKS" "$i" todo "$t_attempts" "ยังไม่ผ่านวิธีตรวจ"
-        echo "check: FAIL — will retry next night"
-        SUMMARY+="RETRY $title — ยังไม่ผ่านวิธีตรวจ"$'\n'
-      fi
-    fi
-  else
-    node "$QUEUE" set "$TASKS" "$i" needs-review "$((t_attempts + 1))" "ไม่มีวิธีตรวจอัตโนมัติ"
-    SUMMARY+="REVIEW $title — ไม่มีวิธีตรวจ ต้องให้คนอ่าน"$'\n'
+    if ( cd "$REPO" && eval "$CHECK" ) >/dev/null 2>&1; then AFTER=1; else AFTER=0; fi
   fi
+  V="$(node "$QUEUE" judge "$TASKS" "$i" "$AFTER" 0 "$RESUMED")"
+  V_STATUS="${V%%$'\t'*}"; V_NOTE="${V#*$'\t'}"
+  echo "check: $AFTER → $V_STATUS ($V_NOTE)"
+  case "$V_STATUS" in
+    done)         SUMMARY+="DONE $title — $V_NOTE"$'\n' ;;
+    blocked)      SUMMARY+="BLOCK $title — $V_NOTE"$'\n' ;;
+    needs-review) SUMMARY+="REVIEW $title — $V_NOTE"$'\n' ;;
+    *)            SUMMARY+="RETRY $title — $V_NOTE"$'\n' ;;
+  esac
 
   # Count work as EITHER an uncommitted change we sweep up, OR commits the agent
   # made itself — it is told to commit, and only asking `git status` misses those.
@@ -456,7 +489,8 @@ done
 # Even if the queue overran, even if a task died, even if nothing was built: an
 # undocumented night is one the owner cannot use, and "what went wrong" is worth
 # more than a clean-looking silence.
-export AGENT_UNRUN="$UNRUN" AGENT_STOP="$stop_reason" AGENT_ASKS="$NEEDS_DECISION"
+QUEUE_REPORT="$(node "$QUEUE" report "$TASKS" 2>&1)"
+export AGENT_UNRUN="$UNRUN" AGENT_STOP="$stop_reason" AGENT_ASKS="$NEEDS_DECISION" AGENT_QUEUE_REPORT="$QUEUE_REPORT"
 # The handoff still ATTEMPTS even with the quota gone — it costs one refused
 # call, and if any quota remains it is the most valuable thing left to spend it on.
 run_one "$NIGHT_HOME/HANDOFF.md" "handoff" && SUMMARY+="OK   handoff written"$'\n'
@@ -487,7 +521,12 @@ alert=""
 [ -n "$NEEDS_DECISION" ] && alert+="NEEDS YOUR DECISION: $(printf '%s' "$NEEDS_DECISION" | tr '\n' ';')"$'\n'
 [ -n "$alert" ] && echo "$alert"
 
-post_discord "$(printf 'คืนนี้ Claude ทำอะไรไปบ้าง (%s)\n%s\n%s ok · %s failed · %s commits on %s\n%s\nstopped: %s\nlog: %s' \
-  "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$alert" "$done_n" "$fail_n" "$commits" "$BRANCH" "$SUMMARY" "$stop_reason" "$LOG")"
+# ⛔ THE PER-TASK VERDICTS GO OUT IN THE RUNNER'S OWN WORDS, beside the agent's
+# handoff, never only through it. On 2026-10-13 the handoff read six `done`s
+# and told the owner "nothing was skipped" about a task the quota had cut off.
+QUEUE_REPORT="$(node "$QUEUE" report "$TASKS" 2>&1)"
+echo "$QUEUE_REPORT"
+post_discord "$(printf 'คืนนี้ Claude ทำอะไรไปบ้าง (%s)\n%s\n%s ok · %s failed · %s commits on %s\n%s\nสถานะทุกงาน (ตามวิธีตรวจ ไม่ใช่ตามที่ agent บอก):\n%s\nstopped: %s\nlog: %s' \
+  "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$alert" "$done_n" "$fail_n" "$commits" "$BRANCH" "$SUMMARY" "$QUEUE_REPORT" "$stop_reason" "$LOG")"
 
 echo "=== done ==="

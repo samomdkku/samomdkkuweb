@@ -11,6 +11,15 @@ committed on this branch so far (earlier runs of the same queue included).
 `cat ~/samo-night/NIGHT-TASKS.md` shows every task's Status as the RUNNER
 judged it — quote those, never your own opinion of whether a task is done.
 
+⛔ `AGENT_QUEUE_REPORT` is the runner's one-line-per-task verdict. **Paste it
+verbatim** at the start of section 2. A line starting `!` is a task that did
+NOT finish normally in one run — it was cut off by the quota and resumed
+(`ถูกตัดกลางทาง…`), its check passed before anyone worked on it
+(`needs-review`), it is `blocked`, or it is still `interrupted`. Every `!` task
+goes in section 3 by name, with what happened to it. You may write "clean",
+"nothing was skipped" or "all done" ONLY if every line starts with `✓` — on
+2026-10-13 a handoff said exactly that about a task the quota had cut off.
+
 Append a block to the **TOP** of `docs/state/night-agent.md` (create it if it
 does not exist; it is the night agent's own notes file — never write in another
 person's `docs/state/<handle>.md`), headed

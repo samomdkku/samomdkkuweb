@@ -11,9 +11,11 @@
 // turn back into the agent's own opinion.
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   parseQueue, gate, verdict, writeTask, spendNight, pending, MAX_ATTEMPTS,
   usageGate, SESSION_SHARE_OF_WEEK, WEEK_SAFETY_PCT,
+  plan, interrupted, report, NOTE_PASSED, NOTE_RESUMED,
 } from '../../server/night-agent/queue.mjs';
 
 const Q = `# NIGHT-TASKS
@@ -85,10 +87,12 @@ describe('verdict — from what the runner observed, never from what the agent s
 
   it('a check that passed BEFORE the agent ran proves nothing about the agent', () => {
     // The missing control. Either the task was already done or the check is
-    // wrong; in neither case did the agent finish something.
+    // wrong; in neither case did the agent finish something — so it is NOT
+    // `done` (which reads as "the agent did it"), it is a person's call.
     const v = verdict(t, true, true);
-    expect(v.status).toBe('done');
+    expect(v.status).toBe('needs-review');
     expect(v.note).toContain('ผ่านตั้งแต่ก่อนเริ่ม');
+    expect(pending({ tasks: [{ status: v.status }] })).toEqual([]); // still ends the queue
   });
 
   it('no mechanical check means ONE attempt, then a human', () => {
@@ -204,5 +208,98 @@ describe('usageGate — the owner\'s session is never the one spent', () => {
   it('NO numbers, or stale numbers, means wait — the reserve cannot be honoured blind', () => {
     expect(usageGate(null, now, 1).run).toBe(false);
     expect(usageGate(snap({ sampled_at: '2026-10-12T22:00:00Z' }), now, 1).run).toBe(false);
+  });
+});
+
+// ── 2026-10-13: the quota cut task 2 off, and the morning report said "all done" ──
+describe('a task the quota cut off is RESUMED, never credited by a check its WIP passes', () => {
+  const Q2 = `# NIGHT-TASKS
+Budget: 6 runs
+
+## 1. tags
+Done when: true
+
+## 2. every ฝ่าย
+Done when: test -f the-migration.sql
+`;
+
+  it('cut → interrupted: not an attempt, not terminal, and the note names the WIP commit', () => {
+    const t = parseQueue(Q2).tasks[1];
+    const v = interrupted(t, '156d6e1');
+    expect(v.status).toBe('interrupted');
+    expect(v.attempts).toBe(0);
+    expect(v.note).toContain('156d6e1');
+    const text = writeTask(Q2, 1, v);
+    expect(pending(parseQueue(text)).map((x) => x.index)).toContain(1);
+    expect(gate(parseQueue(text)).run).toBe(true);
+  });
+
+  it('plan: an interrupted task is resumed; a never-tried one is checked first; a closed one is left alone', () => {
+    expect(plan({ status: 'interrupted' })).toBe('resume');
+    expect(plan({ status: 'todo' })).toBe('fresh');
+    for (const s of ['done', 'blocked', 'needs-review']) expect(plan({ status: s })).toBe('skip');
+  });
+
+  it('replay of 2026-10-13: run 2 resumes task 2, and the report still flags it', () => {
+    // Run 1: task 1 done; task 2 cut off by the quota.
+    let text = Q2;
+    let q = parseQueue(text);
+    text = writeTask(text, 0, verdict(q.tasks[0], true));
+    text = writeTask(text, 1, interrupted(parseQueue(text).tasks[1], '156d6e1'));
+
+    // Run 2: the old runner ran task 2's check FIRST, it passed on the WIP,
+    // and task 2 was marked done. Now: task 1 is skipped untouched, task 2 is
+    // resumed — its check is asked only AFTER the agent has worked on it.
+    q = parseQueue(text);
+    expect(plan(q.tasks[0])).toBe('skip');
+    expect(plan(q.tasks[1])).toBe('resume');
+    text = writeTask(text, 1, verdict(q.tasks[1], true, false, true));
+
+    const end = parseQueue(text);
+    expect(end.tasks[0].note).toBe(NOTE_PASSED);   // run 1's verdict survived run 2
+    expect(end.tasks[1].status).toBe('done');
+    expect(end.tasks[1].note).toBe(NOTE_RESUMED);
+    expect(gate(end).run).toBe(false);
+
+    // The morning report cannot read as a clean night.
+    const r = report(end);
+    expect(r).toMatch(/^✓ \[done\] 1\. tags/m);
+    expect(r).toMatch(/^! \[done\] 2\. every ฝ่าย — ถูกตัดกลางทาง/m);
+    expect(r).toContain('ต้องให้คนดู 1 งาน');
+    expect(r).not.toContain('ไม่มีงานไหนถูกตัด');
+  });
+
+  it('control: a night where every task passed in the run that did it IS reported clean', () => {
+    let text = Q2;
+    for (const i of [0, 1]) text = writeTask(text, i, verdict(parseQueue(text).tasks[i], true));
+    const r = report(parseQueue(text));
+    expect(r).not.toMatch(/^!/m);
+    expect(r).toContain('ไม่มีงานไหนถูกตัดหรือถูกข้าม');
+  });
+
+  it('a check that passed before anyone worked on it is flagged, not counted as done', () => {
+    const text = writeTask(Q2, 0, verdict(parseQueue(Q2).tasks[0], true, true));
+    expect(report(parseQueue(text))).toMatch(/^! \[needs-review\] 1\. tags/m);
+  });
+});
+
+// The runner (bash) must ASK queue.mjs, not restate the rules — two copies of
+// one verdict is mistakes class 6, and the bash copy is the one nobody tests.
+describe('run-night.sh delegates every verdict to queue.mjs', () => {
+  const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
+  it('asks plan / judge / cut / report', () => {
+    for (const cmd of ['plan', 'judge', 'cut', 'report']) {
+      expect(sh, `run-night.sh never calls queue.mjs ${cmd}`).toMatch(new RegExp(`node "\\$QUEUE" ${cmd} `));
+    }
+  });
+  it('writes no status itself (no `queue.mjs set` left in the runner)', () => {
+    expect(sh).not.toMatch(/node "\$QUEUE" set /);
+  });
+  it('marks a quota cut-off in the queue, in the same branch that commits the WIP', () => {
+    const from = sh.indexOf('session limit|usage limit|rate limit');
+    expect(from, 'the quota branch is not where this test looks for it').toBeGreaterThan(0);
+    const quota = sh.slice(from, sh.indexOf('QUOTA_GONE=1; break', from));
+    expect(quota).toContain('agent: WIP');
+    expect(quota).toMatch(/node "\$QUEUE" cut /);
   });
 });

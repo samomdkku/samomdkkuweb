@@ -43,7 +43,26 @@
 //   node queue.mjs usage  <file> <usage.json> → exit 0 keep going · 3 stop this run
 //   node queue.mjs list   <file>              → JSON: budget + every task
 //   node queue.mjs set    <file> <n> <status> → write one task's verdict
+//   node queue.mjs plan   <file> <n>          → skip | resume | fresh (what to do with task n)
+//   node queue.mjs judge  <file> <n> <after 1|0|-> <before 0|1> <resumed 0|1>
+//                                              → write the verdict from what was OBSERVED
+//   node queue.mjs cut    <file> <n> <sha>    → task n was cut off by the quota
+//   node queue.mjs report <file>              → one line per task, for the morning
 //   node queue.mjs spend  <file>              → count one night against Budget
+//
+// ⛔ 2026-10-13: "ALL 6 DONE" WAS WRONG ABOUT ONE OF THEM. Task 2 was cut off by
+// the quota twelve minutes in; the runner swept its edits into a WIP commit
+// and gave it NO status. On the next run its check already passed against that
+// WIP, so the "passed before" path wrote `done` — and every later run re-ran
+// every finished task's check and overwrote its note with "passed before",
+// erasing which tasks the agent had finished and which it had not. The handoff
+// read six `done`s and wrote "nothing was skipped". Three rules came out of it:
+//   1. a task cut off by the quota is `interrupted`, and an interrupted task is
+//      RESUMED (the agent finishes and checks the WIP) — never skipped by a
+//      check that the half-done work happens to satisfy;
+//   2. a check passing before a task the agent never worked on is
+//      `needs-review`, not `done` — nobody did it, so a person looks;
+//   3. a terminal task is not touched again: its verdict is the record.
 // ============================================================
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -87,6 +106,7 @@ export function parseQueue(text) {
       check: field(block, 'Done when'),
       status,
       attempts: Number(field(block, 'Attempts') || 0) || 0,
+      note: field(block, 'Note') || '',
       block,
     };
   });
@@ -183,24 +203,78 @@ export function usageGate(snap, nowMs, reserveSessions = 1) {
 }
 
 /**
+ * PURE. What the runner does with a task before calling anybody.
+ *   skip   — terminal: its verdict is the record; do not re-run its check and
+ *            never overwrite its note (that erased the 2026-10-13 history).
+ *   resume — cut off by the quota last time: hand it back to the agent to
+ *            FINISH. Its check is not consulted first, because the half-done
+ *            work in the WIP commit can satisfy it.
+ *   fresh  — never attempted: run the check first (the missing control).
+ */
+export function plan(t) {
+  if (TERMINAL.includes(t.status)) return 'skip';
+  if (t.status === 'interrupted') return 'resume';
+  return 'fresh';
+}
+
+export const NOTE_PASSED = 'ผ่านวิธีตรวจ';
+export const NOTE_RESUMED = 'ถูกตัดกลางทางรอบก่อน แล้วทำต่อจนผ่านวิธีตรวจ';
+export const NOTE_ALREADY = 'วิธีตรวจผ่านตั้งแต่ก่อนเริ่ม — agent ไม่ได้ทำงานนี้ ต้องให้คนดูว่าเสร็จอยู่แล้วจริง หรือวิธีตรวจหลวมไป';
+
+/**
  * PURE. The verdict for one task, from facts the runner OBSERVED.
  *
  * @param {object} t          the task
  * @param {boolean|null} passed  the check's result after the attempt; null when
  *                               the task carries no mechanical check
  * @param {boolean} passedBefore was it already passing before the agent ran
+ * @param {boolean} resumed      this attempt finished a task the quota cut off
+ * @returns {{status: string, attempts: number, note: string}}
  */
-export function verdict(t, passed, passedBefore = false) {
-  if (passedBefore) return { status: 'done', note: 'ผ่านตั้งแต่ก่อนเริ่ม — งานนี้เสร็จอยู่แล้ว (หรือวิธีตรวจใช้ไม่ได้)' };
-  if (passed === true) return { status: 'done', note: '' };
+export function verdict(t, passed, passedBefore = false, resumed = false) {
+  // Nobody worked on it, so nobody may be credited with it. A person decides
+  // whether it was done already or the check is too loose to tell.
+  if (passedBefore) return { status: 'needs-review', attempts: t.attempts, note: NOTE_ALREADY };
+  const attempts = t.attempts + 1;
+  if (passed === true) return { status: 'done', attempts, note: resumed ? NOTE_RESUMED : NOTE_PASSED };
   // No check to run. ONE attempt, then a human looks — never retried, because
   // retrying something nothing can judge is how a night gets spent on nothing.
-  if (passed === null) return { status: 'needs-review', note: 'ไม่มีวิธีตรวจอัตโนมัติ — ต้องให้คนอ่าน' };
-  const attempts = t.attempts + 1;
+  if (passed === null) return { status: 'needs-review', attempts, note: 'ไม่มีวิธีตรวจอัตโนมัติ — ต้องให้คนอ่าน' };
   if (attempts >= MAX_ATTEMPTS) {
-    return { status: 'blocked', note: `ลองแล้ว ${attempts} ครั้ง ยังไม่ผ่านวิธีตรวจ — หยุดลองแล้ว` };
+    return { status: 'blocked', attempts, note: `ลองแล้ว ${attempts} ครั้ง ยังไม่ผ่านวิธีตรวจ — หยุดลองแล้ว` };
   }
-  return { status: 'todo', note: `ลองแล้ว ${attempts} ครั้ง ยังไม่ผ่าน` };
+  return { status: 'todo', attempts, note: `ลองแล้ว ${attempts} ครั้ง ยังไม่ผ่าน` };
+}
+
+/**
+ * PURE. A task the quota cut off. NOT an attempt (two windows that each ran
+ * out must not block it), NOT terminal (the next run resumes it), and the note
+ * names the WIP commit so the morning reviewer can read exactly what was left.
+ */
+export function interrupted(t, sha) {
+  return {
+    status: 'interrupted',
+    attempts: t.attempts,
+    note: `ถูกตัดกลางทางเพราะโควตาหมด (WIP ${sha || '?'}) — รอบหน้าต้องทำต่อ ห้ามข้าม`,
+  };
+}
+
+/**
+ * PURE. One line per task, in the runner's words — the part of the morning
+ * report that does not depend on the agent describing its own night.
+ * A task counts as clean ONLY when it is done AND passed its check in the run
+ * that worked on it, uninterrupted.
+ */
+export function report(q) {
+  const lines = q.tasks.map((t) => {
+    const clean = t.status === 'done' && t.note === NOTE_PASSED;
+    return `${clean ? '✓' : '!'} [${t.status}] ${t.title}${t.note ? ` — ${t.note}` : ''}`;
+  });
+  const flagged = q.tasks.filter((t) => !(t.status === 'done' && t.note === NOTE_PASSED)).length;
+  lines.push(flagged
+    ? `ต้องให้คนดู ${flagged} งาน (ไม่ได้จบแบบปกติในรอบเดียว) — อย่าสรุปว่าคืนนี้เรียบร้อย`
+    : `ทุกงานผ่านวิธีตรวจในรอบที่ทำ ไม่มีงานไหนถูกตัดหรือถูกข้าม`);
+  return lines.join('\n');
 }
 
 /** PURE. The queue text with one task's Status/Attempts/Note rewritten. */
@@ -282,6 +356,27 @@ if (cmd && file) {
     const [n, status, attempts, ...note] = rest;
     writeFileSync(file, writeTask(read(), Number(n),
       { status, attempts: Number(attempts || 0), note: note.join(' ') }), 'utf8');
+  } else if (cmd === 'plan') {
+    const t = parseQueue(read()).tasks[Number(rest[0])];
+    console.log(t ? plan(t) : 'skip');
+  } else if (cmd === 'judge') {
+    // The ONE implementation of the verdict. run-night.sh used to restate it in
+    // bash beside this function (mistakes class 6) — and the two disagreed
+    // about nothing only because nobody had changed either yet.
+    const [n, after, before, resumed] = rest;
+    const t = parseQueue(read()).tasks[Number(n)];
+    if (!t) process.exit(2);
+    const v = verdict(t, after === '1' ? true : after === '0' ? false : null,
+      before === '1', resumed === '1');
+    writeFileSync(file, writeTask(read(), Number(n), v), 'utf8');
+    console.log(`${v.status}\t${v.note}`);
+  } else if (cmd === 'cut') {
+    const [n, sha] = rest;
+    const t = parseQueue(read()).tasks[Number(n)];
+    if (!t) process.exit(2);
+    writeFileSync(file, writeTask(read(), Number(n), interrupted(t, sha)), 'utf8');
+  } else if (cmd === 'report') {
+    console.log(report(parseQueue(read())));
   } else if (cmd === 'spend') {
     writeFileSync(file, spendNight(read()), 'utf8');
   } else {
