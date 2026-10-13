@@ -65,7 +65,7 @@ insert into probe select
 -- profiles_read_all (`using(true)`) is the specific policy name 0056 shipped
 -- and 0214 drops; a bare "no unrestricted policy" check above could in
 -- principle pass if someone renamed it without narrowing it, so name it too.
-insert into probe select '04. profiles_read_all does not exist', 'f',
+insert into probe select '04. profiles_read_all does not exist', 'false',
   (select exists (select 1 from pg_policies
                     where schemaname = 'passport' and tablename = 'profiles'
                       and policyname = 'profiles_read_all'))::text;
@@ -75,17 +75,17 @@ insert into probe select '10. passport.is_admin() exists, security definer', 'tr
   (select exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                     where n.nspname = 'passport' and p.proname = 'is_admin' and p.prosecdef))::text;
 
-insert into probe select '11. passport.leaderboard_names() is NOT anon-executable', 'f',
+insert into probe select '11. passport.leaderboard_names() is NOT anon-executable', 'false',
   coalesce(has_function_privilege('anon', 'passport.leaderboard_names()', 'execute'), false)::text;
 
-insert into probe select '12. passport.admin_leaderboard() is NOT anon-executable', 'f',
+insert into probe select '12. passport.admin_leaderboard() is NOT anon-executable', 'false',
   coalesce((select bool_or(has_function_privilege('anon', p.oid, 'execute'))
               from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'passport' and p.proname = 'admin_leaderboard'), false)::text;
 
 -- ── §C user_tiers respects the caller's RLS ─────────────────────────────────
 insert into probe select '20. passport.user_tiers has security_invoker = on', 'true',
-  coalesce((select (option = 'on')
+  coalesce((select (option in ('security_invoker=on', 'security_invoker=true'))
               from pg_class c, unnest(c.reloptions) option
              where c.relname = 'user_tiers'
                and c.relnamespace = 'passport'::regnamespace

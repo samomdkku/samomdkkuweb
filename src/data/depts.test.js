@@ -1,6 +1,6 @@
 // ============================================================
 // depts.test.js — DEPT_DEFS carries all 12 ฝ่าย, every colour it names
-// exists, and the grant migration (0213) agrees with it exactly.
+// exists, and no migration hands out a หน้าฝ่าย grant (0213).
 //
 // WHY THIS EXISTS. Before 0213, DEPT_DEFS carried 6 of the 12 top-level ฝ่าย
 // ทีม SAMO's own tree has — the other six existed as disabled "เร็วๆ นี้"
@@ -9,17 +9,20 @@
 // DERIVED from this same object. One omission here meant a dept had no page,
 // no grant, and no complaint path except "ask IT".
 //
-// The differential test at the bottom reads 0213's own VALUES list rather than
-// retyping it — a guard written from a second copy of the same list only
-// proves the two copies agree (`.claude/rules/mistakes.md` class 6/7).
+// WHO edits each page is chosen in ทีม SAMO → สิทธิ์ → หน้าฝ่าย (owner,
+// 2026-10-13), never written by a migration: the night agent's first 0213
+// would have granted ~240 accounts at once. The block at the bottom keeps
+// it that way.
 // ============================================================
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { DEPT_DEFS, DEPT_KEYS, DEPT_OPTIONS } from './depts.js';
 import { DEPT_PAGES } from '../js/team-vocab.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const read = (f) => readFileSync(`${ROOT}${f}`, 'utf8');
+// `set dept_page = <anything but null>` inside an UPDATE of a team table.
+const GRANTS = /update\s+public\.team_(nodes|members)\b[^;]*?\bset\s+(?:[^;]*?,\s*)?dept_page\s*=\s*(?!null\b)/i;
 
 const THE_12_TITLES = [
   'สำนักนายกฯ',
@@ -93,30 +96,29 @@ describe('DEPT_DEFS carries every ฝ่าย the tree has', () => {
   });
 });
 
-describe('migration 0213 agrees with DEPT_DEFS exactly', () => {
-  const sql = read('supabase/migrations/0213_dept_pages_for_every_dept.sql');
-  const pairs = [...sql.matchAll(/\(\s*'([^']+)',\s*'([a-z]+)'\s*\)/g)]
-    .map(([, name, key]) => ({ name, key }));
+describe('หน้าฝ่าย grants come from ทีม SAMO, never from a migration (0213)', () => {
+  // EVERY migration, not just 0213 — the property is "no file grants", and a
+  // list of the files we happened to think of would pass a new one that does.
+  const dir = `${ROOT}supabase/migrations`;
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql'));
+  const code = (f) => read(`supabase/migrations/${f}`).replace(/--[^\n]*/g, '');
 
-  it('the migration still carries a VALUES list this test can read', () => {
-    // The instrument, checked before it is trusted — a rewritten migration
-    // would otherwise leave every assertion below comparing against nothing
-    // and passing.
-    expect(pairs.length, 'no (name, key) pairs parsed out of 0213').toBe(12);
+  it('reads the migrations at all (a sweep that finds nothing must prove it looked)', () => {
+    expect(files.length).toBeGreaterThan(200);
+    expect(files.some((f) => f.startsWith('0213_'))).toBe(true);
   });
 
-  it('only fills a NULL dept_page — never overwrites one set by hand', () => {
-    expect(sql).toMatch(/and\s+t\.dept_page\s+is\s+null/);
+  it('control: the pattern DOES catch the draft 0213 the owner turned down', () => {
+    const draft = "update public.team_nodes t\n   set dept_page = v.dept_key\n  from (values ('ฝ่ายกิจการภายใน','internal')) v(n,k)";
+    expect(GRANTS.test(draft)).toBe(true);
   });
 
-  it('every pair names a REAL DEPT_DEFS key, with the matching title', () => {
-    const mismatches = pairs.filter((p) => DEPT_DEFS[p.key]?.title !== p.name);
-    expect(mismatches, `migration/DEPT_DEFS disagree on: ${JSON.stringify(mismatches)}`).toEqual([]);
-  });
-
-  it('covers every DEPT_DEFS key — nothing added to the app with no grant path', () => {
-    const migrationKeys = new Set(pairs.map((p) => p.key));
-    const missing = DEPT_KEYS.filter((k) => !migrationKeys.has(k));
-    expect(missing, `DEPT_DEFS keys with no 0213 grant row: ${missing.join(', ')}`).toEqual([]);
+  it('no migration sets team_nodes.dept_page or team_members.dept_page to a value', () => {
+    const offenders = files.filter((f) => GRANTS.test(code(f)));
+    expect(offenders, [
+      'A migration writes a หน้าฝ่าย grant. Who edits a ฝ่าย\'s public page is chosen',
+      'by an admin in ทีม SAMO → สิทธิ์ → หน้าฝ่าย (owner, 2026-10-13); a grant made',
+      'in SQL is invisible to the people who manage the tree.',
+    ].join('\n')).toEqual([]);
   });
 });

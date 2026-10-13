@@ -1,95 +1,40 @@
 #!/usr/bin/env node
 // ============================================================
-// dept0213-every-dept.mjs — all 12 ฝ่าย have a page, and only ITS people edit
-// it (0213).
+// dept0213-team-samo-grant.mjs — a หน้าฝ่าย grant SET IN ทีม SAMO, on one of
+// the six ฝ่าย 0213 added, lets that ฝ่าย's people edit its page and not
+// another's (0213).
 //
-// ONE TRANSACTION, ROLLED BACK. Asks the LIVE database:
-//  1. Every (name, key) pair THIS MIGRATION FILE carries — parsed from the
-//     .sql, never retyped — resolves to exactly one top-level division node,
-//     and that node now carries the matching dept_page. (Read from the
-//     authority, not asserted against a copy of the list — class 7.)
-//  2. A brand-new leaf, posted under one of the SIX ฝ่าย this migration is
-//     actually for (ฝ่ายกิจการภายใน, which had NO grantable editor before
-//     0213), inherits exactly {internal} through the chain 0177 built —
-//     proving the migration's write reaches `node_effective_dept_pages()`,
-//     not just a column nobody reads.
+// 0213 itself grants nothing (owner, 2026-10-13: who edits a ฝ่าย's page is
+// chosen in ทีม SAMO → สิทธิ์ → หน้าฝ่าย). So this proof plays the ADMIN: inside
+// one rolled-back transaction it sets `dept_page = 'internal'` on the real
+// ฝ่ายกิจการภายใน node — exactly the write the ทีม SAMO picker makes — and
+// then asks the live database:
+//  1. 0213 is applied (its column comment is installed), and the grant the
+//     proof is about to make is not already there by accident.
+//  2. A brand-new leaf posted under ฝ่ายกิจการภายใน inherits exactly
+//     {internal} through the chain 0177 built.
 //  3. CONTROL: before that scope is synced onto any account, a plain subject
-//     cannot write a single row of dept_content — deny-only would not tell a
-//     working guard from `using (true)` (0177's own lesson, reused here).
+//     cannot write a single row of dept_content.
 //  4. ALLOW: once synced, the SAME subject edits ฝ่ายกิจการภายใน's page.
-//  5. DENY: the SAME subject is refused on ฝ่ายกิจการภายนอก's page — a
-//     member of one ฝ่าย can edit theirs and NOT another's.
+//  5. DENY: the SAME subject is refused on ฝ่ายกิจการภายนอก's page.
 //
-//   node tools/dept0213-every-dept.mjs            # production (VITE_SUPABASE_URL=… for dev)
-// RUN BEFORE 0213 IS APPLIED AND §1b/§1c REPORT dept_page = NULL.
+//   node tools/dept0213-team-samo-grant.mjs   # production (VITE_SUPABASE_URL=… for dev)
 // ============================================================
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import { announceTarget, runSql } from './env-lib.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = readFileSync(
-  join(HERE, '../supabase/migrations/0213_dept_pages_for_every_dept.sql'), 'utf8',
-);
-
-// Parsed from the migration's own VALUES list — a hardcoded copy here would be
-// a guard written from the same list the code came from, which proves only
-// that two copies agree (`.claude/rules/mistakes.md` class 7).
-const PAIRS = [...MIGRATION.matchAll(/\(\s*'([^']+)',\s*'([a-z]+)'\s*\)/g)]
-  .map(([, name, key]) => ({ name, key }));
-
 const target = announceTarget();
-
-if (PAIRS.length !== 12) {
-  console.error(`expected 12 (name, key) pairs parsed out of the migration, got ${PAIRS.length} — `
-    + 'did the VALUES list shape change? Fix the regex, not the count.');
-  process.exit(2);
-}
-// The two ฝ่าย the scoped-write half (§2-5) exercises must be IN that parsed
-// list, or this proof is testing a pair the migration no longer sets.
-for (const name of ['ฝ่ายกิจการภายใน', 'ฝ่ายกิจการภายนอก']) {
-  if (!PAIRS.some((p) => p.name === name)) {
-    console.error(`the migration's parsed pairs no longer include ${name}`);
-    process.exit(2);
-  }
-}
-
-const expectValues = PAIRS
-  .map((p) => `('${p.name.replace(/'/g, "''")}', '${p.key}')`)
-  .join(',\n    ');
 
 const SQL = `begin;
 create temporary table probe(k text, expected text, got text);
 
--- ── §1: every pair the migration carries resolves, and lands correctly ─────
-create temporary table expect(dept_name text, dept_key text) on commit drop;
-insert into expect values
-    ${expectValues};
+-- ── §1: 0213 is applied, and the admin's grant below is not pre-existing ──
+insert into probe select '1a. 0213 applied — team_nodes.dept_page carries its comment', 'true',
+  (coalesce(col_description('public.team_nodes'::regclass,
+     (select attnum from pg_attribute where attrelid = 'public.team_nodes'::regclass and attname = 'dept_page')),
+   '') like '%never by a migration (0213)%')::text;
 
-create temporary table resolved on commit drop as
-  select e.dept_name, e.dept_key,
-         (select count(*) from public.team_nodes tn
-           where tn.kind = 'division' and tn.parent_id is null and tn.name = e.dept_name) as n_nodes,
-         (select tn.dept_page from public.team_nodes tn
-           where tn.kind = 'division' and tn.parent_id is null and tn.name = e.dept_name
-           limit 1) as got_key
-    from expect e;
-
-insert into probe
-  select '1a. exactly one top-level division node named ' || dept_name, '1', n_nodes::text
-    from resolved;
-insert into probe
-  select '1b. ' || dept_name || ' carries dept_page = ' || dept_key, dept_key, coalesce(got_key, 'NULL')
-    from resolved;
-
--- ⚠️ the control: the parse must actually find TWO distinct keys, or the
--- assertion above would be true of an empty or single-row list too.
-insert into probe select '1c. control — the parsed list names more than one distinct dept_key', 'true',
-  ((select count(distinct dept_key) from expect) > 1)::text;
-
--- ── §2: a brand-new leaf posted under one of the SIX ฝ่าย this migration
--- newly covers inherits through the chain 0177 built, not a direct grant ─────
+-- ── §2: a brand-new leaf posted under one of the SIX ฝ่าย 0213 added
+-- inherits the admin's grant through the chain 0177 built ─────────────────
 create temporary table top_nodes on commit drop as
   select name, id from public.team_nodes
    where kind = 'division' and parent_id is null
@@ -97,6 +42,13 @@ create temporary table top_nodes on commit drop as
 
 insert into probe select '2a. both top nodes for the scoped-write test exist', '2',
   (select count(*) from top_nodes)::text;
+
+-- THE ADMIN'S CHOICE, as the ทีม SAMO หน้าฝ่าย picker writes it. Rolled back
+-- with everything else; the node keeps whatever an admin really set.
+update public.team_nodes set dept_page = 'internal'
+ where id = (select id from top_nodes where name = 'ฝ่ายกิจการภายใน');
+insert into probe select '2a2. ฝ่ายกิจการภายนอก does not also grant internal (the deny below means something)', 'false',
+  ('internal' = any(public.node_effective_dept_pages((select id from top_nodes where name = 'ฝ่ายกิจการภายนอก'))))::text;
 
 insert into public.team_nodes (id, parent_id, name, kind, inherit_permissions)
 values ('00000000-0000-4000-8000-000000021301',

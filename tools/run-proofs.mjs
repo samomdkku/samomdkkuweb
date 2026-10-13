@@ -95,7 +95,7 @@ const PROOFS = [
   ['shop0210-two-tables.mjs', 'preorder and in-stock have their own tables; the Preorder tick picks which one the guard enforces'],
   ['accounts0211-dashboard.mjs', 'the account dashboard: master only, every account once, and a Google sign-up is stored as Google'],
   ['proj0212-samo-depts.mjs', 'ฝ่ายสโม tags on a โครงการ: only the vpa desk (or master) sets them, an unknown value is refused, and anon reads them only on a public โครงการ'],
-  ['dept0213-every-dept.mjs', 'all 12 ฝ่าย resolve to a page grant, and a ฝ่าย\'s own person edits theirs and not another\'s'],
+  ['dept0213-team-samo-grant.mjs', 'a หน้าฝ่าย grant set in ทีม SAMO on a newly added ฝ่าย lets its people edit that page and not another\'s'],
   // Not a database proof — the repo's own branch protection, which lives on
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.

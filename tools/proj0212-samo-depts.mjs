@@ -28,6 +28,11 @@ import { announceTarget, runSql } from './env-lib.mjs';
 const target = announceTarget();
 const SQL = `begin;
 create temporary table probe(k text, expected text, got text);
+-- The probe table is the proof's own scratchpad, written while acting AS the
+-- subjects below. Without this every DENY case errors with "permission denied
+-- for table probe" — the night agent wrote this proof without a database and
+-- its first real run (2026-10-13) failed exactly there.
+grant all on probe to authenticated, anon;
 
 -- Two synthetic โครงการ rows, rolled back with everything else — real
 -- target geometry beats pulling a live project and risking its real tags
@@ -63,12 +68,22 @@ select u.id as uid from public.users u
  order by u.id limit 1;
 -- role=dev, no stored vpa/staff/prof seat, and NOT also holding master —
 -- isolates "the sender side BY ROLE" from "the sender side by seat/fold".
+-- ⛔ CREATED, NOT FOUND: production has no such account (every dev holds
+-- master, 2026-10-13), so a lookup came back empty and §3d raised. A plain
+-- account (not the §1 subject) is made role=dev inside this rolled-back
+-- transaction; users_self_update_guard refuses that write from anyone, so it
+-- is disabled for this one setup statement (as dept0177/dept0213 do).
 create temporary table subj_dev as
 select u.id as uid from public.users u
- where u.role = 'dev'
+ where u.role = 'user'
    and coalesce(u.managed_project_seats, '{}') = '{}'
-   and not ('master' = any (coalesce(u.permissions, '{}') || coalesce(u.managed_permissions, '{}')))
+   and coalesce(u.permissions, '{}') = '{}'
+   and coalesce(u.managed_permissions, '{}') = '{}'
+   and u.id <> (select uid from subj_none)
  order by u.id limit 1;
+alter table public.users disable trigger users_self_update_guard;
+update public.users set role = 'dev' where id = (select uid from subj_dev);
+alter table public.users enable trigger users_self_update_guard;
 
 -- §0 subjects are what the proof thinks they are.
 insert into probe select '00. a plain student subject exists (no seat, no master)', 'true',
