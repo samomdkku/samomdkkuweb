@@ -14,6 +14,108 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## Task 2 — The ONE SAMO year — foundation, admin control, runbook (2026-10-14)
+
+**RESUMED after a quota cut-off.** WIP commit `f9bb1b7` had already shipped
+migration 0219 (`team_terms.started_at`/`ended_at`, `current_samo_year()`,
+`samo_year_for_timestamp()`, `samo_year_be_default()` trigger body,
+`start_team_term(year)` atomic handover RPC), the proof
+`tools/year0219-samo-year.sql` (24 assertions, never yet run), the shared
+picker `src/js/samo-year.js` + its JS/SQL differential test, and the rewire
+of `team/api.js`'s `setCurrentTerm` onto the new RPC. **Left undone by the
+WIP**: the proof had never been applied or run against anything;
+`tools/run-proofs.mjs` did not register it; `skills/year-rollover.md` did
+not exist. All three were the actual `Done when:` gate for this task.
+
+**What this run did, in order:**
+
+1. Applied 0219 to samo-dev and ran the proof — green, 23/23 (`node
+   tools/apply-migration.mjs supabase/migrations/0219_*.sql --dev` then
+   `node tools/db-query.mjs tools/year0219-samo-year.sql`).
+2. Registered `year0219-samo-year.sql` in `tools/run-proofs.mjs` (it was a
+   file on disk the runner had never been told to run — exactly the class-7
+   hazard `run-proofs.mjs`'s own header warns about).
+3. Wrote `skills/year-rollover.md` — the runbook: what a handover IS (not a
+   re-publish), the pre-flight checklist (who loses the admin seat), the one
+   command (`start_team_term`), what happens to every other system
+   afterward, how to verify, and what to do if it goes wrong.
+4. **Ran `/scrutinize` on the full task-2 diff and found a real bug before
+   it shipped anywhere**: the `team_terms` row that was `is_current` when
+   0219 first ran has `started_at = NULL` for a structural reason (the
+   column didn't exist yet). `start_team_term`'s reopen path
+   (`coalesce(started_at, now())`) cannot distinguish that `NULL` from "never
+   started" — so closing that ONE row once, then later reopening it (a real
+   "we handed over and regretted it" scenario), would silently relabel its
+   true "open since before this system existed" meaning as "started just
+   now", breaking `samo_year_for_timestamp()` for every backfill timestamp
+   older than the reopen. **Reproduced in a rolled-back probe against
+   samo-dev before fixing it** (confirmed `NULL` came back for a 2026-06-01
+   lookup after the repro). Fixed by stamping the closing `UPDATE`'s
+   `started_at` to `-infinity` the moment a `NULL`-started_at row closes —
+   before any reopen can misread it. Extended the proof with §G (steps
+   45–48: fix proven RED first by rerunning it against the unfixed
+   migration, then green after). Also narrowed
+   `samo_year_for_timestamp`'s grant from `anon, authenticated` to
+   `authenticated` only (least privilege — nothing anon-triggered calls it).
+   Write-up: `docs/mistakes/postgres-schema.md` ("Reopening the genesis
+   `team_terms` row…").
+5. `npm test` (2687/2687) and `npm run build` green throughout.
+
+**Decisions made, and what was rejected:**
+
+- **Reused the existing จัดการทีม UI as the one admin control**, rather than
+  building a new "SAMO year" admin screen — `team/terms.js`'s existing
+  "ตั้งเป็นปีปัจจุบัน" button already called `setCurrentTerm`; only its
+  implementation changed (two non-atomic PATCHes → one RPC). Building a
+  second control would have been the exact "hand-written list beside a
+  shared constant" class 6 already warns about, for a control that already
+  existed.
+- **No new master-specific check in `start_team_term`** — it gates on
+  `current_user_role() = any(array['vp_admin','dev']) or
+  current_user_has_permission('team')`, and `current_user_has_permission`
+  already folds `master` in (0111). Verified by reading 0111's live body
+  rather than assuming; adding a separate master branch would have
+  duplicated a channel that already works and risked drifting from it later.
+- **Did not touch `samo_year_for_timestamp`'s `is_current`/`ended_at`
+  NULL-handling branches** even though the fix makes the `ended_at is not
+  null` branch structurally unreachable going forward — left for defence in
+  depth (a manually edited row, or a samo-dev reset that reintroduces a raw
+  `NULL`) rather than deleting code that still describes a real, just rarer,
+  case.
+- **Did not add a CLI path for `start_team_term`** separate from the
+  จัดการทีม UI — the design doc's own reasoning (one control, never a second
+  path that can drift) applies to the RPC's callers too.
+
+**WRITTEN, NOT APPLIED to production**: all of migration 0219 (including the
+post-review fix) and the `samo_year_be_default()` trigger body it defines.
+Nothing yet ATTACHES that trigger to any table — tasks 3 (PR), 4 (VS), 5
+(Shop) and 6 (หนังสือโครงการ) do that in their own reserved migrations
+(0220/0221/0222/0223) and must each run `start_team_term`'s prerequisite
+(0219) on production FIRST, since their triggers call `current_samo_year()`.
+
+**Exact commands the owner runs next:**
+
+```bash
+# review the fix commit first — it changed 0219 after the WIP, not just added to it
+git log --oneline d6df0c8..HEAD -- supabase/migrations/0219_one_samo_year_for_every_system.sql
+git show 6475d89
+
+# apply to production (after review)
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+
+# prove it there too — point db-query at prod (its default) once ready
+node tools/db-query.mjs tools/year0219-samo-year.sql
+
+# then deploy the frontend bundle so team/terms.js's atomic RPC call ships
+# (skills/deploy-vm.md)
+```
+
+Updated `STATE.md` (migration high-water mark, proof count 60→63, a one-line
+task-2 summary in the night-agent block) and `docs/state/HANDOFF.md` §22's
+task-2 row (proof result, applied=samo-dev-only, the exact next command).
+
+---
+
 ## Task 1 — design doc (2026-10-14)
 
 **Claims to have** read every system this queue names (PR, VS, Shop,
