@@ -33,7 +33,7 @@ import {
   deleteSignRequest,
   getMyProjectPrefs,
   saveMyProjectDefaultFY,
-  setProjectSamoDepts,
+  setProjectSamoDept,
 } from './api.js';
 import {
   DOC_STATUS_META,
@@ -2246,29 +2246,26 @@ async function onToggleProjectPublic(btn) {
  *  the first's round trip lands waits its turn instead of racing it. */
 let deptEditorQueue = Promise.resolve();
 
-/** ⛔ READ-MODIFY-WRITE ON A SHARED ARRAY, FROM SEVERAL BUTTONS. Each chip
- *  computes `next` from the project's CURRENT samo_depts and writes the
- *  whole array back — there is no per-tag column to PATCH independently.
- *  `btn.disabled` only guards the ONE button clicked twice; it does nothing
- *  for two DIFFERENT chips clicked close together, and both would then read
- *  the same pre-toggle array and write their own version of it — whichever
- *  request's response lands last wins, silently dropping the other tag.
- *  Chaining every call through `deptEditorQueue` (and awaiting `onChanged()`,
- *  which is what refreshes `cache.projects`) makes the second click's read
- *  happen only after the first click's write is reflected in `cache`. */
+/** ⛔ ONE CHANGE PER CLICK, MADE BY THE DATABASE (0216). Each chip asks to add
+ *  or remove its OWN ฝ่าย; set_project_samo_dept locks the row and applies just
+ *  that, so neither two chips in this tab nor two people on the same โครงการ
+ *  can erase each other's tag. (It used to write the whole array computed from
+ *  this tab's last load — the later write won.) `deptEditorQueue` still orders
+ *  clicks in this tab, so each one's add/remove is decided from the state the
+ *  previous click left, not from a value two clicks old. */
 export async function onToggleProjectDept(btn) {
   const projectId = btn.dataset.projectsToggleDept;
   const value = btn.dataset.dept;
   const run = deptEditorQueue.then(async () => {
     const p = cache.projects.find((x) => x.id === projectId);
     if (!p) return;
-    const current = projectSamoDepts(p);
-    const next = current.includes(value)
-      ? current.filter((d) => d !== value)
-      : [...current, value];
+    // Send the ONE change the person asked for — add or remove this ฝ่าย, as
+    // the chip showed it — never a whole array built from what this tab last
+    // loaded: another person's tag added since then would be erased (0216).
+    const on = !projectSamoDepts(p).includes(value);
     btn.disabled = true;
     try {
-      const saved = await setProjectSamoDepts(projectId, next);
+      const saved = await setProjectSamoDept(projectId, value, on);
       // Take the server's answer as the new local copy BEFORE reloading. The
       // reload keeps the OLD cache when it fails (listProjects().catch), and
       // the next queued chip would then build on that and undo this one.

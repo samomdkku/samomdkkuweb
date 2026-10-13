@@ -32,10 +32,10 @@ vi.mock('./api.js', () => ({
   deleteSignRequest: vi.fn(),
   getMyProjectPrefs: vi.fn(async () => null),
   saveMyProjectDefaultFY: vi.fn(),
-  setProjectSamoDepts: vi.fn(),
+  setProjectSamoDept: vi.fn(),
 }));
 
-const { setProjectSamoDepts } = await import('./api.js');
+const { setProjectSamoDept } = await import('./api.js');
 const { renderInbox, mountInbox, onToggleProjectDept } = await import('./inbox.js');
 
 beforeEach(() => {
@@ -44,40 +44,60 @@ beforeEach(() => {
   // DOM-free way to set the module's `cache` (this repo's test setup has no
   // jsdom — see my-house.test.js for the same constraint elsewhere).
   globalThis.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
-  setProjectSamoDepts.mockReset();
+  setProjectSamoDept.mockReset();
 });
 
 afterEach(() => {
   delete globalThis.document;
 });
 
-describe('onToggleProjectDept — two chips, one โครงการ', () => {
-  it('both tags survive even when the second chip is clicked before the first round trip lands', async () => {
-    let serverDepts = [];
-    // Stands in for the real RPC + reloadProjects(): records whatever the
-    // call wrote, and onChanged() (below) reflects it back into cache so the
-    // NEXT queued toggle reads the updated array, not the original one.
-    setProjectSamoDepts.mockImplementation(async (projectId, depts) => {
-      serverDepts = depts;
-      return {};
-    });
-    mountInbox({
-      onChanged: async () => {
-        renderInbox({ projects: [{ id: 'P1', samo_depts: serverDepts }] });
-      },
-    });
+// The server, as 0216's set_project_samo_dept behaves: it applies ONE add or
+// remove to the tags as they are on the server NOW (row lock), never to the
+// caller's copy.
+function fakeServer(initial) {
+  const server = { tags: [...initial] };
+  setProjectSamoDept.mockImplementation(async (projectId, dept, on) => {
+    const set = new Set(server.tags);
+    if (on) set.add(dept); else set.delete(dept);
+    server.tags = [...set].sort();
+    return { id: projectId, samo_depts: server.tags };
+  });
+  return server;
+}
+
+describe('onToggleProjectDept — one change per click, applied by the database', () => {
+  it('two chips clicked before the first round trip lands: both tags survive', async () => {
+    const server = fakeServer([]);
+    mountInbox({ onChanged: async () => renderInbox({ projects: [{ id: 'P1', samo_depts: server.tags }] }) });
     renderInbox({ projects: [{ id: 'P1', samo_depts: [] }], role: 'vp_admin', docTypes: [], settings: {} });
 
-    const chipSE = { dataset: { projectsToggleDept: 'P1', dept: 'office' }, disabled: false };
-    const chipNS = { dataset: { projectsToggleDept: 'P1', dept: 'academic' }, disabled: false };
+    const a = { dataset: { projectsToggleDept: 'P1', dept: 'office' }, disabled: false };
+    const b = { dataset: { projectsToggleDept: 'P1', dept: 'academic' }, disabled: false };
+    await Promise.all([onToggleProjectDept(a), onToggleProjectDept(b)]);
 
-    // Fired back-to-back, synchronously — before either's setProjectSamoDepts
-    // call has resolved. A user double-clicking two chips in quick succession.
-    const p1 = onToggleProjectDept(chipSE);
-    const p2 = onToggleProjectDept(chipNS);
-    await Promise.all([p1, p2]);
+    expect(server.tags).toEqual(['academic', 'office']);
+    expect(setProjectSamoDept.mock.calls.map((c) => c.slice(1))).toEqual([['office', true], ['academic', true]]);
+  });
 
-    expect([...serverDepts].sort()).toEqual(['office', 'academic'].sort());
-    expect(setProjectSamoDepts).toHaveBeenCalledTimes(2);
+  it('ANOTHER PERSON tagged the same โครงการ after this tab loaded: their tag is not erased', async () => {
+    // This tab loaded the โครงการ untagged; meanwhile someone else added `rt`.
+    const server = fakeServer(['rt']);
+    mountInbox({ onChanged: async () => {} });               // even with no reload in between
+    renderInbox({ projects: [{ id: 'P1', samo_depts: [] }], role: 'vp_admin', docTypes: [], settings: {} });
+
+    await onToggleProjectDept({ dataset: { projectsToggleDept: 'P1', dept: 'office' }, disabled: false });
+
+    expect(server.tags).toEqual(['office', 'rt']);           // whole-array writes left ['office']
+  });
+
+  it('clicking an active chip removes that ฝ่าย only', async () => {
+    const server = fakeServer(['office', 'rt']);
+    mountInbox({ onChanged: async () => {} });
+    renderInbox({ projects: [{ id: 'P1', samo_depts: ['office'] }], role: 'vp_admin', docTypes: [], settings: {} });
+
+    await onToggleProjectDept({ dataset: { projectsToggleDept: 'P1', dept: 'office' }, disabled: false });
+
+    expect(setProjectSamoDept).toHaveBeenCalledWith('P1', 'office', false);
+    expect(server.tags).toEqual(['rt']);
   });
 });

@@ -149,6 +149,37 @@ exception when others then
   insert into probe values ('3e. a direct UPDATE storing a non-ฝ่าย value (SE) is refused, even from the sender desk', 'refused',
     case when sqlerrm like '%ไม่รู้จักฝ่ายสโม%' then 'refused' else sqlerrm end);
 end $$;
+-- §3f (0216) — one change per call, applied to the tags as they are NOW.
+-- PRJ-PROOF-0212A holds {academic,office} from 3a.
+insert into probe select '3f. add one ฝ่าย keeps the others', '{academic,office,rt}',
+  (public.set_project_samo_dept('PRJ-PROOF-0212A', 'rt', true)).samo_depts::text;
+insert into probe select '3g. adding it again changes nothing (a retried click is harmless)', '{academic,office,rt}',
+  (public.set_project_samo_dept('PRJ-PROOF-0212A', 'rt', true)).samo_depts::text;
+insert into probe select '3h. remove one ฝ่าย keeps the others', '{academic,rt}',
+  (public.set_project_samo_dept('PRJ-PROOF-0212A', 'office', false)).samo_depts::text;
+do $$ begin
+  perform public.set_project_samo_dept('PRJ-PROOF-0212A', 'SE', true);
+  insert into probe values ('3i. adding a non-ฝ่าย value (SE) is refused', 'refused', 'ALLOWED');
+exception when others then
+  insert into probe values ('3i. adding a non-ฝ่าย value (SE) is refused', 'refused',
+    case when sqlerrm like '%ไม่รู้จักฝ่ายสโม%' then 'refused' else sqlerrm end);
+end $$;
+insert into probe select '3j. removing a value that is not there is a no-op, not an error', '{academic,rt}',
+  (public.set_project_samo_dept('PRJ-PROOF-0212A', 'SE', false)).samo_depts::text;
+-- put 3a's state back, so §5's anon read still expects {academic,office}
+select public.set_project_samo_depts('PRJ-PROOF-0212A', array['academic', 'office']);
+reset role;
+
+-- §3k DENY — the one-change call is gated exactly like the whole-array one.
+select set_config('request.jwt.claims', json_build_object('sub', (select uid from subj_none)::text, 'role','authenticated')::text, true);
+set local role authenticated;
+do $$ begin
+  perform public.set_project_samo_dept('PRJ-PROOF-0212A', 'office', false);
+  insert into probe values ('3k. a plain student cannot add or remove a ฝ่าย', 'refused', 'ALLOWED');
+exception when others then
+  insert into probe values ('3k. a plain student cannot add or remove a ฝ่าย', 'refused',
+    case when sqlerrm like '%ผู้ส่งหนังสือ%' then 'refused' else sqlerrm end);
+end $$;
 reset role;
 
 -- §3d ALLOW — role=dev, NO stored seat and NO master permission, can tag
