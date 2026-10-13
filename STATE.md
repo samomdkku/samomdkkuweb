@@ -197,12 +197,14 @@ true. Detail: `HANDOFF.md` §9.
 that asymmetry went red in both directions. `npm run test:clean` runs it over
 exactly what git will carry. Both live in `HANDOFF.md` §9.
 
-## ⛔ THE NIGHT AGENT IS OFF (2026-09-18)
+## 🌙 THE NIGHT AGENT IS ARMED (2026-10-13 → 2026-10-14 16:00 ICT)
 
-Stopped, timer disabled, nothing scheduled. Daily was BY DESIGN; the waste was
-that its task file is never consumed, so the same 6 tasks re-ran nightly. Its
-work is MERGED, not stranded. **Write a new queue before re-enabling** —
-`HANDOFF.md` §17, its one home.
+Queue: `server/night-agent/NIGHT-TASKS.md` — every system survives into the next
+SAMO year (12 tasks, branch `agent/2026-10-14` on the VM, migrations 0219–0229).
+It now applies and proves its migrations on **samo-dev only** (its checkout holds
+no production credential). It stops itself when done. Next owner session:
+review the branch, then push it as a preview branch for the owner — steps in
+`skills/night-agent.md` and HANDOFF §22 (written by its task 1).
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 
