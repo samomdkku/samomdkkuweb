@@ -14,6 +14,230 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## ▶ HANDOFF 2026-10-13T20:53:00Z (night agent, branch agent/2026-10-14)
+
+**1. Do first.** Open `docs/state/HANDOFF.md` §22, then `docs/YEAR-ROLLOVER.md`.
+**Do not apply any of migrations 0219/0220/0224 to production yet** — 8 of
+12 queue tasks have not run (see §3), and task 11 is specifically a bug scan
+of this whole branch that has not happened. If the PR-dashboard relief is
+wanted NOW regardless (the owner's own named pain point, 290 crowded
+tickets), 0219+0220 are self-contained and independently proven (see §2) and
+can be reviewed and applied ahead of the rest — 0224 (ทีม SAMO handover)
+changes a real workflow's behavior (auto-archive on handover) and is better
+read first.
+
+**2. Ready to use vs. still a design.**
+- **Proven green on samo-dev, NOT on production (no production credential
+  exists in this environment — see §5):**
+  - Migration 0219 — `current_samo_year()`, `samo_year_be_default()`
+    trigger, `start_team_term()`. Proof `year0219` reported 23/23 by task 2's
+    own run; **not re-run by this handoff step** (budget call, see §5).
+  - Migration 0220 — `pr_tickets.samo_year_be` + PR Staff Dashboard year
+    picker/export/past-year lock. Proof `pr0220` — **re-run fresh by this
+    handoff step**: 23/23 PASS against `project: xibugtlsphcfuvstnxxh
+    (samo-dev)`.
+  - Migration 0224 — ทีม SAMO handover re-gated to `team_edit`
+    (closes a real authz gap: ~300 VIEW-only accounts could previously call
+    the handover RPC), auto-archives the outgoing term. Proof `team0224`
+    reported 14/14 by task 4's own run; **not re-run by this handoff step**.
+  - `skills/year-rollover.md` (the runbook) and `src/js/samo-year.js` (the
+    one shared year picker every task must reuse) both exist and are used by
+    tasks 2/3/4 already.
+- **Written, not deployed, not exercised against anything real:**
+  `appscript/prform.gs`'s per-year Drive subfolder code and
+  `tools/pr-organize-drive-by-year.mjs` (the dry-run mover) — this
+  environment has no Google/Apps Script credential, so NEITHER has ever run
+  against real Drive, by any task tonight. GAS deploy (`npm run deploy:gas`)
+  and the frontend bundle deploy are both owner-only, unexecuted.
+- **Design only, no code:** everything in `docs/YEAR-ROLLOVER.md` beyond what
+  tasks 2/3/4 actually built — VitalSound, SAMO Shop, หนังสือโครงการ,
+  ระบบบ้าน, Passport, หน้าฝ่าย, announcements, stats/retention, and the whole
+  backup/export/deletion layer are DECIDED IN PROSE, not implemented.
+- **A bookkeeping gap found and fixed by this handoff step, not a code
+  change:** task 3 (PR dashboard) was fully built, proved, and committed
+  earlier in this same session (`3978eeb`, `b998c52`) but the runner kept
+  reporting it `todo` because the required `## Task 3 ` heading was never
+  written to this file. Added it below, with the fresh proof re-run as
+  evidence — no PR code was touched. The next time the runner evaluates this
+  queue, task 3's `Done when:` should pass without anyone redoing the work.
+
+**3. What did not happen, and why.**
+`AGENT_UNRUN=8`, `AGENT_ASKS` is empty (no task ended by asking a question
+nobody was awake to answer), `AGENT_STOP`: quota: รอบ 5 ชั่วโมงนี้ใช้ไป 92%
+แล้ว — รอรีเซ็ต 2026-10-13T23:59:59.814Z. Verbatim queue report from before
+this handoff step ran:
+
+```
+✓ [done] 1. PLAN — decide the SAMO-year model for every system (design doc, no app code) — ผ่านวิธีตรวจ
+! [done] 2. The ONE SAMO year — foundation, admin control, runbook — ถูกตัดกลางทางรอบก่อน แล้วทำต่อจนผ่านวิธีตรวจ
+! [todo] 3. PR Form — a dashboard per SAMO year, export, Drive per year — ลองแล้ว 1 ครั้ง ยังไม่ผ่าน
+✓ [done] 4. ทีม SAMO + จัดการทีม + permissions handover + Discord roles — ผ่านวิธีตรวจ
+! [todo] 5. Backup, export, deletion — the data-safety layer every system uses
+! [todo] 6. VitalSound — per-year board and staff view, PDPA retention
+! [todo] 7. หนังสือโครงการ — ปีงบ completeness, Drive per year, seats across years
+! [todo] 8. ระบบบ้าน + ข้อมูลของฉัน — academic-year rollover, graduates, the next รุ่น
+! [todo] 9. SAMO Shop — orders and products across seasons
+! [todo] 10. Passport, หน้าฝ่าย, announcements, stats, Claude booking, accounts
+! [todo] 11. SCRUTINIZE + BUG SCAN of everything on this branch, and of 2026-10-13's work
+! [todo] 12. HANDOFF — the owner applies, deploys and decides from this
+ต้องให้คนดู 10 งาน (ไม่ได้จบแบบปกติในรอบเดียว) — อย่าสรุปว่าคืนนี้เรียบร้อย
+```
+
+As fixed by this step, line 3 above is stale — the code was done, only its
+record was missing (§2). **Still genuinely undone: tasks 5, 6, 7, 8, 9, 10,
+11, 12 — all eight never started.** None of these are "attempted and
+failed"; the run was cut off by the 5-hour quota after task 4 finished,
+before task 5 could begin. This means:
+- No backup/export/deletion layer exists yet for ANY system (task 5) — the
+  owner's explicit questions about deleting, backing up and exporting data
+  are answered IN PROSE in `docs/YEAR-ROLLOVER.md` only, nothing runnable.
+- VitalSound, Shop, หนังสือโครงการ, ระบบบ้าน, Passport, หน้าฝ่าย,
+  announcements, stats and accounts have NONE of the per-year work the owner
+  asked for yet — only PR and ทีม SAMO do.
+- The branch has not had its own dedicated bug-scan pass (task 11) — only
+  each task's own self-`scrutinize` (which already caught and fixed two real
+  bugs: task 2's genesis-row reopen bug, task 3's past-year-lock-keyed-on-
+  filter bug). A whole-branch pass may find more, especially interactions
+  BETWEEN tasks 2/3/4's migrations.
+- Task 12's own deliverable (making `docs/state/HANDOFF.md` §22 the owner's
+  exact apply-in-order checklist with every decision flagged as overturnable)
+  has not run — §22 as it stands was written incrementally by tasks 1/2/4 and
+  is usable today, but was never given task 12's dedicated polish pass.
+
+Per `NIGHT-TASKS.md`'s own budget (6 runs, 1 night used, until
+2026-10-14T09:00:00Z / weekly reset 16:00 ICT), the runner is expected to
+keep firing further runs automatically after the 5-hour quota resets
+(`2026-10-13T23:59:59Z`) — no owner action is required to continue the
+queue. This handoff step took no action to pause or resume it.
+
+**4. Needs a human decision.**
+- **Apply 0219+0220 to production now (PR relief), or wait for task 11's
+  bug scan first?** Recommendation: if the 290-ticket crowding is urgent,
+  apply now — both are independently proved on samo-dev and self-contained
+  (no other task's migration depends on them going first, only the reverse).
+  Otherwise, default to waiting for task 11, since it is specifically
+  scoped to catch cross-migration interactions this handoff step did not
+  check for.
+- **Apply 0224 (ทีม SAMO handover) now?** Recommendation: read
+  `docs/state/night-agent.md`'s own "Task 4" block first — it changes what
+  "ตั้งเป็นปีปัจจุบัน" actually DOES (auto-archives the outgoing term inline)
+  and closes a real authz hole. Low risk, but it's a workflow behavior
+  change a staffer should know about before it ships, not just a schema add.
+- **Let the automated queue keep consuming its remaining budget
+  unsupervised?** Recommendation: yes — `AGENT_ASKS` is empty across all
+  four runs so far, meaning nothing has needed a judgment call it couldn't
+  make itself, and every task that finished did so with a green proof, not a
+  guess.
+- **`npm run handoff:check` is broken in this environment** (see §5) — fix
+  the memory-path assumption, or leave the two memory stores (interactive
+  session vs. night agent) separate and give the script an escape hatch?
+  Not decided here — this is a tooling question outside tonight's actual
+  feature scope, and guessing at the intended design risked making it worse.
+
+**5. Could not verify.**
+- **No production database credential exists in this environment at all**
+  (measured 2026-10-13: samo-dev's token answers 403 on production). Every
+  production row count cited above and in `docs/YEAR-ROLLOVER.md` is the
+  measured-on-2026-10-13 facts handed to this queue, not something this
+  step confirmed itself.
+- **`npm run handoff:check` could not complete** — it crashed with
+  `ENOENT` reading `~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md`
+  (that directory exists but is empty; the night agent's real ~65-file
+  memory store lives at `~/samo-night/memory/` instead, per this session's
+  own system preamble — the two were never the same store) and separately
+  reported `origin/agent/2026-10-14` as unknown (expected: this branch has
+  never been pushed, since this agent cannot push). Ran with `--local` too;
+  same crash, so the flag does not route around it. Substituted direct
+  checks instead: `npm test` (2716/2716 green), `npm run build` (clean), and
+  a fresh run of `tools/pr0220-year-filter.sql` against samo-dev (23/23,
+  confirmed the project ref printed was samo-dev's).
+- **Did not re-run `year0219-samo-year.sql` or `team0224-handover.sql`**
+  this step — budget call, given the quota is at 92% for this 5-hour window;
+  relying on tasks 2's and 4's own commits and `STATE.md`'s record of having
+  run them green on samo-dev earlier in this SAME session, not a stale claim
+  from a prior night.
+- **Apps Script / Google Drive: zero credentials available, zero real
+  exercise of the per-year folder code or the mover tool, by any task
+  tonight** — everything Drive-related is verified by code reading only.
+
+---
+
+## Task 3 — PR Form dashboard per SAMO year, export, Drive per year (2026-10-14)
+
+**Written up here only — the code and migration shipped in an EARLIER run
+of this same session, in commits `3978eeb` and `b998c52`, between task 2's
+resume and task 4; this run (the handoff step) found the work done but this
+required heading missing, which is why the runner's `Done when:` check kept
+reporting task 3 as `todo` after a real attempt. Nothing below was built or
+changed by the handoff step — it re-verified what already shipped and wrote
+the record the check was waiting for.**
+
+**What shipped (commit `3978eeb`, fixed by `b998c52` after a self-run
+`scrutinize` pass, both already on this branch):**
+
+1. Migration 0220 — `pr_tickets.samo_year_be smallint`, filled by 0219's
+   shared `samo_year_be_default()` trigger at INSERT time, one-time
+   backfilled for the 311 existing rows from their submission timestamp
+   (not "now"), never recomputed after write. Year is a filter, never an
+   access boundary — RLS unchanged.
+2. PR Staff Dashboard (`src/js/pr-year.js` + `pr-staff.js`) — defaults to
+   the current SAMO year via the shared `samo-year.js` picker, so the 290
+   `โพสต์เรียบร้อย (เสร็จสิ้น)` tickets the owner named stop crowding the
+   default view; a "ทุกปี" option still shows everything, with a small
+   year badge per kanban card so a mixed view stays legible. Editing a
+   ticket from a past year is locked behind an explicit "แก้ไขของปีก่อน"
+   override — `scrutinize` caught (`b998c52`) that the first draft keyed
+   the lock on the dashboard's `<select>` (`isPastYearView`) rather than
+   the individual ticket, so switching the filter to "ทุกปี" unlocked
+   editing on every past-year ticket at once; fixed with
+   `isPastYearTicket(ticketYear, currentYear)` read from the ticket's own
+   `samo_year_be`.
+3. CSV export of the filtered view, through the repo's existing
+   formula-safe CSV writer (grepped for, not reimplemented).
+4. Drive: new PR uploads go to a per-year subfolder
+   (`appscript/prform.gs`, NOT deployed — needs `npm run deploy:gas`); a
+   dry-run-by-default `tools/pr-organize-drive-by-year.mjs` sorts the
+   existing flat files into per-year folders via Drive `moveTo`, never
+   trash-to-move (a trashed Drive file is still public).
+5. Every reader of PR data was checked and marked explicitly: Discord
+   notify, the public PR tracking page, and the GAS-quota analytics
+   dashboard are all SAMO-year-agnostic on purpose (each says why, in a
+   comment at the read site) — only the staff dashboard and the Drive
+   layout are year-scoped.
+
+**Re-verified by this handoff step, not assumed:** ran
+`node tools/db-query.mjs tools/pr0220-year-filter.sql` against samo-dev
+fresh — 23/23 PASS, confirmed `→ project: xibugtlsphcfuvstnxxh (samo-dev)`.
+Confirmed the Done-when's other two conditions independently: the grep for
+`samo.year|samoYear|yearPicker|year-picker` over `src/js/pr*`/`src/js/admin*`
+matches, `npm test` is 2716/2716, `npm run build` completes clean.
+
+**WRITTEN, NOT APPLIED to production**: migration 0220 and everything it
+defines. Depends on 0219 (task 2) applying first — same ordering constraint
+as every other per-system migration in this queue.
+
+**Exact commands the owner runs next** (after 0219 is applied and proved,
+per task 2's row):
+
+```bash
+git show 3978eeb b998c52   # review together — the second commit is a fix to the first, not an addition
+
+node tools/apply-migration.mjs supabase/migrations/0220_pr_tickets_get_a_samo_year.sql
+node tools/db-query.mjs tools/pr0220-year-filter.sql   # prove it on production too
+
+npm run deploy:gas   # ships the per-year Drive subfolder + the GAS half of the mover
+# then deploy the frontend bundle (skills/deploy-vm.md) — ships the picker/export/past-year lock
+
+# only after the new bundle is being SERVED (new PR uploads already landing in per-year folders):
+node tools/pr-organize-drive-by-year.mjs            # dry run — see what would move
+node tools/pr-organize-drive-by-year.mjs --apply --move N   # sort the existing flat files; optional, never required
+```
+
+`STATE.md` and `docs/state/HANDOFF.md` §22's row for this task were already
+updated by the commits above — unchanged by this step.
+
+---
+
 ## Task 4 — ทีม SAMO + จัดการทีม + permissions handover + Discord roles (2026-10-14)
 
 **What this run built.** Migration 0224, applied to samo-dev only:
