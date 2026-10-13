@@ -1457,7 +1457,7 @@ has 288 students and **no incomplete records at all** — its file is gone.
 | ~~write the import-back tool~~ | ✅ **BUILT 2026-09-19** | `tools/house-kkumail-import.mjs`. Refuses a row whose name does not match the รหัส, promotes through the pane's own `promote_unresolved_row()` rather than re-implementing it, and runs as ONE transaction so a duplicate address cannot leave half a ฝ่าย's answer applied. It also carries a ชื่อเล่น the roster happens to include — never over one that exists |
 
 **What the sheet asks for**: a `?` in a `กรอก: <field>` column, per row.
-129 rows want a kkumail, 13 a รหัสนักศึกษา, 2 a ชื่อ/นามสกุล (was 155 before MD50 answered). **The `?` is not
+How many rows want each field is the generator's dry run, not this line (it went 155 → 129 → 108 as answers came back). **The `?` is not
 decoration — it is the highlight.** A CSV carries no formatting, so a colour
 does not survive export or re-import; a character does.
 
