@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ALL_YEARS, isPastYearView, ticketMatchesYearFilter, buildPrTicketsCsv, prCsvFilename,
+  ALL_YEARS, isPastYearView, isPastYearTicket, ticketMatchesYearFilter, buildPrTicketsCsv, prCsvFilename,
 } from './pr-year.js';
 
 describe('isPastYearView', () => {
@@ -22,6 +22,30 @@ describe('isPastYearView', () => {
   it('handles string years from a <select>.value', () => {
     expect(isPastYearView('2568', 2569)).toBe(true);
     expect(isPastYearView('2569', 2569)).toBe(false);
+  });
+});
+
+describe('isPastYearTicket', () => {
+  it('locks a ticket older than the current year', () => {
+    expect(isPastYearTicket(2568, 2569)).toBe(true);
+  });
+  it('does not lock the current year', () => {
+    expect(isPastYearTicket(2569, 2569)).toBe(false);
+  });
+  it('does not lock a ticket with no resolved year', () => {
+    expect(isPastYearTicket(null, 2569)).toBe(false);
+    expect(isPastYearTicket(undefined, 2569)).toBe(false);
+  });
+  it('fails open when the current year is not known yet', () => {
+    expect(isPastYearTicket(2568, null)).toBe(false);
+  });
+  it('is independent of ANY filter sentinel — it only ever sees a real ticket year', () => {
+    // Regression: the lock used to be read off the dashboard's <select>
+    // filter (isPastYearView), which meant switching the filter to "ทุกปี"
+    // (or to the current year) unlocked editing on EVERY past-year ticket
+    // underneath it — browsing broadly disarmed the guard entirely. This
+    // function takes the ticket's OWN year, so no filter value can do that.
+    expect(isPastYearTicket(2568, 2569)).toBe(true);
   });
 });
 

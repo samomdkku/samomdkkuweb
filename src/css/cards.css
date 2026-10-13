@@ -468,6 +468,19 @@
   font-size: 0.65rem;
 }
 
+.pr-kanban-card-year {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--ink-100);
+  color: var(--ink-600);
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
 .pr-kanban-card-assignees {
   margin-top: 0.5rem;
   display: flex;

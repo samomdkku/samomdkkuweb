@@ -477,7 +477,7 @@ function handleMovePRFileToYear(data) {
     var url = String(data.fileUrl || '').trim();
     var year = String(data.year || '').trim();
     if (!url) return createResponse({ success: false, message: 'fileUrl required' });
-    if (!/^\d{3,4}$/.test(year)) return createResponse({ success: false, message: 'year must be a พ.ศ. year' });
+    if (!/^\d{4}$/.test(year)) return createResponse({ success: false, message: 'year must be a 4-digit พ.ศ. year' });
     var id = extractDriveId_(url);
     if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
     var file;

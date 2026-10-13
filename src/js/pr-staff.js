@@ -8,7 +8,7 @@ import { db, dbRest } from './db.js';
 import { canonicalPrDept, fillPrDeptSelect } from './pr-depts.js';
 import { fetchSamoYears, currentSamoYear, samoYearOptionsHtml } from './samo-year.js';
 import {
-  ALL_YEARS, isPastYearView, ticketMatchesYearFilter, buildPrTicketsCsv, prCsvFilename,
+  ALL_YEARS, isPastYearView, isPastYearTicket, ticketMatchesYearFilter, buildPrTicketsCsv, prCsvFilename,
 } from './pr-year.js';
 
 // ----------------------------------------------------
@@ -67,7 +67,9 @@ let currentPrAssignees = [];
 let prSamoYears = [];
 let prYearFilterValue = null;        // a number, or ALL_YEARS — null = not loaded yet
 let prStaffFilteredTickets = [];     // the CURRENTLY-SHOWN list (dept+search+year) — CSV exports this
-let prStaffPastYearLock = false;     // is the SELECTED year a closed one? locks the modal's save/delete
+let prStaffPastYearLock = false;     // is the OPEN TICKET's own year closed? locks save/delete — never
+                                      // derived from the filter (see isPastYearTicket's header comment:
+                                      // gating on the filter let "ทุกปี" edit any past-year ticket freely)
 
 // --------------------------------------------------
 // Staff Entry
@@ -231,16 +233,18 @@ export function filterPRStaffTickets() {
 
 /**
  * The dashboard-wide "you are looking at a closed year" notice
- * (docs/YEAR-ROLLOVER.md § PR: "read-only by default in the UI only").
- * Recomputes `prStaffPastYearLock`, which openPRStaffModal() reads when
- * deciding whether to show the "แก้ไขของปีก่อน" override.
+ * (docs/YEAR-ROLLOVER.md § PR: "read-only by default in the UI only"). This
+ * is a VIEW-level hint only — it does NOT decide whether a ticket can be
+ * edited (openPRStaffModal does that per-ticket, from the ticket's own
+ * year), because the filter can be "ทุกปี" while an individual card opened
+ * from it is still from a closed year.
  */
 function renderPrYearBanner() {
   const currentYear = currentSamoYear(prSamoYears);
-  prStaffPastYearLock = isPastYearView(prYearFilterValue, currentYear);
+  const viewingPastYear = isPastYearView(prYearFilterValue, currentYear);
   const box = document.getElementById('prStaffYearBanner');
   if (!box) return;
-  if (!prStaffPastYearLock) { box.classList.add('d-none'); box.innerHTML = ''; return; }
+  if (!viewingPastYear) { box.classList.add('d-none'); box.innerHTML = ''; return; }
   box.classList.remove('d-none');
   // The word boundary below is deliberate: this is the SAMO team year
   // (team_terms.year), not a student's ชั้นปี, but study-year.test.js's
@@ -307,12 +311,19 @@ function renderKanbanCard(t) {
   const assigneesHtml = (t.assignees && t.assignees.length > 0)
     ? `<div class="pr-kanban-card-assignees">${t.assignees.map(a => `<span class="pr-kanban-card-assignee"><i class="bi bi-person-fill me-1"></i>${escapeHtml(a)}</span>`).join('')}</div>`
     : '<div class="pr-kanban-card-noassign"><i class="bi bi-person me-1"></i>ยังไม่มีผู้รับผิดชอบ</div>';
+  // Only shown under "ทุกปี" — the one view that mixes years in one kanban.
+  // The current-year default and a single-year filter both already say the
+  // year once, on the page; repeating it on every card there is just noise.
+  const yearFlag = (prYearFilterValue === ALL_YEARS && t.samoYearBe != null)
+    ? `<span class="pr-kanban-card-year"><i class="bi bi-calendar3 me-1"></i>${escapeHtml(String(t.samoYearBe))}</span>`
+    : '';
 
   return `
     <article class="pr-kanban-card" tabindex="0" onclick="openPRStaffModal(${originalIndex})"
       onkeydown="if(event.key==='Enter'){openPRStaffModal(${originalIndex});}">
       <div class="d-flex justify-content-between align-items-start gap-2">
         <span class="pr-kanban-card-id">${escapeHtml(t.id)}</span>
+        ${yearFlag}
         ${rushFlag}
       </div>
       <h6 class="pr-kanban-card-title">${escapeHtml(t.contentName || '(ไม่มีชื่องาน)')}</h6>
@@ -398,6 +409,9 @@ export function openPRStaffModal(idx) {
   document.getElementById('prStaffActionRemark').value = '';
   currentPrAssignees = t.assignees ? [...t.assignees] : [];
   renderPRStaffAssignees();
+  // Locked from THIS TICKET's own year, never from the dashboard filter —
+  // see isPastYearTicket's header comment for why that distinction matters.
+  prStaffPastYearLock = isPastYearTicket(t.samoYearBe, currentSamoYear(prSamoYears));
   applyPrPastYearLock();
   bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
   new bootstrap.Modal(document.getElementById('prStaffManageModal')).show();

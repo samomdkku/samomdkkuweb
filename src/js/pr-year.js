@@ -35,6 +35,25 @@ export function isPastYearView(selected, currentYear) {
   return Number.isFinite(y) && y < Number(currentYear);
 }
 
+/**
+ * Does THIS TICKET belong to a closed year? This is what actually gates the
+ * modal's save/delete — NEVER the filter's selected value. Browsing "ทุกปี"
+ * (or the current year) still has to lock an individual past-year ticket a
+ * search or a dept filter surfaced; gating on the <select> instead let every
+ * past-year ticket be edited freely the moment the filter was not pinned to
+ * that one specific year — the exact accidental-edit this feature exists to
+ * prevent, bypassed by the view most likely to be open (ทุกปี has no "closed
+ * year" banner of its own, so nothing would even have hinted it was unlocked).
+ *
+ * @param {number|string|null|undefined} ticketYear  a ticket's samoYearBe
+ * @param {number|null} currentYear  from currentSamoYear() (samo-year.js)
+ */
+export function isPastYearTicket(ticketYear, currentYear) {
+  if (ticketYear == null || currentYear == null) return false;
+  const y = Number(ticketYear);
+  return Number.isFinite(y) && y < Number(currentYear);
+}
+
 /** Does a ticket belong to the year the dashboard is currently filtered to?
  *  `null`/`undefined` ticket year (a row the backfill could not resolve —
  *  should not happen for any pre-0220 row, see the migration) is treated as
