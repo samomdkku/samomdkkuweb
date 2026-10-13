@@ -279,19 +279,21 @@ export async function deleteTerm(year) {
 }
 
 /**
- * Make `year` the live term.
+ * Make `year` the live term — the SAMO-year handover (0219).
  *
- * Two writes, not one: `team_terms_one_current` is a partial UNIQUE index, so
- * setting the new current before clearing the old one violates it. Clear first.
- * (Not atomic — a failure between the two leaves NO current term, which the
- * public page already handles by falling back to the live tree.)
+ * This used to be two separate PATCH requests (clear the old current, then
+ * set the new one), which this function's own comment flagged as "not atomic
+ * — a failure between the two leaves NO current term". `start_team_term` does
+ * both in ONE database transaction, and additionally stamps `started_at` /
+ * `ended_at` so every other system's `samo_year_be` trigger can tell which
+ * year a historical row actually belongs to (docs/YEAR-ROLLOVER.md).
  */
 export async function setCurrentTerm(year) {
-  await dbRest('/team_terms?is_current=is.true', {
-    method: 'PATCH',
-    body: { is_current: false },
+  const { data, error } = await dbRest('/rpc/start_team_term', {
+    method: 'POST', body: { p_year: year },
   });
-  return updateTerm(year, { is_current: true });
+  if (error) throw new Error(error.message || 'ตั้งปีปัจจุบันไม่สำเร็จ');
+  return data;
 }
 
 /** Freeze the live tree into `year`'s archive. Re-runnable; replaces wholesale. */
