@@ -1778,6 +1778,7 @@ What changed from the agent's version, and why:
 
 **Still owed — Status: OWED (owner / ทีม SAMO admins):**
 1. Choose who edits each ฝ่าย's page in ทีม SAMO → สิทธิ์ → หน้าฝ่าย. Until then only `dept_pages` holders (blanket) and the one scoped account can edit; the six new ฝ่าย show an empty page.
+1b. **11 โครงการ have no ฝ่าย tag** — 33 of 44 were tagged 2026-10-13 from descriptions that name a ฝ่าย; these name none (or "ฝ่ายประชาสัมพันธ์", not one of the 12): สัมมนาสมาพันธ์นักศึกษาวิทยาศาสตร์สุขภาพ, ICEM 2027, แต่งตั้งสภานักศึกษา, หนังสือขออนุญาตใช้ตราสัญลักษณ์, SAMOxCAFE, Music Therapy, ชุมนุมล่าดาว, MDKKU Cooking Together, ดนตรีออร์เคสตรา, ไหว้ครู, หนังสือประกาศค่าตอบแทนตราสัญลักษณ์. ผู้ส่งหนังสือ tags them on each โครงการ's page; nothing guesses.
 2. HSTS was deliberately NOT added with the framing headers — only after confirming the KKU edge never serves this host over plain HTTP.
 3. Open, low, already known (private report `~/samo-night/reports/2026-10-13-security-*.md` on the VM — never copy into the repo): 0212's trigger checks WHO, not WHAT (inert: every render escapes), plus the three items in memory (`open-privacy-username-lookup`, passport per-ฝ่าย write scope, `activities.static_token`).
 
