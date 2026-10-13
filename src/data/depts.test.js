@@ -72,6 +72,18 @@ describe('DEPT_DEFS carries every ฝ่าย the tree has', () => {
     expect(new Set(hexes).size, 'two ฝ่าย share the exact same colour hex').toBe(hexes.length);
   });
 
+  it('every colorVar is --dept-<own key> — no ฝ่าย borrows another concept\'s token', () => {
+    // ฝ่ายรังสีเทคนิค (rt) used to point at --dept-projects — a token meant
+    // for "โครงการอื่นๆ" (an unrelated tool-card colour, see tools.js), not a
+    // department at all. It happened to resolve to a hex no OTHER dept used,
+    // so the "distinct hex" test above stayed green while the token itself
+    // was still borrowed. See docs/mistakes/app-state.md.
+    const wrong = Object.entries(DEPT_DEFS)
+      .filter(([k, d]) => d.colorVar !== `--dept-${k}`)
+      .map(([k, d]) => `${k} → ${d.colorVar}`);
+    expect(wrong, `colorVar does not match its own key: ${wrong.join(', ')}`).toEqual([]);
+  });
+
   it('DEPT_PAGES (the grant picker) offers all 12, derived — not a second list', () => {
     expect(DEPT_PAGES).toEqual(DEPT_OPTIONS);
     expect(DEPT_KEYS.length).toBe(12);

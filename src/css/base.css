@@ -75,6 +75,8 @@
   --dept-projects: #8C6A47;     /* โครงการอื่นๆ */
   --dept-office: #6B4C9A;       /* สำนักนายกฯ */
   --dept-hospital: #C0392B;     /* ฝ่าย รพ. ร่วมผลิต */
+  --dept-rt: #B8449E;           /* ฝ่ายรังสีเทคนิค — was borrowing --dept-projects's
+                                   "โครงการอื่นๆ" colour, a different concept; own hue now */
 
   /* --- Per-department colour identity hover (SAMO 69) --- */
   --dept-hover-admin: #8BAFCF;        /* ฝ่ายบริหารองค์กร */
@@ -89,6 +91,7 @@
   --dept-hover-projects: #A89A80;
   --dept-hover-office: #9B7FC7;       /* สำนักนายกฯ */
   --dept-hover-hospital: #7A2118;     /* ฝ่าย รพ. ร่วมผลิต */
+  --dept-hover-rt: #6B2560;           /* ฝ่ายรังสีเทคนิค */
 
   /* VitalSound accent — historically tied to the teal `--dept-quality` value,
      but the dept palette has since shifted to a light green. The VS form/icon

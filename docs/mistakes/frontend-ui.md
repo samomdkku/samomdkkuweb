@@ -4238,3 +4238,75 @@ wired OUTSIDE the function that repaints*, exactly once, the same way this
 file already wires its filters, search box and refresh buttons in
 `ensureMounted()` — the delete button was the one control in this file that
 didn't follow its own neighbours' convention.
+
+---
+
+## The VS public board's problem detail could get overwritten by a stale fetch
+
+**Symptom**: on a slow connection, tap one problem card on the VitalSound
+public board, then (before its detail loads) tap a different card or hit
+"back" to the list — the FIRST card's response can still land and repaint
+`#vsProblemBody` with its content, either on top of the second card's detail
+or back over the list view the visitor already returned to.
+
+**Cause**: `vsBoardOpen(id)` (`src/js/vs-board.js`) sets `openProblemId = id`
+then awaits `get_public_vs_problem`, then called `renderProblemDetail(data)`
+unconditionally — nothing checked whether `openProblemId` was still `id` by
+the time the response came back. The identical shape is already fixed one
+file over: `vs-tracking.js`'s `enhanceBoardBanner()` guards with `if
+(ticket.id !== currentActiveTicketId) return;` specifically because "a
+stale response after the user navigates to another ticket" was a known
+risk there — the board's own detail-open function never got the same
+treatment.
+
+**Fix**: added the same guard, same place (right after the await, before
+the render call): `if (id !== openProblemId) return;`. A card tapped then
+abandoned mid-fetch now silently drops its own response instead of painting
+it. `src/js/vs-board-stale-fetch.test.js` pins this structurally (no jsdom
+here) — the guard must exist, after the `await`, before
+`renderProblemDetail(data)`; mutation-checked (guard removed → both
+ordering assertions go red).
+
+**The general rule**: *one correct guard against a stale async response does
+not protect its sibling function with the same race* — when a codebase names
+a race ("fire-and-forget; guards against a stale response") in one place,
+grep every OTHER function that awaits the same shape of fetch-then-render
+before assuming the lesson generalised on its own.
+
+---
+
+## ฝ่ายรังสีเทคนิค borrowed a different concept's colour, not its own
+
+**Symptom**: nothing crashes — the ฝ่ายรังสีเทคนิค (rt) dept card and page
+render with SOME colour, and the repo's own test asserting "every ฝ่าย gets
+a distinct colour" was green. But the token it used, `--dept-projects`, is
+documented in `base.css` as `/* โครงการอื่นๆ */` ("other projects") — a
+colour meant for an unrelated tool-card concept (`src/data/tools.js`'s
+`rt-website` entry and the generic "other projects" launcher), not a
+department identity at all. This violates `CLAUDE.md`'s own "12 unique
+colour identities" rule by construction, even though no two DEPT_DEFS
+entries shared the same hex.
+
+**Cause**: `rt`'s entry in `src/data/depts.js` was given `colorVar:
+'--dept-projects'` instead of its own `--dept-rt` — pre-existing, not
+introduced by this week's "every ฝ่าย has a page" work, just exposed by it.
+The existing differential test (`depts.test.js`, "distinct colour") only
+asserted the 12 RESOLVED HEX VALUES were pairwise unique; since no other
+dept happened to also use `--dept-projects`, that check passed while the
+TOKEN itself was borrowed, and `tab-departments.html`'s rt card + `tools.js`'s
+`rt-website` tool both carried the same borrowed reference.
+
+**Fix**: added `--dept-rt` / `--dept-hover-rt` to `base.css` and pointed
+`depts.js`, `tab-departments.html`'s rt card, and `tools.js`'s `rt-website`
+entry at it. `depts.test.js` gained a new assertion — every `colorVar` must
+equal `--dept-<own key>` — which is a stronger, structural version of the
+existing "distinct hex" check; mutation-checked (reverted to
+`--dept-projects` → the new assertion goes red while the old "distinct hex"
+one stays green, demonstrating why the weaker check alone wasn't enough).
+
+**The general rule**: *"no two things share a colour" is a weaker property
+than "this thing has its OWN colour"* — a uniqueness check across a list
+can pass while one entry is still borrowing a DIFFERENT concept's token by
+coincidence of nobody else picking the same one. Where a one-to-one identity
+convention exists (`--dept-<key>` for every other dept here), assert the
+NAMING convention itself, not just that the resolved values don't collide.

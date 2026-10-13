@@ -1156,6 +1156,47 @@ say what state would be lost by résetting it.
 
 ---
 
+## The cart drawer's qty cap never knew about anyone else's reservations
+
+**Symptom**: a product's size/colour is fully claimed by OTHER buyers'
+pending orders (`shop_reserved_matrix_all` reports it as 0 left), but a
+buyer who added one unit earlier (before it sold out) opens the cart
+drawer — the `+` button is enabled and lets them raise the line's qty as if
+the full stock number were still free. Checkout still blocks the order
+correctly (`productsWithStock()`/`cartLineProblems()` catch it there), so no
+money is ever lost — only the drawer's own promise is wrong.
+
+**Cause**: `cart.js`'s `productMap` is built straight from `listProducts()`
+(`setShopCartProducts`), which never includes a `reserved_matrix` — that
+comes from a SEPARATE RPC (`fetchReservedMatrixAll`). `products.js`'s
+`reloadShop()` and `checkout.js`'s `productsWithStock()` each splice the
+reserved matrix onto their OWN copy of the product list for their own
+purposes, but neither fed it back into `cart.js`'s shared `productMap` —
+so the drawer's `maxFor()` always read `p.reserved_matrix` as `{}` and
+treated every reservation as zero. checkout.js's own comment even named the
+gap ("the cart's product map … carries no reserved counts") without closing
+it for the drawer.
+
+**Fix**: `cart.js` now holds its own `reservedMatrix` map, fed by
+`setCartReservedMatrix()` — called once when the shop tab is first shown
+(`index.js`, alongside the existing `fetchReservedMatrixAll` nobody reused)
+and again whenever `checkout.js`'s `refreshStock()` learns a fresher one, so
+the drawer and checkout never disagree for longer than one stock refresh.
+The qty-cap logic itself was extracted into an exported pure function,
+`maxQtyFor(p, it, reservedMatrixById)`, so it is unit-testable without the
+DOM `render()` needs. `src/js/shop/cart-reserved-matrix.test.js`
+mutation-checked (matrix splice removed → a fully-reserved variant reads as
+99 again, not 1).
+
+**The general rule**: *a value fetched and spliced on for ONE reader's
+purpose does not reach a SIBLING reader of the same underlying list unless
+something explicitly feeds it there* — `docs/mistakes/app-state.md`'s other
+entries are about two renderers computing a count two different ways; this
+is the same shape one layer earlier: two renderers sharing one map object,
+where only one of them was ever handed the full data.
+
+---
+
 ## Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 
 **Symptom**: on a โครงการ's detail header, a sender-desk account (vpa/dev)
@@ -1188,3 +1229,41 @@ field, reachable from more than one control, needs a SERIALIZATION point
 (a queue, a mutex, re-reading after every await), not a per-control disabled
 flag. The tell is several independent UI elements that each read, then later
 write, the SAME array/object field.
+
+---
+
+## The public หนังสือโครงการ mirror never refreshed after its first load
+
+**Symptom**: a visitor opens the public หนังสือโครงการ tab, an admin tags a
+project with a ฝ่ายสโม or flips its visibility while the visitor is still on
+the page, the visitor switches to another tab and back — they keep seeing
+the pre-change state for the rest of that page session. No realtime
+subscription exists to ever correct it; only a hard reload does.
+
+**Cause**: `projects-view.js`'s `bootIfNeeded()` set its OWN `initialised`
+flag on the first call and returned immediately on every later one —
+including every later `shown.bs.tab`. Its single callee,
+`mountCustomerProjects()` (`src/js/projects/index.js`), already has the
+CORRECT re-show behaviour built in: `if (customerInitialised) { await
+reloadProjects(); return; }`. But with no caller ever reaching that branch a
+second time, it was dead code — this bug predates the ฝ่ายสโม tag feature
+that happened to expose it; both guard flags were introduced together, in
+the same commit, one redundant with the other.
+
+**Fix**: `bootIfNeeded()` no longer returns early on its own flag — it still
+uses it to decide whether to paint the loading spinner (only on a genuinely
+empty grid, i.e. the first load), but always calls `mountCustomerProjects()`,
+letting THAT function's own flag tell first-mount from re-show apart.
+`src/js/projects-view-restale.test.js` captures the `shown.bs.tab` listener
+with a hand-built `document` stand-in (no jsdom here) and asserts
+`mountCustomerProjects` is called again on a second and third tab-show, not
+just the first; mutation-checked (the early return restored → only 1 call).
+
+**The general rule**: *a refresh-on-re-show branch inside a shared function
+is only as good as its caller actually reaching it a second time* — when
+two modules each keep a "first mount vs. re-entry" flag for the same
+lifecycle, the OUTER one guarding the call site is usually the redundant,
+dangerous one: it can swallow every re-entry before the inner one's correct
+behaviour ever runs. Prefer letting the callee (which has the real
+first-mount-vs-refresh logic) decide, and use the caller's flag only for
+caller-local concerns (what to paint while waiting), never to skip the call.

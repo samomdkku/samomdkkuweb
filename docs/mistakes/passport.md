@@ -412,6 +412,25 @@ stamps / flight log / leaderboard / boarding pass all re-derive cleanly — no p
 fixups). RLS already permits it (`scans_delete using(true)`, db/0009); the `user_id` filter is
 the real guard. The modal's `#modal-danger` block is shown only when a real `scan.id` is present.
 
+**2026-10-13 — it showed "Removed ✓" on a delete that may have matched zero
+rows.** The delete above had no `.select()` and never checked a row count,
+only `error` — and per this repo's own class-7 rule, RLS answers a denied
+delete with 200 and zero rows, not an error. If `scan.id`/`currentUserId`
+ever disagreed with the DB's view of `auth.uid()` (a stale session, a race
+on `currentUserId`), the code still cleared the student's local
+memory/photos, showed "Removed from your passport ✓", and reloaded — at
+which point the stamp reappeared, contradicting the toast just shown.
+`admin-page.js`'s `window.deleteActivity` already had the correct shape
+(`.select()` + `data.length === 0` check); `removeOwnScan` just never
+matched its own sibling. Fixed by adding the same check, in the same
+order (before the success toast, not after).
+`passport/js/remove-own-scan-delete-guard.test.js` pins this structurally
+(no test infra existed under `passport/` before this; no jsdom either, so
+the check reads the function body, not a running page) — mutation-checked
+(check removed → 3 of 4 assertions go red). **The general rule stays class 7's own**: *every DELETE needs a `data.length`
+check, and when one sibling function already has it, the next one written
+against the same table should have copied it on sight.*
+
 ## QR poster is now a template image with hard-coded slot coordinates
 **Note:** `buildQrPoster` (`js/admin-page.js`) no longer draws the poster from scratch — it
 composites the live QR + activity name + badge stamp onto a **designed background**,
@@ -565,3 +584,32 @@ cost the feature its existence. Also set `envDir: resolve(__dirname, '..')` so a
    uploads *and* the หนังสือโครงการ email, from a diff that looks like a path fix. When a merge
    collapses two namespaces into one file, the shared KEY NAMES are the hazard, not the paths.
    `src/js/gas-project-isolation.test.js`.
+
+## A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
+
+**Note (2026-10-13, read-only review — not a live incident):** `passport/db/0010_passport_authz_hardening.sql`
+defines `passport.stamp_scan()` with no check that the scanned activity's
+season/quarter is still open. `supabase/migrations/0180_an_activity_belongs_to_its_season.sql`
+later `create or replace`s the SAME function to add that check (migration
+0214 ports the rest of 0010/0011 into tracked history but deliberately does
+NOT re-touch `stamp_scan`, since 0180 already owns the current definition).
+Nothing is broken today — the live function is 0180's. But this repo's own
+`passport/CLAUDE.md` still says generically "To apply a migration: open the
+Supabase SQL editor and run the file in `db/`", and if `passport/db/0010`
+were ever re-run on a database that already has 0180 (e.g. standing up a
+fresh environment by replaying every legacy `db/*.sql` file in numeric order
+after `supabase/migrations` has already landed), `stamp_scan` would silently
+revert to the no-season-check version — reopening "a QR from a finished
+quarter still awards km forever" with no error.
+
+**Mitigation**: added a loud comment directly above the `create or replace`
+in `0010_passport_authz_hardening.sql` naming the hazard and pointing at
+0180/0214. No code changed — this is a landmine for a FUTURE fresh-database
+setup, not a bug in anything live, so there's nothing to test against;
+written down so the next person replaying `db/*.sql` files reads the warning
+before running this one.
+
+**The general rule**: *verify from the LIVE function body, not the migration
+that first wrote it* (class 7) — and when a later migration quietly takes
+over a function an older, still-present file also defines, say so loudly in
+the older file, because nothing else will stop someone from re-running it.

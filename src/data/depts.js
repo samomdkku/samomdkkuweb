@@ -76,7 +76,7 @@ export const DEPT_DEFS = {
     eyebrow: 'Department',
     title: 'ฝ่ายรังสีเทคนิค',
     icon: 'bi-stars',
-    colorVar: '--dept-projects',
+    colorVar: '--dept-rt',
   },
   media: {
     eyebrow: 'Department',

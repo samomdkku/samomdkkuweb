@@ -17,14 +17,19 @@ import { mountCustomerProjects } from './projects/index.js';
 
 let initialised = false;
 
+// Called on every tab-show, not just the first — mountCustomerProjects()
+// itself tells "first mount" from "re-show" apart (its own customerInitialised
+// flag) and refreshes from the server on the second case. An early return
+// keyed on a SEPARATE flag here used to swallow every re-show before that
+// branch could ever run, so an admin's tag/visibility edit never reached a
+// visitor who kept the tab open — see docs/mistakes/app-state.md.
 async function bootIfNeeded() {
-  if (initialised) return;
-  initialised = true;
   const grid = document.getElementById('projectsGrid');
-  if (grid && grid.childElementCount === 0) {
+  if (!initialised && grid && grid.childElementCount === 0) {
     grid.innerHTML = '<div class="text-center text-muted py-5">'
       + '<div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด…</div>';
   }
+  initialised = true;
   try {
     await mountCustomerProjects();
   } catch (e) {
