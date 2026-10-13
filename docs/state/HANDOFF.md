@@ -1815,3 +1815,33 @@ Re-arming later: write a new queue in `server/night-agent/NIGHT-TASKS.md`, then 
 What exists: every neutral colour literal in `src/css/` is a token or a color-mix (`tools/theme-tokens-codemod.mjs`), EXACT in light — pixel-diffed against the previous CSS, 0 px changed below the navbar on 8 pages. Dark values: `src/css/theme.css`. Switch + device-following: `src/js/theme.js` (`DARK_FOLLOWS_DEVICE = false`). Guards: `src/js/theme.test.js` (a new raw neutral colour fails the build).
 
 **Owed before switching it on — Status: OWED:** a page-by-page dark polish, seen at 390/820/1440 (`tools/browser/projects-ui.mjs` for หนังสือโครงการ; the public sweep is the pattern in skills/drive-the-browser.md): the striped shop image placeholder stays bright; the admin notifications bell is a black square in both themes; images and ฝ่าย sandboxed pages stay light by design (say so or adapt); passport (separate app) is untouched. To turn on: `DARK_FOLLOWS_DEVICE = true`, restore the head scripts' device test in BOTH entries, put back the three `data-theme-switch` slots (navbar desktop, mobile menu `segmented`, admin top bar) — the CSS for them is still in theme.css — and re-add the release note.
+
+## 22. SAMO-year handover — night agent 2026-10-14
+
+**Status: HYPOTHESIS — the design (task 1) is written; nothing below it has
+applied a migration yet.** Full design: `docs/YEAR-ROLLOVER.md` — read it
+before touching any of the rows below; this section is only the per-task
+tracking table the queue's own rules require. Branch `agent/2026-10-14`,
+migrations 0219–0229 reserved (one block per task), samo-dev only (this
+agent has no production credential). Next owner session: review the branch,
+push it as a preview branch, decide whether/when to apply each migration to
+production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
+
+| Task | System | Migration | Proof | Applied? | Owner action |
+|---|---|---|---|---|---|
+| 1 | Design doc | — (no migration) | `scrutinize` pass on the doc | N/A | Read `docs/YEAR-ROLLOVER.md`; it is the plan every later row implements |
+| 2 | Core SAMO-year infra | 0219 | *(task 2 fills in)* | | |
+| 3 | PR | 0220 | | | |
+| 4 | VitalSound | 0221 | | | |
+| 5 | SAMO Shop | 0222 | | | |
+| 6 | หนังสือโครงการ | 0223 | | | |
+| 7 | ทีม SAMO + เกี่ยวกับเรา | 0224 | | | |
+| 8 | ระบบบ้าน | 0225 | | | |
+| 9 | หน้าฝ่าย | 0226 | | | |
+| 10 | Passport + Accounts | 0227–0228 | | | |
+| 11 | Stats/retention + Backup/Export + Announcements | 0229 | | | |
+
+⛔ **Every later task must update its OWN row above** (migration/proof
+numbers, applied y/n, the exact command the owner runs next) — never rewrite
+another task's row, and never mark a row applied unless a proof actually ran
+green on samo-dev this session.

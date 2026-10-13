@@ -14,6 +14,85 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## Task 1 — design doc (2026-10-14)
+
+**Claims to have** read every system this queue names (PR, VS, Shop,
+หนังสือโครงการ, ทีม SAMO, เกี่ยวกับเรา, ระบบบ้าน, หน้าฝ่าย, Passport,
+Announcements, Accounts, Stats, Claude booking, Discord, Drive) end to end —
+`docs/CONTEXT.md` in full, `docs/INVARIANTS.md` in full, the relevant
+migrations (0104–0106 team terms/archive, `study-year.js`, `passport/db/0006`,
+`appscript/prform.gs`'s folder layout) and `modal-vs-consent.html`'s actual
+PDPA wording rather than assuming it — and written `docs/YEAR-ROLLOVER.md`
+(45 `Decision:` lines, 27 edge cases, a build-order table mapping every later
+task to its reserved migration number 0219–0229) plus
+`docs/state/HANDOFF.md` §22 (the per-task tracking table every later task
+must update its own row of, never another task's).
+
+**Core decision, defended**: `public.team_terms` (existing, with
+`is_current`/archive machinery already built in 0104–0106) becomes the ONE
+SAMO-year registry every other system references — rather than inventing a
+new table, or promoting Passport's own `samo_years` (rejected: Passport's
+year/season answers a different, ฝ่ายกิจกรรม-decided question and lives in an
+isolated schema with no cross-schema FK precedent anywhere in this repo).
+Each operational table gets a nullable `samo_year_be smallint`, trigger-filled
+from a new `current_samo_year()` AT INSERT TIME and never recomputed later —
+mirroring `projects.fiscal_year_be`'s existing override shape, but filled
+automatically rather than left null-by-default, specifically so the PR Staff
+Dashboard (the owner's own named example, 290 `โพสต์เรียบร้อย` tickets) gets a
+working year filter with no gap for new rows. ปีงบ (fiscal year, Oct-start)
+and ปีการศึกษา (academic year, Aug-start, `study-year.js`) are explicitly kept
+as SEPARATE calendars — not unified into "the SAMO year" — because each
+already has correct, independently-moving logic that predates this queue and
+conflating them would corrupt rows a university officer or a student already
+reads.
+
+**Self-review, before ending the task**: ran `scrutinize`'s method by hand
+against this doc (no sub-agent invocation; the skill resolved to prompt-only
+instructions, so I applied its trace/verify steps myself) and found — then
+FIXED in the doc, not left as a note — one real gap worth flagging loudly: the
+first draft gave หนังสือโครงการ's 42 existing rows a one-time
+timestamp-derived backfill for the new `samo_year_be` column but did NOT give
+the same backfill to PR's 311 / VS's 119 / Shop's 43 existing rows, even
+though the identical reasoning applies to all four ("no human has chosen a
+year for a pre-existing row yet, so deriving one from the timestamp
+overwrites nothing"). Left as originally written, every one of the 290
+already-finished PR tickets the owner used as the motivating example would
+have rendered as "ก่อนเริ่มระบบปี" forever instead of being folded into a
+real past year — the feature would ship looking complete and solve nothing
+for the exact pile that was named. Fixed by adding the same backfill decision
+to PR, VS and Shop's sections. Three smaller fixes also applied: clarified
+that `team_terms.started_at`/`ended_at` are owned only by the NEW
+`start_team_term()` RPC (not `publish_team_term`, which is a repeatable
+snapshot action and would otherwise get called every re-publish); separated
+the PDPA retention SHAPE (anonymise, grounded in the consent notice's own
+wording) from the 24-month NUMBER (an invented default, labelled as such) and
+flagged that the consent modal itself never states a retention period, which
+is a pre-existing gap outside this doc's build order; and noted that Shop's
+`samo_year_be` is stamped from wall-clock `current_samo_year()`, not derived
+from `placed_at`, so a hand-entered backdated walk-in order can legitimately
+disagree with its own `placed_at` and needs the same admin-override
+affordance as every other table.
+
+**What is WRITTEN, NOT APPLIED**: everything — this is design-only, task 1 of
+11, and intentionally touches no `supabase/migrations/` file and reserves no
+migration number of its own. `npm test` (2675/2675) and `npm run build` both
+green; the only non-doc change is registering the new file in
+`docs/.vitepress/config.mjs`'s `TOP_GROUPS` (required by
+`docs-site.test.js`, which was red until that one-line addition).
+
+**Exact commands the owner runs next**: none required from this task alone —
+read `docs/YEAR-ROLLOVER.md` once, then let tasks 2–11 proceed against it.
+If reviewing cold, start at `docs/YEAR-ROLLOVER.md`'s `## Build order` table
+and `docs/state/HANDOFF.md` §22's tracking table, in that order.
+
+**What would change my mind**: if the owner would rather fold ปีงบ or
+ปีการศึกษา INTO one unified SAMO year instead of keeping three calendars —
+that is a bigger, riskier rewrite than this queue's remaining budget affords,
+and I chose the smaller, additive design on purpose; flag it in review rather
+than silently rebuilding if the owner disagrees.
+
+---
+
 > ⛔ **Reviewed by the owner's session, 2026-10-13 — read `docs/state/HANDOFF.md` §20, not the block below, for what is true.** Its "do this first" is CLOSED (0214 was already live on production). Its "nothing was skipped" was wrong: task 2 was cut off by the quota and the runner credited the half-done work (runner fixed). 0213 was rewritten to grant nothing — หน้าฝ่าย editors are chosen in ทีม SAMO.
 
 ## ▶ HANDOFF 2026-10-13 04:11 UTC (night agent, branch agent/2026-10-13)
