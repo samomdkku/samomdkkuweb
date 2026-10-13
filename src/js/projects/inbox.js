@@ -63,8 +63,7 @@ import {
   DEFAULT_FY_ALL,
   DEFAULT_FY_CURRENT,
 } from './fiscal-year.js';
-import { VS_DEPTS } from '../team-vocab.js';
-import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, staleSamoDepts } from './samo-depts.js';
+import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, staleSamoDepts, SAMO_DEPT_OPTIONS } from './samo-depts.js';
 
 // ---------- module state ----------
 
@@ -100,7 +99,7 @@ let expandedDocsSeenAt = new Map();   // docId -> ms-since-epoch frozen at expan
 let filterKind = 'all';    // 'all' | 'mine' | 'notified' | 'waiting' | 'done'
 let searchQ    = '';
 let filterFY   = 'all';    // 'all' | '<4-digit BE year>' — ปีงบประมาณ (Thai fiscal year)
-let filterDepts = [];      // [] = no filter; else OR across selected VS_DEPTS values (migration 0212)
+let filterDepts = [];      // [] = no filter; else OR across selected ฝ่าย keys (0212, list 0215)
 // The viewer's SAVED default (project_user_prefs.default_fiscal_year, 0165):
 // 'all' | 'current' | '<4-digit BE year>'. null until the first load resolves
 // it; an absent row stays 'all', which is what the inbox did before 0165.
@@ -669,7 +668,7 @@ async function openFiscalYearDefaultPicker() {
   render();
 }
 
-/** The "ฝ่าย" filter dropdown — a checkbox per VS_DEPTS value (migration
+/** The "ฝ่าย" filter dropdown — a checkbox per ฝ่าย (SAMO_DEPT_OPTIONS; migration
  *  0212). Shared markup for the admin inbox AND the public mirror; both
  *  toolbars carry the same `#projectsDeptFilterMenu` container. Rebuilt on
  *  every grid render so a checked box survives a data refresh, and so the
@@ -677,7 +676,7 @@ async function openFiscalYearDefaultPicker() {
 function renderDeptFilterMenu() {
   const menu = document.getElementById('projectsDeptFilterMenu');
   if (!menu) return;
-  menu.innerHTML = VS_DEPTS.map((d) => `
+  menu.innerHTML = SAMO_DEPT_OPTIONS.map((d) => `
     <label class="projects-dept-filter-item">
       <input type="checkbox" data-dept-filter-value="${escHtml(d.value)}"
         ${filterDepts.includes(d.value) ? 'checked' : ''} />
@@ -1025,7 +1024,7 @@ function renderDetail() {
   const role = cache.role;
   const canManage = role === 'vp_admin' || role === 'dev';
   // The ฝ่ายสโม editor below also draws a chip for every stored tag that is no
-  // longer a VS_DEPTS value (staleSamoDepts), so it can be REMOVED. Without one
+  // longer a ฝ่าย key (staleSamoDepts), so it can be REMOVED. Without one
   // it could never leave the array, every toggle would send it back, and the
   // RPC refuses unknown values — the tags would be stuck for good.
   // Moving a โครงการ between ปีงบประมาณ is BOTH desks' job, not just the
@@ -1081,7 +1080,7 @@ function renderDetail() {
       ${canManage ? `
         <div class="projects-dept-editor" role="group" aria-label="แท็กฝ่ายสโม">
           <span class="projects-dept-editor-label">ฝ่ายสโม:</span>
-          ${VS_DEPTS.map((d) => {
+          ${SAMO_DEPT_OPTIONS.map((d) => {
             const on = projectSamoDepts(project).includes(d.value);
             return `<button type="button" class="projects-dept-chip${on ? ' is-active' : ''}"
               data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(d.value)}"

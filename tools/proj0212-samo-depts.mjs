@@ -101,7 +101,7 @@ insert into probe select '03b. a role=dev subject exists with no seat and no mas
 select set_config('request.jwt.claims', json_build_object('sub', (select uid from subj_none)::text, 'role','authenticated')::text, true);
 set local role authenticated;
 do $$ begin
-  perform public.set_project_samo_depts('PRJ-PROOF-0212A', array['SE']);
+  perform public.set_project_samo_depts('PRJ-PROOF-0212A', array['office']);
   insert into probe values ('1. a plain student cannot tag a โครงการ', 'refused', 'ALLOWED');
 exception when others then
   insert into probe values ('1. a plain student cannot tag a โครงการ', 'refused',
@@ -117,7 +117,7 @@ set local role authenticated;
 insert into probe select '2a. control — the staff subject IS a project actor (can reach the row)', 'true',
   public.current_user_is_project_actor()::text;
 do $$ begin
-  update public.projects set samo_depts = array['SE'] where id = 'PRJ-PROOF-0212A';
+  update public.projects set samo_depts = array['office'] where id = 'PRJ-PROOF-0212A';
   insert into probe values ('2b. a staff-desk-only account cannot set samo_depts directly', 'refused', 'ALLOWED');
 exception when others then
   insert into probe values ('2b. a staff-desk-only account cannot set samo_depts directly', 'refused',
@@ -129,8 +129,8 @@ reset role;
 -- on the same call path.
 select set_config('request.jwt.claims', json_build_object('sub', (select uid from subj_vpa)::text, 'role','authenticated')::text, true);
 set local role authenticated;
-insert into probe select '3a. a vpa holder tags PRJ-PROOF-0212A with {SE, นายกสโม}', '{SE,นายกสโม}',
-  (public.set_project_samo_depts('PRJ-PROOF-0212A', array['SE', 'นายกสโม', 'SE'])).samo_depts::text;
+insert into probe select '3a. a vpa holder tags PRJ-PROOF-0212A with {office, academic} (deduped, sorted)', '{academic,office}',
+  (public.set_project_samo_depts('PRJ-PROOF-0212A', array['office', 'academic', 'office'])).samo_depts::text;
 do $$ begin
   perform public.set_project_samo_depts('PRJ-PROOF-0212A', array['ไม่มีฝ่ายนี้']);
   insert into probe values ('3b. an unknown ฝ่ายสโม value is refused', 'refused', 'ALLOWED');
@@ -138,8 +138,17 @@ exception when others then
   insert into probe values ('3b. an unknown ฝ่ายสโม value is refused', 'refused',
     case when sqlerrm like '%ไม่รู้จักฝ่ายสโม%' then 'refused' else sqlerrm end);
 end $$;
-insert into probe select '3c. the refused call left 3a''s tags untouched', '{SE,นายกสโม}',
+insert into probe select '3c. the refused call left 3a''s tags untouched', '{academic,office}',
   (select samo_depts from public.projects where id = 'PRJ-PROOF-0212A')::text;
+-- 3e (0215) — the VALUE is checked on every path, not only in the RPC: the
+-- sender desk itself cannot store a VitalSound desk ('SE') by a direct UPDATE.
+do $$ begin
+  update public.projects set samo_depts = array['SE'] where id = 'PRJ-PROOF-0212A';
+  insert into probe values ('3e. a direct UPDATE storing a non-ฝ่าย value (SE) is refused, even from the sender desk', 'refused', 'ALLOWED');
+exception when others then
+  insert into probe values ('3e. a direct UPDATE storing a non-ฝ่าย value (SE) is refused, even from the sender desk', 'refused',
+    case when sqlerrm like '%ไม่รู้จักฝ่ายสโม%' then 'refused' else sqlerrm end);
+end $$;
 reset role;
 
 -- §3d ALLOW — role=dev, NO stored seat and NO master permission, can tag
@@ -148,21 +157,21 @@ reset role;
 -- later overwrite of B by a master doesn't need to leave this undone.
 select set_config('request.jwt.claims', json_build_object('sub', (select uid from subj_dev)::text, 'role','authenticated')::text, true);
 set local role authenticated;
-insert into probe select '3d. a role=dev account with no seat and no master can tag too', '{อุปนายกฝ่ายกิจการภายใน}',
-  (public.set_project_samo_depts('PRJ-PROOF-0212B', array['อุปนายกฝ่ายกิจการภายใน'])).samo_depts::text;
+insert into probe select '3d. a role=dev account with no seat and no master can tag too', '{internal}',
+  (public.set_project_samo_depts('PRJ-PROOF-0212B', array['internal'])).samo_depts::text;
 reset role;
 
 -- §4 ALLOW — a master with no stored seat (0111's fold into vpa).
 select set_config('request.jwt.claims', json_build_object('sub', (select uid from subj_master)::text, 'role','authenticated')::text, true);
 set local role authenticated;
-insert into probe select '4. a master (no stored seat) tags PRJ-PROOF-0212B', '{อุปนายกฝ่ายวิชาการ}',
-  (public.set_project_samo_depts('PRJ-PROOF-0212B', array['อุปนายกฝ่ายวิชาการ'])).samo_depts::text;
+insert into probe select '4. a master (no stored seat) tags PRJ-PROOF-0212B', '{hospital}',
+  (public.set_project_samo_depts('PRJ-PROOF-0212B', array['hospital'])).samo_depts::text;
 reset role;
 
 -- §5 anon — reads tags on the PUBLIC โครงการ, cannot see the HIDDEN one at all.
 select set_config('request.jwt.claims', 'null', true);
 set local role anon;
-insert into probe select '5a. anon reads samo_depts on a public โครงการ', '{SE,นายกสโม}',
+insert into probe select '5a. anon reads samo_depts on a public โครงการ', '{academic,office}',
   (select samo_depts from public.projects where id = 'PRJ-PROOF-0212A')::text;
 insert into probe select '5b. anon cannot see the hidden โครงการ row at all (not column-specific)', '0',
   (select count(*) from public.projects where id = 'PRJ-PROOF-0212B')::text;

@@ -68,8 +68,8 @@ describe('onToggleProjectDept — two chips, one โครงการ', () => {
     });
     renderInbox({ projects: [{ id: 'P1', samo_depts: [] }], role: 'vp_admin', docTypes: [], settings: {} });
 
-    const chipSE = { dataset: { projectsToggleDept: 'P1', dept: 'SE' }, disabled: false };
-    const chipNS = { dataset: { projectsToggleDept: 'P1', dept: 'นายกสโม' }, disabled: false };
+    const chipSE = { dataset: { projectsToggleDept: 'P1', dept: 'office' }, disabled: false };
+    const chipNS = { dataset: { projectsToggleDept: 'P1', dept: 'academic' }, disabled: false };
 
     // Fired back-to-back, synchronously — before either's setProjectSamoDepts
     // call has resolved. A user double-clicking two chips in quick succession.
@@ -77,7 +77,7 @@ describe('onToggleProjectDept — two chips, one โครงการ', () => {
     const p2 = onToggleProjectDept(chipNS);
     await Promise.all([p1, p2]);
 
-    expect([...serverDepts].sort()).toEqual(['SE', 'นายกสโม'].sort());
+    expect([...serverDepts].sort()).toEqual(['office', 'academic'].sort());
     expect(setProjectSamoDepts).toHaveBeenCalledTimes(2);
   });
 });

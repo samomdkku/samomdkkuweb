@@ -1,20 +1,24 @@
 // ==============================================
-// PROJECTS SAMO DEPTS — ฝ่ายสโม tags on a โครงการ (migration 0212).
+// PROJECTS SAMO DEPTS — ฝ่ายสโม tags on a โครงการ (0212, list changed 0215).
 //
-// The allowed values are VS_DEPTS (../team-vocab.js) — the SAME list the VS
-// desk already filters by, not a second taxonomy (mistakes class 6). The SQL
-// side (0212's set_project_samo_depts) carries its own copy of this list;
-// samo-depts.test.js parses that migration and asserts it EQUALS SAMO_DEPT_
-// VALUES, so the two cannot drift apart silently.
+// The allowed values are the 12 ฝ่าย of หน้าฝ่าย — DEPT_DEFS keys
+// (../../data/depts.js: office, admin, … hospital), shown by their titles.
+// NOT VS_DEPTS: that is VitalSound's routing list of DESKS (นายกสโม, SE,
+// อุปนายกฝ่าย…), which 0212 borrowed and the owner rejected (2026-10-13,
+// "it shouldn't have SE"). The SQL side's one copy is public.samo_dept_keys()
+// (0215); samo-depts.test.js parses it and asserts it EQUALS DEPT_KEYS.
 //
 // Filtering logic lives here, pure and tested, so the admin inbox, the
 // public mirror and every card/list renderer ask the SAME function — a card
 // and a list row answering the filter differently is the recurring bug this
 // repo keeps a class for (mistakes class 6).
 // ==============================================
-import { VS_DEPTS, VS_DEPT_LABEL } from '../team-vocab.js';
+import { DEPT_OPTIONS, deptLabel } from '../../data/depts.js';
 
-export const SAMO_DEPT_VALUES = VS_DEPTS.map((d) => d.value);
+/** `[{ value: key, label: title }]`, in หน้าฝ่าย's order — what every chip
+ *  row and filter menu in the projects module draws. */
+export const SAMO_DEPT_OPTIONS = DEPT_OPTIONS;
+export const SAMO_DEPT_VALUES = SAMO_DEPT_OPTIONS.map((d) => d.value);
 
 /** The tags a โครงการ carries, normalised to an array (never null/undefined,
  *  never holding an empty string — old rows written before this column
@@ -36,15 +40,14 @@ export function projectMatchesSamoDepts(project, selected) {
   return depts.some((d) => selected.includes(d));
 }
 
-/** Display label for one tag value. An unknown value (old data, or a ฝ่าย
- *  renamed/removed from VS_DEPTS since the tag was set) falls back to the
- *  raw value instead of disappearing — a tag a human set must keep
- *  rendering even after the list it came from changes underneath it. */
+/** Display label for one tag value — the ฝ่าย's title. An unknown value
+ *  (a key retired since the tag was set) falls back to the raw value instead
+ *  of disappearing: a tag a human set must keep rendering. */
 export function samoDeptLabel(value) {
-  return VS_DEPT_LABEL[value] || value;
+  return deptLabel(value);
 }
 
-/** Tags a โครงการ carries that are NOT a current VS_DEPTS value. The editor
+/** Tags a โครงการ carries that are NOT a current ฝ่าย key. The editor
  *  draws a removable chip for each: with no chip, a stale value could never
  *  leave the array, and every later toggle would send it back to an RPC that
  *  refuses unknown values — locking the tags. */
