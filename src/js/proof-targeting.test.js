@@ -129,6 +129,26 @@ describe('env-lib is usable where there is no .env.local', () => {
     expect(env, 'loadEnv returned nothing at all').toBeTypeOf('object');
   });
 
+  it('a dev-only checkout (default project = samo-dev) is labelled samo-dev, not PRODUCTION', () => {
+    // The night agent's clone: samo-dev is its default and its only project.
+    return import('../../tools/env-lib.mjs').then(({ resolveTarget }) => {
+      const url = 'https://devonlyref.supabase.co';
+      const t = resolveTarget({
+        env: { VITE_SUPABASE_URL: url, SUPABASE_DEV_URL: url, SUPABASE_ACCESS_TOKEN: 'x' },
+        fileEnv: { VITE_SUPABASE_URL: url, SUPABASE_DEV_URL: url },
+      });
+      expect(t.isDev).toBe(true);
+      expect(t.isProd).toBe(false);
+      expect(t.label).toBe('samo-dev');
+      // CONTROL: the laptop shape still says PRODUCTION for the production ref.
+      const p = resolveTarget({
+        env: { VITE_SUPABASE_URL: 'https://prodref.supabase.co', SUPABASE_DEV_URL: url },
+        fileEnv: { VITE_SUPABASE_URL: 'https://prodref.supabase.co', SUPABASE_DEV_URL: url },
+      });
+      expect(p.label).toBe('PRODUCTION');
+    });
+  });
+
   it('the runner refuses --dev when it does not resolve to samo-dev', () => {
     // A SUPABASE_DEV_URL pointing at production would otherwise run the whole
     // suite against live data under a label saying "samo-dev".

@@ -71,8 +71,13 @@ export function resolveTarget(loaded = loadEnv()) {
   const ref = refOf(env.VITE_SUPABASE_URL);
   const prodRef = refOf(fileEnv.VITE_SUPABASE_URL);
   const devRef = refOf(fileEnv.SUPABASE_DEV_URL || env.SUPABASE_DEV_URL);
-  const isProd = Boolean(ref) && ref === prodRef;
+  // The dev ref WINS. `prodRef` is only "whatever .env.local's default project
+  // is", and a dev-only checkout (the night agent's, 2026-10-13: samo-dev is its
+  // default and it holds no production credential) made both refs the same, so
+  // samo-dev was announced as PRODUCTION. A ref that IS the dev project is never
+  // production, whatever else the file says.
   const isDev = Boolean(ref) && ref === devRef;
+  const isProd = Boolean(ref) && ref === prodRef && !isDev;
   // ⚠️ SAY "I DO NOT KNOW" RATHER THAN "NOT PRODUCTION". Without `.env.local`
   // there is nothing to compare production against, so `isProd` is false for
   // the production project itself — and a line reading "not the default

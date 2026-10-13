@@ -25,9 +25,12 @@
 # work. Reading and writing it is denied outright in settings.local.json.
 #
 # ⛔ NOTHING REACHES PRODUCTION. The VM holds no GitHub credentials, so a push is
-# impossible even if something tried; deploy.sh, sudo, systemctl, apply-migration,
-# db-query and the GAS deploys are denied. Work lands as commits on a branch for
-# a human to read in the morning.
+# impossible even if something tried; deploy.sh, sudo, systemctl and the GAS
+# deploys are denied. Since 2026-10-13 the agent MAY run apply-migration,
+# db-query and the proofs — against samo-dev ONLY: ~/samo-agent/.env.local holds
+# samo-dev's URL, anon key and access token and nothing else, and that token
+# answers 403 on the production project (measured). Work lands as commits on a
+# branch for a human to read in the morning.
 # ============================================================
 set -uo pipefail
 

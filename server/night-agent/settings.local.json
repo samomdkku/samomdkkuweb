@@ -14,8 +14,6 @@
       "Bash(*deploy.sh*)",
       "Bash(*server/deploy*)",
       "Bash(npm run deploy:*)",
-      "Bash(*apply-migration*)",
-      "Bash(*db-query*)",
       "Bash(*deploy-gas*)",
       "Bash(*vp-accounts*)",
       "Bash(*discord-apply*)",
