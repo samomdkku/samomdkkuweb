@@ -1513,3 +1513,46 @@ on the pre-0202 bodies.
 
 **The general rule**: when a guard whitelists a column because a flow writes
 it, write down the VALUES that flow writes, and refuse the rest.
+
+---
+
+## A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC — `if not (NULL)` does not raise
+
+**Symptom (found 2026-10-13 by the DENY half of `tools/house0217-follow-up.sql`)**:
+a "stranger" — a JWT whose `sub` has no `public.users` row — was ALLOWED to
+record a follow-up on a held row and to reopen a closed one. Both functions had
+the gate every ระบบบ้าน RPC has used since 0188.
+
+**Cause**: `if not (current_user_role() = any (array['vp_admin','dev']) or
+current_user_has_permission('house')) then raise`. For that caller the role is
+NULL, `NULL = any(...)` is NULL, `NULL or false` is NULL, `not NULL` is NULL, and
+`if NULL` skips the raise. **0045 found exactly this in 2026 and fixed the two
+functions in front of it, one call site at a time**; twelve later functions were
+written in the old shape: promote/dismiss/list/record_unresolved_rows,
+ensure_sais, list/resolve_house_help_request, identity_check_summary,
+list_identity_check, lookup_student_by_kkumail, search_people,
+set_academic_year. Not reachable on the day (users.role is NOT NULL default
+'user', `on_auth_user_created` gives every auth user a row, 0 lacked one) —
+an account cleanup that deletes the `users` row and not the auth user would
+have opened all twelve.
+
+**It was also hiding a broken proof.** `house0200` chose its admin with
+`role = 'dev'`; production has had no `dev` account since samomdkkudev's role
+changed, so the "admin" ran with `sub` = null and its ALLOW half passed through
+this same NULL. It went red the moment 0218 landed — the correct outcome.
+
+**Fix**: 0218 fixes the PRODUCER, not the call sites: `current_user_role()`
+returns `''` when there is no row. Measured first that nothing negates the role
+or tests it for NULL outside these gates, and that the nine callers already
+wrapping it do so as `coalesce(<comparison>, false)`. `house0200` and
+`house0191` now choose their admin by the gate's own grant.
+
+**Where it lives now**: `supabase/migrations/0218_a_caller_with_no_role_is_nobody.sql`;
+`tools/authz0218-null-role.sql` finds EVERY function whose body has
+`if not (… current_user_role()` and calls it as a stranger (must be refused) and
+as a house admin (control: must pass the gate). It was red on all 14 before 0218.
+
+**The general rule**: when a NULL slips through a guard, fix the function that
+PRODUCES the NULL. Fixing the guard you are looking at is how 0045's fix came
+back twelve times. And a sweep beats a list: the proof finds the functions by
+their shape, so a thirteenth written in the old shape is caught too.

@@ -35,7 +35,7 @@ import {
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors, recordUnresolved,
-  fetchUnresolved, promoteUnresolved, dismissUnresolved,
+  fetchUnresolved, promoteUnresolved, dismissUnresolved, setFollowUp, reopenUnresolved,
   fetchHelpRequests, resolveHelpRequest,
   fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
   fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
@@ -49,7 +49,11 @@ import {
 } from './io.js';
 import { computeGaps, TONE } from './gaps.js';
 import { computeCensus } from './census.js';
-import { computeSaiGrid, listGridCohorts, CELL as SAI_CELL } from './sai-grid.js';
+import {
+  computeSaiGrid, listGridCohorts, gridMaxAcrossCohorts, matchCohortInput, CELL as SAI_CELL,
+} from './sai-grid.js';
+import { FOLLOW_UP, followUpLabel } from './follow-up.js';
+import { diagnoseHelpRequest } from './help-diagnosis.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
@@ -238,11 +242,18 @@ function renderHelp() {
           h.note ? `<br /><span class="small">“${escHtml(h.note)}”</span>` : ''}`
         : `${escHtml(h.typed_first_name || '')} · ${escHtml(h.typed_student_id || '')}${
           h.attempts > 1 ? ` <span class="text-muted small">(ลอง ${h.attempts} ครั้ง)</span>` : ''}`;
-      const cands = (h.candidates || []).length
+      // WHY nothing matched, and what closes it (help-diagnosis.js). Only an
+      // OPEN request gets one — a closed one's answer is history.
+      const diag = done ? null : diagnoseHelpRequest(h, { students, held });
+      const cands = ((h.candidates || []).length
         ? h.candidates.map((c) => `<div class="small">${escHtml(c.name || '')}
             · ${escHtml(c.student_id || '—')} · สาย ${escHtml(c.sai || '—')}
             <span class="text-muted">(${escHtml(c.matched)})</span></div>`).join('')
-        : '<span class="text-muted small">ไม่มีใครใกล้เคียงในรายการค้าง</span>';
+        : '<span class="text-muted small">ไม่มีใครใกล้เคียงในรายการค้าง</span>')
+        + (diag && diag.code !== 'near_miss'
+          ? `<div class="small mt-1 help-diag help-diag--${escHtml(diag.code)}">
+              <i class="bi bi-lightbulb" aria-hidden="true"></i> ${escHtml(diag.text)}</div>`
+          : '');
       return `<tr data-help-id="${escHtml(h.id)}"${done ? ' class="table-light text-muted"' : ''}>
         <td class="small">${escHtml(h.kkumail)}</td>
         <td class="small">${typed}</td>
@@ -251,7 +262,8 @@ function renderHelp() {
         <td class="text-end">${done ? '' : `
           <div class="input-group input-group-sm held-actions">
             <input type="text" class="form-control" data-help-note
-                   placeholder="บันทึกว่าทำอะไรไป" autocomplete="off" />
+                   placeholder="บันทึกว่าทำอะไรไป" autocomplete="off"
+                   value="${escHtml(diag?.close || '')}" />
             <button type="button" class="btn btn-outline-secondary" data-help-act="resolve">ปิด</button>
           </div>`}</td>
       </tr>${evidenceRow(h, done)}`;
@@ -430,14 +442,22 @@ function renderHeld() {
       const name = [h.first_name_th, h.last_name_th].filter(Boolean).join(' ')
         || '<span class="text-muted">(ไม่มีชื่อในไฟล์)</span>';
       const done = !!h.resolved_at;
+      const fu = FOLLOW_UP[h.follow_up];
+      // What the ฝ่าย said, on screen — not a tooltip (phones have none).
+      const said = `${fu ? `<br /><span class="badge bg-warning-subtle text-warning-emphasis border">
+          <i class="bi bi-${fu.icon}" aria-hidden="true"></i> ${escHtml(fu.label)}</span>` : ''}${
+        h.note ? `<br /><span class="small">“${escHtml(h.note)}”</span>` : ''}`;
       return `<tr data-held-id="${escHtml(h.id)}"${done ? ' class="table-light text-muted"' : ''}>
-        <td>${name}${h.nickname ? ` <span class="text-muted small">(${escHtml(h.nickname)})</span>` : ''}</td>
+        <td>${name}${h.nickname ? ` <span class="text-muted small">(${escHtml(h.nickname)})</span>` : ''}${said}</td>
         <td>${h.student_id ? escHtml(h.student_id) : '<span class="text-danger small">ไม่มี</span>'}</td>
         <td>${h.sai ? `${escHtml(h.sai)} · บ้าน ${h.house ?? '—'}` : '—'}</td>
         <td>${h.cohort_year ? escHtml(cohortLabel({ cohort_year: h.cohort_year })) : '—'}</td>
         <td class="small">${escHtml(HELD_REASON[h.reason] || h.reason)}</td>
-        <td class="small">${done ? escHtml(HELD_DONE[h.resolved_how] || 'จัดการแล้ว') : `${h.held_days} วัน`}</td>
-        <td class="text-end">${done ? '' : `
+        <td class="small">${done ? escHtml((fu && fu.closes ? fu.label : HELD_DONE[h.resolved_how]) || 'จัดการแล้ว') : `${h.held_days} วัน`}</td>
+        <td class="text-end">${done ? (h.resolved_how === 'dismissed'
+    ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-held-act="reopen">
+         <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> เปิดใหม่</button>`
+    : '') : `
           <div class="held-actions">
             <div class="input-group input-group-sm">
               <input type="email" class="form-control" data-held-mail
@@ -445,9 +465,16 @@ function renderHeld() {
               <button type="button" class="btn btn-outline-primary" data-held-act="promote">เพิ่ม</button>
             </div>
             <div class="input-group input-group-sm">
+              <select class="form-select" data-held-follow aria-label="สิ่งที่ฝ่ายข้อมูลแจ้ง">
+                <option value="">สิ่งที่ฝ่ายแจ้ง…</option>
+                ${Object.entries(FOLLOW_UP).map(([k, v]) => `<option value="${k}"${h.follow_up === k ? ' selected' : ''}>${
+    escHtml(v.label)}${v.closes ? ' — ปิดรายการ' : ''}</option>`).join('')}
+                ${h.follow_up ? '<option value="clear">ล้างสถานะ (ติดต่อได้แล้ว)</option>' : ''}
+                <option value="other">ปิดด้วยเหตุผลอื่น…</option>
+              </select>
               <input type="text" class="form-control" data-held-note
-                     placeholder="เหตุผลที่ปิด เช่น ลาออก" autocomplete="off" />
-              <button type="button" class="btn btn-outline-secondary" data-held-act="dismiss">ปิด</button>
+                     placeholder="บันทึกเพิ่ม (ไม่บังคับ)" autocomplete="off" />
+              <button type="button" class="btn btn-outline-secondary" data-held-act="follow">บันทึก</button>
             </div>
           </div>`}</td>
       </tr>`;
@@ -699,6 +726,12 @@ const SAI_CELL_STYLE = {
     cls: GAP_TONE[TONE.setup].cls, icon: 'dash-circle',
     label: 'ไม่มีใครอยู่สายนี้',
   },
+  // Says only what was CHECKED: a closed row carries the ฝ่าย's answer, and the
+  // cell prints that answer (ลาออก / ไม่มีคนนี้จริง) — not a cause it inferred.
+  [SAI_CELL.answered]: {
+    cls: 'dark', icon: 'check2-square',
+    label: 'ว่าง — ฝ่ายแจ้งเหตุผลแล้ว',
+  },
   [SAI_CELL.ok]: { cls: 'success', icon: 'check2', label: 'ปกติ' },
 };
 
@@ -706,7 +739,9 @@ const SAI_CELL_STYLE = {
 // which is worst-first for picking a cell's own colour — the legend is read
 // top to bottom, so it runs the other way). GENERATED from SAI_CELL_STYLE, not
 // a second hand-typed list — see the HTML comment at #houseSaiGridLegend.
-const SAI_LEGEND_ORDER = [SAI_CELL.ok, SAI_CELL.empty, SAI_CELL.incomplete, SAI_CELL.heldSelf, SAI_CELL.heldAdmin];
+const SAI_LEGEND_ORDER = [
+  SAI_CELL.ok, SAI_CELL.answered, SAI_CELL.empty, SAI_CELL.incomplete, SAI_CELL.heldSelf, SAI_CELL.heldAdmin,
+];
 
 function renderSaiGridLegend() {
   const host = $('houseSaiGridLegend');
@@ -732,13 +767,25 @@ function renderSaiGridPane() {
 
   const cohorts = listGridCohorts(gapData());
   fillDatalist('houseSaiGridYearList', cohorts);
-  const picker = $('houseSaiGridYear');
   // Default to the NEWEST รุ่น (cohorts sort ascending, e.g. MD49 < MD50) —
   // that is almost always the one a year admin conversation is about tonight.
-  // Only on FIRST paint: once the admin has typed something, a mismatch means
-  // they are mid-typing a prefix, not that their choice should be overridden.
-  if (!saiGridCohort && cohorts.length) saiGridCohort = cohorts[cohorts.length - 1];
-  if (picker && picker.value !== saiGridCohort) picker.value = saiGridCohort;
+  if (!saiGridCohort || !cohorts.includes(saiGridCohort)) {
+    saiGridCohort = cohorts.length ? cohorts[cohorts.length - 1] : '';
+  }
+  // PICK OR TYPE (owner, 2026-10-13: "i should be able to select like md50
+  // md51 … or can type, can have both"). A datalist alone shows nothing until
+  // you type, and nothing at all on some phones — so every รุ่น is also a
+  // button. The box is not overwritten while it has focus: a half-typed "5" is
+  // somebody mid-word, not a choice to undo.
+  const picker = $('houseSaiGridYear');
+  if (picker && document.activeElement !== picker) picker.value = saiGridCohort;
+  const chips = $('houseSaiGridChips');
+  if (chips) {
+    const html = cohorts.map((c) => `<button type="button"
+        class="btn btn-sm ${c === saiGridCohort ? 'btn-success' : 'btn-outline-secondary'}"
+        data-sai-grid-cohort="${escHtml(c)}" aria-pressed="${c === saiGridCohort}">${escHtml(c)}</button>`).join('');
+    if (chips.innerHTML !== html) chips.innerHTML = html;
+  }
 
   const host = $('houseSaiGridCells');
   const empty = $('houseSaiGridEmpty');
@@ -755,7 +802,10 @@ function renderSaiGridPane() {
     return;
   }
 
-  const grid = computeSaiGrid(gapData(), saiGridCohort);
+  // ONE BOARD FOR EVERY รุ่น (owner, 2026-10-13: "if md50 max at 200, md49 max
+  // at 300, it should show 300 for all"), so a รุ่น whose numbering stops early
+  // shows the สาย it has nobody on instead of the board just ending.
+  const grid = computeSaiGrid(gapData(), saiGridCohort, { max: gridMaxAcrossCohorts(gapData()) });
   if (!grid.cells.length) {
     host.innerHTML = '';
     if (countEl) countEl.textContent = '';
@@ -771,8 +821,16 @@ function renderSaiGridPane() {
     const style = SAI_CELL_STYLE[c.state];
     const names = c.occupants.map((o) => o.name).filter(Boolean);
     const missing = [...new Set(c.occupants.flatMap((o) => o.missing || []))];
-    const title = [style.label, names.join(', '), missing.length ? `ขาด: ${missing.join(', ')}` : '']
-      .filter(Boolean).join(' — ');
+    // What a person SAID — the ฝ่าย's answer and any note — printed on the
+    // cell, never hover-only (a tooltip does not exist on a phone).
+    const said = [
+      ...c.occupants.flatMap((o) => [o.followUp, ...(o.notes || [])]),
+      ...(c.answered || []).flatMap((a) => [
+        a.name ? `${a.name}: ${a.label}` : a.label, ...(a.notes || [])]),
+    ].filter(Boolean);
+    const saidUniq = [...new Set(said)];
+    const title = [style.label, names.join(', '), missing.length ? `ขาด: ${missing.join(', ')}` : '',
+      ...saidUniq].filter(Boolean).join(' — ');
     return `
       <div class="sai-cell border rounded-2 p-2 bg-${style.cls}-subtle border-${style.cls}-subtle
                   text-${style.cls}-emphasis${c.duplicate ? ' sai-cell--duplicate' : ''}"
@@ -784,6 +842,7 @@ function renderSaiGridPane() {
         <div class="sai-cell-name small">${names.length ? escHtml(names.join(', ')) : '—'}</div>
         <div class="sai-cell-state small">${escHtml(style.label)}</div>
         ${missing.length ? `<div class="sai-cell-missing small">ขาด: ${escHtml(missing.join(', '))}</div>` : ''}
+        ${saidUniq.map((t) => `<div class="sai-cell-note small"><i class="bi bi-chat-left-text" aria-hidden="true"></i> ${escHtml(t)}</div>`).join('')}
         ${c.duplicate
     ? `<div class="small fw-medium"><i class="bi bi-people-fill" aria-hidden="true"></i> ${c.occupants.length} คน</div>`
     : ''}
@@ -791,8 +850,10 @@ function renderSaiGridPane() {
   }).join('');
 
   if (countEl) {
+    const filled = grid.cells.filter((c) => c.occupants.length).length;
     countEl.textContent = `รุ่น ${saiGridCohort} · สาย 001–${grid.cells[grid.cells.length - 1].sai} `
-      + `· ${grid.cells.length.toLocaleString('th-TH')} สาย`;
+      + `(ทุกรุ่นใช้ช่วงเดียวกัน) · มีคน ${filled.toLocaleString('th-TH')} สาย`
+      + ` · สายสุดท้ายของรุ่นนี้ ${String(grid.ownMax).padStart(3, '0')}`;
   }
 }
 
@@ -2674,6 +2735,33 @@ async function onHeldAction(id, act, tr) {
       if (!ok) return;
       await promoteUnresolved(id, mail);
       setStatus(`เพิ่ม ${who} แล้ว`);
+    } else if (act === 'follow') {
+      const pick = tr.querySelector('[data-held-follow]')?.value || '';
+      const note = (tr.querySelector('[data-held-note]')?.value || '').trim();
+      if (!pick) { setStatus('เลือกก่อนว่าฝ่ายแจ้งว่าอะไร', true); return; }
+      if (pick === 'other') { await onHeldAction(id, 'dismiss', tr); return; }
+      const status = pick === 'clear' ? null : pick;
+      const fu = FOLLOW_UP[status];
+      if (fu?.closes) {
+        const ok = await askConfirm({
+          title: `${fu.label} — ปิดรายการของ ${who}?`,
+          body: 'จะไม่สร้างข้อมูลนักศึกษาให้ และเจ้าตัวจะยืนยันตัวตนเองไม่ได้อีก '
+            + 'ไฟล์รอบหน้าจะไม่ถามคนนี้ซ้ำ ถ้าผิด กด “เปิดใหม่” ได้ทุกเมื่อ',
+          yes: 'ปิดรายการ',
+        });
+        if (!ok) return;
+      }
+      await setFollowUp(id, status, note);
+      setStatus(status ? `บันทึกแล้ว: ${who} — ${fu.label}` : `ล้างสถานะของ ${who} แล้ว`);
+    } else if (act === 'reopen') {
+      const ok = await askConfirm({
+        title: `เปิดรายการของ ${who} ใหม่?`,
+        body: 'รายการจะกลับไปอยู่ในรายการค้าง และเจ้าตัวยืนยันตัวตนเองได้อีกครั้ง (ถ้ามีรหัสนักศึกษา)',
+        yes: 'เปิดใหม่',
+      });
+      if (!ok) return;
+      await reopenUnresolved(id, null);
+      setStatus(`เปิดรายการของ ${who} ใหม่แล้ว`);
     } else if (act === 'dismiss') {
       const note = (tr.querySelector('[data-held-note]')?.value || '').trim();
       // Said HERE as well as in the RPC, because the RPC's raise arrives as a
@@ -2768,7 +2856,17 @@ function wire() {
     });
   });
   $('houseSaiGridYear')?.addEventListener('input', () => {
-    saiGridCohort = ($('houseSaiGridYear')?.value || '').trim();
+    // Switch only on a รุ่น that EXISTS (`md50`, `50`, `2565` all mean MD50);
+    // anything else is somebody mid-typing, and the board stays where it was.
+    const hit = matchCohortInput($('houseSaiGridYear')?.value, listGridCohorts(gapData()));
+    if (hit && hit !== saiGridCohort) { saiGridCohort = hit; renderSaiGridPane(); }
+  });
+  $('houseSaiGridYear')?.addEventListener('blur', () => renderSaiGridPane());
+  // Delegated on the container, which survives every paint — one listener.
+  $('houseSaiGridChips')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sai-grid-cohort]');
+    if (!b) return;
+    saiGridCohort = b.dataset.saiGridCohort;
     renderSaiGridPane();
   });
 

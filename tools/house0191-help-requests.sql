@@ -161,6 +161,18 @@ insert into probe select '32. …and holds the LATEST thing they typed', '689999
   (select typed_student_id from public.house_help_requests h join actor a on a.n = 1
     where h.kkumail = a.email);
 
+-- The list is ADMIN-only, so read it AS one. §G used to run under whichever
+-- student's claims §B–§D left behind and errored with "ไม่มีสิทธิ์ดูรายการนี้"
+-- (HANDOFF §16b, red since 2026-10-12). Chosen by the gate's own grant.
+create temporary table lister on commit drop as
+select u.id, lower(btrim(u.email)) as email from public.users u
+ where u.role in ('vp_admin','dev')
+    or 'house' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+    or 'master' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+ order by u.id limit 1;
+select set_config('request.jwt.claims',
+  (select json_build_object('sub', id, 'role', 'authenticated', 'email', email)::text from lister), true);
+
 -- ── §G the list gives the admin a candidate, not just a complaint ───────────
 -- Actor 1 typed ชื่อ "สมชาย" and a รหัส that matches nothing. The held seat
 -- above agrees on the ชื่อ, which is precisely the near miss a human can settle

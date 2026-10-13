@@ -22,6 +22,7 @@
 // most, and the two would disagree the first time either was edited.
 // ==============================================
 import { cohortLabel, houseOf } from './fields.js';
+import { isAnsweredEmpty, followUpLabel } from './follow-up.js';
 
 /** What an admin can do about a group — this is what the pane sorts and colours on. */
 export const TONE = {
@@ -109,9 +110,12 @@ export function groupBySaiNumber(rows = []) {
  * @param {object[]} held the open held rows again, for the across-รุ่น
  *   arithmetic below, which needs to know how many holes an unplaced held row
  *   could account for.
- * @returns {{saiShared: object[], saiGaps: object[], acrossCohorts: object[], unplaced: number}}
+ * @param {object[]} [answered] CLOSED held rows whose answer explains an empty
+ *   สาย (ลาออก / ไม่มีคนนี้จริง, 0217 — `isAnsweredEmpty`). Their สาย are not
+ *   holes: somebody already asked, and the ฝ่าย answered.
+ * @returns {{saiShared: object[], saiGaps: object[], acrossCohorts: object[], unplaced: number, answeredGaps: number}}
  */
-export function auditSai(occupants = [], held = []) {
+export function auditSai(occupants = [], held = [], answered = []) {
   // ── the สายรหัส audit, per รุ่น ───────────────────────────────────────────
   //
   // THE ONE CHECK THAT CANNOT BE SEEN ONE ROW AT A TIME, and the reason this
@@ -132,6 +136,8 @@ export function auditSai(occupants = [], held = []) {
   // than guessed at, because a guess here invents a gap or hides one.
   const unplaced = held.filter((h) => !cohortLabel(h) && saiOf(h)).length;
   const byCohort = groupOccupantsByCohort(occupants);
+  const answeredByCohort = groupOccupantsByCohort(answered);
+  let answeredGaps = 0;
   const saiShared = [];
   const saiGaps = [];
   const missingAcross = new Map();
@@ -148,8 +154,13 @@ export function auditSai(occupants = [], held = []) {
       }
     }
     const max = Math.max(...seen.keys());
+    const explained = groupBySaiNumber(answeredByCohort.get(cohort) || []);
     const missing = [];
-    for (let n = 1; n <= max; n += 1) if (!seen.has(n)) missing.push(String(n).padStart(3, '0'));
+    for (let n = 1; n <= max; n += 1) {
+      if (seen.has(n)) continue;
+      if (explained.has(n)) { answeredGaps += 1; continue; }
+      missing.push(String(n).padStart(3, '0'));
+    }
     if (missing.length) saiGaps.push({ cohort, missing, max, size: rows.length, unplaced });
     missing.forEach((m) => {
       if (!missingAcross.has(m)) missingAcross.set(m, []);
@@ -186,7 +197,7 @@ export function auditSai(occupants = [], held = []) {
     .filter((r) => r.cohorts.length > 1 && r.unexplained > 0)
     .sort((a, b) => b.unexplained - a.unexplained);
 
-  return { saiShared, saiGaps, acrossCohorts, unplaced };
+  return { saiShared, saiGaps, acrossCohorts, unplaced, answeredGaps };
 }
 
 /**
@@ -232,7 +243,8 @@ export function computeGaps(d = {}) {
   const gone = students.filter((s) => s.missing_since);
 
   const occupants = [...students, ...held];
-  const { saiShared, saiGaps, acrossCohorts, unplaced } = auditSai(occupants, held);
+  const { saiShared, saiGaps, acrossCohorts, unplaced } = auditSai(occupants, held,
+    (d.held || []).filter(isAnsweredEmpty));
 
   // A สาย nobody is on AND no held row names. Held rows count: their สาย was
   // seeded for them and deleting it would break the next import with a 23503.
@@ -272,7 +284,8 @@ export function computeGaps(d = {}) {
       rows: heldAdmin.map((h) => ({
         name: name(h) || '(ไม่มีชื่อในไฟล์)',
         detail: `สาย ${h.sai || '—'}`,
-        hint: h.file_note || (h.reason === 'empty_row' ? 'แถวว่าง มีแต่สายรหัส' : ''),
+        hint: [followUpLabel(h.follow_up), h.note, h.file_note].filter(Boolean).join(' · ')
+          || (h.reason === 'empty_row' ? 'แถวว่าง มีแต่สายรหัส' : ''),
       })),
     },
     {

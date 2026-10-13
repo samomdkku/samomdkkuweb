@@ -1517,3 +1517,40 @@ the dashboard's own `method_drift` check, which reads 0 while this stays fixed.
 WHICH metadata column each sign-up path fills. `raw_user_meta_data` is what the
 CLIENT sent; `raw_app_meta_data` is what AUTH decided. Then make the reader prefer
 the authority over the copy.
+
+---
+
+## house0188 case 53 red for three weeks — 0193 rebuilt `record_unresolved_rows` from 0188 and silently reverted 0190
+
+**Symptom**: `house0188` case 53 ("…and so is one whose claimer kept their
+registry รหัส") red on production from 2026-09-21, filed in HANDOFF §16b as
+"scenario vs live data; read the case first".
+
+**Cause**: 0193 needed two new columns in `record_unresolved_rows` and rebuilt
+the function from **0188's** body. 0190 had already changed that body: it added
+"has this seat already been ANSWERED" (any resolved held row with the same
+รหัส), plus the batch checks. 0193's copy dropped both. So a claimer whose
+registry รหัส differs from the held row's came back as held on the next import —
+exactly what 0190 had fixed, and exactly what case 53 asserts.
+
+**Found 2026-10-13** while reading the LIVE body before adding 0217's
+follow-up columns. The same read showed a second defect: the function starts
+with `delete … where resolved_at is null` and re-inserts from the file, so any
+`note` on an OPEN held row (an admin's, or "ติดต่อไม่ได้" from the ฝ่าย) was
+erased by every roster import, and a closed row with NO รหัส (an empty สาย the
+ฝ่าย said has nobody on it) came back on every import because 0190 could only
+match by รหัส.
+
+**Fix**: 0217 restores 0190's test, extends it to no-รหัส seats by รุ่น + สาย +
+name (`held_seat_key`), and carries `note`/`follow_up` across the
+delete-and-reinsert. `house0188` 33/33 on production; `house0217` §C/§D prove the
+carry and both "already answered" paths, each with a never-answered CONTROL.
+
+**Where it lives now**: `supabase/migrations/0217_what_the_data_team_found_out.sql`,
+`tools/house0217-follow-up.sql`.
+
+**The general rule**: `skills/ship-a-migration.md` step 1 — read the LIVE body
+with `pg_get_functiondef`, never the migration that first defined it — is the
+whole fix for this class, and it was skipped once. A proof that goes red right
+after a migration that rewrote the function it covers is that migration's bug
+until shown otherwise; filing it as "data drift" kept it red for three weeks.

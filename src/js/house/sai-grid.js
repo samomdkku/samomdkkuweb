@@ -71,6 +71,7 @@
 import { FIELDS, has } from './census.js';
 import { groupOccupantsByCohort, splitHeld, groupBySaiNumber } from './gaps.js';
 import { houseOf } from './fields.js';
+import { isAnsweredEmpty, followUpLabel } from './follow-up.js';
 
 export const CELL = {
   empty: 'empty',
@@ -78,6 +79,9 @@ export const CELL = {
   incomplete: 'incomplete',
   heldSelf: 'held_self',
   heldAdmin: 'held_admin',
+  // Nobody is on this สาย AND a closed held row says why (ลาออก / ไม่มีคนนี้
+  // จริง, 0217). Not a hole: it is the one empty cell somebody has ANSWERED.
+  answered: 'answered',
 };
 
 // Worst-first. A สาย with more than one occupant takes the worst state any of
@@ -97,7 +101,11 @@ function occupantsByCohortAndSai(d) {
   const heldAdminSet = new Set(splitHeld(held).heldAdmin);
   const occupants = [...(d.students || []), ...held];
   const byCohort = groupOccupantsByCohort(occupants);
-  return { byCohort, heldSet, heldAdminSet };
+  // Closed rows whose answer explains an empty สาย — kept APART from the
+  // occupants, so a ลาออก person never makes a สาย look shared with whoever
+  // sits there now.
+  const answeredByCohort = groupOccupantsByCohort((d.held || []).filter(isAnsweredEmpty));
+  return { byCohort, heldSet, heldAdminSet, answeredByCohort };
 }
 
 /** Every รุ่น label that has at least one occupant with a สาย — the picker's
@@ -109,29 +117,72 @@ export function listGridCohorts(d = {}) {
 }
 
 /**
+ * The highest สาย ANY รุ่น reaches. Owner, 2026-10-13: "if md50 max at 200,
+ * md49 max at 300, it should show 300 for all" — every รุ่น is drawn on the
+ * same 001..N board, so a รุ่น whose numbering stops early SHOWS the สาย it has
+ * nobody on, instead of the board silently ending where its last person is.
+ */
+export function gridMaxAcrossCohorts(d = {}) {
+  const { byCohort, answeredByCohort } = occupantsByCohortAndSai(d);
+  let max = 0;
+  for (const rows of [...byCohort.values(), ...answeredByCohort.values()]) {
+    for (const n of groupBySaiNumber(rows).keys()) if (n > max) max = n;
+  }
+  return max;
+}
+
+/**
+ * What a person TYPED into the รุ่น box → a label from `cohorts`, or null.
+ * Accepts `MD50`, `md50`, `md 50`, `50` and the พ.ศ. it entered, `2565`.
+ * Only ever answers with a label that exists, so a half-typed `5` is null
+ * (the grid keeps what it was showing) rather than a guess.
+ */
+export function matchCohortInput(text, cohorts = []) {
+  const t = String(text ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!t) return null;
+  if (cohorts.includes(t)) return t;
+  const n = t.replace(/^MD/, '');
+  if (!/^\d+$/.test(n)) return null;
+  const md = n.length === 4 ? `MD${Number(n) - 2515}` : `MD${n}`;
+  return cohorts.includes(md) ? md : null;
+}
+
+/**
  * @param {object} d        the same {students, held} shape gaps.js/census.js take
  * @param {string} cohort   a รุ่น label from listGridCohorts(), e.g. "MD50"
- * @returns {{cohort:string, max:number, cells:object[]}} cells run 001..max,
- *   `cells` is empty when the รุ่น has no occupant at all (nothing to grid).
+ * @param {{max?:number}} [opts]  draw at least to this สาย (gridMaxAcrossCohorts)
+ * @returns {{cohort:string, max:number, ownMax:number, cells:object[]}} cells
+ *   run 001..max, `cells` is empty when the รุ่น has no occupant at all (nothing
+ *   to grid). `ownMax` is this รุ่น's own last occupied สาย.
  */
-export function computeSaiGrid(d = {}, cohort) {
-  const { byCohort, heldSet, heldAdminSet } = occupantsByCohortAndSai(d);
+export function computeSaiGrid(d = {}, cohort, { max: atLeast = 0 } = {}) {
+  const { byCohort, heldSet, heldAdminSet, answeredByCohort } = occupantsByCohortAndSai(d);
   const rows = byCohort.get(cohort) || [];
-  if (!rows.length) return { cohort, max: 0, cells: [] };
+  const answeredBySai = groupBySaiNumber(answeredByCohort.get(cohort) || []);
+  const answeredOn = (n) => (answeredBySai.get(n) || []).map((r) => ({
+    name: personName(r), label: followUpLabel(r.follow_up),
+    notes: [...new Set([r.note, r.file_note].map((v) => String(v ?? '').trim()).filter(Boolean))],
+  }));
+  if (!rows.length) return { cohort, max: 0, ownMax: 0, cells: [] };
 
   // IMPORTED, not re-derived — see the file header: the same grouping
   // gaps.js's own sai_gap/sai_shared audit uses, so "nobody here" and
   // "more than one here" can never silently disagree with that panel.
   const bySai = groupBySaiNumber(rows);
-  if (!bySai.size) return { cohort, max: 0, cells: [] };
-  const max = Math.max(...bySai.keys());
+  if (!bySai.size) return { cohort, max: 0, ownMax: 0, cells: [] };
+  const ownMax = Math.max(...bySai.keys());
+  const max = Math.max(ownMax, atLeast);
 
   const cells = [];
   for (let n = 1; n <= max; n += 1) {
     const sai = String(n).padStart(3, '0');
     const occs = bySai.get(n) || [];
     if (!occs.length) {
-      cells.push({ sai, house: houseOf(sai), state: CELL.empty, duplicate: false, occupants: [] });
+      const answered = answeredOn(n);
+      cells.push({
+        sai, house: houseOf(sai), state: answered.length ? CELL.answered : CELL.empty,
+        duplicate: false, occupants: [], answered,
+      });
       continue;
     }
     const occupants = occs.map((r) => {
@@ -140,10 +191,20 @@ export function computeSaiGrid(d = {}, cohort) {
       let state;
       if (isHeld) state = heldAdminSet.has(r) ? CELL.heldAdmin : CELL.heldSelf;
       else state = missing.length ? CELL.incomplete : CELL.ok;
-      return { name: personName(r) || r.kkumail || '(ไม่มีชื่อ)', isHeld, missing, state };
+      // What a person SAID about this row — the admin/ฝ่าย remark (`note`,
+      // e.g. "ติดต่อไม่ได้") and what the source file carried (`file_note`).
+      // Only held rows have them today; read generically so a student-side
+      // note shows the day one exists.
+      const notes = [...new Set([r.note, r.file_note].map((v) => String(v ?? '').trim()).filter(Boolean))];
+      return {
+        name: personName(r) || r.kkumail || '(ไม่มีชื่อ)', isHeld, missing, state, notes,
+        followUp: isHeld ? followUpLabel(r.follow_up) : '',
+      };
     });
     const worst = SEVERITY.find((s) => occupants.some((o) => o.state === s)) || CELL.ok;
-    cells.push({ sai, house: houseOf(sai), state: worst, duplicate: occs.length > 1, occupants });
+    cells.push({
+      sai, house: houseOf(sai), state: worst, duplicate: occs.length > 1, occupants, answered: answeredOn(n),
+    });
   }
-  return { cohort, max, cells };
+  return { cohort, max, ownMax, cells };
 }

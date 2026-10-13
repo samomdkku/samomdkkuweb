@@ -1156,6 +1156,18 @@ Helper SQL functions: `current_user_role()`, `current_user_is_staff()`
 (both `security definer set search_path = public`); plus
 `current_user_is_shop_admin()` added in 0003.
 
+⚠️ **`current_user_role()` returns `''`, never NULL, since 0218** — a caller
+with no `users` row is nobody. Gates of the shape `if not (current_user_role() =
+any(...) or …) then raise` failed OPEN on NULL; `tools/authz0218-null-role.sql`
+sweeps every function of that shape as a stranger.
+
+**ระบบบ้าน held rows (`student_import_unresolved`) carry `follow_up` since 0217**
+— what ฝ่ายข้อมูล found out: `unreachable`/`maybe_left` keep the seat open,
+`left`/`no_person` close it (`set_unresolved_follow_up`, undone by
+`reopen_unresolved_row`). `record_unresolved_rows` carries `note`/`follow_up`
+across a re-import and never re-holds an answered seat, by รหัส or, without
+one, by รุ่น + สาย + ชื่อ (`held_seat_key`). JS labels: `src/js/house/follow-up.js`.
+
 ## ระบบบ้าน (House) + student directory — migrations 0116–0118
 
 Full design: `docs/HOUSE-SYSTEM.md`. Handover spec for the data:

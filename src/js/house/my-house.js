@@ -40,6 +40,7 @@
 import { escHtml } from '../utils.js';
 import { convertDriveUrl } from '../uploads.js';
 import { registerProfileCache, clearProfileCaches } from '../profile-cache.js';
+import { claimPrecheck } from './help-diagnosis.js';
 import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
   claimMySeat, reportNotMyRecord, fetchMyHelpStatus,
@@ -700,9 +701,15 @@ function wireClaim(host, opts = {}) {
     // malformed รหัส is the same neutral "ไม่พบรายชื่อ" as a genuine miss — it
     // has to be, or the form becomes a way to test one guess at a time. That
     // silence is right for the server and useless to someone who simply mistyped.
+    // 2026-10-13: and two more things the NUMBER alone can tell them, so they
+    // are told now instead of waiting on an admin who can do nothing — a
+    // check digit that does not match (a typo), and a รุ่น ระบบบ้าน does not
+    // cover. Neither depends on what the database holds, so neither leaks
+    // whether a รหัส or a person exists (help-diagnosis.js).
     const norm = normalizeStudentId(sid);
-    if (!norm.ok) {
-      if (status) status.textContent = 'รหัสนักศึกษาต้องเป็นตัวเลข 10 หลัก เช่น 659999999-9';
+    const pre = claimPrecheck(sid);
+    if (pre) {
+      if (status) status.textContent = pre;
       return;
     }
     if (btn) { btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ…'; }

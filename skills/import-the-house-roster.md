@@ -222,7 +222,10 @@ They answer in a workbook — one tab per รุ่น, usually our own
    file name is how a line with no รหัส gets placed. Read the cell COMMENTS too;
    ฝ่าย people answer in them.
 2. Dry run (it runs the real transaction and rolls back):
-   `node tools/house-kkumail-import.mjs <dir>/MD*.csv --dismiss-empty`
+   `node tools/house-kkumail-import.mjs <dir>/MD*.csv`
+   A line with no address but a remark — ติดต่อไม่ได้, คาดว่าลาออกแล้ว, ลาออก,
+   เลขนี้ไม่มีตัวตน — becomes that answer (0217): the first two keep the seat
+   open, the last two close it. Any other remark is kept as a note.
 3. Read every ✗ — each is a row the tool will not guess about (duplicate
    address or รหัส, wrong check digit, an address that cannot be this person's
    initials, a wrong domain nobody has signed in with). They go back to the ฝ่าย.

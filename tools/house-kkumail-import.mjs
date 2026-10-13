@@ -51,7 +51,11 @@
 //
 //   node tools/house-kkumail-import.mjs <MD5x.csv> [more.csv …]          # dry run
 //   node tools/house-kkumail-import.mjs <MD5x.csv> [more.csv …] --apply  # write
-//   … --dismiss-empty   also close `empty_row` held lines the file explains
+//
+// A line with no address but a REMARK ("ติดต่อไม่ได้", "คาดว่าลาออกแล้ว", "ลาออก",
+// "เลขนี้ไม่มีตัวตน") is recorded through `set_unresolved_follow_up` (0217):
+// the first two keep the seat open, the last two close it. Any other remark is
+// kept as a plain note. The mapping is `followUpFromText` — one home.
 //
 // The dry run is not a simulation: it runs the whole transaction against the
 // live database and ROLLS BACK, printing what committing would leave.
@@ -61,13 +65,13 @@ import { basename } from 'node:path';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 import { normalizeStudentId, studentIdChecksumOk } from '../src/js/team/fields.js';
 import { cohortFromStudentId, COHORT_EPOCH } from '../src/js/study-year.js';
+import { FOLLOW_UP, followUpFromText } from '../src/js/house/follow-up.js';
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
-const DISMISS_EMPTY = args.includes('--dismiss-empty');
 const FILES = args.filter((a) => !a.startsWith('--'));
 if (!FILES.length) {
-  console.error('usage: node tools/house-kkumail-import.mjs <returned.csv> [more.csv …] [--apply] [--dismiss-empty]');
+  console.error('usage: node tools/house-kkumail-import.mjs <returned.csv> [more.csv …] [--apply]');
   process.exit(1);
 }
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -247,7 +251,7 @@ const list = (xs) => (xs.length ? xs.map(q).join(',') : 'null');
 
 const held = await ask(`
   select id::text, student_id, first_name_th, last_name_th, sai_code, cohort_year,
-         nickname_imported, reason, note
+         nickname_imported, reason, note, follow_up
     from public.student_import_unresolved
    where resolved_at is null`);
 
@@ -333,15 +337,14 @@ for (const e of live) {
   plan.push({ e, h, sid, linkPerson });
 }
 
-// Lines that did not answer, but SAID something — a held row is the only record
-// the person was ever sent to us, so the ฝ่าย's word goes on it, never over one.
-const notes = entries.filter((e) => e.held && !e.mail && e.note && !e.held.note
-  && !(DISMISS_EMPTY && e.held.reason === 'empty_row'));   // the dismissal carries it
-const dismiss = DISMISS_EMPTY
-  ? held.filter((h) => h.reason === 'empty_row').map((h) => ({
-    h, e: entries.find((e) => !e.name && e.cohort === h.cohort_year && e.sai === h.sai_code && e.note),
-  })).filter((d) => d.e)
-  : [];
+// Lines that did not answer, but SAID something. A remark that names one of the
+// four answers becomes that answer (0217); any other remark is kept as a note —
+// a held row is the only record the person was ever sent to us, so the ฝ่าย's
+// word goes on it, never over one.
+const said = entries.filter((e) => e.held && !e.mail && e.note);
+const follow = said.map((e) => ({ e, status: followUpFromText(e.note) }))
+  .filter((f) => f.status && f.e.held.follow_up !== f.status);
+const notes = said.filter((e) => !followUpFromText(e.note) && !e.held.note);
 
 // ---- report ---------------------------------------------------------------
 const md = (y) => (y ? `MD${y - COHORT_EPOCH}` : '—');
@@ -359,14 +362,19 @@ for (const { e, h, sid, linkPerson } of plan) {
 for (const { e, why } of refused) {
   console.log(`  ✗ ${where(e).padEnd(12)} ${(e.ours || e.name).padEnd(28)} ${e.mail || ''} — ${why} — ไม่เขียน`);
 }
+for (const { e, status } of follow) {
+  console.log(`  ${FOLLOW_UP[status].closes ? '⊘' : '✎'} ${md(e.held.cohort_year)} สาย ${e.held.sai_code} `
+    + `${e.ours || '(แถวว่าง)'} — ${FOLLOW_UP[status].label}${FOLLOW_UP[status].closes ? ' — ปิดรายการ' : ''}`);
+}
 for (const e of notes) console.log(`  ✎ ${md(e.held.cohort_year)} สาย ${e.held.sai_code} ${e.ours} — หมายเหตุ: ${e.note}`);
-for (const { h, e } of dismiss) console.log(`  ⊘ ${md(h.cohort_year)} สาย ${h.sai_code} แถวว่าง — ปิด: ${e.note}`);
 const unanswered = entries.filter((e) => e.held && !e.mail && !e.note);
 const perFile = [...new Set(unanswered.map((e) => e.file))]
   .map((f) => `${f} ${unanswered.filter((e) => e.file === f).length}`).join(', ');
-console.log(`\n  นำเข้า ${plan.length} · ปฏิเสธ ${refused.length} · หมายเหตุ ${notes.length}`
-  + ` · ปิด ${dismiss.length} · ยังไม่ได้คำตอบ ${unanswered.length}${perFile ? ` (${perFile})` : ''}`);
-if (!plan.length && !notes.length && !dismiss.length) { console.log('\n  ไม่มีอะไรให้ทำ\n'); process.exit(0); }
+const closing = follow.filter((f) => FOLLOW_UP[f.status].closes).length;
+console.log(`\n  นำเข้า ${plan.length} · ปฏิเสธ ${refused.length} · สถานะ ${follow.length - closing}`
+  + ` · ปิด ${closing} · หมายเหตุ ${notes.length}`
+  + ` · ยังไม่ได้คำตอบ ${unanswered.length}${perFile ? ` (${perFile})` : ''}`);
+if (!plan.length && !notes.length && !follow.length) { console.log('\n  ไม่มีอะไรให้ทำ\n'); process.exit(0); }
 
 // ---- the transaction ------------------------------------------------------
 const [actor] = await ask(`
@@ -400,8 +408,8 @@ const steps = plan.map(({ e, h, sid, linkPerson }) => [
 ].filter(Boolean).join('\n')).join('\n');
 const noteSql = notes.map((e) => `update public.student_import_unresolved
   set note = ${q(`ฝ่ายข้อมูล ${TODAY}: ${e.note}`)} where id = ${q(e.held.id)}::uuid and note is null;`).join('\n');
-const dismissSql = dismiss.map(({ h, e }) => `select public.dismiss_unresolved_row(${q(h.id)}::uuid,
-  ${q(`ฝ่ายข้อมูล ${TODAY}: ${e.note}`)});`).join('\n');
+const followSql = follow.map(({ e, status }) => `select public.set_unresolved_follow_up(${q(e.held.id)}::uuid,
+  ${q(status)}, ${q(`ฝ่ายข้อมูล ${TODAY}: ${e.note}`)});`).join('\n');
 
 // The postcondition, asserted INSIDE the transaction so a failure undoes it:
 // each address is one student and ONE person, and that person holds the รหัส.
@@ -414,7 +422,7 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 ${steps}
 ${noteSql}
-${dismissSql}
+${followSql}
 reset role;
 create temporary table _after on commit drop as
   select c.mail, c.sid,

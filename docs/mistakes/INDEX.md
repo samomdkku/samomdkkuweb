@@ -36,7 +36,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(33)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(34)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -73,6 +73,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - `docs/CONTEXT.md` said "any authenticated user can SELECT all" of `public.users`
 - "Make admin samoshop can custom the price for each size"
 - A buyer could write status, timeline and slips on their own order
+- A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC
 
 ## `authz-grants.md` — The permission / seat / scope channel *(22)*
 
@@ -101,7 +102,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(34)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(35)*
 
 Open when: writing a migration.
 
@@ -139,6 +140,7 @@ Open when: writing a migration.
 - The storefront said "sold out" for a size the server would sell
 - A tab opened before a migration re-sends what it LOADED
 - Google accounts were saved as "password"
+- house0188 case 53 red for three weeks
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(107)*
 
@@ -481,4 +483,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_419 entries across 10 files._
+_421 entries across 10 files._

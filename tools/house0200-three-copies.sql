@@ -81,12 +81,22 @@ update public.people set photo_focus = 'top' where id = (select id from subj);
 set local session_replication_role = origin;
 
 create temporary table adm on commit drop as
-select u.id from public.users u where u.role = 'dev' order by u.id limit 1;
+-- Chosen by the GATE's own predicate (`_registry_admin_ok`), never by a role
+-- literal: production has had NO `dev` account since samomdkkudev's role
+-- changed, so `role = 'dev'` picked nobody, the "admin" ran with sub = null,
+-- and this ALLOW half passed only because a NULL role fell through the gate —
+-- the fail-open 0218 closed. Asserted non-empty below so it cannot recur.
+select u.id from public.users u
+ where u.role in ('vp_admin','dev')
+    or 'house' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+    or 'master' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+ order by u.id limit 1;
 create temporary table plain on commit drop as
 select u.id from public.users u
  where u.role = 'user' and coalesce(array_length(u.permissions,1),0) = 0
    and coalesce(array_length(u.managed_permissions,1),0) = 0 order by u.id limit 1;
 grant select on adm, plain, subj to authenticated, anon;
+insert into probe select '30a. the admin subject exists', '1', (select count(*)::text from adm);
 
 -- DENY first: an ordinary account and anon.
 select set_config('request.jwt.claims', json_build_object('sub', (select id from plain), 'role','authenticated')::text, true);

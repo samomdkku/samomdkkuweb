@@ -592,6 +592,26 @@ export async function dismissUnresolved(id, note) {
   return data;
 }
 
+/** Record what ฝ่ายข้อมูล found out about a held row (0217). `left` and
+ *  `no_person` CLOSE it; `unreachable` and `maybe_left` keep it open and
+ *  claimable; null clears the answer. */
+export async function setFollowUp(id, status, note) {
+  const { data, error } = await dbRest('/rpc/set_unresolved_follow_up', {
+    method: 'POST', body: { p_id: id, p_status: status || null, p_note: note || null },
+  });
+  if (error) fail(error, 'บันทึกสถานะไม่สำเร็จ');
+  return data;
+}
+
+/** Undo a close — only a dismissal; a row that became a student cannot be. */
+export async function reopenUnresolved(id, note) {
+  const { data, error } = await dbRest('/rpc/reopen_unresolved_row', {
+    method: 'POST', body: { p_id: id, p_note: note || null },
+  });
+  if (error) fail(error, 'เปิดรายการใหม่ไม่สำเร็จ');
+  return data;
+}
+
 /**
  * The signed-in student claims the seat the file held for them.
  *
