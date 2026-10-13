@@ -40,13 +40,17 @@
 -- publishes BEFORE anyone touches the tree for next year, automatically,
 -- not as a manual step an admin can forget or sequence wrong.
 --
--- This makes the SAFE workflow the ONLY workflow: call start_team_term(new
--- year) FIRST — it captures the outgoing team exactly as it stood, with no
--- separate click required — THEN edit the live tree for the incoming team.
--- Editing before handover is still possible (nothing blocks writes to
--- team_nodes/team_members outside a handover), but it is no longer the
--- recommended order, and skills/year-rollover.md is corrected below in the
--- same spirit as the migration.
+-- This makes the safe order the only one that needs no separate manual
+-- step: call start_team_term(new year) FIRST — it captures the outgoing
+-- team exactly as it stood, with no separate publish click required — THEN
+-- edit the live tree for the incoming team. Editing before handover is
+-- still POSSIBLE (nothing blocks writes to team_nodes/team_members outside
+-- a handover, and this migration does not add such a block — see "no new
+-- last-team_edit-holder guard trigger" below for why a bigger enforcement
+-- mechanism was rejected) and would still misfile the archive exactly as
+-- before; this fix narrows the failure window (no forgotten/out-of-order
+-- manual publish) rather than making the wrong order impossible.
+-- skills/year-rollover.md is corrected below in the same spirit.
 --
 -- Nesting publish_team_term() inside start_team_term() needs no extra
 -- privilege check: both are SECURITY DEFINER, but a definer function does
