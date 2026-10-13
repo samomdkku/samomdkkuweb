@@ -1260,3 +1260,57 @@ older response could paint last. Its test passed because it mocked
 claims; check the second by OBSERVING the behaviour or grepping every other
 path to it (here: a second listener on the same event). A test that mocks the
 module that disproves the bug will confirm any bug you describe.
+
+---
+
+## "Import the answers the ฝ่าย filled in" — the import-back tool would have dropped a whole sheet, skipped another, and written two wrong addresses
+
+**Symptom (owner, 2026-10-13)**: the ฝ่าย returned `รายชื่อระบบบ้านมีปัญหา.xlsx`
+(one tab per รุ่น, our own sheets with columns moved and renamed) and warned
+that in MD52 one student's kkumail and รหัส were *"ซ้ำกับอีกคนนึง"*. Read
+against the live database before anything was written, the old
+`tools/house-kkumail-import.mjs` would have got six things wrong:
+
+1. **MD53/MD54 imported nothing.** Our sheet has `kkumail (ในระบบ)` (what WE
+   filled from the database — empty on a held row by definition) before
+   `kkumail` (their answer). "First header containing kkumail" read ours.
+2. **MD52 was skipped whole.** Its held rows have no รหัส — the sheet ASKED for
+   one — and matching was by รหัส only, so every answer there fell through
+   `if (!sid) continue` without a line of output.
+3. **The reported duplicate passed.** One รหัส and one address pasted onto two
+   people. The only check was "one รหัส carrying two DIFFERENT addresses";
+   identical copies merged silently in a `Map`.
+4. **`@kkumaill.com` would have become a person's identity.**
+   `promote_unresolved_row` checks an address's shape, not its domain.
+5. **An address with another student's initials on a row.** The รหัส and name
+   agreed with each other, so the name check passed; the slip was in the
+   address alone (its initials fit a different student on the same sheet, who
+   had no answer).
+6. **A ทีม SAMO member would have become two people.** They had a `people` row
+   from ทีม SAMO with no kkumail; `resolve_person_id` matches on kkumail only, so
+   promotion makes a second person — the ORDERING RULE in
+   `docs/state/phuriphatma.md`, known since 2026-09-15 and not in the tool.
+
+**Fix**: the tool reads several CSVs (one per tab), prefers the column we asked
+them to fill and never one marked ในระบบ/จากระบบ, places a no-รหัส line by รุ่น
+(file name) + สาย + the exact name we sent and writes the รหัส they gave onto
+the held row first, refuses a รหัส whose check digit is wrong (KKU's — weights
+10..2, `(10 - sum % 10) % 10`, measured on every stored รหัส: no exception in
+~3,800), refuses an address or รหัส on two people unless the address carries
+exactly one of them's initials, corrects a wrong domain ONLY when the corrected
+address has signed in, refuses an address whose initials cannot come from the
+Thai name, puts the address on an existing `people` row before promoting, and
+asserts INSIDE the transaction that every address is one student and one person
+holding that รหัส. Mutation-checked: with the pre-link removed the run aborts
+naming exactly that member's address. 19 promoted, 2 refused, 2 `empty_row` lines the
+ฝ่าย said do not exist were dismissed, 7 remarks (ติดต่อไม่ได้, ลาออก) went onto
+their held rows as `note`.
+
+**Where it lives now**: `tools/house-kkumail-import.mjs`;
+`studentIdChecksumOk()` in `src/js/team/fields.js` (not yet used by any form).
+
+**The general rule**: an import of answers a human typed into OUR sheet has to
+check what the human could get wrong, not only what our sheet could — the
+address itself, a pasted-twice row, a column they moved. And a rule written in a
+handoff note ("put the kkumail on the person FIRST") is not in the tool until it
+is an assertion the transaction fails on.

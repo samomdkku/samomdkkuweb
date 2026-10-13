@@ -211,3 +211,23 @@ match on. Everyone else closes themselves: a student signs in with their real
 kkumail, types รหัส + ชื่อ, and takes their seat. `docs/HOUSE-DATA-REPAIR.md` is
 the matrix of which broken field the student fixes, the admin must, or only
 ฝ่ายข้อมูล can.
+
+## 7. When the ฝ่าย sends the missing-data sheets BACK
+
+They answer in a workbook — one tab per รุ่น, usually our own
+`MD*-ข้อมูลไม่ครบ` sheets with columns moved — or with their own roster.
+
+1. Copy it to `externaldata/house-import/<YYYY-MM-DD>-raw-….xlsx` and export
+   EACH TAB to its own CSV named after its รุ่น (`MD52.csv`) — the รุ่น in the
+   file name is how a line with no รหัส gets placed. Read the cell COMMENTS too;
+   ฝ่าย people answer in them.
+2. Dry run (it runs the real transaction and rolls back):
+   `node tools/house-kkumail-import.mjs <dir>/MD*.csv --dismiss-empty`
+3. Read every ✗ — each is a row the tool will not guess about (duplicate
+   address or รหัส, wrong check digit, an address that cannot be this person's
+   initials, a wrong domain nobody has signed in with). They go back to the ฝ่าย.
+4. Same command with `--apply`. Re-run the dry run after: it must find nothing
+   left to write.
+5. Regenerate what is still owed: `node tools/house-year-sheets.mjs --apply
+   --gaps-only --force`, and delete any `MD*-ข้อมูลไม่ครบ.csv` for a รุ่น that
+   no longer appears (the generator does not remove one).

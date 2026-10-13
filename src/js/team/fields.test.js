@@ -1,8 +1,35 @@
 import { describe, it, expect } from 'vitest';
 import {
   SID_RE, normalizeStudentId, normalizeYear, normalizeMajor, majorKey,
-  normalizeIdentityFields, YEARS,
+  normalizeIdentityFields, YEARS, studentIdChecksumOk,
 } from './fields.js';
+
+describe('studentIdChecksumOk', () => {
+  // Synthetic ids — this repo is public. 6+5 weighted 10 and 9, 1 weighted 2:
+  // 60+45+2 = 107, so the check digit is (10 - 7) % 10 = 3. 659999999 sums to
+  // 420, so its check digit is 0 — and the `-9` fixture above FAILS this, which
+  // is why the checksum is a separate question from the shape.
+  it('accepts an id whose check digit agrees', () => {
+    expect(studentIdChecksumOk('650000001-3')).toBe(true);
+    expect(studentIdChecksumOk('6599999990')).toBe(true);
+  });
+
+  it('catches a single wrong digit and a swapped neighbour pair', () => {
+    expect(studentIdChecksumOk('650000001-4')).toBe(false);
+    expect(studentIdChecksumOk('650000010-3')).toBe(false);
+    expect(studentIdChecksumOk('659999999-9')).toBe(false);
+  });
+
+  it('says null, not false, when there is nothing to check', () => {
+    expect(studentIdChecksumOk('')).toBe(null);
+    expect(studentIdChecksumOk('65000001-3')).toBe(null);
+    expect(studentIdChecksumOk(undefined)).toBe(null);
+  });
+
+  it('reads Thai numerals like normalizeStudentId does', () => {
+    expect(studentIdChecksumOk('๖๕๐๐๐๐๐๐๑-๓')).toBe(true);
+  });
+});
 
 describe('normalizeStudentId', () => {
   it('keeps the canonical dashed form', () => {

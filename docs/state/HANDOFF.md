@@ -1411,12 +1411,27 @@ Running it with the policy count beside it is what surfaced the two deliberate
 deny-all siblings, which is the thing most likely to be broken by a well-meaning
 edit. `select relrowsecurity, (policy count)` — ask for both.
 
-## 16. ระบบบ้าน data handover — the sheets EXIST, nobody has sent them (2026-09-18/19)
+## 16. ระบบบ้าน data handover — MD49 + MD50 done; MD51–MD54 partly answered (2026-10-13)
 
-**Status: VERIFIED 2026-09-18 — how: ran the generator against production and
-printed the rows behind its most extreme counts before believing them (สาย 256
-held 8 rows across 6 รุ่น, of which only 2 pairs are real duplicates). Nothing
-has been SENT.**
+**Status: VERIFIED 2026-10-13 — how: the 2026-10-13 answer was imported with
+`tools/house-kkumail-import.mjs --dismiss-empty --apply`, which asserts inside
+its transaction that every address is one student and one person; read back
+after commit (19 `admin` + 2 `dismissed` resolutions, 0 orphan people, re-run
+writes nothing). Snapshot: `externaldata/house-import/2026-10-13-kkumail-import-snapshot.json`.**
+
+✅ **SECOND ANSWER IMPORTED (2026-10-13).** The owner forwarded
+`รายชื่อระบบบ้านมีปัญหา.xlsx` (one tab per รุ่น; exported per tab to
+`externaldata/house-import/2026-10-13-returned/MD*.csv`). Held rows: 129 → 108.
+MD49 is now complete. Two answers were REFUSED and stay held — the ฝ่าย has to
+re-check them, nothing here can: an MD52 row whose รหัส + kkumail were pasted
+from another student's row (the owner's own warning; the tool kept the row the
+address belongs to by its initials and the รหัส's alphabetical slot), and an
+MD51 row whose address carries another student's initials. Seven MD52 held
+rows carry the ฝ่าย's remark as `note` (ติดต่อไม่ได้ / ลาออก / คาดว่าลาออกแล้ว)
+and were NOT closed — see the owed table. The two MD54 `empty_row` lines the
+ฝ่าย said have no person (*"เลขนี้ไม่มีตัวตน"*) were dismissed with that reason,
+so the audit now reports those two สาย as empty, correctly. Everything the old
+tool would have got wrong on this file is in `docs/mistakes/app-state.md`.
 
 `node tools/house-year-sheets.mjs --apply --gaps-only --force` writes six CSVs
 into `externaldata/house-year-sheets/` (gitignored; 1,776 real students). They
@@ -1432,7 +1447,9 @@ has 288 students and **no incomplete records at all** — its file is gone.
 
 | owed | who | why it is not done |
 |---|---|---|
-| send the five remaining `MD*-ข้อมูลไม่ครบ.csv` (129 rows) to their ฝ่าย | owner | needs a person to choose the recipient and share the Sheet |
+| chase what is still blank — MD51 is almost entirely unanswered, MD53 and MD54 have a few; regenerate with `house-year-sheets.mjs --apply --gaps-only --force` (its dry run prints the counts) | owner | the ฝ่าย said "ตอนนี้เหลือ MD51, MD53, MD54 เหลือ 2 คน" — they know |
+| the two REFUSED answers (one MD52, one MD51) | ฝ่ายข้อมูล | the sheet's own values are wrong; only the person or their friends know the right address |
+| close or keep the MD52 rows marked ลาออก / คาดว่าลาออกแล้ว | owner | dismissing is the pane's ปิด button; "คาดว่า" is a guess, so it was left for a person to decide |
 | check **สาย 141** against the source file | owner / ฝ่ายข้อมูล | MD53 and MD54 both have nobody on it, and after the 2026-09-19 รุ่น repair NOTHING unplaced can explain either. บ้าน is สาย's last digit, so if a column moved everyone after it is in the wrong บ้าน |
 | ~~check สาย 141 / decide สาย 256~~ | ✅ **ANSWERED 2026-09-19 — LEAVE IT** | The MD53 leader: *"ที่หนูจดไว้ตามนี้เลยค่ะ เพื่อนหนูเอาข้อมูลมาจาก 52 อีกที สาย 256 ซ้ำ 2 คนค่ะ แล้วก็ 141 ข้ามตามที่ลงไว้เลยค่ะ"* — transcribed that way from MD52, deliberately. **That rules out the thing worth worrying about**: not a shifted column, so every person's สาย is recorded correctly and NOBODY is in the wrong บ้าน. The owner's call is to leave it: the list is mostly right and they would not change it now. The audit will keep reporting it — that is cosmetic |
 | ~~the 11 MD47/MD48 people in MD50's returned roster~~ | ✅ **DECIDED 2026-09-19 — DO NOT ADD** | ระบบบ้าน covers MD49–MD54 only; these were never in ฝ่ายข้อมูล's roster and have no สาย. Owner: *"i'll not put in the system"*. ⛔ Do not re-propose |

@@ -252,7 +252,7 @@ Open when: markup, modals, layout, touch, icons.
 - The VS public board's problem detail could get overwritten by a stale fetch
 - ฝ่ายรังสีเทคนิค borrowed a different concept's colour, not its own
 
-## `app-state.md` — Routing, read-state, caches & serialization *(30)*
+## `app-state.md` — Routing, read-state, caches & serialization *(31)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -286,6 +286,7 @@ Open when: URL state, per-user "seen", import/export.
 - The cart drawer's qty cap never knew about anyone else's reservations
 - Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 - "The public หนังสือโครงการ mirror never refreshed after its first load"
+- "Import the answers the ฝ่าย filled in"
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
 
@@ -480,4 +481,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_418 entries across 10 files._
+_419 entries across 10 files._
