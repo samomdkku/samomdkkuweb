@@ -14,6 +14,132 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## Task 4 — ทีม SAMO + จัดการทีม + permissions handover + Discord roles (2026-10-14)
+
+**What this run built.** Migration 0224, applied to samo-dev only:
+
+1. **Closed a real authz bug in task 2's own 0219.** `start_team_term`
+   (the handover RPC) gated on `current_user_has_permission('team')`. Since
+   migration 0110 (already live, predates this whole queue), `team` is a
+   VIEW-only key that `effective_team_permissions_for_email()` hands to
+   EVERY person found in `team_members` automatically — ~300 accounts on
+   samo-dev, none of whom chose to hold it, none of whom can edit anything.
+   Gating a full year-handover on that key meant any of those ~300 accounts
+   could flip the current SAMO year by calling the public RPC directly (no
+   UI needed). Regated to `team_edit` — the exact predicate
+   `publish_team_term` already uses, confirmed by reading its live body
+   first, not assumed. Found by re-reading 0219 against 0110's own
+   migration comment, not reported by the owner.
+2. **Made the handover self-archiving.** `start_team_term` now calls
+   `publish_team_term(outgoing_year)` inline, in the same transaction,
+   before closing the outgoing term — so a handover always captures
+   whatever the live tree looked like at that exact moment, with no
+   separate "remember to click เผยแพร่ปีนี้ in the right order" step. This
+   is what makes the owner's "next year's team is prepared without
+   touching this year's … published at the boundary" literally true: call
+   `start_team_term` FIRST, edit the live tree for the incoming team AFTER
+   — the only order that needs no manual publish step to get right. Editing
+   the tree BEFORE a handover is still technically possible and would still
+   misfile history exactly as before 0224 — this narrows the failure
+   window, it does not add a block that makes the wrong order impossible
+   (rejected a "last-editor" guard trigger and a parallel "draft tree" for
+   the same reason: both are bigger, riskier changes than one night's
+   budget affords, and the existing `dev`-role escape hatch already covers
+   the one failure mode — "nobody can run the next handover" — that a new
+   trigger would exist to prevent).
+3. **Confirmed, did not change, Discord role sync.** Read
+   `discord_role_targets()` (0184/0196/0197): it reads `team_members`/
+   `team_nodes`/`discord_links` only, zero references to `team_terms`, so
+   it is "the current term" by construction — a handover that touches no
+   tree row moves no Discord role, and one that does is picked up by the
+   existing queue/trigger mechanism within minutes, same as any other tree
+   edit. Pinned with a regression assertion in the proof (§C) rather than
+   left as an unchecked claim, since a future edit threading `team_terms`
+   into that function would silently break this invariant.
+4. **จัดการทีม per year** — confirmed, did not rebuild, that
+   `get_public_team_years()`/`get_public_team_chart()` (0104/0105/0153) are
+   already the one shared registry every picker (ทีม SAMO's own pane,
+   `org-chart.js`, `samo-year.js`) reads from; no drift found.
+
+**Proof `tools/team0224-handover.sql`, 14/14 on samo-dev; registered in
+`tools/run-proofs.mjs`.** Covers: a VIEW-only `team` holder refused calling
+the RPC, paired against a `team_edit` holder being allowed for the identical
+call (deny+allow, so the original bug — which also correctly refused a
+total stranger — could not have passed a deny-only probe); the outgoing
+term's archive matching the live PUBLIC tree's own node/member counts
+(297/447 on samo-dev, not the naive 299/449 total — publish only archives
+`is_public` nodes); and the Discord decoupling regression guard. Re-ran
+`tools/year0219-samo-year.sql` afterward — still 23/23, so the splice did
+not regress task 2's own coverage.
+
+**Self-review.** Ran `/scrutinize` on the task's own diff
+(`git diff b998c52..HEAD`) before closing: traced the permission-fix
+correctness against `current_user_has_permission`'s live body (confirms
+`master` still folds into `team_edit` exactly as it did into `team`), the
+nested-RPC call for escalation/recursion/invariant risk (none — the inner
+call re-checks the same predicate with the same `auth.uid()`, cannot create
+a second `is_current` row, and this nest-a-definer-in-a-definer shape is
+already used elsewhere in the codebase), the proof's temporary-principal
+setup for PII leakage (none — only `id`-derived counts/booleans ever reach
+the printed output, same rollback discipline as `year0219`), the UI copy
+change in `terms.js` for bugs (none — purely informational, reads an
+already-loaded client value), and the documentation claims against the
+actual code (all verified, not assumed). Found one wording overclaim in the
+migration's own header ("the ONLY workflow") and fixed it before this
+block was written, in a follow-up commit — see `git log --oneline
+b998c52..HEAD`.
+
+**Decisions made, and what was rejected** (full reasoning in
+`supabase/migrations/0224_*.sql`'s header and
+`docs/YEAR-ROLLOVER.md`'s "ทีม SAMO" correction block):
+
+- Regate on `team_edit`, not a new narrower "handover" permission —
+  rejected a new key because `team_edit` already functions as root over
+  the tree (0110: holding it lets you grant anyone, including yourself,
+  anything up to `team_edit` itself), so a narrower gate would be a
+  distinction with no enforceable difference.
+- Auto-archive by calling the EXISTING `publish_team_term` inline, not by
+  duplicating its SQL — one body, one place a future bug gets fixed once.
+- No new "last `team_edit` holder" guard trigger, and no "draft tree" for
+  preparing next year's roster ahead of time without touching the live
+  one — both rejected as bigger and riskier than this task's remaining
+  budget, with reasoning in the migration header (permission resolution
+  has too many overlapping channels to re-derive correctly on every tree
+  write; a draft tree would have to either duplicate every permission
+  column or omit them, in which case it could not be "prepared" with real
+  grants attached anyway).
+
+**WRITTEN, NOT APPLIED to production**: migration 0224 and everything it
+redefines. Depends on 0219 already being applied first (task 2's row in
+`docs/state/HANDOFF.md` §22 — unchanged by this task).
+
+**Exact commands the owner runs next:**
+
+```bash
+# review both migrations together — 0224 redefines what 0219 first defined
+git show 20584a3 -- supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql
+
+# apply to production, in order, after review
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+node tools/apply-migration.mjs supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql
+
+# prove both there
+node tools/db-query.mjs tools/year0219-samo-year.sql
+node tools/db-query.mjs tools/team0224-handover.sql
+
+# then deploy the frontend bundle (ships the corrected จัดการทีม confirm-dialog copy)
+```
+
+Updated `STATE.md` (migration high-water mark 0220→0224, proof count
+64→65, a one-line task-4 summary in the night-agent block), `src/data/
+changelog.js` (`PENDING`, staff-facing — the handover confirm dialog's new
+auto-archive wording), `docs/mistakes/authz-grants.md` (the authz
+write-up, `npm run mistakes:index` run after), `skills/year-rollover.md`
+and `docs/YEAR-ROLLOVER.md` (corrected the handover-order guidance and
+recorded the correction as a decision, not a silent edit).
+
+---
+
 ## Task 2 — The ONE SAMO year — foundation, admin control, runbook (2026-10-14)
 
 **RESUMED after a quota cut-off.** WIP commit `f9bb1b7` had already shipped

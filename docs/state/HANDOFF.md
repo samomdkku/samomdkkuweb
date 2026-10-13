@@ -1835,7 +1835,7 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 | 4 | VitalSound | 0221 | | | |
 | 5 | SAMO Shop | 0222 | | | |
 | 6 | หนังสือโครงการ | 0223 | | | |
-| 7 | ทีม SAMO + เกี่ยวกับเรา | 0224 | | | |
+| 7 †| ทีม SAMO + เกี่ยวกับเรา | 0224 | `team0224` 14/14 samo-dev | samo-dev only | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql`, then `node tools/db-query.mjs tools/team0224-handover.sql` to prove it there too. Fixes a real authz bug (the handover RPC was callable by ~300 VIEW-only accounts, not just editors) and makes the handover auto-archive the outgoing term — read `docs/state/night-agent.md`'s "Task 4" block before deploying. Deploy the frontend bundle (ships the corrected จัดการทีม confirm-dialog copy in `terms.js`) |
 | 8 | ระบบบ้าน | 0225 | | | |
 | 9 | หน้าฝ่าย | 0226 | | | |
 | 10 | Passport + Accounts | 0227–0228 | | | |
@@ -1845,3 +1845,14 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 numbers, applied y/n, the exact command the owner runs next) — never rewrite
 another task's row, and never mark a row applied unless a proof actually ran
 green on samo-dev this session.
+
+† **Task-numbering mismatch, flagged rather than silently reconciled.** The
+live night-queue (`~/samo-night/NIGHT-TASKS.md` on the VM) calls the
+ทีม SAMO + จัดการทีม + permissions-handover + Discord work "task 4"; this
+table — written by task 1 before the real queue was finalized — provisionally
+numbered the SAME system "task 7" and reserved it migration 0224. The
+MIGRATION NUMBER is the ground truth tying the two together (0224 was
+reserved for ทีม SAMO in both places), so this row is updated under its
+original "7", not renumbered to "4" — do not assume the two numbering
+schemes otherwise agree; check which system a task actually built, not its
+number alone, before touching any other row above.
