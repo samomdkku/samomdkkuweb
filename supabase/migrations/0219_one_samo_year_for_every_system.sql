@@ -123,8 +123,14 @@ language sql stable security definer set search_path = public as $$
    limit 1
 $$;
 
+-- authenticated ONLY, unlike current_samo_year() above: nothing anon can
+-- trigger (no anon INSERT trigger calls this) needs it — it is a one-time
+-- BACKFILL tool for tasks 3/4/6's migrations and a future admin "what year
+-- was this timestamp" lookup, both of which run signed in. Least privilege:
+-- do not hand an anonymous caller a boundary-probing function it has no
+-- legitimate caller for.
 revoke all on function public.samo_year_for_timestamp(timestamptz) from public;
-grant execute on function public.samo_year_for_timestamp(timestamptz) to anon, authenticated;
+grant execute on function public.samo_year_for_timestamp(timestamptz) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. samo_year_be_default() — the ONE trigger body every later task attaches.
@@ -183,8 +189,27 @@ begin
   -- first still is. Both statements are ONE plpgsql call, hence one
   -- transaction — no other session can ever see zero current terms between
   -- them, unlike the two separate PATCH requests this RPC replaces.
+  --
+  -- started_at = coalesce(started_at, '-infinity') FIXES THE GENESIS ROW the
+  -- instant it first closes. The term that was is_current when THIS
+  -- migration ran has started_at = NULL for a real reason (the column did
+  -- not exist yet) — samo_year_for_timestamp treats that as "-infinity" via
+  -- its `t.is_current` branch. But the moment this UPDATE closes it, that
+  -- branch stops applying, and without this line started_at would STAY NULL
+  -- until some future start_team_term(same year) reopened it — at which
+  -- point the INSERT below's `coalesce(started_at, v_now)` would stamp
+  -- TODAY's date onto a term that was actually open since before this system
+  -- existed, making every earlier backfill timestamp unresolvable (NULL)
+  -- again: verified by reproducing it in a rolled-back probe before this
+  -- fix existed. Stamping -infinity HERE, while the row is still
+  -- unambiguously "closed, never-recorded-start", makes the fact permanent
+  -- before the ambiguous window (another close/reopen cycle) can ever reach
+  -- it.
   update public.team_terms
-     set is_current = false, ended_at = v_now, updated_at = v_now
+     set is_current = false,
+         ended_at    = v_now,
+         updated_at  = v_now,
+         started_at  = coalesce(started_at, '-infinity'::timestamptz)
    where is_current;
   get diagnostics v_closed = row_count;
 
