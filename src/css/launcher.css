@@ -302,6 +302,7 @@
 
 .launcher-empty-reset:hover {
   color: #0d4a1d;
+  color: color-mix(in srgb, #0d4a1d var(--fg-mix), var(--fg-mix-to));
   text-decoration: underline;
 }
 

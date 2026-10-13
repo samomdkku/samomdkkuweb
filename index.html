@@ -21,6 +21,24 @@
        Both entry HTMLs carry this. Guarded by host-guard.test.js, which checks
        BOTH files — fixing one entry and not the other is this repo's most
        repeated shape. -->
+  <!-- THEME, before first paint (2026-10-13): the saved choice, else the
+       device's, applied to <html> now so a dark-mode visitor never sees a
+       white flash. src/js/theme.js owns the switch afterwards; the key and the
+       attributes here MUST match it — theme-head.test.js checks BOTH entries. -->
+  <script data-samo="theme">
+    (function () {
+      // DARK IS DORMANT (owner, 2026-10-13: "not polish enough … the web should
+      // still show light"): light for everyone; dark only for someone who set
+      // samo.theme = 'dark' by hand to preview it. No device following.
+      var mode = 'light';
+      try { if (localStorage.getItem('samo.theme') === 'dark') mode = 'dark'; } catch (e) {}
+      var dark = mode === 'dark';
+      var r = document.documentElement;
+      r.setAttribute('data-theme', dark ? 'dark' : 'light');
+      r.setAttribute('data-theme-mode', mode);
+      r.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
   <script data-samo="redirect">
     (function () {
       try {
@@ -372,6 +390,17 @@
       font-size: 1.45rem;
       font-family: "Prompt", sans-serif;
     }
+
+    /* DARK, before the stylesheets arrive (the head script above has already
+       set data-theme). More specific than the rules above AND than navbar.css,
+       so they win in either load order. Values mirror src/css/theme.css. */
+    :root[data-theme="dark"] body { background: #0b0f16; color: #cbd5e1; }
+    :root[data-theme="dark"] .samo-navbar {
+      background: rgba(21, 27, 38, 0.86);
+      border-color: rgba(255, 255, 255, 0.07);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    :root[data-theme="dark"] .brand-mdkku { color: #34b35e; }
   </style>
 </head>
 

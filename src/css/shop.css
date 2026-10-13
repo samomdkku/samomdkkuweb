@@ -101,7 +101,7 @@
 .shop-tab .shop-subnav {
   display: flex; flex-wrap: wrap; gap: .25rem;
   padding: .5rem;
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   box-shadow: var(--shop-shadow-sm);
   width: fit-content;
@@ -128,7 +128,7 @@
   box-shadow: 0 4px 12px -4px rgba(255,111,48,.55);
 }
 .shop-tab .shop-subnav .count-pill {
-  background: rgba(255,255,255,.25);
+  background: rgb(var(--surface-rgb) / .25);
   border-radius: 999px;
   padding: 0 .45rem;
   font-size: .75rem;
@@ -199,7 +199,7 @@
   width: 36px; height: 36px;
   border-radius: 50%;
   border: 1px solid var(--shop-ink-100);
-  background: #fff;
+  background: var(--surface);
   color: var(--shop-700);
   display: inline-flex; align-items: center; justify-content: center;
   box-shadow: var(--shop-shadow-sm);
@@ -210,7 +210,7 @@
 .shop-tab .launch-arrow:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Required-field marker — red asterisk on mandatory checkout fields. */
-.shop-tab .req-star { color: var(--bs-danger, #dc3545); font-weight: 700; }
+.shop-tab .req-star { color: var(--bs-danger, #dc3545); color: var(--bs-danger, color-mix(in srgb, #dc3545 var(--fg-mix), var(--fg-mix-to))); font-weight: 700; }
 
 /* Hero banner — one slide per view, image fills the box, info+price
    live as an overlay at the bottom (Shopee / Lazada pattern). */
@@ -297,7 +297,7 @@
 }
 .shop-tab .launch-dot {
   width: 6px; height: 6px; border-radius: 50%;
-  background: var(--shop-ink-200, #d1d5db); border: none;
+  background: var(--shop-ink-200, var(--gray-300)); border: none;
   padding: 0; cursor: pointer;
   transition: width .2s, background .2s;
 }
@@ -353,9 +353,10 @@
 
 /* Default chip (happy-path) — unselected outlined, selected solid green */
 .shop-tab .chip {
-  background: #fff;
+  background: var(--surface);
   color: var(--shop-700);
   border: 1px solid var(--shop-ink-200, #d6d6d6);
+  border: 1px solid var(--shop-ink-200, color-mix(in srgb, #d6d6d6 var(--line-mix), var(--surface)));
 }
 .shop-tab .chip:hover { background: var(--shop-ink-50); }
 .shop-tab .chip.is-active {
@@ -380,29 +381,29 @@
 .shop-tab .chip-sm.is-active::before { font-size: .8em; margin-right: .1rem; }
 
 /* Tone variants — outlined unselected, solid selected */
-.shop-tab .chip-tone-warning  { color: #b45309; border-color: #f59e0b; }
-.shop-tab .chip-tone-warning:hover { background: #fff7ed; }
+.shop-tab .chip-tone-warning  { color: #b45309; color: color-mix(in srgb, #b45309 var(--fg-mix), var(--fg-mix-to)); border-color: #f59e0b; }
+.shop-tab .chip-tone-warning:hover { background: #fff7ed; background: color-mix(in srgb, #fff7ed var(--tint-mix), var(--surface)); }
 .shop-tab .chip-tone-warning.is-active {
   background: #f59e0b; color: #fff; border-color: #d97706;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, .25);
 }
 
-.shop-tab .chip-tone-info     { color: #1d4ed8; border-color: #3b82f6; }
-.shop-tab .chip-tone-info:hover { background: #eff6ff; }
+.shop-tab .chip-tone-info     { color: #1d4ed8; color: color-mix(in srgb, #1d4ed8 var(--fg-mix), var(--fg-mix-to)); border-color: #3b82f6; }
+.shop-tab .chip-tone-info:hover { background: #eff6ff; background: color-mix(in srgb, #eff6ff var(--tint-mix), var(--surface)); }
 .shop-tab .chip-tone-info.is-active {
   background: #3b82f6; color: #fff; border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, .25);
 }
 
-.shop-tab .chip-tone-neutral  { color: #4b5563; border-color: #9ca3af; }
-.shop-tab .chip-tone-neutral:hover { background: #f3f4f6; }
+.shop-tab .chip-tone-neutral  { color: var(--gray-600); border-color: var(--gray-400); }
+.shop-tab .chip-tone-neutral:hover { background: var(--gray-100); }
 .shop-tab .chip-tone-neutral.is-active {
-  background: #6b7280; color: #fff; border-color: #4b5563;
+  background: var(--gray-500); color: #fff; border-color: var(--gray-600);
   box-shadow: 0 0 0 2px rgba(107, 114, 128, .25);
 }
 
-.shop-tab .chip-tone-danger   { color: #b91c1c; border-color: #ef4444; }
-.shop-tab .chip-tone-danger:hover { background: #fef2f2; }
+.shop-tab .chip-tone-danger   { color: #b91c1c; color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to)); border-color: #ef4444; }
+.shop-tab .chip-tone-danger:hover { background: #fef2f2; background: color-mix(in srgb, #fef2f2 var(--tint-mix), var(--surface)); }
 .shop-tab .chip-tone-danger.is-active {
   background: #ef4444; color: #fff; border-color: #dc2626;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, .25);
@@ -417,7 +418,7 @@
   gap: var(--shop-card-gap, 1.25rem);
 }
 .shop-tab .product-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius);
   overflow: hidden;
   box-shadow: var(--shop-shadow-sm);
@@ -525,18 +526,26 @@
   padding: .15rem .45rem;
   border-radius: 999px;
   background: var(--shop-50, #f0f7f1);
+  background: var(--shop-50, color-mix(in srgb, #f0f7f1 var(--tint-mix), var(--surface)));
   border: 1px solid var(--shop-100, #d6e9da);
+  border: 1px solid var(--shop-100, color-mix(in srgb, #d6e9da var(--line-mix), var(--surface)));
   white-space: nowrap;
 }
 .shop-tab .product-stock-hint.is-low {
   color: #a04a00;
+  color: color-mix(in srgb, #a04a00 var(--fg-mix), var(--fg-mix-to));
   background: #fff4e1;
+  background: color-mix(in srgb, #fff4e1 var(--tint-mix), var(--surface));
   border-color: #f5d29b;
+  border-color: color-mix(in srgb, #f5d29b var(--line-mix), var(--surface));
 }
 .shop-tab .product-stock-hint.is-out {
   color: var(--status-cancel, #b94c4c);
+  color: var(--status-cancel, color-mix(in srgb, #b94c4c var(--fg-mix), var(--fg-mix-to)));
   background: #fde8e8;
+  background: color-mix(in srgb, #fde8e8 var(--tint-mix), var(--surface));
   border-color: #f3b6b6;
+  border-color: color-mix(in srgb, #f3b6b6 var(--line-mix), var(--surface));
 }
 .shop-tab .product-card .add-btn {
   background: var(--shop-cream-100);
@@ -619,7 +628,7 @@
 }
 .shop-tab .variant-options { display: flex; flex-wrap: wrap; gap: .4rem; }
 .shop-tab .variant-btn {
-  background: #fff;
+  background: var(--surface);
   border: 1.5px solid var(--shop-ink-100);
   color: var(--shop-ink-700);
   padding: .4rem .85rem;
@@ -648,11 +657,12 @@
   cursor: not-allowed;
   text-decoration: line-through;
   background: var(--shop-ink-50, #f5f6f8);
+  background: var(--shop-ink-50, color-mix(in srgb, #f5f6f8 var(--tint-mix), var(--surface)));
 }
 .shop-tab .variant-swatch {
   width: 32px; height: 32px;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   box-shadow: 0 0 0 1.5px var(--shop-ink-100);
   cursor: pointer;
   position: relative;
@@ -668,7 +678,7 @@
 
 .shop-tab .qty-stepper {
   display: inline-flex; align-items: center;
-  background: #fff;
+  background: var(--surface);
   border: 1.5px solid var(--shop-ink-100);
   border-radius: 999px;
 }
@@ -771,13 +781,13 @@
   gap: 0.75rem;
   margin-top: 0.85rem;
   padding: 0.7rem 0.85rem;
-  background: var(--shop-surface-2, #f8fafc);
+  background: var(--shop-surface-2, var(--ink-50));
   border-radius: 10px;
 }
 .shop-tab .order-contact .oc-title {
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--shop-ink-500, #64748b);
+  color: var(--shop-ink-500, var(--ink-500));
   margin-bottom: 0.2rem;
 }
 .shop-tab .order-contact .oc-lines {
@@ -785,10 +795,10 @@
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
   font-size: 0.82rem;
-  color: var(--shop-ink-700, #334155);
+  color: var(--shop-ink-700, var(--ink-700));
   word-break: break-all;
 }
-.shop-tab .order-contact .oc-lines i { color: var(--shop-ink-400, #94a3b8); }
+.shop-tab .order-contact .oc-lines i { color: var(--shop-ink-400, var(--ink-400)); }
 .shop-tab .order-contact .oc-edit {
   flex: 0 0 auto;
   border: none;
@@ -805,7 +815,7 @@
   margin: 0.5rem 0 0.2rem;
   font-size: 0.74rem;
   font-weight: 600;
-  color: var(--shop-ink-700, #334155);
+  color: var(--shop-ink-700, var(--ink-700));
 }
 .shop-tab .order-contact-form .oc-actions {
   display: flex;
@@ -816,11 +826,11 @@
 /* Bootstrap's .btn-link is #0d6efd, which would be the only blue link in an app
    whose links are all brand green. */
 .shop-tab .order-contact-form .oc-actions .btn-link {
-  color: var(--shop-ink-500, #64748b);
+  color: var(--shop-ink-500, var(--ink-500));
   text-decoration: none;
 }
 .shop-tab .order-contact-form .oc-actions .btn-link:hover { text-decoration: underline; }
-.shop-tab .order-contact .oc-empty { color: var(--shop-ink-400, #94a3b8); font-style: italic; }
+.shop-tab .order-contact .oc-empty { color: var(--shop-ink-400, var(--ink-400)); font-style: italic; }
 
 /* Contact recap above the place-order button — see the long note at its markup
    in checkout.js. Deliberately quiet: it is a confirmation, not an alert, so it
@@ -829,8 +839,8 @@
 .shop-tab .checkout-recap {
   margin-top: 1rem;
   padding: 0.85rem 1rem;
-  background: var(--shop-surface-2, #f8fafc);
-  border: 1px solid var(--shop-ink-200, #e2e8f0);
+  background: var(--shop-surface-2, var(--ink-50));
+  border: 1px solid var(--shop-ink-200, var(--ink-200));
   border-radius: 12px;
 }
 .shop-tab .checkout-recap-head {
@@ -841,7 +851,7 @@
   margin-bottom: 0.5rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--shop-ink-900, #0f172a);
+  color: var(--shop-ink-900, var(--ink-900));
 }
 .shop-tab .checkout-recap-edit {
   border: none;
@@ -858,17 +868,18 @@
   gap: 0.5rem;
   font-size: 0.85rem;
   line-height: 1.7;
-  color: var(--shop-ink-700, #334155);
+  color: var(--shop-ink-700, var(--ink-700));
   word-break: break-all;
 }
-.shop-tab .checkout-recap-row i { color: var(--shop-ink-400, #94a3b8); flex: 0 0 auto; }
+.shop-tab .checkout-recap-row i { color: var(--shop-ink-400, var(--ink-400)); flex: 0 0 auto; }
 .shop-tab .checkout-recap-row .is-missing {
   color: #b42318;
+  color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to));
   font-weight: 600;
 }
 
 .shop-tab .checkout-panel {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius-lg);
   padding: 1.5rem;
   box-shadow: var(--shop-shadow-sm);
@@ -934,6 +945,7 @@
 .shop-tab .slip-drop.is-filled {
   border-color: var(--brand-accent);
   background: #f0faf2;
+  background: color-mix(in srgb, #f0faf2 var(--tint-mix), var(--surface));
 }
 .shop-tab .slip-drop i { font-size: 1.8rem; color: var(--shop-ink-500); }
 .shop-tab .slip-drop.is-filled i { color: var(--brand-accent); }
@@ -948,7 +960,7 @@
  * Orders list + progress timeline
  * ============================================== */
 .shop-tab .order-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius-lg);
   box-shadow: var(--shop-shadow-sm);
   padding: 1.25rem 1.5rem;
@@ -990,7 +1002,7 @@
   padding: 0;
 }
 .order-id-copy {
-  color: var(--shop-ink-400, #94a3b8);
+  color: var(--shop-ink-400, var(--ink-400));
   line-height: 1;
   border: none;
   background: transparent;
@@ -1001,9 +1013,11 @@
 }
 .order-id-copy:hover {
   color: var(--shop-700, #105922);
+  color: var(--shop-700, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
   background: var(--shop-50, #f0f7f1);
+  background: var(--shop-50, color-mix(in srgb, #f0f7f1 var(--tint-mix), var(--surface)));
 }
-.order-id-copy .bi-check2 { color: var(--shop-700, #105922); }
+.order-id-copy .bi-check2 { color: var(--shop-700, #105922); color: var(--shop-700, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to))); }
 
 .shop-tab .status-pill {
   display: inline-flex; align-items: center; gap: .35rem;
@@ -1015,11 +1029,11 @@
 .shop-tab .status-pill[data-status="review"]  { background: var(--status-review-bg);  color: var(--status-review); }
 .shop-tab .status-pill[data-status="paid"]    { background: var(--status-paid-bg);    color: var(--green-700); }
 .shop-tab .status-pill[data-status="produce"] { background: var(--status-produce-bg); color: var(--status-produce); }
-.shop-tab .status-pill[data-status="ready"]   { background: #e1f5e6;                 color: var(--brand-accent); }
+.shop-tab .status-pill[data-status="ready"]   { background: #e1f5e6; background: color-mix(in srgb, #e1f5e6 var(--tint-mix), var(--surface));                 color: var(--brand-accent); }
 .shop-tab .status-pill[data-status="done"]    { background: var(--status-done-bg);    color: var(--status-done); }
 .shop-tab .status-pill[data-status="cancel"]  { background: var(--status-cancel-bg);  color: var(--status-cancel); }
 .shop-tab .status-pill[data-status="issue"]         { background: var(--status-cancel-bg); color: var(--status-cancel); }
-.shop-tab .status-pill[data-status="slip_mismatch"] { background: #fff3cd;                color: #8a5a00; }
+.shop-tab .status-pill[data-status="slip_mismatch"] { background: #fff3cd; background: color-mix(in srgb, #fff3cd var(--tint-mix), var(--surface));                color: #8a5a00;                color: color-mix(in srgb, #8a5a00 var(--fg-mix), var(--fg-mix-to)); }
 .shop-tab .status-pill .pulse {
   width: 7px; height: 7px; border-radius: 50%;
   background: currentColor;
@@ -1055,7 +1069,7 @@
   width: 14px; height: 14px;
   border-radius: 50%;
   background: var(--shop-ink-100);
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   box-shadow: 0 0 0 1.5px var(--shop-ink-100);
   z-index: 2;
 }
@@ -1135,7 +1149,7 @@
   border: 1px solid var(--shop-ink-100);
   border-radius: var(--shop-radius);
   padding: .65rem .75rem;
-  background: #fff;
+  background: var(--surface);
 }
 .shop-tab .order-item-block .oib-head {
   display: flex; align-items: center; gap: .6rem;
@@ -1156,7 +1170,9 @@
 .shop-tab .order-pickup-callout {
   margin-top: 1rem;
   background: linear-gradient(95deg, #e7f6ec 0%, #f3faf2 100%);
+  background: linear-gradient(95deg, color-mix(in srgb, #e7f6ec var(--tint-mix), var(--surface)) 0%, color-mix(in srgb, #f3faf2 var(--tint-mix), var(--surface)) 100%);
   border: 1px solid #c8e8d0;
+  border: 1px solid color-mix(in srgb, #c8e8d0 var(--line-mix), var(--surface));
   border-radius: var(--shop-radius);
   padding: .85rem 1rem;
   display: grid; grid-template-columns: 32px 1fr auto; gap: .75rem;
@@ -1167,7 +1183,7 @@
 .shop-tab .order-pickup-callout .opc-meta  { font-size: .85rem; color: var(--shop-ink-700); }
 .shop-tab .order-pickup-callout .opc-dates { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
 .shop-tab .order-pickup-callout .opc-date {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--shop-ink-100);
   border-radius: 6px;
   padding: .15rem .5rem;
@@ -1179,15 +1195,17 @@
 .shop-tab .order-customer-note {
   margin-top: .85rem;
   background: var(--shop-yellow-50, #fff8e1);
+  background: var(--shop-yellow-50, color-mix(in srgb, #fff8e1 var(--tint-mix), var(--surface)));
   border: 1px solid var(--shop-yellow-100, #fbe4a0);
+  border: 1px solid var(--shop-yellow-100, color-mix(in srgb, #fbe4a0 var(--line-mix), var(--surface)));
   border-radius: var(--shop-radius);
   padding: .7rem .9rem;
   display: grid; grid-template-columns: 20px 1fr; gap: .6rem;
   align-items: start;
 }
 .shop-tab .order-customer-note > i { color: var(--brand-accent, #ff6f30); font-size: 1.05rem; margin-top: .1rem; }
-.shop-tab .order-customer-note .ocn-title { font-weight: 600; font-size: .82rem; color: var(--shop-ink-900, #1c1f24); }
-.shop-tab .order-customer-note .ocn-body { font-size: .88rem; color: var(--shop-ink-700, #4a4f57); white-space: pre-wrap; }
+.shop-tab .order-customer-note .ocn-title { font-weight: 600; font-size: .82rem; color: var(--shop-ink-900, #1c1f24); color: var(--shop-ink-900, color-mix(in srgb, #1c1f24 var(--fg-mix), var(--fg-mix-to))); }
+.shop-tab .order-customer-note .ocn-body { font-size: .88rem; color: var(--shop-ink-700, #4a4f57); color: var(--shop-ink-700, color-mix(in srgb, #4a4f57 var(--fg-mix), var(--fg-mix-to))); white-space: pre-wrap; }
 
 .shop-tab .order-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
 
@@ -1218,7 +1236,7 @@
 }
 .shop-tab .slip-chip {
   display: inline-flex; align-items: center; gap: .35rem;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--shop-ink-100);
   border-radius: 999px;
   padding: .2rem .35rem .2rem .7rem;
@@ -1235,7 +1253,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; line-height: 1; padding: 0;
 }
-.shop-tab .slip-chip-x:hover { background: #ffe2e2; color: #c0392b; }
+.shop-tab .slip-chip-x:hover { background: #ffe2e2; background: color-mix(in srgb, #ffe2e2 var(--tint-mix), var(--surface)); color: #c0392b; color: color-mix(in srgb, #c0392b var(--fg-mix), var(--fg-mix-to)); }
 .shop-tab .slip-chip-x:disabled { opacity: .5; cursor: default; }
 
 /* ==============================================
@@ -1246,7 +1264,7 @@
   flex-wrap: wrap;
 }
 .shop-tab .admin-tabs button {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--shop-ink-100);
   padding: .45rem 1rem;
   border-radius: 999px;
@@ -1266,7 +1284,7 @@
   margin-bottom: 1.5rem;
 }
 .shop-tab .stat-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius);
   padding: 1rem 1.25rem;
   box-shadow: var(--shop-shadow-sm);
@@ -1280,27 +1298,32 @@
 .shop-tab .stat-card.is-ready { border-left: 4px solid var(--status-ready); }
 
 /* Preorder demand tab — toolbar + flat table view. */
-.shop-tab .preorder-table { background: #fff; border-radius: var(--shop-radius); overflow: hidden; }
+.shop-tab .preorder-table { background: var(--surface); border-radius: var(--shop-radius); overflow: hidden; }
 .shop-tab .preorder-table thead th {
   font-size: .75rem; text-transform: uppercase; letter-spacing: .03em;
   color: var(--shop-ink-500); background: var(--shop-ink-50);
 }
 .shop-tab .preorder-row-section td {
   background: var(--shop-100, #e8f1ec);
+  background: var(--shop-100, color-mix(in srgb, #e8f1ec var(--tint-mix), var(--surface)));
   color: var(--shop-800, #14532d);
+  color: var(--shop-800, color-mix(in srgb, #14532d var(--fg-mix), var(--fg-mix-to)));
   border-top: 2px solid var(--shop-200, #c9e0d4);
+  border-top: 2px solid var(--shop-200, color-mix(in srgb, #c9e0d4 var(--line-mix), var(--surface)));
   font-size: .82rem;
 }
 .shop-tab .preorder-row-product td {
   border-top: 1px solid var(--shop-ink-100, #ebecee);
+  border-top: 1px solid var(--shop-ink-100, color-mix(in srgb, #ebecee var(--line-mix), var(--surface)));
   background: var(--shop-ink-50, #f7f8f9);
+  background: var(--shop-ink-50, color-mix(in srgb, #f7f8f9 var(--tint-mix), var(--surface)));
 }
 .shop-tab .preorder-row-variant td { padding-top: .3rem; padding-bottom: .3rem; }
-.shop-tab .preorder-row-orders td { background: #fff; }
+.shop-tab .preorder-row-orders td { background: var(--surface); }
 .shop-tab .preorder-type-chips { row-gap: .35rem; }
 
 .shop-tab .admin-table {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius);
   overflow: hidden;
   box-shadow: var(--shop-shadow-sm);
@@ -1341,13 +1364,13 @@
 .shop-tab .edit-items-panel {
   border: 1px solid var(--shop-ink-100);
   border-radius: var(--shop-radius);
-  background: #fff;
+  background: var(--surface);
   padding: 1rem 1.15rem;
 }
 .shop-tab .edit-items-panel { background: var(--shop-ink-50); }
 
 /* ---- Order-detail item line (display) ---- */
-.shop-tab .order-item-line { padding: .7rem 0; border-bottom: 1px solid var(--shop-ink-100, #ebecee); }
+.shop-tab .order-item-line { padding: .7rem 0; border-bottom: 1px solid var(--shop-ink-100, #ebecee); border-bottom: 1px solid var(--shop-ink-100, color-mix(in srgb, #ebecee var(--line-mix), var(--surface))); }
 .shop-tab .order-item-line:last-of-type { border-bottom: 0; }
 .shop-tab .oil-top {
   display: grid;
@@ -1390,6 +1413,7 @@
   gap: .4rem .75rem;
   padding: .75rem 0;
   border-bottom: 1px solid var(--shop-ink-100, #ebecee);
+  border-bottom: 1px solid var(--shop-ink-100, color-mix(in srgb, #ebecee var(--line-mix), var(--surface)));
 }
 .shop-tab .edit-item-row .eir-name { grid-area: name; font-weight: 600; font-size: .9rem; align-self: center; min-width: 0; word-break: break-word; }
 .shop-tab .edit-item-row .eir-actions { grid-area: actions; display: flex; gap: .4rem; align-self: center; }
@@ -1406,7 +1430,7 @@
   margin-top: .75rem;
   padding: .85rem;
   border-radius: var(--shop-radius);
-  background: #fff;
+  background: var(--surface);
   border: 1px dashed var(--shop-ink-100);
 }
 /* On phones the actions drop below the name for a full-width tap target. */
@@ -1423,7 +1447,7 @@
 .shop-tab .preorder-card {
   border: 1px solid var(--shop-ink-100);
   border-radius: var(--shop-radius);
-  background: #fff;
+  background: var(--surface);
   padding: 1rem 1.15rem;
   margin-bottom: 1rem;
 }
@@ -1443,7 +1467,7 @@
 .shop-tab .row-customer .rsub { font-size: .76rem; color: var(--shop-ink-500); }
 
 .shop-tab .admin-detail-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius-lg);
   padding: 1.5rem;
   box-shadow: var(--shop-shadow-md);
@@ -1490,7 +1514,7 @@
 }
 
 .shop-tab .batch-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius);
   padding: 1rem 1.25rem;
   box-shadow: var(--shop-shadow-sm);
@@ -1551,7 +1575,7 @@
   font-weight: 700;
   border-radius: 999px;
   min-width: 22px; padding: .15rem .35rem;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
 }
 
 /* ==============================================
@@ -1607,7 +1631,7 @@
 /* Admin: delivery search bar (sticky, big touch target) */
 .shop-tab .delivery-search-bar {
   position: relative;
-  background: #fff;
+  background: var(--surface);
   border: 1.5px solid var(--shop-ink-100);
   border-radius: 12px;
   box-shadow: var(--shop-shadow-sm);
@@ -1634,7 +1658,7 @@
 
 /* Admin: delivery (pickup checklist) cards */
 .shop-tab .delivery-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius-lg);
   box-shadow: var(--shop-shadow-sm);
   margin-bottom: .85rem;
@@ -1659,7 +1683,7 @@
   padding: .2rem .65rem;
   font-size: .8rem; font-weight: 600;
 }
-.shop-tab .delivery-progress.is-done { background: #e1f5ea; color: var(--brand-accent); border-color: #b8e1c4; }
+.shop-tab .delivery-progress.is-done { background: #e1f5ea; background: color-mix(in srgb, #e1f5ea var(--tint-mix), var(--surface)); color: var(--brand-accent); border-color: #b8e1c4; border-color: color-mix(in srgb, #b8e1c4 var(--line-mix), var(--surface)); }
 
 /* Progress pill with mini bar */
 .shop-tab .delivery-pill {
@@ -1672,8 +1696,10 @@
   border: 1px solid var(--shop-ink-100);
 }
 .shop-tab .delivery-pill.is-done {
-  background: #e1f5ea; color: var(--brand-accent);
+  background: #e1f5ea;
+  background: color-mix(in srgb, #e1f5ea var(--tint-mix), var(--surface)); color: var(--brand-accent);
   border-color: #b8e1c4;
+  border-color: color-mix(in srgb, #b8e1c4 var(--line-mix), var(--surface));
 }
 .shop-tab .delivery-pill .d-progress-bar {
   display: inline-block;
@@ -1702,7 +1728,9 @@
 .shop-tab .delivery-finish-banner {
   margin: .5rem 1rem 0;
   background: linear-gradient(95deg, #e7f6ec 0%, #f3faf2 100%);
+  background: linear-gradient(95deg, color-mix(in srgb, #e7f6ec var(--tint-mix), var(--surface)) 0%, color-mix(in srgb, #f3faf2 var(--tint-mix), var(--surface)) 100%);
   border: 1px solid #c8e8d0;
+  border: 1px solid color-mix(in srgb, #c8e8d0 var(--line-mix), var(--surface));
   border-radius: var(--shop-radius);
   padding: .65rem 1rem;
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
@@ -1730,7 +1758,7 @@
   transition: background .12s;
 }
 .shop-tab .delivery-row + .delivery-row { border-top: 1px solid var(--shop-ink-100); }
-.shop-tab .delivery-row.is-picked { background: #f3faf2; }
+.shop-tab .delivery-row.is-picked { background: #f3faf2; background: color-mix(in srgb, #f3faf2 var(--tint-mix), var(--surface)); }
 .shop-tab .delivery-row.has-issue { background: var(--shop-yellow-50); }
 .shop-tab .delivery-row.is-resolved { opacity: .8; }
 .shop-tab .delivery-tick {
@@ -1747,7 +1775,7 @@
  * Admin: stock-only tab — per-product card with inline grid + steppers
  * ============================================== */
 .shop-tab .stock-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: var(--shop-radius-lg);
   box-shadow: var(--shop-shadow-sm);
   margin-bottom: 1.25rem;
@@ -1775,8 +1803,10 @@
 }
 .shop-tab .stock-card .stock-total {
   display: inline-flex; align-items: center;
-  background: #e1f5ea; color: var(--brand-accent);
+  background: #e1f5ea;
+  background: color-mix(in srgb, #e1f5ea var(--tint-mix), var(--surface)); color: var(--brand-accent);
   border: 1px solid #b8e1c4;
+  border: 1px solid color-mix(in srgb, #b8e1c4 var(--line-mix), var(--surface));
   border-radius: 999px;
   padding: .25rem .7rem;
   font-size: .82rem; font-weight: 600;
@@ -1806,8 +1836,10 @@
   font-size: 1rem;
   font-weight: 600;
   white-space: nowrap;
-  background: #e1f5ea; color: var(--brand-accent);
+  background: #e1f5ea;
+  background: color-mix(in srgb, #e1f5ea var(--tint-mix), var(--surface)); color: var(--brand-accent);
   border: 1px solid #b8e1c4;
+  border: 1px solid color-mix(in srgb, #b8e1c4 var(--line-mix), var(--surface));
 }
 .shop-tab .stock-card .stock-available-headline b { font-size: 1.25rem; margin: 0 .15rem; }
 .shop-tab .stock-card .stock-available-headline.is-low {
@@ -1819,8 +1851,10 @@
   border-color: rgba(145,39,43,.18);
 }
 .shop-tab .stock-card .stock-available-headline.is-over {
-  background: #ffe1e1; color: #b71c1c;
+  background: #ffe1e1;
+  background: color-mix(in srgb, #ffe1e1 var(--tint-mix), var(--surface)); color: #b71c1c; color: color-mix(in srgb, #b71c1c var(--fg-mix), var(--fg-mix-to));
   border: 1px solid #f3b6b6;
+  border: 1px solid color-mix(in srgb, #f3b6b6 var(--line-mix), var(--surface));
 }
 .shop-tab .stock-card .stock-total.is-unset { /* kept for the no-matrix case */ }
 .shop-tab .stock-grid {
@@ -1830,7 +1864,7 @@
 /* Two tables per card (0210): the one the Preorder tick is NOT using is dimmed
    but stays editable. */
 .shop-tab .stock-table + .stock-table {
-  border-top: 1px dashed var(--shop-line, #e5e7eb);
+  border-top: 1px dashed var(--shop-line, var(--gray-200));
   padding-top: .5rem;
 }
 .shop-tab .stock-table.is-inactive .stock-grid { opacity: .6; }
@@ -1953,11 +1987,12 @@
   border-radius: 6px;
   display: inline-block;
   background: #e1f5ea;
+  background: color-mix(in srgb, #e1f5ea var(--tint-mix), var(--surface));
   color: var(--brand-accent);
 }
-.shop-tab .stock-cell-avail.is-low { background: var(--shop-yellow-50, #fff7d6); color: var(--shop-yellow-700, #7a5c00); }
-.shop-tab .stock-cell-avail.is-zero { background: var(--status-cancel-bg, #fde8e8); color: var(--status-cancel, #b94c4c); }
-.shop-tab .stock-cell-avail.is-over { background: #ffd1d1; color: #7a1c1c; border: 1px solid #f3a0a0; }
+.shop-tab .stock-cell-avail.is-low { background: var(--shop-yellow-50, #fff7d6); background: var(--shop-yellow-50, color-mix(in srgb, #fff7d6 var(--tint-mix), var(--surface))); color: var(--shop-yellow-700, #7a5c00); color: var(--shop-yellow-700, color-mix(in srgb, #7a5c00 var(--fg-mix), var(--fg-mix-to))); }
+.shop-tab .stock-cell-avail.is-zero { background: var(--status-cancel-bg, #fde8e8); background: var(--status-cancel-bg, color-mix(in srgb, #fde8e8 var(--tint-mix), var(--surface))); color: var(--status-cancel, #b94c4c); color: var(--status-cancel, color-mix(in srgb, #b94c4c var(--fg-mix), var(--fg-mix-to))); }
+.shop-tab .stock-cell-avail.is-over { background: #ffd1d1; background: color-mix(in srgb, #ffd1d1 var(--tint-mix), var(--surface)); color: #7a1c1c; color: color-mix(in srgb, #7a1c1c var(--fg-mix), var(--fg-mix-to)); border: 1px solid #f3a0a0; border: 1px solid color-mix(in srgb, #f3a0a0 var(--line-mix), var(--surface)); }
 
 /* "จอง N" — tertiary info, only shown when > 0. */
 .shop-tab .stock-cell-reserved {
@@ -1974,7 +2009,7 @@
   box-shadow: 0 0 0 1px #c62828 inset;
 }
 .shop-tab .stock-cell-wrap {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--shop-ink-100);
   border-radius: 8px;
   display: inline-flex; align-items: center; overflow: hidden;
@@ -1982,7 +2017,7 @@
 }
 .shop-tab .stock-cell-wrap.is-zero  { background: var(--status-cancel-bg); border-color: rgba(145,39,43,.25); }
 .shop-tab .stock-cell-wrap.is-low   { background: var(--shop-yellow-50);    border-color: var(--shop-yellow-100); }
-.shop-tab .stock-cell-wrap.is-ok    { background: #f3faf2;                  border-color: #c8e8d0; }
+.shop-tab .stock-cell-wrap.is-ok    { background: #f3faf2; background: color-mix(in srgb, #f3faf2 var(--tint-mix), var(--surface));                  border-color: #c8e8d0;                  border-color: color-mix(in srgb, #c8e8d0 var(--line-mix), var(--surface)); }
 .shop-tab .stock-cell-wrap.is-unset { background: var(--shop-ink-50);       border-color: var(--shop-ink-100); }
 .shop-tab .stock-step {
   width: 28px; height: 30px;
@@ -2026,12 +2061,12 @@
 .shop-img-tile {
   position: relative; width: 116px; flex: 0 0 116px;
   display: flex; flex-direction: column; gap: 6px;
-  padding: 6px; border: 1px solid var(--shop-ink-100, #ebecee); border-radius: 10px;
-  background: #fff; cursor: grab;
+  padding: 6px; border: 1px solid var(--shop-ink-100, #ebecee); border: 1px solid var(--shop-ink-100, color-mix(in srgb, #ebecee var(--line-mix), var(--surface))); border-radius: 10px;
+  background: var(--surface); cursor: grab;
 }
 .shop-img-tile img {
   width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block;
-  border-radius: 6px; background: var(--shop-ink-50, #f5f6f7);
+  border-radius: 6px; background: var(--shop-ink-50, #f5f6f7); background: var(--shop-ink-50, color-mix(in srgb, #f5f6f7 var(--tint-mix), var(--surface)));
   -webkit-user-drag: none; user-select: none;
 }
 .shop-img-tile select { font-size: .78rem; padding-top: 2px; padding-bottom: 2px; }
@@ -2048,10 +2083,11 @@
 .shop-img-add {
   width: 116px; flex: 0 0 116px; aspect-ratio: 4 / 5;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  border: 2px dashed var(--shop-ink-200, #d6d8dc); border-radius: 10px;
-  color: var(--shop-ink-500, #6b7280); font-size: .85rem; cursor: pointer; margin: 0;
+  border: 2px dashed var(--shop-ink-200, #d6d8dc);
+  border: 2px dashed var(--shop-ink-200, color-mix(in srgb, #d6d8dc var(--line-mix), var(--surface))); border-radius: 10px;
+  color: var(--shop-ink-500, var(--gray-500)); font-size: .85rem; cursor: pointer; margin: 0;
 }
-.shop-img-add:hover { border-color: var(--brand-primary, #105922); color: var(--brand-primary, #105922); }
+.shop-img-add:hover { border-color: var(--brand-primary, #105922); color: var(--brand-primary, #105922); color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to))); }
 .shop-img-add i { font-size: 1.3rem; }
 .shop-img-tile.sortable-ghost { opacity: .4; }
 

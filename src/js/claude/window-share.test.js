@@ -367,7 +367,10 @@ describe('the rail says HOW MUCH, not just "some"', () => {
     // "i don't need this ยิ่งแถบกว้าง ยิ่งเหลือมาก, i just want the color full".
     // A proportional fill was built and pulled; asserted so it is not
     // reintroduced as an "improvement", and so the key does not promise it.
-    expect(CSS).not.toContain('--f');
+    // The property named exactly `--f` — not any token that starts with it
+    // (the dark-mode theme's --fg-mix is not a width; 2026-10-13).
+    expect(CSS).not.toMatch(/--f(?![\w-])/);
+    expect('.x{--f: 40%}').toMatch(/--f(?![\w-])/);   // control: it still catches the real thing
     expect(CODE).not.toContain("setProperty('--f'");
     expect(CODE).not.toContain('ยิ่งแถบกว้าง');
   });

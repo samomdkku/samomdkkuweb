@@ -33,15 +33,15 @@
  * the same in the public app and the admin app.
  * ============================================================ */
 #samoSwitchAccountModal .modal-header {
-  background-color: #fff;
-  border-bottom: 1px solid var(--ink-100, #e5e7eb);
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--ink-100, var(--gray-200));
   border-radius: 20px 20px 0 0;
 }
-#samoSwitchAccountModal .modal-title { color: var(--ink-900, #111827); }
+#samoSwitchAccountModal .modal-title { color: var(--ink-900, var(--gray-900)); }
 
 .samo-account-current {
-  border: 1px solid var(--ink-100, #e5e7eb);
-  background: #fff;
+  border: 1px solid var(--ink-100, var(--gray-200));
+  background: var(--surface);
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 14px;
@@ -58,6 +58,7 @@
   font-size: 0.7rem;
   background: rgba(16, 89, 34, 0.1);
   color: var(--brand-primary, #105922);
+  color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 700;
@@ -66,9 +67,9 @@
 .samo-account-current-signout {
   margin-top: 10px;
   width: 100%;
-  background: #fff;
-  border: 1px solid var(--ink-100, #e5e7eb);
-  color: var(--ink-700, #374151);
+  background: var(--surface);
+  border: 1px solid var(--ink-100, var(--gray-200));
+  color: var(--ink-700, var(--gray-700));
   border-radius: 10px;
   padding: 8px 10px;
   font-weight: 600;
@@ -78,8 +79,11 @@
 }
 .samo-account-current-signout:hover {
   background: #fef2f2;
+  background: color-mix(in srgb, #fef2f2 var(--tint-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
   border-color: #fecaca;
+  border-color: color-mix(in srgb, #fecaca var(--line-mix), var(--surface));
 }
 
 .samo-account-list {
@@ -100,8 +104,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 10px 12px;
   cursor: pointer;
@@ -110,8 +114,8 @@
   min-width: 0;
 }
 .samo-account-pick:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: var(--gray-100);
+  border-color: var(--gray-300);
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .samo-account-avatar {
@@ -119,14 +123,14 @@
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  background: #e5e7eb;
+  background: var(--gray-200);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
 }
 .samo-account-avatar-initials {
-  color: #374151;
+  color: var(--gray-700);
   font-weight: 700;
   letter-spacing: 0.5px;
   font-size: 0.95rem;
@@ -139,22 +143,22 @@
 }
 .samo-account-name {
   font-weight: 600;
-  color: #111827;
+  color: var(--gray-900);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .samo-account-sub {
   font-size: 0.78rem;
-  color: #6b7280;
+  color: var(--gray-500);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .samo-account-method-pill {
   font-size: 0.7rem;
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--gray-200);
+  color: var(--gray-700);
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 600;
@@ -163,7 +167,7 @@
 .samo-account-forget {
   border: 1px solid transparent;
   background: transparent;
-  color: #9ca3af;
+  color: var(--gray-400);
   border-radius: 10px;
   padding: 0 10px;
   cursor: pointer;
@@ -171,5 +175,7 @@
 }
 .samo-account-forget:hover {
   background: #fee2e2;
+  background: color-mix(in srgb, #fee2e2 var(--tint-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
 }

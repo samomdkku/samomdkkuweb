@@ -1,0 +1,341 @@
+/* ==============================================
+ * THEME — dark mode (2026-10-13). Owner: "i also want dark mode for this web".
+ *
+ * HOW IT WORKS. The site's colours are tokens (base.css :root). Every
+ * hard-coded slate/gray/white literal was rewritten into them by
+ * tools/theme-tokens-codemod.mjs, and every other literal into a color-mix
+ * whose amount is 100% in light mode. This file only changes TOKEN VALUES
+ * under [data-theme="dark"], which the head script in BOTH entry HTMLs sets
+ * before first paint (no white flash) from the saved choice or the device.
+ *
+ * Kept LIGHT on purpose, in both themes: a ฝ่าย's own HTML in its sandboxed
+ * frame (authored for light; a frame inherits nothing — mistakes class 4),
+ * QR codes (must stay dark-on-white to scan), print, and the image-crop stage
+ * (already dark). Loaded LAST by main.css and admin.css.
+ * ============================================== */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces: page < card < raised, each a step lighter (Apple's dark
+     elevation — a lighter surface reads as nearer, not a shadow). */
+  --surface: #151b26;
+  --surface-rgb: 21 27 38;
+  --page-bg: #0b0f16;
+
+  /* Neutral scales, flipped: 900 is the strongest text, 50 the faintest fill. */
+  --ink-900: #f1f5f9;
+  --ink-800: #e2e8f0;
+  --ink-700: #cbd5e1;
+  --ink-600: #b0bccb;
+  --ink-500: #8f9db0;
+  --ink-400: #6b7a90;
+  --ink-300: #3f4b5e;
+  --ink-200: #2d3748;
+  --ink-100: #222b39;
+  --ink-50:  #1b2230;
+  --ink-900-rgb: 241 245 249;
+
+  --gray-900: #f3f4f6;
+  --gray-800: #e5e7eb;
+  --gray-700: #d1d5db;
+  --gray-600: #b4bac3;
+  --gray-500: #969ca7;
+  --gray-400: #6f7682;
+  --gray-300: #454b55;
+  --gray-200: #333842;
+  --gray-100: #262a33;
+  --gray-50:  #1d2129;
+
+  /* The long tail (see base.css): pale fills become a hint of their hue on
+     the surface; pale lines a quiet line; dark text moves toward light. */
+  --tint-mix: 16%;
+  --line-mix: 32%;
+  --fg-mix: 40%;
+  --fg-mix-to: var(--ink-100);
+
+  /* Brand: one green has to be a button fill under white text AND text on a
+     dark page — a mid green does both (#105922 vanishes on dark). */
+  --brand-primary: #2a9356;
+  --brand-accent: #34b35e;
+  --brand-cream: #2a2619;
+
+  --green-50: #13261b;
+  --green-100: #173020;
+  --green-200: #1f442d;
+  --green-300: #2d6a44;
+  --green-500: #34b35e;
+  --green-600: #4cc274;
+  --green-700: #6fd393;
+  --green-900: #b9ebc9;
+
+  --pink-50: #2a1520;
+  --pink-100: #361a2a;
+  --pink-200: #4f2239;
+  --pink-300: #7c3359;
+  --pink-400: #ec7fb3;
+  --pink-500: #f472b6;
+  --pink-600: #f68cc5;
+  --pink-700: #f9b4da;
+  --pink-900: #fbd5ea;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.55), 0 8px 16px rgba(0, 0, 0, 0.3);
+  --shadow-focus-ring: 0 0 0 4px rgba(52, 179, 94, 0.28);
+
+  /* Bootstrap 5.3's own dark theme (data-bs-theme="dark", set with ours),
+     pointed at OUR surfaces so its cards/modals/inputs match ours. */
+  --bs-body-bg: var(--page-bg);
+  --bs-body-color: var(--ink-700);
+  --bs-emphasis-color: var(--ink-900);
+  --bs-secondary-color: var(--ink-500);
+  --bs-secondary-bg: var(--ink-100);
+  --bs-tertiary-bg: var(--ink-50);
+  --bs-border-color: var(--ink-200);
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.1);
+  --bs-heading-color: var(--ink-900);
+  --bs-link-color: #5cc28a;
+  --bs-link-hover-color: #84d6a7;
+  --bs-link-color-rgb: 92, 194, 138;
+}
+
+/* VitalSound's scope re-points the pink scale at teal — flip it there too. */
+:root[data-theme="dark"] .vs-tab {
+  --pink-50: #12292a;
+  --pink-100: #163334;
+  --pink-200: #1e4a4a;
+  --pink-300: #2b6d6a;
+  --pink-500: #3fb3ac;
+  --pink-600: #5cc4bd;
+  --pink-700: #84d6d0;
+  --pink-900: #bfeae7;
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(1200px 600px at 0% -10%, rgba(52, 179, 94, 0.07), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(255, 111, 48, 0.05), transparent 60%),
+    var(--page-bg);
+  color: var(--ink-700);
+}
+
+/* Bootstrap utilities that hard-code a LIGHT colour in 5.3 (they do not follow
+   data-bs-theme): repoint them at the surfaces they stand for. */
+:root[data-theme="dark"] .bg-white { background-color: var(--surface) !important; }
+:root[data-theme="dark"] .bg-light { background-color: var(--ink-50) !important; }
+:root[data-theme="dark"] .text-dark,
+:root[data-theme="dark"] .text-black { color: var(--ink-900) !important; }
+:root[data-theme="dark"] .border-white { border-color: var(--surface) !important; }
+:root[data-theme="dark"] .btn-light {
+  --bs-btn-bg: var(--ink-100);
+  --bs-btn-border-color: var(--ink-200);
+  --bs-btn-color: var(--ink-800);
+  --bs-btn-hover-bg: var(--ink-200);
+  --bs-btn-hover-border-color: var(--ink-300);
+  --bs-btn-hover-color: var(--ink-900);
+}
+:root[data-theme="dark"] .btn-outline-dark,
+:root[data-theme="dark"] .btn-outline-secondary {
+  --bs-btn-color: var(--ink-700);
+  --bs-btn-border-color: var(--ink-300);
+  --bs-btn-hover-bg: var(--ink-100);
+  --bs-btn-hover-color: var(--ink-900);
+  --bs-btn-hover-border-color: var(--ink-400);
+}
+:root[data-theme="dark"] .table { --bs-table-bg: transparent; --bs-table-color: var(--ink-700); }
+:root[data-theme="dark"] .table-light { --bs-table-bg: var(--ink-50); --bs-table-color: var(--ink-800); }
+:root[data-theme="dark"] .modal-content,
+:root[data-theme="dark"] .dropdown-menu,
+:root[data-theme="dark"] .offcanvas,
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .list-group-item,
+:root[data-theme="dark"] .popover,
+:root[data-theme="dark"] .toast { --bs-body-bg: var(--surface); }
+:root[data-theme="dark"] .form-control,
+:root[data-theme="dark"] .form-select { background-color: var(--ink-50); border-color: var(--ink-200); color: var(--ink-900); }
+:root[data-theme="dark"] .form-control::placeholder { color: var(--ink-400); }
+
+/* Kept light in both themes — see the header. */
+:root[data-theme="dark"] .qr-img,
+:root[data-theme="dark"] .qr-card .qr-img img { background: #fff; }
+
+/* Media: soften pure-white images a touch on a dark page (Apple dims bright
+   content in dark mode rather than inverting it). Photos only — never a QR. */
+:root[data-theme="dark"] img:not(.qr-img img):not([src*="qr"]) { filter: brightness(0.94); }
+
+/* Ease the switch: Apple — "avoid abrupt brightness jumps (ease dark↔light
+   theme changes)". Only while toggling (theme.js adds the class for 300 ms),
+   so ordinary interaction never pays a colour transition. */
+:root.theme-switching,
+:root.theme-switching * {
+  transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root.theme-switching,
+  :root.theme-switching * { transition: none !important; }
+}
+
+/* ── The theme switch (navbar + admin top bar) ─────────────────────────── */
+.theme-switch .dropdown-toggle::after { display: none; }
+.theme-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-200);
+  background: var(--surface);
+  color: var(--ink-700);
+  transition: transform 100ms ease-out, background-color var(--t-fast) var(--ease);
+}
+.theme-switch-btn:hover { background: var(--ink-50); color: var(--ink-900); }
+.theme-switch-btn:active { transform: scale(0.94); }
+.theme-switch .dropdown-menu { min-width: 11rem; }
+.theme-switch .dropdown-item { display: flex; align-items: center; gap: 0.6rem; }
+.theme-switch .dropdown-item .bi-check2 { margin-left: auto; visibility: hidden; }
+.theme-switch .dropdown-item[aria-checked="true"] .bi-check2 { visibility: visible; }
+
+/* The segmented control (phone menu): three equal segments, the chosen one a
+   raised pill — Apple's pattern when every option fits on screen. */
+.theme-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--ink-100);
+}
+.theme-segmented button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-600);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform 100ms ease-out;
+}
+.theme-segmented button:active { transform: scale(0.97); }
+.theme-segmented button[aria-checked="true"] {
+  background: var(--surface);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── SAMO Shop (kita's espresso / milk / sky look — the shop team's choice).
+   Dark keeps its identity by SWAPPING the pair it is built on: espresso
+   becomes a latte (text, and the fill of primary buttons) and milk becomes a
+   deep espresso (page, and the text on those buttons). Every espresso fill in
+   the storefront already pairs with milk text, so they invert together. */
+:root[data-theme="dark"] #pills-shop,
+:root[data-theme="dark"] #shopProductModal,
+:root[data-theme="dark"] #shopCartOffcanvas,
+:root[data-theme="dark"] .shop-cart-fab {
+  --sf-milk:           #1b140d;
+  --sf-sky:            #1d2b42;
+  --sf-sky-deep:       #2b4470;
+  --sf-espresso:       #ecd9c2;
+  --sf-espresso-hover: #f5e7d4;
+  --sf-espresso-soft:  #c9ae8f;
+  --sf-taupe:          #a8957f;
+  --sf-line:           #3a2f24;
+  --shop-50:  #221a12;
+  --shop-100: #2d2318;
+  --shop-200: #3a2f24;
+  --shop-300: #5b4a39;
+  --shop-400: #a8957f;
+  --shop-500: #ecd9c2;
+  --shop-550: #f5e7d4;
+  --shop-600: #ecd9c2;
+  --shop-700: #ecd9c2;
+  --shop-900: #f7ecdd;
+  --shop-cream-50:  #1b140d;
+  --shop-cream-100: #2d2318;
+  --shop-cream-200: #3a2f24;
+  --shop-ink-900: #ecd9c2;
+  --shop-ink-700: #d8c2a6;
+  --shop-ink-500: #a8957f;
+  --shop-ink-300: #5b4a39;
+  --shop-ink-100: #2d2318;
+  --shop-ink-50:  #221a12;
+}
+/* The four storefront fills that pair with plain white text (shop.css) —
+   on a latte fill that text must be the deep espresso too. */
+:root[data-theme="dark"] #pills-shop .chip.is-active,
+:root[data-theme="dark"] #pills-shop .product-thumb .ribbon-new,
+:root[data-theme="dark"] #pills-shop .launch-big-thumb .ribbon-new,
+:root[data-theme="dark"] #pills-shop .checkout-panel h4 .step-num { color: var(--sf-milk); }
+
+/* Shop wordmark + its sky accents used as TEXT: the deep sky is a fill colour
+   in dark; text gets a lighter one. */
+:root[data-theme="dark"] #pills-shop .sf-brand-word span { color: #8fb3ea; }
+
+/* Home stats: the numbers are a gradient CLIPPED to the text, built from the
+   accent and a near-black — on a dark page the near-black end vanishes. */
+:root[data-theme="dark"] .home-stat-num {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stat-accent, #34b35e) 55%, var(--surface)), color-mix(in srgb, var(--stat-accent, #34b35e) 80%, var(--surface)));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ── Per-module token sets the codemod could not classify (a custom
+   property's NAME does not say whether it is a fill or text). Same rule as
+   everywhere: pale fills → a deep tint, dark text → light. ─────────────── */
+
+/* หนังสือโครงการ */
+:root[data-theme="dark"] .projects-tab {
+  --p-accent:      var(--brand-primary);
+  --p-accent-soft: #15301f;
+  --p-warn:        #f59e0b;
+  --p-warn-soft:   #33260c;
+  --p-danger:      #f87171;
+  --p-danger-soft: #3a1717;
+  --p-ok:          #4ade80;
+  --p-ok-soft:     #12301e;
+  --p-info:        #60a5fa;
+  --p-info-soft:   #142a4a;
+}
+
+/* บัญชีผู้ใช้ (accounts dashboard) */
+:root[data-theme="dark"] .acct {
+  --acct-none:      #4b5058;
+  --acct-bug:       #f07171;
+  --acct-review:    #e0a52a;
+  --acct-review-bg: #33280c;
+  --acct-info:      #a3abb6;
+  --acct-ok:        #4ac24a;
+  --acct-ink:       #eef1f4;
+  --acct-ink-2:     #a3abb6;
+}
+
+/* จองโควตา Claude */
+:root[data-theme="dark"] .claude-tab {
+  --claude-clay-ink:  #f0a588;
+  --claude-clay-wash: #33201a;
+  --claude-clay-deep: #f3b9a2;
+  --claude-part-ink:  #f0c24a;
+  --claude-track:     #2a332d;
+}
+
+/* SAMO Shop (admin + every .shop-tab outside the storefront's own scope) */
+:root[data-theme="dark"] .shop-tab {
+  --shop-50:  #2a1a10;
+  --shop-100: #3a2212;
+  --shop-200: #5a3015;
+  --shop-700: #ff9a63;
+  --shop-900: #ffd2b8;
+  --shop-cream-50:  #1f1b12;
+  --shop-cream-100: #2a2519;
+  --shop-cream-200: #3a3322;
+  --shop-yellow-50:  #2b2410;
+  --shop-yellow-100: #3a3014;
+  --shop-yellow-700: #f2c14e;
+}

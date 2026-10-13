@@ -630,6 +630,16 @@ a half-theme that only your component honors. (Standalone Artifacts are the
 exception — those SHOULD be theme-aware; the deployed app is not.)
 **Where**: `src/css/home-stats.css`, `src/css/analytics.css`.
 
+**⚠️ Superseded 2026-10-13 — the app HAS a theme now** (owner: "i also want
+dark mode for this web"). The rule still stands, for a different reason: a
+component NEVER gets its own `prefers-color-scheme` block. Dark mode is ONE
+attribute on `<html>` (`data-theme`, set before first paint by the head script
+in both entries — the device's choice is only its default), and a component
+goes dark by using the tokens `src/css/theme.css` flips (`--ink-*`, `--gray-*`,
+`--surface`, the color-mix amounts). An OS media query in a component would
+disagree with a person who chose "light" on a dark-mode phone — the same
+island, re-made. Guard: `src/js/theme.test.js`.
+
 ---
 
 ---

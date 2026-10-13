@@ -15,7 +15,7 @@
   position: sticky;
   top: 84px; /* below the floating navbar (12px margin + ~64px nav height) */
   z-index: 40;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgb(var(--surface-rgb) / 0.94);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--ink-200);
@@ -87,8 +87,11 @@
 
 .article-action--danger:hover {
   background: #fef2f2;
+  background: color-mix(in srgb, #fef2f2 var(--tint-mix), var(--surface));
   border-color: #fecaca;
+  border-color: color-mix(in srgb, #fecaca var(--line-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
 }
 
 /* --- ARTICLE PAGE --- */
@@ -268,6 +271,7 @@
 
 .article-body a:hover {
   color: #0d4a1d;
+  color: color-mix(in srgb, #0d4a1d var(--fg-mix), var(--fg-mix-to));
   text-decoration-thickness: 2px;
 }
 

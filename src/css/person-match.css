@@ -29,18 +29,20 @@
   padding: 0.5rem 0.7rem;
   margin-bottom: 0.75rem;
   font-size: 0.85rem;
-  background: #fff;
+  background: var(--surface);
 }
 /* Already placed — there is nothing to create here. */
 .person-match.is-block {
   border-inline-start-color: #b02a37;
   background: #fdf5f5;
+  background: color-mix(in srgb, #fdf5f5 var(--tint-mix), var(--surface));
 }
-.person-match.is-block .person-match-head { color: #b02a37; }
+.person-match.is-block .person-match-head { color: #b02a37; color: color-mix(in srgb, #b02a37 var(--fg-mix), var(--fg-mix-to)); }
 /* Known person, new placement — this is a normal save, not a warning. */
 .person-match.is-known {
   border-inline-start-color: var(--brand-primary);
   background: #f5faf6;
+  background: color-mix(in srgb, #f5faf6 var(--tint-mix), var(--surface));
 }
 .person-match.is-known .person-match-head { color: var(--brand-primary); }
 
@@ -72,6 +74,7 @@
 }
 .person-match-diff code {
   background: var(--ink-100, #eceef0);
+  background: var(--ink-100, color-mix(in srgb, #eceef0 var(--tint-mix), var(--surface)));
   border-radius: 0.25rem;
   padding: 0 0.25rem;
   color: inherit;

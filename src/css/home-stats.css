@@ -13,7 +13,11 @@
   background:
     radial-gradient(120% 140% at 12% 0%, rgba(16, 89, 34, 0.10), transparent 55%),
     radial-gradient(120% 140% at 90% 15%, rgba(255, 111, 48, 0.12), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #f6f9f6 100%);
+    linear-gradient(180deg, var(--surface) 0%, #f6f9f6 100%);
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(16, 89, 34, 0.10), transparent 55%),
+    radial-gradient(120% 140% at 90% 15%, rgba(255, 111, 48, 0.12), transparent 55%),
+    linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, #f6f9f6 var(--tint-mix), var(--surface)) 100%);
   border: 1px solid rgba(16, 89, 34, 0.10);
   box-shadow: 0 18px 48px -28px rgba(16, 89, 34, 0.35);
 }
@@ -28,6 +32,7 @@
   font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--brand-primary, #105922);
+  color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
   background: rgba(16, 89, 34, 0.08);
   border: 1px solid rgba(16, 89, 34, 0.16);
   padding: 0.28rem 0.8rem; border-radius: 999px;
@@ -47,9 +52,9 @@
 .home-stats-head h2 {
   font-family: 'Prompt', system-ui, sans-serif;
   font-weight: 700; font-size: clamp(1.4rem, 3.4vw, 2rem);
-  margin: 0.7rem 0 0.25rem; color: #16241b;
+  margin: 0.7rem 0 0.25rem; color: #16241b; color: color-mix(in srgb, #16241b var(--fg-mix), var(--fg-mix-to));
 }
-.home-stats-head p { margin: 0; color: #5c6b60; font-size: 0.95rem; }
+.home-stats-head p { margin: 0; color: #5c6b60; color: color-mix(in srgb, #5c6b60 var(--fg-mix), var(--fg-mix-to)); font-size: 0.95rem; }
 
 .home-stats-grid {
   display: grid; gap: 0.95rem;
@@ -61,7 +66,7 @@
   display: flex; flex-direction: column; align-items: flex-start;
   gap: 0.35rem;
   padding: 1.25rem 1.1rem 1.15rem;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgb(var(--surface-rgb) / 0.72);
   border: 1px solid rgba(20, 40, 27, 0.08);
   border-radius: 18px;
   backdrop-filter: blur(6px);
@@ -87,6 +92,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem;
   color: var(--stat-accent, #105922);
+  color: var(--stat-accent, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
   background: color-mix(in srgb, var(--stat-accent, #105922) 12%, transparent);
 }
 .home-stat-num {
@@ -95,15 +101,16 @@
   font-size: clamp(1.9rem, 5vw, 2.6rem);
   font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
   color: #16241b;
+  color: color-mix(in srgb, #16241b var(--fg-mix), var(--fg-mix-to));
   background: linear-gradient(135deg, var(--stat-accent, #105922), color-mix(in srgb, var(--stat-accent, #105922) 55%, #16241b));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.home-stat-label { font-size: 0.86rem; color: #566258; font-weight: 500; }
+.home-stat-label { font-size: 0.86rem; color: #566258; color: color-mix(in srgb, #566258 var(--fg-mix), var(--fg-mix-to)); font-weight: 500; }
 
 /* The growth tile: filled accent for emphasis. */
 .home-stat-tile.is-highlight {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--stat-accent) 16%, #fff), rgba(255, 255, 255, 0.7));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--stat-accent) 16%, var(--surface)), rgb(var(--surface-rgb) / 0.7));
   border-color: color-mix(in srgb, var(--stat-accent) 30%, transparent);
 }
 
@@ -111,7 +118,7 @@
 .home-stats-services { margin-top: 1.9rem; }
 .home-services-title {
   font-family: 'Prompt', system-ui, sans-serif; font-weight: 600;
-  font-size: 1.05rem; color: #26332b; text-align: center; margin: 0 0 1.1rem;
+  font-size: 1.05rem; color: #26332b; color: color-mix(in srgb, #26332b var(--fg-mix), var(--fg-mix-to)); text-align: center; margin: 0 0 1.1rem;
 }
 .home-services-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.95rem;
@@ -119,7 +126,7 @@
 .svc-card {
   display: flex; align-items: center; gap: 1.1rem;
   padding: 1.15rem 1.2rem; border-radius: 18px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgb(var(--surface-rgb) / 0.78);
   border: 1px solid color-mix(in srgb, var(--svc) 22%, rgba(20,40,27,0.08));
   box-shadow: 0 10px 26px -20px rgba(16, 40, 24, 0.5);
 }
@@ -148,16 +155,16 @@
 .svc-meta { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
 .svc-name {
   font-family: 'Prompt', system-ui, sans-serif; font-weight: 600;
-  font-size: 0.98rem; color: #1c2a22; display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.98rem; color: #1c2a22; color: color-mix(in srgb, #1c2a22 var(--fg-mix), var(--fg-mix-to)); display: flex; align-items: center; gap: 0.4rem;
 }
 .svc-name i { color: var(--svc); }
-.svc-counts { font-size: 0.84rem; color: #566258; }
+.svc-counts { font-size: 0.84rem; color: #566258; color: color-mix(in srgb, #566258 var(--fg-mix), var(--fg-mix-to)); }
 .svc-counts b { color: var(--svc); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ===== หนังสือโครงการ — its own grouped panel (ring + sub-metrics) ===== */
 .home-project-panel {
   margin-top: 1.5rem; padding: 1.35rem 1.35rem 1.4rem; border-radius: 22px;
-  background: linear-gradient(180deg, rgba(16, 89, 34, 0.06), rgba(255, 255, 255, 0.55));
+  background: linear-gradient(180deg, rgba(16, 89, 34, 0.06), rgb(var(--surface-rgb) / 0.55));
   border: 1px solid rgba(16, 89, 34, 0.18);
 }
 .home-project-head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem; }
@@ -168,9 +175,9 @@
 }
 .home-project-titles h3 {
   margin: 0; font-family: 'Prompt', system-ui, sans-serif; font-weight: 700;
-  font-size: 1.15rem; color: #16241b;
+  font-size: 1.15rem; color: #16241b; color: color-mix(in srgb, #16241b var(--fg-mix), var(--fg-mix-to));
 }
-.home-project-titles p { margin: 0; font-size: 0.82rem; color: #6b7a70; }
+.home-project-titles p { margin: 0; font-size: 0.82rem; color: #6b7a70; color: color-mix(in srgb, #6b7a70 var(--fg-mix), var(--fg-mix-to)); }
 .home-project-body { display: flex; align-items: center; gap: 1.6rem; }
 .home-project-ring { flex: 0 0 auto; }
 .home-project-stats {
@@ -179,14 +186,14 @@
 .home-project-stat {
   display: flex; flex-direction: column; gap: 0.15rem;
   padding: 0.75rem 0.9rem; border-radius: 13px;
-  background: rgba(255, 255, 255, 0.78); border: 1px solid rgba(20, 40, 27, 0.08);
+  background: rgb(var(--surface-rgb) / 0.78); border: 1px solid rgba(20, 40, 27, 0.08);
 }
-.home-project-stat-icon { color: var(--brand-primary, #105922); font-size: 0.9rem; }
+.home-project-stat-icon { color: var(--brand-primary, #105922); color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to))); font-size: 0.9rem; }
 .home-project-stat-num {
   font-family: 'Prompt', system-ui, sans-serif; font-weight: 700; font-size: 1.35rem;
-  line-height: 1.05; color: #16241b; font-variant-numeric: tabular-nums;
+  line-height: 1.05; color: #16241b; color: color-mix(in srgb, #16241b var(--fg-mix), var(--fg-mix-to)); font-variant-numeric: tabular-nums;
 }
-.home-project-stat-label { font-size: 0.78rem; color: #6b7a70; }
+.home-project-stat-label { font-size: 0.78rem; color: #6b7a70; color: color-mix(in srgb, #6b7a70 var(--fg-mix), var(--fg-mix-to)); }
 
 /* ---- Responsive ---- */
 @media (max-width: 720px) {
@@ -203,10 +210,9 @@
   .home-stats-grid { grid-template-columns: 1fr 1fr; }
 }
 
-/* NOTE: this app is light-only (no dark theme anywhere else — the rest of
-   the site has zero prefers-color-scheme / data-theme rules). We deliberately
-   do NOT add a dark variant here: on a dark-mode OS that made the strip go
-   dark-green while the white site around it stayed light. Keep it light. */
+/* Dark mode comes from the site theme (src/css/theme.css, [data-theme="dark"]),
+   never a prefers-color-scheme block here: an OS-driven variant once made this
+   strip go dark alone while the site around it stayed light. */
 
 /* Respect reduced-motion: no count-up shimmer, tiles simply appear. */
 @media (prefers-reduced-motion: reduce) {

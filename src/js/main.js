@@ -12,7 +12,9 @@ import { startBuildCheck } from './build-check.js';
 startBuildCheck();   // run before anything else — see build-check.js header
 
 import { initModalStack } from './modal-stack.js';
+import { initTheme } from './theme.js';
 initModalStack();  // stacked modals (crop over member editor, picker over member editor)
+initTheme();       // light / dark / device — the head script already applied it; this wires the switch
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 

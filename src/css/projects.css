@@ -4,11 +4,11 @@
  * ============================================== */
 
 .projects-tab {
-  --p-bg:         #ffffff;
-  --p-line:       #e5e7eb;
-  --p-line-soft:  #f1f5f9;
-  --p-muted:      #6b7280;
-  --p-text:       #111827;
+  --p-bg:         var(--surface);
+  --p-line:       var(--gray-200);
+  --p-line-soft:  var(--ink-100);
+  --p-muted:      var(--gray-500);
+  --p-text:       var(--gray-900);
   --p-accent:     #105922;
   --p-accent-soft:#e6f2ec;
   --p-warn:       #d97706;
@@ -110,7 +110,7 @@
   width: 32px;
   border: 1px solid var(--p-line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--p-muted);
   font-size: 0.95rem;
   line-height: 1;
@@ -118,14 +118,16 @@
 }
 .projects-tab .projects-fy-default-btn:hover {
   color: var(--p-text);
-  border-color: #cbd5e1;
+  border-color: var(--ink-300);
 }
 /* is-set = what is on screen IS the saved default. Green rather than a
    second grey state so the two are distinguishable at a glance. */
 .projects-tab .projects-fy-default-btn.is-set {
   color: var(--brand-primary, #105922);
+  color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
   border-color: var(--brand-primary, #105922);
   background: #f0f7f2;
+  background: color-mix(in srgb, #f0f7f2 var(--tint-mix), var(--surface));
 }
 .projects-tab .projects-filter-row {
   display: flex;
@@ -149,13 +151,13 @@
   gap: 6px;
   font-size: 0.84rem;
   border: 1px solid var(--p-line);
-  background: #fff;
+  background: var(--surface);
   color: var(--p-muted);
   padding: 6px 14px;
   border-radius: 999px;
   transition: all 0.15s;
 }
-.projects-tab .projects-chip:hover { color: var(--p-text); border-color: #cbd5e1; }
+.projects-tab .projects-chip:hover { color: var(--p-text); border-color: var(--ink-300); }
 .projects-tab .projects-chip-count {
   display: inline-flex;
   align-items: center;
@@ -176,7 +178,7 @@
   font-weight: 600;
 }
 .projects-tab .projects-chip.is-active .projects-chip-count {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgb(var(--surface-rgb) / 0.25);
   color: #fff;
 }
 .projects-tab .projects-chip.is-mine.is-active { background: #b45309; border-color: #b45309; }
@@ -192,13 +194,13 @@
   gap: 4px;
   font-size: 0.84rem;
   border: 1px solid var(--p-line);
-  background: #fff;
+  background: var(--surface);
   color: var(--p-muted);
   padding: 6px 12px;
   border-radius: 8px;
   height: 100%;
 }
-.projects-tab .projects-dept-filter-btn:hover { color: var(--p-text); border-color: #cbd5e1; }
+.projects-tab .projects-dept-filter-btn:hover { color: var(--p-text); border-color: var(--ink-300); }
 .projects-tab .projects-dept-filter-btn.is-active {
   background: var(--p-accent-soft);
   border-color: var(--p-accent);
@@ -270,7 +272,7 @@
    (--dept-c, its หน้าฝ่าย token) is the DOT and a light tint; the text stays
    dark, because several ฝ่าย colours (ดิจิทัล's yellow) cannot carry text. */
 .projects-tab .projects-dept-mini {
-  --dept-c: #94a3b8;
+  --dept-c: var(--ink-400);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -282,9 +284,9 @@
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.5;
-  color: #334155;
-  background: color-mix(in srgb, var(--dept-c) 13%, #fff);
-  border: 1px solid color-mix(in srgb, var(--dept-c) 35%, #fff);
+  color: var(--ink-700);
+  background: color-mix(in srgb, var(--dept-c) 13%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--dept-c) 35%, var(--surface));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -310,6 +312,7 @@
   background: var(--p-accent-soft);
   color: var(--p-accent);
   border: 1px solid #b7dcc4;
+  border: 1px solid color-mix(in srgb, #b7dcc4 var(--line-mix), var(--surface));
 }
 
 /* ฝ่ายสโม tag editor — the vpa desk only, on the detail header */
@@ -329,13 +332,13 @@
 .projects-tab .projects-dept-chip {
   font-size: 0.78rem;
   border: 1px solid var(--p-line);
-  background: #fff;
+  background: var(--surface);
   color: var(--p-muted);
   padding: 4px 11px;
   border-radius: 999px;
   transition: all 0.15s;
 }
-.projects-tab .projects-dept-chip:hover { color: var(--p-text); border-color: #cbd5e1; }
+.projects-tab .projects-dept-chip:hover { color: var(--p-text); border-color: var(--ink-300); }
 .projects-tab .projects-dept-chip.is-active {
   background: var(--p-accent);
   border-color: var(--p-accent);
@@ -351,7 +354,7 @@
   border: 1px solid var(--p-line);
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface);
   flex: 0 0 auto;
 }
 .projects-tab .projects-view-toggle-btn {
@@ -380,7 +383,7 @@
 }
 .projects-tab .projects-card-grid {
   text-align: left;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--p-line);
   border-radius: 12px;
   padding: 16px;
@@ -412,7 +415,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--p-line);
   border-radius: 12px;
   padding: 4px;
@@ -522,7 +525,7 @@
 .projects-tab .projects-list-badge.is-comment { background: #3b82f6; color: #fff; }
 /* "ซ่อนจากเว็บสาธารณะ" (0114). Deliberately neutral, not an alarm colour —
    hiding a โครงการ is a normal editorial choice, not a problem to fix. */
-.projects-tab .projects-list-badge.is-hidden { background: #64748b; color: #fff; }
+.projects-tab .projects-list-badge.is-hidden { background: var(--ink-500); color: #fff; }
 .projects-tab .projects-list-count {
   color: var(--p-muted);
   font-size: 0.82rem;
@@ -631,7 +634,7 @@
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.28);
 }
 .projects-tab .projects-card-attn-badge.is-hidden {
-  background: #64748b;
+  background: var(--ink-500);
   color: #fff;
   box-shadow: 0 2px 8px rgba(100, 116, 139, 0.25);
 }
@@ -647,9 +650,9 @@
   padding: 3px 10px;
   border-radius: 999px;
   white-space: nowrap;
-  background: #e2e8f0;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  background: var(--ink-200);
+  color: var(--ink-600);
+  border: 1px solid var(--ink-300);
 }
 /* ปีงบประมาณ of the โครงการ, on the detail header. `.is-moved` marks a year a
    human set by hand — without it a year that disagrees with the created date
@@ -663,13 +666,19 @@
   border-radius: 999px;
   white-space: nowrap;
   background: #eef2ff;
+  background: color-mix(in srgb, #eef2ff var(--tint-mix), var(--surface));
   color: #4338ca;
+  color: color-mix(in srgb, #4338ca var(--fg-mix), var(--fg-mix-to));
   border: 1px solid #c7d2fe;
+  border: 1px solid color-mix(in srgb, #c7d2fe var(--line-mix), var(--surface));
 }
 .projects-tab .projects-fy-pill.is-moved {
   background: #fff7ed;
+  background: color-mix(in srgb, #fff7ed var(--tint-mix), var(--surface));
   color: #c2410c;
+  color: color-mix(in srgb, #c2410c var(--fg-mix), var(--fg-mix-to));
   border-color: #fed7aa;
+  border-color: color-mix(in srgb, #fed7aa var(--line-mix), var(--surface));
 }
 /* The ปีงบ chip on an inbox card / list row (fyChipHtml). Deliberately
    quieter than the detail-header pill: it sits on every โครงการ, so the
@@ -689,12 +698,15 @@
   padding: 1px 8px;
   border-radius: 999px;
   background: #fff7ed;
+  background: color-mix(in srgb, #fff7ed var(--tint-mix), var(--surface));
   color: #c2410c;
+  color: color-mix(in srgb, #c2410c var(--fg-mix), var(--fg-mix-to));
   border: 1px solid #fed7aa;
+  border: 1px solid color-mix(in srgb, #fed7aa var(--line-mix), var(--surface));
 }
 .projects-tab .projects-hidden-pill.is-partial {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--ink-100);
+  color: var(--ink-500);
   font-weight: 600;
 }
 .projects-tab .projects-hidden-note {
@@ -704,9 +716,9 @@
   margin: 8px 0 0;
   padding: 8px 12px;
   border-radius: 10px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  background: var(--ink-100);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-600);
   font-size: 0.82rem;
   line-height: 1.5;
 }
@@ -784,7 +796,7 @@
 
 /* ---------- Level 2: project header ---------- */
 .projects-tab .projects-detail-head {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--p-line);
   border-radius: 12px;
   padding: 18px 20px;
@@ -800,7 +812,7 @@
 }
 .projects-tab .projects-detail-id-copy {
   appearance: none;
-  background: #f1f5f9;
+  background: var(--ink-100);
   border: 1px solid var(--p-line);
   border-radius: 999px;
   padding: 2px 10px;
@@ -813,11 +825,11 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .projects-tab .projects-detail-id-copy:hover {
-  background: #e2e8f0;
-  border-color: #cbd5e1;
+  background: var(--ink-200);
+  border-color: var(--ink-300);
 }
 .projects-tab .projects-detail-id-copy:active {
-  background: #cbd5e1;
+  background: var(--ink-300);
 }
 .projects-tab .projects-detail-id-copy i {
   font-size: 0.85em;
@@ -861,7 +873,7 @@
   gap: 10px;
 }
 .projects-tab .projects-doc-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--p-line);
   border-radius: 10px;
   overflow: hidden;
@@ -877,7 +889,7 @@
   user-select: none;
   flex-wrap: wrap;
 }
-.projects-tab .projects-doc-card-head:hover { background: #fbfdfb; }
+.projects-tab .projects-doc-card-head:hover { background: #fbfdfb; background: color-mix(in srgb, #fbfdfb var(--tint-mix), var(--surface)); }
 .projects-tab .projects-doc-card.is-open .projects-doc-card-head {
   background: var(--p-accent-soft);
   border-bottom: 1px solid var(--p-line-soft);
@@ -908,7 +920,7 @@
 }
 .projects-tab .projects-doc-card-body {
   padding: 18px 20px 20px;
-  background: #fff;
+  background: var(--surface);
 }
 @media (max-width: 767.98px) {
   .projects-tab .projects-doc-card-body { padding: 14px; }
@@ -1019,7 +1031,7 @@
   color: var(--p-muted);
   white-space: nowrap;
 }
-.projects-tab .projects-owner-pill.is-mine  { background: #fef3c7; color: #92400e; font-weight: 600; }
+.projects-tab .projects-owner-pill.is-mine  { background: #fef3c7; background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
 .projects-tab .projects-owner-pill.is-other { background: var(--p-info-soft); color: var(--p-info); }
 .projects-tab .projects-owner-pill.is-none  { background: var(--p-line-soft); color: var(--p-muted); }
 
@@ -1030,7 +1042,7 @@
 
 /* ---------- Doc note (inside expand) ---------- */
 .projects-tab .projects-doc-note {
-  background: #fff;
+  background: var(--surface);
   border-left: 3px solid var(--p-accent);
   padding: 8px 12px;
   margin: 8px 0;
@@ -1047,6 +1059,7 @@
  * card. */
 .projects-tab .is-copied {
   color: var(--p-ok, #16a34a) !important;
+  color: var(--p-ok, color-mix(in srgb, #16a34a var(--fg-mix), var(--fg-mix-to))) !important;
   background: rgba(22, 163, 74, 0.12) !important;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
@@ -1068,6 +1081,7 @@
 }
 .projects-tab .projects-update-banner.is-comment {
   background: var(--p-info-soft, #eff6ff);
+  background: var(--p-info-soft, color-mix(in srgb, #eff6ff var(--tint-mix), var(--surface)));
   border-color: rgba(59, 130, 246, 0.28);
 }
 .projects-tab .projects-update-banner-head {
@@ -1078,8 +1092,8 @@
   font-size: 0.92rem;
   margin-bottom: 6px;
 }
-.projects-tab .projects-update-banner.is-update .projects-update-banner-head { color: #b45309; }
-.projects-tab .projects-update-banner.is-return .projects-update-banner-head { color: #991b1b; }
+.projects-tab .projects-update-banner.is-update .projects-update-banner-head { color: #b45309; color: color-mix(in srgb, #b45309 var(--fg-mix), var(--fg-mix-to)); }
+.projects-tab .projects-update-banner.is-return .projects-update-banner-head { color: #991b1b; color: color-mix(in srgb, #991b1b var(--fg-mix), var(--fg-mix-to)); }
 .projects-tab .projects-update-banner-head i { font-size: 1.05rem; }
 .projects-tab .projects-update-banner-count {
   display: inline-flex;
@@ -1111,7 +1125,7 @@
   color: var(--p-text);
   flex-wrap: wrap;
   padding: 4px 0;
-  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+  border-top: 1px dashed rgb(var(--ink-900-rgb) / 0.08);
 }
 .projects-tab .projects-update-line:first-child { border-top: none; }
 .projects-tab .projects-update-line i {
@@ -1243,6 +1257,7 @@
 /* ---------- Files block (inside expand) ---------- */
 .projects-tab .projects-doc-files {
   background: #fafbfc;
+  background: color-mix(in srgb, #fafbfc var(--tint-mix), var(--surface));
   border: 1px solid var(--p-line);
   border-radius: 8px;
   padding: 12px;
@@ -1265,7 +1280,7 @@
   padding: 8px 10px;
   border: 1px solid var(--p-line-soft);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   flex-wrap: wrap;
   transition: background 0.2s, border-color 0.2s;
 }
@@ -1418,8 +1433,8 @@
   margin-left: 6px;
 }
 .projects-tab .projects-tl-role.uni_staff { background: var(--p-accent-soft); color: var(--p-accent); }
-.projects-tab .projects-tl-role.sa_prof   { background: rgba(13, 148, 136, 0.12); color: #0d7a70; }
-.projects-tab .projects-tl-role.dev       { background: #fde68a; color: #92400e; }
+.projects-tab .projects-tl-role.sa_prof   { background: rgba(13, 148, 136, 0.12); color: #0d7a70; color: color-mix(in srgb, #0d7a70 var(--fg-mix), var(--fg-mix-to)); }
+.projects-tab .projects-tl-role.dev       { background: #fde68a; color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); }
 .projects-tab .projects-tl-action { margin-left: 6px; font-weight: 500; }
 .projects-tab .projects-tl-note {
   margin-top: 2px;
@@ -1433,7 +1448,7 @@
   margin-top: 14px;
   border: 1px solid var(--p-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   padding: 10px 12px;
 }
 .projects-tab .projects-comments-head {
@@ -1464,7 +1479,9 @@
   display: inline-block;
   font-size: 0.72rem;
   background: var(--p-warn-soft, #fef3c7);
+  background: var(--p-warn-soft, color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)));
   color: var(--p-warn, #92400e);
+  color: var(--p-warn, color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)));
   padding: 1px 8px;
   border-radius: 999px;
   font-weight: 600;
@@ -1480,11 +1497,12 @@
 .projects-tab .projects-comment {
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--p-line-soft, #f8fafc);
+  background: var(--p-line-soft, var(--ink-50));
   border-left: 3px solid transparent;
 }
 .projects-tab .projects-comment.is-unread {
   background: #fff7ed;
+  background: color-mix(in srgb, #fff7ed var(--tint-mix), var(--surface));
   border-left-color: var(--p-warn, #f59e0b);
 }
 .projects-tab .projects-comment-meta {
@@ -1533,12 +1551,14 @@
   transition: background-color 0.12s, color 0.12s, border-color 0.12s;
 }
 .projects-tab .projects-comment-btn:hover {
-  background: var(--p-line-soft, #f3f4f6);
+  background: var(--p-line-soft, var(--gray-100));
   color: var(--p-text);
 }
 .projects-tab .projects-comment-btn.text-danger:hover {
   background: #fee2e2;
+  background: color-mix(in srgb, #fee2e2 var(--tint-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
 }
 
 /* ---------- Floating action button (mobile) ---------- */
@@ -1576,7 +1596,7 @@
 .projects-tab .projects-staged-file {
   display: flex;
   align-items: center;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--p-line);
   border-radius: 6px;
   padding: 6px 10px;
@@ -1593,7 +1613,7 @@
   .projects-tab .projects-manage-grid { grid-template-columns: 1.4fr 1fr; }
 }
 .projects-tab .projects-manage-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--p-line);
   border-radius: 12px;
   padding: 20px;
@@ -1636,6 +1656,7 @@
   gap: 10px;
   padding: 8px 12px;
   background: #fafbfc;
+  background: color-mix(in srgb, #fafbfc var(--tint-mix), var(--surface));
   border: 1px solid var(--p-line-soft);
   border-radius: 8px;
 }
@@ -1651,14 +1672,14 @@
   gap: 10px;
   align-items: flex-start;
   text-align: left;
-  background: #fff;
+  background: var(--surface);
   border: none;
   border-bottom: 1px solid var(--p-line-soft);
   padding: 12px 16px;
   width: 100%;
 }
 .projects-tab .projects-notify-item:hover { background: var(--p-line-soft); }
-.projects-tab .projects-notify-item.is-unread { background: #fafdfb; }
+.projects-tab .projects-notify-item.is-unread { background: #fafdfb; background: color-mix(in srgb, #fafdfb var(--tint-mix), var(--surface)); }
 .projects-tab .projects-notify-icon { font-size: 1.2rem; margin-top: 2px; color: var(--p-muted); }
 .projects-tab .projects-notify-item.is-info .projects-notify-icon  { color: var(--p-info); }
 .projects-tab .projects-notify-item.is-warn .projects-notify-icon  { color: var(--p-warn); }
@@ -1700,6 +1721,7 @@
   border: none;
   background: transparent;
   color: #105922;
+  color: color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to));
   padding: 6px 10px;
   border-radius: 8px;
   font-size: 1.05rem;
@@ -1726,7 +1748,7 @@
 
 /* Teal soft button (matches the VS-tab teal accent family). */
 .projects-tab .btn-teal-soft {
-  background: rgba(13, 148, 136, 0.12); color: #0d9488;
+  background: rgba(13, 148, 136, 0.12); color: #0d9488; color: color-mix(in srgb, #0d9488 var(--fg-mix), var(--fg-mix-to));
   border: 1px solid transparent;
 }
 .projects-tab .btn-teal-soft:hover { background: #0d9488; color: #fff; }
@@ -1739,7 +1761,7 @@
   border-radius: 10px;
   padding: 0.7rem 0.85rem;
   margin-top: 0.55rem;
-  background: #fff;
+  background: var(--surface);
 }
 .projects-tab .projects-sign-card.is-accepted { border-left-color: var(--p-ok); }
 .projects-tab .projects-sign-card.is-rejected { border-left-color: var(--p-danger); }
@@ -1750,7 +1772,7 @@
   display: inline-flex; align-items: center;
   font-size: 0.76rem; font-weight: 700;
   padding: 0.12rem 0.5rem; border-radius: 999px;
-  background: rgba(13, 148, 136, 0.12); color: #0d7a70;
+  background: rgba(13, 148, 136, 0.12); color: #0d7a70; color: color-mix(in srgb, #0d7a70 var(--fg-mix), var(--fg-mix-to));
 }
 .projects-tab .projects-sign-status.is-accepted { background: var(--p-ok-soft); color: var(--p-ok); }
 .projects-tab .projects-sign-status.is-rejected { background: var(--p-danger-soft); color: var(--p-danger); }
@@ -1808,7 +1830,7 @@
 .projects-tab .esign-stage {
   position: relative; padding: 0; overflow: auto;
   max-height: 60vh; border: 1px solid var(--p-line);
-  border-radius: 10px; background: #f1f3f5;
+  border-radius: 10px; background: #f1f3f5; background: color-mix(in srgb, #f1f3f5 var(--tint-mix), var(--surface));
 }
 .projects-tab .esign-stage canvas#esignPageCanvas { display: block; }
 .projects-tab .esign-sig-overlay {
@@ -1820,7 +1842,7 @@
 .projects-tab .esign-pad {
   width: 100%; height: 150px; touch-action: none;
   border: 1px dashed var(--p-line); border-radius: 10px;
-  background: #fff; cursor: crosshair;
+  background: var(--surface); cursor: crosshair;
 }
 @media (max-width: 720px) {
   .projects-tab .esign-side { flex-basis: 100%; }
@@ -1839,7 +1861,7 @@
   padding: 1px 7px; border-radius: 999px; margin-left: 6px;
   white-space: nowrap;
 }
-.projects-tab .projects-file-sign-chip.is-pending  { background: rgba(13,148,136,0.12); color: #0d7a70; }
+.projects-tab .projects-file-sign-chip.is-pending  { background: rgba(13,148,136,0.12); color: #0d7a70; color: color-mix(in srgb, #0d7a70 var(--fg-mix), var(--fg-mix-to)); }
 .projects-tab .projects-file-sign-chip.is-signed   { background: var(--p-ok-soft); color: var(--p-ok); }
 .projects-tab .projects-file-sign-chip.is-rejected { background: var(--p-danger-soft); color: var(--p-danger); }
 /* อนุมัติแล้ว but no signed file attached — approved, and still owed something.
@@ -1888,7 +1910,7 @@
   margin-top: 14px;
   border: 1px solid var(--p-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   padding: 10px 12px;
 }
 .projects-tab .projects-sign-collapse-head {
@@ -1907,7 +1929,9 @@
   display: inline-block;
   font-size: 0.72rem;
   background: var(--p-warn-soft, #fef3c7);
+  background: var(--p-warn-soft, color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)));
   color: var(--p-warn, #92400e);
+  color: var(--p-warn, color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)));
   padding: 1px 8px;
   border-radius: 999px;
   font-weight: 600;
@@ -1924,3 +1948,61 @@
 }
 .projects-tab details.projects-sign-collapse[open] > .projects-sign-collapse-head { margin-bottom: 8px; }
 .projects-tab .projects-sign-collapse-body { display: flex; flex-direction: column; gap: 8px; }
+
+
+/* ==============================================
+ * Across devices (2026-10-13) — phone / iPad / desktop.
+ * ============================================== */
+
+/* The ฝ่าย editor: closed shows what is tagged + one control. */
+.projects-tab .projects-dept-editor-none { font-size: 0.8rem; color: var(--p-muted); }
+.projects-tab .projects-dept-editor-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px dashed var(--p-line);
+  background: transparent;
+  color: var(--p-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: transform 100ms ease-out, background-color var(--t-fast) var(--ease);
+}
+.projects-tab .projects-dept-editor-toggle:hover { background: var(--p-accent-soft); }
+.projects-tab .projects-dept-editor-toggle:active,
+.projects-tab .projects-dept-chip:active { transform: scale(0.96); }
+.projects-tab .projects-dept-editor.is-open .projects-dept-editor-toggle { border-style: solid; }
+
+/* The secondary actions: all in view from 768px; on a phone, behind เพิ่มเติม. */
+.projects-tab .projects-more-toggle { display: none; }
+@media (max-width: 767.98px) {
+  .projects-tab .projects-detail-actions:not(.is-expanded) .is-secondary { display: none; }
+  .projects-tab .projects-more-toggle { display: inline-flex; align-items: center; }
+  .projects-tab .projects-detail-actions .ms-auto { margin-left: 0 !important; }
+  /* Bigger targets for a thumb — Apple's 44pt, met by the row height. */
+  .projects-tab .projects-detail-actions .btn { min-height: 40px; }
+}
+
+/* The status chips: one row that SCROLLS below desktop, instead of wrapping
+   one chip onto a second line. The edge fades say there is more. */
+@media (max-width: 1199.98px) {
+  .projects-tab .projects-filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 24px), transparent 100%);
+    padding: 2px 12px;
+    margin: 0 -12px;
+  }
+  .projects-tab .projects-filter-row::-webkit-scrollbar { display: none; }
+  .projects-tab .projects-filter-row > * { flex: 0 0 auto; scroll-snap-align: start; }
+}
+
+/* The create button in the sub-nav is the floating button's twin; below lg
+   the floating one is shown, so this one would only be cut off the edge. */
+@media (max-width: 991.98px) {
+  .projects-tab .projects-subnav #projectsCreateBtn { display: none !important; }
+}

@@ -10,7 +10,7 @@
   flex-wrap: wrap; margin-bottom: 1.1rem;
 }
 .analytics-range { display: flex; align-items: center; gap: 0.5rem; }
-.analytics-range label { font-size: 0.85rem; color: #5c6b60; margin: 0; }
+.analytics-range label { font-size: 0.85rem; color: #5c6b60; color: color-mix(in srgb, #5c6b60 var(--fg-mix), var(--fg-mix-to)); margin: 0; }
 .analytics-range .form-select { width: auto; min-width: 140px; }
 
 /* ---- KPI tiles ---- */
@@ -21,22 +21,23 @@
 .an-kpi {
   display: flex; flex-direction: column; gap: 0.15rem;
   padding: 0.95rem 1rem; border-radius: 14px;
-  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
+  background: var(--surface); border: 1px solid rgba(20, 40, 27, 0.09);
   border-top: 3px solid var(--kpi, #105922);
   box-shadow: 0 8px 22px -18px rgba(16, 40, 24, 0.5);
 }
 .an-kpi-num {
   font-family: 'Prompt', system-ui, sans-serif; font-weight: 700;
   font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.05;
-  color: var(--kpi, #105922); font-variant-numeric: tabular-nums;
+  color: var(--kpi, #105922);
+  color: var(--kpi, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to))); font-variant-numeric: tabular-nums;
 }
-.an-kpi-label { font-size: 0.82rem; font-weight: 600; color: #26332b; }
+.an-kpi-label { font-size: 0.82rem; font-weight: 600; color: #26332b; color: color-mix(in srgb, #26332b var(--fg-mix), var(--fg-mix-to)); }
 .an-kpi-sub { font-size: 0.72rem; color: #7a8a80; }
 
 /* ---- Section label ---- */
 .an-section-label {
   font-family: 'Prompt', system-ui, sans-serif; font-weight: 600;
-  font-size: 0.95rem; color: #33413a; margin: 1.3rem 0 0.75rem;
+  font-size: 0.95rem; color: #33413a; color: color-mix(in srgb, #33413a var(--fg-mix), var(--fg-mix-to)); margin: 1.3rem 0 0.75rem;
 }
 
 /* ---- Completion rings (PR / VS) ---- */
@@ -44,7 +45,7 @@
 .an-rings--2 { grid-template-columns: repeat(2, 1fr); }
 .an-ring-card {
   display: flex; align-items: center; gap: 1rem;
-  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09); border-radius: 16px;
+  background: var(--surface); border: 1px solid rgba(20, 40, 27, 0.09); border-radius: 16px;
   padding: 1rem 1.1rem; box-shadow: 0 8px 22px -20px rgba(16, 40, 24, 0.5);
 }
 .an-ring { position: relative; width: 84px; height: 84px; flex: 0 0 auto; }
@@ -64,14 +65,14 @@
   font-variant-numeric: tabular-nums;
 }
 .an-ring-meta { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
-.an-ring-name { font-weight: 600; font-size: 0.92rem; color: #1c2a22; }
-.an-ring-sub { font-size: 0.8rem; color: #6b7a70; }
-.an-ring-sub b { color: #26332b; font-weight: 700; }
+.an-ring-name { font-weight: 600; font-size: 0.92rem; color: #1c2a22; color: color-mix(in srgb, #1c2a22 var(--fg-mix), var(--fg-mix-to)); }
+.an-ring-sub { font-size: 0.8rem; color: #6b7a70; color: color-mix(in srgb, #6b7a70 var(--fg-mix), var(--fg-mix-to)); }
+.an-ring-sub b { color: #26332b; color: color-mix(in srgb, #26332b var(--fg-mix), var(--fg-mix-to)); font-weight: 700; }
 
 /* ---- หนังสือโครงการ — grouped panel (ring + its own stats) ---- */
 .an-proj-panel {
   margin-top: 0.9rem; padding: 1.15rem 1.2rem 1.25rem; border-radius: 16px;
-  background: linear-gradient(180deg, rgba(16, 89, 34, 0.05), #fff);
+  background: linear-gradient(180deg, rgba(16, 89, 34, 0.05), var(--surface));
   border: 1px solid rgba(16, 89, 34, 0.18);
 }
 .an-proj-panel-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1rem; }
@@ -80,8 +81,8 @@
   display: inline-flex; align-items: center; justify-content: center;
   color: #fff; background: var(--brand-primary, #105922); font-size: 1.05rem;
 }
-.an-proj-panel-head h3 { margin: 0; font-size: 1.02rem; font-weight: 700; color: #16241b; }
-.an-proj-panel-head span { font-size: 0.8rem; color: #6b7a70; }
+.an-proj-panel-head h3 { margin: 0; font-size: 1.02rem; font-weight: 700; color: #16241b; color: color-mix(in srgb, #16241b var(--fg-mix), var(--fg-mix-to)); }
+.an-proj-panel-head span { font-size: 0.8rem; color: #6b7a70; color: color-mix(in srgb, #6b7a70 var(--fg-mix), var(--fg-mix-to)); }
 .an-proj-panel-body { display: flex; align-items: center; gap: 1.3rem; }
 .an-proj-ringwrap { flex: 0 0 auto; }
 /* Flatten the reused ring card inside the panel (no double border). */
@@ -89,19 +90,19 @@
 .an-proj-grid { flex: 1 1 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
 .an-proj-stat {
   display: flex; flex-direction: column; gap: 0.15rem; padding: 0.85rem 0.9rem;
-  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
+  background: var(--surface); border: 1px solid rgba(20, 40, 27, 0.09);
   border-left: 3px solid var(--ps, #105922); border-radius: 12px;
 }
 .an-proj-num {
   font-family: 'Prompt', system-ui, sans-serif; font-weight: 700; font-size: 1.4rem;
-  line-height: 1; color: var(--ps, #105922); font-variant-numeric: tabular-nums;
+  line-height: 1; color: var(--ps, #105922); color: var(--ps, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to))); font-variant-numeric: tabular-nums;
 }
-.an-proj-label { font-size: 0.78rem; color: #566258; }
+.an-proj-label { font-size: 0.78rem; color: #566258; color: color-mix(in srgb, #566258 var(--fg-mix), var(--fg-mix-to)); }
 
 /* ---- Cards grid ---- */
 .an-grid { display: grid; gap: 0.9rem; grid-template-columns: repeat(2, 1fr); }
 .an-card {
-  background: #fff; border: 1px solid rgba(20, 40, 27, 0.09);
+  background: var(--surface); border: 1px solid rgba(20, 40, 27, 0.09);
   border-radius: 16px; padding: 1rem 1.1rem 1.15rem;
   box-shadow: 0 8px 22px -20px rgba(16, 40, 24, 0.5);
 }
@@ -110,7 +111,7 @@
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 0.5rem; margin-bottom: 0.85rem;
 }
-.an-card-head h3 { font-size: 0.98rem; font-weight: 700; margin: 0; color: #1c2a22; }
+.an-card-head h3 { font-size: 0.98rem; font-weight: 700; margin: 0; color: #1c2a22; color: color-mix(in srgb, #1c2a22 var(--fg-mix), var(--fg-mix-to)); }
 .an-card-head span { font-size: 0.8rem; color: #7a8a80; }
 
 /* ---- Vertical bar chart (CSS bars) ---- */
@@ -158,20 +159,20 @@
    Wrapping to two lines works at any column width and any label length,
    which ellipsis-plus-hover does not. */
 .an-rank-label {
-  font-size: 0.82rem; color: #33413a;
+  font-size: 0.82rem; color: #33413a; color: color-mix(in srgb, #33413a var(--fg-mix), var(--fg-mix-to));
   overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .an-rank-track { height: 10px; background: rgba(20, 40, 27, 0.07); border-radius: 6px; overflow: hidden; }
 .an-rank-fill { display: block; height: 100%; border-radius: 6px; transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
-.an-rank-n { font-size: 0.8rem; font-weight: 600; color: #26332b; text-align: right; font-variant-numeric: tabular-nums; }
+.an-rank-n { font-size: 0.8rem; font-weight: 600; color: #26332b; color: color-mix(in srgb, #26332b var(--fg-mix), var(--fg-mix-to)); text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---- States ---- */
 .an-loading, .an-error, .an-chart-empty {
   padding: 1.4rem; text-align: center; color: #7a8a80; font-size: 0.9rem;
 }
-.an-error { color: #b02a37; }
+.an-error { color: #b02a37; color: color-mix(in srgb, #b02a37 var(--fg-mix), var(--fg-mix-to)); }
 .an-chart-empty { padding: 2.2rem 1rem; }
 .an-foot { margin-top: 1rem; font-size: 0.76rem; color: #93a199; text-align: center; }
 
@@ -190,9 +191,8 @@
   .an-proj-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Light-only: the rest of the app has no dark theme, so a dark-mode OS
-   was making these cards dark while the white admin shell stayed light.
-   No dark variant here on purpose. */
+/* Dark mode comes from the site theme (src/css/theme.css), never an OS media
+   query here: one once made these cards dark alone inside a light admin. */
 
 /* ── อีเมลแจ้งเตือน: daily sends against the Apps Script ceiling (0170) ──
    A meter rather than a number, because the question the panel answers is
@@ -202,6 +202,7 @@
   height: 8px;
   border-radius: 999px;
   background: #e8efe9;
+  background: color-mix(in srgb, #e8efe9 var(--tint-mix), var(--surface));
   overflow: hidden;
   margin: 0.1rem 0 0.55rem;
 }
@@ -224,11 +225,13 @@
   color: #7a8a80;
   margin-bottom: 0.6rem;
 }
-.an-email-legend b { color: #1c2a22; font-weight: 700; }
+.an-email-legend b { color: #1c2a22; color: color-mix(in srgb, #1c2a22 var(--fg-mix), var(--fg-mix-to)); font-weight: 700; }
 .an-email-note {
   font-size: 0.8rem;
   color: #5c6b63;
+  color: color-mix(in srgb, #5c6b63 var(--fg-mix), var(--fg-mix-to));
   background: #f2f5f2;
+  background: color-mix(in srgb, #f2f5f2 var(--tint-mix), var(--surface));
   border-radius: 7px;
   padding: 0.5rem 0.7rem;
   margin-bottom: 0.6rem;
@@ -236,7 +239,9 @@
 /* A warning must not look like the neutral note beside it. */
 .an-email-note--warn {
   color: #9a3412;
+  color: color-mix(in srgb, #9a3412 var(--fg-mix), var(--fg-mix-to));
   background: #fff4ed;
+  background: color-mix(in srgb, #fff4ed var(--tint-mix), var(--surface));
   border-left: 3px solid var(--brand-orange, #ff6f30);
 }
 /* The burst row sits under the volume legend and is deliberately quieter —
@@ -261,20 +266,23 @@
   font-weight: 600;
   padding: 0.35rem 0.6rem 0.35rem 0;
   border-bottom: 1px solid #e2eae4;
+  border-bottom: 1px solid color-mix(in srgb, #e2eae4 var(--line-mix), var(--surface));
   white-space: nowrap;
 }
 .an-gas-actions td {
   padding: 0.32rem 0.6rem 0.32rem 0;
   border-bottom: 1px solid #f0f4f1;
+  border-bottom: 1px solid color-mix(in srgb, #f0f4f1 var(--line-mix), var(--surface));
   color: #45544c;
+  color: color-mix(in srgb, #45544c var(--fg-mix), var(--fg-mix-to));
   vertical-align: top;
 }
 .an-gas-actions tr:last-child td { border-bottom: 0; }
-.an-gas-actions code { font-size: 0.92em; color: #5c6b63; }
+.an-gas-actions code { font-size: 0.92em; color: #5c6b63; color: color-mix(in srgb, #5c6b63 var(--fg-mix), var(--fg-mix-to)); }
 /* A two-word STATUS, not prose: it must never wrap. At 390px "มองไม่เห็น"
    broke across two lines in 8 of the 12 rows and read as a layout fault
    rather than an answer. The table around it already scrolls
    (.an-gas-actions has overflow-x:auto), so nowrap costs nothing. */
 .an-gas-yes, .an-gas-no { white-space: nowrap; }
-.an-gas-yes { color: #1f6f43; font-weight: 600; }
+.an-gas-yes { color: #1f6f43; color: color-mix(in srgb, #1f6f43 var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
 .an-gas-no { color: #9a8570; }

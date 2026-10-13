@@ -21,9 +21,9 @@
   vertical-align: 1px;
 }
 
-.vs-age-chip.is-fresh   { background: #dcfce7; color: #15803d; }
-.vs-age-chip.is-warming { background: #fef9c3; color: #854d0e; }
-.vs-age-chip.is-overdue { background: #fee2e2; color: #b91c1c; }
+.vs-age-chip.is-fresh   { background: #dcfce7; background: color-mix(in srgb, #dcfce7 var(--tint-mix), var(--surface)); color: #15803d; color: color-mix(in srgb, #15803d var(--fg-mix), var(--fg-mix-to)); }
+.vs-age-chip.is-warming { background: #fef9c3; background: color-mix(in srgb, #fef9c3 var(--tint-mix), var(--surface)); color: #854d0e; color: color-mix(in srgb, #854d0e var(--fg-mix), var(--fg-mix-to)); }
+.vs-age-chip.is-overdue { background: #fee2e2; background: color-mix(in srgb, #fee2e2 var(--tint-mix), var(--surface)); color: #b91c1c; color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to)); }
 
 /* --- Kanban board --- */
 
@@ -51,13 +51,13 @@
 
 .vs-kanban-wrap::before {
   left: 0;
-  background: linear-gradient(to right, var(--ink-50, #f8fafc) 10%, transparent);
+  background: linear-gradient(to right, var(--ink-50, var(--ink-50)) 10%, transparent);
   opacity: 0;
 }
 
 .vs-kanban-wrap::after {
   right: 0;
-  background: linear-gradient(to left, var(--ink-50, #f8fafc) 10%, transparent);
+  background: linear-gradient(to left, var(--ink-50, var(--ink-50)) 10%, transparent);
   opacity: 1;
 }
 
@@ -78,17 +78,17 @@
      short so users see "there's more space to scroll into". */
   padding-right: 1.5rem;
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--ink-300) transparent;
   /* Touch-momentum on iOS */
   -webkit-overflow-scrolling: touch;
 }
 
 .vs-kanban::-webkit-scrollbar { height: 8px; }
-.vs-kanban::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.vs-kanban::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: 4px; }
 
 .vs-kanban-col {
-  background: var(--ink-50, #f8fafc);
-  border: 1px solid var(--ink-200, #e2e8f0);
+  background: var(--ink-50, var(--ink-50));
+  border: 1px solid var(--ink-200, var(--ink-200));
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -103,7 +103,7 @@
 .vs-kanban-col.is-other {
   background: transparent;
   border-style: dashed;
-  border-color: var(--ink-300, #cbd5e1);
+  border-color: var(--ink-300, var(--ink-300));
 }
 
 .vs-kanban-col.is-other .vs-kanban-col-head {
@@ -111,7 +111,7 @@
 }
 
 .vs-kanban-col.is-other .vs-kanban-col-title {
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
   font-style: italic;
 }
 
@@ -119,7 +119,7 @@
 .vs-kanban-empty-state {
   text-align: center;
   padding: 3rem 1rem 4rem;
-  color: var(--ink-400, #94a3b8);
+  color: var(--ink-400, var(--ink-400));
 }
 
 .vs-kanban-empty-state i {
@@ -134,7 +134,7 @@
 
 .vs-kanban-empty-state p.small {
   margin-top: 0.25rem;
-  color: var(--ink-300, #cbd5e1);
+  color: var(--ink-300, var(--ink-300));
 }
 
 /* Mobile tweaks — slightly narrower columns + larger touch targets,
@@ -158,8 +158,8 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid var(--ink-200, #e2e8f0);
-  background: #ffffff;
+  border-bottom: 1px solid var(--ink-200, var(--ink-200));
+  background: var(--surface);
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
 }
@@ -167,13 +167,13 @@
 .vs-kanban-col-title {
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--ink-900, #1f2937);
+  color: var(--ink-900, var(--gray-800));
   flex: 1;
 }
 
 .vs-kanban-col-count {
-  background: var(--ink-100, #f1f5f9);
-  color: var(--ink-600, #475569);
+  background: var(--ink-100, var(--ink-100));
+  color: var(--ink-600, var(--ink-600));
   border-radius: 999px;
   padding: 0.05rem 0.5rem;
   font-size: 0.7rem;
@@ -182,7 +182,9 @@
 
 .vs-kanban-overdue {
   background: #fee2e2;
+  background: color-mix(in srgb, #fee2e2 var(--tint-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
   border-radius: 999px;
   padding: 0.05rem 0.45rem;
   font-size: 0.7rem;
@@ -200,18 +202,18 @@
 
 .vs-kanban-empty {
   text-align: center;
-  color: var(--ink-400, #94a3b8);
+  color: var(--ink-400, var(--ink-400));
   font-size: 0.8rem;
   padding: 1.5rem 0.5rem;
-  border: 1px dashed var(--ink-200, #e2e8f0);
+  border: 1px dashed var(--ink-200, var(--ink-200));
   border-radius: 8px;
   margin: auto 0;
 }
 
 .vs-kanban-card {
-  background: #ffffff;
-  border: 1px solid var(--ink-200, #e2e8f0);
-  border-left: 3px solid var(--card-accent, #94a3b8);
+  background: var(--surface);
+  border: 1px solid var(--ink-200, var(--ink-200));
+  border-left: 3px solid var(--card-accent, var(--ink-400));
   border-radius: 8px;
   padding: 0.55rem 0.65rem;
   cursor: pointer;
@@ -245,13 +247,14 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--brand-primary, #105922);
+  color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .vs-kanban-card-body {
   font-size: 0.78rem;
-  color: var(--ink-700, #334155);
+  color: var(--ink-700, var(--ink-700));
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -279,7 +282,9 @@
 
 .vs-kanban-card-urgent {
   background: #fee2e2;
+  background: color-mix(in srgb, #fee2e2 var(--tint-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
   font-size: 0.65rem;
   font-weight: 700;
   padding: 0.1rem 0.45rem;
@@ -291,11 +296,12 @@
 .vs-kanban-card.is-duplicate { opacity: 0.66; }
 .vs-kanban-card-dup {
   display: inline-flex; align-items: center; gap: 0.2rem;
-  font-size: 0.62rem; font-weight: 700; color: #64748b;
-  background: #eef2f6; border: 1px solid #dbe2ea; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 700; color: var(--ink-500);
+  background: #eef2f6;
+  background: color-mix(in srgb, #eef2f6 var(--tint-mix), var(--surface)); border: 1px solid #dbe2ea; border: 1px solid color-mix(in srgb, #dbe2ea var(--line-mix), var(--surface)); border-radius: 999px;
   padding: 0.03rem 0.4rem; margin-left: auto;
 }
-.vs-kanban-card-dup.is-canonical { color: #0f766e; background: #e6fffb; border-color: #99f6e4; }
+.vs-kanban-card-dup.is-canonical { color: #0f766e; color: color-mix(in srgb, #0f766e var(--fg-mix), var(--fg-mix-to)); background: #e6fffb; background: color-mix(in srgb, #e6fffb var(--tint-mix), var(--surface)); border-color: #99f6e4; border-color: color-mix(in srgb, #99f6e4 var(--line-mix), var(--surface)); }
 
 /* ==========================================================================
    Staff modal — purpose-sections + duplicate-cluster tree.
@@ -305,44 +311,44 @@
    ========================================================================== */
 
 /* --- purpose-sections (read → act → route → note → publish) --- */
-.vs-modal-section { padding: 0 0 1.1rem; margin-bottom: 1.1rem; border-bottom: 1px solid #eef1f4; }
+.vs-modal-section { padding: 0 0 1.1rem; margin-bottom: 1.1rem; border-bottom: 1px solid #eef1f4; border-bottom: 1px solid color-mix(in srgb, #eef1f4 var(--line-mix), var(--surface)); }
 .vs-modal-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0.25rem; }
 .vs-modal-section-title {
   display: flex; align-items: center; gap: 0.5rem;
-  font-weight: 700; font-size: 0.95rem; color: #1f2937;
+  font-weight: 700; font-size: 0.95rem; color: var(--gray-800);
   margin-bottom: 0.75rem;
 }
-.vs-modal-section-title i { color: var(--pink-600, #237571); font-size: 1rem; }
+.vs-modal-section-title i { color: var(--pink-600, #237571); color: var(--pink-600, color-mix(in srgb, #237571 var(--fg-mix), var(--fg-mix-to))); font-size: 1rem; }
 /* Publish panel doubles as a section card — keep its own border, drop the divider. */
 #staffPublishPanel.vs-modal-section { border-bottom: 1px solid var(--pink-200) !important; }
 
 /* --- duplicate-cluster tree (canonical → duplicates, clickable) --- */
-.vs-duptree { border: 1px solid #e5e7eb; border-radius: 0.7rem; padding: 0.75rem 0.9rem; background: #fafafa; }
-.vs-duptree-head { font-size: 0.82rem; font-weight: 700; color: #374151; margin-bottom: 0.55rem; }
+.vs-duptree { border: 1px solid var(--gray-200); border-radius: 0.7rem; padding: 0.75rem 0.9rem; background: #fafafa; background: color-mix(in srgb, #fafafa var(--tint-mix), var(--surface)); }
+.vs-duptree-head { font-size: 0.82rem; font-weight: 700; color: var(--gray-700); margin-bottom: 0.55rem; }
 .vs-duptree-children {
   margin-left: 0.7rem; padding-left: 0.8rem;
-  border-left: 2px dashed #d1d5db;
+  border-left: 2px dashed var(--gray-300);
   display: flex; flex-direction: column; gap: 0.4rem;
   margin-top: 0.4rem;
 }
 .vs-duptree-node {
   display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
-  padding: 0.4rem 0.6rem; border: 1px solid #e5e7eb; border-radius: 0.55rem;
-  background: #fff; cursor: pointer; transition: border-color .12s, box-shadow .12s;
+  padding: 0.4rem 0.6rem; border: 1px solid var(--gray-200); border-radius: 0.55rem;
+  background: var(--surface); cursor: pointer; transition: border-color .12s, box-shadow .12s;
 }
-.vs-duptree-node:hover { border-color: #9ca3af; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-.vs-duptree-node.is-canonical { border-color: #bcdcff; background: #f4f9ff; }
+.vs-duptree-node:hover { border-color: var(--gray-400); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.vs-duptree-node.is-canonical { border-color: #bcdcff; border-color: color-mix(in srgb, #bcdcff var(--line-mix), var(--surface)); background: #f4f9ff; background: color-mix(in srgb, #f4f9ff var(--tint-mix), var(--surface)); }
 .vs-duptree-node.is-current { outline: 2px solid var(--pink-400, #f472b6); outline-offset: 1px; }
 .vs-duptree-role {
   font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
-  color: #6b7280; background: #f3f4f6; border-radius: 0.4rem; padding: 0.05rem 0.4rem;
+  color: var(--gray-500); background: var(--gray-100); border-radius: 0.4rem; padding: 0.05rem 0.4rem;
 }
-.vs-duptree-node.is-canonical .vs-duptree-role { color: #1d4ed8; background: #dbeafe; }
-.vs-duptree-id { font-weight: 700; font-size: 0.82rem; color: #111827; }
+.vs-duptree-node.is-canonical .vs-duptree-role { color: #1d4ed8; color: color-mix(in srgb, #1d4ed8 var(--fg-mix), var(--fg-mix-to)); background: #dbeafe; background: color-mix(in srgb, #dbeafe var(--tint-mix), var(--surface)); }
+.vs-duptree-id { font-weight: 700; font-size: 0.82rem; color: var(--gray-900); }
 .vs-duptree-dept { color: #fff; font-size: 0.68rem; font-weight: 700; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
-.vs-duptree-status { font-size: 0.76rem; color: #6b7280; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.vs-duptree-badge.is-public { font-size: 0.68rem; font-weight: 700; color: #166534; background: #dcfce7; border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
-.vs-duptree-here { font-size: 0.68rem; font-weight: 700; color: var(--pink-700, #be185d); margin-left: auto; }
+.vs-duptree-status { font-size: 0.76rem; color: var(--gray-500); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.vs-duptree-badge.is-public { font-size: 0.68rem; font-weight: 700; color: #166534; color: color-mix(in srgb, #166534 var(--fg-mix), var(--fg-mix-to)); background: #dcfce7; background: color-mix(in srgb, #dcfce7 var(--tint-mix), var(--surface)); border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
+.vs-duptree-here { font-size: 0.68rem; font-weight: 700; color: var(--pink-700, #be185d); color: var(--pink-700, color-mix(in srgb, #be185d var(--fg-mix), var(--fg-mix-to))); margin-left: auto; }
 @media (max-width: 575.98px) {
   .vs-duptree-node { padding: 0.4rem 0.5rem; gap: 0.3rem 0.4rem; }
   .vs-duptree-status { flex-basis: 100%; }
@@ -354,24 +360,25 @@
 .vs-kanban-dup-strip {
   display: flex; align-items: center; gap: 0.35rem;
   margin-top: 0.5rem; padding: 0.3rem 0.5rem;
-  border-top: 1px dashed #e5e7eb;
-  font-size: 0.72rem; font-weight: 700; color: #6b7280;
+  border-top: 1px dashed var(--gray-200);
+  font-size: 0.72rem; font-weight: 700; color: var(--gray-500);
   border-radius: 0 0 0.45rem 0.45rem;
   cursor: pointer; user-select: none;
 }
-.vs-kanban-dup-strip:hover { background: #f3f4f6; color: #374151; }
-.vs-kanban-dup-strip.is-open { color: #1d4ed8; }
+.vs-kanban-dup-strip:hover { background: var(--gray-100); color: var(--gray-700); }
+.vs-kanban-dup-strip.is-open { color: #1d4ed8; color: color-mix(in srgb, #1d4ed8 var(--fg-mix), var(--fg-mix-to)); }
 .vs-kanban-dup-rows { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.35rem; }
 .vs-kanban-dup-row {
   display: flex; align-items: baseline; gap: 0.4rem;
   padding: 0.35rem 0.5rem; min-height: 2.2rem;
-  border: 1px dashed #d1d5db; border-radius: 0.45rem;
-  background: #fafafa; cursor: pointer;
+  border: 1px dashed var(--gray-300); border-radius: 0.45rem;
+  background: #fafafa;
+  background: color-mix(in srgb, #fafafa var(--tint-mix), var(--surface)); cursor: pointer;
 }
-.vs-kanban-dup-row:hover { background: #f3f4f6; border-color: #9ca3af; }
-.vs-kanban-dup-row-id { font-size: 0.7rem; font-weight: 700; color: #374151; flex-shrink: 0; }
+.vs-kanban-dup-row:hover { background: var(--gray-100); border-color: var(--gray-400); }
+.vs-kanban-dup-row-id { font-size: 0.7rem; font-weight: 700; color: var(--gray-700); flex-shrink: 0; }
 .vs-kanban-dup-row-text {
-  font-size: 0.72rem; color: #6b7280; min-width: 0;
+  font-size: 0.72rem; color: var(--gray-500); min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -384,14 +391,14 @@
 .vs-cat-row .btn { flex-shrink: 0; }
 .vs-cat-row.is-hidden .vs-cat-label { opacity: 0.5; }
 .vs-cat-conf {
-  flex-shrink: 0; border: 1px solid #d1d5db; color: #6b7280; background: #fff;
+  flex-shrink: 0; border: 1px solid var(--gray-300); color: var(--gray-500); background: var(--surface);
 }
-.vs-cat-conf:hover { border-color: #9ca3af; color: #374151; }
-.vs-cat-conf.is-on { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.vs-cat-conf:hover { border-color: var(--gray-400); color: var(--gray-700); }
+.vs-cat-conf.is-on { background: #fef3c7; background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); border-color: #f59e0b; color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); }
 
 /* --- kanban head: dual time chips (submitted + last-updated, 0077) --- */
 .vs-kanban-card-chips { display: inline-flex; gap: 0.3rem; flex-shrink: 0; }
-.vs-age-chip.is-updated { background: #eef2ff; color: #4338ca; }
+.vs-age-chip.is-updated { background: #eef2ff; background: color-mix(in srgb, #eef2ff var(--tint-mix), var(--surface)); color: #4338ca; color: color-mix(in srgb, #4338ca var(--fg-mix), var(--fg-mix-to)); }
 .vs-age-chip i { font-size: 0.85em; margin-right: 0.15rem; }
 
 /* Category manager opens stacked ABOVE the staff ticket modal (JS bumps the
@@ -400,8 +407,8 @@
 
 /* --- kanban card: internal category pill --- */
 .vs-kanban-card-cat {
-  font-size: 0.66rem; font-weight: 600; color: #4b5563;
-  background: #f3f4f6; border: 1px solid #e5e7eb;
+  font-size: 0.66rem; font-weight: 600; color: var(--gray-600);
+  background: var(--gray-100); border: 1px solid var(--gray-200);
   border-radius: 999px; padding: 0.05rem 0.45rem;
   max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -416,9 +423,9 @@
 /* Kanban card tag chip (read-only). */
 .vs-kanban-card-tag {
   font-size: 0.66rem; font-weight: 600;
-  color: var(--tag, #64748b);
-  background: color-mix(in srgb, var(--tag, #64748b) 12%, #fff);
-  border: 1px solid color-mix(in srgb, var(--tag, #64748b) 35%, #fff);
+  color: var(--tag, var(--ink-500));
+  background: color-mix(in srgb, var(--tag, var(--ink-500)) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tag, var(--ink-500)) 35%, var(--surface));
   border-radius: 999px; padding: 0.05rem 0.45rem;
   max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -427,14 +434,14 @@
 .vs-tag-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .vs-tag-toggle {
   font-size: 0.8rem; font-weight: 600; line-height: 1.2;
-  color: #6b7280; background: #fff;
-  border: 1px dashed #cbd5e1; border-radius: 999px;
+  color: var(--gray-500); background: var(--surface);
+  border: 1px dashed var(--ink-300); border-radius: 999px;
   padding: 0.25rem 0.7rem; cursor: pointer; transition: all 0.12s ease;
 }
-.vs-tag-toggle:hover { border-color: var(--tag, #94a3b8); color: var(--tag, #475569); }
+.vs-tag-toggle:hover { border-color: var(--tag, var(--ink-400)); color: var(--tag, var(--ink-600)); }
 .vs-tag-toggle.is-on {
-  color: #fff; background: var(--tag, #64748b);
-  border-style: solid; border-color: var(--tag, #64748b);
+  color: #fff; background: var(--tag, var(--ink-500));
+  border-style: solid; border-color: var(--tag, var(--ink-500));
 }
 
 /* Tag manager list rows. */
@@ -447,17 +454,17 @@
 .vs-tag-row.is-hidden .vs-tag-label { opacity: 0.5; }
 .vs-tag-swatch {
   flex-shrink: 0; width: 0.9rem; height: 0.9rem; border-radius: 999px;
-  background: var(--tag, #64748b); border: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--tag, var(--ink-500)); border: 1px solid rgb(var(--ink-900-rgb) / 0.1);
 }
 
 /* Colour dot pickers (manager rows + add form). */
 .vs-tag-dots { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; }
 .vs-tag-dot {
   width: 1.1rem; height: 1.1rem; border-radius: 999px; padding: 0;
-  background: var(--tag, #64748b); border: 2px solid #fff;
-  outline: 1px solid #e5e7eb; cursor: pointer;
+  background: var(--tag, var(--ink-500)); border: 2px solid var(--surface);
+  outline: 1px solid var(--gray-200); cursor: pointer;
 }
-.vs-tag-dot.is-sel { outline: 2px solid var(--tag, #64748b); outline-offset: 1px; }
+.vs-tag-dot.is-sel { outline: 2px solid var(--tag, var(--ink-500)); outline-offset: 1px; }
 
 /* Tag manager stacks ABOVE the staff ticket modal (JS bumps the backdrop). */
 #vsTagModal { z-index: 1080; }
@@ -474,7 +481,7 @@
   align-items: center;
   gap: 0.35rem 0.6rem;
 }
-.vs-remark-vis label { color: #4b5563; white-space: nowrap; }
+.vs-remark-vis label { color: var(--gray-600); white-space: nowrap; }
 .vs-remark-vis select { max-width: 22rem; flex: 1 1 14rem; }
 .vs-remark-vis .form-text { flex: 1 1 100%; margin-top: 0 !important; line-height: 1.45; }
 @media (max-width: 575.98px) {
@@ -516,8 +523,9 @@
   flex-wrap: wrap;
   margin-top: 0.75rem;
   padding: 0.6rem 0.85rem;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--pink-200, #dee2e6);
+  border: 1px solid var(--pink-200, color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)));
   border-radius: 0.5rem;
   box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.08);
 }
@@ -540,11 +548,11 @@
   align-items: center;
   margin-bottom: 0.5rem;
   font-size: 0.82rem;
-  color: #334155;
+  color: var(--ink-700);
 }
 
 .vs-req-who i { margin-right: 0.25rem; }
-.vs-req-who.is-anon { color: #94a3b8; font-style: italic; }
+.vs-req-who.is-anon { color: var(--ink-400); font-style: italic; }
 
 .vs-req-callout {
   display: flex;
@@ -560,7 +568,7 @@
 .vs-req-callout > div { flex: 1 1 auto; min-width: 0; }
 .vs-req-callout-title { font-weight: 600; }
 .vs-req-callout-sub { font-size: 0.76rem; opacity: 0.85; margin-top: 0.1rem; }
-.vs-req-callout-sub.is-error { color: #b91c1c; font-weight: 600; opacity: 1; }
+.vs-req-callout-sub.is-error { color: #b91c1c; color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to)); font-weight: 600; opacity: 1; }
 .vs-req-pick { flex-shrink: 0; white-space: nowrap; }
 
 /* Pending = the reporter named a ฝ่าย and the ticket is not there yet. The
@@ -568,27 +576,34 @@
    legitimate outcome, not an error. */
 .vs-req-callout.is-pending {
   background: #fffbeb;
+  background: color-mix(in srgb, #fffbeb var(--tint-mix), var(--surface));
   border-color: #fcd34d;
   color: #92400e;
+  color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to));
 }
 
 .vs-req-callout.is-matched {
   background: #f0fdf4;
+  background: color-mix(in srgb, #f0fdf4 var(--tint-mix), var(--surface));
   border-color: #bbf7d0;
+  border-color: color-mix(in srgb, #bbf7d0 var(--line-mix), var(--surface));
   color: #166534;
+  color: color-mix(in srgb, #166534 var(--fg-mix), var(--fg-mix-to));
 }
 
 .vs-req-callout.is-none {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #64748b;
+  background: var(--ink-50);
+  border-color: var(--ink-200);
+  color: var(--ink-500);
 }
 
 /* Board chip — pending only, so a card goes quiet once the ticket has
    reached the ฝ่าย that was asked for. */
 .vs-kanban-card-req {
   background: #fef3c7;
+  background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface));
   color: #92400e;
+  color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to));
   font-size: 0.65rem;
   font-weight: 700;
   padding: 0.1rem 0.45rem;

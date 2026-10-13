@@ -31,7 +31,7 @@
   right: 50%;
   width: 100%;
   height: 3px;
-  background: var(--pink-100, #e5e7eb);
+  background: var(--pink-100, var(--gray-200));
   z-index: 0;
 }
 .vs-step:first-child::before { display: none; }
@@ -51,9 +51,9 @@
   font-size: 0.8rem;
   font-weight: 700;
   line-height: 1;
-  background: #fff;
-  color: #94a3b8;
-  border: 2px solid var(--pink-200, #cbd5e1);
+  background: var(--surface);
+  color: var(--ink-400);
+  border: 2px solid var(--pink-200, var(--ink-300));
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
@@ -64,9 +64,10 @@
 }
 
 .vs-step.is-active .vs-step-dot {
-  background: #fff;
+  background: var(--surface);
   border-color: var(--pink-500, #2C8F8A);
   color: var(--pink-600, #237571);
+  color: var(--pink-600, color-mix(in srgb, #237571 var(--fg-mix), var(--fg-mix-to)));
   box-shadow: 0 0 0 4px var(--pink-50, rgba(44, 143, 138, 0.15));
   animation: vs-step-pulse 1.8s ease-in-out infinite;
 }
@@ -80,12 +81,13 @@
   display: block;
   font-size: 0.72rem;
   line-height: 1.15;
-  color: #94a3b8;
+  color: var(--ink-400);
   padding: 0 0.15rem;
 }
 .vs-step.is-done .vs-step-label,
 .vs-step.is-active .vs-step-label {
   color: var(--pink-700, #1c5e5b);
+  color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to)));
   font-weight: 600;
 }
 
@@ -95,13 +97,14 @@
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--pink-700, #1c5e5b);
+  color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to)));
 }
 
 .vs-phase-exact {
   margin-top: 0.15rem;
   text-align: center;
   font-size: 0.72rem;
-  color: #9ca3af;
+  color: var(--gray-400);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -112,14 +115,15 @@
    VitalSound — PUBLIC Problem board (Phase 2b). Cards, category chips, the
    me-too ("เจอเหมือนกัน") button, and the pseudonymous comment thread. Colours
    ride the --pink-* scale, which .vs-tab remaps to teal, so the board matches
-   the tab accent. Light-only (the app has no dark theme).
+   the tab accent. Dark mode: theme.css flips the teal scale under .vs-tab.
    ========================================================================== */
 
 /* --- category filter chips + sort --- */
 .vs-cat-chip {
-  border: 1px solid var(--pink-200, #cbd5e1);
-  background: #fff;
+  border: 1px solid var(--pink-200, var(--ink-300));
+  background: var(--surface);
   color: var(--pink-700, #1c5e5b);
+  color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to)));
   border-radius: 999px;
   padding: 0.25rem 0.8rem;
   font-size: 0.82rem;
@@ -138,7 +142,9 @@
   font-size: 0.72rem;
   cursor: default;
   background: var(--pink-50, #eefaf9);
+  background: var(--pink-50, color-mix(in srgb, #eefaf9 var(--tint-mix), var(--surface)));
   border-color: var(--pink-100, #d6f0ee);
+  border-color: var(--pink-100, color-mix(in srgb, #d6f0ee var(--line-mix), var(--surface)));
 }
 .vs-board-search { max-width: 420px; }
 .vs-board-sort .btn { font-size: 0.78rem; }
@@ -146,9 +152,9 @@
 /* --- problem card --- */
 .vs-board-card {
   height: 100%;
-  border: 1px solid var(--pink-100, #e5e7eb);
+  border: 1px solid var(--pink-100, var(--gray-200));
   border-radius: 0.85rem;
-  background: #fff;
+  background: var(--surface);
   padding: 0.9rem 1rem;
   cursor: pointer;
   display: flex;
@@ -170,7 +176,7 @@
 .vs-phase-pill { font-size: 0.68rem; font-weight: 600; }
 .vs-board-title {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--gray-800);
   line-height: 1.35;
   font-size: 0.98rem;
 }
@@ -181,13 +187,14 @@
   justify-content: space-between;
   gap: 0.5rem;
 }
-.vs-board-comments { color: #9ca3af; font-size: 0.8rem; white-space: nowrap; }
+.vs-board-comments { color: var(--gray-400); font-size: 0.8rem; white-space: nowrap; }
 
 /* --- me-too button --- */
 .vs-metoo-btn {
-  border: 1px solid var(--pink-200, #cbd5e1);
-  background: #fff;
+  border: 1px solid var(--pink-200, var(--ink-300));
+  background: var(--surface);
   color: var(--pink-700, #1c5e5b);
+  color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to)));
   border-radius: 999px;
   padding: 0.28rem 0.8rem;
   font-size: 0.8rem;
@@ -198,7 +205,7 @@
   gap: 0.35rem;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
-.vs-metoo-btn:hover { border-color: var(--pink-400, #4bb3ad); background: var(--pink-50, #eefaf9); }
+.vs-metoo-btn:hover { border-color: var(--pink-400, #4bb3ad); background: var(--pink-50, #eefaf9); background: var(--pink-50, color-mix(in srgb, #eefaf9 var(--tint-mix), var(--surface))); }
 .vs-metoo-btn.is-on {
   background: var(--pink-500, #2C8F8A);
   border-color: var(--pink-500, #2C8F8A);
@@ -208,11 +215,14 @@
 .vs-metoo-btn-lg { padding: 0.5rem 1.1rem; font-size: 0.92rem; }
 
 /* --- problem detail --- */
-.vs-problem-title { font-weight: 700; color: #111827; line-height: 1.4; }
+.vs-problem-title { font-weight: 700; color: var(--gray-900); line-height: 1.4; }
 .vs-problem-note {
   background: var(--pink-50, #eefaf9);
+  background: var(--pink-50, color-mix(in srgb, #eefaf9 var(--tint-mix), var(--surface)));
   border: 1px solid var(--pink-100, #d6f0ee);
+  border: 1px solid var(--pink-100, color-mix(in srgb, #d6f0ee var(--line-mix), var(--surface)));
   color: var(--pink-800, #164e4b);
+  color: var(--pink-800, color-mix(in srgb, #164e4b var(--fg-mix), var(--fg-mix-to)));
   border-radius: 0.6rem;
   padding: 0.7rem 0.9rem;
   font-size: 0.9rem;
@@ -223,30 +233,37 @@
 .vs-comment-list { display: flex; flex-direction: column; gap: 0.65rem; }
 .vs-comment {
   border: 1px solid #eef1f4;
+  border: 1px solid color-mix(in srgb, #eef1f4 var(--line-mix), var(--surface));
   border-radius: 0.6rem;
   padding: 0.6rem 0.8rem;
-  background: #fff;
+  background: var(--surface);
 }
 .vs-comment.is-staff {
   background: var(--pink-50, #eefaf9);
+  background: var(--pink-50, color-mix(in srgb, #eefaf9 var(--tint-mix), var(--surface)));
   border-color: var(--pink-100, #d6f0ee);
+  border-color: var(--pink-100, color-mix(in srgb, #d6f0ee var(--line-mix), var(--surface)));
 }
 .vs-comment-meta { margin-bottom: 0.2rem; }
-.vs-comment-alias { font-size: 0.78rem; font-weight: 700; color: #6b7280; }
-.vs-comment-alias.is-staff { color: var(--pink-700, #1c5e5b); }
-.vs-comment-body { font-size: 0.92rem; color: #374151; white-space: pre-wrap; word-break: break-word; }
+.vs-comment-alias { font-size: 0.78rem; font-weight: 700; color: var(--gray-500); }
+.vs-comment-alias.is-staff { color: var(--pink-700, #1c5e5b); color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to))); }
+.vs-comment-body { font-size: 0.92rem; color: var(--gray-700); white-space: pre-wrap; word-break: break-word; }
 .vs-comment-composer textarea { resize: vertical; }
 
 /* --- resolution outcome card (0073) — submitter-facing close reason --- */
 .vs-resolution-card {
   border: 1px solid #bfe6cf;
+  border: 1px solid color-mix(in srgb, #bfe6cf var(--line-mix), var(--surface));
   background: #f2fbf5;
+  background: color-mix(in srgb, #f2fbf5 var(--tint-mix), var(--surface));
   border-radius: 0.75rem;
   padding: 0.9rem 1.1rem;
 }
 .vs-resolution-card.is-negative {
   border-color: #e2e5ea;
+  border-color: color-mix(in srgb, #e2e5ea var(--line-mix), var(--surface));
   background: #f7f8fa;
+  background: color-mix(in srgb, #f7f8fa var(--tint-mix), var(--surface));
 }
 .vs-resolution-head {
   font-size: 0.78rem;
@@ -254,16 +271,17 @@
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: #1a7a45;
+  color: color-mix(in srgb, #1a7a45 var(--fg-mix), var(--fg-mix-to));
   margin-bottom: 0.35rem;
 }
-.vs-resolution-card.is-negative .vs-resolution-head { color: #6b7280; }
+.vs-resolution-card.is-negative .vs-resolution-head { color: var(--gray-500); }
 .vs-resolution-head i { margin-right: 0.35rem; }
-.vs-resolution-label { font-weight: 700; color: #14532d; font-size: 1.02rem; line-height: 1.4; }
-.vs-resolution-card.is-negative .vs-resolution-label { color: #374151; }
+.vs-resolution-label { font-weight: 700; color: #14532d; color: color-mix(in srgb, #14532d var(--fg-mix), var(--fg-mix-to)); font-size: 1.02rem; line-height: 1.4; }
+.vs-resolution-card.is-negative .vs-resolution-label { color: var(--gray-700); }
 .vs-resolution-note {
   margin-top: 0.45rem;
   font-size: 0.92rem;
-  color: #374151;
+  color: var(--gray-700);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -274,8 +292,11 @@
   align-items: center;
   gap: 0.5rem;
   border: 1px solid var(--pink-200, #bfe3e0);
+  border: 1px solid var(--pink-200, color-mix(in srgb, #bfe3e0 var(--line-mix), var(--surface)));
   background: var(--pink-50, #eefaf9);
+  background: var(--pink-50, color-mix(in srgb, #eefaf9 var(--tint-mix), var(--surface)));
   color: var(--pink-800, #164e4b);
+  color: var(--pink-800, color-mix(in srgb, #164e4b var(--fg-mix), var(--fg-mix-to)));
   border-radius: 0.7rem;
   padding: 0.7rem 0.95rem;
   font-size: 0.92rem;
@@ -293,11 +314,14 @@
   flex-wrap: wrap;
   justify-content: space-between;
   border-color: #bfe6cf;
+  border-color: color-mix(in srgb, #bfe6cf var(--line-mix), var(--surface));
   background: #f2fbf5;
+  background: color-mix(in srgb, #f2fbf5 var(--tint-mix), var(--surface));
   color: #14532d;
+  color: color-mix(in srgb, #14532d var(--fg-mix), var(--fg-mix-to));
 }
 .vs-linked-banner .vs-linked-main { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 auto; min-width: 0; }
-.vs-linked-banner .vs-linked-main i { font-size: 1.05rem; flex-shrink: 0; color: #1a7a45; }
+.vs-linked-banner .vs-linked-main i { font-size: 1.05rem; flex-shrink: 0; color: #1a7a45; color: color-mix(in srgb, #1a7a45 var(--fg-mix), var(--fg-mix-to)); }
 .vs-linked-cta {
   flex-shrink: 0;
   background: #1a7a45;
@@ -334,30 +358,34 @@
 /* --- unified comment composer (the ONE input: comment + me-too note, 0078) --- */
 .vs-composer-box {
   border: 1px solid var(--pink-200, #bfe3e0);
+  border: 1px solid var(--pink-200, color-mix(in srgb, #bfe3e0 var(--line-mix), var(--surface)));
   background: var(--pink-50, #eefaf9);
+  background: var(--pink-50, color-mix(in srgb, #eefaf9 var(--tint-mix), var(--surface)));
   border-radius: 0.7rem;
   padding: 0.75rem 0.9rem;
 }
 .vs-composer-box textarea { resize: vertical; }
 
 /* staff-only comment (server sends it to staff + its author only) */
-.vs-comment.is-private { border-style: dashed; background: #fbfbfd; }
+.vs-comment.is-private { border-style: dashed; background: #fbfbfd; background: color-mix(in srgb, #fbfbfd var(--tint-mix), var(--surface)); }
 .vs-comment-priv {
   font-size: 0.68rem; font-weight: 700;
-  color: #6d28d9; background: #ede9fe;
+  color: #6d28d9;
+  color: color-mix(in srgb, #6d28d9 var(--fg-mix), var(--fg-mix-to)); background: #ede9fe; background: color-mix(in srgb, #ede9fe var(--tint-mix), var(--surface));
   border-radius: 999px; padding: 0.08rem 0.5rem;
 }
 
 /* --- resolved-works showcase strip (single row, horizontal swipe) --- */
 .vs-showcase-head {
   display: flex; align-items: center; gap: 0.45rem;
-  font-weight: 800; color: var(--pink-700, #1c5e5b);
+  font-weight: 800; color: var(--pink-700, #1c5e5b); color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to)));
   margin-bottom: 0.6rem;
 }
-.vs-showcase-head i { color: #1a7a45; font-size: 1.1rem; }
+.vs-showcase-head i { color: #1a7a45; color: color-mix(in srgb, #1a7a45 var(--fg-mix), var(--fg-mix-to)); font-size: 1.1rem; }
 .vs-showcase-count {
-  font-size: 0.72rem; font-weight: 700; color: #166534;
-  background: #dcfce7; border-radius: 999px; padding: 0.1rem 0.55rem;
+  font-size: 0.72rem; font-weight: 700; color: #166534; color: color-mix(in srgb, #166534 var(--fg-mix), var(--fg-mix-to));
+  background: #dcfce7;
+  background: color-mix(in srgb, #dcfce7 var(--tint-mix), var(--surface)); border-radius: 999px; padding: 0.1rem 0.55rem;
 }
 .vs-showcase-row {
   display: flex; gap: 0.75rem;
@@ -370,7 +398,9 @@
   width: min(78vw, 300px);
   scroll-snap-align: start;
   border: 1px solid #bfe6cf;
-  background: linear-gradient(180deg, #f2fbf5 0%, #ffffff 70%);
+  border: 1px solid color-mix(in srgb, #bfe6cf var(--line-mix), var(--surface));
+  background: linear-gradient(180deg, #f2fbf5 0%, var(--surface) 70%);
+  background: linear-gradient(180deg, color-mix(in srgb, #f2fbf5 var(--tint-mix), var(--surface)) 0%, var(--surface) 70%);
   border-radius: 0.85rem;
   padding: 0.85rem 1rem;
   cursor: pointer;
@@ -385,15 +415,16 @@
 .vs-showcase-badge {
   align-self: flex-start;
   font-size: 0.7rem; font-weight: 800;
-  color: #166534; background: #dcfce7;
+  color: #166534;
+  color: color-mix(in srgb, #166534 var(--fg-mix), var(--fg-mix-to)); background: #dcfce7; background: color-mix(in srgb, #dcfce7 var(--tint-mix), var(--surface));
   border-radius: 999px; padding: 0.12rem 0.55rem;
 }
-.vs-showcase-title { font-weight: 700; color: #14532d; line-height: 1.35; font-size: 0.95rem; }
+.vs-showcase-title { font-weight: 700; color: #14532d; color: color-mix(in srgb, #14532d var(--fg-mix), var(--fg-mix-to)); line-height: 1.35; font-size: 0.95rem; }
 .vs-showcase-note {
-  font-size: 0.8rem; color: #4b5563; line-height: 1.4;
+  font-size: 0.8rem; color: var(--gray-600); line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.vs-showcase-foot { margin-top: auto; font-size: 0.75rem; color: #6b7280; }
+.vs-showcase-foot { margin-top: auto; font-size: 0.75rem; color: var(--gray-500); }
 
 /* ==========================================================================
  * ความคืบหน้าจากทีมงาน — the staff progress stream on a public Problem (0096)
@@ -405,8 +436,10 @@
  * ========================================================================== */
 .vs-updates {
   border: 1px solid #d6f0ee;
+  border: 1px solid color-mix(in srgb, #d6f0ee var(--line-mix), var(--surface));
   border-radius: 0.75rem;
-  background: linear-gradient(180deg, #f4fcfb 0%, #fff 60%);
+  background: linear-gradient(180deg, #f4fcfb 0%, var(--surface) 60%);
+  background: linear-gradient(180deg, color-mix(in srgb, #f4fcfb var(--tint-mix), var(--surface)) 0%, var(--surface) 60%);
   padding: 0.9rem 1.1rem;
 }
 .vs-updates-head {
@@ -415,15 +448,18 @@
   gap: 0.45rem;
   font-weight: 700;
   color: var(--pink-800, #17504e);
+  color: var(--pink-800, color-mix(in srgb, #17504e var(--fg-mix), var(--fg-mix-to)));
   font-size: 0.95rem;
 }
-.vs-updates-head i { color: var(--pink-600, #2a807c); }
+.vs-updates-head i { color: var(--pink-600, #2a807c); color: var(--pink-600, color-mix(in srgb, #2a807c var(--fg-mix), var(--fg-mix-to))); }
 .vs-updates-count {
   margin-left: auto;
   font-size: 0.72rem;
   font-weight: 800;
   color: var(--pink-700, #1c5e5b);
+  color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to)));
   background: var(--pink-100, #d6f0ee);
+  background: var(--pink-100, color-mix(in srgb, #d6f0ee var(--tint-mix), var(--surface)));
   border-radius: 999px;
   padding: 0.08rem 0.5rem;
 }
@@ -432,6 +468,7 @@
   margin: 0.75rem 0 0;
   padding: 0 0 0 1.1rem;
   border-left: 2px solid var(--pink-100, #d6f0ee);
+  border-left: 2px solid var(--pink-100, color-mix(in srgb, #d6f0ee var(--line-mix), var(--surface)));
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -446,7 +483,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--pink-500, #35a09b);
-  box-shadow: 0 0 0 3px #fff;
+  box-shadow: 0 0 0 3px var(--surface);
 }
 /* Newest entry gets the accent — it's the current state of play. */
 .vs-update:last-child::before { background: var(--brand-orange, #ff6f30); }
@@ -457,11 +494,11 @@
   gap: 0.5rem;
   margin-bottom: 0.15rem;
 }
-.vs-update-by { font-size: 0.78rem; font-weight: 700; color: var(--pink-700, #1c5e5b); }
-.vs-update-time { font-size: 0.72rem; color: #9ca3af; }
+.vs-update-by { font-size: 0.78rem; font-weight: 700; color: var(--pink-700, #1c5e5b); color: var(--pink-700, color-mix(in srgb, #1c5e5b var(--fg-mix), var(--fg-mix-to))); }
+.vs-update-time { font-size: 0.72rem; color: var(--gray-400); }
 .vs-update-body {
   font-size: 0.92rem;
-  color: #374151;
+  color: var(--gray-700);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -470,6 +507,7 @@
 /* Board-card counter for the same stream (sits beside the comment counter). */
 .vs-board-updates {
   color: var(--pink-600, #2a807c);
+  color: var(--pink-600, color-mix(in srgb, #2a807c var(--fg-mix), var(--fg-mix-to)));
   font-size: 0.8rem;
   font-weight: 600;
   white-space: nowrap;

@@ -60,7 +60,8 @@
 /* nowrap: "= 0.9 เซสชัน" broke after the number, leaving "เซสชัน" alone on the
    next line above the label it belongs to. */
 .claude-week-of {
-  color: #6c757d; font-variant-numeric: tabular-nums;
+  color: #6c757d;
+  color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); font-variant-numeric: tabular-nums;
   margin-left: 4px; white-space: nowrap;
 }
 .claude-week-right { margin-left: auto; font-size: 0.8rem; text-align: right; }
@@ -72,7 +73,7 @@
 .claude-week-bar > i { display: block; height: 100%; font-style: normal; }
 .claude-week-tick {
   position: absolute; top: 0; bottom: 0; width: 1px;
-  background: #fff; opacity: 0.85;
+  background: var(--surface); opacity: 0.85;
 }
 .claude-week-scale {
   display: flex; justify-content: space-between;
@@ -82,7 +83,7 @@
 
 .claude-legend {
   display: flex; flex-wrap: wrap; gap: 4px 14px;
-  margin-top: 10px; font-size: 0.78rem; color: #495057;
+  margin-top: 10px; font-size: 0.78rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
 }
 .claude-legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .claude-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
@@ -93,7 +94,7 @@
    says the account actually spent. Given the whole board's credibility rests on
    it, it gets a real readout rather than a footnote. */
 .claude-measured {
-  margin-top: 12px; padding-top: 12px; border-top: 1px dashed #dee2e6;
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed #dee2e6; border-top: 1px dashed color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface));
 }
 .claude-measured-head {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
@@ -102,17 +103,17 @@
 .claude-measured-head b { font-size: 0.85rem; }
 .claude-measured-age { color: #8b968f; }
 /* A sample older than the timer interval is not a reading, it is a memory. */
-.claude-measured-age.is-stale { color: #b54708; font-weight: 600; }
+.claude-measured-age.is-stale { color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
 
 .claude-gauges { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 @media (max-width: 640px) { .claude-gauges { grid-template-columns: 1fr; } }
 
 .claude-gauge-k {
   display: flex; align-items: baseline; gap: 6px;
-  font-size: 0.75rem; color: #495057; margin-bottom: 4px;
+  font-size: 0.75rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); margin-bottom: 4px;
 }
 .claude-gauge-k .claude-gauge-left {
-  margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; color: #212529;
+  margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; color: #212529; color: color-mix(in srgb, #212529 var(--fg-mix), var(--fg-mix-to));
 }
 .claude-meter {
   height: 12px; border-radius: 3px; background: var(--claude-track); overflow: hidden;
@@ -134,12 +135,12 @@
 /* Booked-vs-actual. The reason the reporter exists: a declared percentage is a
    guess, and this line is where the guess meets the measurement. */
 .claude-reconcile {
-  margin-top: 10px; font-size: 0.75rem; color: #495057;
+  margin-top: 10px; font-size: 0.75rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
   display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline;
 }
 .claude-reconcile b { font-variant-numeric: tabular-nums; }
-.claude-reconcile .claude-over { color: #b42318; font-weight: 700; }
-.claude-reconcile .claude-under { color: #067647; font-weight: 700; }
+.claude-reconcile .claude-over { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); font-weight: 700; }
+.claude-reconcile .claude-under { color: #067647; color: color-mix(in srgb, #067647 var(--fg-mix), var(--fg-mix-to)); font-weight: 700; }
 
 /* No sample yet. Says WHY rather than hiding — an admin looking for the live
    numbers should learn they were never switched on, not see a blank. */
@@ -159,12 +160,13 @@
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.78rem; font-weight: 600; line-height: 1;
   padding: 6px 11px; border-radius: 999px;
-  border: 1px solid #b7d9c2; background: #f2f9f4; color: #1c6b34;
+  border: 1px solid #b7d9c2;
+  border: 1px solid color-mix(in srgb, #b7d9c2 var(--line-mix), var(--surface)); background: #f2f9f4; background: color-mix(in srgb, #f2f9f4 var(--tint-mix), var(--surface)); color: #1c6b34; color: color-mix(in srgb, #1c6b34 var(--fg-mix), var(--fg-mix-to));
   cursor: pointer; transition: background .12s, border-color .12s;
 }
-.claude-mon:hover:not(:disabled) { background: #e6f3ea; border-color: #8dc3a1; }
-.claude-mon.is-off { border-color: #f0c99a; background: #fff6ea; color: #9a5b12; }
-.claude-mon.is-off:hover:not(:disabled) { background: #ffefdb; border-color: #e3b077; }
+.claude-mon:hover:not(:disabled) { background: #e6f3ea; background: color-mix(in srgb, #e6f3ea var(--tint-mix), var(--surface)); border-color: #8dc3a1; }
+.claude-mon.is-off { border-color: #f0c99a; background: #fff6ea; background: color-mix(in srgb, #fff6ea var(--tint-mix), var(--surface)); color: #9a5b12; color: color-mix(in srgb, #9a5b12 var(--fg-mix), var(--fg-mix-to)); }
+.claude-mon.is-off:hover:not(:disabled) { background: #ffefdb; background: color-mix(in srgb, #ffefdb var(--tint-mix), var(--surface)); border-color: #e3b077; }
 /* Not `opacity` — a pill nobody can press is not a dimmed button, it is a
    label, and fading it makes the state it reports harder to read for the
    people who cannot change it, which is most of them. */
@@ -176,8 +178,8 @@
   font-size: 0.76rem; line-height: 1.45;
   padding: 9px 11px; border-radius: 7px;
 }
-.claude-mon-warn.is-note { background: #f4f7f5; color: #55635a; }
-.claude-mon-warn.is-warn { background: #fff4e5; color: #8a4f0c; }
+.claude-mon-warn.is-note { background: #f4f7f5; background: color-mix(in srgb, #f4f7f5 var(--tint-mix), var(--surface)); color: #55635a; color: color-mix(in srgb, #55635a var(--fg-mix), var(--fg-mix-to)); }
+.claude-mon-warn.is-warn { background: #fff4e5; background: color-mix(in srgb, #fff4e5 var(--tint-mix), var(--surface)); color: #8a4f0c; color: color-mix(in srgb, #8a4f0c var(--fg-mix), var(--fg-mix-to)); }
 .claude-mon-warn code {
   background: rgba(0, 0, 0, .06); padding: 0 4px; border-radius: 3px; color: inherit;
 }
@@ -189,8 +191,9 @@
 .claude-measured-paused {
   font-size: 0.75rem; line-height: 1.5;
   display: flex; gap: 8px; align-items: flex-start;
-  background: #fff6ea; border: 1px solid #f2d6b0; border-radius: 7px;
-  padding: 9px 11px; color: #7d4f16;
+  background: #fff6ea;
+  background: color-mix(in srgb, #fff6ea var(--tint-mix), var(--surface)); border: 1px solid #f2d6b0; border: 1px solid color-mix(in srgb, #f2d6b0 var(--line-mix), var(--surface)); border-radius: 7px;
+  padding: 9px 11px; color: #7d4f16; color: color-mix(in srgb, #7d4f16 var(--fg-mix), var(--fg-mix-to));
 }
 .claude-measured-paused i { font-size: 0.95rem; line-height: 1.3; }
 .claude-measured-why { margin-top: 4px; font-weight: 600; }
@@ -200,7 +203,7 @@
 
 /* ---------- calendar ---------- */
 .claude-cal-shell {
-  background: #fff; border: 1px solid #dee2e6;
+  background: var(--surface); border: 1px solid #dee2e6; border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface));
   border-radius: 8px; overflow: hidden;
 }
 /* ── HOW TALL THE CALENDAR IS ───────────────────────────────────────────────
@@ -240,11 +243,11 @@
      seven. A fixed track count here drew the wrong week. */
   display: grid; grid-template-columns: var(--claude-gutter) repeat(var(--claude-cols, 7), 1fr);
   position: sticky; top: 0; z-index: 6;
-  background: #fff; border-bottom: 1px solid #dee2e6;
+  background: var(--surface); border-bottom: 1px solid #dee2e6; border-bottom: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface));
 }
-.claude-corner { border-right: 1px solid #eceff0; }
+.claude-corner { border-right: 1px solid #eceff0; border-right: 1px solid color-mix(in srgb, #eceff0 var(--line-mix), var(--surface)); }
 .claude-dayhead {
-  padding: 6px 4px; text-align: center; border-right: 1px solid #eceff0;
+  padding: 6px 4px; text-align: center; border-right: 1px solid #eceff0; border-right: 1px solid color-mix(in srgb, #eceff0 var(--line-mix), var(--surface));
 }
 .claude-dayhead .claude-dow { font-size: 0.68rem; color: #8b968f; font-weight: 600; }
 .claude-dayhead .claude-dnum {
@@ -257,16 +260,16 @@
   display: grid; grid-template-columns: var(--claude-gutter) repeat(var(--claude-cols, 7), 1fr);
   position: relative;
 }
-.claude-gutter { border-right: 1px solid #eceff0; }
+.claude-gutter { border-right: 1px solid #eceff0; border-right: 1px solid color-mix(in srgb, #eceff0 var(--line-mix), var(--surface)); }
 .claude-gutter .claude-hr {
   height: var(--claude-hour-h); position: relative;
   font-size: 0.65rem; color: #8b968f; font-variant-numeric: tabular-nums;
 }
 .claude-gutter .claude-hr span {
-  position: absolute; right: 5px; top: -6px; background: #fff; padding: 0 2px;
+  position: absolute; right: 5px; top: -6px; background: var(--surface); padding: 0 2px;
 }
 .claude-daycol {
-  position: relative; border-right: 1px solid #eceff0;
+  position: relative; border-right: 1px solid #eceff0; border-right: 1px solid color-mix(in srgb, #eceff0 var(--line-mix), var(--surface));
   /* The capacity lane, reserved. Everything that is not the rail starts after
      it — before this, the rail, the session frame and the block's own left
      border stacked into three adjacent stripes on any day with a booking. */
@@ -285,9 +288,9 @@
    data". The track now belongs to each BAND (.claude-free below), so it exists
    exactly where there is something to measure. */
 .claude-daycol .claude-hr {
-  height: var(--claude-hour-h); border-bottom: 1px solid #eceff0;
+  height: var(--claude-hour-h); border-bottom: 1px solid #eceff0; border-bottom: 1px solid color-mix(in srgb, #eceff0 var(--line-mix), var(--surface));
 }
-.claude-daycol .claude-hr:nth-child(even) { background: #fafbfa; }
+.claude-daycol .claude-hr:nth-child(even) { background: #fafbfa; background: color-mix(in srgb, #fafbfa var(--tint-mix), var(--surface)); }
 
 /* Outside the quota week. This has to READ as unavailable at a glance, not as
    a texture: the reset falls mid-day, so a whole half-column of one week's grid
@@ -298,6 +301,7 @@
 .claude-dead {
   position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
   background-color: #dde2de;
+  background-color: color-mix(in srgb, #dde2de var(--tint-mix), var(--surface));
   background-image: repeating-linear-gradient(-45deg,
     rgba(88, 100, 92, 0.38) 0 2px, transparent 2px 8px);
 }
@@ -308,7 +312,8 @@
 
 .claude-dead-label {
   position: absolute; left: 4px; top: 3px; font-size: 0.62rem; font-weight: 600;
-  color: #4a544d; background: rgba(255, 255, 255, 0.92);
+  color: #4a544d;
+  color: color-mix(in srgb, #4a544d var(--fg-mix), var(--fg-mix-to)); background: rgb(var(--surface-rgb) / 0.92);
   padding: 1px 5px; border-radius: 2px;
 }
 .claude-dead.is-before .claude-dead-label { top: auto; bottom: 4px; }
@@ -350,23 +355,24 @@
 .claude-gap-tag {
   position: absolute; bottom: 1px; left: 5px; max-width: calc(100% - 7px);
   font-size: 0.62rem; font-weight: 600; color: var(--brand-primary);
-  background: #fff; border: 1px solid var(--claude-band-line);
+  background: var(--surface); border: 1px solid var(--claude-band-line);
   border-radius: 999px; padding: 0 6px; font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.claude-gap.is-none .claude-gap-tag { color: #b42318; border-color: #b42318; }
+.claude-gap.is-none .claude-gap-tag { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); border-color: #b42318; }
 
 /* A booking. */
 .claude-bk {
   position: absolute; z-index: 3; left: calc(var(--claude-lane) + 4px); right: 5px;
   border-radius: 3px; padding: 2px 6px; overflow: hidden; cursor: pointer;
   border: 0; border-left: 3px solid var(--claude-c, var(--brand-primary));
-  background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 17%, #fff);
-  color: #212529; font-size: 0.72rem; line-height: 1.25; text-align: left;
+  background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 17%, var(--surface));
+  color: #212529;
+  color: color-mix(in srgb, #212529 var(--fg-mix), var(--fg-mix-to)); font-size: 0.72rem; line-height: 1.25; text-align: left;
   font-family: inherit;
 }
 .claude-bk:hover {
-  background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 28%, #fff);
+  background: color-mix(in srgb, var(--claude-c, var(--brand-primary)) 28%, var(--surface));
 }
 .claude-bk:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
 /* Time and percentage share ONE flex row. As an absolutely positioned tag over
@@ -389,7 +395,8 @@
 }
 .claude-bk .claude-bk-n {
   flex: 1 1 auto; min-width: 0;
-  color: #495057; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #495057;
+  color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .claude-bk .claude-bk-p {
   flex: 0 0 auto; margin-left: auto;
@@ -436,7 +443,8 @@
 /* ---------- modal ---------- */
 .claude-tab .claude-idcard {
   display: flex; gap: 10px; align-items: flex-start;
-  background: #f6f8f6; border: 1px solid #e4ebe5;
+  background: #f6f8f6;
+  background: color-mix(in srgb, #f6f8f6 var(--tint-mix), var(--surface)); border: 1px solid #e4ebe5; border: 1px solid color-mix(in srgb, #e4ebe5 var(--line-mix), var(--surface));
   border-left: 3px solid var(--claude-c, var(--brand-primary));
   border-radius: 6px; padding: 10px 12px;
 }
@@ -446,17 +454,18 @@
   background: var(--claude-c, var(--brand-primary));
 }
 .claude-tab .claude-idcard .claude-nm { font-weight: 700; }
-.claude-tab .claude-idcard .claude-mt { font-size: 0.78rem; color: #495057; }
+.claude-tab .claude-idcard .claude-mt { font-size: 0.78rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); }
 .claude-tab .claude-roles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .claude-tab .claude-role-pill {
   font-size: 0.68rem; padding: 1px 7px; border-radius: 999px;
-  background: #fff; border: 1px solid #dee2e6; color: #495057;
+  background: var(--surface); border: 1px solid #dee2e6; border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)); color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
 }
 
 .claude-tab .claude-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .claude-tab .claude-chip {
   font-size: 0.78rem; font-weight: 600; cursor: pointer;
-  border: 1px solid #dee2e6; background: #fff; color: #495057;
+  border: 1px solid #dee2e6;
+  border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)); background: var(--surface); color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
   border-radius: 999px; padding: 4px 12px; font-variant-numeric: tabular-nums;
 }
 .claude-tab .claude-chip:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
@@ -471,27 +480,30 @@
 }
 
 .claude-tab .claude-ledger {
-  border: 1px solid #dee2e6; border-radius: 6px; background: #f6f8f6; overflow: hidden;
+  border: 1px solid #dee2e6;
+  border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)); border-radius: 6px; background: #f6f8f6; background: color-mix(in srgb, #f6f8f6 var(--tint-mix), var(--surface)); overflow: hidden;
 }
 .claude-tab .claude-ledger-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 7px 11px; font-size: 0.78rem; border-bottom: 1px solid #e9ecef;
+  padding: 7px 11px; font-size: 0.78rem; border-bottom: 1px solid #e9ecef; border-bottom: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface));
 }
 .claude-tab .claude-ledger-row:last-child { border-bottom: 0; }
-.claude-tab .claude-ledger-row .claude-lk { color: #495057; }
+.claude-tab .claude-ledger-row .claude-lk { color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); }
 .claude-tab .claude-ledger-row .claude-lv {
   margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.claude-tab .claude-ledger-row .claude-lv.bad { color: #b42318; }
-.claude-tab .claude-ledger-row .claude-lv.good { color: #067647; }
+.claude-tab .claude-ledger-row .claude-lv.bad { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
+.claude-tab .claude-ledger-row .claude-lv.good { color: #067647; color: color-mix(in srgb, #067647 var(--fg-mix), var(--fg-mix-to)); }
 
 .claude-tab .claude-note {
   display: flex; gap: 8px; padding: 9px 11px; border-radius: 6px;
   font-size: 0.78rem; line-height: 1.45; margin-top: 9px;
-  background: #fffaeb; border: 1px solid #f5c77e; color: #b54708;
+  background: #fffaeb;
+  background: color-mix(in srgb, #fffaeb var(--tint-mix), var(--surface)); border: 1px solid #f5c77e; color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to));
 }
 .claude-tab .claude-note.crit {
-  background: #fef3f2; border-color: #b42318; color: #b42318;
+  background: #fef3f2;
+  background: color-mix(in srgb, #fef3f2 var(--tint-mix), var(--surface)); border-color: #b42318; color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to));
 }
 .claude-tab .claude-note i { flex: none; margin-top: 2px; }
 
@@ -541,9 +553,11 @@ svg.claude-mark {
 /* ---------- "ใช้ได้เลยตอนนี้" ---------- */
 .claude-tab .claude-now {
   border: 1px solid #cfe0d4;
+  border: 1px solid color-mix(in srgb, #cfe0d4 var(--line-mix), var(--surface));
   border-left: 4px solid var(--brand-primary);
   border-radius: 10px;
-  background: linear-gradient(180deg, #f4faf5 0%, #fff 65%);
+  background: linear-gradient(180deg, #f4faf5 0%, var(--surface) 65%);
+  background: linear-gradient(180deg, color-mix(in srgb, #f4faf5 var(--tint-mix), var(--surface)) 0%, var(--surface) 65%);
   padding: 14px 16px; margin-bottom: 14px;
 }
 /* Low and empty are STATES, not decoration: the colour changes with the border
@@ -553,11 +567,14 @@ svg.claude-mark {
    the same thing in words. */
 .claude-tab .claude-now.is-low {
   border-color: #f5c77e; border-left-color: var(--brand-orange);
-  background: linear-gradient(180deg, #fffaf2 0%, #fff 65%);
+  background: linear-gradient(180deg, #fffaf2 0%, var(--surface) 65%);
+  background: linear-gradient(180deg, color-mix(in srgb, #fffaf2 var(--tint-mix), var(--surface)) 0%, var(--surface) 65%);
 }
 .claude-tab .claude-now.is-none {
-  border-color: #f1c4bf; border-left-color: #b42318;
-  background: linear-gradient(180deg, #fef5f4 0%, #fff 65%);
+  border-color: #f1c4bf;
+  border-color: color-mix(in srgb, #f1c4bf var(--line-mix), var(--surface)); border-left-color: #b42318;
+  background: linear-gradient(180deg, #fef5f4 0%, var(--surface) 65%);
+  background: linear-gradient(180deg, color-mix(in srgb, #fef5f4 var(--tint-mix), var(--surface)) 0%, var(--surface) 65%);
 }
 
 .claude-tab .claude-now-main {
@@ -565,7 +582,7 @@ svg.claude-mark {
 }
 .claude-tab .claude-now-lead { min-width: 0; }
 .claude-tab .claude-now-k {
-  font-size: 0.78rem; font-weight: 600; color: #4a5a4e; margin-bottom: 2px;
+  font-size: 0.78rem; font-weight: 600; color: #4a5a4e; color: color-mix(in srgb, #4a5a4e var(--fg-mix), var(--fg-mix-to)); margin-bottom: 2px;
 }
 .claude-tab .claude-now-fig { display: flex; align-items: baseline; gap: 8px; }
 .claude-tab .claude-now-pct {
@@ -573,19 +590,19 @@ svg.claude-mark {
   letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
   color: var(--brand-primary);
 }
-.claude-tab .claude-now.is-low .claude-now-pct { color: #b54708; }
-.claude-tab .claude-now.is-none .claude-now-pct { color: #b42318; }
-.claude-tab .claude-now-of { font-size: 0.8rem; color: #6c757d; }
+.claude-tab .claude-now.is-low .claude-now-pct { color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to)); }
+.claude-tab .claude-now.is-none .claude-now-pct { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
+.claude-tab .claude-now-of { font-size: 0.8rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); }
 
 .claude-tab .claude-now-until {
   margin-left: auto; text-align: right; line-height: 1.25;
 }
-.claude-tab .claude-now-until-k { font-size: 0.72rem; color: #6c757d; }
+.claude-tab .claude-now-until-k { font-size: 0.72rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); }
 .claude-tab .claude-now-until-v {
   font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
-.claude-tab .claude-now-until-s { font-size: 0.72rem; color: #6c757d; }
+.claude-tab .claude-now-until-s { font-size: 0.72rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); }
 
 .claude-tab .claude-now-meter {
   height: 8px; border-radius: 999px; background: var(--claude-track);
@@ -598,13 +615,14 @@ svg.claude-mark {
 .claude-tab .claude-now.is-low .claude-now-meter > i { background: var(--brand-orange); }
 .claude-tab .claude-now.is-none .claude-now-meter > i { background: #b42318; }
 
-.claude-tab .claude-now-why { font-size: 0.8rem; color: #495057; line-height: 1.5; }
-.claude-tab .claude-now-why b { color: #1f2d23; }
+.claude-tab .claude-now-why { font-size: 0.8rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); line-height: 1.5; }
+.claude-tab .claude-now-why b { color: #1f2d23; color: color-mix(in srgb, #1f2d23 var(--fg-mix), var(--fg-mix-to)); }
 
 .claude-tab .claude-now-live {
   display: flex; gap: 8px; align-items: flex-start;
   font-size: 0.78rem; line-height: 1.45;
-  background: #fff6ed; border: 1px solid #f5c77e; color: #b54708;
+  background: #fff6ed;
+  background: color-mix(in srgb, #fff6ed var(--tint-mix), var(--surface)); border: 1px solid #f5c77e; color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to));
   border-radius: 6px; padding: 7px 10px; margin-bottom: 11px;
 }
 .claude-tab .claude-now-live i { flex: none; margin-top: 2px; }
@@ -616,14 +634,14 @@ svg.claude-mark {
 .claude-week-bar > i.is-used { background: var(--brand-primary); }
 .claude-week-bar > i.is-booked {
   background-image: repeating-linear-gradient(-45deg,
-    rgba(255, 255, 255, 0.55) 0 3px, transparent 3px 7px);
+    rgb(var(--surface-rgb) / 0.55) 0 3px, transparent 3px 7px);
 }
 /* 2px of surface between fills, so adjacent segments never blur into one. */
-.claude-week-bar > i + i { box-shadow: -2px 0 0 0 #fff; }
+.claude-week-bar > i + i { box-shadow: -2px 0 0 0 var(--surface); }
 
 .claude-legend .claude-swatch.is-used { background: var(--brand-primary); }
 .claude-legend .claude-swatch.is-track {
-  background: var(--claude-track); border: 1px solid #cfd6d1;
+  background: var(--claude-track); border: 1px solid #cfd6d1; border: 1px solid color-mix(in srgb, #cfd6d1 var(--line-mix), var(--surface));
 }
 .claude-legend .claude-legend-item.is-free { font-weight: 600; }
 
@@ -674,20 +692,20 @@ svg.claude-mark {
 .claude-usage-toggle {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 12px 16px; border: 0; background: transparent; text-align: left;
-  font-size: 0.9rem; font-weight: 700; color: #1f2d23;
+  font-size: 0.9rem; font-weight: 700; color: #1f2d23; color: color-mix(in srgb, #1f2d23 var(--fg-mix), var(--fg-mix-to));
 }
-.claude-usage-toggle:hover { background: #f6f8f6; }
+.claude-usage-toggle:hover { background: #f6f8f6; background: color-mix(in srgb, #f6f8f6 var(--tint-mix), var(--surface)); }
 .claude-usage-toggle .bi-activity { color: var(--brand-primary); }
 .claude-usage-sub {
-  font-size: 0.74rem; font-weight: 400; color: #6c757d; margin-left: auto;
+  font-size: 0.74rem; font-weight: 400; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); margin-left: auto;
 }
 .claude-usage-caret { transition: transform 0.2s var(--ease, ease); color: #8b968f; }
 .claude-usage-toggle.is-open .claude-usage-caret { transform: rotate(180deg); }
-.claude-usage-body { padding: 4px 16px 16px; border-top: 1px solid #e9ecef; }
+.claude-usage-body { padding: 4px 16px 16px; border-top: 1px solid #e9ecef; border-top: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)); }
 .cu-loading { padding: 22px 0; text-align: center; color: #8b968f; font-size: 0.85rem; }
 
 .cu-h {
-  font-size: 0.82rem; font-weight: 700; margin: 18px 0 8px; color: #1f2d23;
+  font-size: 0.82rem; font-weight: 700; margin: 18px 0 8px; color: #1f2d23; color: color-mix(in srgb, #1f2d23 var(--fg-mix), var(--fg-mix-to));
 }
 .cu-fine { font-size: 0.72rem; color: #8b968f; margin: 6px 0 0; line-height: 1.5; }
 .cu-empty { font-size: 0.8rem; color: #8b968f; padding: 10px 0; }
@@ -698,12 +716,13 @@ svg.claude-mark {
    track drew as a grey stub that looked like a missing figure. Rendered and
    looked at — a screenshot is the only instrument that could see it. */
 .cu-recon {
-  display: grid; background: #fff;
-  border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden;
+  display: grid; background: var(--surface);
+  border: 1px solid #e9ecef;
+  border: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)); border-radius: 8px; overflow: hidden;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   margin-top: 12px;
 }
-.cu-recon-cell { padding: 10px 12px; border-left: 1px solid #e9ecef; }
+.cu-recon-cell { padding: 10px 12px; border-left: 1px solid #e9ecef; border-left: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)); }
 .cu-recon-cell:first-child { border-left: 0; }
 .cu-recon-v {
   font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -712,10 +731,11 @@ svg.claude-mark {
 .cu-recon-cell.is-used .cu-recon-v { color: var(--brand-primary); }
 .cu-recon-cell.is-loose .cu-recon-v { color: var(--claude-part-ink); }
 .cu-recon-cell.is-dim .cu-recon-v { color: #8b968f; }
-.cu-recon-k { font-size: 0.7rem; color: #6c757d; line-height: 1.35; margin-top: 2px; }
+.cu-recon-k { font-size: 0.7rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); line-height: 1.35; margin-top: 2px; }
 .cu-recon-note {
-  grid-column: 1 / -1; background: #f6f8f6; padding: 6px 12px;
+  grid-column: 1 / -1; background: #f6f8f6; background: color-mix(in srgb, #f6f8f6 var(--tint-mix), var(--surface)); padding: 6px 12px;
   border-top: 1px solid #e9ecef;
+  border-top: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface));
   font-size: 0.7rem; color: #8b968f;
 }
 
@@ -742,7 +762,7 @@ svg.claude-mark {
 
 .cu-legend {
   display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px;
-  font-size: 0.72rem; color: #495057;
+  font-size: 0.72rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
 }
 .cu-legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .cu-key { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
@@ -752,21 +772,22 @@ svg.claude-mark {
 
 /* Tables. A wide table has to scroll inside ITS OWN box — a pane that scrolls
    sideways is a pane whose toolbar walks off the screen. */
-.cu-scroll { overflow-x: auto; border: 1px solid #e9ecef; border-radius: 8px; }
+.cu-scroll { overflow-x: auto; border: 1px solid #e9ecef; border: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)); border-radius: 8px; }
 .cu-scroll-tall { max-height: 320px; overflow-y: auto; }
 .cu-table { width: 100%; font-size: 0.76rem; border-collapse: collapse; min-width: 460px; }
 .cu-table th {
   position: sticky; top: 0; z-index: 1;
-  background: #f6f8f6; color: #6c757d; font-weight: 600;
-  text-align: left; padding: 7px 10px; border-bottom: 1px solid #e9ecef;
+  background: #f6f8f6;
+  background: color-mix(in srgb, #f6f8f6 var(--tint-mix), var(--surface)); color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); font-weight: 600;
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid #e9ecef; border-bottom: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface));
   white-space: nowrap;
 }
-.cu-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; vertical-align: top; }
+.cu-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; border-bottom: 1px solid color-mix(in srgb, #f1f3f2 var(--line-mix), var(--surface)); vertical-align: top; }
 .cu-table tr:last-child td { border-bottom: 0; }
 .cu-table .cu-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cu-table th.cu-num { text-align: right; }
-.cu-table-log td:first-child { color: #6c757d; }
-.cu-table tr.is-reset td { background: #f6f8f6; color: #8b968f; font-style: italic; }
+.cu-table-log td:first-child { color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); }
+.cu-table tr.is-reset td { background: #f6f8f6; background: color-mix(in srgb, #f6f8f6 var(--tint-mix), var(--surface)); color: #8b968f; font-style: italic; }
 .cu-sub { font-size: 0.7rem; color: #8b968f; margin-top: 1px; }
 .cu-loose { color: var(--claude-part-ink); }
 .cu-dot {
@@ -778,25 +799,27 @@ svg.claude-mark {
 .cu-chip {
   display: inline-block; font-size: 0.68rem; font-weight: 600;
   padding: 1px 8px; border-radius: 999px; white-space: nowrap;
-  background: #f1f3f2; color: #495057; border: 1px solid #e3e8e4;
+  background: #f1f3f2;
+  background: color-mix(in srgb, #f1f3f2 var(--tint-mix), var(--surface)); color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); border: 1px solid #e3e8e4; border: 1px solid color-mix(in srgb, #e3e8e4 var(--line-mix), var(--surface));
 }
-.cu-chip.is-over  { background: #fef3f2; border-color: #f1c4bf; color: #b42318; }
-.cu-chip.is-under { background: #f0fdf4; border-color: #bbe7c9; color: #067647; }
-.cu-chip.is-ok    { background: #f0fdf4; border-color: #bbe7c9; color: #067647; }
-.cu-chip.is-live  { background: #fff6ed; border-color: #f5c77e; color: #b54708; }
+.cu-chip.is-over  { background: #fef3f2; background: color-mix(in srgb, #fef3f2 var(--tint-mix), var(--surface)); border-color: #f1c4bf; border-color: color-mix(in srgb, #f1c4bf var(--line-mix), var(--surface)); color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
+.cu-chip.is-under { background: #f0fdf4; background: color-mix(in srgb, #f0fdf4 var(--tint-mix), var(--surface)); border-color: #bbe7c9; border-color: color-mix(in srgb, #bbe7c9 var(--line-mix), var(--surface)); color: #067647; color: color-mix(in srgb, #067647 var(--fg-mix), var(--fg-mix-to)); }
+.cu-chip.is-ok    { background: #f0fdf4; background: color-mix(in srgb, #f0fdf4 var(--tint-mix), var(--surface)); border-color: #bbe7c9; border-color: color-mix(in srgb, #bbe7c9 var(--line-mix), var(--surface)); color: #067647; color: color-mix(in srgb, #067647 var(--fg-mix), var(--fg-mix-to)); }
+.cu-chip.is-live  { background: #fff6ed; background: color-mix(in srgb, #fff6ed var(--tint-mix), var(--surface)); border-color: #f5c77e; color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to)); }
 .cu-chip.is-dim   { color: #8b968f; }
 
 /* The observed 5-hour windows. */
 .cu-wins { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 .cu-win {
-  border: 1px solid #e9ecef; border-radius: 8px; padding: 9px 11px; background: #fff;
+  border: 1px solid #e9ecef;
+  border: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)); border-radius: 8px; padding: 9px 11px; background: var(--surface);
 }
 .cu-win-pct {
   font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--brand-primary); line-height: 1.1;
 }
 .cu-win.is-warn .cu-win-pct { color: var(--claude-part-ink); }
-.cu-win.is-crit .cu-win-pct { color: #b42318; }
+.cu-win.is-crit .cu-win-pct { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
 .cu-win-meter {
   height: 5px; border-radius: 999px; background: var(--claude-track);
   overflow: hidden; margin: 5px 0 5px;
@@ -804,14 +827,14 @@ svg.claude-mark {
 .cu-win-meter > i { display: block; height: 100%; background: var(--brand-primary); }
 .cu-win.is-warn .cu-win-meter > i { background: var(--claude-part); }
 .cu-win.is-crit .cu-win-meter > i { background: #b42318; }
-.cu-win-when { font-size: 0.7rem; color: #6c757d; font-variant-numeric: tabular-nums; }
+.cu-win-when { font-size: 0.7rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); font-variant-numeric: tabular-nums; }
 
 .cu-cov {
   display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 14px;
-  padding-top: 10px; border-top: 1px solid #f1f3f2;
+  padding-top: 10px; border-top: 1px solid #f1f3f2; border-top: 1px solid color-mix(in srgb, #f1f3f2 var(--line-mix), var(--surface));
   font-size: 0.7rem; color: #8b968f;
 }
-.cu-cov .is-late { color: #b54708; font-weight: 600; }
+.cu-cov .is-late { color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
 .cu-cov .is-dim { color: #a6b0a9; }
 
 @media (max-width: 768px) {
@@ -827,15 +850,16 @@ svg.claude-mark {
    confusing unless the box acknowledges it. */
 .claude-sel.is-capped {
   border-style: solid; border-color: var(--brand-orange);
-  background: rgba(255, 111, 48, 0.12); color: #b54708;
+  background: rgba(255, 111, 48, 0.12); color: #b54708; color: color-mix(in srgb, #b54708 var(--fg-mix), var(--fg-mix-to));
 }
 
 /* Info, not warning. The amber default reads as "you did something wrong"; this
    note means "a boundary exists and the form has already respected it". */
 .claude-tab .claude-note.info {
-  background: #f2f8ff; border-color: #b6d4f5; color: #0b4a80;
+  background: #f2f8ff;
+  background: color-mix(in srgb, #f2f8ff var(--tint-mix), var(--surface)); border-color: #b6d4f5; border-color: color-mix(in srgb, #b6d4f5 var(--line-mix), var(--surface)); color: #0b4a80; color: color-mix(in srgb, #0b4a80 var(--fg-mix), var(--fg-mix-to));
 }
-.claude-tab .claude-note.info strong { color: #073763; }
+.claude-tab .claude-note.info strong { color: #073763; color: color-mix(in srgb, #073763 var(--fg-mix), var(--fg-mix-to)); }
 
 /* ---------- the capacity rail ---------- */
 /* "If I start here, how much may I take?" — a ribbon down the left edge of each
@@ -899,6 +923,7 @@ svg.claude-mark {
    different and much more alarming statement than "อ้อ, someone booked it". */
 .claude-free.is-held {
   background-color: #dfe3e0;
+  background-color: color-mix(in srgb, #dfe3e0 var(--tint-mix), var(--surface));
   background-image: repeating-linear-gradient(-45deg,
     rgba(88, 100, 92, 0.30) 0 2px, transparent 2px 6px);
 }
@@ -910,7 +935,7 @@ svg.claude-mark {
   position: absolute; left: calc(100% + 3px); top: 0; white-space: nowrap;
   font-size: 0.6rem; font-weight: 700; font-variant-numeric: tabular-nums;
   line-height: 1.35; letter-spacing: -0.02em;
-  background: rgba(255, 255, 255, 0.94); border-radius: 3px; padding: 0 3px;
+  background: rgb(var(--surface-rgb) / 0.94); border-radius: 3px; padding: 0 3px;
 }
 
 /* The deadline: "start by this time and you still get the number above". The
@@ -919,7 +944,7 @@ svg.claude-mark {
 .claude-free-deadline {
   position: absolute; left: calc(100% + 3px); bottom: 0; white-space: nowrap;
   font-size: 0.55rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--claude-part-ink); background: rgba(255, 255, 255, 0.94);
+  color: var(--claude-part-ink); background: rgb(var(--surface-rgb) / 0.94);
   border-radius: 3px; padding: 0 3px;
 }
 .claude-free-deadline::before {
@@ -927,9 +952,9 @@ svg.claude-mark {
   width: 3px; height: 2px; background: var(--claude-part-ink);
 }
 /* Ink that matches the band it labels, dark enough to read on white. */
-.claude-free.is-full .claude-free-tag { color: #2c5c37; }
+.claude-free.is-full .claude-free-tag { color: #2c5c37; color: color-mix(in srgb, #2c5c37 var(--fg-mix), var(--fg-mix-to)); }
 .claude-free.is-part .claude-free-tag { color: var(--claude-part-ink); }
-.claude-free.is-none .claude-free-tag { color: #b42318; }
+.claude-free.is-none .claude-free-tag { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
 
 /* The rail's key, inline in the help line. The swatches reuse the rail's own
    classes so a colour can never be changed in one place and not the other. */
@@ -938,16 +963,16 @@ svg.claude-mark {
   position: static; display: inline-block; width: 9px; height: 9px;
   border-radius: 2px; margin: 0 1px 0 5px;
 }
-.claude-free.is-low .claude-free-tag { color: #6b4c00; }
+.claude-free.is-low .claude-free-tag { color: #6b4c00; color: color-mix(in srgb, #6b4c00 var(--fg-mix), var(--fg-mix-to)); }
 
 /* Two panels that mean NOW, under a grid that may be showing another week. */
 .claude-tab .claude-now-elsewhere {
-  font-size: 0.72rem; color: #6c757d; margin-bottom: 7px;
+  font-size: 0.72rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); margin-bottom: 7px;
 }
 .claude-tab .claude-measured-elsewhere {
   display: flex; gap: 8px; align-items: center;
-  font-size: 0.78rem; color: #6c757d;
-  padding: 9px 0 2px; border-top: 1px dashed #dde2de; margin-top: 10px;
+  font-size: 0.78rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to));
+  padding: 9px 0 2px; border-top: 1px dashed #dde2de; border-top: 1px dashed color-mix(in srgb, #dde2de var(--line-mix), var(--surface)); margin-top: 10px;
 }
 
 /* ---------- the Claude accent, applied ---------- */
@@ -1036,11 +1061,11 @@ svg.claude-mark {
    sub-line, which is not part of the colour key. */
 .claude-week-fig-block.is-free { color: var(--brand-primary); }
 .claude-week-of.is-low { color: var(--claude-part-ink); font-weight: 600; }
-.claude-week-of.is-none { color: #b42318; font-weight: 600; }
+.claude-week-of.is-none { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
 .claude-week-fig-block.is-unknown { color: #ced4da; }
 .claude-week-fig-block .claude-week-fig { color: var(--claude-clay-ink); }
 .claude-week-fig-block.is-free .claude-week-fig { color: var(--brand-primary); }
-.claude-week-fig-k { font-size: 0.72rem; color: #6c757d; margin-top: 1px; }
+.claude-week-fig-k { font-size: 0.72rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); margin-top: 1px; }
 
 /* ============================================================
    0159 — the toolbar, the three-state week card, the two view switches,
@@ -1056,8 +1081,8 @@ svg.claude-mark {
    month grid on the page to keep in step with this one. */
 .claude-jump {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 9px; border: 1px solid #dee2e6; border-radius: 6px;
-  cursor: pointer; background: #fff; color: inherit;
+  padding: 3px 9px; border: 1px solid #dee2e6; border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)); border-radius: 6px;
+  cursor: pointer; background: var(--surface); color: inherit;
 }
 .claude-jump:hover { border-color: var(--claude-clay); }
 .claude-jump > i { color: var(--claude-clay-ink); }
@@ -1077,7 +1102,7 @@ svg.claude-mark {
 .claude-week-fig-block.is-unknown .claude-week-of { display: none; }
 /* The legend is people now, so it gets a label saying so — a row of coloured
    names under a bar is otherwise a key to nothing. */
-.claude-legend-k { font-size: 0.72rem; color: #6c757d; margin-right: 2px; }
+.claude-legend-k { font-size: 0.72rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); margin-right: 2px; }
 
 /* ---------- the two view switches ---------- */
 .claude-calbar {
@@ -1087,15 +1112,16 @@ svg.claude-mark {
 .claude-vbtn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 10px; font-size: 0.78rem; font-weight: 600;
-  border: 1px solid #dee2e6; border-radius: 999px;
-  background: #fff; color: #495057; cursor: pointer;
+  border: 1px solid #dee2e6;
+  border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)); border-radius: 999px;
+  background: var(--surface); color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); cursor: pointer;
 }
 .claude-vbtn:hover { border-color: var(--claude-clay); color: var(--claude-clay-ink); }
 .claude-vbtn.on {
   background: var(--claude-clay-wash); border-color: var(--claude-clay);
   color: var(--claude-clay-ink);
 }
-.claude-calbar-note { font-size: 0.72rem; color: #6c757d; }
+.claude-calbar-note { font-size: 0.72rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); }
 
 /* ---------- "ใช้จริง" overlay ---------- */
 /* ITS OWN LANE, on the right, mirroring the capacity rail on the left. The rail
@@ -1150,6 +1176,7 @@ svg.claude-mark {
    absence of measurement. */
 .claude-hist.is-unknown {
   background-color: #e6e3e0;
+  background-color: color-mix(in srgb, #e6e3e0 var(--tint-mix), var(--surface));
   background-image: repeating-linear-gradient(-45deg,
     rgba(120, 110, 100, 0.38) 0 2px, transparent 2px 6px);
 }
@@ -1164,12 +1191,13 @@ svg.claude-mark {
 .claude-hist-peak {
   position: absolute; right: 1px; z-index: 4; pointer-events: none;
   font-size: 0.58rem; font-weight: 700; line-height: 1.35; white-space: nowrap;
-  color: var(--claude-clay-ink); background: #fff;
+  color: var(--claude-clay-ink); background: var(--surface);
   border: 1px solid var(--claude-clay); border-radius: 3px;
   padding: 0 3px; font-variant-numeric: tabular-nums;
 }
 .claude-hist-peak.is-unknown {
-  color: #6c757d; border-color: #adb5bd; border-style: dashed;
+  color: #6c757d;
+  color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)); border-color: #adb5bd; border-style: dashed;
 }
 /* Where a 5-hour window ENDED, and how full it got. Sits on the reset instant
    with a rule through the lane, so the runs above it visibly belong to it. */
@@ -1177,7 +1205,7 @@ svg.claude-mark {
   position: absolute; right: 1px; z-index: 4; pointer-events: none;
   transform: translateY(-50%);
   font-size: 0.55rem; font-weight: 700; line-height: 1.3; white-space: nowrap;
-  color: var(--claude-clay-ink); background: #fff;
+  color: var(--claude-clay-ink); background: var(--surface);
   border: 1px dashed var(--claude-clay); border-radius: 999px;
   padding: 0 4px; font-variant-numeric: tabular-nums;
 }
@@ -1200,6 +1228,7 @@ svg.claude-mark {
 }
 .claude-hist-key i.hk-unknown {
   background-color: #e6e3e0;
+  background-color: color-mix(in srgb, #e6e3e0 var(--tint-mix), var(--surface));
   background-image: repeating-linear-gradient(-45deg,
     rgba(120, 110, 100, 0.38) 0 2px, transparent 2px 6px);
 }
@@ -1218,22 +1247,23 @@ svg.claude-mark {
    into three lines with the middle one looking like a second heading. A
    descendant selector is a claim about everything underneath it. */
 .claude-terms-list > li > b {
-  display: block; font-size: 0.96rem; color: #212529; margin-bottom: 2px;
+  display: block; font-size: 0.96rem; color: #212529; color: color-mix(in srgb, #212529 var(--fg-mix), var(--fg-mix-to)); margin-bottom: 2px;
 }
-.claude-terms-list span b { color: #212529; }
-.claude-terms-list span { display: block; font-size: 0.85rem; color: #495057; }
+.claude-terms-list span b { color: #212529; color: color-mix(in srgb, #212529 var(--fg-mix), var(--fg-mix-to)); }
+.claude-terms-list span { display: block; font-size: 0.85rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); }
 /* The worked examples are the part people skip, so they get to look skippable —
    set apart, quieter, and never mixed into the rule they illustrate. */
 .claude-terms-list em {
   display: block; margin-top: 4px; padding: 5px 9px;
-  background: #f6f7f6; border-radius: 5px;
-  font-style: normal; font-size: 0.8rem; color: #495057;
+  background: #f6f7f6;
+  background: color-mix(in srgb, #f6f7f6 var(--tint-mix), var(--surface)); border-radius: 5px;
+  font-style: normal; font-size: 0.8rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
 }
 .claude-terms-tips {
-  margin-top: 16px; padding-top: 12px; border-top: 1px solid #e9ecef;
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid #e9ecef; border-top: 1px solid color-mix(in srgb, #e9ecef var(--line-mix), var(--surface));
   display: grid; gap: 8px;
 }
-.claude-terms-tips > div { display: flex; gap: 8px; font-size: 0.82rem; color: #495057; }
+.claude-terms-tips > div { display: flex; gap: 8px; font-size: 0.82rem; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)); }
 .claude-terms-tips i { color: var(--claude-clay-ink); flex: none; margin-top: 2px; }
 .claude-terms-link { color: var(--claude-clay-ink); font-weight: 600; }
 
@@ -1241,9 +1271,10 @@ svg.claude-mark {
    because it does not block anything and a red one that never blocks teaches
    people that red does not block. */
 .claude-tab .claude-note.warn {
-  background: #fff8e6; border-color: #f0c000; color: #6b4e00;
+  background: #fff8e6;
+  background: color-mix(in srgb, #fff8e6 var(--tint-mix), var(--surface)); border-color: #f0c000; color: #6b4e00; color: color-mix(in srgb, #6b4e00 var(--fg-mix), var(--fg-mix-to));
 }
-.claude-tab .claude-note.warn strong { color: #6b4e00; }
+.claude-tab .claude-note.warn strong { color: #6b4e00; color: color-mix(in srgb, #6b4e00 var(--fg-mix), var(--fg-mix-to)); }
 
 /* ⚠️ 940, NOT 768, AND THIS IS THE MEASUREMENT THAT MATTERS ON THIS GRID.
    `.claude-cal-grid` has `min-width: 940px` and the calendar SCROLLS sideways
@@ -1296,13 +1327,14 @@ svg.claude-mark {
    rules because it is not a rule — it is the arithmetic every number on the
    page is in, and a reader who skips it cannot read the board at all. */
 .claude-terms-math {
-  background: #f6f7f6; border-radius: 7px; padding: 10px 12px; margin-bottom: 16px;
+  background: #f6f7f6;
+  background: color-mix(in srgb, #f6f7f6 var(--tint-mix), var(--surface)); border-radius: 7px; padding: 10px 12px; margin-bottom: 16px;
   font-size: 0.85rem;
 }
-.claude-terms-math > b { display: block; margin-bottom: 6px; color: #212529; }
+.claude-terms-math > b { display: block; margin-bottom: 6px; color: #212529; color: color-mix(in srgb, #212529 var(--fg-mix), var(--fg-mix-to)); }
 .claude-terms-eq { display: grid; gap: 3px; }
 .claude-terms-eq span {
-  padding-left: 12px; position: relative; color: #495057;
+  padding-left: 12px; position: relative; color: #495057; color: color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to));
   font-variant-numeric: tabular-nums;
 }
 .claude-terms-eq span::before {
@@ -1310,20 +1342,21 @@ svg.claude-mark {
   font-weight: 700;
 }
 .claude-terms-math-note {
-  display: block; margin-top: 7px; font-size: 0.8rem; color: #6c757d;
+  display: block; margin-top: 7px; font-size: 0.8rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to));
 }
 
 /* ---------- required-field marks & the silent-booking control ---------- */
 /* Every field in the booking form is required — the save handler refuses an
    empty purpose and always sends a range — so ALL of them are starred. Starring
    some and not others is a claim that the unstarred ones are optional. */
-.claude-req { color: #b42318; font-weight: 700; margin-left: 2px; }
+.claude-req { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); font-weight: 700; margin-left: 2px; }
 .claude-req-note {
-  margin: 0; padding: 0 1rem 0.35rem; font-size: 0.76rem; color: #6c757d;
+  margin: 0; padding: 0 1rem 0.35rem; font-size: 0.76rem; color: #6c757d; color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to));
 }
 .claude-silent {
   margin: 0 1rem 0.5rem; padding: 8px 10px;
-  background: #f6f7f6; border: 1px dashed #ced4da; border-radius: 7px;
+  background: #f6f7f6;
+  background: color-mix(in srgb, #f6f7f6 var(--tint-mix), var(--surface)); border: 1px dashed #ced4da; border: 1px dashed color-mix(in srgb, #ced4da var(--line-mix), var(--surface)); border-radius: 7px;
 }
 .claude-silent .form-check-label { cursor: pointer; }
 .claude-silent .form-check-input { cursor: pointer; }

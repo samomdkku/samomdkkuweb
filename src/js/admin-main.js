@@ -17,7 +17,9 @@ import { startBuildCheck } from './build-check.js';
 startBuildCheck();   // run before anything else — see build-check.js header
 
 import { initModalStack } from './modal-stack.js';
+import { initTheme } from './theme.js';
 initModalStack();  // stacked modals (crop over member editor, picker over member editor)
+initTheme();       // light / dark / device — the head script already applied it; this wires the switch
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
@@ -762,8 +764,14 @@ function initSidebarToggle() {
   const backdrop  = document.getElementById('adminSidebarBackdrop');
   const sideNav   = document.getElementById('adminSideNav');
 
-  // Restore desktop-collapsed state (mobile drawer always starts closed)
-  if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') {
+  // Restore desktop-collapsed state (mobile drawer always starts closed).
+  // With NO saved choice, an iPad in portrait (768–1023px) starts on the icon
+  // rail: the full 260px sidebar left the content ~560px and squeezed every
+  // workspace into a phone layout beside it (2026-10-13). The toggle still
+  // expands it, and that choice is saved like any other.
+  const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  const tabletPortrait = window.matchMedia('(min-width: 768px) and (max-width: 1023.98px)').matches;
+  if (savedCollapsed === '1' || (savedCollapsed === null && tabletPortrait)) {
     document.body.classList.add('workspace-sidebar-collapsed');
   }
 

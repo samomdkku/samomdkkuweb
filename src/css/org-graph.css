@@ -9,9 +9,10 @@
  * --org-tint, green --brand-primary, Prompt for display. A ฝ่าย must look like
  * the same ฝ่าย in either view.
  *
- * LIGHT-ONLY, like the rest of the app. No prefers-color-scheme block here: the
- * one component that has one goes dark alone on a dark-mode OS while the rest of
- * the site stays white (mistakes.md).
+ * THEMED BY TOKENS, like the rest of the app (src/css/theme.css, 2026-10-13): colours come
+ * from the --ink-N, --surface, … tokens, which flip under [data-theme="dark"]. Never a
+ * prefers-color-scheme block of its own — that made one component go dark alone
+ * (docs/mistakes/frontend-ui.md); the theme is the <html> attribute, not the OS.
  *
  * NOTE the library sets fill/stroke as PRESENTATION ATTRIBUTES via d3 .attr().
  * CSS beats presentation attributes, so the rules below win without !important
@@ -37,7 +38,7 @@
   border: 1px solid var(--ink-200);
   border-radius: 999px;
   padding: 0.15rem;
-  background: #fff;
+  background: var(--surface);
 }
 
 .orgg-depth-label {
@@ -90,7 +91,7 @@
 .orgg-section {
   position: relative;
   margin-top: 0.85rem;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   border-radius: var(--radius-md, 0.75rem);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -121,7 +122,7 @@
   height: 34px;
   border-radius: 8px;
   border: 1px solid var(--ink-200);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgb(var(--surface-rgb) / 0.92);
   color: var(--ink-600);
   cursor: pointer;
   font-size: 0.85rem;
@@ -195,7 +196,7 @@ body.orgg-full-open { overflow: hidden; }
   gap: 0.25rem;
   height: 26px;
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   color: var(--ink-600);
   font-family: 'Prompt', system-ui, sans-serif;
@@ -228,7 +229,7 @@ body.orgg-full-open { overflow: hidden; }
   padding: 11px;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   border-top: 3px solid var(--org-tint);
   border-radius: var(--radius-sm, 0.5rem);

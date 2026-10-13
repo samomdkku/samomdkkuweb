@@ -24,9 +24,10 @@
  * --brand-orange, the ten --dept-* identities reused from the ฝ่าย tab, Prompt
  * for display and Noto Sans Thai for body. Both faces are already loaded.
  *
- * LIGHT-ONLY on purpose. This app has no theme system anywhere; adding a
- * prefers-color-scheme block here would make this one page go dark on a
- * dark-mode OS while the rest of the site stayed white (see mistakes.md).
+ * THEMED BY TOKENS, like the rest of the app (src/css/theme.css, 2026-10-13): colours come
+ * from the --ink-N, --surface, … tokens, which flip under [data-theme="dark"]. Never a
+ * prefers-color-scheme block of its own — that made one component go dark alone
+ * (docs/mistakes/frontend-ui.md); the theme is the <html> attribute, not the OS.
  */
 
 .org-page {
@@ -89,7 +90,7 @@
   padding: 0.7rem 2.5rem 0.7rem 2.4rem;
   font: inherit; font-size: 0.95rem;
   color: var(--ink-800);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   border-radius: 999px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -123,7 +124,7 @@
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: 0.82rem; font-weight: 500;
   color: var(--ink-600);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   border-radius: 999px;
   cursor: pointer;
@@ -133,7 +134,7 @@
 .org-expand-all:hover {
   color: var(--brand-primary);
   border-color: color-mix(in srgb, var(--brand-primary) 40%, var(--ink-200));
-  background: color-mix(in srgb, var(--brand-primary) 5%, #fff);
+  background: color-mix(in srgb, var(--brand-primary) 5%, var(--surface));
 }
 .org-expand-all:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 .org-expand-all > i { font-size: 0.85rem; }
@@ -151,7 +152,7 @@
   margin: 2.5rem 0; text-align: center;
   color: var(--ink-500); font-size: 0.95rem;
 }
-.org-status.is-error { color: #b42318; }
+.org-status.is-error { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
 
 /* ── ปีการศึกษา picker ───────────────────────────────────────────────────── */
 /* Deliberately plain — a row of years, the active one underlined. It is a
@@ -230,7 +231,7 @@
      2. ระดับ rows  seats grouped by tier, top rung first (`orderChildren`).
      3. sub-ฝ่าย    a grid of tinted-edge cards inside the panel.
 
-   LIGHT-ONLY, like the rest of this app. No prefers-color-scheme block here.
+   Themed by tokens (src/css/theme.css) — no prefers-color-scheme block here.
    ============================================================================ */
 
 .orgc-tree {
@@ -254,7 +255,7 @@
    panels now stack directly on one another — a 3px line between two white cards
    reads as a divider, a rail reads as an identity. */
 .orgc-tree > .orgc-unit {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
   overflow: hidden;
@@ -303,7 +304,7 @@
 .orgc-unit-btn.is-static { cursor: default; }
 .orgc-unit-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -3px; }
 @media (hover: hover) {
-  .orgc-unit-btn:not(.is-static):hover { background: color-mix(in srgb, var(--org-tint) 5%, #fff); }
+  .orgc-unit-btn:not(.is-static):hover { background: color-mix(in srgb, var(--org-tint) 5%, var(--surface)); }
 }
 
 .orgc-unit-name {
@@ -328,7 +329,7 @@
   font-weight: 500;
   letter-spacing: 0.01em;
   color: color-mix(in srgb, var(--org-tint) 68%, var(--ink-700));
-  background: color-mix(in srgb, var(--org-tint) 9%, #fff);
+  background: color-mix(in srgb, var(--org-tint) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--org-tint) 18%, transparent);
   border-radius: 999px;
   padding: 0.12rem 0.55rem;
@@ -396,7 +397,7 @@
   flex: 1 1 12rem;
   min-width: 0;
   max-width: 100%;
-  background: color-mix(in srgb, var(--org-tint) 4%, #fff);
+  background: color-mix(in srgb, var(--org-tint) 4%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--org-tint) 16%, var(--ink-200));
 }
 .orgc-unit .orgc-unit:has(> .orgc-unit-body:not([hidden])) { flex-basis: 22rem; }
@@ -413,10 +414,10 @@
 }
 
 .orgc-unit .orgc-unit .orgc-unit {
-  background: color-mix(in srgb, var(--org-tint) 7%, #fff);
+  background: color-mix(in srgb, var(--org-tint) 7%, var(--surface));
 }
 .orgc-unit .orgc-unit .orgc-unit .orgc-unit {
-  background: color-mix(in srgb, var(--org-tint) 9%, #fff);
+  background: color-mix(in srgb, var(--org-tint) 9%, var(--surface));
 }
 .orgc-unit .orgc-unit .orgc-unit-name { font-size: 0.86rem; }
 .orgc-unit .orgc-unit .orgc-unit-meta { font-size: 0.7rem; }
@@ -471,7 +472,7 @@
   gap: 0.3rem;
   padding: 0.5rem 0.6rem 0.6rem;
   border-radius: var(--radius-sm, 0.5rem);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   border-left: 3px solid color-mix(in srgb, var(--org-tint) 55%, transparent);
 }
@@ -483,7 +484,7 @@
    `is-lead` is the FIRST rung present, not `[data-rung="1"]`: the numbers are an
    admin's, and several ฝ่าย on the live tree start at 2 or 3. */
 .orgc-seat.is-lead {
-  background: color-mix(in srgb, var(--org-tint) 5%, #fff);
+  background: color-mix(in srgb, var(--org-tint) 5%, var(--surface));
 }
 .orgc-seat:not(.is-lead) {
   border-left-color: color-mix(in srgb, var(--org-tint) 26%, transparent);
@@ -584,7 +585,7 @@
   aspect-ratio: 3 / 4;
   overflow: hidden;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--org-tint) 12%, #fff);
+  background: color-mix(in srgb, var(--org-tint) 12%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--org-tint) 22%, transparent);
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
@@ -691,7 +692,7 @@
   border: 1px solid var(--ink-200);
   border-radius: 999px;
   padding: 0.15rem;
-  background: #fff;
+  background: var(--surface);
 }
 .org-view-btn {
   font: inherit;
@@ -981,7 +982,7 @@
 .org-lines .org-box {
   position: relative;
   z-index: 1;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200);
   border-top: 3px solid var(--org-tint, var(--ink-300));
   border-radius: var(--radius-sm, 0.5rem);

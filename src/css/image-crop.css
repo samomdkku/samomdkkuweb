@@ -1,9 +1,8 @@
 /* ==============================================
  * IMAGE-CROP — the pan/zoom framing dialog (src/js/image-crop.js).
  *
- * Light-only, like the rest of the app (mistakes.md: never add a
- * prefers-color-scheme island to a single-theme app). The stage is the one dark
- * surface, and that is deliberate — a neutral dark surround is what lets you
+ * Not part of the theme: the stage is dark in BOTH themes, on purpose
+ * (theme-tokens-codemod.mjs skips this file) — and that is deliberate — a neutral dark surround is what lets you
  * judge a portrait's framing without the page's white competing with it.
  * ============================================== */
 

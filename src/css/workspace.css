@@ -255,7 +255,7 @@ body.workspace-mode .tab-content {
   border-radius: 50%;
   background: var(--ink-200);
   object-fit: cover;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   flex-shrink: 0;
 }
 
@@ -305,12 +305,16 @@ body.workspace-mode .tab-content {
   background: rgba(16, 89, 34, 0.05);
   border-color: rgba(16, 89, 34, 0.35);
   color: var(--brand-primary, #105922);
+  color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
 }
 
 .workspace-side-signout:hover {
   background: #fef2f2;
+  background: color-mix(in srgb, #fef2f2 var(--tint-mix), var(--surface));
   border-color: #fecaca;
+  border-color: color-mix(in srgb, #fecaca var(--line-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
 }
 
 /* --- Workspace body (right side) --- */
@@ -325,7 +329,7 @@ body.workspace-mode .tab-content {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgb(var(--surface-rgb) / 0.94);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--ink-200);

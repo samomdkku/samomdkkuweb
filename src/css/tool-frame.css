@@ -38,6 +38,7 @@
 
 .tool-frame-desc {
   color: #6c757d;
+  color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to));
   margin: 0.25rem 0 0;
 }
 
@@ -50,9 +51,9 @@
   display: block;
   width: 100%;
   min-height: 70vh;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgb(var(--ink-900-rgb) / 0.08);
   border-radius: 0.75rem;
-  background: #fff;
+  background: var(--surface);
 }
 
 .tool-frame-note {
@@ -95,7 +96,7 @@
    what separates one group from the next. The first section on a page must not
    carry that rule — there is nothing above it to divide from. */
 .dept-content > .dept-section {
-  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  border-top: 1px solid rgb(var(--ink-900-rgb) / 0.09);
   padding-top: 1.5rem;
   margin-top: 2rem;
 }
@@ -110,12 +111,14 @@
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--brand-primary, #105922);
+  color: var(--brand-primary, color-mix(in srgb, #105922 var(--fg-mix), var(--fg-mix-to)));
 }
 
 .dept-section-sub {
   margin: 0.35rem 0 0;
   font-size: 0.95rem;
   color: #6c757d;
+  color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to));
 }
 
 /* A paragraph a ฝ่าย typed into a form. `pre-line` honours the line breaks they
@@ -127,6 +130,7 @@
   max-width: 68ch;
   white-space: pre-line;
   color: #3f4854;
+  color: color-mix(in srgb, #3f4854 var(--fg-mix), var(--fg-mix-to));
   line-height: 1.7;
 }
 

@@ -6,7 +6,10 @@
  * anywhere — a class with no stylesheet is invisible in review and looks exactly
  * like a broken value (mistakes.md).
  *
- * LIGHT-ONLY, like the rest of this app.
+ * THEMED BY TOKENS, like the rest of the app (src/css/theme.css, 2026-10-13): colours come
+ * from the --ink-N, --surface, … tokens, which flip under [data-theme="dark"]. Never a
+ * prefers-color-scheme block of its own — that made one component go dark alone
+ * (docs/mistakes/frontend-ui.md); the theme is the <html> attribute, not the OS.
  */
 
 /* Each สาย is a button into "manage this สาย's อาจารย์", so it has to look
@@ -41,6 +44,7 @@
   max-height: 13rem;
   overflow-y: auto;
   border: 1px solid var(--ink-200, #e9ecef);
+  border: 1px solid var(--ink-200, color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)));
   border-radius: var(--radius-sm, 0.5rem);
 }
 .house-picklist:empty { display: none; }
@@ -53,7 +57,8 @@
   padding: 0.4rem 0.6rem;
   border: 0;
   border-bottom: 1px solid var(--ink-100, #f1f3f5);
-  background: #fff;
+  border-bottom: 1px solid var(--ink-100, color-mix(in srgb, #f1f3f5 var(--line-mix), var(--surface)));
+  background: var(--surface);
   text-align: left;
   font-size: 0.85rem;
   cursor: pointer;
@@ -61,7 +66,7 @@
 .house-pickrow:last-child { border-bottom: 0; }
 .house-pickrow:hover,
 .house-pickrow:focus-visible {
-  background: color-mix(in srgb, var(--brand-primary) 7%, #fff);
+  background: color-mix(in srgb, var(--brand-primary) 7%, var(--surface));
 }
 .house-pickrow:disabled { opacity: 0.55; cursor: progress; }
 .house-pickrow .bi { color: var(--brand-primary); flex: 0 0 auto; }

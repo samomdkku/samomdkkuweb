@@ -94,7 +94,7 @@
   position: absolute;
   top: 1rem;
   left: 1rem;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgb(var(--surface-rgb) / 0.96);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--brand-primary);

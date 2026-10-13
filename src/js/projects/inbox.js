@@ -490,6 +490,7 @@ export function renderInbox(next) {
 }
 
 export function openProjectDetail(projectId) {
+  detailMoreOpen = false;   // a new โครงการ starts with the short action row
   selectedProjectId = projectId;
   level = 'detail';
   render();
@@ -1092,25 +1093,12 @@ function renderDetail() {
           ขณะนี้ทั้งโครงการและหนังสือทุกฉบับในนี้ไม่ปรากฏบนเว็บสาธารณะ —
           เจ้าหน้าที่ที่ล็อกอินยังเห็นตามปกติ
         </div>` : ''}
-      ${canManage ? `
-        <div class="projects-dept-editor" role="group" aria-label="แท็กฝ่ายสโม">
-          <span class="projects-dept-editor-label">ฝ่ายสโม:</span>
-          ${SAMO_DEPT_OPTIONS.map((d) => {
-            const on = projectSamoDepts(project).includes(d.value);
-            return `<button type="button" class="projects-dept-chip${on ? ' is-active' : ''}"
-              data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(d.value)}"
-              title="${on ? 'กดเพื่อเอาออก' : 'กดเพื่อเพิ่ม'}">${escHtml(d.label)}</button>`;
-          }).join('')}
-          ${staleSamoDepts(project).map((v) => `<button type="button" class="projects-dept-chip is-active is-stale"
-              data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(v)}"
-              title="ฝ่ายนี้ไม่มีในรายการแล้ว — กดเพื่อเอาออก">${escHtml(v)} <i class="bi bi-x"></i></button>`).join('')}
-        </div>
-      ` : ''}
-      <div class="projects-detail-actions">
+      ${canManage ? deptEditorHtml(project) : ''}
+      <div class="projects-detail-actions${detailMoreOpen ? ' is-expanded' : ''}">
         ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(project.id)}">
           <i class="bi bi-plus-lg me-1"></i> เพิ่มหนังสือ
         </button>` : ''}
-        ${canManage ? `<button type="button" class="btn btn-sm ${projShown ? 'btn-ghost' : 'btn-warning-soft'}"
+        ${canManage ? `<button type="button" class="btn btn-sm is-secondary ${projShown ? 'btn-ghost' : 'btn-warning-soft'}"
           data-projects-toggle-public="${escHtml(project.id)}" data-next="${projShown ? '0' : '1'}"
           title="${projShown ? 'ซ่อนโครงการนี้จากเว็บสาธารณะ' : 'แสดงโครงการนี้บนเว็บสาธารณะ'}">
           <i class="bi bi-${projShown ? 'eye-slash' : 'eye'} me-1"></i> ${projShown ? 'ซ่อนจากเว็บ' : 'แสดงบนเว็บ'}
@@ -1118,25 +1106,29 @@ function renderDetail() {
         ${canManage ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-edit-project="${escHtml(project.id)}" title="แก้ไขชื่อ / รายละเอียดโครงการ">
           <i class="bi bi-pencil me-1"></i> แก้ไขโครงการ
         </button>` : ''}
-        ${canMoveFY ? `<button type="button" class="btn btn-sm btn-ghost" data-projects-move-fy="${escHtml(project.id)}" title="ย้ายโครงการนี้ไปปีงบประมาณอื่น">
+        ${canMoveFY ? `<button type="button" class="btn btn-sm btn-ghost is-secondary" data-projects-move-fy="${escHtml(project.id)}" title="ย้ายโครงการนี้ไปปีงบประมาณอื่น">
           <i class="bi bi-calendar3 me-1"></i> ย้ายปีงบ
         </button>` : ''}
-        <button type="button" class="btn btn-sm btn-ghost" data-copy="${escHtml(project.id)}" title="คัดลอกรหัสโครงการ">
+        <button type="button" class="btn btn-sm btn-ghost is-secondary" data-copy="${escHtml(project.id)}" title="คัดลอกรหัสโครงการ">
           <i class="bi bi-clipboard me-1"></i> คัดลอกรหัส
         </button>
-        <button type="button" class="btn btn-sm btn-ghost" data-projects-copy-project="${escHtml(project.id)}" title="คัดลอกลิงก์โครงการ">
+        <button type="button" class="btn btn-sm btn-ghost is-secondary" data-projects-copy-project="${escHtml(project.id)}" title="คัดลอกลิงก์โครงการ">
           <i class="bi bi-link-45deg me-1"></i> คัดลอกลิงก์
         </button>
-        <button type="button" class="btn btn-sm btn-ghost" data-projects-qr-project="${escHtml(project.id)}" title="QR ของโฟลเดอร์ Drive โครงการนี้">
+        <button type="button" class="btn btn-sm btn-ghost is-secondary" data-projects-qr-project="${escHtml(project.id)}" title="QR ของโฟลเดอร์ Drive โครงการนี้">
           <i class="bi bi-qr-code me-1"></i> QR โฟลเดอร์
         </button>
         ${canManage ? `
-          <button type="button" class="btn btn-sm btn-ghost text-danger ms-auto"
+          <button type="button" class="btn btn-sm btn-ghost text-danger ms-auto is-secondary"
             data-projects-delete-project="${escHtml(project.id)}"
             title="ลบโครงการนี้พร้อมหนังสือทั้งหมด">
             <i class="bi bi-trash me-1"></i> ลบโครงการ
           </button>
         ` : ''}
+        <button type="button" class="btn btn-sm btn-ghost projects-more-toggle" data-projects-more-actions
+          aria-expanded="${detailMoreOpen}">
+          <i class="bi bi-${detailMoreOpen ? 'chevron-up' : 'three-dots'} me-1"></i>${detailMoreOpen ? 'ย่อ' : 'เพิ่มเติม'}
+        </button>
       </div>
     </header>
 
@@ -2054,6 +2046,16 @@ function onInboxClick(e) {
     onMoveProjectFiscalYear(moveFyProj.dataset.projectsMoveFy);
     return;
   }
+  if (e.target.closest('[data-projects-dept-editor]')) {
+    deptEditorOpen = !deptEditorIsOpen();
+    render();
+    return;
+  }
+  if (e.target.closest('[data-projects-more-actions]')) {
+    detailMoreOpen = !detailMoreOpen;
+    render();
+    return;
+  }
   const deptChip = e.target.closest('[data-projects-toggle-dept]');
   if (deptChip) {
     onToggleProjectDept(deptChip);
@@ -2260,6 +2262,47 @@ async function onToggleProjectPublic(btn) {
 /** Every ฝ่ายสโม toggle chains through this, so a second chip clicked before
  *  the first's round trip lands waits its turn instead of racing it. */
 let deptEditorQueue = Promise.resolve();
+
+// ── Detail header: what a phone shows first (2026-10-13, Apple's "common
+// path first, the rest one level deeper"). On a wide screen everything is in
+// view and these flags change nothing (CSS shows it all from 768px).
+let detailMoreOpen = false;   // the secondary actions, on a phone
+let deptEditorOpen = null;    // null = decide by width; then the person's choice
+
+function deptEditorIsOpen() {
+  if (deptEditorOpen !== null) return deptEditorOpen;
+  return typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(min-width: 768px)').matches : true;
+}
+
+/** The ฝ่าย tags on a โครงการ, for the sender desk. Closed: what is tagged,
+ *  plus one control to change it. Open: every ฝ่าย as a toggle — the same
+ *  chips as before. A phone opens it on demand instead of spending seven rows
+ *  on choices before the first action. */
+function deptEditorHtml(project) {
+  const tags = projectSamoDepts(project);
+  const open = deptEditorIsOpen();
+  const chosen = tags.length
+    ? deptMiniHtml(project)
+    : '<span class="projects-dept-editor-none">ยังไม่ระบุฝ่าย</span>';
+  return `
+    <div class="projects-dept-editor${open ? ' is-open' : ''}" role="group" aria-label="แท็กฝ่ายสโม">
+      <span class="projects-dept-editor-label">ฝ่ายสโม:</span>
+      ${open ? SAMO_DEPT_OPTIONS.map((d) => {
+        const on = tags.includes(d.value);
+        return `<button type="button" class="projects-dept-chip${on ? ' is-active' : ''}"
+          data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(d.value)}"
+          aria-pressed="${on}" title="${on ? 'กดเพื่อเอาออก' : 'กดเพื่อเพิ่ม'}">${escHtml(d.label)}</button>`;
+      }).join('') + staleSamoDepts(project).map((v) => `<button type="button" class="projects-dept-chip is-active is-stale"
+          data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(v)}"
+          title="ฝ่ายนี้ไม่มีในรายการแล้ว — กดเพื่อเอาออก">${escHtml(v)} <i class="bi bi-x"></i></button>`).join('')
+        : chosen}
+      <button type="button" class="projects-dept-editor-toggle" data-projects-dept-editor
+        aria-expanded="${open}">
+        ${open ? '<i class="bi bi-check2 me-1"></i>เสร็จ' : `<i class="bi bi-pencil me-1"></i>${tags.length ? 'แก้ไขฝ่าย' : 'เลือกฝ่าย'}`}
+      </button>
+    </div>`;
+}
 
 /** ⛔ ONE CHANGE PER CLICK, MADE BY THE DATABASE (0216). Each chip asks to add
  *  or remove its OWN ฝ่าย; set_project_samo_dept locks the row and applies just

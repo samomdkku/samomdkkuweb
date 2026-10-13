@@ -20,18 +20,18 @@
 .team-io { margin-left: auto; }
 .team-import-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
 .team-import-status { margin-top: 0.6rem; font-size: 0.82rem; color: var(--ink-600); min-height: 1.2rem; }
-.team-import-status.is-error { color: #d12; }
-.team-import-ok { color: #15803d; font-weight: 600; margin-bottom: 0.4rem; }
+.team-import-status.is-error { color: #d12; color: color-mix(in srgb, #d12 var(--fg-mix), var(--fg-mix-to)); }
+.team-import-ok { color: #15803d; color: color-mix(in srgb, #15803d var(--fg-mix), var(--fg-mix-to)); font-weight: 600; margin-bottom: 0.4rem; }
 .team-import-skip, .team-import-warn { font-size: 0.8rem; margin-top: 0.3rem; }
 .team-import-skip b { color: var(--ink-700); }
-.team-import-warn b { color: #b45309; }
+.team-import-warn b { color: #b45309; color: color-mix(in srgb, #b45309 var(--fg-mix), var(--fg-mix-to)); }
 .team-import-skip ul, .team-import-warn ul { margin: 0.2rem 0 0; padding-left: 1.1rem; max-height: 8rem; overflow: auto; }
 
 /* ---- conflict resolver (merge-style) ---- */
 .team-conflict-bar {
   display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
   padding: 0.5rem 0; margin-bottom: 0.5rem; position: sticky; top: 0;
-  background: #fff; z-index: 2; border-bottom: 1px solid var(--ink-100);
+  background: var(--surface); z-index: 2; border-bottom: 1px solid var(--ink-100);
 }
 .team-conflict-list { max-height: 56vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .team-conflict {
@@ -44,8 +44,8 @@
 .team-conflict-diff th { font-weight: 600; color: var(--ink-500); text-align: left; padding: 0.15rem 0.4rem; font-size: 0.72rem; }
 .team-conflict-diff td { padding: 0.2rem 0.4rem; border-top: 1px solid var(--ink-100); vertical-align: top; word-break: break-word; }
 .team-conflict-diff td:first-child { color: var(--ink-500); white-space: nowrap; }
-.team-conflict-diff td.old { color: #b91c1c; background: #fef2f2; text-decoration: line-through; }
-.team-conflict-diff td.new { color: #15803d; background: #f0fdf4; }
+.team-conflict-diff td.old { color: #b91c1c; color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to)); background: #fef2f2; background: color-mix(in srgb, #fef2f2 var(--tint-mix), var(--surface)); text-decoration: line-through; }
+.team-conflict-diff td.new { color: #15803d; color: color-mix(in srgb, #15803d var(--fg-mix), var(--fg-mix-to)); background: #f0fdf4; background: color-mix(in srgb, #f0fdf4 var(--tint-mix), var(--surface)); }
 .team-conflict-choice { width: 100%; }
 .team-conflict-choice .btn { flex: 1 1 0; }
 
@@ -62,7 +62,7 @@
   position: sticky; bottom: 0; z-index: 5;
   display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
   padding: 0.6rem 0.9rem; margin-top: 0.5rem;
-  background: #fff; border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--ink-200); border-radius: var(--radius-md);
   box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
 }
 .team-selectbar-count { font-size: 0.85rem; font-weight: 600; color: var(--ink-700); }
@@ -78,7 +78,7 @@
   word-break: break-word; flex: 0 0 auto;
 }
 .team-picker-search {
-  position: sticky; top: 0; z-index: 2; background: #fff;
+  position: sticky; top: 0; z-index: 2; background: var(--surface);
   display: flex; align-items: center; margin-bottom: 0.5rem; flex: 0 0 auto;
 }
 .team-picker-search > .bi-search { position: absolute; left: 0.75rem; color: var(--ink-400); pointer-events: none; }
@@ -92,7 +92,7 @@
 
 .team-picker-item {
   display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem;
-  width: 100%; text-align: left; border: 0; background: #fff;
+  width: 100%; text-align: left; border: 0; background: var(--surface);
   padding: 0.7rem 2.6rem 0.7rem 0.9rem; min-height: 3rem;
   border-bottom: 1px solid var(--ink-100); position: relative;
 }
@@ -150,7 +150,7 @@
   font-size: 0.85rem; font-weight: 500; padding: 0.35rem 0.9rem;
   border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.35rem;
 }
-.team-mode-btn.is-active { background: #fff; color: var(--brand-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.team-mode-btn.is-active { background: var(--surface); color: var(--brand-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .team-modehint { font-size: 0.78rem; color: var(--ink-500); }
 
 /* ---- toolbar ---- */
@@ -209,7 +209,7 @@
   padding: 2rem 1rem; text-align: center; color: var(--ink-400);
   border: 1px dashed var(--ink-200); border-radius: var(--radius-md);
 }
-.team-empty-error { color: var(--brand-orange); border-color: #f5c6a8; }
+.team-empty-error { color: var(--brand-orange); border-color: #f5c6a8; border-color: color-mix(in srgb, #f5c6a8 var(--line-mix), var(--surface)); }
 
 /* ---- node row ---- */
 .team-node { position: relative; }
@@ -412,7 +412,7 @@
 }
 /* VitalSound per-ฝ่าย scope chips — teal (VS accent). */
 .team-perm-chip.is-vs.is-own { background: #0d9488; color: #fff; }
-.team-perm-chip.is-vs.is-inherited { background: transparent; color: #0f766e; border: 1px dashed #5eead4; }
+.team-perm-chip.is-vs.is-inherited { background: transparent; color: #0f766e; color: color-mix(in srgb, #0f766e var(--fg-mix), var(--fg-mix-to)); border: 1px dashed #5eead4; }
 .team-perm-chip.is-vs .bi { font-size: 0.62rem; }
 /* หนังสือโครงการ seat (0086) — slate, distinct from the green perms and the
    teal VS dept chips. Admin-only surface, so it lives in team.css which only
@@ -421,15 +421,15 @@
    Its own colour, not VitalSound's teal: two different scopes reading as one
    capability is how someone revokes the wrong one. */
 .team-perm-chip.is-pass.is-own { background: #7c3aed; color: #fff; }
-.team-perm-chip.is-pass.is-inherited { background: transparent; color: #6d28d9; border: 1px dashed #c4b5fd; }
+.team-perm-chip.is-pass.is-inherited { background: transparent; color: #6d28d9; color: color-mix(in srgb, #6d28d9 var(--fg-mix), var(--fg-mix-to)); border: 1px dashed #c4b5fd; border: 1px dashed color-mix(in srgb, #c4b5fd var(--line-mix), var(--surface)); }
 .team-perm-chip.is-pass .bi { font-size: 0.62rem; }
 /* หน้าฝ่าย scope (0177) — its own colour so a page grant is not read as a
    Passport one at a glance. Same three rules as every scope chip above. */
 .team-perm-chip.is-page.is-own { background: #0f766e; color: #fff; }
-.team-perm-chip.is-page.is-inherited { background: transparent; color: #0f766e; border: 1px dashed #99f6e4; }
+.team-perm-chip.is-page.is-inherited { background: transparent; color: #0f766e; color: color-mix(in srgb, #0f766e var(--fg-mix), var(--fg-mix-to)); border: 1px dashed #99f6e4; border: 1px dashed color-mix(in srgb, #99f6e4 var(--line-mix), var(--surface)); }
 .team-perm-chip.is-page .bi { font-size: 0.62rem; }
-.team-perm-chip.is-seat.is-own { background: #475569; color: #fff; }
-.team-perm-chip.is-seat.is-inherited { background: transparent; color: #475569; border: 1px dashed #94a3b8; }
+.team-perm-chip.is-seat.is-own { background: var(--ink-600); color: #fff; }
+.team-perm-chip.is-seat.is-inherited { background: transparent; color: var(--ink-600); border: 1px dashed var(--ink-400); }
 .team-perm-chip.is-seat .bi { font-size: 0.62rem; }
 /* ทุกระบบ (Master) — orange, the brand's "strongest grant" colour, matching
    .team-perm-opt.is-danger in the editor so the row and the checkbox read as
@@ -457,7 +457,7 @@
   display: inline-flex; align-items: center; justify-content: center;
 }
 .team-act:hover { background: var(--ink-100); color: var(--brand-primary); }
-.team-act-danger:hover { background: #fde8e8; color: #d12; }
+.team-act-danger:hover { background: #fde8e8; background: color-mix(in srgb, #fde8e8 var(--tint-mix), var(--surface)); color: #d12; color: color-mix(in srgb, #d12 var(--fg-mix), var(--fg-mix-to)); }
 .team-act-perm { color: var(--brand-primary); }
 .team-act-perm:hover { background: rgba(16,89,34,0.08); }
 .team-perm-none { font-size: 0.7rem; color: var(--ink-400); font-style: italic; }
@@ -482,7 +482,7 @@
 .team-member {
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.3rem 0.45rem; border-radius: var(--radius-sm);
-  margin: 0.1rem 0; background: #fff;
+  margin: 0.1rem 0; background: var(--surface);
 }
 .team-member:hover { background: var(--ink-50); }
 .team-member-main {
@@ -502,11 +502,11 @@
   font-size: 0.68rem; padding: 0.02rem 0.4rem; border-radius: var(--radius-xs);
   background: var(--ink-100); color: var(--ink-600); white-space: nowrap;
 }
-.team-tag-major { background: #e0ecff; color: #1d4ed8; font-weight: 600; }
+.team-tag-major { background: #e0ecff; background: color-mix(in srgb, #e0ecff var(--tint-mix), var(--surface)); color: #1d4ed8; color: color-mix(in srgb, #1d4ed8 var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
 .team-tag-sid { font-variant-numeric: tabular-nums; }
-.team-tag-ok { background: #dcfce7; color: #15803d; }
-.team-tag-pending { background: #fef3c7; color: #b45309; }
-.team-tag-perm { background: #e0e7ff; color: #4338ca; }
+.team-tag-ok { background: #dcfce7; background: color-mix(in srgb, #dcfce7 var(--tint-mix), var(--surface)); color: #15803d; color: color-mix(in srgb, #15803d var(--fg-mix), var(--fg-mix-to)); }
+.team-tag-pending { background: #fef3c7; background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); color: #b45309; color: color-mix(in srgb, #b45309 var(--fg-mix), var(--fg-mix-to)); }
+.team-tag-perm { background: #e0e7ff; background: color-mix(in srgb, #e0e7ff var(--tint-mix), var(--surface)); color: #4338ca; color: color-mix(in srgb, #4338ca var(--fg-mix), var(--fg-mix-to)); }
 
 /* search highlight */
 .team-tree mark { background: #fff3b0; color: inherit; padding: 0 0.05em; border-radius: 3px; }
@@ -544,6 +544,7 @@
   padding-left: 0.55rem;
   border-left: 3px solid var(--brand-orange, #FF6F30);
   color: var(--ink-700, #444);
+  color: var(--ink-700, color-mix(in srgb, #444 var(--fg-mix), var(--fg-mix-to)));
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -588,14 +589,14 @@
   margin-bottom: 0.5rem;
 }
 .team-terms-status.is-ok { color: var(--brand-primary); }
-.team-terms-status.is-error { color: #b42318; }
+.team-terms-status.is-error { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
 
 .team-terms-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
 
 .team-term {
   border: 1px solid var(--ink-200);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
 }
 .team-term.is-current { border-color: color-mix(in srgb, var(--brand-primary) 45%, var(--ink-200)); }
@@ -622,7 +623,7 @@
 .team-term-badge.is-live {
   color: var(--brand-primary);
   border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
-  background: color-mix(in srgb, var(--brand-primary) 8%, #fff);
+  background: color-mix(in srgb, var(--brand-primary) 8%, var(--surface));
 }
 .team-term-badge.is-pub { color: var(--ink-600); }
 .team-term-badge.is-draft { color: var(--brand-orange); border-color: color-mix(in srgb, var(--brand-orange) 40%, transparent); }
@@ -635,6 +636,7 @@
 .team-term-body {
   border-top: 1px solid var(--ink-200);
   background: var(--ink-050, #fafafa);
+  background: var(--ink-050, color-mix(in srgb, #fafafa var(--tint-mix), var(--surface)));
   padding: 0.85rem;
   max-height: 70vh; overflow-y: auto;
 }
@@ -659,7 +661,7 @@
 
 .team-arc-row {
   display: flex; align-items: center; gap: 0.7rem;
-  background: #fff; border: 1px solid var(--ink-200);
+  background: var(--surface); border: 1px solid var(--ink-200);
   border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;
 }
 
@@ -698,7 +700,7 @@
 .team-terms-note {
   display: flex; gap: 0.45rem; align-items: flex-start;
   font-size: 0.8rem; line-height: 1.65; color: var(--ink-600);
-  background: color-mix(in srgb, var(--brand-orange) 7%, #fff);
+  background: color-mix(in srgb, var(--brand-orange) 7%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--brand-orange) 28%, transparent);
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.75rem;
@@ -712,8 +714,9 @@
    ever set on the CURRENT year; a past year diverging is the whole point. */
 .team-term-badge.is-stale {
   color: #9a3412;
+  color: color-mix(in srgb, #9a3412 var(--fg-mix), var(--fg-mix-to));
   border-color: color-mix(in srgb, var(--brand-orange) 55%, transparent);
-  background: color-mix(in srgb, var(--brand-orange) 14%, #fff);
+  background: color-mix(in srgb, var(--brand-orange) 14%, var(--surface));
   font-weight: 600;
 }
 
@@ -738,8 +741,8 @@
   margin: 0.6rem 0; padding: 0.4rem 0.7rem; border-radius: var(--radius-sm);
   font-size: 0.85rem; background: var(--ink-100);
 }
-.team-health-status.is-ok    { background: #e8f5ec; color: #14532d; }
-.team-health-status.is-error { background: #fdecec; color: #7f1d1d; }
+.team-health-status.is-ok    { background: #e8f5ec; background: color-mix(in srgb, #e8f5ec var(--tint-mix), var(--surface)); color: #14532d; color: color-mix(in srgb, #14532d var(--fg-mix), var(--fg-mix-to)); }
+.team-health-status.is-error { background: #fdecec; background: color-mix(in srgb, #fdecec var(--tint-mix), var(--surface)); color: #7f1d1d; color: color-mix(in srgb, #7f1d1d var(--fg-mix), var(--fg-mix-to)); }
 
 .team-health-group { margin-top: 1.1rem; }
 .team-health-group > header > h6 {
@@ -757,7 +760,7 @@
 .team-health-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 
 .team-health-item {
-  background: #fff; border: 1px solid var(--ink-200);
+  background: var(--surface); border: 1px solid var(--ink-200);
   border-radius: var(--radius-sm); padding: 0.6rem 0.75rem;
 }
 .team-health-sub {
@@ -769,14 +772,14 @@
   font-size: 0.9rem;
 }
 .team-health-detail { font-size: 0.8rem; color: var(--ink-500); margin-top: 0.25rem; }
-.team-health-warn { color: #92400e; }
+.team-health-warn { color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); }
 
 .team-health-chip {
   background: var(--ink-100); color: var(--ink-600);
   border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.74rem;
 }
-.team-health-chip.is-field { background: #eef2ff; color: #3730a3; }
-.team-health-chip.is-warn  { background: #fef3c7; color: #92400e; }
+.team-health-chip.is-field { background: #eef2ff; background: color-mix(in srgb, #eef2ff var(--tint-mix), var(--surface)); color: #3730a3; color: color-mix(in srgb, #3730a3 var(--fg-mix), var(--fg-mix-to)); }
+.team-health-chip.is-warn  { background: #fef3c7; background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); }
 
 /* The action row wraps rather than scrolls — on a phone the buttons stack, and
    a horizontal scroller here would hide the option the admin needs. */
@@ -807,14 +810,14 @@
 /* The ต้องตรวจสอบ flag on a member row (src/js/team/health.js issuesByMember).
    Amber, not red: the row is not broken, it is incomplete or ambiguous — red is
    reserved for the destructive action sitting two buttons along. */
-.team-act-warn { color: #b45309; }
-.team-act-warn:hover, .team-act-warn:focus-visible { background: #fef3c7; color: #92400e; }
+.team-act-warn { color: #b45309; color: color-mix(in srgb, #b45309 var(--fg-mix), var(--fg-mix-to)); }
+.team-act-warn:hover, .team-act-warn:focus-visible { background: #fef3c7; background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); }
 
 /* Rolled-up ต้องตรวจสอบ count on a ตำแหน่ง row. Only the root ฝ่าย are expanded
    on load, so without this the per-member flag would be invisible until someone
    happened to open the right branch. */
 .team-count-warn {
-  border: 0; background: #fef3c7; color: #92400e;
+  border: 0; background: #fef3c7; background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to));
   font-size: 0.7rem; font-weight: 700; line-height: 1.5;
   border-radius: var(--radius-pill); padding: 0.02rem 0.45rem;
   display: inline-flex; align-items: center; gap: 0.2rem;
@@ -826,7 +829,8 @@
 .team-health-focus {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
   margin: 0.6rem 0; padding: 0.45rem 0.7rem;
-  background: #fef3c7; color: #92400e;
+  background: #fef3c7;
+  background: color-mix(in srgb, #fef3c7 var(--tint-mix), var(--surface)); color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to));
   border-radius: var(--radius-sm); font-size: 0.85rem;
 }
 .team-health-focus strong { font-weight: 700; }
@@ -844,6 +848,7 @@
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--ink-600, #6c757d);
+  color: var(--ink-600, color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)));
   white-space: nowrap;
 }
 .team-modal-tabs .nav-link:hover:not(.disabled) { color: var(--brand-primary); }
@@ -869,6 +874,7 @@
   display: flex; align-items: center; gap: 0.5rem;
   font-size: 0.86rem;
   color: var(--ink-600, #6c757d);
+  color: var(--ink-600, color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)));
   padding: 0.5rem 0.8rem;
   margin-bottom: 0.75rem;
 }
@@ -890,7 +896,7 @@
  * grant still never looks like an ordinary one. */
 .team-perm-opt.is-danger {
   border-color: var(--ink-200);
-  background: #fff;
+  background: var(--surface);
   color: var(--brand-orange, #FF6F30);
   font-weight: 600;
 }
@@ -898,6 +904,7 @@
 .team-perm-opt.is-danger:has(input:checked) {
   border-color: var(--brand-orange, #FF6F30);
   background: #fff2e8;
+  background: color-mix(in srgb, #fff2e8 var(--tint-mix), var(--surface));
   box-shadow: inset 3px 0 0 var(--brand-orange, #FF6F30);
 }
 .team-perm-opt.is-implied { opacity: 0.55; }
@@ -910,8 +917,10 @@
 .team-perm-master-note {
   display: flex; gap: 0.5rem; align-items: flex-start;
   margin-top: 0.75rem; padding: 0.5rem 0.65rem;
-  border: 1px solid #ffd7bd; border-radius: var(--radius-sm, 0.5rem);
-  background: #fff6ef; color: var(--ink-700, #343a40);
+  border: 1px solid #ffd7bd;
+  border: 1px solid color-mix(in srgb, #ffd7bd var(--line-mix), var(--surface)); border-radius: var(--radius-sm, 0.5rem);
+  background: #fff6ef;
+  background: color-mix(in srgb, #fff6ef var(--tint-mix), var(--surface)); color: var(--ink-700, #343a40); color: var(--ink-700, color-mix(in srgb, #343a40 var(--fg-mix), var(--fg-mix-to)));
   font-size: 0.8rem; line-height: 1.5;
 }
 .team-perm-master-note .bi { color: var(--brand-orange, #FF6F30); margin-top: 0.15rem; }
@@ -924,7 +933,8 @@
 .team-seat-fanout, .team-seat-master-hint {
   margin-top: 0.35rem; padding: 0.35rem 0.5rem;
   border-left: 2px solid var(--brand-orange, #FF6F30);
-  background: var(--ink-100, #f1f3f5); border-radius: 0 var(--radius-xs, 0.25rem) var(--radius-xs, 0.25rem) 0;
+  background: var(--ink-100, #f1f3f5);
+  background: var(--ink-100, color-mix(in srgb, #f1f3f5 var(--tint-mix), var(--surface))); border-radius: 0 var(--radius-xs, 0.25rem) var(--radius-xs, 0.25rem) 0;
 }
 
 /* An IMPLICIT permission — ทีม SAMO (ดู), which every person in the tree gets
@@ -937,6 +947,7 @@
   border-color: var(--ink-200);
   border-style: dashed;
   background: var(--ink-100, #f1f3f5);
+  background: var(--ink-100, color-mix(in srgb, #f1f3f5 var(--tint-mix), var(--surface)));
   color: var(--ink-600);
   cursor: default;
 }
@@ -1060,10 +1071,11 @@
   max-height: 15rem;
   overflow-y: auto;
   border: 1px solid var(--ink-200, #dee2e6);
+  border: 1px solid var(--ink-200, color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)));
   border-radius: .5rem;
-  background: #fff;
+  background: var(--surface);
 }
-.team-person-results li + li { border-top: 1px solid var(--ink-100, #f1f3f5); }
+.team-person-results li + li { border-top: 1px solid var(--ink-100, #f1f3f5); border-top: 1px solid var(--ink-100, color-mix(in srgb, #f1f3f5 var(--line-mix), var(--surface))); }
 .team-person-hit {
   display: block;
   width: 100%;
@@ -1074,12 +1086,13 @@
   line-height: 1.35;
 }
 .team-person-hit:hover,
-.team-person-hit:focus-visible { background: var(--ink-050, #f8f9fa); }
+.team-person-hit:focus-visible { background: var(--ink-050, #f8f9fa); background: var(--ink-050, color-mix(in srgb, #f8f9fa var(--tint-mix), var(--surface))); }
 .team-person-name { font-weight: 600; }
 .team-person-meta {
   display: block;
   font-size: .8125rem;
   color: var(--ink-500, #6c757d);
+  color: var(--ink-500, color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)));
   word-break: break-word;
 }
 .team-person-badge {
@@ -1089,6 +1102,7 @@
   border-radius: 999px;
   font-size: .75rem;
   background: var(--brand-orange-050, #fff1e8);
+  background: var(--brand-orange-050, color-mix(in srgb, #fff1e8 var(--tint-mix), var(--surface)));
   color: var(--brand-orange, #ff6f30);
 }
 
@@ -1120,9 +1134,9 @@
 .team-swatch:hover { transform: scale(1.08); }
 .team-swatch.is-on {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12),
-              0 0 0 2px #fff, 0 0 0 4px var(--ink-700);
+              0 0 0 2px var(--surface), 0 0 0 4px var(--ink-700);
 }
-.team-swatch.is-auto, .team-swatch.is-custom { background: #fff; }
+.team-swatch.is-auto, .team-swatch.is-custom { background: var(--surface); }
 .team-swatch.is-custom { --sw: #fff; background: var(--sw); overflow: hidden; }
 .team-swatch.is-custom .bi { position: relative; z-index: 1; mix-blend-mode: difference; color: #fff; }
 /* The native colour input is the whole cell but invisible — it keeps the
@@ -1165,7 +1179,7 @@
 .team-tier-arrows { display: inline-flex; gap: 0.1rem; flex: 0 0 auto; }
 .team-tier-btn {
   width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; font-size: 0.85rem;
-  border: 1px solid var(--ink-200); background: #fff; color: var(--ink-600);
+  border: 1px solid var(--ink-200); background: var(--surface); color: var(--ink-600);
   border-radius: var(--radius-xs);
 }
 .team-tier-btn:hover:not(:disabled) { background: var(--ink-100); color: var(--brand-primary); }

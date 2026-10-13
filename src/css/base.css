@@ -111,6 +111,30 @@
   --ink-50:  #f8fafc;
   --surface: #ffffff;
 
+  /* --- Theme plumbing (dark mode, 2026-10-13 — src/css/theme.css) ---
+     Light values here; theme.css flips them under [data-theme="dark"].
+     The neutral scales are what tools/theme-tokens-codemod.mjs rewrote every
+     literal slate/gray/white into, so flipping them flips the site. */
+  --gray-900: #111827;
+  --gray-800: #1f2937;
+  --gray-700: #374151;
+  --gray-600: #4b5563;
+  --gray-500: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-300: #d1d5db;
+  --gray-200: #e5e7eb;
+  --gray-100: #f3f4f6;
+  --gray-50:  #f9fafb;
+  --surface-rgb: 255 255 255;
+  --ink-900-rgb: 15 23 42;
+  /* The long tail: every other colour literal became a color-mix by these.
+     100% = the original colour, exactly — so light mode cannot change. */
+  --tint-mix: 100%;
+  --line-mix: 100%;
+  --fg-mix: 100%;
+  --fg-mix-to: var(--ink-50);
+  color-scheme: light;
+
   /* --- Shadow scale — layered, subtle, premium --- */
   --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -140,7 +164,11 @@ body {
   background:
     radial-gradient(1200px 600px at 0% -10%, rgba(26, 155, 67, 0.05), transparent 60%),
     radial-gradient(900px 500px at 110% 110%, rgba(255, 111, 48, 0.04), transparent 60%),
-    linear-gradient(180deg, #fafafa 0%, #f3f4f6 100%);
+    linear-gradient(180deg, #fafafa 0%, var(--gray-100) 100%);
+  background:
+    radial-gradient(1200px 600px at 0% -10%, rgba(26, 155, 67, 0.05), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(255, 111, 48, 0.04), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, #fafafa var(--tint-mix), var(--surface)) 0%, var(--gray-100) 100%);
   font-family: "Noto Sans Thai", "Prompt", system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100vh;
   color: var(--ink-700);
@@ -225,12 +253,12 @@ body {
   --form-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
   --btn-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
   --btn-hover-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
-  --pink-50: #f8fafc;
-  --pink-100: #f1f5f9;
-  --pink-200: #e2e8f0;
-  --pink-300: #cbd5e1;
-  --pink-500: #64748b;
-  --pink-600: #475569;
-  --pink-700: #334155;
-  --pink-900: #1e293b;
+  --pink-50: var(--ink-50);
+  --pink-100: var(--ink-100);
+  --pink-200: var(--ink-200);
+  --pink-300: var(--ink-300);
+  --pink-500: var(--ink-500);
+  --pink-600: var(--ink-600);
+  --pink-700: var(--ink-700);
+  --pink-900: var(--ink-800);
 }

@@ -14,7 +14,10 @@
  * collapses under prefers-reduced-motion at the bottom of this file. Nothing
  * here animates on a scroll listener.
  *
- * Light-only, like the rest of this app (see .claude/rules/mistakes.md).
+ * THEMED BY TOKENS, like the rest of the app (src/css/theme.css, 2026-10-13): colours come
+ * from the --ink-N, --surface, … tokens, which flip under [data-theme="dark"]. Never a
+ * prefers-color-scheme block of its own — that made one component go dark alone
+ * (docs/mistakes/frontend-ui.md); the theme is the <html> attribute, not the OS.
  * ============================================== */
 
 /* ---- hero ---- */
@@ -24,8 +27,9 @@
   overflow: hidden;
   margin: -0.5rem -1.5rem 0;      /* bleed past .container-fluid px-4 */
   padding: 3.25rem 1.5rem 2.75rem;
-  background: linear-gradient(180deg, #f7fbf8 0%, #fff 100%);
-  border-bottom: 1px solid var(--ink-100, #f1f5f9);
+  background: linear-gradient(180deg, #f7fbf8 0%, var(--surface) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, #f7fbf8 var(--tint-mix), var(--surface)) 0%, var(--surface) 100%);
+  border-bottom: 1px solid var(--ink-100, var(--ink-100));
 }
 
 .cl-hero-aurora {
@@ -115,7 +119,7 @@
 }
 
 .cl-lead {
-  color: var(--ink-600, #475569);
+  color: var(--ink-600, var(--ink-600));
   font-size: clamp(0.95rem, 2.2vw, 1.05rem);
   line-height: 1.8;
   max-width: 52ch;
@@ -151,7 +155,7 @@
 .cl-herostat-label {
   margin: 0;
   font-size: 0.76rem;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
 }
 
 /* ---- toolbar ---- */
@@ -186,8 +190,8 @@
      does not support and would degrade to a horizontal scrollbar. */
   margin: 0 0 1.25rem;
   padding: 0.6rem 0.9rem;
-  background: #fff;
-  border: 1px solid var(--ink-100, #f1f5f9);
+  background: var(--surface);
+  border: 1px solid var(--ink-100, var(--ink-100));
   border-radius: var(--radius-xl, 18px);
   box-shadow: var(--shadow-md, 0 6px 20px -12px rgb(15 23 42 / 0.35));
 }
@@ -198,8 +202,8 @@
   gap: 0.15rem;
   padding: 0.22rem;
   border-radius: 999px;
-  background: var(--ink-50, #f8fafc);
-  border: 1px solid var(--ink-100, #f1f5f9);
+  background: var(--ink-50, var(--ink-50));
+  border: 1px solid var(--ink-100, var(--ink-100));
 }
 
 /* The sliding indicator sits BEHIND the buttons and is moved by JS.
@@ -212,8 +216,8 @@
   left: -1px;
   height: calc(100% - 0.44rem);
   border-radius: 999px;
-  background: #fff;
-  border: 1px solid var(--ink-100, #f1f5f9);
+  background: var(--surface);
+  border: 1px solid var(--ink-100, var(--ink-100));
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.07);
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -227,7 +231,7 @@
   padding: 0.38rem 0.95rem;
   font-size: 0.85rem;
   font-weight: 500;
-  color: var(--ink-600, #475569);
+  color: var(--ink-600, var(--ink-600));
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.2s ease;
@@ -239,7 +243,7 @@
 .cl-count {
   margin: 0;
   font-size: 0.8rem;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
   font-variant-numeric: tabular-nums;
 }
 
@@ -259,7 +263,7 @@
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.05em;
-  color: var(--ink-400, #94a3b8);
+  color: var(--ink-400, var(--ink-400));
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.4s ease, transform 0.4s ease;
@@ -292,6 +296,7 @@
   bottom: -0.6rem;
   width: 2px;
   background: linear-gradient(var(--green-200, #b6dcbf), var(--green-100, #dceede));
+  background: linear-gradient(var(--green-200, #b6dcbf), var(--green-100, color-mix(in srgb, #dceede var(--tint-mix), var(--surface))));
   transform: scaleY(0);
   transform-origin: top;
   transition: transform 0.7s ease 0.15s;
@@ -307,8 +312,8 @@
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--ink-200, #e2e8f0);
+  background: var(--surface);
+  border: 2px solid var(--ink-200, var(--ink-200));
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s,
               border-color 0.3s ease, box-shadow 0.3s ease;
   transform: scale(0.4);
@@ -322,7 +327,7 @@
   position: absolute;
   inset: 0.32rem;
   border-radius: 50%;
-  background: var(--ink-300, #cbd5e1);
+  background: var(--ink-300, var(--ink-300));
 }
 
 /* A major release is the only thing on this page that gets the brand green as
@@ -354,7 +359,7 @@
 
 .cl-date {
   font-size: 0.78rem;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
 }
 
 .cl-version {
@@ -366,14 +371,16 @@
   text-decoration: none;
   padding: 0.1rem 0.45rem;
   border-radius: 6px;
-  border: 1px solid var(--ink-100, #f1f5f9);
+  border: 1px solid var(--ink-100, var(--ink-100));
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .cl-version:hover {
   color: var(--brand-primary);
   border-color: var(--green-200, #b6dcbf);
+  border-color: var(--green-200, color-mix(in srgb, #b6dcbf var(--line-mix), var(--surface)));
   background: var(--green-50, #f1f8f2);
+  background: var(--green-50, color-mix(in srgb, #f1f8f2 var(--tint-mix), var(--surface)));
 }
 
 .cl-level {
@@ -382,15 +389,18 @@
   letter-spacing: 0.06em;
   padding: 0.12rem 0.45rem;
   border-radius: 5px;
-  color: var(--ink-500, #64748b);
-  background: var(--ink-50, #f8fafc);
-  border: 1px solid var(--ink-100, #f1f5f9);
+  color: var(--ink-500, var(--ink-500));
+  background: var(--ink-50, var(--ink-50));
+  border: 1px solid var(--ink-100, var(--ink-100));
 }
 
 .cl-release--major .cl-level {
   color: #0f5c2b;
+  color: color-mix(in srgb, #0f5c2b var(--fg-mix), var(--fg-mix-to));
   background: #e4f4e9;
+  background: color-mix(in srgb, #e4f4e9 var(--tint-mix), var(--surface));
   border-color: #c6e7d1;
+  border-color: color-mix(in srgb, #c6e7d1 var(--line-mix), var(--surface));
 }
 
 /* The one-line claim a MAJOR is making — why the number moved. */
@@ -403,8 +413,11 @@
   font-size: 0.82rem;
   font-weight: 600;
   color: #0f5c2b;
+  color: color-mix(in srgb, #0f5c2b var(--fg-mix), var(--fg-mix-to));
   background: #e4f4e9;
+  background: color-mix(in srgb, #e4f4e9 var(--tint-mix), var(--surface));
   border: 1px solid #c6e7d1;
+  border: 1px solid color-mix(in srgb, #c6e7d1 var(--line-mix), var(--surface));
   border-radius: 9px;
   padding: 0.4rem 0.65rem;
   line-height: 1.5;
@@ -432,9 +445,9 @@
   gap: 0.3rem;
   font-size: 0.72rem;
   font-weight: 500;
-  color: var(--ink-600, #475569);
-  background: var(--ink-50, #f8fafc);
-  border: 1px solid var(--ink-100, #f1f5f9);
+  color: var(--ink-600, var(--ink-600));
+  background: var(--ink-50, var(--ink-50));
+  border: 1px solid var(--ink-100, var(--ink-100));
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
 }
@@ -445,7 +458,7 @@
   font-family: 'Prompt', sans-serif;
   font-size: clamp(1.1rem, 2.6vw, 1.3rem);
   font-weight: 600;
-  color: var(--ink-900, #0f172a);
+  color: var(--ink-900, var(--ink-900));
   margin: 0 0 0.4rem;
   line-height: 1.45;
 }
@@ -453,7 +466,7 @@
 .cl-release--major .cl-release-title { color: var(--brand-primary); }
 
 .cl-summary {
-  color: var(--ink-600, #475569);
+  color: var(--ink-600, var(--ink-600));
   font-size: 0.94rem;
   line-height: 1.8;
   margin: 0 0 1.1rem;
@@ -484,9 +497,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cl-group--new .cl-group-head { color: #0f5c2b; background: #e4f4e9; }
-.cl-group--improved .cl-group-head { color: #1e40af; background: #e6edfd; }
-.cl-group--fixed .cl-group-head { color: #92400e; background: #fdf0dc; }
+.cl-group--new .cl-group-head { color: #0f5c2b; color: color-mix(in srgb, #0f5c2b var(--fg-mix), var(--fg-mix-to)); background: #e4f4e9; background: color-mix(in srgb, #e4f4e9 var(--tint-mix), var(--surface)); }
+.cl-group--improved .cl-group-head { color: #1e40af; color: color-mix(in srgb, #1e40af var(--fg-mix), var(--fg-mix-to)); background: #e6edfd; background: color-mix(in srgb, #e6edfd var(--tint-mix), var(--surface)); }
+.cl-group--fixed .cl-group-head { color: #92400e; color: color-mix(in srgb, #92400e var(--fg-mix), var(--fg-mix-to)); background: #fdf0dc; background: color-mix(in srgb, #fdf0dc var(--tint-mix), var(--surface)); }
 
 .cl-changes { list-style: none; margin: 0; padding: 0; }
 
@@ -496,7 +509,7 @@
   margin-bottom: 0.45rem;
   font-size: 0.93rem;
   line-height: 1.75;
-  color: var(--ink-700, #334155);
+  color: var(--ink-700, var(--ink-700));
 }
 
 .cl-changes li::before {
@@ -507,7 +520,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--ink-300, #cbd5e1);
+  background: var(--ink-300, var(--ink-300));
   transition: transform 0.3s ease;
   transition-delay: calc(var(--j, 0) * 40ms + 250ms);
   transform: scale(0);
@@ -519,9 +532,9 @@
 .cl-foot {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--ink-100, #f1f5f9);
+  border-top: 1px solid var(--ink-100, var(--ink-100));
   font-size: 0.82rem;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
   line-height: 1.75;
 }
 

@@ -19,11 +19,13 @@
   text-align: center;
   font-size: .92rem;
   color: #4c5a50;
+  color: color-mix(in srgb, #4c5a50 var(--fg-mix), var(--fg-mix-to));
   background: #f4f8f4;
+  background: color-mix(in srgb, #f4f8f4 var(--tint-mix), var(--surface));
 }
 
 .gp-tab .gp-key-title { font-size: 1.05rem; font-weight: 600; margin: 0 0 .25rem; }
-.gp-tab .gp-key-lead { font-size: .92rem; color: #5c6a60; margin: 0 0 .9rem; }
+.gp-tab .gp-key-lead { font-size: .92rem; color: #5c6a60; color: color-mix(in srgb, #5c6a60 var(--fg-mix), var(--fg-mix-to)); margin: 0 0 .9rem; }
 .gp-tab .gp-key,
 .gp-tab .gp-cal,
 .gp-tab .gp-sheet { margin-bottom: 2.25rem; }
@@ -35,8 +37,9 @@
 
 .gp-tab .gp-band {
   display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
-  border: 1px solid #e2e8e3; border-left: 4px solid var(--gp-c);
-  border-radius: 8px; padding: .6rem .85rem; background: #fff;
+  border: 1px solid #e2e8e3;
+  border: 1px solid color-mix(in srgb, #e2e8e3 var(--line-mix), var(--surface)); border-left: 4px solid var(--gp-c);
+  border-radius: 8px; padding: .6rem .85rem; background: var(--surface);
 }
 .gp-tab .gp-band-4 { --gp-c: #1b7f3b; }
 .gp-tab .gp-band-3 { --gp-c: #67a70e; }
@@ -47,13 +50,14 @@
   width: .62rem; height: .62rem; border-radius: 50%;
   background: var(--gp-c); flex: none; align-self: center;
 }
-.gp-tab .gp-band-name { font-weight: 600; color: #1e2a22; }
-.gp-tab .gp-band-note { font-size: .88rem; color: #5c6a60; }
+.gp-tab .gp-band-name { font-weight: 600; color: #1e2a22; color: color-mix(in srgb, #1e2a22 var(--fg-mix), var(--fg-mix-to)); }
+.gp-tab .gp-band-note { font-size: .88rem; color: #5c6a60; color: color-mix(in srgb, #5c6a60 var(--fg-mix), var(--fg-mix-to)); }
 
 /* The calendar. A fixed aspect ratio keeps it from collapsing to 0 height
    before Google's own layout settles; it scrolls internally on mobile. */
 .gp-tab .gp-cal-frame {
-  border: 1px solid #e2e8e3; border-radius: 10px; overflow: hidden; background: #fff;
+  border: 1px solid #e2e8e3;
+  border: 1px solid color-mix(in srgb, #e2e8e3 var(--line-mix), var(--surface)); border-radius: 10px; overflow: hidden; background: var(--surface);
 }
 .gp-tab .gp-cal-frame iframe {
   display: block; width: 100%; height: 560px; border: 0;

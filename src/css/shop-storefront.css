@@ -23,7 +23,7 @@
   --sf-espresso-soft: #7A5A38;
   --sf-taupe:         #9C8873;
   --sf-line:          #EDE3D3;
-  --sf-card:          #FFFFFF;
+  --sf-card:          var(--surface);
   --sf-radius-lg: 26px;
   --sf-radius-md: 18px;
   --sf-radius-sm: 12px;
@@ -77,6 +77,7 @@
    top border, so the milk zone ends cleanly where the footer starts. */
 body.shop-mode {
   background: #FFF9F0;
+  background: color-mix(in srgb, #FFF9F0 var(--tint-mix), var(--surface));
 }
 /* Short views (orders / checkout gates) would otherwise leave the cream
    body showing BELOW the footer. Make the shop zone at least a screen tall
@@ -85,6 +86,7 @@ body.shop-mode #pills-shop { min-height: calc(100vh - 90px); min-height: calc(10
 body.shop-mode .samo-footer {
   margin-top: 0;
   border-top: 1px solid #E2D3BC;
+  border-top: 1px solid color-mix(in srgb, #E2D3BC var(--line-mix), var(--surface));
 }
 
 
@@ -193,6 +195,7 @@ body.shop-mode .samo-footer {
   border-radius: var(--sf-radius-lg);
   box-shadow: 0 18px 36px -22px rgba(76, 43, 8, .3);
   background: linear-gradient(160deg, var(--sf-sky) 0%, #E9F1FF 60%);
+  background: linear-gradient(160deg, var(--sf-sky) 0%, color-mix(in srgb, #E9F1FF var(--tint-mix), var(--surface)) 60%);
 }
 #pills-shop .launch-big-thumb { background: transparent; }
 #pills-shop .launch-big-body {
@@ -228,6 +231,7 @@ body.shop-mode .samo-footer {
   width: 100%; aspect-ratio: 4 / 3;
   border-radius: var(--sf-radius-md);
   background: linear-gradient(160deg, var(--sf-sky) 0%, #E9F1FF 60%);
+  background: linear-gradient(160deg, var(--sf-sky) 0%, color-mix(in srgb, #E9F1FF var(--tint-mix), var(--surface)) 60%);
   overflow: hidden;
   margin-bottom: 14px;
 }
@@ -474,6 +478,7 @@ body.shop-mode .samo-footer {
   aspect-ratio: 3 / 4;
   border-radius: var(--sf-radius-md);
   background: linear-gradient(160deg, #F3ECE0 0%, var(--sf-sky) 130%);
+  background: linear-gradient(160deg, color-mix(in srgb, #F3ECE0 var(--tint-mix), var(--surface)) 0%, var(--sf-sky) 130%);
   margin-bottom: 12px;
 }
 #pills-shop .product-thumb img.product-thumb-img { transition: transform .35s ease; }
@@ -688,7 +693,7 @@ body.shop-mode .samo-footer {
 #shopProductModal .pg-nav {
   position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
   width: 36px; height: 36px; border-radius: 50%; border: 0;
-  background: rgba(255, 255, 255, .88); color: var(--sf-espresso);
+  background: rgb(var(--surface-rgb) / .88); color: var(--sf-espresso);
   display: none; place-items: center; box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .25);
 }
 #shopProductModal .pg-prev { left: 8px; }
@@ -702,10 +707,10 @@ body.shop-mode .samo-footer {
   display: flex; justify-content: center; gap: 6px; pointer-events: none;
 }
 #shopProductModal .pg-dots span {
-  width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .65);
+  width: 6px; height: 6px; border-radius: 3px; background: rgb(var(--surface-rgb) / .65);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); transition: width .2s;
 }
-#shopProductModal .pg-dots span.is-active { width: 16px; background: #fff; }
+#shopProductModal .pg-dots span.is-active { width: 16px; background: var(--surface); }
 /* Many pictures (> DOTS_MAX in gallery.js): a counter where the dots were. */
 #shopProductModal .pg-count {
   position: absolute; left: 50%; bottom: 10px; z-index: 2; transform: translateX(-50%);
@@ -715,7 +720,7 @@ body.shop-mode .samo-footer {
 #shopProductModal .pg-zoom-hint {
   position: absolute; right: 10px; top: 10px; z-index: 2; pointer-events: none;
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-  background: rgba(255, 255, 255, .8); color: var(--sf-espresso); font-size: .8rem;
+  background: rgb(var(--surface-rgb) / .8); color: var(--sf-espresso); font-size: .8rem;
 }
 #shopProductModal .pg-thumbs {
   display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; padding-bottom: 2px;

@@ -3,16 +3,16 @@
  * ============================================== */
 
 .caption-editor-shell {
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--ink-200);
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--surface);
   overflow: hidden;
 }
 
 .caption-editor-shell .ql-toolbar.ql-snow {
   border: 0;
-  border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid var(--ink-200);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--ink-50) 100%);
 }
 
 .caption-editor-shell .ql-container.ql-snow {

@@ -193,6 +193,7 @@
 .admin-header {
   padding: 1.25rem 0 0.75rem;
   border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
 }
 
 .admin-title {
@@ -213,6 +214,7 @@
 
 .admin-back-link:hover {
   color: #0d4a1d;
+  color: color-mix(in srgb, #0d4a1d var(--fg-mix), var(--fg-mix-to));
 }
 
 /* ข้อมูลของฉัน, above the tool cards on the admin landing. A panel rather than
@@ -220,8 +222,9 @@
    giving it the same affordance as the tools would invite a click that does
    nothing. Hidden entirely for an account with no ตำแหน่ง. */
 .admin-me {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ink-200, #e9ecef);
+  border: 1px solid var(--ink-200, color-mix(in srgb, #e9ecef var(--line-mix), var(--surface)));
   border-radius: var(--radius-md, 0.75rem);
   padding: 0.9rem 1.1rem;
   margin-bottom: 1.25rem;
@@ -236,10 +239,11 @@
   gap: 1rem;
   width: 100%;
   text-align: left;
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 18px;
   padding: 1.5rem;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -272,13 +276,13 @@
 .admin-card-body h5 {
   margin: 0 0 0.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--gray-800);
 }
 
 .admin-card-body p {
   margin: 0;
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--ink-500);
 }
 
 .admin-card-arrow {
@@ -313,7 +317,7 @@
   padding: 0.25rem 0.25rem 0.85rem;
   margin: 0 -0.25rem;
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--ink-300) transparent;
 }
 
 .pr-kanban::-webkit-scrollbar {
@@ -321,7 +325,7 @@
 }
 
 .pr-kanban::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--ink-300);
   border-radius: 4px;
 }
 
@@ -331,8 +335,9 @@
   display: flex;
   flex-direction: column;
   background: #f6f7f9;
+  background: color-mix(in srgb, #f6f7f9 var(--tint-mix), var(--surface));
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--gray-200);
 }
 
 /* Column header scrolls with content (no sticky) so it never overlaps cards. */
@@ -342,7 +347,8 @@
   gap: 0.5rem;
   padding: 0.65rem 0.85rem;
   background: #f6f7f9;
-  border-bottom: 1px solid #e5e7eb;
+  background: color-mix(in srgb, #f6f7f9 var(--tint-mix), var(--surface));
+  border-bottom: 1px solid var(--gray-200);
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
 }
@@ -351,22 +357,22 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--col-color, #94a3b8);
+  background: var(--col-color, var(--ink-400));
   flex-shrink: 0;
 }
 
 .pr-kanban-column-title {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--gray-800);
   line-height: 1.2;
   flex: 1;
   min-width: 0;
 }
 
 .pr-kanban-column-count {
-  background: #e5e7eb;
-  color: #475569;
+  background: var(--gray-200);
+  color: var(--ink-600);
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.1rem 0.5rem;
@@ -384,19 +390,19 @@
 
 .pr-kanban-empty {
   text-align: center;
-  color: #94a3b8;
+  color: var(--ink-400);
   font-size: 0.8rem;
   padding: 1.25rem 0.5rem;
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed var(--gray-200);
   border-radius: 10px;
   margin: auto 0;
 }
 
 /* Compact ticket card */
 .pr-kanban-card {
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--gray-200);
   padding: 0.7rem 0.85rem;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
@@ -421,7 +427,7 @@
 .pr-kanban-card-title {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--gray-800);
   line-height: 1.3;
   margin: 0.25rem 0;
   display: -webkit-box;
@@ -432,7 +438,7 @@
 
 .pr-kanban-card-dept {
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--ink-500);
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -445,7 +451,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: var(--ink-400);
 }
 
 .pr-kanban-card-rush {
@@ -453,7 +459,9 @@
   align-items: center;
   gap: 0.25rem;
   background: #fee2e2;
+  background: color-mix(in srgb, #fee2e2 var(--tint-mix), var(--surface));
   color: #b91c1c;
+  color: color-mix(in srgb, #b91c1c var(--fg-mix), var(--fg-mix-to));
   font-weight: 600;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
@@ -468,16 +476,16 @@
 }
 
 .pr-kanban-card-assignee {
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--ink-100);
+  color: var(--ink-700);
   font-size: 0.7rem;
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ink-200);
 }
 
 .pr-kanban-card-noassign {
-  color: #94a3b8;
+  color: var(--ink-400);
   font-size: 0.7rem;
   font-style: italic;
 }
@@ -522,7 +530,7 @@
 }
 
 .about-hero-lead {
-  color: #64748b;
+  color: var(--ink-500);
   font-size: clamp(0.9rem, 2.5vw, 1.1rem);
   font-weight: 400;
   margin-bottom: 0;
@@ -536,7 +544,7 @@
   position: sticky;
   top: 76px; /* leaves room for the sticky global navbar (12px margin + ~64px height) */
   z-index: 50;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgb(var(--surface-rgb) / 0.92);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   backdrop-filter: saturate(180%) blur(12px);
   border: 1px solid var(--ink-200);
@@ -623,6 +631,7 @@
   scroll-margin-top: 160px; /* clear both the global navbar AND the sub-nav */
   padding: 2.5rem 0;
   border-top: 1px solid #eaeaea;
+  border-top: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
 }
 
 .about-section:first-of-type {
@@ -650,23 +659,24 @@
 .about-section-title {
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
-  color: #1f2937;
+  color: var(--gray-800);
   margin-bottom: 0.5rem;
 }
 
 .about-section-lead {
-  color: #64748b;
+  color: var(--ink-500);
   max-width: 640px;
   margin: 0 auto;
 }
 
 /* Team grid */
 .about-team-card {
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 14px;
   padding: 1.25rem 1rem;
   text-align: center;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   height: 100%;
@@ -691,24 +701,25 @@
 
 .about-team-name {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--gray-800);
   font-size: 0.92rem;
   margin-bottom: 0.15rem;
 }
 
 .about-team-role {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--ink-400);
   margin: 0;
 }
 
 /* Vision — statement card */
 .about-statement-card {
   position: relative;
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 18px;
   padding: 2.25rem 2rem 1.75rem;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   max-width: 760px;
   margin: 0 auto;
@@ -724,23 +735,24 @@
 .about-statement-text {
   font-size: 1.3rem;
   line-height: 1.7;
-  color: #334155;
+  color: var(--ink-700);
   margin: 0 0 1rem;
   font-weight: 500;
 }
 
 .about-statement-attribution {
-  color: #94a3b8;
+  color: var(--ink-400);
   font-size: 0.85rem;
   font-style: italic;
 }
 
 /* Mission grid */
 .about-mission-card {
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 14px;
   padding: 1.5rem 1.25rem;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   height: 100%;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -763,13 +775,13 @@
 
 .about-mission-title {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--gray-800);
   font-size: 1rem;
   margin-bottom: 0.5rem;
 }
 
 .about-mission-text {
-  color: #64748b;
+  color: var(--ink-500);
   font-size: 0.88rem;
   line-height: 1.55;
   margin: 0;
@@ -779,6 +791,7 @@
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 1px solid #eaeaea;
+  border-top: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
 }
 
 /* Creator: thumbnail picker */
@@ -787,22 +800,22 @@
   gap: 1rem;
   align-items: center;
   padding: 0.85rem;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--ink-300);
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--ink-50);
 }
 
 .creator-thumb-preview {
   flex: 0 0 160px;
   height: 100px;
   border-radius: 10px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: var(--ink-400);
   overflow: hidden;
 }
 
@@ -826,9 +839,10 @@
 
 /* Main Category Column Containers */
 .policy-category-column {
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 18px;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   height: 100%;
@@ -890,7 +904,7 @@
 .policy-list-item {
   position: relative;
   padding-left: 2.25rem;
-  color: #475569;
+  color: var(--ink-600);
   font-size: 0.92rem;
   line-height: 1.6;
   font-weight: 500;
@@ -940,11 +954,11 @@
    The global default is left alone deliberately — repainting every modal in the
    app is a bigger decision than this screen. */
 .signin-modal .modal-header {
-  background-color: #ffffff;
+  background-color: var(--surface);
   border-bottom: none;
   padding-bottom: 0;
 }
-.signin-modal .modal-title { color: var(--ink-900, #0f172a); }
+.signin-modal .modal-title { color: var(--ink-900, var(--ink-900)); }
 .signin-body { padding: 0.6rem 1.5rem 1.5rem; }
 
 @media (max-width: 400.98px) {
@@ -958,7 +972,7 @@
   font-size: 1.05rem;
   font-weight: 700;
   text-align: center;
-  color: var(--ink-900, #0f172a);
+  color: var(--ink-900, var(--ink-900));
 }
 
 /* ---- Google ------------------------------------------------------------- */
@@ -978,17 +992,18 @@
   width: 100%;
   min-height: 44px;
   padding: 0.6rem 0.75rem;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid #747775;
   border-radius: var(--radius-pill, 999px);
   color: #1f1f1f;
+  color: color-mix(in srgb, #1f1f1f var(--fg-mix), var(--fg-mix-to));
   font-size: 0.95rem;
   font-weight: 600;
   transition: background-color var(--t-fast, 120ms) var(--ease, ease),
     box-shadow var(--t-fast, 120ms) var(--ease, ease);
 }
-.signin-google:hover { background: #f7f8f8; }
-.signin-google:active { background: #f1f3f4; }
+.signin-google:hover { background: #f7f8f8; background: color-mix(in srgb, #f7f8f8 var(--tint-mix), var(--surface)); }
+.signin-google:active { background: #f1f3f4; background: color-mix(in srgb, #f1f3f4 var(--tint-mix), var(--surface)); }
 .signin-google:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus-ring, 0 0 0 3px rgba(16, 89, 34, 0.25));
@@ -1014,7 +1029,7 @@
   align-items: center;
   gap: 0.75rem;
   margin: 1.25rem 0;
-  color: var(--ink-400, #94a3b8);
+  color: var(--ink-400, var(--ink-400));
   font-size: 0.78rem;
 }
 .signin-divider::before,
@@ -1022,7 +1037,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--ink-200, #e2e8f0);
+  background: var(--ink-200, var(--ink-200));
 }
 
 /* ---- Fields ------------------------------------------------------------- */
@@ -1032,7 +1047,7 @@
   font-size: 0.8rem;
   line-height: 1.5;
   text-align: center;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
 }
 
 .signin-field { margin-bottom: 1rem; }
@@ -1042,14 +1057,14 @@
   margin-bottom: 0.3rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--ink-700, #334155);
+  color: var(--ink-700, var(--ink-700));
 }
 
 .signin-input.form-control {
   min-height: 44px;
   padding: 0.55rem 0.85rem;
-  background: #ffffff;
-  border: 1px solid var(--ink-300, #cbd5e1);
+  background: var(--surface);
+  border: 1px solid var(--ink-300, var(--ink-300));
   border-radius: 10px;
   font-size: 0.95rem;
 }
@@ -1075,9 +1090,9 @@
   border: none;
   background: transparent;
   border-radius: 0 10px 10px 0;
-  color: var(--ink-400, #94a3b8);
+  color: var(--ink-400, var(--ink-400));
 }
-.signin-reveal:hover { color: var(--ink-600, #475569); }
+.signin-reveal:hover { color: var(--ink-600, var(--ink-600)); }
 .signin-reveal:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus-ring, 0 0 0 3px rgba(16, 89, 34, 0.25));
@@ -1086,7 +1101,7 @@
 .signin-help {
   margin: 0.3rem 0 0;
   font-size: 0.74rem;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
 }
 
 .signin-alert {
@@ -1125,7 +1140,7 @@
   margin: 1rem 0 0;
   font-size: 0.82rem;
   text-align: center;
-  color: var(--ink-500, #64748b);
+  color: var(--ink-500, var(--ink-500));
 }
 .signin-switch a {
   color: var(--brand-primary);
@@ -1139,12 +1154,13 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: white;
+  background: var(--surface);
   border-radius: 18px;
   padding: 1.25rem 1.5rem;
   text-decoration: none;
   color: inherit;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
@@ -1154,7 +1170,7 @@
 .tool-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: var(--tool-color, #cbd5e1);
+  border-color: var(--tool-color, var(--ink-300));
   color: inherit;
 }
 
@@ -1175,18 +1191,18 @@
   margin: 0 0 0.15rem;
   font-weight: 600;
   font-size: 1.05rem;
-  color: #1f2937;
+  color: var(--gray-800);
 }
 
 .tool-card .tool-meta p {
   margin: 0;
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--ink-500);
 }
 
 .tool-card .tool-arrow {
   margin-left: auto;
-  color: var(--tool-color, #94a3b8);
+  color: var(--tool-color, var(--ink-400));
   font-size: 1.3rem;
   opacity: 0;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -1199,11 +1215,12 @@
 
 /* Department cards */
 .dept-card {
-  background: white;
+  background: var(--surface);
   border-radius: 16px;
   padding: 1.25rem 1rem;
   text-align: center;
   border: 1px solid #eaeaea;
+  border: 1px solid color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
   text-decoration: none;
   color: inherit;
   display: flex;
@@ -1218,13 +1235,13 @@
 .dept-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: var(--dept-hover-color, #cbd5e1);
+  border-color: var(--dept-hover-color, var(--ink-300));
   color: inherit;
 }
 
 .dept-card.is-current {
-  border-color: var(--dept-color, #cbd5e1);
-  background: linear-gradient(180deg, white 60%, color-mix(in srgb, var(--dept-color, #cbd5e1) 8%, white));
+  border-color: var(--dept-color, var(--ink-300));
+  background: linear-gradient(180deg, var(--surface) 60%, color-mix(in srgb, var(--dept-color, var(--ink-300)) 8%, var(--surface)));
 }
 
 .dept-card .dept-icon {
@@ -1242,13 +1259,13 @@
 .dept-card .dept-name {
   font-weight: 600;
   font-size: 0.92rem;
-  color: #1f2937;
+  color: var(--gray-800);
   line-height: 1.2;
 }
 
 .dept-card .dept-tool {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--ink-500);
 }
 
 .dept-card.is-disabled {
@@ -1260,6 +1277,7 @@
   transform: none;
   box-shadow: none;
   border-color: #eaeaea;
+  border-color: color-mix(in srgb, #eaeaea var(--line-mix), var(--surface));
 }
 
 /* ==============================================

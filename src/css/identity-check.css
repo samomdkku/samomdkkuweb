@@ -7,15 +7,16 @@
    page that is genuinely waiting on the reader — and it is the only place in
    the app that uses it at card scale, so it cannot be confused with a heading.
 
-   Light-only, like the rest of the app: no prefers-color-scheme block. Adding
-   one to a single component in a light-only app makes just that component go
-   dark on a dark-mode phone (docs/mistakes/frontend-ui.md).
+   Themed by tokens (src/css/theme.css) — no prefers-color-scheme block of its
+   own: one once made a single component go dark alone on a dark-mode phone
+   (docs/mistakes/frontend-ui.md).
    ============================================================ */
 
 .identity-card {
   border: 1px solid var(--ink-200, #dee2e6);
+  border: 1px solid var(--ink-200, color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)));
   border-radius: .75rem;
-  background: #fff;
+  background: var(--surface);
   padding: 1rem 1.1rem;
   margin-bottom: .75rem;
 }
@@ -32,6 +33,7 @@
 .identity-card-body {
   margin: 0 0 .75rem;
   color: var(--ink-600, #495057);
+  color: var(--ink-600, color-mix(in srgb, #495057 var(--fg-mix), var(--fg-mix-to)));
   font-size: .925rem;
   line-height: 1.55;
 }
@@ -53,6 +55,7 @@
 .identity-status {
   font-size: .875rem;
   color: var(--ink-500, #6c757d);
+  color: var(--ink-500, color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)));
 }
 
 .identity-conflict-list { list-style: none; margin: 0; padding: 0; }
@@ -60,6 +63,7 @@
   margin-top: .9rem;
   padding-top: .9rem;
   border-top: 1px solid var(--ink-100, #f1f3f5);
+  border-top: 1px solid var(--ink-100, color-mix(in srgb, #f1f3f5 var(--line-mix), var(--surface)));
 }
 .identity-conflict-field {
   margin: 0 0 .4rem;
@@ -82,20 +86,23 @@
   width: 100%;
   text-align: start;
   border: 1px solid var(--ink-200, #dee2e6);
+  border: 1px solid var(--ink-200, color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)));
   border-radius: .5rem;
-  background: #fff;
+  background: var(--surface);
   padding: .5rem .7rem;
 }
 .identity-choice:hover:not(:disabled),
 .identity-choice:focus-visible {
   border-color: var(--brand-primary, #105922);
   background: var(--ink-050, #f8f9fa);
+  background: var(--ink-050, color-mix(in srgb, #f8f9fa var(--tint-mix), var(--surface)));
 }
 .identity-choice:disabled { opacity: .55; }
 .identity-choice-who {
   display: block;
   font-size: .75rem;
   color: var(--ink-500, #6c757d);
+  color: var(--ink-500, color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)));
 }
 .identity-choice-value {
   display: block;
@@ -106,4 +113,5 @@
   margin: .4rem 0 0;
   font-size: .8125rem;
   color: var(--ink-500, #6c757d);
+  color: var(--ink-500, color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to)));
 }

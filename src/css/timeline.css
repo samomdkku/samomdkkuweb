@@ -3,17 +3,19 @@
  * ============================================== */
 
 .tl-log {
-  background: #f1f5f9;
-  border-left: 3px solid #94a3b8;
+  background: var(--ink-100);
+  border-left: 3px solid var(--ink-400);
 }
 
 .tl-remark-staff {
   background: #eff6ff;
+  background: color-mix(in srgb, #eff6ff var(--tint-mix), var(--surface));
   border-left: 3px solid #3b82f6;
 }
 
 .tl-remark-user {
   background: #f0fdf4;
+  background: color-mix(in srgb, #f0fdf4 var(--tint-mix), var(--surface));
   border-left: 3px solid #22c55e;
 }
 
@@ -37,8 +39,8 @@
   vertical-align: middle;
   border: 1px solid transparent;
 }
-.tl-chip.is-thread     { background: #eef2ff; color: #4338ca; border-color: #dbe1fb; }
-.tl-chip.is-vis-staff  { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-.tl-chip.is-vis-ticket { background: #f0fdf4; color: #15803d; border-color: #dcfce7; }
-.tl-chip.is-vis-thread { background: #eef2ff; color: #4338ca; border-color: #dbe1fb; }
-.tl-chip.is-vis-public { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.tl-chip.is-thread     { background: #eef2ff; background: color-mix(in srgb, #eef2ff var(--tint-mix), var(--surface)); color: #4338ca; color: color-mix(in srgb, #4338ca var(--fg-mix), var(--fg-mix-to)); border-color: #dbe1fb; border-color: color-mix(in srgb, #dbe1fb var(--line-mix), var(--surface)); }
+.tl-chip.is-vis-staff  { background: var(--ink-100); color: var(--ink-600); border-color: var(--ink-200); }
+.tl-chip.is-vis-ticket { background: #f0fdf4; background: color-mix(in srgb, #f0fdf4 var(--tint-mix), var(--surface)); color: #15803d; color: color-mix(in srgb, #15803d var(--fg-mix), var(--fg-mix-to)); border-color: #dcfce7; border-color: color-mix(in srgb, #dcfce7 var(--line-mix), var(--surface)); }
+.tl-chip.is-vis-thread { background: #eef2ff; background: color-mix(in srgb, #eef2ff var(--tint-mix), var(--surface)); color: #4338ca; color: color-mix(in srgb, #4338ca var(--fg-mix), var(--fg-mix-to)); border-color: #dbe1fb; border-color: color-mix(in srgb, #dbe1fb var(--line-mix), var(--surface)); }
+.tl-chip.is-vis-public { background: #fff7ed; background: color-mix(in srgb, #fff7ed var(--tint-mix), var(--surface)); color: #c2410c; color: color-mix(in srgb, #c2410c var(--fg-mix), var(--fg-mix-to)); border-color: #fed7aa; border-color: color-mix(in srgb, #fed7aa var(--line-mix), var(--surface)); }

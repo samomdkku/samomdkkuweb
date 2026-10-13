@@ -13,6 +13,7 @@
   font-weight: 600;
   letter-spacing: .04em;
   color: #3a2200;
+  color: color-mix(in srgb, #3a2200 var(--fg-mix), var(--fg-mix-to));
   background: repeating-linear-gradient(45deg, #ffd76a, #ffd76a 12px, #ffc93d 12px, #ffc93d 24px);
   border-top: 2px solid #e0a11a;
 }

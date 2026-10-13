@@ -4,17 +4,18 @@
    ========================================================== */
 .dpa-row {
   border: 1px solid var(--bs-border-color, #dee2e6);
+  border: 1px solid var(--bs-border-color, color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface)));
   border-radius: .6rem;
   padding: .75rem;
   margin-bottom: .75rem;
-  background: #fff;
+  background: var(--surface);
 }
 /* A hidden row is tinted, and its CONTENT is faded — but never its head. The
    head carries the one word that explains the fade ("ยังไม่แสดง") and the button
    that undoes it, and `opacity` on the row would take those down with it: a
    child cannot be more opaque than the group it is painted in. Hidden is the
    state a new row is BORN in, so this is the first thing a ฝ่าย sees. */
-.dpa-row.dpa-hidden { background: #f8f9fa; }
+.dpa-row.dpa-hidden { background: #f8f9fa; background: color-mix(in srgb, #f8f9fa var(--tint-mix), var(--surface)); }
 .dpa-row.dpa-hidden > :not(.dpa-row-head) { opacity: .55; }
 .dpa-row-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .dpa-kind {
@@ -39,6 +40,7 @@
 .dpa-row:has(.dpa-kind--section) {
   border-left: 3px solid #1f2933;
   background: #fbfbfc;
+  background: color-mix(in srgb, #fbfbfc var(--tint-mix), var(--surface));
 }
 .dpa-title { font-weight: 600; }
 .dpa-spacer { flex: 1 1 auto; }
@@ -62,8 +64,11 @@
   padding: .25rem .5rem;
   border-radius: 999px;
   color: #6c757d;
+  color: color-mix(in srgb, #6c757d var(--fg-mix), var(--fg-mix-to));
   background: #e9ecef;
+  background: color-mix(in srgb, #e9ecef var(--tint-mix), var(--surface));
   border: 1px solid #dee2e6;
+  border: 1px solid color-mix(in srgb, #dee2e6 var(--line-mix), var(--surface));
   white-space: nowrap;
 }
 
@@ -76,4 +81,4 @@
 
 /* "chosen but not uploaded". Amber rather than red — nothing is wrong, there is
    just a step left, and a red line here would read as a failed upload. */
-.dpa-pending { color: #8a5a12; }
+.dpa-pending { color: #8a5a12; color: color-mix(in srgb, #8a5a12 var(--fg-mix), var(--fg-mix-to)); }
