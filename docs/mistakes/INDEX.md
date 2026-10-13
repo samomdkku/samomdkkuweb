@@ -75,7 +75,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - A buyer could write status, timeline and slips on their own order
 - A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC
 
-## `authz-grants.md` — The permission / seat / scope channel *(22)*
+## `authz-grants.md` — The permission / seat / scope channel *(23)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -101,6 +101,7 @@ Open when: adding an access channel, a scope, or a seat.
 - Unlinking your Discord account was a permanent ฝ่าย role grant
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
+- A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(36)*
 
@@ -485,4 +486,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_423 entries across 10 files._
+_424 entries across 10 files._

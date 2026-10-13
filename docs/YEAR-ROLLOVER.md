@@ -342,6 +342,41 @@ reader does not assume "a new year starts" implies "old grants expire";
 grants expire when the TREE changes, which may or may not coincide with a
 term flip.
 
+**Correction (task 4, migration 0224).** Two things in this section's
+original plan did not survive contact with the live function bodies:
+
+1. `start_team_term` (task 2's 0219) gated on `current_user_has_permission
+   ('team')`. 0110 (already live, predating this whole queue) made `team` a
+   VIEW-only key every ทีม SAMO posting receives for free — 300+ accounts
+   today — so the handover RPC was callable by anyone in the tree, not just
+   an editor. 0224 regates it on `team_edit`, the same key
+   `publish_team_term`/the tree's write policies already use. **Rejected
+   alternative:** a brand-new `team_handover` permission, narrower than
+   `team_edit` — rejected because `team_edit` is already "effectively root"
+   over the tree (0110's own comment: holding it lets you grant anyone,
+   including yourself, anything up to and including `team_edit`), so a
+   handover gate narrower than that would be a distinction with no
+   enforceable difference — anyone who could not call `start_team_term` but
+   could edit the tree could simply grant themselves the narrower key too.
+2. "จัดการทีม per year … nothing new to build here" undersold the real gap:
+   publish and handover were two INDEPENDENT manual actions, and nothing
+   enforced the order between them. Since `publish_team_term` always
+   snapshots whatever the live tree looks like AT CALL TIME, editing the
+   tree for the incoming team BEFORE either calling `start_team_term` or
+   re-publishing the outgoing year would silently archive the WRONG team
+   under the outgoing year's label. 0224 makes `start_team_term` call
+   `publish_team_term` on the outgoing term itself, in the same transaction,
+   before closing it — so "prepare next year's team without touching this
+   year's" (the owner's own phrasing) is now the ONLY correct order, enforced
+   by the function rather than left as a sequencing instruction in a skill
+   doc nobody re-reads mid-handover. **Rejected alternative:** a NEW "draft
+   tree" the admin edits ahead of time, promoted to live at the boundary —
+   rejected as too large and risky for one night's remaining budget (it
+   would duplicate every permission-bearing column team_nodes/team_members
+   carry, or strip them, in which case it could not actually be "prepared"
+   with real grants attached — the same reason `terms.js`'s own header
+   already gives for why the ARCHIVE tables carry no permission columns).
+
 ---
 
 ## เกี่ยวกับเรา

@@ -1150,3 +1150,45 @@ a folder. And an access audit must cover every axis a key grants on: per
 channel AND server-wide. The audit that found nothing on one axis was read as
 "nothing"; after any bulk grant, diff every person's powers against the
 morning, not just their rooms.
+
+## A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
+
+**Symptom.** Found by re-reading migration 0219 (the SAMO-year handover) against
+0110 (ทีม SAMO's own VIEW/EDIT split) while building 0224 — not reported by the
+owner. `start_team_term(year)`, the RPC that closes the outgoing team and opens
+the incoming one, gated on `current_user_has_permission('team')`.
+
+**Cause.** `team` used to mean "may manage the org tree". 0110 split it: `team`
+became a VIEW-only key that `effective_team_permissions_for_email()` now injects
+into EVERY person it finds in `team_members` — "a posting in the tree grants
+VIEW, with no grant needed", by design, for ~300 accounts with zero editing
+rights. `team_edit` is the key that actually means "may write". 0219 was written
+nine migrations later, against the design doc's own illustrative SQL snippet
+(which predated the split), and copied the now-stale key. Every OTHER
+ทีม SAMO-admin RPC and policy written since 0110 — `publish_team_term`, the
+`team_nodes`/`team_members` write policies — correctly asks for `team_edit`.
+Only the handover RPC drifted, because it was new code checked against an old
+example rather than against a sibling function's live body. The practical
+exposure: any of ~300 people merely posted somewhere in the tree — not "may
+edit", just "exists in it" — could call the RPC directly (no UI needed, it is
+a public RPC endpoint) and flip which SAMO year is current for every other
+system's year-filing trigger.
+
+**Fix.** 0224 regates `start_team_term` on `team_edit`, matching
+`publish_team_term`. Proof `tools/team0224-handover.sql` §A pairs the DENY (a
+synthetic account holding only the bare `team` key is refused) with the ALLOW
+(the identical call from a `team_edit` holder succeeds) over the same action —
+a deny-only probe would not have caught the original bug, since the broken
+version also correctly denied a total stranger.
+
+**Where it lives now.** `supabase/migrations/0224_*.sql`,
+`tools/team0224-handover.sql` §A, `skills/year-rollover.md`.
+
+**General rule.** When a permission key is split into a weaker and a stronger
+half (view vs. edit, read vs. write), every writer of new code against that key
+must be checked against a SIBLING function that already uses it correctly, not
+against documentation or an example snippet written before the split — a
+design doc frozen before a schema change is exactly the kind of "second home"
+this repo's mistakes keep coming from. The tell is a privileged ACTION (not a
+read) gated on a permission whose own migration header says it is granted
+"with no grant needed".
