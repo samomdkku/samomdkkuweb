@@ -14,6 +14,92 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## ▶ HANDOFF 2026-10-13 04:11 UTC (night agent, branch agent/2026-10-13)
+
+**1. Do this first.** `node tools/pass-anon-probe.mjs` against production,
+before touching anything else on this branch. It is the ONE check this run
+could not do (no DB access) that decides whether migration 0214 below is
+closing a live critical hole or a tightening on an already-safe system — the
+private report explains why the static analysis alone can't tell the
+difference. Full reasoning: `~/samo-night/reports/2026-10-13-security-db.md`
+Finding 1 / `## Verdict`.
+
+**2. Status of the queue.** All 6 tasks ran and the runner marked all 6
+`Status: done` in `~/samo-night/NIGHT-TASKS.md` — this was a clean, complete
+run (`AGENT_UNRUN=0`, `AGENT_STOP=queue finished`, `AGENT_ASKS` empty; nothing
+was skipped and nothing ended by asking a question). `npm test` — 2604/2604
+green. `npm run build` — green. Working tree clean, everything below is
+already committed on this branch (see `git log --oneline origin/main..HEAD`
+for the six fix/feature commits plus whatever this handoff adds).
+
+**3. READY TO USE vs still a DESIGN.**
+- **Code is ready to review and merge**, but **nothing SQL-shaped has touched
+  a database — migrations 0212, 0213 and 0214 are WRITTEN ONLY.** Apply in
+  that order, dev first: 0212 (ฝ่ายสโม project tags), 0213 (dept_page grants
+  for the 6 new ฝ่าย), then — only after step 1 above — 0214 (passport
+  lockdown ported into tracked history). Each has a proof script
+  (`tools/proj0212-samo-depts.mjs`, `tools/dept0213-every-dept.mjs`,
+  `tools/passport0214-lockdown-committed.sql`) registered in
+  `tools/run-proofs.mjs` but **never run** — "written, not applied" for all
+  three, as the night-queue rules require. STATE.md's migration/proof-count
+  lines were updated to match what's on disk, not what's been proved.
+- **The nginx header fix (`server/nginx-samo.conf`) is a config change, not
+  code or a migration** — it does nothing until someone runs
+  `sudo cp server/nginx-samo.conf /etc/nginx/sites-available/default &&
+  sudo nginx -t && sudo systemctl reload nginx` on the VM (`skills/deploy-vm.md`).
+- **The 9 bug fixes from tasks 5–6** (admin: re-entry data loss, a chip-toggle
+  race, a stacking delete listener; public+passport: six more, listed in
+  their commit messages) are ordinary frontend/JS changes — ready to ship on
+  the next normal deploy, no DB step needed. 5 `PENDING` changelog entries
+  were added for the ones that affect an already-live feature.
+- **Two security reports are DESIGN-level findings, not incidents**: both
+  `~/samo-night/reports/2026-10-13-security-{db,app}.md` end `## Verdict`
+  with one thing fixed each (0214 written; nginx headers) and a short list of
+  already-known, owner's-call items re-confirmed rather than re-raised. They
+  live outside the repo on purpose — do not copy their content into anything
+  under `docs/`.
+
+**4. What did not happen.** Nothing — `AGENT_UNRUN` and `AGENT_ASKS` were both
+empty this run. All 6 queued tasks executed and the runner confirmed each
+`Done when:` check passed.
+
+**5. What needs a human decision.**
+- **Whether Finding 1 (step 1 above) was a live exposure.** If
+  `pass-anon-probe.mjs` reports the pre-hardening state, the report recommends
+  treating the window since migration 0056 as a potential exposure period
+  worth a Drive/audit-log-style sweep of `passport.scans` — a judgment call on
+  how much to dig, not something this run can size without DB access.
+- **Three already-known, low-severity items were re-confirmed open and left
+  alone, each because touching them wasn't this run's call**: the
+  username→email lookup (owner already informed, memory
+  `open-privacy-username-lookup.md`), the legacy passport `admin`/`1234`
+  speed-bump (accepted trade-off), and passport's per-ฝ่าย write-scoping gap
+  (a real feature question, not a lockdown gap). I'd leave all three as-is
+  unless the owner's priorities have shifted since those were last decided.
+- **Task 2's dept_page inheritance decision** (0213): inherited, not
+  review-gated — defended in the Task 2 block below. Overturn only if the
+  owner wants a staff-approval step added across all twelve ฝ่าย, which is a
+  product decision bigger than this migration.
+- **migration 0212's trigger checks WHO, not WHAT** (app security report
+  Finding 2) — left open as inert (every render path escapes the value) and
+  not worth its own reserved migration number tonight; fold the allow-list
+  check in next time 0212 is touched for something else.
+
+**6. What could not be verified, and why.** No database access this run (by
+design — `tools/db-query.mjs`, `apply-migration`, `.env.local` all denied), so
+every claim about what 0212/0213/0214 will do once applied rests on reading
+the SQL, not on running it against dev or production. No Google/GAS
+credentials either, so the `notifyProjectEmail` content-hardening item and the
+GAS-side `fileId` ownership check mentioned in the app report are read-only
+findings, not reproduced. `npm run handoff:check` could not reach a verdict in
+this sandbox (no `origin/agent/2026-10-13` remote to diff against, and this
+sandbox's memory path differs from `~/samo-night/memory/MEMORY.md` named in
+the task preamble) — flagged rather than silently skipped, per CLAUDE.md; this
+looks like a standing gap in the night-agent workflow itself, worth the
+owner's attention independent of tonight's actual work.
+
+---
+
 ## 2026-10-13 — Task 4: security review (deep) — the app, the servers, Apps Script
 
 Claims to have: read every file in scope end to end (`src/`, `server/*.mjs`,
