@@ -1417,16 +1417,18 @@ edit. `select relrowsecurity, (policy count)` — ask for both.
 `tools/house-kkumail-import.mjs --dismiss-empty --apply`, which asserts inside
 its transaction that every address is one student and one person; read back
 after commit (19 `admin` + 2 `dismissed` resolutions, 0 orphan people, re-run
-writes nothing). Snapshot: `externaldata/house-import/2026-10-13-kkumail-import-snapshot.json`.**
+writes nothing). Snapshot (gitignored, so not a path CI can see): `2026-10-13-kkumail-import-snapshot.json` in externaldata's house-import folder.**
 
 ✅ **SECOND ANSWER IMPORTED (2026-10-13).** The owner forwarded
 `รายชื่อระบบบ้านมีปัญหา.xlsx` (one tab per รุ่น; exported per tab to
 `externaldata/house-import/2026-10-13-returned/MD*.csv`). Held rows: 129 → 108.
-MD49 is now complete. Two answers were REFUSED and stay held — the ฝ่าย has to
-re-check them, nothing here can: an MD52 row whose รหัส + kkumail were pasted
-from another student's row (the owner's own warning; the tool kept the row the
-address belongs to by its initials and the รหัส's alphabetical slot), and an
-MD51 row whose address carries another student's initials. Seven MD52 held
+MD49 is now complete. Two answers were REFUSED: an MD52 row whose รหัส + kkumail
+were pasted from another student's row (the owner's own warning; the tool kept
+the row the address belongs to, by its initials and the รหัส's alphabetical
+slot), and an MD51 row whose address carries another student's initials. The
+owner settled the second the same day — *"add pakphum.s@kkumail.com to ภาคภูมิ
+instead"* — so that address went to the classmate it names (held 108 → 107).
+Both students whose rows were WRITTEN ON stay held with no address. Seven MD52 held
 rows carry the ฝ่าย's remark as `note` (ติดต่อไม่ได้ / ลาออก / คาดว่าลาออกแล้ว)
 and were NOT closed — see the owed table. The two MD54 `empty_row` lines the
 ฝ่าย said have no person (*"เลขนี้ไม่มีตัวตน"*) were dismissed with that reason,
@@ -1448,7 +1450,7 @@ has 288 students and **no incomplete records at all** — its file is gone.
 | owed | who | why it is not done |
 |---|---|---|
 | chase what is still blank — MD51 is almost entirely unanswered, MD53 and MD54 have a few; regenerate with `house-year-sheets.mjs --apply --gaps-only --force` (its dry run prints the counts) | owner | the ฝ่าย said "ตอนนี้เหลือ MD51, MD53, MD54 เหลือ 2 คน" — they know |
-| the two REFUSED answers (one MD52, one MD51) | ฝ่ายข้อมูล | the sheet's own values are wrong; only the person or their friends know the right address |
+| the two students whose rows carried someone else's answer (one MD52, one MD51) | ฝ่ายข้อมูล | their own รหัส/kkumail were never given — only the person or their friends know them |
 | close or keep the MD52 rows marked ลาออก / คาดว่าลาออกแล้ว | owner | dismissing is the pane's ปิด button; "คาดว่า" is a guess, so it was left for a person to decide |
 | check **สาย 141** against the source file | owner / ฝ่ายข้อมูล | MD53 and MD54 both have nobody on it, and after the 2026-09-19 รุ่น repair NOTHING unplaced can explain either. บ้าน is สาย's last digit, so if a column moved everyone after it is in the wrong บ้าน |
 | ~~check สาย 141 / decide สาย 256~~ | ✅ **ANSWERED 2026-09-19 — LEAVE IT** | The MD53 leader: *"ที่หนูจดไว้ตามนี้เลยค่ะ เพื่อนหนูเอาข้อมูลมาจาก 52 อีกที สาย 256 ซ้ำ 2 คนค่ะ แล้วก็ 141 ข้ามตามที่ลงไว้เลยค่ะ"* — transcribed that way from MD52, deliberately. **That rules out the thing worth worrying about**: not a shifted column, so every person's สาย is recorded correctly and NOBODY is in the wrong บ้าน. The owner's call is to leave it: the list is mostly right and they would not change it now. The audit will keep reporting it — that is cosmetic |
