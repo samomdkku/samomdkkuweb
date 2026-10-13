@@ -303,3 +303,24 @@ describe('run-night.sh delegates every verdict to queue.mjs', () => {
     expect(quota).toMatch(/node "\$QUEUE" cut /);
   });
 });
+
+// install.sh ships fixes AND arms queues. Only arming may replace the live
+// queue — it holds the runner's verdicts, which the repo's copy does not.
+describe('install.sh replaces the live queue only with --arm', () => {
+  const sh = readFileSync(new URL('../../server/night-agent/install.sh', import.meta.url), 'utf8');
+  it('the always-copied file list does not include the queue', () => {
+    const loop = sh.match(/^for f in ([^;]+); do/m);
+    expect(loop, 'install.sh no longer has the copy loop this test reads').not.toBeNull();
+    expect(loop[1]).toContain('queue.mjs');            // control: the list is the one we think
+    expect(loop[1]).not.toContain('NIGHT-TASKS.md');
+  });
+  it('every write of NIGHT-TASKS.md sits inside an --arm branch', () => {
+    const lines = sh.split('\n');
+    const writes = lines.map((l, i) => [l, i]).filter(([l]) => /cat > ~\/samo-night\/NIGHT-TASKS\.md/.test(l));
+    expect(writes.length).toBeGreaterThan(0);
+    for (const [, i] of writes) {
+      const above = lines.slice(Math.max(0, i - 3), i).join('\n');
+      expect(above).toMatch(/--arm/);
+    }
+  });
+});

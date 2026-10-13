@@ -3472,8 +3472,15 @@ and may say "clean" only when every line is `✓`. Rehearsed on the VM with a
 fake `claude` cut off by a fake limit: run 1 → `interrupted (WIP 5670038)`,
 run 2 → resumed → `done — ถูกตัดกลางทางรอบก่อน…`, still flagged `!`.
 
+**Same review, found before it bit**: `install.sh` copied the repo's
+`NIGHT-TASKS.md` (no statuses) over the VM's live one on EVERY install, so
+shipping a runner fix mid-queue would have reset every task to todo and re-run
+finished work. The queue is now replaced only with `--arm`, the old one kept
+as `NIGHT-TASKS.md.<stamp>.done`.
+
 **Where it lives now**: `server/night-agent/queue.mjs` (`plan`, `verdict`,
 `interrupted`, `report`), `server/night-agent/run-night.sh` (the loop),
+`server/night-agent/install.sh` (the queue copy),
 `server/night-agent/HANDOFF.md`; tests in `src/js/night-queue.test.js`
 (a replay of this night, plus a check that the runner delegates every verdict).
 

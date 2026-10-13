@@ -19,9 +19,19 @@ ssh -o BatchMode=yes samo-vm 'mkdir -p ~/samo-night/logs ~/samo-agent/.claude'
 # each task's `Done when:` and to write the verdicts back. Left off this list it
 # would be missing on the VM and every night would fall back to running the whole
 # queue again — which is precisely the behaviour it was written to end.
-for f in run-night.sh queue.mjs NIGHT-TASKS.md REVISE.md HANDOFF.md; do
+for f in run-night.sh queue.mjs REVISE.md HANDOFF.md; do
   ssh -o BatchMode=yes samo-vm "cat > ~/samo-night/$f" < "$D/$f"
 done
+# ⛔ THE QUEUE ONLY WITH --arm. The live NIGHT-TASKS.md is STATE — the runner
+# writes each task's Status/Attempts/Note into it — and the repo's copy has none.
+# Copying it on every install meant shipping a runner fix mid-queue reset every
+# task to todo (finished work re-done) and erased the record of a finished one
+# (caught 2026-10-13, before it happened). A new queue is exactly what --arm
+# means, so that is the one time it is replaced; the old one is kept beside it.
+if [ "${1:-}" = "--arm" ] || [ "${2:-}" = "--arm" ]; then
+  ssh -o BatchMode=yes samo-vm 'f=~/samo-night/NIGHT-TASKS.md; [ -f "$f" ] && cp "$f" "$f.$(date -u +%Y%m%dT%H%M%SZ).done"; true'
+  ssh -o BatchMode=yes samo-vm "cat > ~/samo-night/NIGHT-TASKS.md" < "$D/NIGHT-TASKS.md"
+fi
 ssh -o BatchMode=yes samo-vm 'chmod +x ~/samo-night/run-night.sh && bash -n ~/samo-night/run-night.sh'
 ssh -o BatchMode=yes samo-vm 'cat > ~/samo-agent/.claude/settings.local.json' < "$D/settings.local.json"
 
