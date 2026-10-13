@@ -9,7 +9,7 @@
 import { escHtml } from '../utils.js';
 import { thb, unitPriceFor, thumbStyle, availableForVariant, isUnlimitedBuying } from './data.js';
 import { onCartChange, cartCount, cartSubtotal, getCart, updateQty, removeItem, repriceCart } from './state.js';
-import { listProducts } from './api.js';
+import { listProducts, RESERVED_FETCH_FAILED } from './api.js';
 
 let productMap = {};
 // Reserved-qty matrix, keyed by product id — same shape as api.js's
@@ -28,8 +28,17 @@ export function setCartNavigators({ goCheckout }) { onCheckout = goCheckout || o
  *  fetched, so its qty cap matches what the server will actually allow.
  *  Safe to call with stale/partial data — missing entries read as 0. */
 export function setCartReservedMatrix(matrix) {
-  reservedMatrix = matrix || {};
+  const next = nextReservedMatrix(reservedMatrix, matrix);
+  if (next === reservedMatrix) return;
+  reservedMatrix = next;
   render();
+}
+
+/** PURE. A FAILED fetch (or none) keeps the last good numbers; a real answer —
+ *  including a real "nothing reserved" `{}` — replaces them. */
+export function nextReservedMatrix(prev, incoming) {
+  if (!incoming || incoming[RESERVED_FETCH_FAILED]) return prev;
+  return incoming;
 }
 
 /** The most of one cart line a buyer can ask for: what is left of that size

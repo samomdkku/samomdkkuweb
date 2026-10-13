@@ -43,3 +43,11 @@ export function projectMatchesSamoDepts(project, selected) {
 export function samoDeptLabel(value) {
   return VS_DEPT_LABEL[value] || value;
 }
+
+/** Tags a โครงการ carries that are NOT a current VS_DEPTS value. The editor
+ *  draws a removable chip for each: with no chip, a stale value could never
+ *  leave the array, and every later toggle would send it back to an RPC that
+ *  refuses unknown values — locking the tags. */
+export function staleSamoDepts(project) {
+  return projectSamoDepts(project).filter((d) => !SAMO_DEPT_VALUES.includes(d));
+}

@@ -34,7 +34,8 @@ function el() {
     className: '',
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     dataset: {},
-    addEventListener() {},
+    listeners: {},
+    addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); },
   };
 }
 
@@ -77,17 +78,19 @@ describe('หน้าฝ่าย editor — re-entry by the same account', () 
     const callsAfterFirstEntry = dbRest.mock.calls.length;
     expect(callsAfterFirstEntry).toBeGreaterThan(0);
 
-    // Simulate the user having picked the SECOND ฝ่าย in the dropdown before
-    // navigating away — this is the state a re-entry must not clobber.
+    // The user picks the SECOND ฝ่าย before navigating away — a real pick
+    // fires `change`, which is what moves the editor's state.
     children['#dpaDept'].value = DEPT_OPTIONS[1].value;
+    for (const fn of children['#dpaDept'].listeners.change || []) fn();
+    const callsAfterPick = dbRest.mock.calls.length;
 
     // Re-entry: sidebar click on the already-open section, or coming back
     // from another admin tab. Same account, same page instance.
     await initDeptPageAdmin(user);
 
-    // The fix: nothing loaded again, so nothing could have overwritten the
-    // picker's value or the unsaved rows underneath it.
-    expect(dbRest.mock.calls.length).toBe(callsAfterFirstEntry);
+    // Nothing loaded again, so nothing could have overwritten the picker's
+    // value or the unsaved rows underneath it — though the LIST was rebuilt.
+    expect(dbRest.mock.calls.length).toBe(callsAfterPick);
     expect(children['#dpaDept'].value).toBe(DEPT_OPTIONS[1].value);
   });
 
@@ -96,5 +99,14 @@ describe('หน้าฝ่าย editor — re-entry by the same account', () 
     const callsAfterFirstEntry = dbRest.mock.calls.length;
     await initDeptPageAdmin({ id: 'staff-2', role: 'dev' });
     expect(dbRest.mock.calls.length).toBeGreaterThan(callsAfterFirstEntry);
+  });
+
+  it('attaches its handlers ONCE, even when a different account enters', async () => {
+    // A second account falling through to the wiring attached every handler
+    // again — one Save click then ran save() twice (code review, 2026-10-13).
+    await initDeptPageAdmin(user);
+    await initDeptPageAdmin({ id: 'staff-2', role: 'dev' });
+    await initDeptPageAdmin(user);
+    expect((children['#dpaDept'].listeners.change || []).length).toBe(1);
   });
 });

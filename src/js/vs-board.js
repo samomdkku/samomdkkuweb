@@ -230,8 +230,14 @@ async function runSearch() {
 // --------------------------------------------------
 // Problem detail
 // --------------------------------------------------
+// Bumped on every open. The id alone cannot tell two loads of the SAME problem
+// apart — re-opening after a comment re-fetches it — so a slow first response
+// could paint the thread without the new comment over the fresh one.
+let openSeq = 0;
+
 export async function vsBoardOpen(id) {
   openProblemId = id;
+  const seq = ++openSeq;
   // Put the open problem in the URL so a reload (the natural way to check for
   // progress) comes back to it instead of the board list — see vs-route.js.
   if (typeof window.vsSetRoute === 'function') window.vsSetRoute(`problem/${id}`);
@@ -248,7 +254,7 @@ export async function vsBoardOpen(id) {
   // back to the list) before this fetch resolved — openProblemId has moved
   // on, so this slow response must not paint over whatever is on screen now.
   // Same shape as enhanceBoardBanner's guard in vs-tracking.js.
-  if (id !== openProblemId) return;
+  if (id !== openProblemId || seq !== openSeq) return;
   if (error || !data) { body.innerHTML = errorNote('ไม่พบเรื่องนี้ หรือถูกปิดการเปิดเผยแล้ว'); return; }
   renderProblemDetail(data);
 }

@@ -56,7 +56,7 @@ async function refreshStock() {
       // Keep the cart drawer's own qty cap in step with what checkout just
       // learned — otherwise the drawer still shows the stale count fetched
       // on shop-tab-open until the NEXT shop-tab-show.
-      setCartReservedMatrix(reservedAll);
+      setCartReservedMatrix(reserved);
     } catch (e) {
       console.warn('[shop/checkout] stock refresh failed — the server still checks:', e?.message || e);
     } finally {

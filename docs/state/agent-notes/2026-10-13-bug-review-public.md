@@ -42,7 +42,7 @@ Test: `src/js/shop/cart-reserved-matrix.test.js` (6 assertions on the
 extracted pure `maxQtyFor`, plus two structural checks that both callers
 actually wire the setter). Write-up: `docs/mistakes/app-state.md`.
 
-## 2. The public หนังสือโครงการ mirror never refreshed after its first load
+## 2. ⛔ WITHDRAWN — "the public หนังสือโครงการ mirror never refreshed" was not a bug (it already reloaded via `projects/index.js`'s own listener); the fix doubled fetches and was reverted — `docs/mistakes/app-state.md`
 
 `src/js/projects-view.js` — `bootIfNeeded()` set its own `initialised` flag
 on the first call and returned immediately on every later `shown.bs.tab`.

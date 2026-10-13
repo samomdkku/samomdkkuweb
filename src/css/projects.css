@@ -310,6 +310,8 @@
   color: #fff;
   font-weight: 600;
 }
+/* A stored tag no longer in VS_DEPTS — shown so it can be removed. */
+.projects-tab .projects-dept-chip.is-stale { border-style: dashed; opacity: .8; }
 
 /* ---------- View-mode toggle (grid / list) ---------- */
 .projects-tab .projects-view-toggle {

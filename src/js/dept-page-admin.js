@@ -489,9 +489,10 @@ export function initDeptPageAdmin(user) {
   const root = document.querySelector('[data-admin-pane="deptpage"]');
   if (!root) return;
   const uid = user?.id || null;
-  if (root.dataset.dpaWired === '1' && wiredUserId === uid) return;
-  wiredUserId = uid;
   const picker = root.querySelector('#dpaDept');
+  // The ฝ่าย list is rebuilt on EVERY entry — a grant added in ทีม SAMO during
+  // this session must appear without a reload. What a same-account re-entry
+  // keeps is the OPEN ฝ่าย and its unsaved edits (see wiredUserId above).
   const mine = editableDepts(user);
   if (picker) {
     picker.innerHTML = mine.map((d) => `<option value="${escHtml(d.value)}">${escHtml(d.label)}</option>`).join('');
@@ -508,9 +509,22 @@ export function initDeptPageAdmin(user) {
     say(root, 'บัญชีนี้ยังไม่ได้รับสิทธิ์แก้หน้าฝ่ายใด — ขอสิทธิ์ได้ที่ ทีม SAMO');
     return;
   }
-  state.dept = mine[0].value;
-  refresh(root);
+  root.querySelector('#dpaBody')?.classList.remove('d-none');
+  const sameAccount = root.dataset.dpaWired === '1' && wiredUserId === uid;
+  wiredUserId = uid;
+  if (sameAccount && mine.some((d) => d.value === state.dept)) {
+    if (picker) picker.value = state.dept;
+  } else {
+    clearPending();
+    state.dept = mine[0].value;
+    refresh(root);
+  }
 
+  // ⛔ LISTENERS ONCE, whatever the account. Re-entry with a different uid used
+  // to fall through to the wiring below and attach every handler again — one
+  // Save click then ran save() twice (duplicate uploads and PATCHes), the
+  // listener-stacking bug this same review fixed in the shop admin.
+  if (root.dataset.dpaWired === '1') return;
   root.dataset.dpaWired = '1';
 
   picker?.addEventListener('change', () => { clearPending(); state.dept = picker.value; refresh(root); });

@@ -61,3 +61,34 @@ describe('vsBoardOpen — stale async response guard', () => {
     expect(guardIdx).toBeLessThan(renderIdx);
   });
 });
+
+// Behaviour, not shape: two loads of the SAME problem, answered out of order.
+// The id check alone passes both (code review, 2026-10-13) — re-opening after
+// a comment re-fetches the same id, so the OLDER thread could paint last.
+describe('vsBoardOpen — two loads of the same problem, answered out of order', () => {
+  it('paints the newer response, not the slower older one', async () => {
+    const { vi } = await import('vitest');
+    const resolvers = [];
+    vi.doMock('./db.js', () => ({ dbRest: vi.fn(() => new Promise((r) => resolvers.push(r))) }));
+    vi.doMock('./auth.js', () => ({ getUser: () => null }));
+    vi.doMock('./vs-tracking.js', () => ({ VS_PHASES: [], renderVsStepperByPhase: () => '' }));
+    const els = {};
+    const el = () => ({ innerHTML: '', classList: { add() {}, remove() {}, toggle() {} }, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] });
+    globalThis.document = { getElementById: (id) => (els[id] ||= el()), querySelector: () => null, querySelectorAll: () => [] };
+    globalThis.window = globalThis.window || {};
+    const { vsBoardOpen } = await import('./vs-board.js');
+
+    const first = vsBoardOpen(7);
+    const second = vsBoardOpen(7);                       // e.g. after posting a comment
+    const problem = (marker) => ({ canonical_id: 'VS-7', public_note: marker, phase: 0, comments: [] });
+    resolvers[1]({ data: problem('NEWER-THREAD'), error: null });
+    await second;
+    resolvers[0]({ data: problem('OLDER-THREAD'), error: null });
+    await first;
+
+    expect(els.vsProblemBody.innerHTML).toContain('NEWER-THREAD');
+    expect(els.vsProblemBody.innerHTML).not.toContain('OLDER-THREAD');
+    delete globalThis.document;
+    vi.doUnmock('./db.js'); vi.doUnmock('./auth.js'); vi.doUnmock('./vs-tracking.js');
+  });
+});

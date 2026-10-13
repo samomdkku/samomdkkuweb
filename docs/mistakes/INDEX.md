@@ -285,7 +285,7 @@ Open when: URL state, per-user "seen", import/export.
 - Switching to หน้าฝ่าย a second time snapped the ฝ่าย picker back and could wipe an unsaved edit
 - The cart drawer's qty cap never knew about anyone else's reservations
 - Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
-- The public หนังสือโครงการ mirror never refreshed after its first load
+- "The public หนังสือโครงการ mirror never refreshed after its first load"
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
 

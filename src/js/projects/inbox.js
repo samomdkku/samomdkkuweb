@@ -64,7 +64,7 @@ import {
   DEFAULT_FY_CURRENT,
 } from './fiscal-year.js';
 import { VS_DEPTS } from '../team-vocab.js';
-import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel } from './samo-depts.js';
+import { projectSamoDepts, projectMatchesSamoDepts, samoDeptLabel, staleSamoDepts } from './samo-depts.js';
 
 // ---------- module state ----------
 
@@ -1024,6 +1024,10 @@ function renderDetail() {
     .sort((a, b) => new Date(b.sent_at || b.updated_at || b.created_at) - new Date(a.sent_at || a.updated_at || a.created_at));
   const role = cache.role;
   const canManage = role === 'vp_admin' || role === 'dev';
+  // The ฝ่ายสโม editor below also draws a chip for every stored tag that is no
+  // longer a VS_DEPTS value (staleSamoDepts), so it can be REMOVED. Without one
+  // it could never leave the array, every toggle would send it back, and the
+  // RPC refuses unknown values — the tags would be stuck for good.
   // Moving a โครงการ between ปีงบประมาณ is BOTH desks' job, not just the
   // sender's: the ผู้ส่งหนังสือ (vpa) sends it, and the เจ้าหน้าที่คณะ
   // (staff) is the one who knows which budget year the faculty actually
@@ -1083,6 +1087,9 @@ function renderDetail() {
               data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(d.value)}"
               title="${on ? 'กดเพื่อเอาออก' : 'กดเพื่อเพิ่ม'}">${escHtml(d.label)}</button>`;
           }).join('')}
+          ${staleSamoDepts(project).map((v) => `<button type="button" class="projects-dept-chip is-active is-stale"
+              data-projects-toggle-dept="${escHtml(project.id)}" data-dept="${escHtml(v)}"
+              title="ฝ่ายนี้ไม่มีในรายการแล้ว — กดเพื่อเอาออก">${escHtml(v)} <i class="bi bi-x"></i></button>`).join('')}
         </div>
       ` : ''}
       <div class="projects-detail-actions">
@@ -2262,7 +2269,12 @@ export async function onToggleProjectDept(btn) {
       : [...current, value];
     btn.disabled = true;
     try {
-      await setProjectSamoDepts(projectId, next);
+      const saved = await setProjectSamoDepts(projectId, next);
+      // Take the server's answer as the new local copy BEFORE reloading. The
+      // reload keeps the OLD cache when it fails (listProjects().catch), and
+      // the next queued chip would then build on that and undo this one.
+      const row = Array.isArray(saved) ? saved[0] : saved;
+      if (row && Array.isArray(row.samo_depts)) p.samo_depts = row.samo_depts;
       await onChanged();
     } catch (e) {
       alert(e.message || 'บันทึกฝ่ายสโมไม่สำเร็จ');

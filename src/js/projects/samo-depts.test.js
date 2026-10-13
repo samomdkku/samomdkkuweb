@@ -92,3 +92,12 @@ describe('ratchet — the SQL allow-list is the SAME set as VS_DEPTS', () => {
     expect(new Set(values)).toEqual(new Set(SAMO_DEPT_VALUES));
   });
 });
+
+describe('staleSamoDepts — a renamed ฝ่าย must stay removable', () => {
+  it('returns only values outside VS_DEPTS', async () => {
+    const { staleSamoDepts, SAMO_DEPT_VALUES } = await import('./samo-depts.js');
+    expect(staleSamoDepts({ samo_depts: [SAMO_DEPT_VALUES[0], 'ฝ่ายที่ถูกเปลี่ยนชื่อ'] })).toEqual(['ฝ่ายที่ถูกเปลี่ยนชื่อ']);
+    expect(staleSamoDepts({ samo_depts: [] })).toEqual([]);
+    expect(staleSamoDepts({})).toEqual([]);
+  });
+});

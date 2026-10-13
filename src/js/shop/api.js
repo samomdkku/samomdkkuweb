@@ -30,6 +30,14 @@ export async function listProducts({ activeOnly = true } = {}) {
  *  Powers the buyer-side "available = max(0, stock - reserved)" view.
  *  Falls back to {} on any error (e.g. migration 0030 not applied) so
  *  the UI gracefully degrades to the legacy raw-stock display. */
+/** Marks the `{}` fetchReservedMatrixAll() returns when the request FAILED, as
+ *  opposed to a real "nothing reserved". Its callers have always treated a
+ *  failure as empty (the server re-checks stock at checkout), but the cart
+ *  drawer must not REPLACE good numbers with a failure's empty object — that
+ *  silently lifts its qty cap (code review, 2026-10-13). */
+export const RESERVED_FETCH_FAILED = Symbol('reserved-fetch-failed');
+const failedEmpty = () => Object.defineProperty({}, RESERVED_FETCH_FAILED, { value: true });
+
 export async function fetchReservedMatrixAll() {
   const { data, error } = await dbRest('/rpc/shop_reserved_matrix_all', {
     method: 'POST',
@@ -41,10 +49,10 @@ export async function fetchReservedMatrixAll() {
         window.__samoWarnedReservedRpc = true;
         console.warn('[shop] shop_reserved_matrix_all RPC missing — apply migration 0030 for reservation-aware stock display.');
       }
-      return {};
+      return failedEmpty();
     }
     console.warn('[shop] reserved matrix fetch failed:', error.message);
-    return {};
+    return failedEmpty();
   }
   return data && typeof data === 'object' ? data : {};
 }

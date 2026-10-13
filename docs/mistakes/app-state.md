@@ -1232,38 +1232,31 @@ write, the SAME array/object field.
 
 ---
 
-## The public หนังสือโครงการ mirror never refreshed after its first load
+## "The public หนังสือโครงการ mirror never refreshed after its first load" — a bug that did not exist, and its fix doubled every fetch
 
-**Symptom**: a visitor opens the public หนังสือโครงการ tab, an admin tags a
-project with a ฝ่ายสโม or flips its visibility while the visitor is still on
-the page, the visitor switches to another tab and back — they keep seeing
-the pre-change state for the rest of that page session. No realtime
-subscription exists to ever correct it; only a hard reload does.
+**Symptom (as the night agent reported it, 2026-10-13)**: switching away from
+the public หนังสือโครงการ tab and back showed stale data, because
+`projects-view.js`'s `bootIfNeeded()` returned early on every re-show, leaving
+`mountCustomerProjects()`'s refresh branch "dead code".
 
-**Cause**: `projects-view.js`'s `bootIfNeeded()` set its OWN `initialised`
-flag on the first call and returned immediately on every later one —
-including every later `shown.bs.tab`. Its single callee,
-`mountCustomerProjects()` (`src/js/projects/index.js`), already has the
-CORRECT re-show behaviour built in: `if (customerInitialised) { await
-reloadProjects(); return; }`. But with no caller ever reaching that branch a
-second time, it was dead code — this bug predates the ฝ่ายสโม tag feature
-that happened to expose it; both guard flags were introduced together, in
-the same commit, one redundant with the other.
+**Cause — the report was wrong**: `mountCustomerProjects()` registers its OWN
+`shown.bs.tab` listener on first mount (`src/js/projects/index.js`, the
+`pills-projects-view-tab` handler) that calls `reloadProjects()` on every
+re-show. The data always refreshed. The agent read the caller, found the
+callee's refresh branch unreachable FROM THAT CALLER, and concluded the
+behaviour was missing — without looking for the other path that provided it.
+Its "fix" removed the early return, so every re-show then ran TWO unordered
+full reloads (projects with every document, doc types, settings), and the
+older response could paint last. Its test passed because it mocked
+`mountCustomerProjects` — the module whose listener disproved the bug.
 
-**Fix**: `bootIfNeeded()` no longer returns early on its own flag — it still
-uses it to decide whether to paint the loading spinner (only on a genuinely
-empty grid, i.e. the first load), but always calls `mountCustomerProjects()`,
-letting THAT function's own flag tell first-mount from re-show apart.
-`src/js/projects-view-restale.test.js` captures the `shown.bs.tab` listener
-with a hand-built `document` stand-in (no jsdom here) and asserts
-`mountCustomerProjects` is called again on a second and third tab-show, not
-just the first; mutation-checked (the early return restored → only 1 call).
+**Fix**: reverted to the early return; test and release note removed
+(code review, 2026-10-13, same day).
 
-**The general rule**: *a refresh-on-re-show branch inside a shared function
-is only as good as its caller actually reaching it a second time* — when
-two modules each keep a "first mount vs. re-entry" flag for the same
-lifecycle, the OUTER one guarding the call site is usually the redundant,
-dangerous one: it can swallow every re-entry before the inner one's correct
-behaviour ever runs. Prefer letting the callee (which has the real
-first-mount-vs-refresh logic) decide, and use the caller's flag only for
-caller-local concerns (what to paint while waiting), never to skip the call.
+**Where it lives now**: `src/js/projects-view.js` (as before the agent),
+`src/js/projects/index.js` (the listener that does the refresh).
+
+**The general rule**: "unreachable code, so the behaviour is missing" is two
+claims; check the second by OBSERVING the behaviour or grepping every other
+path to it (here: a second listener on the same event). A test that mocks the
+module that disproves the bug will confirm any bug you describe.

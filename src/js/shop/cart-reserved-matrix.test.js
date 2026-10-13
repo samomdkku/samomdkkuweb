@@ -69,6 +69,19 @@ describe('setCartReservedMatrix is actually called where the matrix is fetched',
 
   it('checkout.js calls it after refreshing stock, so the drawer stays in step with checkout', () => {
     const src = readFileSync(new URL('./checkout.js', import.meta.url), 'utf8');
-    expect(src).toMatch(/setCartReservedMatrix\(reservedAll\)/);
+    expect(src).toMatch(/setCartReservedMatrix\(reserved(All)?\)/);
+  });
+});
+
+describe('a FAILED reserved fetch never lifts the cap (code review, 2026-10-13)', () => {
+  it('keeps the last good matrix on failure, replaces it on a real answer', async () => {
+    const { nextReservedMatrix } = await import('./cart.js');
+    const { RESERVED_FETCH_FAILED } = await import('./api.js');
+    const good = { p1: { M: 3 } };
+    const failed = Object.defineProperty({}, RESERVED_FETCH_FAILED, { value: true });
+    expect(nextReservedMatrix(good, failed)).toBe(good);
+    expect(nextReservedMatrix(good, null)).toBe(good);
+    const realEmpty = {};                                   // genuinely nothing reserved
+    expect(nextReservedMatrix(good, realEmpty)).toBe(realEmpty);
   });
 });
