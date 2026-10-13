@@ -91,7 +91,10 @@ function showDept(deptKey) {
   if (eyebrow) eyebrow.textContent = def.eyebrow;
   const titleEl = document.getElementById('deptsDetailTitle');
   if (titleEl) {
-    titleEl.innerHTML = `<i class="bi ${escHtml(def.icon)} me-2" style="color: var(${escHtml(def.colorVar)});"></i>${escHtml(def.title)}`;
+    const mark = def.logo
+      ? `<img class="dept-title-logo me-2" src="${escHtml(def.logo)}" alt="">`
+      : `<i class="bi ${escHtml(def.icon)} me-2" style="color: var(${escHtml(def.colorVar)});"></i>`;
+    titleEl.innerHTML = `${mark}${escHtml(def.title)}`;
   }
   const lead = document.getElementById('deptsDetailLead');
   if (lead) lead.textContent = `เครื่องมือของ${def.title}`;

@@ -2,6 +2,8 @@
 // depts.js — WHO THE ฝ่าย ARE. One list, read by three places.
 //
 // This is identity, not content: the name, the icon and the colour of a ฝ่าย
+// (`logo`, when set, is the ฝ่าย’s own artwork and wins over the `icon` glyph;
+// files live in public/dept-icons/<key>.png)
 // page. It cannot change without a deploy and that is correct — a ฝ่าย renaming
 // itself is a rare, org-level event, unlike the CONTENT of its page, which is
 // rows in public.dept_content that the ฝ่าย edits itself (migration 0177).
@@ -28,60 +30,70 @@ export const DEPT_DEFS = {
     eyebrow: 'Department',
     title: 'ฝ่ายบริหารองค์กร',
     icon: 'bi-shield',
+    logo: '/dept-icons/admin.png',
     colorVar: '--dept-admin',
   },
   digital: {
     eyebrow: 'Department',
     title: 'ฝ่ายดิจิทัลและสื่อสารองค์กร',
     icon: 'bi-megaphone',
+    logo: '/dept-icons/digital.png',
     colorVar: '--dept-digital',
   },
   internal: {
     eyebrow: 'Department',
     title: 'ฝ่ายกิจการภายใน',
     icon: 'bi-people',
+    logo: '/dept-icons/internal.png',
     colorVar: '--dept-internal',
   },
   external: {
     eyebrow: 'Department',
     title: 'ฝ่ายกิจการภายนอก',
     icon: 'bi-globe',
+    logo: '/dept-icons/external.png',
     colorVar: '--dept-external',
   },
   university: {
     eyebrow: 'Department',
     title: 'ฝ่ายกิจการมหาวิทยาลัย',
     icon: 'bi-buildings',
+    logo: '/dept-icons/university.png',
     colorVar: '--dept-university',
   },
   academic: {
     eyebrow: 'Department',
     title: 'ฝ่ายวิชาการ',
     icon: 'bi-book',
+    logo: '/dept-icons/academic.png',
     colorVar: '--dept-academic',
   },
   strategy: {
     eyebrow: 'Department',
     title: 'ฝ่ายยุทธศาสตร์และพัฒนาองค์กร',
     icon: 'bi-puzzle',
+    logo: '/dept-icons/strategy.png',
     colorVar: '--dept-strategy',
   },
   quality: {
     eyebrow: 'Department',
     title: 'ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม',
     icon: 'bi-hospital',
+    logo: '/dept-icons/quality.png',
     colorVar: '--dept-quality',
   },
   rt: {
     eyebrow: 'Department',
     title: 'ฝ่ายรังสีเทคนิค',
     icon: 'bi-stars',
+    logo: '/dept-icons/rt.png',
     colorVar: '--dept-rt',
   },
   media: {
     eyebrow: 'Department',
     title: 'ฝ่ายเวชนิทัศน์',
     icon: 'bi-camera',
+    logo: '/dept-icons/media.png',
     colorVar: '--dept-media',
   },
   hospital: {
