@@ -1822,7 +1822,7 @@ What exists: every neutral colour literal in `src/css/` is a token or a color-mi
 0219, 0220, 0222, 0221, 0223, 0224, then the six proofs below run with
 `node tools/db-query.mjs tools/<proof>.sql` against production, 143/143 PASS (145/145 after 0226 added two privilege checks to year0219)
 (and on samo-dev with `--dev`); team0224's §B2 also shown RED on the agent's
-original function. Bundle deployed the same day; Apps Script v13 deployed after a scan tightened
+original function. Bundle deployed the same day; Apps Script v13 deployed after a scan tightened (now v15: per-request memo of the top-folder ids)
 its handlers (owner asked, 2026-10-14).** The night agent was STOPPED
 after task 7; rows 8–12 never ran.
 
@@ -1861,7 +1861,7 @@ after task 7; rows 8–12 never ran.
 **Still OWED:** the export gate opens on an export
 recorded to LOCAL disk, before any Drive copy succeeds — fine while a human
 runs it, not before anything scheduled calls `vs_scrub_closed_tickets`.
-`server/supabase-backup.*` is written, never run. Apps Script v13 IS deployed
+`server/supabase-backup.*` is written, never run. Apps Script v13 IS deployed (live: v15)
 (2026-10-14): new PR uploads land in `PR/<year>`; `movePRFileToYear` and
 `uploadArchiveFile` are live but only accept `<top>/<year>` (2500–2700), and
 archives are PRIVATE — `src/js/gas-drive-scope.test.js` runs the real file
