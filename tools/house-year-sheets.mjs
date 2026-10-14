@@ -39,6 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { splitHeld, groupOccupantsByCohort, groupBySaiNumber, auditSai } from '../src/js/house/gaps.js';
 import { cohortLabel, houseOf } from '../src/js/house/fields.js';
 import { FIELDS, has } from '../src/js/house/census.js';
+import { isAnsweredEmpty, followUpLabel } from '../src/js/house/follow-up.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -137,7 +138,9 @@ function toRow(r, status, { includeKkumail, problems = [] }) {
     missing: missingFields(r, status),
     problems,
     kkumail: includeKkumail ? (r.kkumail || '') : '',
-    note: '',
+    // What the ฝ่าย already told us (0217), so a re-sent sheet does not ask the
+    // same question as if it had never been answered.
+    note: [followUpLabel(r.follow_up), r.note].filter(Boolean).join(' · '),
   };
 }
 
@@ -294,7 +297,8 @@ export const SAI_HEADER = ['รุ่น', 'สาย', 'ปัญหา', 'ร�
 export function buildSaiIssues(d = {}) {
   const students = d.students || [];
   const held = (d.held || []).filter((h) => !h.resolved_at);
-  const { saiShared, saiGaps, acrossCohorts } = auditSai([...students, ...held], held);
+  const { saiShared, saiGaps, acrossCohorts } = auditSai([...students, ...held], held,
+    (d.held || []).filter(isAnsweredEmpty));
 
   const rows = [];
   for (const g of saiShared) {
@@ -355,7 +359,8 @@ async function main() {
                 nickname_imported, nickname_self, sai_code, cohort_year, kkumail
            from public.students`),
     ask(`select id::text, student_id, first_name_th, last_name_th, nickname_imported,
-                sai_code as sai, cohort_year, resolved_at
+                sai_code as sai, cohort_year, resolved_at, resolved_how,
+                note, file_note, follow_up
            from public.student_import_unresolved`),
   ]);
 

@@ -127,6 +127,9 @@
    left open: "the missing list is entirely hover-only, with no on-screen
    equivalent at all"). Wraps like .sai-cell-name; no truncation. */
 .sai-cell-missing { opacity: 0.85; }
+/* What the ฝ่าย said (0217) — on screen, wrapping, never a tooltip. */
+.sai-cell-note { line-height: 1.15; font-style: italic; overflow-wrap: anywhere; }
+.sai-grid-year-input { width: 9rem; }
 
 /* Duplicate is a BORDER treatment, never colour alone: two people can each
    individually be "ปกติ" and the problem is only visible as a COUNT, so the

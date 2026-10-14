@@ -616,3 +616,35 @@ code, the raw — and let each caller take what it needs. And when you find the
 same ad-hoc error formatting in a second place, look for the third: the number
 of copies is set by how many entry points talk to the service, not by how many
 you happened to open.
+
+## "when i click ตั้งเป็นปีปัจจุบัน it got DELETE requires a WHERE clause" — and "เผยแพร่ปีนี้" had failed the same way for 2½ months
+
+**Symptom.** On the year-rollover preview (2026-10-14), ทีม SAMO → ปีการศึกษา →
+"ตั้งเป็นปีปัจจุบัน" answered `DELETE requires a WHERE clause`. The same
+error was behind "เผยแพร่ปีนี้" in production since 0104 (2026-07-30): no term
+there had ever been published, and nobody had reported it.
+
+**Cause.** `publish_team_term` empties a scratch temp table with a bare
+`delete from _pub_photos;`. PostgREST connects as `authenticator`, whose
+`session_preload_libraries` includes `safeupdate`; that library refuses any
+DELETE/UPDATE without WHERE — inside SECURITY DEFINER functions and the
+triggers a site write fires, too. The handover (0224) calls publish, so it
+inherited the failure. Every proof runs through the Management API, where
+safeupdate is not loaded and CANNOT be (`LOAD 'safeupdate'` → "access to
+library is not allowed"), so 30+ green proof runs said nothing.
+
+**Fix.** 0225: `delete from _pub_photos where true;` (0153's body otherwise
+verbatim). Reproduced first on samo-dev through PostgREST with a throwaway
+anon RPC — bare DELETE → 21000, `where true` → ok — then dropped. A live sweep
+of every API-callable function in production found no other case (the
+`on conflict … do update` hits are not UPDATE statements).
+
+**Where it lives now.** `supabase/migrations/0225_publish_team_term_survives_safeupdate.sql`;
+guard `tools/safeupdate.test.js` reads the NEWEST body of every function in
+the migrations and fails on a WHERE-less DELETE/UPDATE (shown red without
+0225).
+
+**Rule.** A proof run through the Management API is not a request from the
+site: it skips PostgREST's role, its preloaded libraries and its timeouts. A
+function the site calls needs one check that goes THROUGH PostgREST — or a
+source guard for the rule PostgREST adds.

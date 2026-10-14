@@ -12,7 +12,7 @@ different clothes.
 The recurring CLASSES — the part that generalises to code not yet written —
 are in `.claude/rules/mistakes.md`, which every session already has.
 
-## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(19)*
+## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(20)*
 
 Open when: auth.js · db.js · anything calling supabase-js.
 
@@ -35,8 +35,9 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
+- "when i click ตั้งเป็นปีปัจจุบัน it got DELETE requires a WHERE clause"
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(33)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(34)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -73,6 +74,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - `docs/CONTEXT.md` said "any authenticated user can SELECT all" of `public.users`
 - "Make admin samoshop can custom the price for each size"
 - A buyer could write status, timeline and slips on their own order
+- A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC
 
 ## `authz-grants.md` — The permission / seat / scope channel *(22)*
 
@@ -101,7 +103,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(34)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(35)*
 
 Open when: writing a migration.
 
@@ -139,6 +141,7 @@ Open when: writing a migration.
 - The storefront said "sold out" for a size the server would sell
 - A tab opened before a migration re-sends what it LOADED
 - Google accounts were saved as "password"
+- house0188 case 53 red for three weeks
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(107)*
 
@@ -252,7 +255,7 @@ Open when: markup, modals, layout, touch, icons.
 - The VS public board's problem detail could get overwritten by a stale fetch
 - ฝ่ายรังสีเทคนิค borrowed a different concept's colour, not its own
 
-## `app-state.md` — Routing, read-state, caches & serialization *(30)*
+## `app-state.md` — Routing, read-state, caches & serialization *(31)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -286,6 +289,7 @@ Open when: URL state, per-user "seen", import/export.
 - The cart drawer's qty cap never knew about anyone else's reservations
 - Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 - "The public หนังสือโครงการ mirror never refreshed after its first load"
+- "Import the answers the ฝ่าย filled in"
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
 
@@ -358,7 +362,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(71)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(72)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -433,6 +437,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Night agent: task 3 was handed task 2's prompt
 - Night agent said "all 6 tasks done, nothing was skipped"
 - "migration workflow run: all jobs have failed"
+- `db-query.mjs x.sql --dev` ran x.sql on PRODUCTION
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -480,4 +485,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_418 entries across 10 files._
+_423 entries across 10 files._

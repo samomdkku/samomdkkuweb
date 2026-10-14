@@ -106,6 +106,30 @@ export function normalizeStudentId(raw) {
 }
 
 /**
+ * Does the last digit of a รหัสนักศึกษา agree with the first nine?
+ *
+ * KKU's check digit: weight the nine digits 10,9,…,2, sum, and the check is
+ * `(10 - sum % 10) % 10`. Not documented anywhere we could find — MEASURED:
+ * on 2026-10-13 every stored รหัส in `students` (1,647), `people` (1,695) and
+ * `team_members` (447) satisfied it, and no other weighting came close.
+ *
+ * It is a TYPO detector, not a validator of identity: one wrong digit or two
+ * swapped neighbours fail it, a different student's real รหัส passes it.
+ * Deliberately NOT folded into `normalizeStudentId` — the forms accept any ten
+ * digits today, and refusing a shape they have always accepted is a separate
+ * decision from catching a hand-copied answer in an import.
+ *
+ * @returns {boolean|null} null when there are not exactly ten digits to check.
+ */
+export function studentIdChecksumOk(raw) {
+  const d = arabicDigits(String(raw ?? '')).replace(/\D/g, '');
+  if (d.length !== 10) return null;
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) sum += Number(d[i]) * (10 - i);
+  return (10 - (sum % 10)) % 10 === Number(d[9]);
+}
+
+/**
  * Canonicalise a ชั้นปี to a bare digit.
  *
  * Accepts `5`, ` 5 `, `ปี5`, `ปี 5`, `ชั้นปีที่ 5`, `๕`, `5/2569` — anything

@@ -204,15 +204,16 @@
     <!-- ---------- ผังตามสาย ---------- -->
     <div id="houseStudentsGridView" class="d-none" data-house-grid-wrap="1">
       <div id="houseSaiGridWrap">
-        <div class="row g-2 mb-2 align-items-center">
-          <div class="col-6 col-md-3">
-            <input class="form-control form-control-sm" id="houseSaiGridYear" list="houseSaiGridYearList"
-                   placeholder="เลือกรุ่น เช่น MD50" aria-label="เลือกรุ่นเพื่อดูผังตามสาย"
-                   autocomplete="off" />
-            <datalist id="houseSaiGridYearList"></datalist>
-          </div>
-          <div class="col small text-muted" id="houseSaiGridCount"></div>
+        <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+          <!-- Pick a รุ่น with a button OR type it (MD50 / md50 / 50 / 2565). -->
+          <div class="d-flex flex-wrap gap-1" id="houseSaiGridChips" role="group"
+               aria-label="เลือกรุ่นเพื่อดูผังตามสาย"></div>
+          <input class="form-control form-control-sm sai-grid-year-input" id="houseSaiGridYear"
+                 list="houseSaiGridYearList" placeholder="หรือพิมพ์ เช่น 50"
+                 aria-label="พิมพ์รุ่นเพื่อดูผังตามสาย" autocomplete="off" />
+          <datalist id="houseSaiGridYearList"></datalist>
         </div>
+        <div class="small text-muted mb-2" id="houseSaiGridCount"></div>
 
         <!-- Legend: colour is NEVER the only signal — every state below also has
              its own icon and a visible label, both on the legend and on each

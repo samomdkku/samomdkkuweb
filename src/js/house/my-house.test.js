@@ -16,6 +16,7 @@
 // own current class.
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { claimPrecheck } from './help-diagnosis.js';
 
 vi.mock('../db.js', () => ({ dbRest: vi.fn() }));
 vi.mock('../uploads.js', () => ({ convertDriveUrl: (u) => u }));
@@ -611,12 +612,16 @@ describe('wireClaim — every branch a submit can take', () => {
     // รหัสนักศึกษา that is not even 10 digits is a different problem — a typo,
     // not a guess — and mixing it into the neutral sentence would send someone
     // who mistyped a digit to re-read their ชื่อ instead.
+    // Since 2026-10-13 the sentence is claimPrecheck's (help-diagnosis.js), which
+    // also catches a wrong check digit and a รุ่น outside ระบบบ้าน — so assert
+    // the ORDER here and the SENTENCE against the function itself.
     const body = fn();
-    const guard = body.indexOf('if (!norm.ok)');
+    const guard = body.indexOf('claimPrecheck(sid)');
     const call = body.indexOf('await claimMySeat(');
     expect(guard).toBeGreaterThan(-1);
     expect(guard).toBeLessThan(call);
-    expect(body.slice(guard, call)).toContain('ต้องเป็นตัวเลข 10 หลัก');
+    expect(body.slice(guard, call)).toMatch(/if \(pre\)[\s\S]*return;/);
+    expect(claimPrecheck('65999999')).toContain('ต้องเป็นตัวเลข 10 หลัก');
   });
 
   it('a SERVER miss ({ok:false}) shows the server\'s own message and re-enables the button', () => {

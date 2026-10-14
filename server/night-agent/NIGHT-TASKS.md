@@ -1,200 +1,327 @@
-# NIGHT-TASKS — 2026-10-13 (written by the owner's session before /clear)
+# NIGHT-TASKS — 2026-10-14: every system survives into the next SAMO year
 Budget: 6 runs
-Until: 2026-10-14T08:00:00Z
-Reserve sessions: 1
-Branch: agent/2026-10-13
+Until: 2026-10-14T09:00:00Z
+Reserve sessions: 0
+Branch: agent/2026-10-14
+
+THE OWNER'S ASK (2026-10-13, verbatim where it matters): make "every single
+system … persist forever more than this year, self sustainable". Example: the
+PR form has **290 tickets in โพสต์เรียบร้อย (เสร็จสิ้น)**; "the next samoyear the
+new worker if they continue to use this it'll be a mess, so it should can look
+PR Staff Dashboard for each samoyear like หนังสือโครงการ". Questions they want
+DECIDED, not asked back: "what to do with the data, do we should have ways to
+delete it, backup?, export it save at external?, should the drive files that
+saved be separate by samoyear to be organize properly. the จัดการทีม for each
+year." Scope: "every single system from prform vssound samoshop หนังสือโครงการ
+adminteamsamo ระบบบ้าน หน้าฝ่าย etc every single function in the samoweb,
+adminsamo, samopassport". They want you to "plan, thinking all edge case
+thoroughly, handle everything, decide everything. and implement it all",
+re-check with **/scrutinize** (installed: use the Skill tool, skill name
+`scrutinize`), "best practice, best way", "also scan for bugs, properly handoff".
+The budget is everything until the weekly reset, 2026-10-14 16:00 ICT.
 
 ⛔ **CONSTRAINTS THAT APPLY TO EVERY TASK. Read them before you start.**
 
-- **You have NO database access.** `tools/db-query.mjs`, `apply-migration` and
-  `.env.local` are denied. You may WRITE a migration and a proof script; you
-  cannot RUN either. The owner's next session applies them (dev first, then
-  production) and runs the proof. Say "written, not applied" wherever it matters.
-- **You cannot push, deploy, or touch production.** Commit on this branch. Every
-  run of this queue continues the SAME branch (`agent/2026-10-13`): read
-  `git log --oneline origin/main..HEAD` first — an earlier run may already have
-  done part of your task. Never reset, rebase or merge the branch.
-- **Migration numbers are RESERVED:** task 1 owns `0212`, task 2 owns `0213`.
-  A security fix from tasks 3–4 that needs SQL takes `0214`, `0215`, … in order.
-  `migration-numbers.test.js` must stay green.
-- **`STATE.md` is checked by `state-handoff.test.js`:** its "Migrations through
-  NNNN" must equal the highest file on disk, and its live-proof count must
-  equal what `tools/run-proofs.mjs` registers. When you add a migration or a
-  proof, update those two facts in the SAME commit, and write next to them that
-  0212+ are WRITTEN BY THE NIGHT AGENT, NOT APPLIED. Never claim a proof passed.
+- **You have samo-dev, and ONLY samo-dev.** `~/samo-agent/.env.local` holds
+  samo-dev's URL, anon key and access token and nothing else; that token answers
+  403 on production (measured 2026-10-13). So you CAN and SHOULD:
+  `node tools/apply-migration.mjs supabase/migrations/NNNN_*.sql --dev`, then run
+  your proof with `node tools/db-query.mjs tools/<proof>.sql`, read every
+  verdict line, and fix until green — and prove it RED first where you can
+  (run the proof before the migration, or reintroduce the bug, and watch it
+  fail). Every tool prints `→ project: <ref> (<label>)`: the only acceptable ref
+  is samo-dev's; if you ever see a different one, STOP that task and write why.
+  ⚠️ samo-dev holds an UNMASKED copy of real student data (decision D1): never
+  print rows of people into commits, docs or logs — counts and synthetic probe
+  rows only, and roll back or delete what you create. samo-dev's data is NOT
+  production's (e.g. it has no open ระบบบ้าน held rows) — CREATE the rows a
+  scenario needs, inside the proof's transaction. Production is applied by the
+  owner's next session after review: say "applied to samo-dev, proof N/N; NOT on
+  production" wherever it matters. Use the facts below for production numbers.
+- **You cannot push, deploy, run Apps Script, or touch production.** Commit on
+  this branch. Every run CONTINUES `agent/2026-10-14`: read
+  `git log --oneline origin/main..HEAD` and `docs/YEAR-ROLLOVER.md` first — an
+  earlier task decided things you must build on, not re-decide. Never reset,
+  rebase or merge the branch.
+- **Migration numbers are RESERVED, one block per task** so cold runs never
+  collide: task 2 → 0219, task 3 → 0220, task 4 → 0221, task 5 → 0222, task 6 →
+  0223, task 7 → 0224, task 8 → 0225, task 9 → 0226, task 10 → 0227–0228, task 11 → 0229.
+  A task that needs no migration leaves its number unused (a gap is fine;
+  `migration-numbers.test.js` must stay green — read it).
+- **ADD, never DROP, in these migrations.** Production runs the CURRENT bundle
+  until the owner deploys yours; a dropped or renamed column breaks it
+  (`skills/ship-a-migration.md`). New columns get defaults or are nullable, and
+  old code must keep working against the new schema.
+- **Read the LIVE-equivalent body before redefining a function**: the newest
+  migration that defines it (`grep -l "function public.<name>" supabase/migrations/* | sort | tail -1`),
+  NEVER the first one. 0193 rebuilt a function from an old copy and silently
+  reverted 0190 for three weeks (`docs/mistakes/postgres-schema.md`, newest entry).
+- **Every new SECURITY DEFINER gate**: write it so it FAILS CLOSED — since 0218
+  `current_user_role()` returns '' not NULL, but still prefer
+  `if not coalesce(<check>, false) then raise`. Read `docs/mistakes/authz-rls.md`
+  and `.claude/rules/mistakes.md` classes 1, 2, 4, 5 before any RLS or RPC.
+  Pair every DENY assertion in a proof with an ALLOW over the same rows, pick
+  probe subjects by the gate's own predicate (never `role = 'dev'` — there are
+  ZERO dev accounts in production), and register proofs in `tools/run-proofs.mjs`.
+- **`STATE.md` is checked by `state-handoff.test.js`:** "Migrations through
+  NNNN" must equal the highest file on disk and the live-proof count must equal
+  what `tools/run-proofs.mjs` registers. Update both in the SAME commit as a new
+  migration/proof, and write beside them that 0219+ are NIGHT-AGENT WORK,
+  applied to samo-dev only, NOT production. Claim a proof result only for a run
+  you did, on samo-dev, with its N/N. STATE.md has a line budget —
+  keep it short; detail goes to `docs/YEAR-ROLLOVER.md`.
 - **The repo AND `docs/` are PUBLIC** (docs/ is served at samo.md.kku.ac.th/docs).
-  Never commit detail of a STILL-OPEN security hole. Security findings go to
-  `~/samo-night/reports/` (outside the repo; create the directory). Commit
-  messages for security fixes say what was tightened, not how to exploit it.
-- **Memory**: ~60 files at the path in your preamble. Read the ones relevant to
-  your task — they hold decisions that are nowhere in the repo.
-- Follow `CLAUDE.md`: bug write-ups in `docs/mistakes/*.md` for bugs you FIX, a
-  `PENDING` entry in `src/data/changelog.js` for anything a person would NOTICE
-  (plain Thai, `changelog.test.js` enforces the rules), keep `STATE.md` short.
-  Run `npm run mistakes:index` after a write-up. Thai UI text, no emojis in UI,
-  light theme only. `npm test` and `npm run build` green before every commit.
-- **Commit as you go** (`git commit` per meaningful step). A run can be cut off by
-  the quota at any moment; uncommitted work is swept into a WIP commit, but a
-  coherent commit is worth more to the morning reviewer.
+  No student names, no emails, no open-security-hole detail. Security findings
+  go to `~/samo-night/reports/` (outside the repo).
+- **Memory**: ~65 files at the path in your preamble — decisions that live
+  nowhere else. Read the ones your task touches (team-identity-is-kkumail,
+  one-person-registry, master-grants-all-project-seats, perms-architecture,
+  passport-*, shop-*, vs-workflow-direction, gas-*, upload-on-save-not-on-pick,
+  trashed-drive-file-still-public, docs-are-published, our-bug-our-repair …).
+- Follow `CLAUDE.md`: write-ups in `docs/mistakes/*.md` for bugs you FIX
+  (`npm run mistakes:index` after), a `PENDING` entry in `src/data/changelog.js`
+  for anything a person would NOTICE (plain Thai, `changelog.test.js` enforces
+  it), Thai UI text, no emojis in UI, light theme only, tokens not raw colours.
+  `npm test` and `npm run build` green before every commit.
+- **UI**: every admin control must work at 390px wide with no sideways scroll.
+  If you add a year picker, REUSE one component for every system (the owner's
+  ask was "like หนังสือโครงการ", whose ปีงบ filter is the model — read
+  `src/js/projects/` for it) — one picker, one source of years, never a copy per
+  system (class 6).
+- **Before you end ANY task**: run the `scrutinize` skill on your own diff for
+  that task (`git diff <your first commit>^..HEAD`), fix what it finds, then
+  append a block to `docs/state/night-agent.md` headed EXACTLY
+  `## Task N — <system> (2026-10-14)` (N = your task number; the runner's check
+  looks for that heading, so write it LAST, only when the task is finished, and
+  never write another task's heading): what you built, every
+  decision with the alternative you rejected, what is WRITTEN NOT APPLIED, and
+  the exact commands the owner runs next. Update your row in the HANDOFF section
+  task 1 creates.
+- **Commit as you go.** A run can be cut off by the quota at any moment.
 
 ⛔ **THERE IS NO HUMAN AWAKE. NEVER END A TASK BY ASKING A QUESTION.**
-When something is ambiguous, decide, act, and record what you chose, what you
-rejected and what would change your mind — in the file you are writing, or in
-`docs/state/night-agent.md`. A defended decision the owner can overturn is
-worth far more than a question nobody reads until morning.
+Decide, act, record what you chose, what you rejected and what would change
+your mind. A defended decision the owner can overturn beats a question nobody
+reads until morning.
+
+**FACTS MEASURED ON PRODUCTION, 2026-10-13 (you cannot query production; use these):**
+
+- Whole database: **60 MB** (Supabase free tier: 500 MB). Biggest tables:
+  `analytics_events` 26,266 rows / 10 MB since 2026-07-23 (per month: Jul 3,624 ·
+  Aug 12,725 · Sep 7,766 · Oct 1–13 3,732); `claude_usage_samples` 3,511 / 6.8 MB
+  since 2026-08-15; `project_notifications` 3,897 / 1.9 MB; `notify_log` 581;
+  `students` 1,647; `people` 1,698; `users` 756.
+- **PR** `pr_tickets`: 311 rows since 2026-05-22 — โพสต์เรียบร้อย (เสร็จสิ้น) 290 ·
+  รอ PR รับเรื่อง 12 · PR รับเรื่อง 7 · รอโพสต์ตามกำหนดการ 1 · รับบรีฟแล้ว 1; 11 soft-deleted.
+- **VitalSound** `vs_tickets`: 119 since 2026-05-29 — เสร็จสิ้น 53, the rest open
+  across 8 statuses; `vs_public_comments` 16, `vs_followers` 5, `vs_tags` 11.
+- **Shop** `shop_orders` 43 (paid 35, review 9), latest 2026-10-13; 3 products.
+  shop_orders has `updated_at` but NO `created_at`.
+- **หนังสือโครงการ** `projects` 42: `fiscal_year_be` = 2570 on 11, **NULL on 36**;
+  `project_documents` 87, `project_files` 155, `project_sign_requests` 25.
+- **ทีม SAMO** `team_terms`: year 2569 `is_current=true`, year 2570 exists,
+  `published_at` NULL on both; `team_archive_nodes`/`team_archive_members` exist
+  and are EMPTY; `team_nodes` 300, `team_members` 450. See 0104/0106 and
+  `publish_team_term` — a term/archive mechanism already exists; build on it.
+- **Passport** has its own year model: `passport.samo_years` (one row, name
+  "MDKKU SAMO'69", started 2026-06-17, `ended_at` NULL) and `passport.samo_seasons`
+  (one: "Q2"); `passport.scans` 1,161 (2026-06-17 → now) carry `samo_year_id`.
+  There is ALSO `passport.seasons` (separate table — find out which is live).
+- **ระบบบ้าน** covers MD49–MD54 (owner: MD47/48 are not added). ชั้นปี is derived
+  from `academicYear()` + รหัส (`src/js/study-year.js`); MD49 is ปี 6 now and
+  graduates. 0217 (applied) gave held rows a `follow_up` flow.
+- Three existing "year" notions, none shared: `team_terms.year` (BE, 2569),
+  `passport.samo_years` (uuid + name), `projects.fiscal_year_be` (ปีงบ, Oct-start)
+  plus `study-year.js`'s academic year (rollover month 8). Unifying the SAMO-year
+  notion WITHOUT breaking the other three is task 2's job.
+- Drive: uploads go through Apps Script into "My Drive/IT Database/{PR,Projects,
+  Shop,Team,Passport}" (memory gas-apps-script-topology; `appscript/*.gs`). A
+  trashed Drive file is still PUBLIC (memory trashed-drive-file-still-public).
 
 ---
 
-## 1. หนังสือโครงการ: ผู้ส่งหนังสือ tags each โครงการ with ฝ่ายสโม, and everyone can filter by it
-Done when: test -f supabase/migrations/0212_project_samo_depts.sql && test -f tools/proj0212-samo-depts.mjs && grep -rq samo_depts src/js/projects && grep -q samo_depts src/js/projects-view.js && npm test --silent && npm run --silent build
+## 1. PLAN — decide the SAMO-year model for every system (design doc, no app code)
+Done when: test -s docs/YEAR-ROLLOVER.md && node -e "const s=require('fs').readFileSync('docs/YEAR-ROLLOVER.md','utf8');const need=['## Inventory','## The SAMO year','## PR','## VitalSound','## SAMO Shop','## หนังสือโครงการ','## ทีม SAMO','## เกี่ยวกับเรา','## ระบบบ้าน','## หน้าฝ่าย','## Passport','## Announcements','## Accounts','## Stats','## Claude booking','## Discord','## Drive','## Backup','## Export','## Deletion','## Year-end runbook','## Edge cases','## Build order'];const miss=need.filter(h=>!s.includes(h));const dec=(s.match(/^Decision:/gm)||[]).length;if(miss.length||dec<20){console.error('missing',miss,'decisions',dec);process.exit(1)}" && grep -q "Status:" docs/state/HANDOFF.md && grep -q "SAMO-year handover" docs/state/HANDOFF.md && npm test --silent
 
-ASKED by the owner: "for each โครงการ ผู้ส่งหนังสือ can tag the โครงการ to
-ฝ่ายสโม … then they can filter it by ฝ่ายสโม … also do filter for the normal
-people view from the samoweb that isn't in the admin".
+Write `docs/YEAR-ROLLOVER.md`: the design every later task builds. Read the code
+for EVERY system first — public (`src/js/`), admin (`src/js/admin-main.js` and
+the modules it mounts), Passport (`passport/`), Apps Script (`appscript/`), the
+VM services (`server/`), and the migrations. Then, per system (the headings in
+the check above, each its own `## ` section), write:
+- **Inventory**: every table/column/Drive folder/service it owns, how it grows
+  (use the measured numbers), and what a new team on day 1 of next year sees.
+- **Decision:** lines (one decision per line, starting `Decision:`): how data is
+  scoped to a SAMO year, what the default view shows, how a past year is browsed
+  (read-only? editable by whom?), what carries over (open PR/VS tickets, unpaid
+  shop orders, permissions, seats, people, houses), what is archived, exported,
+  deleted, and WHEN and BY WHOM. Each with the rejected alternative and why.
+- Answer the owner's questions explicitly: delete? backup? export to external?
+  Drive folders per year? จัดการทีม per year? Ground deletion in PDPA (VitalSound
+  carries personal data; read its PDPA notice in the code) — retention periods
+  stated, anonymise vs delete, who may trigger it, and that nothing is deleted
+  without an export first.
+- `## The SAMO year`: ONE definition. Decide the boundary (term handover, not
+  1 January; read team_terms / publish_team_term / passport.samo_years and how
+  `is_current` flips), its single source of truth in SQL with a JS twin, how it
+  relates to ปีงบ and the academic year (they stay; say how each system picks
+  which one), and how a row gets its year (stored at write time vs derived from
+  a timestamp — decide; consider late edits and back-dated rows).
+- `## Stats`: storage projection (500 MB ceiling) and a retention/rollup plan.
+- `## Edge cases`: at least 25, each with the handling — e.g. a ticket opened in
+  one year and closed in the next; a person in two terms; a staffer who leaves
+  mid-year still holding a grant; a PR ticket edited after archive; a
+  rollover run twice; a rollover undone; a year with no term published yet;
+  Drive files of a deleted row; shop preorders spanning the boundary; a held
+  ระบบบ้าน row across the academic rollover; master holders; anonymous
+  (username) accounts of people who graduated; Discord roles after handover.
+- `## Year-end runbook`: the ordered checklist the next IT team runs, which
+  becomes `skills/year-rollover.md` in task 2.
+- `## Build order`: map the decisions to tasks 2–11 of this queue and their
+  reserved migration numbers.
 
-Facts measured on production 2026-10-13 (you cannot query them):
-- `public.projects` (41 rows): id text, name, description, status, created_by,
-  created_at, updated_at, drive_folder_url, drive_folder_id, is_public boolean,
-  fiscal_year_be smallint. Policies: projects_read, projects_read_public,
-  projects_insert, projects_update, projects_delete. anon has SELECT (public
-  projects via projects_read_public).
-- "ฝ่ายสโม" = the ฝ่ายของอุปนายก list the site already uses: **`VS_DEPTS` in
-  `src/js/team-vocab.js`** (12 values: นายกสโม, SE, อุปนายกฝ่าย…). Use THOSE
-  values. Do not invent a second list (mistakes class 6).
-- The public view is the `/projects-view` route: `src/js/projects-view.js`,
-  which mounts the projects module in role='customer' mode. The admin side is
-  `src/js/projects/` (inbox.js, manage.js, index.js, data.js, api.js).
-- The ผู้ส่งหนังสือ desk is project seat `vpa` (PROJECT_SEATS in team-vocab.js;
-  `current_user_project_seats()` in SQL; `master` folds into every seat — read
-  memory `master-grants-all-project-seats.md` and `.claude/rules/mistakes.md`
-  class 5 before writing any seat check).
+Also add a section to `docs/state/HANDOFF.md` titled `## 22. SAMO-year handover
+— night agent 2026-10-14` with a `Status:` line (HYPOTHESIS until applied) and a
+table: one row per task (what, migration, proof, applied?, owner action).
+Run `scrutinize` on the finished design before you end (it is a plan — the
+skill reviews plans too), and fix what it finds in the doc.
 
-Build:
-1. `supabase/migrations/0212_project_samo_depts.sql`: `projects.samo_depts
-   text[] not null default '{}'`. Writes go through ONE SECURITY DEFINER RPC
-   `set_project_samo_depts(p_project text, p_depts text[])` that checks the
-   caller holds the vpa desk (or master), refuses an unknown value, and writes
-   only that column. ⛔ `projects_update` is a ROW policy, which grants every
-   column (mistakes class 1): make sure a caller who can update a project row
-   for another reason cannot set `samo_depts` directly — a column guard in a
-   BEFORE UPDATE trigger, exempting the RPC, is the usual shape here. If the
-   allowed list is written in SQL, add a vitest that parses the migration and
-   asserts it EQUALS `VS_DEPTS` values (a differential test, not a comment).
-2. `tools/proj0212-samo-depts.mjs`, in the shape of `tools/discord0208-panel.mjs`
-   (rolled-back transaction, DENY beside ALLOW over the same rows): a non-vpa
-   user is refused, a vpa holder and a master can tag, an unknown ฝ่าย is
-   refused, a direct UPDATE of the column by a non-vpa row-editor changes
-   nothing, anon reads tags only on public projects. Register it in
-   `tools/run-proofs.mjs`. You cannot run it — say so.
-3. Admin (`src/js/projects/`): on a project, a ฝ่าย tag picker (chips, several
-   allowed) shown to the vpa desk; tags shown as chips on the project in the
-   inbox/list; a "ฝ่าย" filter in the list toolbar that combines (AND) with the
-   filters already there and survives the module's URL/hash state if it has one.
-4. Public (`/projects-view`): the same chips and a ฝ่าย filter. Read-only.
-5. Pure filter logic in a function with vitest coverage (one tag, several tags,
-   no tag, unknown tag value from old data still renders).
-6. Two `PENDING` changelog entries (staff: tagging; public: filtering).
+## 2. The ONE SAMO year — foundation, admin control, runbook
+Done when: ls supabase/migrations/0219_*.sql >/dev/null 2>&1 && test -f tools/year0219-samo-year.sql && test -f skills/year-rollover.md && grep -rqi "samo.year\|samoYear" src/js --include=*.js && grep -q "year0219" tools/run-proofs.mjs && npm test --silent && npm run --silent build
 
-## 2. หน้าฝ่าย: every ฝ่าย exists, and its people can be given the right to edit it
-Done when: test -f supabase/migrations/0213_dept_pages_for_every_dept.sql && node --input-type=module -e "import('./src/data/depts.js').then(({DEPT_DEFS})=>{const have=Object.values(DEPT_DEFS).map(d=>d.title);const want=['สำนักนายกฯ','ฝ่ายบริหารองค์กร','ฝ่ายดิจิทัลและสื่อสารองค์กร','ฝ่ายกิจการภายใน','ฝ่ายกิจการภายนอก','ฝ่ายกิจการมหาวิทยาลัย','ฝ่ายวิชาการ','ฝ่ายยุทธศาสตร์และพัฒนาองค์กร','ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม','ฝ่ายรังสีเทคนิค','ฝ่ายเวชนิทัศน์','ฝ่าย รพ. ร่วมผลิต'];process.exit(want.every(w=>have.includes(w))?0:1)})" && npm test --silent && npm run --silent build
+Build what `docs/YEAR-ROLLOVER.md` § The SAMO year decided: the single source of
+truth in SQL (migration 0219, ADD only), a SQL function returning a row's/
+timestamp's SAMO year, a JS twin with a DIFFERENTIAL test that parses the
+migration (the 0217 `follow-up.test.js` pattern), the admin control to see and
+switch the current year (gated by `master`/the decided permission; fail-closed;
+`master` folds — read memory master-grants-all-project-seats), and ONE shared
+year-picker component every later task reuses. Proof `tools/year0219-samo-year.sql`
+(rolled back; ALLOW + DENY; idempotent rollover; a timestamp exactly on the
+boundary) — applied to samo-dev and green there before you finish. Write `skills/year-rollover.md` from the runbook — the document the
+next IT team follows. Keep passport.samo_years, team_terms and ปีงบ working:
+link them, do not replace them.
 
-ASKED by the owner: "the หน้าฝ่าย tab, currently there's not all ฝ่าย exist,
-people have complaint that there isnt their ฝ่าย and cant go in to edit, add all
-ฝ่าย, and the permission".
+## 3. PR Form — a dashboard per SAMO year, export, Drive per year
+Done when: grep -q "^## Task 3 " docs/state/night-agent.md && grep -rqi "samo.year\|samoYear\|yearPicker\|year-picker" src/js/pr* src/js/admin* 2>/dev/null && npm test --silent && npm run --silent build
 
-Facts measured on production 2026-10-13: the ทีม SAMO tree (`team_nodes`, kind
-'division', parent NULL) has these 12 top-level ฝ่าย, EXACT names:
-สำนักนายกฯ · ฝ่ายบริหารองค์กร · ฝ่ายดิจิทัลและสื่อสารองค์กร · ฝ่ายกิจการภายใน ·
-ฝ่ายกิจการภายนอก · ฝ่ายกิจการมหาวิทยาลัย · ฝ่ายวิชาการ ·
-ฝ่ายยุทธศาสตร์และพัฒนาองค์กร · ฝ่ายคุณภาพชีวิตและสิ่งแวดล้อม · ฝ่ายรังสีเทคนิค ·
-ฝ่ายเวชนิทัศน์ · ฝ่าย รพ. ร่วมผลิต
-(also at top level and NOT ฝ่าย: อาจารย์, เจ้าหน้าที่คณะแพทย์, and a test node
-"เอิงtesting" — leave those out). `DEPT_DEFS` in `src/data/depts.js` has only 6
-(admin, digital, academic, strategy, media, rt). Missing: สำนักนายกฯ,
-กิจการภายใน, กิจการภายนอก, กิจการมหาวิทยาลัย, คุณภาพชีวิตและสิ่งแวดล้อม,
-รพ. ร่วมผลิต. `src/css/base.css` already has `--dept-internal`,
-`--dept-external`, `--dept-university`, `--dept-quality`; สำนักนายกฯ and
-รพ. ร่วมผลิต need tokens of their own (distinct from the other ten). The SQL
-side deliberately does NOT hardcode the key list (0177 line 58).
+The owner's example. The PR Staff Dashboard shows the CURRENT year by default
+with the shared picker to browse past years (read-only per the design); the 290
+finished tickets of year 2569 must stop crowding the next team's view without
+being lost. Open tickets that cross the boundary follow the design. Export a
+year (CSV, the repo's CSV-formula-safe writer — grep `csv` in src/js for it).
+Drive: new uploads go to a per-year folder — edit `appscript/*.gs` (NOT deployed;
+the owner runs `npm run deploy:gas`; read `skills/deploy-gas.md` and memory
+gas-is-an-unauthenticated-api first) and write a one-shot, DRY-RUN-by-default
+mover for existing files (Apps Script function or `tools/` script) the owner runs
+after review. Never trash a file to move it (trashed = still public).
+Find every reader of PR data (public PR form status page, Discord notify,
+analytics) and make each year-aware or explicitly year-agnostic — say which.
 
-Build:
-1. Add the six to `DEPT_DEFS` (stable lowercase keys, e.g. office, internal,
-   external, university, quality, hospital; titles EXACTLY as above). Everything
-   that derives from DEPT_DEFS (the ฝ่าย page grant picker DEPT_PAGES in
-   team-vocab.js, the public หน้าฝ่าย routes in `src/js/departments.js`, the
-   tools registry `src/data/tools.js`, `src/html/tab-departments.html` if it
-   lists ฝ่าย) must show all 12. A new ฝ่าย with no content yet shows a calm
-   empty state, never a broken page. Check `src/js/dept-page-admin.js`: the
-   /admin/ → หน้าฝ่าย picker must offer the new ones to a scoped editor.
-2. Permission. Read `current_user_dept_page_scope()` (0177, ~line 130) and
-   decide from the CODE whether a `dept_page` set on a node is inherited by
-   everyone posted under it. Write `supabase/migrations/0213_dept_pages_for_every_dept.sql`
-   (NOT applied) that sets `team_nodes.dept_page` on each of the 12 top-level
-   ฝ่าย nodes, matched by EXACT name, only where it is NULL, so the people of a
-   ฝ่าย can edit that ฝ่าย's page. If inheritance would also let someone edit a
-   page they should not, or let a member PUBLISH without review, narrow it and
-   say why. Record the decision at the top of the migration. A proof
-   `tools/dept0213-every-dept.mjs` (rolled back; a member of one ฝ่าย can edit
-   theirs and NOT another's), registered in run-proofs.
-3. vitest: DEPT_DEFS ⊇ the 12 titles; every key has a colour token that exists
-   in base.css; DEPT_PAGES offers all 12.
-4. A `PENDING` changelog entry: every ฝ่าย has its page now.
+## 4. ทีม SAMO + จัดการทีม + permissions handover + Discord roles
+Done when: grep -q "^## Task 4 " docs/state/night-agent.md && grep -rqi "samo.year\|samoYear\|team_terms\|term" src/js/team/*.js && npm test --silent && npm run --silent build
 
-## 3. SECURITY REVIEW (deep) — the database
-Done when: test -s "$HOME/samo-night/reports/2026-10-13-security-db.md" && grep -q '^## Verdict' "$HOME/samo-night/reports/2026-10-13-security-db.md" && npm test --silent
+"the จัดการทีม for each year". Build on `team_terms` + `publish_team_term` +
+`team_archive_*` (empty today): next year's team is prepared without touching
+this year's, published at the boundary, and the old one becomes a browsable
+archive. Decide and implement what happens to PERMISSIONS at handover (grants
+live on ทีม SAMO nodes and on users.permissions/managed_permissions — read
+memory perms-architecture, master-grants-all-project-seats, discord-website-is-truth):
+nothing must silently keep power after their term; nothing must silently LOSE
+power on the morning of the handover with no successor. Discord roles follow
+the website (the sync bot reads `discord_role_targets()` — check it reads the
+CURRENT term). Migration 0224 if needed, proof registered.
 
-Thorough and adversarial. The owner asked for "thoroughly intensive".
-Scope: every RLS policy, every SECURITY DEFINER function, every GRANT/REVOKE,
-every trigger, across `supabase/migrations/` — take the LATEST definition of
-each object (a later migration replaces an earlier one; build an index first).
-Include this branch's 0212/0213 and 0211 (`account_dashboard`, master-only).
-`passport` schema too (memory `passport-security-hardening-inflight.md`).
-Method: the seven classes in `.claude/rules/mistakes.md` are your checklist —
-go object by object, not class by class. Read `docs/mistakes/authz-rls.md` and
-`authz-grants.md` first; do not re-report what they record as fixed.
-For each finding: severity (critical/high/medium/low), object + file:line,
-who can do what to whom, the fix. FIX what you can safely fix: frontend code
-directly; SQL as a new migration (0214+, NOT applied) with a proof script.
-Report: `~/samo-night/reports/2026-10-13-security-db.md` (OUTSIDE the repo —
-it may describe open holes), ending with `## Verdict` (what is fixed on the
-branch, what is open, what the owner must do first).
+## 5. Backup, export, deletion — the data-safety layer every system uses
+Done when: grep -q "^## Task 5 " docs/state/night-agent.md && test -f tools/year-export.mjs && test -f skills/backup-and-export.md && node tools/year-export.mjs --help >/dev/null && npm test --silent
 
-## 4. SECURITY REVIEW (deep) — the app, the servers, Apps Script
-Done when: test -s "$HOME/samo-night/reports/2026-10-13-security-app.md" && grep -q '^## Verdict' "$HOME/samo-night/reports/2026-10-13-security-app.md" && npm test --silent && npm run --silent build
+Implement the design's backup/export/deletion answers once, for all systems:
+`tools/year-export.mjs` (per system and per year → JSON + CSV into a target
+directory; dry-run/plan by default; reads through the same column lists the app
+uses; never prints personal data to stdout — counts only), how it reaches
+"external" storage (Drive "IT Database/Archive/<year>/" via Apps Script, or the
+vault — decide, write the code, do not run it), and a backup schedule for the
+whole database (read `server/vaultwarden/backup.sh` + its timer for the VM
+pattern; SUPABASE_DB_URL is IPv6-only — say how the VM reaches it or why it
+cannot). Deletion/anonymisation: SECURITY DEFINER RPCs that REFUSE unless the
+year's export is recorded as done, dry-run first, `return=representation`-style
+counts (read `delete-guard.test.js`). `skills/backup-and-export.md` is the human
+procedure. Unit tests with stubbed DB/Drive asserting what goes OUT (the
+`docs/mistakes` "source guard is a review, not a test" lesson).
 
-Scope: `src/` (every `innerHTML`/template with data in it, `safeUrl`, iframes
-and the ฝ่าย tool sandbox — memory and `docs/INVARIANTS.md` "A ฝ่าย's own HTML is
-ISOLATED", auth flows in `auth.js`, open redirects, CSV injection, anything that
-trusts a client-side role), `server/*.mjs` (notify, discord oauth + sync —
-injection, SSRF, auth on every route), `server/nginx-samo.conf`, `appscript/*.gs`
-(memory `gas-is-an-unauthenticated-api.md`: Execute-as-Me + Anyone — every
-handler that takes an id or address), `passport/js/`, secrets in tracked files.
-Same reporting and fixing rules as task 3; report
-`~/samo-night/reports/2026-10-13-security-app.md` ending `## Verdict`.
+## 6. VitalSound — per-year board and staff view, PDPA retention
+Done when: grep -q "^## Task 6 " docs/state/night-agent.md && grep -rqi "samo.year\|samoYear\|yearPicker\|year-picker" src/js/vs* src/js/vitalsound* 2>/dev/null && npm test --silent && npm run --silent build
 
-## 5. BUG REVIEW (deep) — the admin app
-Done when: test -s docs/state/agent-notes/2026-10-13-bug-review-admin.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-13-bug-review-admin.md && npm test --silent && npm run --silent build
+The public board and the staff view by year; open tickets carry over per the
+design; PDPA retention through task 5's layer (anonymise personal fields of
+closed tickets after the decided period; the public board's content stays if
+the design says so). Confidential tickets: read memory vs-workflow-direction
+and every VS policy before touching reads — authorization is per PATH
+(class 4). Migration 0221 if needed, proof registered.
 
-Scope: `admin/index.html`, `src/js/admin-main.js` and every admin module —
-projects, shop admin, team, house, VS/PR, creator/announcements, dept pages,
-discord bot, accounts (บัญชีผู้ใช้, new this week), and this branch's own work
-from tasks 1–2. Hunt REAL bugs: wrong results, stale state across re-renders
-and account switches, listeners added per render, a message turned on and never
-off, a filter that loses rows, a count that disagrees with its list, error
-paths that fail silently, mobile overflow. `docs/mistakes/frontend-ui.md` and
-`app-state.md` hold the shapes this repo keeps repeating — read them first.
-For each CONFIRMED bug: fix it with a test that fails without the fix (do the
-mutation ritual: break it, see red, restore), write it up in `docs/mistakes/`.
-Report `docs/state/agent-notes/2026-10-13-bug-review-admin.md` (public — fixed
-bugs only; anything security-flavoured goes to the private report of task 4),
-ending `## Verdict`.
+## 7. หนังสือโครงการ — ปีงบ completeness, Drive per year, seats across years
+Done when: grep -q "^## Task 7 " docs/state/night-agent.md && ls supabase/migrations/0223_*.sql >/dev/null 2>&1 && npm test --silent && npm run --silent build
 
-## 6. BUG REVIEW (deep) — the public site and Passport
-Done when: test -s docs/state/agent-notes/2026-10-13-bug-review-public.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-13-bug-review-public.md && npm test --silent && npm run --silent build
+36 of 42 projects have NO `fiscal_year_be`: write migration 0223 that fills it
+from the rule the app already uses (find it — do not invent a second one; the
+ปีงบ starts in October) for NULL rows only, plus a proof. Decide how the SAMO
+year and ปีงบ coexist here (the owner cited this module as the model — keep its
+ปีงบ filter, add whatever the design says). Drive folders per year via
+`appscript/` (not deployed). Project seats (vpa/staff/prof) across a handover —
+read memory master-grants-all-project-seats before touching seats.
 
-Scope: `index.html`, `src/js/main.js` and every public module (home, news,
-VS/PR forms, shop storefront + checkout, my-seat/my-house, about/org chart,
-projects-view including task 1's filter, dept pages including task 2's new
-ones), and `passport/` (scan, dashboard, admin). Same method and rules as task
-5; report `docs/state/agent-notes/2026-10-13-bug-review-public.md` ending
-`## Verdict`.
+## 8. ระบบบ้าน + ข้อมูลของฉัน — academic-year rollover, graduates, the next รุ่น
+Done when: grep -q "^## Task 8 " docs/state/night-agent.md && npm test --silent && npm run --silent build
+
+What happens when the academic year rolls (`saveAcademicYear`): MD49 graduates
+(ปี 7 → "จบแล้ว" per study-year.js), MD55 arrives through the import loop
+(`skills/import-the-house-roster.md`), held rows (0217 follow_up) and help
+requests across the rollover, graduates' accounts, houses/สาย reuse. Make the
+admin pane and `help-diagnosis.js`'s covered-รุ่น range follow it with no code
+change next year. Migration 0225 if needed, proof registered.
+
+## 9. SAMO Shop — orders and products across seasons
+Done when: grep -q "^## Task 9 " docs/state/night-agent.md && npm test --silent && npm run --silent build
+
+Per-year order history and admin view, products/banners/pickup batches that
+belong to a season, preorders spanning the boundary, the shop Discord totals
+(`shop_order_totals`), export via task 5. Prices stay server-side (memory
+shop-price-is-server-side). Migration 0222 if needed (shop_orders has no
+created_at — decide how its year is known), proof registered. Also walk the
+customer flow end to end in the code for the owner's listed worry: "login ด้วย
+username password แล้วซื้อแบบนี้ กดออกไปหน้านี้แล้วมีปัญหา" — fix what breaks.
+
+## 10. Passport, หน้าฝ่าย, announcements, stats, Claude booking, accounts
+Done when: grep -q "^## Task 10 " docs/state/night-agent.md && ls supabase/migrations/0227_*.sql >/dev/null 2>&1 && npm test --silent && npm run --silent build
+
+Passport: link `passport.samo_years` to the one SAMO year (task 2) and make a new
+year/season startable by an admin without SQL; leaderboard per year; last year
+browsable. หน้าฝ่าย content per year (or explicitly year-agnostic — decide).
+Announcements: archive by year. Stats: the retention/rollup from the design —
+migration 0227 (daily rollup table + a prune function that keeps the rollup;
+how it is scheduled: pg_cron if available, else a VM timer — decide) with a
+proof; same for `claude_usage_samples`, `notify_log`, `project_notifications`.
+Accounts: graduates and departing staff (memory shared-account-purge,
+team-identity-is-kkumail). 0228 for anything else here.
+
+## 11. SCRUTINIZE + BUG SCAN of everything on this branch, and of 2026-10-13's work
+Done when: test -s docs/state/agent-notes/2026-10-14-review.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-14-review.md && npm test --silent && npm run --silent build
+
+Run `scrutinize` over `git diff origin/main..HEAD` (this branch, all tasks) AND
+over the owner session's work of 2026-10-13 (`git log --since=2026-10-13
+origin/main`, notably 0217/0218, `src/js/house/{follow-up,help-diagnosis,sai-grid,gaps,index}.js`,
+`tools/house-kkumail-import.mjs`). Then a bug scan of the whole app (public,
+admin, Passport) focused on what the year work touched and on the owner's list
+(login cache for both sign-in kinds, account switching, shop customer flow).
+Fix every real finding (write-ups for each), use 0229 for SQL. Report in
+`docs/state/agent-notes/2026-10-14-review.md` with a `## Verdict` section:
+findings, fixed/not, and why not. Security findings → `~/samo-night/reports/`.
+
+## 12. HANDOFF — the owner applies, deploys and decides from this
+Done when: grep -q "^## Task 12 " docs/state/night-agent.md && grep -q "SAMO-year handover" docs/state/HANDOFF.md && npm test --silent && npm run --silent build
+
+Make `docs/state/HANDOFF.md` §22 the owner's exact checklist: per migration in
+order — apply to samo-dev, run its proof, apply to production, run again; GAS
+deploy steps; the one-shot Drive mover (dry run first); deploy; what to click
+to verify each system in the browser; and every DECISION from
+`docs/YEAR-ROLLOVER.md` the owner may want to overturn, one line each with its
+consequence. Update `STATE.md` (short). Each row says what is VERIFIED (only
+`npm test`/build) vs WRITTEN NOT APPLIED. Do not claim anything you did not run.

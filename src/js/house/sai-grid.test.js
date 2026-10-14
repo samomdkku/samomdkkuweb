@@ -5,7 +5,9 @@
 // gaps.js's own grouping, so a fixture that exercises one exercises the other.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { computeSaiGrid, listGridCohorts, CELL } from './sai-grid.js';
+import {
+  computeSaiGrid, listGridCohorts, CELL, gridMaxAcrossCohorts, matchCohortInput,
+} from './sai-grid.js';
 import { splitHeld, computeGaps } from './gaps.js';
 
 const YEAR = { MD49: 2564, MD50: 2565, MD51: 2566 };
@@ -47,9 +49,9 @@ describe('computeSaiGrid — the healthy shape', () => {
 
   it('an unknown or empty รุ่น returns no cells, not a grid full of "empty"', () => {
     expect(computeSaiGrid({ students: full(3, YEAR.MD49) }, 'MD99')).toEqual({
-      cohort: 'MD99', max: 0, cells: [],
+      cohort: 'MD99', max: 0, ownMax: 0, cells: [],
     });
-    expect(computeSaiGrid({}, 'MD49')).toEqual({ cohort: 'MD49', max: 0, cells: [] });
+    expect(computeSaiGrid({}, 'MD49')).toEqual({ cohort: 'MD49', max: 0, ownMax: 0, cells: [] });
   });
 });
 
@@ -205,5 +207,52 @@ describe('house comes from the same rule as everywhere else', () => {
     const grid = computeSaiGrid({ students: full(7, YEAR.MD49) }, 'MD49');
     expect(bySai(grid, '007').house).toBe(7);
     expect(bySai(grid, '003').house).toBe(3);
+  });
+});
+
+describe('one board for every รุ่น (owner, 2026-10-13)', () => {
+  it('gridMaxAcrossCohorts is the highest สาย any รุ่น reaches', () => {
+    const d = { students: [...full(3, YEAR.MD49), ...full(7, YEAR.MD50)] };
+    expect(gridMaxAcrossCohorts(d)).toBe(7);
+  });
+  it('a รุ่น drawn to the shared max shows its missing tail as empty', () => {
+    const d = { students: [...full(3, YEAR.MD49), ...full(7, YEAR.MD50)] };
+    const grid = computeSaiGrid(d, 'MD49', { max: gridMaxAcrossCohorts(d) });
+    expect(grid.cells).toHaveLength(7);
+    expect(grid.ownMax).toBe(3);
+    expect(bySai(grid, '007').state).toBe(CELL.empty);
+  });
+});
+
+describe('matchCohortInput — typed OR picked', () => {
+  const C = ['MD49', 'MD50', 'MD51'];
+  it('accepts the ways a person types a รุ่น', () => {
+    for (const t of ['MD50', 'md50', ' md 50 ', '50', '2565']) expect(matchCohortInput(t, C)).toBe('MD50');
+  });
+  it('answers null for anything not on the list, never a guess', () => {
+    for (const t of ['5', 'MD99', 'abc', '']) expect(matchCohortInput(t, C)).toBe(null);
+  });
+});
+
+describe('what the ฝ่าย found out (0217)', () => {
+  it('an open held row carries its note and its follow-up onto the cell', () => {
+    const students = full(3, YEAR.MD50).filter((s) => s.sai_code !== '002');
+    const held = [heldRow(2, { note: 'ฝ่ายข้อมูล: ติดต่อไม่ได้', follow_up: 'unreachable' })];
+    const occ = bySai(computeSaiGrid({ students, held }, 'MD50'), '002').occupants[0];
+    expect(occ.notes).toEqual(['ฝ่ายข้อมูล: ติดต่อไม่ได้']);
+    expect(occ.followUp).toBe('ติดต่อไม่ได้');
+  });
+  it('a สาย closed as ลาออก reads ANSWERED, not empty — and is not an occupant', () => {
+    const students = full(3, YEAR.MD50).filter((s) => s.sai_code !== '002');
+    const held = [heldRow(2, { resolved_at: 'x', resolved_how: 'dismissed', follow_up: 'left' })];
+    const cell = bySai(computeSaiGrid({ students, held }, 'MD50'), '002');
+    expect(cell.state).toBe(CELL.answered);
+    expect(cell.occupants).toEqual([]);
+    expect(cell.answered[0].label).toBe('ลาออก');
+  });
+  it('CONTROL: a closed row with no closing answer leaves the สาย plainly empty', () => {
+    const students = full(3, YEAR.MD50).filter((s) => s.sai_code !== '002');
+    const held = [heldRow(2, { resolved_at: 'x', resolved_how: 'dismissed', follow_up: null })];
+    expect(bySai(computeSaiGrid({ students, held }, 'MD50'), '002').state).toBe(CELL.empty);
   });
 });

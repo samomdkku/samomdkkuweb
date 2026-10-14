@@ -1319,7 +1319,7 @@ node tools/db-query.mjs tools/team019{5,6,7,8}-*.sql # the proofs
 ## 16b. Five live proofs RED on production (found 2026-09-21) — none from shop 0199
 
 **Status: VERIFIED 2026-09-21 — how:** `npm run proofs` against production: 43/48 green, 5 not; house0194 then FIXED by 0200 — 4 remain OWED.
-**Re-run 2026-10-13:** 53/57 green, the SAME 4 red (the +1 is `accounts0211-dashboard`). **Re-run 2026-10-12:** 52/56 green — the SAME 4 red (house0188, house0191, dept0177, team0135). Two new reds that day (pr0149, shop0206) were proof subjects moved by samomdkkudev's role change and are fixed (`docs/mistakes/tooling-proofs.md`).
+**Re-run 2026-10-13 evening: 60/62 green** — only dept0177 and team0135 (A5, unchanged) remain. **Re-run 2026-10-13 morning:** 53/57 green, the SAME 4 red (the +1 is `accounts0211-dashboard`). **Re-run 2026-10-12:** 52/56 green — the SAME 4 red (house0188, house0191, dept0177, team0135). Two new reds that day (pr0149, shop0206) were proof subjects moved by samomdkkudev's role change and are fixed (`docs/mistakes/tooling-proofs.md`).
 None of the five reads a shop table; 0199 touches only shop tables and
 functions, and `shop0199-pricing` + `shop0150` are green. They drifted after
 the last all-green run (09-14/09-19). Two are REAL data drift, the rest look
@@ -1328,10 +1328,14 @@ like proofs whose SUBJECT went stale — each needs reading before "fixing":
 - ✅ **house0194 60/61 — FIXED by 0200 (2026-09-21).** Cause: connecting a
   placement to an existing person never ran the down-mirror; 38 rows repaired,
   `house0194` 20/20 and `house0200-three-copies` 13/13 on production.
-- **house0188 53** — "one whose claimer kept their registry รหัส": expected
-  false, got true. Scenario vs live data; read the case first.
-- **house0191** — errors: `list_house_help_requests` raises "ไม่มีสิทธิ์ดูรายการนี้"
-  for the proof's chosen subject — probe-subject drift (a grant changed?).
+- ✅ **house0188 53 — FIXED by 0217 (2026-10-13), 33/33 on production.** It
+  was not data: 0193 rebuilt `record_unresolved_rows` from 0188 and reverted
+  0190 (`docs/mistakes/postgres-schema.md`).
+- ✅ **house0191 — FIXED 2026-10-13, 28/28.** §G read the admin-only list under
+  a student's claims; it now chooses an admin by the gate's own grant. Same day,
+  `house0200`'s ALLOW half turned out to have been passing on an EMPTY admin
+  (`role = 'dev'` matches nobody now) through a NULL-role fail-open, closed by
+  0218 (`docs/mistakes/authz-rls.md`); fixed the same way, 14/14.
 - **dept0177 70** — expects 4 hardcoded ฝ่ายบริหารองค์กร cards, found 5: someone
   added a card; the assertion counts a SHAPE (class 7 — assert the property).
 - **team0135 A5** — "own card writes the split verbatim": got (none) — subject
@@ -1411,12 +1415,29 @@ Running it with the policy count beside it is what surfaced the two deliberate
 deny-all siblings, which is the thing most likely to be broken by a well-meaning
 edit. `select relrowsecurity, (policy count)` — ask for both.
 
-## 16. ระบบบ้าน data handover — the sheets EXIST, nobody has sent them (2026-09-18/19)
+## 16. ระบบบ้าน data handover — MD49 + MD50 done; MD51–MD54 partly answered (2026-10-13)
 
-**Status: VERIFIED 2026-09-18 — how: ran the generator against production and
-printed the rows behind its most extreme counts before believing them (สาย 256
-held 8 rows across 6 รุ่น, of which only 2 pairs are real duplicates). Nothing
-has been SENT.**
+**Status: VERIFIED 2026-10-13 — how: the 2026-10-13 answer was imported with
+`tools/house-kkumail-import.mjs --dismiss-empty --apply`, which asserts inside
+its transaction that every address is one student and one person; read back
+after commit (19 `admin` + 2 `dismissed` resolutions, 0 orphan people, re-run
+writes nothing). Snapshot (gitignored, so not a path CI can see): `2026-10-13-kkumail-import-snapshot.json` in externaldata's house-import folder.**
+
+✅ **SECOND ANSWER IMPORTED (2026-10-13).** The owner forwarded
+`รายชื่อระบบบ้านมีปัญหา.xlsx` (one tab per รุ่น; exported per tab to
+`externaldata/house-import/2026-10-13-returned/MD*.csv`). Held rows: 129 → 108.
+MD49 is now complete. Two answers were REFUSED: an MD52 row whose รหัส + kkumail
+were pasted from another student's row (the owner's own warning; the tool kept
+the row the address belongs to, by its initials and the รหัส's alphabetical
+slot), and an MD51 row whose address carries another student's initials. The
+owner settled the second the same day — *"add pakphum.s@kkumail.com to ภาคภูมิ
+instead"* — so that address went to the classmate it names (held 108 → 107).
+Both students whose rows were WRITTEN ON stay held with no address. Seven MD52 held
+rows carry the ฝ่าย's remark as `note` (ติดต่อไม่ได้ / ลาออก / คาดว่าลาออกแล้ว)
+and were NOT closed — see the owed table. The two MD54 `empty_row` lines the
+ฝ่าย said have no person (*"เลขนี้ไม่มีตัวตน"*) were dismissed with that reason,
+so the audit now reports those two สาย as empty, correctly. Everything the old
+tool would have got wrong on this file is in `docs/mistakes/app-state.md`.
 
 `node tools/house-year-sheets.mjs --apply --gaps-only --force` writes six CSVs
 into `externaldata/house-year-sheets/` (gitignored; 1,776 real students). They
@@ -1432,7 +1453,10 @@ has 288 students and **no incomplete records at all** — its file is gone.
 
 | owed | who | why it is not done |
 |---|---|---|
-| send the five remaining `MD*-ข้อมูลไม่ครบ.csv` (129 rows) to their ฝ่าย | owner | needs a person to choose the recipient and share the Sheet |
+| chase what is still blank — MD51 is almost entirely unanswered, MD53 and MD54 have a few; regenerate with `house-year-sheets.mjs --apply --gaps-only --force` (its dry run prints the counts) | owner | the ฝ่าย said "ตอนนี้เหลือ MD51, MD53, MD54 เหลือ 2 คน" — they know |
+| the two students whose rows carried someone else's answer (one MD52, one MD51) | ฝ่ายข้อมูล | their own รหัส/kkumail were never given — only the person or their friends know them |
+| ~~close or keep the MD52 rows marked ลาออก / คาดว่าลาออกแล้ว~~ | ✅ **BUILT 2026-10-13 (0217)** | Owner: *"handle the flow for … คาดว่าลาออกแล้ว ติดต่อไม่ได้ ลาออก เลขนี้ไม่มีตัวตน, the entire flow"*. Each is now a recorded answer (`follow_up`), set in ยังนำเข้าไม่ได้ or by the import tool from the ฝ่าย's remark: ติดต่อไม่ได้ / คาดว่าลาออกแล้ว keep the seat OPEN and claimable; ลาออก / ไม่มีคนนี้จริง CLOSE it, and the สาย stops counting as a gap; any close can be reopened. Answers survive the next roster import and a closed seat is not re-asked. The 2026-10-13 remarks were backfilled |
+| the five คนที่ยืนยันตัวตนไม่ผ่าน (2026-10-13) | owner / ฝ่ายข้อมูล | All five typed a VALID รหัส (check digit passes). Three are MD47/MD48 — outside ระบบบ้าน, owner already decided not to add (§16 table above) — close them with the prefilled reason. Two are MD54 with no line in the faculty's file at all (one numbered past the MD range — likely another สาขา): only ฝ่ายข้อมูล can give their สาย. The pane now says which is which |
 | check **สาย 141** against the source file | owner / ฝ่ายข้อมูล | MD53 and MD54 both have nobody on it, and after the 2026-09-19 รุ่น repair NOTHING unplaced can explain either. บ้าน is สาย's last digit, so if a column moved everyone after it is in the wrong บ้าน |
 | ~~check สาย 141 / decide สาย 256~~ | ✅ **ANSWERED 2026-09-19 — LEAVE IT** | The MD53 leader: *"ที่หนูจดไว้ตามนี้เลยค่ะ เพื่อนหนูเอาข้อมูลมาจาก 52 อีกที สาย 256 ซ้ำ 2 คนค่ะ แล้วก็ 141 ข้ามตามที่ลงไว้เลยค่ะ"* — transcribed that way from MD52, deliberately. **That rules out the thing worth worrying about**: not a shifted column, so every person's สาย is recorded correctly and NOBODY is in the wrong บ้าน. The owner's call is to leave it: the list is mostly right and they would not change it now. The audit will keep reporting it — that is cosmetic |
 | ~~the 11 MD47/MD48 people in MD50's returned roster~~ | ✅ **DECIDED 2026-09-19 — DO NOT ADD** | ระบบบ้าน covers MD49–MD54 only; these were never in ฝ่ายข้อมูล's roster and have no สาย. Owner: *"i'll not put in the system"*. ⛔ Do not re-propose |
@@ -1440,7 +1464,7 @@ has 288 students and **no incomplete records at all** — its file is gone.
 | ~~write the import-back tool~~ | ✅ **BUILT 2026-09-19** | `tools/house-kkumail-import.mjs`. Refuses a row whose name does not match the รหัส, promotes through the pane's own `promote_unresolved_row()` rather than re-implementing it, and runs as ONE transaction so a duplicate address cannot leave half a ฝ่าย's answer applied. It also carries a ชื่อเล่น the roster happens to include — never over one that exists |
 
 **What the sheet asks for**: a `?` in a `กรอก: <field>` column, per row.
-129 rows want a kkumail, 13 a รหัสนักศึกษา, 2 a ชื่อ/นามสกุล (was 155 before MD50 answered). **The `?` is not
+How many rows want each field is the generator's dry run, not this line (it went 155 → 129 → 108 as answers came back). **The `?` is not
 decoration — it is the highlight.** A CSV carries no formatting, so a colour
 does not survive export or re-import; a character does.
 

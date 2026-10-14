@@ -37,7 +37,7 @@ const [students, held, helpReqs, requests, houses, sais, advisors, conflicts] = 
          from public.students`),
   ask(`select id::text, student_id, first_name_th, last_name_th,
               nickname_imported as nickname, sai_code as sai, reason, file_note,
-              resolved_at
+              cohort_year, note, follow_up, resolved_at, resolved_how
          from public.student_import_unresolved`),
   ask(`select id::text, kkumail, resolved_at from public.house_help_requests`),
   ask(`select id::text, status from public.student_change_requests`),
