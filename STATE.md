@@ -205,7 +205,8 @@ never ran). Its branch was reviewed and fixed on `year-rollover` (pushed as a
 Cloudflare preview against samo-dev), then merged to `main` and SHIPPED 2026-10-14:
 0219–0224 applied to production (six proofs 143/143 there) and the bundle
 deployed. Apps Script deployed (v13 hardening, live v15 — STATE "Apps Script" line).
-What the review changed and what is still owed: HANDOFF §22.
+Then 0225–0228 (publish fixed, anon grant, publish → edit → switch, a used year is
+undeletable). Owed: HANDOFF §22 · why + NOT verified: `docs/state/claude-2026-10-14.md`.
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 

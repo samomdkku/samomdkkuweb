@@ -343,9 +343,12 @@ const waitFor = async (cond, ms) => {
 describe('the service loop', () => {
   it('deletes exactly the queue rows it processed, by id — never a range', async () => {
     w.queue = [{ id: 7, kind: 'person', person_id: 'p1' }, { id: 9, kind: 'person', person_id: 'p2' }];
-    await loop(2500);
+    // Ends on the EVENT (the delete), not a fixed 2.5 s: under a full parallel
+    // suite the child could spend most of that just starting, and the test
+    // failed with no delete seen (2026-10-14) — same cure as the test below.
+    await loop(15000, {}, () => (w.queueDeletes || []).length > 0);
     expect(w.queueDeletes).toEqual(['?id=in.(7,9)']);
-  });
+  }, 20000);
   // ⛔ EVENTS, NOT A STOPWATCH. This used to heal at a fixed 2.5 s inside a
   // 4 s run (under vitest's 5 s default): under a full parallel suite the child
   // could take most of that just to START, see no failure, and post no alert —
