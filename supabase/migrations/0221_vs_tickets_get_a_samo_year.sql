@@ -24,16 +24,32 @@
 -- and does not make sense here.
 --
 -- "OPEN TICKETS CARRY OVER": the filter facet this ships (vs-staff.js) hides a
--- CLOSED ticket (resolution is not null) from a year other than the one
--- selected, but a ticket that is still OPEN (resolution is still null — the
--- dept has not finished with it) is never hidden by the year facet, in ANY
--- year view. A new team taking office must see every inherited unresolved
--- complaint by default, not just this year's; only the "done and crowding
--- the view" pile PR's 290-ticket complaint was about gets the opt-in
--- decluttering. This rule lives in src/js/vs-year.js (ticketMatchesYearFilter)
--- — NOT in SQL — because, same as PR, it is a workflow nudge over data RLS
--- already returns in full; the database keeps answering every year for every
--- row regardless of status.
+-- CLOSED ticket (status = 'เสร็จสิ้น') from a year other than the one
+-- selected, but a ticket that is NOT currently closed is never hidden by the
+-- year facet, in ANY year view. A new team taking office must see every
+-- inherited unresolved complaint by default, not just this year's; only the
+-- "done and crowding the view" pile PR's 290-ticket complaint was about gets
+-- the opt-in decluttering. This rule lives in src/js/vs-year.js
+-- (vsTicketMatchesYearFilter) — NOT in SQL — because, same as PR, it is a
+-- workflow nudge over data RLS already returns in full; the database keeps
+-- answering every year for every row regardless of status.
+--
+-- WHY "CLOSED" MEANS status = 'เสร็จสิ้น', NOT resolution IS NOT NULL (an
+-- earlier draft of this migration used the latter — caught by tracing
+-- submitStaffAction in vs-staff.js before this shipped, not reported).
+-- `resolution` (0073) is written ONCE, the first time a ticket closes, and
+-- NOTHING in this codebase clears it if a staffer later reopens the ticket
+-- by picking a different status: submitStaffAction's PATCH only ever WRITES
+-- `resolution` (inside `if (willWriteResolution)`, itself gated on
+-- `isDone`), never nulls it, and the 0074 cascade trigger clears
+-- `resolution_note` on a mirrored duplicate but never `resolution` itself.
+-- So a REOPENED ticket keeps a stale non-null `resolution` forever — a check
+-- keyed on that column would both wrongly HIDE a reopened past-year ticket
+-- from the default view (the opposite of "carries over") and wrongly make it
+-- ELIGIBLE for the PDPA scrub below while someone is actively working it
+-- again. `status` is vs_tickets' own live signal for "is this closed right
+-- now" — the same column vs-staff.js's `isDone` already keys on for the
+-- identical question.
 --
 -- PDPA RETENTION — SHAPE FROM THE DESIGN DOC, NUMBER INVENTED AND NAMED AS SUCH.
 -- `vs_scrub_closed_tickets()` below is the FUNCTION § VitalSound asked task 6
@@ -138,15 +154,17 @@ comment on column public.vs_tickets.anonymized_at is
 --      b. the export gate — year_export_recorded('vs_tickets', p_year) (0222)
 --      c. bad input — p_year/p_months null or out of range
 --
---    Only touches a row that is: filed under p_year, CLOSED (resolution is
---    not null — the column 0073 sets only when staff close a ticket; a
---    ticket merely sitting in the "เสร็จสิ้น" kanban column with no
---    resolution recorded yet — should not happen per 0073's own UI gate, but
---    is treated as "not yet decided" rather than guessed at, same
---    unresolvable-reference-fails-closed rule as every other gate here),
---    old enough (updated_at — the only "last touched" signal vs_tickets has,
---    see the column comment below for why this is a CONSERVATIVE proxy, not
---    an exact "closed_at"), and not already scrubbed.
+--    Only touches a row that is: filed under p_year, CLOSED RIGHT NOW
+--    (status = 'เสร็จสิ้น' — the LIVE signal, never `resolution is not
+--    null`; see this migration's header for why that column is sticky
+--    across a reopen and would wrongly scrub an actively-reopened ticket)
+--    AND carries a recorded reason (resolution is not null — 0073's own UI
+--    requires one to close; a status='เสร็จสิ้น' row with no resolution
+--    should not happen, and is treated as "not yet decided" rather than
+--    guessed at, same unresolvable-reference-fails-closed rule as every
+--    other gate here), old enough (updated_at — the only "last touched"
+--    signal vs_tickets has, see the column comment below for why this is a
+--    CONSERVATIVE proxy, not an exact "closed_at"), and not already scrubbed.
 -- ---------------------------------------------------------------------------
 create or replace function public.vs_scrub_closed_tickets(
   p_year integer, p_months integer default 24
@@ -178,6 +196,7 @@ begin
                                  then '[ข้อมูลถูกลบตามนโยบาย PDPA]' else null end,
          anonymized_at = now()
    where samo_year_be = p_year
+     and status = 'เสร็จสิ้น'
      and resolution is not null
      and anonymized_at is null
      and updated_at < now() - (p_months || ' months')::interval;
@@ -189,7 +208,8 @@ $$;
 
 comment on function public.vs_scrub_closed_tickets(integer, integer) is
   'PDPA text anonymisation (docs/YEAR-ROLLOVER.md § VitalSound): overwrites '
-  'problem/resolution_note on CLOSED tickets (resolution is not null) filed '
+  'problem/resolution_note on CLOSED tickets (status = ''เสร็จสิ้น'' right now '
+  '— never resolution is not null, which stays set across a reopen) filed '
   'under p_year, untouched for at least p_months (default 24, an invented '
   'default — tighten/loosen freely, no migration needed). Refuses unless the '
   'caller holds data_admin or role=dev, AND year_export_recorded(''vs_tickets'', '

@@ -9,9 +9,7 @@ import { sendNotify } from './notify.js';
 import { getUser as authGetUser, holdsMaster } from './auth.js';
 import { MANUAL_VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
 import { fetchSamoYears, currentSamoYear, samoYearOptionsHtml } from './samo-year.js';
-import { ALL_YEARS, vsTicketMatchesYearFilter } from './vs-year.js';
-
-const DONE_STATUS = 'เสร็จสิ้น';
+import { ALL_YEARS, DONE_STATUS, vsTicketMatchesYearFilter } from './vs-year.js';
 
 let staffTicketsCache = [];        // ALL tickets visible to this user (RLS-filtered)
 let currentActiveTicketId = null;
@@ -364,9 +362,10 @@ function filteredTickets() {
   const tagFilter = document.getElementById('vsStaffTagFilter')?.value || '';
   if (tagFilter === '__none__') list = list.filter((t) => !Array.isArray(t.tags) || t.tags.length === 0);
   else if (tagFilter) list = list.filter((t) => Array.isArray(t.tags) && t.tags.includes(tagFilter));
-  // SAMO year facet (0221) — a closed ticket outside the selected year is
-  // hidden; an open one always carries over regardless of year.
-  list = list.filter((t) => vsTicketMatchesYearFilter(t.samo_year_be, t.resolution, vsYearFilterValue));
+  // SAMO year facet (0221) — a CLOSED ticket (status, not resolution — see
+  // vs-year.js's header) outside the selected year is hidden; everything
+  // else always carries over regardless of year.
+  list = list.filter((t) => vsTicketMatchesYearFilter(t.samo_year_be, t.status, vsYearFilterValue));
   return list;
 }
 

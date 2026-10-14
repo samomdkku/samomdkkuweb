@@ -18,27 +18,48 @@ import { ALL_YEARS } from './samo-year.js';
 
 export { ALL_YEARS };
 
+/** The terminal status string (vs-staff.js's KANBAN_COLUMNS 'done' column).
+ *  ONE home — vs-staff.js imports this rather than defining its own copy, so
+ *  "is this ticket closed" means the same thing everywhere it is asked. See
+ *  vsTicketMatchesYearFilter's header for why this must be STATUS, never
+ *  `resolution is not null`. */
+export const DONE_STATUS = 'เสร็จสิ้น';
+
 /**
  * Does THIS TICKET show under the selected year facet?
  *
  * "Open tickets carry over" (docs/YEAR-ROLLOVER.md § VitalSound, this
- * migration's own header): a ticket nobody has closed yet (`resolution` is
- * still null — set only when staff resolve it, 0073) is ALWAYS shown,
- * regardless of which year the facet is pinned to. Only a CLOSED ticket is
- * subject to the year filter at all — that is the pile PR's 290-ticket
- * complaint was about, and the only pile this facet exists to declutter.
+ * migration's own header): a ticket that is not CURRENTLY closed is ALWAYS
+ * shown, regardless of which year the facet is pinned to. Only a closed
+ * ticket is subject to the year filter at all — that is the pile PR's
+ * 290-ticket complaint was about, and the only pile this facet exists to
+ * declutter.
+ *
+ * WHY THIS CHECKS `status`, NOT `resolution is not null` (the first version
+ * of this function did, and it was wrong — found by tracing
+ * submitStaffAction in vs-staff.js, not reported). `resolution` is set once,
+ * when a ticket FIRST closes (0073), and NOTHING in this codebase clears it
+ * if a staffer later reopens the ticket by picking a different status —
+ * neither submitStaffAction's own PATCH (it only ever WRITES `resolution`,
+ * inside `if (willWriteResolution)`, never nulls it) nor the 0074 cascade
+ * trigger (which clears `resolution_note` on a mirrored duplicate but never
+ * `resolution` itself). So a REOPENED ticket keeps a stale non-null
+ * `resolution` forever — checking that column would hide an actively
+ * reopened past-year ticket from the default "current year" view, the exact
+ * opposite of "carries over". `status` is the live signal; it is what
+ * vs-staff.js's own `isDone` check already uses for the identical question.
+ *
  * An unresolved samoYearBe (null — should not happen for any row after
  * 0221's backfill, but the same "fails open to visible" rule 0220's
  * ticketMatchesYearFilter already uses) is also always shown.
  *
  * @param {number|string|null|undefined} samoYearBe
- * @param {string|null|undefined} resolution  vs_tickets.resolution — null
- *   until staff close the ticket
+ * @param {string|null|undefined} status  vs_tickets.status
  * @param {number|string} selected  the facet's current value (a year, or ALL_YEARS)
  */
-export function vsTicketMatchesYearFilter(samoYearBe, resolution, selected) {
+export function vsTicketMatchesYearFilter(samoYearBe, status, selected) {
   if (selected === ALL_YEARS) return true;
-  if (resolution == null) return true; // still open — always carries over
+  if (status !== DONE_STATUS) return true; // not currently closed — always carries over
   if (samoYearBe == null) return true;
   return Number(samoYearBe) === Number(selected);
 }

@@ -18,12 +18,18 @@
 --       record_year_export() puts a row in year_export_log for it — proving
 --       0221 actually OPENS 0222's gate rather than merely calling something
 --       with the right name
---   §F  WHAT GETS SCRUBBED: a closed (resolution is not null), old
+--   §F  WHAT GETS SCRUBBED: a closed (status = 'เสร็จสิ้น'), old
 --       (updated_at > months ago) ticket in the target year is anonymised;
---       an OPEN ticket (resolution is null), same year, same age, is NOT —
+--       an OPEN ticket (status not เสร็จสิ้น), same year, same age, is NOT —
 --       "open tickets carry over" at the SQL layer too, not just the UI
 --       facet; a CLOSED-but-recent ticket is NOT (too young); a
---       DIFFERENT-year closed-and-old ticket is NOT (scoped to p_year only)
+--       DIFFERENT-year closed-and-old ticket is NOT (scoped to p_year only);
+--       a REOPENED ticket — status moved OFF เสร็จสิ้น but `resolution`
+--       still carries its stale value from the FIRST close, because nothing
+--       in this codebase ever clears it (traced submitStaffAction + the 0074
+--       cascade trigger) — is NOT scrubbed either: this is the regression
+--       case for the bug an earlier draft of 0221 had (keyed on `resolution
+--       is not null` alone) before this proof caught it
 --   §G  IDEMPOTENCY: running the scrub again over the same year scrubs ZERO
 --       additional rows (anonymized_at already set) — never re-counts or
 --       re-touches a row twice
@@ -202,9 +208,12 @@ insert into probe select '51. year_export_recorded now answers true for (vs_tick
 
 -- ── §F what actually gets scrubbed, and what does not ───────────────────────
 -- A: closed, old, year 2697 → SHOULD be scrubbed.
--- B: open (resolution null), old, year 2697 → should NOT (open tickets carry over).
+-- B: open (status not เสร็จสิ้น, resolution null), old, year 2697 → should NOT (open tickets carry over).
 -- C: closed, RECENT (updated_at = now()), year 2697 → should NOT (too young).
 -- D: closed, old, year 2555 (a DIFFERENT year) → should NOT (scoped to p_year).
+-- E: REOPENED — status back to สโมกำลังดำเนินการ, but resolution STILL
+--    'fixed' from the original close (nothing clears it) — old, year 2697 →
+--    should NOT be scrubbed (status, not resolution, decides "closed").
 select pg_temp.as_((select id from p_dev), (select email from p_dev));
 set local role authenticated;
 insert into r select 'ins_f_a', pg_temp.try($q$
@@ -220,10 +229,14 @@ insert into r select 'ins_f_c', pg_temp.try($q$
 insert into r select 'ins_f_d', pg_temp.try($q$
   insert into public.vs_tickets (id, problem, target_dept, status, samo_year_be, resolution, resolution_note, updated_at)
        values ('VS-TEST0221F-D', 'ปิดแล้วเก่าแล้วแต่คนละปี', 'SE', 'เสร็จสิ้น', 2555, 'fixed', 'โน้ตปีอื่น', now() - interval '30 months')$q$);
+insert into r select 'ins_f_e', pg_temp.try($q$
+  insert into public.vs_tickets (id, problem, target_dept, status, samo_year_be, resolution, resolution_note, updated_at)
+       values ('VS-TEST0221F-E', 'เปิดใหม่หลังปิดไปแล้ว', 'SE', 'สโมกำลังดำเนินการ', 2697, 'fixed', 'โน้ตเก่าก่อนเปิดใหม่', now() - interval '30 months')$q$);
 reset role;
-insert into probe select '60. all four §F fixtures insert cleanly', 'ok|ok|ok|ok',
+insert into probe select '60. all five §F fixtures insert cleanly', 'ok|ok|ok|ok|ok',
   (select v from r where k = 'ins_f_a') || '|' || (select v from r where k = 'ins_f_b') || '|'
-  || (select v from r where k = 'ins_f_c') || '|' || (select v from r where k = 'ins_f_d');
+  || (select v from r where k = 'ins_f_c') || '|' || (select v from r where k = 'ins_f_d') || '|'
+  || (select v from r where k = 'ins_f_e');
 
 select pg_temp.as_((select id from p_admin), (select email from p_admin));
 set local role authenticated;
@@ -245,6 +258,8 @@ insert into probe select '67. C (closed, but RECENT) is untouched — too young'
   (select problem from public.vs_tickets where id = 'VS-TEST0221F-C');
 insert into probe select '68. D (closed, old, but a DIFFERENT year) is untouched — scoped to p_year', 'ปิดแล้วเก่าแล้วแต่คนละปี',
   (select problem from public.vs_tickets where id = 'VS-TEST0221F-D');
+insert into probe select '69. E (REOPENED — status moved off เสร็จสิ้น, resolution still stale ''fixed'') is untouched — status decides, not resolution', 'เปิดใหม่หลังปิดไปแล้ว',
+  (select problem from public.vs_tickets where id = 'VS-TEST0221F-E');
 
 -- ── §H the public board's own curated columns are never touched ────────────
 insert into probe select '70. public_title is unchanged by the scrub', 'หัวข้อสาธารณะ F-A',
