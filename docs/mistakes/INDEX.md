@@ -37,7 +37,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 - "when i click ตั้งเป็นปีปัจจุบัน it got DELETE requires a WHERE clause"
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(35)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(36)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -76,6 +76,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - A buyer could write status, timeline and slips on their own order
 - A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC
 - A function "authenticated ONLY" answered the anon key
+- "ลบปีปัจจุบันไม่ได้" was a disabled BUTTON
 
 ## `authz-grants.md` — The permission / seat / scope channel *(23)*
 
@@ -492,4 +493,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_430 entries across 10 files._
+_431 entries across 10 files._

@@ -1581,3 +1581,28 @@ of today's functions: the other gated RPCs already revoked anon by name.
 **Rule.** To keep anon out of a new function, revoke from `anon` BY NAME; then
 read `has_function_privilege`, never the revoke you wrote.
 
+## "ลบปีปัจจุบันไม่ได้" was a disabled BUTTON — the API deleted any SAMO year, including the current one, after team_terms became every system's year registry
+
+**Symptom.** Workflow review, 2026-10-14. The ปีการศึกษา pane disables "ลบปี"
+on the current year. `team0228-delete-guard.sql`, run before the fix, deleted
+the current year through the table's own write policy (`team_edit`), inside a
+rolled-back transaction.
+
+**Cause.** Before 0219 a `team_terms` row was the ทีม SAMO archive's business
+only. 0219 made it the registry every system reads: `current_samo_year()`
+stamps new PR / VS / โครงการ rows, the year pickers list current + published
+years, `samo_year_for_timestamp()` reads its dates. The only protection was
+the widget (class 4), and a DELETE of reference data creates the unresolvable
+reference (class 2): no current year → new rows stamped NULL; a past year
+gone → its tickets only under "ทุกปี", its dates gone from the range lookup.
+
+**Fix.** 0228 `team_terms_delete_guard`: refuses a year that is current, has
+`started_at`/`ended_at` (was in office), or has PR/VS/โครงการ rows filed under
+it; a year seeded ahead and never used can still be deleted (the button's
+real use). Paired DENY + ALLOW proof, 7/7 dev + production.
+
+**Where it lives now.** `supabase/migrations/0228_a_year_in_use_cannot_be_deleted.sql`.
+
+**Rule.** When a table gains READERS in other systems, re-ask who may DELETE
+its rows — the policy was written for the old, smaller meaning.
+

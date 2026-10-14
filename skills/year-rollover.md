@@ -24,22 +24,25 @@ not touch.
    happening — it does not touch `started_at`/`ended_at` and is not what this
    doc is about. Only run a handover when the new team has actually taken
    office.
-2. ⛔ **CALL `start_team_term` FIRST. Edit the live tree for the incoming
-   team AFTER — never before.** This stopped being "either order is fine" in
-   0224. `publish_team_term` snapshots whatever the live tree looks like AT
-   CALL TIME, with no memory of which term was current when a person actually
-   served. If the tree is edited to the incoming team BEFORE the handover,
-   any later publish of the OUTGOING year — manual, or the automatic one
-   below — would snapshot the INCOMING team under the OUTGOING year's label,
-   corrupting the one thing an archive exists to get right. Since 0224,
-   `start_team_term` auto-archives the outgoing term as its first action, in
-   the same transaction, before closing it — **unless that year was already
-   published**, in which case its archive is left exactly as it is (an
-   existing archive, and every correction made to it, is never re-snapshotted)
-   — so calling it FIRST is not just
-   the safe order, it is what makes "prepare next year's team without
-   touching this year's" true by construction rather than by remembering to
-   click "เผยแพร่ปีนี้" at the right moment.
+2. ⛔ **ORDER: PUBLISH → EDIT → SWITCH.** (Owner-session review 2026-10-14;
+   this replaces the agent's "switch first, edit after".)
+   1. **เผยแพร่ปีนี้** on the outgoing year. A PUBLISHED year — even the
+      current one — is shown publicly from its ARCHIVE
+      (`get_public_team_chart`, 0153), so from here on the public page keeps
+      the outgoing team no matter what happens to the live tree.
+   2. **Edit the live tree** (จัดการทีม) into the incoming team. ⚠️ Grants
+      follow the live tree, so a person removed now loses their access NOW —
+      add the incoming people first and remove the outgoing ones on the
+      handover day if the old team still has work to finish.
+   3. **ตั้งเป็นปีปัจจุบัน** on the new year on handover day. The outgoing
+      archive is NOT re-snapshotted (0224 only archives a year that was never
+      published), the public page now shows the live tree as the new year,
+      and every new PR/VS/โครงการ is stamped with it.
+   Switching FIRST is the worse order: the new year is unpublished, so the
+   public page labels the half-edited live tree as the new team for the whole
+   edit. Forgetting step 1 is covered — the switch auto-archives an
+   unpublished outgoing year — but then the archive is whatever the tree
+   holds at that moment, which is the new team if step 2 already happened.
 3. **Know who is about to lose the admin seat.** Whoever calls
    `start_team_term` keeps whatever `team_edit`/`master` grant they hold — the
    RPC does not touch permissions. If the outgoing VP is the only `team_edit`
@@ -74,9 +77,8 @@ One call does, in one transaction (never observable as two states):
   — calls `publish_team_term` on whatever was current, snapshotting the live
   tree exactly as it stood at this instant, BEFORE anything else below runs.
   A year that already has an archive keeps it: `publish_team_term` deletes
-  and rebuilds, so re-running it would replace a correct snapshot. This is why step 2 above
-  says call this FIRST: by the time you edit the tree for the incoming team,
-  the outgoing year's history is already safe.
+  and rebuilds, so re-running it would replace a correct snapshot. That no-overwrite rule
+  is what makes step 2's publish → edit → switch order safe.
 - refuses with a clear Thai message if `p_year` is already the current term
   (a double-click does nothing, not a silent re-open)
 - refuses if `p_year` is outside 2500–2700 (typo guard)

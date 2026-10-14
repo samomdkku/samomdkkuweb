@@ -52,6 +52,10 @@
 -- leaves it alone. `published_at is null` is the test, because
 -- publish_team_term is the one writer of that column.
 --
+-- ⚠️ SUPERSEDED ORDER ADVICE (2026-10-14): the order recommended below
+-- (switch first, edit after) is the worse one — use publish → edit → switch.
+-- 0227 corrects the stored function comment; skills/year-rollover.md step 2.
+--
 -- This makes the safe order the only one that needs no separate manual
 -- step: call start_team_term(new year) FIRST — it captures the outgoing
 -- team exactly as it stood, with no separate publish click required — THEN

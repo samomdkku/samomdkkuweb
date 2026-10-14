@@ -395,6 +395,20 @@ seasons ("start the new one before ending the old one"). The symmetry is not
 an accident: both are "the currently open row" patterns, and both fail the
 same way if there is ever an instant with none open.
 
+Decision (owner-session review, 2026-10-14): **the handover order is
+publish → edit → switch.** `get_public_team_chart` (0153) shows a PUBLISHED
+year — even the current one — from its archive, and the handover never
+re-snapshots a published year (0224 as fixed). So: publish the outgoing year,
+edit the live tree into the incoming team (the public page keeps the outgoing
+team), then `start_team_term` on handover day. **Rejected:** "switch first,
+edit after" (this doc's first draft) — the new year is unpublished, so the
+public page labels the half-edited live tree as the new team throughout the
+edit. **Known cost, not built around:** grants follow the LIVE tree, so the
+edit moves permissions immediately; a per-term draft tree would remove that
+and is not wanted yet. And since `team_terms` is now every system's year
+registry, a year that is current, was in office, or has rows filed under it
+cannot be deleted (0228).
+
 Decision: จัดการทีม per year = the EXISTING third admin mode
 (`src/js/team/terms.js`) that lets a published year's roster be edited after
 the fact. Nothing new to build here — the owner's "the จัดการทีม for each

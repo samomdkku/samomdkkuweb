@@ -1820,7 +1820,7 @@ What exists: every neutral colour literal in `src/css/` is a token or a color-mi
 
 **Status: VERIFIED on PRODUCTION — how: 0219–0224 applied 2026-10-14 in order
 0219, 0220, 0222, 0221, 0223, 0224, then the six proofs below run with
-`node tools/db-query.mjs tools/<proof>.sql` against production, 143/143 PASS (145/145 after 0226 added two privilege checks to year0219)
+`node tools/db-query.mjs tools/<proof>.sql` against production, 143/143 PASS (145/145 after 0226 added two privilege checks to year0219; full `npm run proofs` on production 2026-10-14: 67/69, the two red are §16b's dept0177 + team0135)
 (and on samo-dev with `--dev`); team0224's §B2 also shown RED on the agent's
 original function. Bundle deployed the same day; Apps Script v13 deployed after a scan tightened (now v15: per-request memo of the top-folder ids)
 its handlers (owner asked, 2026-10-14).** The night agent was STOPPED
@@ -1852,6 +1852,18 @@ after task 7; rows 8–12 never ran.
   was a default any caller could lower, and `master` (41 accounts) holds
   `data_admin` by fold, so two console calls could have blanked last month's
   complaints. Proof step 99.
+- **Workflow review (2026-10-14):** the handover order is **publish → edit →
+  switch** (`skills/year-rollover.md` step 2), not the agent's "switch first":
+  a PUBLISHED current year is shown publicly from its archive, so the public
+  page keeps the outgoing team while the tree is edited; switching first
+  labels the half-edited live tree as the new team. Pane lead, confirm
+  dialog, release note and the function comment (0227) all say so now.
+  ⚠️ Grants follow the LIVE tree during the edit — inherent, documented, not
+  built around (a per-term draft tree would be the real fix; not wanted yet).
+- 0228: the "ลบปี" button was disabled for the current year in the UI only;
+  the API deleted any year. Since team_terms is now every system's year
+  registry, a year that is current / was in office / has PR·VS·โครงการ rows
+  cannot be deleted (`team0228` 7/7, red before: it deleted the current year).
 - 0226 (after deploy): `samo_year_for_timestamp` still answered anon — 0219's
   `revoke … from public` leaves Supabase's EXPLICIT default anon grant; found
   by calling it with the anon key, fixed, `year0219` asserts the privilege.
