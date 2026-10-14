@@ -19,6 +19,13 @@ import { escHtml } from './utils.js';
 export const MIN_SAMO_YEAR = 2500;
 export const MAX_SAMO_YEAR = 2700;
 
+/** Sentinel every system's year `<select>` uses for "every year, no filter" —
+ *  distinct from any real team_terms.year (a smallint, never this string).
+ *  ONE home (pr-year.js and vs-year.js both re-export this, never redefine
+ *  it — class 6: two modules each owning their own copy of the same sentinel
+ *  is exactly the drift this file exists to prevent). */
+export const ALL_YEARS = 'all';
+
 /** Is `y` a year the registry would accept? */
 export function isValidSamoYear(y) {
   const n = Number(y);

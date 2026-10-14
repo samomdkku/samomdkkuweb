@@ -8,6 +8,8 @@ import { renderVsRequesterBlock, renderVsRequestedChip, vsRequester } from './vs
 import { sendNotify } from './notify.js';
 import { getUser as authGetUser, holdsMaster } from './auth.js';
 import { MANUAL_VS_RESOLUTIONS, vsResolution } from './vs-resolution.js';
+import { fetchSamoYears, currentSamoYear, samoYearOptionsHtml } from './samo-year.js';
+import { ALL_YEARS, vsTicketMatchesYearFilter } from './vs-year.js';
 
 const DONE_STATUS = 'เสร็จสิ้น';
 
@@ -20,6 +22,15 @@ let currentStaffRole = null;
 let staffDashboardEntered = false;
 // Kanban-only now. List view was dropped — the cross-dept board with
 // the dept dropdown filter is the canonical surface for everyone.
+
+// --------------------------------------------------
+// SAMO year facet (0221). One shared picker (src/js/samo-year.js); VS has NO
+// past-year edit lock (unlike PR's pr-year.js) — see vs-year.js's header for
+// why. "Open tickets carry over" — a ticket with no resolution yet is never
+// hidden by this facet, in any year view; only a CLOSED ticket is filtered.
+// --------------------------------------------------
+let vsSamoYears = [];
+let vsYearFilterValue = null;   // a number, or ALL_YEARS — null = not loaded yet
 
 // --------------------------------------------------
 // Dept identity — colour + short label per อุปนายก.
@@ -214,7 +225,46 @@ export async function enterVSStaffDashboard() {
   loadVsCategories().then(() => { populateVsCatFilter(); renderKanban(); }).catch(() => {});
   // Internal per-dept tags (0079) — facet + card chips fill in when loaded.
   loadVsTags().then(() => { populateVsTagFilter(); renderKanban(); }).catch(() => {});
+  await loadVsStaffYears();
   await fetchStaffTickets();
+}
+
+/**
+ * Populate the shared SAMO-year facet (src/js/samo-year.js) and default it to
+ * the CURRENT year — same shape as loadPrStaffYears (pr-staff.js), minus the
+ * past-year lock. "ทุกปี" is offered first so browsing every year, including
+ * every still-open inherited ticket, stays one click away.
+ */
+async function loadVsStaffYears() {
+  const sel = document.getElementById('vsStaffYearFilter');
+  try {
+    vsSamoYears = await fetchSamoYears();
+    const cur = currentSamoYear(vsSamoYears);
+    // Re-entering the dashboard keeps whatever year the staffer was already
+    // looking at, rather than always snapping back to "current" (same rule
+    // as the dept picker above).
+    if (vsYearFilterValue == null) vsYearFilterValue = cur != null ? cur : ALL_YEARS;
+    if (sel) {
+      sel.innerHTML = `<option value="${ALL_YEARS}">ทุกปี</option>` + samoYearOptionsHtml(vsSamoYears, null);
+      sel.value = String(vsYearFilterValue);
+      if (sel.value !== String(vsYearFilterValue)) {
+        // The saved selection no longer exists among the offered years —
+        // fail open to "ทุกปี" rather than silently showing an empty board.
+        vsYearFilterValue = ALL_YEARS;
+        sel.value = ALL_YEARS;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load SAMO years', e);
+  }
+}
+
+/** The staffer picked a different year — re-filter without a refetch. */
+export function onVsStaffYearChange() {
+  const sel = document.getElementById('vsStaffYearFilter');
+  if (!sel) return;
+  vsYearFilterValue = sel.value === ALL_YEARS ? ALL_YEARS : Number(sel.value);
+  renderKanban();
 }
 
 // --------------------------------------------------
@@ -314,6 +364,9 @@ function filteredTickets() {
   const tagFilter = document.getElementById('vsStaffTagFilter')?.value || '';
   if (tagFilter === '__none__') list = list.filter((t) => !Array.isArray(t.tags) || t.tags.length === 0);
   else if (tagFilter) list = list.filter((t) => Array.isArray(t.tags) && t.tags.includes(tagFilter));
+  // SAMO year facet (0221) — a closed ticket outside the selected year is
+  // hidden; an open one always carries over regardless of year.
+  list = list.filter((t) => vsTicketMatchesYearFilter(t.samo_year_be, t.resolution, vsYearFilterValue));
   return list;
 }
 
@@ -411,6 +464,16 @@ function tagChipsFor(t) {
     return `<span class="vs-kanban-card-tag" style="--tag:${tagColorHex(tag.color)}"
       title="แท็ก (${escHtml(deptShort(tag.dept))})">${escHtml(tag.label)}</span>`;
   }).join('');
+}
+
+/** Year chip (0221) — shown only in the "ทุกปี" view, same rule as PR's
+ *  yearFlag (pr-staff.js): when a SPECIFIC year is selected every visible
+ *  card already belongs to it (or is an open carry-over, which is worth
+ *  flagging too), so the chip would be noise; mixed into "ทุกปี" it is the
+ *  only cue a card is from a past year. */
+function yearChipFor(t) {
+  if (vsYearFilterValue !== ALL_YEARS || t.samo_year_be == null) return '';
+  return `<span class="vs-kanban-card-year" title="ปี SAMO"><i class="bi bi-calendar3 me-1"></i>${escHtml(String(t.samo_year_be))}</span>`;
 }
 
 /** Second chip: time since the last update (0077 updated_at). Neutral colour —
@@ -541,6 +604,7 @@ function renderKanban() {
                 ${renderVsRequestedChip(t, { short: deptShort })}
                 ${catChipFor(t)}
                 ${tagChipsFor(t)}
+                ${yearChipFor(t)}
                 ${t.is_emergency ? '<span class="vs-kanban-card-urgent" title="ฉุกเฉิน">ด่วน</span>' : ''}
                 ${dupTag}
               </div>

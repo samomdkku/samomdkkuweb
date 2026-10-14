@@ -271,6 +271,7 @@ window.fetchStaffTickets = () => { location.href = '/admin/#vs'; };
 window.openStaffModalByIndex = () => { location.href = '/admin/#vs'; };
 window.submitStaffAction = () => {};
 window.onVSAdminRoleChange = () => {};
+window.onVsStaffYearChange = () => {};
 
 // ==============================================
 // DOM CONTENT LOADED

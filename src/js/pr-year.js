@@ -11,10 +11,12 @@
 // ==============================================
 
 import { csvGuard } from './utils.js';
+import { ALL_YEARS } from './samo-year.js';
 
-/** Sentinel the dashboard's year `<select>` uses for "every year, no filter" —
- *  distinct from any real team_terms.year (a smallint, never this string). */
-export const ALL_YEARS = 'all';
+// Re-exported for every existing caller/test that imports ALL_YEARS from
+// here — the sentinel's one real home is now samo-year.js (vs-year.js reuses
+// it the same way), but PR's own import path must not break.
+export { ALL_YEARS };
 
 /**
  * Does the selected year make the dashboard a PAST-YEAR, read-only-by-default

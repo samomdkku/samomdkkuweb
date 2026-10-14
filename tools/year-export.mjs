@@ -130,11 +130,14 @@ export const REGISTRY = {
   },
 };
 
-// Not in the registry yet, and why (so a reader does not assume an
-// oversight): vs_public_comments/vs_followers/vs_tags (no samo_year_be
-// column exists anywhere to key them by — task 6's job), project_files (the
-// app's own PROJECT_FIELDS select does not nest it either — it is read
-// through Drive-backed GAS handlers, not this shape, per
+// Not in the registry, and why (so a reader does not assume an oversight):
+// vs_public_comments/vs_followers/vs_tags — task 6 (0221) deliberately did
+// NOT add samo_year_be to any of these three; a public comment or a me-too
+// follow belongs to whatever year the TICKET it hangs off belongs to, not an
+// independent filing year of its own, so exporting vs_tickets already
+// carries their parent id for a human to join against if ever needed —
+// project_files (the app's own PROJECT_FIELDS select does not nest it either
+// — it is read through Drive-backed GAS handlers, not this shape, per
 // docs/YEAR-ROLLOVER.md § Drive), shop_pickup_batches (operational state,
 // not named in the design doc's per-year decision).
 

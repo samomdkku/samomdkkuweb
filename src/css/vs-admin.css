@@ -413,6 +413,14 @@
   max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* --- kanban card: SAMO year chip (0221), shown only in the "ทุกปี" view --- */
+.vs-kanban-card-year {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.66rem; font-weight: 600; color: var(--gray-600);
+  background: var(--gray-100); border: 1px solid var(--gray-200);
+  border-radius: 999px; padding: 0.05rem 0.45rem;
+}
+
 /* ============================================================
    Internal per-department tags (0079)
    `--tag` (an accent hex) is set inline per chip from TAG_COLORS.

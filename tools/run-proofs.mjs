@@ -102,6 +102,7 @@ const PROOFS = [
   ['pr0220-year-filter.sql', 'a PR ticket is stamped with the SAMO year at insert, an explicit year survives the trigger, the backfill resolves from history across a real handover (not "now"), and the year is a filter — never an access boundary'],
   ['team0224-handover.sql', 'the handover RPC requires team_edit, not the bare "team" view grant every ทีม SAMO posting gets for free (0219\'s bug); it auto-archives the outgoing term with no separate publish call; Discord role sync stays decoupled from team_terms'],
   ['data0222-export-gate.sql', 'year_export_log is readable and writable only by data_admin/dev, record_year_export fails closed on a stranger and on bad input, re-exporting a year adds a row instead of overwriting it, and a demo deletion RPC shaped like a future per-system one refuses an unexported year and succeeds once it is recorded'],
+  ['vs0221-samo-year.sql', 'a VS ticket is stamped with the SAMO year at insert same as PR, the backfill resolves from history across a real handover, vs_scrub_closed_tickets refuses a stranger AND an unexported year, scrubs a closed+old ticket but leaves an open/recent/other-year one alone, never touches the public board\'s own public_title/public_note, and a second run re-scrubs nothing'],
   // Not a database proof — the repo's own branch protection, which lives on
   // GitHub OUTSIDE git, so nothing else in this repo notices if it is switched
   // off. Needs `gh` authenticated, like the rest of this runner needs a PAT.

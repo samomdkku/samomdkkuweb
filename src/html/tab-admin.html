@@ -102,6 +102,14 @@
                     onchange="onVsStaffSearch()">
                     <option value="">ทุกแท็ก</option>
                   </select>
+                  <!-- SAMO year facet (0221) — options filled from
+                       src/js/samo-year.js, same shared picker every system
+                       reuses. "ทุกปี" is the escape hatch; an OPEN ticket
+                       always shows regardless of this pick. -->
+                  <select id="vsStaffYearFilter" class="form-select form-select-sm" style="max-width: 150px;"
+                    onchange="onVsStaffYearChange()">
+                    <option value="all">ทุกปี</option>
+                  </select>
                   <select id="staffRole" class="form-select form-select-sm vs-dept-filter" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
                     <option value="__all__">ทุกฝ่าย (All)</option>
