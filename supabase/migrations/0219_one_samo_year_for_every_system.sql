@@ -166,9 +166,13 @@ declare
 begin
   -- coalesce(..., false) is load-bearing (0218's lesson): a caller with no
   -- public.users row must be refused, not waved through by a NULL comparison.
+  -- 'team_edit', NEVER the bare 'team': since 0110 every posting in the tree
+  -- holds 'team' as a VIEW grant (300+ accounts). This file first shipped
+  -- with 'team' and 0224 fixed it; corrected here too (before it reached
+  -- production) so applying 0219 on its own can never open that hole.
   if not coalesce(
        public.current_user_role() = any (array['vp_admin', 'dev'])
-       or public.current_user_has_permission('team'), false) then
+       or public.current_user_has_permission('team_edit'), false) then
     raise exception 'start_team_term: ไม่มีสิทธิ์';
   end if;
 

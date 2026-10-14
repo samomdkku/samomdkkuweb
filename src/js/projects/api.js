@@ -69,6 +69,10 @@ export async function createProject({ name, description, createdBy }) {
       description: description || null,
       status: 'open',
       created_by: createdBy || null,
+      // This bundle files a new โครงการ's Drive folder under its SAMO year
+      // (projectDriveYear, data.js). Said HERE, not by a column default: the
+      // previous bundle builds every folder flat and gets 'flat' (0223).
+      drive_layout: 'year',
     };
     const { data, error } = await dbRest(
       '/projects',

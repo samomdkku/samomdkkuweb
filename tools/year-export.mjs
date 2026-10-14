@@ -34,11 +34,19 @@
 //   node tools/year-export.mjs --help
 //   node tools/year-export.mjs --list
 //   node tools/year-export.mjs --system pr_tickets --year 2569
-//   node tools/year-export.mjs --system shop_orders --year 2569 --apply --out ./exports
+//   node tools/year-export.mjs --system shop_orders --year 2569 --apply --out ~/samo-exports
+//
+// ⛔ THE OUTPUT NEVER LANDS INSIDE THE REPO. It is `select *` of real people
+// (names, phones, VS complaint text, buyers' addresses) and this repository
+// is PUBLIC — the first version defaulted to `./exports`, which nothing
+// ignored, one `git add -A` from GitHub. Default is ~/samo-exports; an --out
+// inside the checkout is refused (outDirInsideRepo).
 //   node tools/year-export.mjs --system projects --year 2569 --apply --drive
 // ============================================================
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, relative, isAbsolute } from 'node:path';
+import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { csvGuard } from '../src/js/utils.js';
 
 // ---------------------------------------------------------------------------
@@ -307,6 +315,15 @@ export async function fetchExport(entry, year, { runSqlFn, target }) {
  *  a future edit starts interpolating a row value in here, the test that
  *  feeds buildPlan a count-only object and greps these lines for anything
  *  that is not a number/path/system name will catch it. */
+export const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+export const DEFAULT_OUT_DIR = join(homedir(), 'samo-exports');
+
+/** Would `outDir` put exported personal data inside the repository? */
+export function outDirInsideRepo(outDir, repoRoot = REPO_ROOT) {
+  const rel = relative(repoRoot, resolve(outDir));
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
 export function planLines(plan, outDir, apply) {
   const lines = [
     `${plan.system} / ${plan.year}: ${plan.baseCount} row(s)`
@@ -354,7 +371,12 @@ async function main(argv = process.argv.slice(2)) {
   const get = (flag) => { const i = argv.indexOf(flag); return i === -1 ? null : argv[i + 1]; };
   const system = get('--system');
   const year = get('--year');
-  const outDir = get('--out') || './exports';
+  const outDir = get('--out') || DEFAULT_OUT_DIR;
+  if (outDirInsideRepo(outDir)) {
+    console.error(`--out ${outDir} is inside the repository, which is PUBLIC — an export is real people's data. `
+      + `Use a folder outside it (default: ${DEFAULT_OUT_DIR}).`);
+    process.exit(1);
+  }
   const apply = argv.includes('--apply');
   const drive = argv.includes('--drive');
 

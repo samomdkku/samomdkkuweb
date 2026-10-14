@@ -1,8 +1,8 @@
 -- ============================================================
 -- proj0223-fiscal-year-and-samo-year.sql — projects.samo_year_be /
--- .fiscal_year_be / .drive_layout (0223):
---   §0  structural: all three columns, the samo_year_be index + INSERT
---       trigger, the drive_layout check constraint + its two defaults
+-- .drive_layout (0223; the file name predates the ปีงบ backfill's removal):
+--   §0  structural: both columns, the samo_year_be index + INSERT
+--       trigger, the drive_layout check constraint + its 'flat' default
 --   §A  a โครงการ inserted with no samo_year_be gets current_samo_year(),
 --       through the SAME trigger every other system (0219) shares
 --   §B  an explicit samo_year_be at insert is NOT overwritten
@@ -10,17 +10,12 @@
 --       โครงการ created while a sentinel term was current keeps resolving
 --       to THAT term from its `created_at` even after a later handover
 --       makes a different term current (same shape as pr0220 §C)
---   §D  a โครงการ inserted with no drive_layout gets the column DEFAULT
---       ('year') — never 'flat', which only pre-existing rows carry
---   §E  THE fiscal_year_be BACKFILL EXPRESSION matches
---       deriveFiscalYearBE()'s own boundary EXACTLY: 30 ก.ย. vs 1 ต.ค.,
---       and ต.ค.–ธ.ค. landing in the NEXT พ.ศ. year — the same two
---       fixtures fiscal-year.test.js §1 asserts in JS, re-asserted here in
---       SQL so the two implementations cannot quietly drift apart
---   §F  a row that ALREADY carries a human's fiscal_year_be override is
---       untouched by 0223's backfill (simulated: the migration already
---       ran, so this re-runs its own UPDATE statement against a
---       synthetic already-overridden row and checks it is not clobbered)
+--   §D  a โครงการ inserted with no drive_layout (what the PREVIOUS bundle
+--       sends) gets 'flat' — the default must not run ahead of the code
+--       that builds the folder; one inserted with drive_layout = 'year'
+--       (what the new createProject sends) keeps it, through RLS as a sender
+--   (§E/§F, which re-ran a fiscal_year_be backfill, were removed with that
+--   backfill in the 2026-10-14 review — NULL there means "ask the clock")
 --
 -- Sentinel years 2699/2700 — unused by year0219 (2691/2692), pr0220/
 -- team0224 (2693/2694), vs0221 (2697/2698) or data0222's cleanup range
@@ -50,7 +45,7 @@ insert into probe select '02. a trigger on projects calls samo_year_be_default()
     where t.tgrelid = 'public.projects'::regclass
       and p.proname = 'samo_year_be_default');
 
-insert into probe select '03. projects.drive_layout exists, text, default year', '''year''::text',
+insert into probe select '03. projects.drive_layout exists, text, default FLAT (the code, not the default, asks for year)', '''flat''::text',
   (select column_default from information_schema.columns
     where table_schema = 'public' and table_name = 'projects'
       and column_name = 'drive_layout');
@@ -111,7 +106,7 @@ insert into probe select '10. insert with no samo_year_be succeeds', 'ok', (sele
 insert into probe select '11. …stamped with current_samo_year()',
   (select public.current_samo_year()::text),
   (select samo_year_be::text from public.projects where id = 'PRJ-TEST0223A');
-insert into probe select '12. …and defaults to drive_layout = year', 'year',
+insert into probe select '12. …and with no drive_layout given (the previous bundle) it is flat', 'flat',
   (select drive_layout from public.projects where id = 'PRJ-TEST0223A');
 
 -- ── §B an explicit year at INSERT is kept, not overwritten ──────────────────
@@ -165,59 +160,19 @@ update public.projects
 insert into probe select '35. the backfill resolves it to 2699 (when it REALLY happened), not 2700 (now)', '2699',
   (select samo_year_be::text from public.projects where id = 'PRJ-TEST0223C');
 
--- ── §D a โครงการ inserted now gets drive_layout = year by default ──────────
-insert into probe select '40. PRJ-TEST0223A (inserted after 0223) carries drive_layout = year', 'year',
+-- ── §D the new bundle asks for 'year' explicitly, and RLS lets it ─────────
+select pg_temp.as_admin();
+set local role authenticated;
+insert into r select 'ins_d',
+  pg_temp.try($q$insert into public.projects (id, name, status, drive_layout) values
+              ('PRJ-TEST0223D', 'proof 0223 — new bundle', 'open', 'year')$q$);
+reset role;
+insert into probe select '40. a sender inserting drive_layout = year (createProject) succeeds', 'ok',
+  (select v from r where k = 'ins_d');
+insert into probe select '41. …and the row keeps year', 'year',
+  (select drive_layout from public.projects where id = 'PRJ-TEST0223D');
+insert into probe select '42. PRJ-TEST0223A (no drive_layout given) is still flat', 'flat',
   (select drive_layout from public.projects where id = 'PRJ-TEST0223A');
-
--- ── §E the fiscal_year_be backfill expression matches deriveFiscalYearBE ───
--- Re-run 0223's OWN expression against two synthetic rows pinned on the
--- exact boundary fiscal-year.test.js §1 asserts in JS (local(2026,9,30,23)
--- -> 2569; local(2026,10,1,0) -> 2570), so SQL and JS cannot silently
--- drift off the same day without this proof catching it.
-select pg_temp.as_admin();
-set local role authenticated;
-insert into r select 'ins_e1',
-  pg_temp.try($q$insert into public.projects (id, name, status, created_at) values
-              ('PRJ-TEST0223E1', 'proof 0223 — 30 ก.ย. 23:00 ICT', 'open',
-               '2026-09-30 23:00:00+07')$q$);
-insert into r select 'ins_e2',
-  pg_temp.try($q$insert into public.projects (id, name, status, created_at) values
-              ('PRJ-TEST0223E2', 'proof 0223 — 1 ต.ค. 00:00 ICT', 'open',
-               '2026-10-01 00:00:00+07')$q$);
-reset role;
-update public.projects set fiscal_year_be = null
- where id in ('PRJ-TEST0223E1', 'PRJ-TEST0223E2');
-update public.projects
-   set fiscal_year_be = (
-         extract(year from (created_at at time zone 'Asia/Bangkok'))::int + 543
-         + case when extract(month from (created_at at time zone 'Asia/Bangkok'))::int >= 10
-                then 1 else 0 end
-       )
- where id in ('PRJ-TEST0223E1', 'PRJ-TEST0223E2') and fiscal_year_be is null;
-insert into probe select '50. 30 ก.ย. 23:00 ICT backfills to ปีงบ 2569 (still the OLD year, hours from rollover)', '2569',
-  (select fiscal_year_be::text from public.projects where id = 'PRJ-TEST0223E1');
-insert into probe select '51. 1 ต.ค. 00:00 ICT backfills to ปีงบ 2570 (the NEW year, the instant it rolls)', '2570',
-  (select fiscal_year_be::text from public.projects where id = 'PRJ-TEST0223E2');
-
--- ── §F an already-set fiscal_year_be override is never clobbered ──────────
-select pg_temp.as_admin();
-set local role authenticated;
-insert into r select 'ins_f',
-  pg_temp.try($q$insert into public.projects (id, name, status, created_at, fiscal_year_be) values
-              ('PRJ-TEST0223F', 'proof 0223 — human override stands', 'open',
-               '2026-09-30 23:00:00+07', 2560)$q$);
-reset role;
-insert into probe select '59. the override insert succeeds (fiscal_year_be is range-checked 2500-2700, 2560 is valid)', 'ok',
-  (select v from r where k = 'ins_f');
-update public.projects
-   set fiscal_year_be = (
-         extract(year from (created_at at time zone 'Asia/Bangkok'))::int + 543
-         + case when extract(month from (created_at at time zone 'Asia/Bangkok'))::int >= 10
-                then 1 else 0 end
-       )
- where id = 'PRJ-TEST0223F' and fiscal_year_be is null;
-insert into probe select '60. a row that already had a human override (2560, far from the 2569 the date would derive) is untouched by the backfill''s "where …is null" guard', '2560',
-  (select fiscal_year_be::text from public.projects where id = 'PRJ-TEST0223F');
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,

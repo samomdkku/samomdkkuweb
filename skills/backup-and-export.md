@@ -19,7 +19,7 @@ questions, kept separate on purpose — read `## Which one do I need?` first.
 node tools/year-export.mjs --help
 node tools/year-export.mjs --list                         # which systems are registered
 node tools/year-export.mjs --system pr_tickets --year 2569              # PLAN ONLY — prints counts, writes nothing
-node tools/year-export.mjs --system pr_tickets --year 2569 --apply      # writes JSON+CSV under ./exports/, records year_export_log
+node tools/year-export.mjs --system pr_tickets --year 2569 --apply      # writes JSON+CSV under ~/samo-exports/ (never inside the repo — it is public; the tool refuses), records year_export_log
 node tools/year-export.mjs --system projects   --year 2569 --apply --drive  # ALSO uploads to Drive (needs deploy:gas first — see below)
 ```
 

@@ -12,6 +12,9 @@ test_gas.py
 
 # Local samples / exports of real production data — never commit
 sheetexample/
+# tools/year-export.mjs refuses an --out inside the repo; this is the second lock.
+exports/
+samo-exports/
 # Raw role/people exports (PII): xlsx + json + generated intermediate.
 # The committed supabase/migrations/0047_seed_team_data.sql reproduces the
 # seed without these, so the source stays local-only.

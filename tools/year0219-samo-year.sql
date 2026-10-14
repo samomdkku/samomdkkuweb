@@ -49,10 +49,10 @@ insert into probe select '01. current_samo_year / samo_year_for_timestamp / star
 create temporary table admin on commit drop as
 select u.id, lower(btrim(u.email)) as email from public.users u
  where u.role in ('vp_admin','dev')
-    or 'team' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+    or 'team_edit' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
     or 'master' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
  order by u.id limit 1;
-insert into probe select '02. an account holding the ทีม SAMO grant exists', '1',
+insert into probe select '02. an account holding the ทีม SAMO EDIT grant (team_edit — the gate''s own predicate) exists', '1',
   (select count(*)::text from admin);
 
 create or replace function pg_temp.as_admin() returns void language sql as $$

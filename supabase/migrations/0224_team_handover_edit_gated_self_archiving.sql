@@ -40,6 +40,18 @@
 -- publishes BEFORE anyone touches the tree for next year, automatically,
 -- not as a manual step an admin can forget or sequence wrong.
 --
+-- ⛔ ONLY WHEN THE OUTGOING YEAR HAS NEVER BEEN PUBLISHED (owner-session
+-- review, 2026-10-14). publish_team_term is DELETE-then-resnapshot: it drops
+-- the year's whole archive and rebuilds it from the live tree. Calling it
+-- unconditionally here destroyed a CORRECT archive in two ordinary cases —
+-- an admin who pressed "เผยแพร่ปีนี้" at the right moment and then started
+-- editing the tree for the incoming team, and a handover undone and redone
+-- (2569→2570, back to 2569, edit, →2570 again re-snapshots 2569 from the NEW
+-- tree) — along with every name/photo correction made on the archive since.
+-- A year that already has an archive is somebody's decision; the handover
+-- leaves it alone. `published_at is null` is the test, because
+-- publish_team_term is the one writer of that column.
+--
 -- This makes the safe order the only one that needs no separate manual
 -- step: call start_team_term(new year) FIRST — it captures the outgoing
 -- team exactly as it stood, with no separate publish click required — THEN
@@ -129,12 +141,18 @@ begin
   end if;
 
   -- 0224 ADD: archive the OUTGOING term exactly as the live tree stands RIGHT
-  -- NOW, before anything below (or any later edit) can touch it. Same call
+  -- NOW, before anything below (or any later edit) can touch it — unless it
+  -- already has an archive (see this file's header). Same call
   -- the "เผยแพร่ปีนี้/เผยแพร่ซ้ำ" button already makes — this just makes it
   -- automatic at the one moment it must not be skipped or mis-ordered. Only
   -- when v_current exists: a from-scratch bootstrap with no current term yet
   -- has nothing to archive.
-  if v_current is not null then
+  -- Never over an EXISTING archive: publish_team_term deletes and rebuilds,
+  -- so re-running it here would replace a correct snapshot (and every
+  -- correction made to it) with whatever the live tree holds now.
+  if v_current is not null and exists (
+       select 1 from public.team_terms
+        where year = v_current and published_at is null) then
     select public.publish_team_term(v_current) into v_archive;
   end if;
 
@@ -187,8 +205,9 @@ grant execute on function public.start_team_term(integer) to authenticated;
 comment on function public.start_team_term(integer) is
   'The SAMO-year handover. Requires vp_admin/dev role or the team_edit '
   'permission (0224 — NOT the bare "team" view grant 0110 hands every '
-  'posting, which 0219 wrongly accepted). Auto-archives the outgoing term '
-  '(calls publish_team_term on it) before closing it, so "prepare next '
+  'posting). Auto-archives the outgoing term (calls publish_team_term on it) '
+  'before closing it ONLY if it has never been published — an existing '
+  'archive is never overwritten — so "prepare next '
   'year''s team without touching this year''s" is enforced by ORDER, not '
   'by a manual step: call this FIRST, edit the live tree for the incoming '
   'team AFTER. See docs/YEAR-ROLLOVER.md § ทีม SAMO and skills/year-rollover.md.';

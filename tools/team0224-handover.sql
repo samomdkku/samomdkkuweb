@@ -10,6 +10,8 @@
 --       _members for the year that WAS current get filled from the live
 --       tree, with no separate publish_team_term call, so "prepare next
 --       year's team without touching this year's" holds by construction.
+--   §B2 …but ONLY when that year has never been published: an existing
+--       archive (and the corrections made on it) is never re-snapshotted.
 --   §C  Discord role sync stays decoupled from team_terms (a regression
 --       guard: the function body must still name zero 'team_terms' — if it
 --       ever does, Discord roles would stop being "always the current
@@ -103,6 +105,13 @@ insert into probe select '11. …and the real current term is untouched', (selec
 insert into probe select '12. …and 2693 was never created', '0',
   (select count(*)::text from public.team_terms where year = 2693);
 
+-- §B precondition, made rather than assumed: the outgoing year has NO archive
+-- yet — production's state (published_at NULL on every term, 2026-10-13).
+-- samo-dev may already hold one; without this §B would pass or fail on
+-- whatever an earlier session left behind.
+update public.team_terms set published_at = null where year = (select year from orig_current);
+delete from public.team_archive_nodes where year = (select year from orig_current);
+
 -- ── §A2 ALLOW: the SAME action, a team_edit holder, same sentinel year ────
 select pg_temp.as_((select id from p2), (select email from p2));
 set local role authenticated;
@@ -132,6 +141,35 @@ insert into probe select '21. the archived node/member counts match what the liv
 insert into probe select '22. the outgoing term is marked published (published_at set)', 'true',
   (select (published_at is not null)::text from public.team_terms
     where year = (select year from orig_current));
+
+-- ── §B2 an ALREADY-PUBLISHED outgoing year is NEVER re-snapshotted ────────
+-- publish_team_term deletes and rebuilds a year's archive. 2693 is current
+-- now: publish it by hand (the "เผยแพร่ปีนี้" button), correct one archived
+-- name the way an admin would, then hand over to 2694. The correction must
+-- survive — before the fix the handover re-published 2693 and erased it.
+select pg_temp.as_((select id from p2), (select email from p2));
+set local role authenticated;
+insert into r select 'manual_publish', pg_temp.try('select public.publish_team_term(2693)');
+reset role;
+insert into probe select '23. a manual publish of the current year (2693) succeeds', 'ok',
+  (select v from r where k = 'manual_publish');
+update public.team_archive_members set full_name = 'KEEP-0224-CORRECTION'
+ where id = (select id from public.team_archive_members where year = 2693 order by id limit 1);
+insert into probe select '24. one archived name in 2693 corrected (fixture)', '1',
+  (select count(*)::text from public.team_archive_members
+    where year = 2693 and full_name = 'KEEP-0224-CORRECTION');
+select pg_temp.as_((select id from p2), (select email from p2));
+set local role authenticated;
+insert into r select 'handover_2694', pg_temp.try(
+  'insert into r select ''handover_json'', public.start_team_term(2694)::text');
+reset role;
+insert into probe select '25. hand over 2693 → 2694', 'ok',
+  (select v from r where k = 'handover_2694');
+insert into probe select '26. the corrected name in 2693''s archive SURVIVED the handover (not re-snapshotted)', '1',
+  (select count(*)::text from public.team_archive_members
+    where year = 2693 and full_name = 'KEEP-0224-CORRECTION');
+insert into probe select '27. …and the handover reports it did not archive (it already was)', 'false',
+  (select (v::jsonb ->> 'archived_outgoing') from r where k = 'handover_json');
 
 -- ── §C Discord role sync stays decoupled from team_terms (regression guard) ─
 insert into probe select '30. discord_role_targets() names zero references to team_terms — it is "the current term" only because it reads the LIVE tree, not because anything ties it to a term row', 'true',

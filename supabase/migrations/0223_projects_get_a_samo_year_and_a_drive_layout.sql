@@ -1,16 +1,14 @@
 -- ============================================================
--- 0223 — หนังสือโครงการ gets a SAMO year, its 36 NULL ปีงบ rows get a real
--- value, and new โครงการ get a per-year Drive layout (night agent, task 7
+-- 0223 — หนังสือโครงการ gets a SAMO year, and new โครงการ get a per-year
+-- Drive layout (night agent, task 7
 -- of the 2026-10-14 queue). Design: docs/YEAR-ROLLOVER.md § หนังสือโครงการ.
 -- Core infra: 0219. Export registry already expects this column:
 -- tools/year-export.mjs's `projects` entry has read `yearColumn:
 -- 'samo_year_be'` since task 5 (0222), ahead of this migration shipping it.
 --
--- THREE INDEPENDENT CHANGES, each explained separately below because each
--- rests on a different piece of evidence:
+-- TWO INDEPENDENT CHANGES (a third was REMOVED in review — see below):
 --   1. projects.samo_year_be      — same insert-time-stamped column as
 --                                    pr_tickets (0220) / vs_tickets (0221).
---   2. projects.fiscal_year_be    — a ONE-TIME backfill of the 36 NULL rows.
 --   3. projects.drive_layout      — a new, EXPLICIT marker so a per-year
 --                                    Drive folder (appscript/prform.gs) can
 --                                    ship WITHOUT silently relocating the 42
@@ -28,31 +26,15 @@
 -- university officer already reads. They stay two columns, stamped by two
 -- different mechanisms (one a trigger, one a one-time UPDATE), forever.
 --
--- WHY (2) DEVIATES FROM 0165's OWN STATED RULE, ON PURPOSE, NAMED HERE SO A
--- FUTURE READER DOES NOT TREAT IT AS A REGRESSION. 0165's header says
--- "Nothing backfills this column; a row only gets a number when someone
--- sets one" — true, and still the right default for any row a human might
--- later disagree with. This migration backfills the 36 rows that have
--- NEVER had anyone set an opinion, with the EXACT value
--- `projectFiscalYear()` already derives for them at read time
--- (src/js/projects/fiscal-year.js's `deriveFiscalYearBE`) — so no displayed
--- year changes for a single row, and `isFiscalYearMoved()` — which compares
--- the stored override against a fresh derivation from `created_at` — stays
--- false for every one of them (override now EQUALS the derivation, so no
--- row gets a spurious "ย้ายแล้ว" badge it never earned). This is the same
--- exception 0220/0221 already took for samo_year_be and docs/YEAR-ROLLOVER.md
--- names for fiscal_year_be by name ("there is no stored human decision a
--- backfill would overwrite"); 0165's rule protects a CHOICE, and a NULL row
--- has never had one. The arithmetic is inlined once, HERE, as a one-time
--- UPDATE rather than a reusable function — turning it into a permanent SQL
--- function would be a SECOND, ongoing implementation of
--- `deriveFiscalYearBE` (mistakes class 6); a one-shot UPDATE statement dies
--- with this migration file, leaving exactly one living implementation (the
--- JS one) going forward. The expression is converted to 'Asia/Bangkok'
--- first — deriveFiscalYearBE's own comment says the rule is defined on
--- "the viewer's local calendar (the audience is in ICT)", and a UTC
--- timestamptz read directly would misclassify any created_at that falls in
--- the ~7-hour gap around midnight ICT.
+-- ⛔ NO fiscal_year_be BACKFILL (removed in the owner-session review,
+-- 2026-10-14). The night agent's draft filled the 36 NULL rows with the value
+-- deriveFiscalYearBE() computes for them. That contradicts the design
+-- src/js/projects/fiscal-year.js states in its own header: NULL MEANS "ASK THE
+-- CLOCK", so correcting a โครงการ's created_at still re-derives its ปีงบ; a
+-- column filled once from an expression stops tracking it for ever (0128,
+-- cohort_year — mistakes class 6, "fill-once means never-correct"). It also
+-- bought nothing: every displayed ปีงบ was already right. The 36 NULLs are
+-- the CORRECT state, not a gap.
 --
 -- WHY (3) IS A NEW EXPLICIT COLUMN, NOT A SILENT PATH CHANGE. The task
 -- brief asks for "Drive folders per year via appscript". The obvious move —
@@ -109,35 +91,22 @@ update public.projects
  where samo_year_be is null;
 
 -- ---------------------------------------------------------------------------
--- 2. projects.fiscal_year_be — ONE-TIME backfill of the 36 rows nobody has
---    ever set an opinion on, using the EXACT rule src/js/projects/
---    fiscal-year.js's deriveFiscalYearBE already applies at read time
---    (1 ต.ค.–30 ก.ย., named for the year it ENDS in; ต.ค.–ธ.ค. -> next พ.ศ.),
---    evaluated in Asia/Bangkok local time to match "the viewer's local
---    calendar" the JS function's own comment names. The 11 rows that
---    already carry a human's override are UNTOUCHED (`where fiscal_year_be
---    is null`) — this can never overwrite a decision someone already made.
--- ---------------------------------------------------------------------------
-update public.projects
-   set fiscal_year_be = (
-         extract(year from (created_at at time zone 'Asia/Bangkok'))::int + 543
-         + case when extract(month from (created_at at time zone 'Asia/Bangkok'))::int >= 10
-                then 1 else 0 end
-       )
- where fiscal_year_be is null;
-
--- ---------------------------------------------------------------------------
 -- 3. projects.drive_layout — which Drive folder SHAPE this โครงการ's files
 --    actually live under. 'flat' = `Projects/<slug>_<id>/...` (every row
 --    that exists today — their real folders already live there and are
 --    NEVER moved by this migration). 'year' = `Projects/<samo_year_be>/
---    <slug>_<id>/...` (every row created from now on). The two-step ADD
---    then ALTER DEFAULT is deliberate: it back-fills every existing row to
---    'flat' as a literal value at the moment the column appears (matching
---    their real, unmoved folders), then flips the DEFAULT so every future
---    INSERT gets 'year' with no trigger needed — a plain column default is
---    enough because, unlike samo_year_be, nothing here ever needs to read
---    "what year is current RIGHT NOW" at insert time.
+--    <slug>_<id>/...` — set EXPLICITLY by the new bundle's createProject().
+--
+--    ⛔ THE DEFAULT STAYS 'flat' (owner-session review, 2026-10-14). The
+--    night agent's draft flipped the default to 'year' here, at APPLY time.
+--    But production keeps serving the OLD bundle until the deploy, and the old
+--    bundle builds every folder flat — so every โครงการ created in that gap
+--    would be LABELLED 'year' while its real folder is flat, and once the new
+--    bundle is served its rename/delete/QR would look in a folder that does
+--    not exist. A column default is decided by the schema; which folder a row
+--    really has is decided by the CODE that created it — so the code says it.
+--    The old bundle never sends the column and keeps getting 'flat', which is
+--    true for it.
 -- ---------------------------------------------------------------------------
 alter table public.projects
   add column if not exists drive_layout text not null default 'flat';
@@ -148,13 +117,16 @@ alter table public.projects
   add constraint projects_drive_layout_check
   check (drive_layout in ('flat', 'year'));
 
+-- Explicit, so re-applying this file over the night agent's draft (which set
+-- 'year') puts the default back.
 alter table public.projects
-  alter column drive_layout set default 'year';
+  alter column drive_layout set default 'flat';
 
 comment on column public.projects.drive_layout is
   '''flat'' (every row as of migration 0223): the real Drive folder is '
   'Projects/<slug>_<id>/... — NEVER relocated by this column''s existence. '
-  '''year'' (every row created after 0223): the real Drive folder is '
+  '''year'' (set explicitly by createProject in the bundle that shipped with '
+  '0223): the real Drive folder is '
   'Projects/<samo_year_be>/<slug>_<id>/... — see appscript/prform.gs''s '
   'walkProjectsPathByCode_ (accepts an optional leading year segment, '
   'exact-matched not code-matched) and src/js/projects/data.js''s '

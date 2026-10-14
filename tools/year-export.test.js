@@ -4,7 +4,24 @@ import {
   REGISTRY, csvCell, rowsToCsv, csvColumnsFor, yearWhereClause,
   archiveFolderPath, archiveFileName, buildGasUploadPayload, buildPlan,
   planLines, fetchExport, columnExists,
+  outDirInsideRepo, DEFAULT_OUT_DIR, REPO_ROOT,
 } from './year-export.mjs';
+
+// An export is `select *` of real people and the repository is PUBLIC.
+describe('exports never land inside the repository', () => {
+  it('the default output folder is outside the checkout', () => {
+    expect(outDirInsideRepo(DEFAULT_OUT_DIR)).toBe(false);
+  });
+  it('refuses the repo root and any folder under it, relative or absolute', () => {
+    expect(outDirInsideRepo(REPO_ROOT)).toBe(true);
+    expect(outDirInsideRepo(`${REPO_ROOT}/exports`)).toBe(true);
+    expect(outDirInsideRepo('exports', REPO_ROOT) === outDirInsideRepo(`${process.cwd()}/exports`, REPO_ROOT)).toBe(true);
+  });
+  it('allows a sibling folder whose name merely starts with the repo name', () => {
+    expect(outDirInsideRepo(`${REPO_ROOT}-exports`)).toBe(false);
+    expect(outDirInsideRepo('/tmp/samo-exports')).toBe(false);
+  });
+});
 
 describe('REGISTRY mirrors the SAME nested shape the app itself reads (class 6 guard)', () => {
   // shop/api.js and projects/api.js each build their admin fetch from a
@@ -127,7 +144,7 @@ describe('buildPlan / planLines — never carry a row value, only counts and pat
       system: 'vs_tickets', year: 2569, baseCount: 3,
       childCounts: { vs_public_comments: 2 },
     });
-    const lines = planLines(plan, './exports', false).join('\n');
+    const lines = planLines(plan, '/tmp/samo-exports', false).join('\n');
     // A sentinel that would ONLY appear if a row's actual field value leaked
     // into a printed line — it must never be constructible from counts alone.
     expect(lines).not.toMatch(/สมชาย|@kkumail|problem|ปัญหา/);

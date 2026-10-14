@@ -33,7 +33,10 @@ not touch.
    below — would snapshot the INCOMING team under the OUTGOING year's label,
    corrupting the one thing an archive exists to get right. Since 0224,
    `start_team_term` auto-archives the outgoing term as its first action, in
-   the same transaction, before closing it — so calling it FIRST is not just
+   the same transaction, before closing it — **unless that year was already
+   published**, in which case its archive is left exactly as it is (an
+   existing archive, and every correction made to it, is never re-snapshotted)
+   — so calling it FIRST is not just
    the safe order, it is what makes "prepare next year's team without
    touching this year's" true by construction rather than by remembering to
    click "เผยแพร่ปีนี้" at the right moment.
@@ -67,9 +70,11 @@ One call does, in one transaction (never observable as two states):
   key is a VIEW grant every ทีม SAMO posting gets for free, so gating a
   handover on it (0219's bug, closed by 0224) let any of 300+ accounts with
   no edit rights at all flip the current year.
-- **auto-archives the OUTGOING term** (0224) — calls `publish_team_term` on
-  whatever was current, snapshotting the live tree exactly as it stood at
-  this instant, BEFORE anything else below runs. This is why step 2 above
+- **auto-archives the OUTGOING term if it has never been published** (0224)
+  — calls `publish_team_term` on whatever was current, snapshotting the live
+  tree exactly as it stood at this instant, BEFORE anything else below runs.
+  A year that already has an archive keeps it: `publish_team_term` deletes
+  and rebuilds, so re-running it would replace a correct snapshot. This is why step 2 above
   says call this FIRST: by the time you edit the tree for the incoming team,
   the outgoing year's history is already safe.
 - refuses with a clear Thai message if `p_year` is already the current term
@@ -131,10 +136,11 @@ roster that was actually live at the boundary.
   should have been. The function refuses nothing here except re-selecting
   the SAME year, so correcting a mistake is just another call — the term you
   close now reopens correctly later if needed (its `started_at` is
-  preserved, per above). The outgoing term's auto-archive from the mistaken
-  call stays in history too (0224 re-archives on every call, same as
-  clicking "เผยแพร่ซ้ำ" would) — it is not wrong, it just also now shows
-  whatever the live tree held during the mistake window.
+  preserved, per above). The outgoing term was archived by the mistaken
+  call only if it had never been published, and is never re-archived by the
+  correcting call — so an undo/redo cannot overwrite a year's history with a
+  tree edited in between. To refresh an archive on purpose, press
+  "เผยแพร่ซ้ำ" on that year.
 - **Nobody holds `team_edit`/`master` any more and the call is refused**:
   grant it through `public.users.permissions` directly (`dev` role can
   always do this) — that is the intended escape hatch; `start_team_term`

@@ -9,6 +9,7 @@ import { canonicalPrDept, fillPrDeptSelect } from './pr-depts.js';
 import { fetchSamoYears, currentSamoYear, samoYearOptionsHtml } from './samo-year.js';
 import {
   ALL_YEARS, isPastYearView, isPastYearTicket, ticketMatchesYearFilter, buildPrTicketsCsv, prCsvFilename,
+  PR_DONE_STATUS, isPrDoneStatus,
 } from './pr-year.js';
 
 // ----------------------------------------------------
@@ -199,7 +200,7 @@ function bucketStatus(rawStatus) {
   const s = (rawStatus || '').toString();
   if (KANBAN_STATUSES.includes(s)) return s;
   // Substring fallbacks for legacy / variant wording
-  if (s.includes('เสร็จสิ้น') || s.includes('โพสต์เรียบร้อย')) return 'โพสต์เรียบร้อย (เสร็จสิ้น)';
+  if (isPrDoneStatus(s)) return PR_DONE_STATUS;
   if (s.includes('ตีกลับ')) return 'ตีกลับให้แก้ไขงาน';
   if (s.includes('กำลังแก้ไข') || s.includes('แก้ไขงาน')) return 'กำลังแก้ไขงาน';
   if (s.includes('รอโพสต์')) return 'รอโพสต์ตามกำหนดการ';
@@ -224,7 +225,7 @@ export function filterPRStaffTickets() {
       || (t.contentName || '').toLowerCase().includes(q));
   }
 
-  filtered = filtered.filter((t) => ticketMatchesYearFilter(t.samoYearBe, prYearFilterValue));
+  filtered = filtered.filter((t) => ticketMatchesYearFilter(t.samoYearBe, prYearFilterValue, t.status));
 
   prStaffFilteredTickets = filtered;
   renderPrYearBanner();
@@ -253,7 +254,7 @@ function renderPrYearBanner() {
   // concept — phrased to stay out of a guard that is right about everything
   // it actually watches for the thing it watches.
   box.innerHTML = `<i class="bi bi-lock-fill me-2"></i>กำลังดูปีที่ ${escapeHtml(String(prYearFilterValue))} `
-    + `(ปิดแล้ว) — มุมมองนี้เป็นแบบอ่านอย่างเดียว เปิด Ticket เพื่อแก้ไขพร้อมยืนยัน "แก้ไขของปีก่อน"`;
+    + `(ปิดแล้ว) — งานที่เสร็จแล้วของปีนั้นแก้ไขได้เมื่อยืนยัน "แก้ไขของปีก่อน" งานที่ยังไม่เสร็จแสดงทุกปีเสมอ`;
 }
 
 function renderPRStaffKanban(tickets) {
@@ -411,7 +412,7 @@ export function openPRStaffModal(idx) {
   renderPRStaffAssignees();
   // Locked from THIS TICKET's own year, never from the dashboard filter —
   // see isPastYearTicket's header comment for why that distinction matters.
-  prStaffPastYearLock = isPastYearTicket(t.samoYearBe, currentSamoYear(prSamoYears));
+  prStaffPastYearLock = isPastYearTicket(t.samoYearBe, currentSamoYear(prSamoYears), t.status);
   applyPrPastYearLock();
   bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
   new bootstrap.Modal(document.getElementById('prStaffManageModal')).show();

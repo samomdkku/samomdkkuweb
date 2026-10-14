@@ -18,6 +18,18 @@ import { ALL_YEARS } from './samo-year.js';
 // it the same way), but PR's own import path must not break.
 export { ALL_YEARS };
 
+/** The kanban's terminal column. ONE home — pr-staff.js's bucketStatus asks
+ *  isPrDoneStatus too, so "finished" means the same thing on the board, in
+ *  the year filter and in the past-year lock. */
+export const PR_DONE_STATUS = 'โพสต์เรียบร้อย (เสร็จสิ้น)';
+
+/** Is this ticket FINISHED right now? Same substring rule bucketStatus has
+ *  always used for legacy spellings. */
+export function isPrDoneStatus(status) {
+  const s = String(status || '');
+  return s.includes('เสร็จสิ้น') || s.includes('โพสต์เรียบร้อย');
+}
+
 /**
  * Does the selected year make the dashboard a PAST-YEAR, read-only-by-default
  * view? Per docs/YEAR-ROLLOVER.md § PR: "Past years are READ-ONLY by default
@@ -50,18 +62,32 @@ export function isPastYearView(selected, currentYear) {
  * @param {number|string|null|undefined} ticketYear  a ticket's samoYearBe
  * @param {number|null} currentYear  from currentSamoYear() (samo-year.js)
  */
-export function isPastYearTicket(ticketYear, currentYear) {
+export function isPastYearTicket(ticketYear, currentYear, status) {
+  // An UNFINISHED ticket is never locked, whatever year it was filed in: it
+  // is the incoming team's work now (review 2026-10-14 — the first version
+  // locked every inherited open ticket behind the override, so the new team
+  // had to tick "แก้ไขของปีก่อน" just to do its job).
+  if (!isPrDoneStatus(status)) return false;
   if (ticketYear == null || currentYear == null) return false;
   const y = Number(ticketYear);
   return Number.isFinite(y) && y < Number(currentYear);
 }
 
-/** Does a ticket belong to the year the dashboard is currently filtered to?
- *  `null`/`undefined` ticket year (a row the backfill could not resolve —
- *  should not happen for any pre-0220 row, see the migration) is treated as
- *  "always visible" rather than silently dropped from every filter. */
-export function ticketMatchesYearFilter(ticketYear, selected) {
+/** Does a ticket show under the year the dashboard is filtered to?
+ *
+ *  OPEN TICKETS CARRY OVER — the same rule VitalSound's facet has
+ *  (vs-year.js). The year filter exists to hide the FINISHED pile (the
+ *  owner's 290 โพสต์เรียบร้อย); a ticket still in progress when the team
+ *  changes is exactly what the incoming team must see on day one. The first
+ *  version filtered every ticket by year, so the 12 "รอ PR รับเรื่อง" of a
+ *  closing year would have vanished from the new team's default view at the
+ *  handover (review 2026-10-14).
+ *
+ *  `null`/`undefined` ticket year (a row the backfill could not resolve) is
+ *  treated as "always visible" rather than silently dropped. */
+export function ticketMatchesYearFilter(ticketYear, selected, status) {
   if (selected === ALL_YEARS) return true;
+  if (!isPrDoneStatus(status)) return true;
   if (ticketYear == null) return true;
   return Number(ticketYear) === Number(selected);
 }

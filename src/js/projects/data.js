@@ -185,10 +185,10 @@ export function buildProjectFolderPath(projectId, projectName, samoYearBe) {
  *  and recomputing the path WITH a year prefix would point every future
  *  rename/delete/QR-folder-info call at a folder that was never created,
  *  not the one that actually holds the project's files. Only a project
- *  created after 0223 (drive_layout = 'year', the column's new default)
- *  ever gets the year segment — and by construction it also always has a
- *  samo_year_be by then (the same migration's INSERT trigger stamps both
- *  in the same transaction a row is born in). */
+ *  created by this bundle ever gets the year segment: createProject
+ *  sends drive_layout = 'year', while the column's default stays 'flat'
+ *  for the previous bundle, which builds every folder flat (0223). Its
+ *  samo_year_be is stamped by 0223's INSERT trigger in the same insert. */
 export function projectDriveYear(project) {
   return project?.drive_layout === 'year' ? (project?.samo_year_be ?? null) : null;
 }

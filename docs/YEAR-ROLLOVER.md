@@ -308,23 +308,14 @@ above, which protects a CHOICE already made).
 **Correction (task 7, migration 0223).** Three things below did not survive
 contact with the night queue's own task brief or the live code paths.
 
-1. **`fiscal_year_be` WAS backfilled after all — this section's "NOT
-   backfilled by force" above is superseded.** The task brief for task 7
-   explicitly asked for it ("36 of 42 projects have NO fiscal_year_be: ...
-   write migration 0223 that fills it"), and on inspection the backfill is
-   safe for the exact reason this section already gave for NOT needing it:
-   it writes the SAME value `projectFiscalYear()` already derives for a
-   NULL row at read time, so no project's displayed ปีงบ changes and
-   `isFiscalYearMoved()` stays false for every one of them (override now
-   EQUALS the derivation it would have computed anyway). The 11 rows that
-   already carry a human's override are untouched (`where fiscal_year_be is
-   null`) — 0165's real rule ("nothing backfills this column" protects a
-   CHOICE) still holds; there was simply no choice recorded for these 36 to
-   protect. The arithmetic is inlined as a one-time UPDATE in 0223, not a
-   reusable SQL function, so it does not become a second permanent
-   implementation of `deriveFiscalYearBE` (mistakes class 6) — proven
-   against the exact 30 ก.ย./1 ต.ค. boundary `fiscal-year.test.js` §1
-   asserts in JS, re-asserted in SQL by `tools/proj0223-fiscal-year-and-samo-year.sql` §E.
+1. **`fiscal_year_be` is NOT backfilled — the decision above stands.** Task 7's
+   draft of 0223 did backfill the 36 NULL rows (the brief asked for it); the
+   owner-session review (2026-10-14) removed it. `fiscal-year.js` is built on
+   NULL meaning "ask the clock", so a corrected `created_at` re-derives the
+   ปีงบ; a value filled once from the date stops following it (0128,
+   `cohort_year`). It also changed nothing anyone could see.
+   `fiscal-year.test.js` §6 now fails the build if any migration UPDATEs
+   `fiscal_year_be`.
 2. **Drive folders per year, via a new `projects.drive_layout` marker, NOT
    an unconditional path change.** The task brief's "Drive folders per year"
    ask looked at first like PR's shape (always prefix `Projects/<year>/`) —
@@ -337,8 +328,10 @@ contact with the night queue's own task brief or the live code paths.
    never created, instead of the one that already holds their real files —
    a correct-looking diff that breaks Drive links the next time anyone
    touches an old โครงการ. `drive_layout` ('flat' for every row that
-   existed before 0223, 'year' — the column's new default — for every row
-   created after) lets `projectDriveYear()` (data.js) answer "does this
+   existed before 0223 AND the column default; 'year' only when the new
+   bundle's `createProject` asks for it — review 2026-10-14: a default of
+   'year' would have labelled every โครงการ the OLD bundle created between
+   the migration and the deploy 'year' while its real folder was flat) lets `projectDriveYear()` (data.js) answer "does this
    project's REAL folder use a year prefix" by reading the row, not by
    assuming. **Rejected alternative:** a one-shot Drive mover, mirroring
    `tools/pr-organize-drive-by-year.mjs` — rejected because PR needed one
@@ -356,8 +349,9 @@ contact with the night queue's own task brief or the live code paths.
    subfolder; until then every upload keeps landing exactly where it does
    today, because `buildProjectFolderPath`/`buildDocFolderPath` only add
    the year segment for a row whose `drive_layout` already says 'year',
-   and no such row exists until the deployed GAS AND this migration are
-   both live.
+   and no such row exists until the new bundle is served. (The GAS order
+   does not matter: the deployed walker already creates a plain `2569`
+   folder for a bare-digit segment and finds the project under it by code.)
 3. **Project seats (vpa/staff/prof) across a handover — confirmed NO
    migration needed, not something to build.** `users.managed_project_seats`
    (0086) is not a snapshot anything stores on a project; it is resynced

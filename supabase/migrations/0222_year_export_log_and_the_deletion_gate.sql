@@ -102,6 +102,7 @@ alter table public.year_export_log enable row level security;
 -- role: the only sanctioned writers are record_year_export() below (which
 -- bypasses RLS as SECURITY DEFINER, after its own gate) and the Management
 -- API tooling (which bypasses RLS as Postgres superuser, by design).
+drop policy if exists year_export_log_select on public.year_export_log;
 create policy year_export_log_select on public.year_export_log
   for select
   using (public.current_user_has_permission('data_admin') or public.current_user_role() = 'dev');
@@ -128,6 +129,8 @@ comment on function public.year_export_recorded(text, integer) is
   'flag, is the record, so a second export can never un-mark the first, and '
   'this function can never be fooled into forgetting an export happened.';
 
+-- Functions are EXECUTE-to-PUBLIC by default (0101): revoke, then grant.
+revoke all on function public.year_export_recorded(text, integer) from public, anon;
 grant execute on function public.year_export_recorded(text, integer) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -147,7 +150,9 @@ create or replace function public.record_year_export(
 declare
   v_id bigint;
 begin
-  if not (public.current_user_has_permission('data_admin') or public.current_user_role() = 'dev') then
+  -- coalesce(..., false): fail CLOSED on a NULL answer (0218's lesson).
+  if not coalesce(public.current_user_has_permission('data_admin')
+                  or public.current_user_role() = 'dev', false) then
     raise exception 'record_year_export: permission denied';
   end if;
   if p_system is null or length(trim(p_system)) = 0 then
@@ -175,4 +180,5 @@ comment on function public.record_year_export(text, integer, integer, text, text
   'migration''s header for why a SECURITY DEFINER gate keyed on auth.uid() '
   'would refuse that caller.';
 
+revoke all on function public.record_year_export(text, integer, integer, text, text) from public, anon;
 grant execute on function public.record_year_export(text, integer, integer, text, text) to authenticated;
