@@ -25,7 +25,7 @@ import {
 } from './api.js';
 import { uploadProjectFile } from './uploads.js';
 import { holdAllInMemory } from '../read-file.js';
-import { buildDocFolderPath } from './data.js';
+import { buildDocFolderPath, projectDriveYear } from './data.js';
 import { notifyUniStaff } from './notify.js';
 import { getCachedDocTypes } from './index.js';
 
@@ -242,14 +242,14 @@ async function onSubmit(e) {
         note,
         // Drive folder path uses the human-readable title; placeholder
         // doc id is filled in after createDocument returns.
-        driveFolder: buildDocFolderPath(project.id, project.name, '', title),
+        driveFolder: buildDocFolderPath(project.id, project.name, '', title, projectDriveYear(project)),
         createdBy: user?.id || null,
         status: pendingFiles.length === 0 ? 'sent' : 'sent',  // sent even with 0 files
       });
 
       // 3) Files (upload + insert rows)
       if (pendingFiles.length > 0) {
-        const folder = buildDocFolderPath(project.id, project.name, doc.id, title);
+        const folder = buildDocFolderPath(project.id, project.name, doc.id, title, projectDriveYear(project));
         // Patch the document's drive_folder now that we have the real doc id.
         // (createDocument received an empty placeholder doc id segment.)
         //

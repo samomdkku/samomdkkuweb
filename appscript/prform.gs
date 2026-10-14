@@ -14,8 +14,17 @@
 //                            shop module for slips, product photos, QR images.
 //                            Folders are created lazily as needed.
 //   - uploadProjectFile    : same shape as uploadShopFile but allow-listed to
-//                            `Projects/...`. Used by the project-tracking
-//                            module for หนังสือโครงการ attachments.
+//                            `Projects/...`, or `Projects/<samoYear>/...`
+//                            for any project created after migration 0223
+//                            (`drive_layout = 'year'`) — walkProjectsPathByCode_
+//                            detects the year segment by shape (4 digits)
+//                            and matches/creates it by exact name, never by
+//                            code. Every project that existed before 0223
+//                            keeps resolving flat, forever — no mover tool,
+//                            unlike PR's movePRFileToYear/organiser above;
+//                            see 0223's migration header for why. Used by
+//                            the project-tracking module for หนังสือโครงการ
+//                            attachments.
 //   - notifyProjectEmail   : send an email via MailApp to the receiver
 //                            (free, no SMTP needed) when a document is
 //                            sent or a file is replaced.
@@ -891,9 +900,19 @@ function getOrCreateProjectSubfolderByCode_(parent, desiredName, code) {
   return parent.createFolder(desiredName);
 }
 
-/** Walk a `Projects/<projectFolder>[/<docFolder>]` path. The first
- *  segment after `Projects/` matches by PRJ-code; the second by
- *  DOC-code. Self-renames stale folders to the current desired name. */
+/** Walk a `Projects/[<samoYear>/]<projectFolder>[/<docFolder>]` path. The
+ *  OPTIONAL year segment (0223, docs/YEAR-ROLLOVER.md § หนังสือโครงการ) is
+ *  detected by shape alone — exactly 4 digits, nothing else — because a
+ *  real project/doc segment always carries a PRJ-/DOC- code plus a slug
+ *  (buildProjectFolderPath/buildDocFolderPath, src/js/projects/data.js)
+ *  and can never be bare digits. When present it is matched/created by
+ *  EXACT name (like the top-level "Projects" folder itself, not by code —
+ *  there is nothing to rename a year folder TO), then every remaining
+ *  segment matches by PRJ-/DOC-code exactly as before. A path with no year
+ *  segment behaves EXACTLY as it did before this change — this is what
+ *  keeps every project created before migration 0223 (`drive_layout =
+ *  'flat'`) resolving to the same folder it always has; see
+ *  projectDriveYear()'s own comment in data.js for why that matters. */
 function walkProjectsPathByCode_(path) {
   var parts = path.split('/').filter(function (p) { return p && p.length; });
   if (parts.length === 0 || canonTopFolder_(parts[0]) !== 'Projects') {
@@ -902,8 +921,16 @@ function walkProjectsPathByCode_(path) {
   // Top-level "Projects" folder: exact-name match (no code), under the
   // app root, adopting a legacy My-Drive-root folder if that's where it is.
   var parent = getOrCreateTopFolder_('Projects');
+  var i = 1;
+  if (parts.length > 1 && /^[0-9]{4}$/.test(parts[1])) {
+    // Year segment: exact-match/create only, same as the "Projects" root
+    // itself — a year folder is never renamed, so no code tracking applies.
+    var yearExact = parent.getFoldersByName(parts[1]);
+    parent = yearExact.hasNext() ? yearExact.next() : parent.createFolder(parts[1]);
+    i = 2;
+  }
   // Walk each remaining segment with by-code matching.
-  for (var i = 1; i < parts.length; i++) {
+  for (; i < parts.length; i++) {
     var name = parts[i];
     var code = extractProjectCode_(name);
     parent = getOrCreateProjectSubfolderByCode_(parent, name, code);

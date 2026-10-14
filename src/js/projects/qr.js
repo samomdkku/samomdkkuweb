@@ -16,7 +16,7 @@
 
 import QRCode from 'qrcode';
 import { escHtml, copyText } from '../utils.js';
-import { buildProjectFolderPath } from './data.js';
+import { buildProjectFolderPath, projectDriveYear } from './data.js';
 import { getProjectFolderInfo } from './uploads.js';
 import { cacheProjectFolder } from './api.js';
 
@@ -82,7 +82,7 @@ export async function showProjectQrModal(project) {
   }
   if (!info) {
     try {
-      const folderPath = buildProjectFolderPath(project.id, project.name);
+      const folderPath = buildProjectFolderPath(project.id, project.name, projectDriveYear(project));
       // share:true → GAS sets ANYONE_WITH_LINK+VIEW so a scanned QR
       // resolves into a browsable folder for the recipient.
       info = await getProjectFolderInfo(folderPath, { share: true });

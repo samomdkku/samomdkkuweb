@@ -305,6 +305,82 @@ human having chosen a year for them yet, so there is no stored human
 decision to protect (contrast with the "never recompute after write" rule
 above, which protects a CHOICE already made).
 
+**Correction (task 7, migration 0223).** Three things below did not survive
+contact with the night queue's own task brief or the live code paths.
+
+1. **`fiscal_year_be` WAS backfilled after all — this section's "NOT
+   backfilled by force" above is superseded.** The task brief for task 7
+   explicitly asked for it ("36 of 42 projects have NO fiscal_year_be: ...
+   write migration 0223 that fills it"), and on inspection the backfill is
+   safe for the exact reason this section already gave for NOT needing it:
+   it writes the SAME value `projectFiscalYear()` already derives for a
+   NULL row at read time, so no project's displayed ปีงบ changes and
+   `isFiscalYearMoved()` stays false for every one of them (override now
+   EQUALS the derivation it would have computed anyway). The 11 rows that
+   already carry a human's override are untouched (`where fiscal_year_be is
+   null`) — 0165's real rule ("nothing backfills this column" protects a
+   CHOICE) still holds; there was simply no choice recorded for these 36 to
+   protect. The arithmetic is inlined as a one-time UPDATE in 0223, not a
+   reusable SQL function, so it does not become a second permanent
+   implementation of `deriveFiscalYearBE` (mistakes class 6) — proven
+   against the exact 30 ก.ย./1 ต.ค. boundary `fiscal-year.test.js` §1
+   asserts in JS, re-asserted in SQL by `tools/proj0223-fiscal-year-and-samo-year.sql` §E.
+2. **Drive folders per year, via a new `projects.drive_layout` marker, NOT
+   an unconditional path change.** The task brief's "Drive folders per year"
+   ask looked at first like PR's shape (always prefix `Projects/<year>/`) —
+   wrong for this table specifically, because unlike an immutable
+   `pr_tickets` row, a โครงการ's Drive path is RECOMPUTED FROM SCRATCH on
+   every rename, delete and QR-folder-info call
+   (`src/js/projects/inbox.js`/`qr.js`), never looked up from a stored
+   value. Prefixing a year onto all 42 existing projects' paths would have
+   silently pointed every future rename/delete/QR at a folder that was
+   never created, instead of the one that already holds their real files —
+   a correct-looking diff that breaks Drive links the next time anyone
+   touches an old โครงการ. `drive_layout` ('flat' for every row that
+   existed before 0223, 'year' — the column's new default — for every row
+   created after) lets `projectDriveYear()` (data.js) answer "does this
+   project's REAL folder use a year prefix" by reading the row, not by
+   assuming. **Rejected alternative:** a one-shot Drive mover, mirroring
+   `tools/pr-organize-drive-by-year.mjs` — rejected because PR needed one
+   specifically because the SAME flat `PR/` folder kept growing after the
+   column shipped (new tickets kept landing in the old place without a
+   mover); a โครงการ's folder is created once at first upload and nothing
+   else ever writes into it from outside the app, so a flat legacy project
+   costs nothing by staying flat for its whole remaining life.
+   `appscript/prform.gs`'s `walkProjectsPathByCode_` detects an optional
+   year segment by SHAPE (exactly 4 digits — a real project/doc segment
+   always carries a slug + PRJ-/DOC- code and can never be bare digits),
+   matched/created by exact name like the "Projects" root itself, never by
+   code. **Written, NOT deployed** — needs `npm run deploy:gas`
+   (`skills/deploy-gas.md`) before any upload actually lands in a year
+   subfolder; until then every upload keeps landing exactly where it does
+   today, because `buildProjectFolderPath`/`buildDocFolderPath` only add
+   the year segment for a row whose `drive_layout` already says 'year',
+   and no such row exists until the deployed GAS AND this migration are
+   both live.
+3. **Project seats (vpa/staff/prof) across a handover — confirmed NO
+   migration needed, not something to build.** `users.managed_project_seats`
+   (0086) is not a snapshot anything stores on a project; it is resynced
+   LIVE by `recompute_team_managed_permissions()`, an `AFTER INSERT OR
+   DELETE OR UPDATE OF ... project_seat` trigger on `team_nodes` AND
+   `team_members` — the exact same live-tree mechanism this doc's ทีม SAMO
+   section already names for every other permission ("grants expire when
+   the TREE changes"). The moment an admin reassigns the ผู้ส่งหนังสือ
+   ตำแหน่ง from an outgoing officer to an incoming one (whether or not that
+   coincides with a `start_team_term` call), the outgoing account loses
+   `vpa` and the incoming one gains it, with no code to write. Nothing else
+   needed checking this: `project_sign_requests.prof_id`/`.requested_by`
+   are specific account ids, not seats — a professor doesn't stop being the
+   professor at a SAMO handover, and the sender-desk reads every
+   in-progress request as a SHARED queue (not scoped to whoever originally
+   sent it), so an in-flight signature request is never orphaned by who
+   currently holds `vpa`. **What would change this**: if the owner ever
+   wants a project's seat-notify audience frozen to whoever held the seat
+   WHEN IT WAS SENT (a snapshot), that is a new, separate column on
+   `projects` itself — nothing in the current design stores that, by
+   choice, because `list_project_seat_users()`'s whole contract is "ask who
+   holds the seat right now".
+
 ---
 
 ## ทีม SAMO

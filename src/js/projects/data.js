@@ -152,15 +152,43 @@ export function slugify(s) {
  *  app propagates to Drive on the next upload, QR, or rename hook,
  *  even though the path string itself is regenerated from scratch
  *  every time. Callers therefore pass CURRENT names, not whatever was
- *  stored on `doc.drive_folder` historically. */
-export function buildDocFolderPath(projectId, projectName, documentId, docTitle) {
+ *  stored on `doc.drive_folder` historically.
+ *
+ *  `samoYearBe` (0223, docs/YEAR-ROLLOVER.md § หนังสือโครงการ) prefixes
+ *  `Projects/<year>/...` — pass it ONLY via {@link projectDriveYear},
+ *  never project.samo_year_be directly, and never for a project whose
+ *  real Drive folder already lives flat (every row that existed before
+ *  0223). Passing a year for one of those would make rename/delete/QR
+ *  all start looking in a folder that does not exist instead of the
+ *  real one — see projectDriveYear's own comment. */
+export function buildDocFolderPath(projectId, projectName, documentId, docTitle, samoYearBe) {
   const projectSeg = `${slugify(projectName)}_${projectId}`;
   const docSeg = `${slugify(docTitle)}_${documentId}`;
-  return `Projects/${projectSeg}/${docSeg}`;
+  const prefix = samoYearBe ? `Projects/${samoYearBe}` : 'Projects';
+  return `${prefix}/${projectSeg}/${docSeg}`;
 }
 
 /** Build a logical Drive path for a project's top-level folder. Same
- *  name-first / code-suffix convention as buildDocFolderPath. */
-export function buildProjectFolderPath(projectId, projectName) {
-  return `Projects/${slugify(projectName)}_${projectId}`;
+ *  name-first / code-suffix convention as buildDocFolderPath, and the
+ *  same `samoYearBe` rule — see buildDocFolderPath's comment. */
+export function buildProjectFolderPath(projectId, projectName, samoYearBe) {
+  const prefix = samoYearBe ? `Projects/${samoYearBe}` : 'Projects';
+  return `${prefix}/${slugify(projectName)}_${projectId}`;
+}
+
+/** The year to pass as buildProjectFolderPath/buildDocFolderPath's
+ *  `samoYearBe` argument for THIS project, or null for "no year segment".
+ *
+ *  `project.drive_layout` (0223) is the one thing that may say 'year' —
+ *  every project that existed before migration 0223 is 'flat' forever,
+ *  because its real Drive folder already lives at `Projects/<slug>_<id>`
+ *  and recomputing the path WITH a year prefix would point every future
+ *  rename/delete/QR-folder-info call at a folder that was never created,
+ *  not the one that actually holds the project's files. Only a project
+ *  created after 0223 (drive_layout = 'year', the column's new default)
+ *  ever gets the year segment — and by construction it also always has a
+ *  samo_year_be by then (the same migration's INSERT trigger stamps both
+ *  in the same transaction a row is born in). */
+export function projectDriveYear(project) {
+  return project?.drive_layout === 'year' ? (project?.samo_year_be ?? null) : null;
 }
