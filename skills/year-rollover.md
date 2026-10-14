@@ -33,7 +33,10 @@ not touch.
    2. **Edit the live tree** (จัดการทีม) into the incoming team. ⚠️ Grants
       follow the live tree, so a person removed now loses their access NOW —
       add the incoming people first and remove the outgoing ones on the
-      handover day if the old team still has work to finish.
+      handover day if the old team still has work to finish. ⛔ The pane
+      now shows "ผังสดเปลี่ยนแล้ว" on the current year — do NOT press
+      "เผยแพร่ซ้ำ" here: a re-publish deletes and rebuilds the archive, so the
+      outgoing year's history would become the new team (the dialog says so).
    3. **ตั้งเป็นปีปัจจุบัน** on the new year on handover day. The outgoing
       archive is NOT re-snapshotted (0224 only archives a year that was never
       published), the public page now shows the live tree as the new year,

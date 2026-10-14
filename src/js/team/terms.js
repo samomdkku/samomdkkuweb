@@ -80,7 +80,7 @@ function termRow(t) {
                 ? '<span class="team-term-badge is-draft">ยังไม่เผยแพร่ — หน้าสาธารณะแสดงผังสด</span>'
                 : '<span class="team-term-badge is-draft" title="ยังไม่เผยแพร่และไม่ใช่ปีปัจจุบัน จึงไม่ปรากฏบนหน้าสาธารณะ">ยังไม่เผยแพร่ — ไม่แสดงบนหน้าสาธารณะ</span>')}
           ${staleByYear.get(t.year)
-            ? '<span class="team-term-badge is-stale" title="ผังสดถูกแก้ไขหลังเผยแพร่ครั้งล่าสุด — หน้าสาธารณะยังแสดงภาพนิ่งเดิม">ผังสดเปลี่ยนแล้ว · ควรเผยแพร่ซ้ำ</span>'
+            ? '<span class="team-term-badge is-stale" title="ผังสดถูกแก้ไขหลังเผยแพร่ครั้งล่าสุด — หน้าสาธารณะยังแสดงภาพนิ่งเดิม ถ้ากำลังเตรียมทีมปีหน้า อย่าเผยแพร่ซ้ำ">ผังสดเปลี่ยนแล้ว · เผยแพร่ซ้ำถ้ายังเป็นทีมปีนี้</span>'
             : ''}
         </div>
         <div class="team-term-actions">
@@ -273,8 +273,14 @@ async function doPublish(year) {
   const again = !!t?.published_at;
   if (!await askConfirm({
     title: again ? `เผยแพร่ปี ${year} ซ้ำ?` : `เผยแพร่ผังปัจจุบันเป็นภาพนิ่งของปี ${year}?`,
+    // A re-publish DELETES the year's archive and rebuilds it from the live
+    // tree (publish_team_term). During a handover (publish → edit → switch,
+    // skills/year-rollover.md) the live tree is already the NEXT team, so a
+    // re-publish here would file the new team as this year's history — and
+    // the stale badge above invites exactly that click. Say so at the click.
     body: again
-      ? 'รายชื่อและรูปที่แก้ไขไว้ในประวัติปีนี้จะถูกแทนที่ด้วยผังปัจจุบันทั้งหมด'
+      ? `รายชื่อและรูปที่แก้ไขไว้ในประวัติปี ${year} จะถูกแทนที่ด้วยผังสดตอนนี้ทั้งหมด — `
+        + `ถ้ากำลังแก้ผังสดเป็นทีมของปีถัดไป อย่ากด: ประวัติปี ${year} จะกลายเป็นทีมใหม่`
       : 'หลังจากนี้หน้าสาธารณะจะแสดงภาพนิ่งนี้ (ไม่ใช่ผังสด) '
         + 'แก้ชื่อ/รูปของปีนี้ได้ที่ปุ่ม “แก้ไขรายชื่อ/รูป” และเห็นผลทันที '
         + 'ถ้าแก้ผังสดในภายหลัง ต้องกดเผยแพร่ซ้ำ',

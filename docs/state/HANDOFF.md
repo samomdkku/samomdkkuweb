@@ -1858,6 +1858,10 @@ after task 7; rows 8–12 never ran.
   page keeps the outgoing team while the tree is edited; switching first
   labels the half-edited live tree as the new team. Pane lead, confirm
   dialog, release note and the function comment (0227) all say so now.
+  The trap inside that order: during the edit the current year's badge said
+  "ควรเผยแพร่ซ้ำ" — re-publishing then would file the NEW team as the outgoing
+  year's history. Badge and re-publish dialog now say "only if it is still
+  this year's team".
   ⚠️ Grants follow the LIVE tree during the edit — inherent, documented, not
   built around (a per-term draft tree would be the real fix; not wanted yet).
 - 0228: the "ลบปี" button was disabled for the current year in the UI only;
