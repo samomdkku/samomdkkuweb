@@ -23,14 +23,23 @@
 // wrap it in `begin; … rollback;` (every proof script in this directory is
 // built that way) so production is never left changed.
 //
-//   node tools/db-query.mjs path/to/query.sql
+//   node tools/db-query.mjs path/to/query.sql          (the default project)
+//   node tools/db-query.mjs path/to/query.sql --dev    (samo-dev)
 //   node tools/db-query.mjs path/to/query.sql | python3 -m json.tool
 // ============================================================
 import { readFileSync } from 'node:fs';
 
-const file = process.argv[2];
-if (!file) {
-  console.error('usage: node tools/db-query.mjs <path-to-.sql>');
+// `--dev` targets samo-dev, the same switch run-proofs.mjs and
+// apply-migration.mjs take. ⛔ An UNKNOWN flag is refused, never ignored: this
+// file once took only a path, so `db-query.mjs x.sql --dev` ran x.sql on
+// PRODUCTION while the person typing it believed it was samo-dev — and it
+// cleared a real value there (2026-10-14, docs/mistakes/tooling-proofs.md).
+const args = process.argv.slice(2);
+const wantDev = args.includes('--dev');
+const unknown = args.filter((a) => a.startsWith('-') && a !== '--dev');
+const file = args.find((a) => !a.startsWith('-'));
+if (!file || unknown.length) {
+  console.error(`usage: node tools/db-query.mjs <path-to-.sql> [--dev]${unknown.length ? `  (unknown: ${unknown.join(' ')})` : ''}`);
   process.exit(1);
 }
 
@@ -48,8 +57,21 @@ if (!file) {
 import { loadEnv, announceTarget } from './env-lib.mjs';
 
 const loaded = loadEnv();
+if (wantDev) {
+  const url = loaded.env.SUPABASE_DEV_URL;
+  const tok = loaded.env.SUPABASE_DEV_ACCESS_TOKEN;
+  if (!url || !tok) {
+    console.error('--dev needs SUPABASE_DEV_URL + SUPABASE_DEV_ACCESS_TOKEN (in .env.local or the environment)');
+    process.exit(2);
+  }
+  loaded.env = { ...loaded.env, VITE_SUPABASE_URL: url, SUPABASE_ACCESS_TOKEN: tok };
+}
 const env = loaded.env;
-const { ref: REF } = announceTarget(loaded);
+const { ref: REF, isDev } = announceTarget(loaded);
+if (wantDev && !isDev) {
+  console.error('--dev was asked for but the target is not samo-dev — refusing');
+  process.exit(2);
+}
 
 const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
   method: 'POST',

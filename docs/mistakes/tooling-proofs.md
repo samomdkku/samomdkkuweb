@@ -3522,3 +3522,31 @@ paths change again, so its last verdict can be days old and still the truth.
 Ask each check for its own latest result. Never "is CI green on HEAD". And
 "checks pass" in a summary must come from looking this session, not from the
 last summary.
+
+## `db-query.mjs x.sql --dev` ran x.sql on PRODUCTION — the flag was silently ignored
+
+**Symptom.** Reviewing the night agent's branch (2026-10-14), a samo-dev-only
+cleanup (`update public.projects set fiscal_year_be = null where …`) was run as
+`node tools/db-query.mjs revert.sql --dev`. The tool printed
+`→ project: fheueuowbchsnsvbcgil (PRODUCTION)` — read only after the fact — and
+cleared one real โครงการ's ปีงบ. Restored within a minute; its `updated_at`
+could not be (the previous value is gone).
+
+**Cause.** `db-query.mjs` took ONE argument, the path, and ignored everything
+after it. `apply-migration.mjs` and `run-proofs.mjs` both take `--dev`, so the
+flag LOOKED supported — and the night agent's own proof headers documented
+`node tools/db-query.mjs tools/<proof>.sql --dev`. On the VM that is harmless
+(its checkout holds only samo-dev); on a laptop holding production it is not.
+Same family as `npm run x --flag` (memory: npm swallows it): a switch that is
+accepted and DROPPED is worse than one that is refused.
+
+**Fix.** `db-query.mjs` now implements `--dev` exactly as `run-proofs.mjs`
+does (swap in `SUPABASE_DEV_URL`/`_ACCESS_TOKEN`, refuse unless the resolved
+target IS samo-dev) and refuses ANY other flag with a usage line.
+
+**Where it lives now.** `tools/db-query.mjs` (argument parsing at the top).
+
+**Rule.** A tool that can write must reject an argument it does not
+understand; "unknown flag ignored" is how a safety switch becomes a no-op. And
+read the `→ project:` line BEFORE the result, not after — it is printed first
+for that reason.

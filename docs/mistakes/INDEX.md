@@ -361,7 +361,7 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(71)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(72)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -436,6 +436,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Night agent: task 3 was handed task 2's prompt
 - Night agent said "all 6 tasks done, nothing was skipped"
 - "migration workflow run: all jobs have failed"
+- `db-query.mjs x.sql --dev` ran x.sql on PRODUCTION
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -483,4 +484,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_421 entries across 10 files._
+_422 entries across 10 files._
