@@ -190,6 +190,13 @@ insert into r select 'bad_year', pg_temp.try('select public.start_team_term(9999
 insert into probe select '50. an out-of-range year is refused', 'true',
   (select (v like 'raised: start_team_term: bad year%')::text from r where k = 'bad_year');
 
+-- The privilege, not the revoke statement: Supabase's default ACL grants anon
+-- EXECUTE explicitly, which `revoke … from public` leaves in place (0226).
+insert into probe select '90. anon cannot execute samo_year_for_timestamp (0226)', 'false',
+  (select has_function_privilege('anon', 'public.samo_year_for_timestamp(timestamptz)', 'execute')::text);
+insert into probe select '91. …while anon CAN execute current_samo_year (an anonymous PR insert needs it)', 'true',
+  (select has_function_privilege('anon', 'public.current_samo_year()', 'execute')::text);
+
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
        expected, got

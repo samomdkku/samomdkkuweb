@@ -1,0 +1,16 @@
+-- ============================================================
+-- 0226 — samo_year_for_timestamp() answered an anonymous caller.
+--
+-- 0219 says it is "authenticated ONLY" and runs
+-- `revoke all … from public` + `grant … to authenticated`. Live, the ACL still
+-- read `anon=X/postgres`: Supabase's default privileges grant EXECUTE to anon
+-- EXPLICITLY on every new function in `public`, and revoking from PUBLIC does
+-- not touch an explicit grant (the same default that made 0188's table
+-- anon-writable — `.claude/rules/mistakes.md` class 6). Found by calling it
+-- through PostgREST with the anon key on production (2026-10-14), not by
+-- reading the migration.
+--
+-- Low stakes — it returns a year — but the function's stated contract is
+-- signed-in only, and the proof now asserts the PRIVILEGE, not the statement.
+-- ============================================================
+revoke execute on function public.samo_year_for_timestamp(timestamptz) from anon;

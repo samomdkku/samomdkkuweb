@@ -1820,7 +1820,7 @@ What exists: every neutral colour literal in `src/css/` is a token or a color-mi
 
 **Status: VERIFIED on PRODUCTION — how: 0219–0224 applied 2026-10-14 in order
 0219, 0220, 0222, 0221, 0223, 0224, then the six proofs below run with
-`node tools/db-query.mjs tools/<proof>.sql` against production, 143/143 PASS
+`node tools/db-query.mjs tools/<proof>.sql` against production, 143/143 PASS (145/145 after 0226 added two privilege checks to year0219)
 (and on samo-dev with `--dev`); team0224's §B2 also shown RED on the agent's
 original function. Bundle deployed the same day; Apps Script v13 deployed after a scan tightened
 its handlers (owner asked, 2026-10-14).** The night agent was STOPPED
@@ -1852,6 +1852,9 @@ after task 7; rows 8–12 never ran.
   was a default any caller could lower, and `master` (41 accounts) holds
   `data_admin` by fold, so two console calls could have blanked last month's
   complaints. Proof step 99.
+- 0226 (after deploy): `samo_year_for_timestamp` still answered anon — 0219's
+  `revoke … from public` leaves Supabase's EXPLICIT default anon grant; found
+  by calling it with the anon key, fixed, `year0219` asserts the privilege.
 - 0222: EXECUTE revoked from public/anon on both RPCs; `record_year_export`
   fails closed on NULL; its policy is drop-if-exists so it re-applies.
 
@@ -1879,7 +1882,7 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 | Task | System | Migration | Proof | Applied? | Owner action |
 |---|---|---|---|---|---|
 | 1 | Design doc | — (no migration) | `scrutinize` pass on the doc | N/A | Read `docs/YEAR-ROLLOVER.md`; it is the plan every later row implements |
-| 2 | Core SAMO-year infra | 0219 | `year0219` 27/27 prod + samo-dev | ✅ PRODUCTION 2026-10-14 | Review `skills/year-rollover.md`; apply 0219 to production (`node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql`) before task 3+'s migrations land there, since they attach triggers that call `current_samo_year()` |
+| 2 | Core SAMO-year infra | 0219 | `year0219` 29/29 prod + samo-dev | ✅ PRODUCTION 2026-10-14 | Review `skills/year-rollover.md`; apply 0219 to production (`node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql`) before task 3+'s migrations land there, since they attach triggers that call `current_samo_year()` |
 | 3 | PR | 0220 | `pr0220` 23/23 prod + samo-dev | ✅ PRODUCTION 2026-10-14 | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0220_pr_tickets_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/pr0220-year-filter.sql` to prove it there too. Deploy the frontend bundle (ships the year picker/export/past-year lock) + run `npm run deploy:gas` (ships the per-year Drive folder + `movePRFileToYear`). AFTER that bundle is served, the owner may run `node tools/pr-organize-drive-by-year.mjs` (dry-run) to see how many existing flat `PR/` files would move, then `--apply --move N` to sort them — never required, purely organizational, and paced to avoid degrading the live upload endpoint |
 | 4 | VitalSound | 0221 | `vs0221` 35/35 prod + samo-dev | ✅ PRODUCTION 2026-10-14 | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql` if not already there, then `node tools/apply-migration.mjs supabase/migrations/0221_vs_tickets_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/vs0221-samo-year.sql` to prove it there too. Also depends on 0222 (task 5's export-log gate) already applied — `vs_scrub_closed_tickets()` calls `year_export_recorded()`. Ships `vs_tickets.samo_year_be` + a year facet on the VS staff kanban (NO past-year edit lock, unlike PR — see the migration header) + `vs_scrub_closed_tickets(year, months=24)`, a PDPA anonymiser that is FUNCTION ONLY — nothing calls or schedules it yet (task 11's job). Also added `data_admin` to `PERM_CATALOG` (team-vocab.js) so a human can actually be granted the permission 0222 and this migration both gate on — deploy the frontend bundle for that checkbox to appear in ทีม SAMO → สิทธิ์. Deploy the frontend bundle (ships the year picker/chip in the VS staff kanban) |
 | 5 ‡| Backup/Export/Deletion data-safety layer | 0222 | `data0222` 18/18 prod + samo-dev | ✅ PRODUCTION 2026-10-14 | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql`, then `node tools/db-query.mjs tools/data0222-export-gate.sql` to prove it there too. Ships `year_export_log` + the gate every future per-system deletion/anonymisation RPC must call, NOT a per-system anonymiser (VS/Shop/Projects retention stays each own task's job) — details in `docs/state/night-agent.md`'s "Task 5" block and `skills/backup-and-export.md`. Review + install `server/supabase-backup.sh`/`.timer`/`.service` (whole-DB backup, WRITTEN, NEVER RUN — needs `SUPABASE_DB_URL` on the VM and a decision on IPv6 reachability, see that skill). Run `npm run deploy:gas` before `tools/year-export.mjs --drive` can reach Drive (new action `uploadArchiveFile`) |

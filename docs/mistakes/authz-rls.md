@@ -1556,3 +1556,28 @@ as a house admin (control: must pass the gate). It was red on all 14 before 0218
 PRODUCES the NULL. Fixing the guard you are looking at is how 0045's fix came
 back twelve times. And a sweep beats a list: the proof finds the functions by
 their shape, so a thirteenth written in the old shape is caught too.
+
+## A function "authenticated ONLY" answered the anon key — `revoke … from public` does not remove Supabase's explicit anon grant
+
+**Symptom.** 0219 created `samo_year_for_timestamp()` with
+`revoke all … from public; grant execute … to authenticated;` and a comment
+"authenticated ONLY". On production (2026-10-14) a POST to
+`/rest/v1/rpc/samo_year_for_timestamp` with the anon key answered `2569`.
+
+**Cause.** Supabase's `pg_default_acl` grants EXECUTE on every new function in
+`public` to `anon` (and `authenticated`, `service_role`) EXPLICITLY. Revoking
+from PUBLIC removes the implicit grant only; the ACL still read
+`anon=X/postgres`. The twin of 0188, where a new TABLE was born anon-writable
+the same way. The proof checked behaviour as a signed-in user and never asked
+the privilege.
+
+**Fix.** 0226 `revoke execute … from anon`. `tools/year0219-samo-year.sql`
+asserts `has_function_privilege('anon', …)` false — and the ALLOW twin, that
+anon CAN run `current_samo_year()`, which an anonymous PR insert needs. Sweep
+of today's functions: the other gated RPCs already revoked anon by name.
+
+**Where it lives now.** `supabase/migrations/0226_samo_year_for_timestamp_is_not_anon.sql`.
+
+**Rule.** To keep anon out of a new function, revoke from `anon` BY NAME; then
+read `has_function_privilege`, never the revoke you wrote.
+
