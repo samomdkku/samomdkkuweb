@@ -1601,3 +1601,51 @@ happening at a DIFFERENT instant than the read that relies on it. When a
 sentinel's meaning depends on WHEN it is read, convert it to an explicit
 value the moment that window would otherwise close, rather than carrying the
 ambiguity forward and hoping every future reader resolves it the same way.
+
+## A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub — found before it shipped
+
+**Symptom**: none yet observed live — caught in review (`/scrutinize` on
+night-task 6, 2026-10-14) before migration 0221 (VitalSound's SAMO-year
+column + PDPA text-scrub function) reached production. Traced
+`submitStaffAction` (`src/js/vs-staff.js`) and the 0074 duplicate-cascade
+trigger end to end: neither ever clears `vs_tickets.resolution` once it is
+first set.
+
+**Cause**: the first draft of both the year-facet filter
+(`vsTicketMatchesYearFilter`) and the new `vs_scrub_closed_tickets()`
+function used `resolution is not null` as "is this ticket closed right
+now". But `resolution` (0073) is written ONCE, the moment a ticket first
+closes — `submitStaffAction`'s PATCH only ever WRITES it, inside
+`if (willWriteResolution)`, itself gated on the status actually being
+`เสร็จสิ้น`; it never nulls the column back out. The 0074 cascade trigger
+clears a mirrored duplicate's `resolution_note` on a sync but never touches
+`resolution` itself. So a ticket a staffer REOPENS (picks a different
+status after it was once closed) keeps a stale non-null `resolution`
+forever — the column answers "has this ever been closed", not "is it
+closed now". Checking it for "closed" would have hidden a reopened
+past-year ticket from the default current-year view (the opposite of the
+feature's own "open tickets carry over" promise) and made it eligible for
+PDPA anonymisation while someone is actively working it again.
+
+**Fix**: both checks now key on `status = 'เสร็จสิ้น'` instead — the live
+column, the same one `vs-staff.js`'s own `isDone` already uses for the
+identical question — keeping `resolution is not null` only as a defensive
+AND inside the SQL function (a closed row should always carry a reason;
+treated as unresolved rather than guessed at if it somehow does not).
+`DONE_STATUS` moved into `src/js/vs-year.js` so `vs-staff.js` imports it
+instead of keeping a second copy, closing the two-homes gap that let the
+original mismatch happen.
+
+**Where it lives now**: `supabase/migrations/0221_vs_tickets_get_a_samo_year.sql`
+(the function body and its header's "WHY ... NOT resolution IS NOT NULL"
+section), `src/js/vs-year.js` (`vsTicketMatchesYearFilter`, `DONE_STATUS`),
+proof `tools/vs0221-samo-year.sql` §F fixture E (a reopened ticket,
+regression-guarded).
+
+**The general rule**: a column that is set once and never reset is a
+HISTORY marker, not a LIVE state — checking it for "is this true right now"
+silently answers "was this ever true". Before keying a check on any column,
+grep every writer of that column for whether reopening/undoing the
+original action also clears it; if nothing does, the live state lives in a
+DIFFERENT column (usually the one the workflow's own UI already treats as
+authoritative), and that is the one to read.

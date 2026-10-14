@@ -162,6 +162,156 @@ queue. This handoff step took no action to pause or resume it.
 
 ---
 
+## Task 6 — VitalSound: per-year board/staff view, PDPA retention (2026-10-14)
+
+**What this run built.** Migration 0221, applied to samo-dev only:
+
+1. **`vs_tickets.samo_year_be smallint`** — the same stored-at-INSERT shape
+   as `pr_tickets.samo_year_be` (0220): `samo_year_be_default()` trigger
+   (0219), one-time backfill for the 119 existing rows from `timestamp`
+   (never `created_at`, same reasoning 0220's header gives). RLS unchanged —
+   year is a filter, never an access boundary, per
+   `docs/YEAR-ROLLOVER.md` § VitalSound.
+2. **No past-year edit lock, unlike PR.** The design doc never asks for one,
+   and a real workflow argues against it: a duplicate filed THIS year can
+   merge into a canonical ticket filed LAST year (edge case 14), and staff
+   routinely need to write that canonical row regardless of its filing
+   year. Locking it would fight the merge feature the design doc names by
+   example.
+3. **`vs_scrub_closed_tickets(p_year, p_months default 24)`** — the PDPA
+   anonymiser § VitalSound asked for. FUNCTION ONLY: nothing calls or
+   schedules it (task 11's job, same as 0222's own export gate). Fails
+   closed on three independent axes (permission, the 0222 export gate, bad
+   input), then overwrites `problem`/`resolution_note` on tickets that are
+   filed under `p_year`, CLOSED **right now**, older than `p_months`
+   (`updated_at` as a conservative proxy — no `resolved_at` column exists),
+   and not already scrubbed. Never touches `public_title`/`public_note`
+   (0072 — the public board never reads `problem`/`resolution_note` either,
+   so this changes nothing the board shows, matching "the public board's
+   content stays"). Idempotent via a new `anonymized_at` column.
+4. **NOT scrubbed, flagged rather than silently handled:** `remarks` (the
+   internal timeline jsonb) can also carry a staff-typed name reference.
+   Safely anonymising a jsonb array — keeping each entry's shape while
+   blanking only free text — is bigger than tonight's remaining budget;
+   named in the migration header as a real, open gap rather than claimed
+   as done.
+5. **Added `data_admin` to `PERM_CATALOG`** (`src/js/team-vocab.js`). 0222
+   (task 5) shipped the permission key this function and `record_year_export`
+   both gate on, but it was never added to the catalogue the ทีม SAMO →
+   สิทธิ์ checkbox grid reads — meaning nobody could ever be granted it
+   except by holding `role = 'dev'`. One line, no admin tab of its own
+   (same pattern as `master`/`passport`, which are also absent from
+   `ADMIN_FEATURES`).
+6. **`src/js/vs-year.js`** — the VS-specific pure helpers, mirroring
+   `pr-year.js`'s split (no DOM, no fetch). Moved the `ALL_YEARS` sentinel
+   into `samo-year.js` (the actually-shared module) and had `pr-year.js`
+   re-export it, so VS and PR stop each defining their own copy of the same
+   string — a class-6 drift waiting to happen the moment one changed.
+7. **VS staff kanban** (`vs-staff.js`) gets the shared `samo-year.js` picker
+   as a new facet (`#vsStaffYearFilter`), defaulting to the current year,
+   persisted across re-entry like the dept/cat/tag facets already are, plus
+   a year chip on each card (shown only in "ทุกปี", same rule as PR's
+   `yearFlag`).
+
+**Caught by this task's own `/scrutinize` pass before it shipped, not
+reported by anyone — the one real bug.** The first draft keyed "is this
+ticket closed" on `resolution is not null` in BOTH the SQL function and the
+JS filter. Tracing `submitStaffAction` (vs-staff.js) and the 0074 cascade
+trigger end to end showed `resolution` is written ONCE, the first time a
+ticket closes (0073), and nothing anywhere clears it if a staffer later
+reopens the ticket to a different status — `submitStaffAction`'s PATCH only
+ever WRITES `resolution` inside `if (willWriteResolution)` (itself gated on
+`isDone`), never nulls it, and 0074's cascade trigger clears
+`resolution_note` on a mirrored duplicate but never `resolution` itself. So
+a REOPENED ticket keeps a stale non-null `resolution` forever: the original
+code would have HIDDEN a reopened past-year ticket from the default
+current-year view (the opposite of "open tickets carry over") and made it
+ELIGIBLE for PDPA anonymisation while someone is actively working it again.
+Fixed by keying both the SQL function and `vsTicketMatchesYearFilter` on
+`status = 'เสร็จสิ้น'` instead — the same live signal `vs-staff.js`'s own
+`isDone` already uses — keeping `resolution is not null` only as a
+defensive AND in the SQL function. Moved `DONE_STATUS` into `vs-year.js` so
+`vs-staff.js` imports it rather than keeping its own copy, closing the two-
+homes gap that let the mismatch happen in the first place. Added a
+REOPENED-ticket case to both the proof and the unit tests as a regression
+guard. Separate commit (`b189193`) after the initial build (`9368e7a`), per
+this repo's own convention of a fix-commit distinct from the feature commit.
+
+**Proof `tools/vs0221-samo-year.sql`, 34/34 on samo-dev; registered in
+`tools/run-proofs.mjs`.** Covers: the column/index/trigger/function exist
+(§0); insert with no explicit year is stamped from `current_samo_year()`,
+an explicit year survives the trigger (§A/§B); the backfill resolves from
+history across a REAL handover, not wall-clock "now" (§C, mirrors
+`pr0220-year-filter.sql` §C exactly, sentinel years 2697/2698 — unused by
+every other proof); the scrub's permission gate refuses a stranger and
+passes a `data_admin` holder onto the NEXT gate (§D, paired so a deny-only
+probe cannot hide a broken ALLOW); the export gate actually refuses an
+unexported year and opens once `record_year_export()` records it (§E); five
+fixtures prove exactly what gets scrubbed and what does not — closed+old
+(yes), open (no), closed+recent (no, too young), closed+old+different-year
+(no, scoped to `p_year`), and REOPENED (no — the regression case) (§F); the
+public board's `public_title`/`public_note` are untouched by the scrub
+(§H); a second run scrubs zero additional rows (§G).
+
+**Decisions made, and what was rejected:**
+- **No past-year edit lock** (PR's `pr-year.js` has one) — rejected
+  because the design doc never asks for it and the duplicate-merge-across-
+  years workflow (edge case 14) actively needs to write a canonical ticket
+  from any year, unlike PR which has no such merge relationship.
+- **The public board gets NO year filter or dimension at all** — the
+  design doc's own § VitalSound says "the public board's content stays",
+  and a canonical problem can be the merge target of duplicates filed
+  across multiple years (edge case 14), so "which year does this board
+  card belong to" has no single correct answer for a merged problem. Adding
+  one would either pick an arbitrary year (misleading) or require tracking
+  per-duplicate years on the board (a bigger feature nobody asked for
+  tonight). Rejected rather than half-built.
+- **`updated_at`, not a new `resolved_at` column, as the scrub's age
+  proxy** — rejected adding a column to get an exact "closed at" instant,
+  because the conservative direction (any later touch pushes the scrub
+  window OUT, never in) is the privacy-safe one to be wrong in, and it
+  matches the "no `created_at` on shop_orders either, use what already
+  exists" precedent elsewhere in this design doc.
+- **`year_export_recorded`/`record_year_export` (0222) reused as-is, no VS-
+  specific export gate** — exactly the contract task 5 built this for;
+  writing a second gate would be the class-6 mistake task 5's own migration
+  header explicitly calls out avoiding.
+- **Added `data_admin` to `PERM_CATALOG` now, rather than leaving it for
+  task 11** — rejected waiting, because this task's own scrub function is
+  the first thing that actually needs a human to be able to hold the
+  permission; leaving it ungrantable would have shipped a gate nobody could
+  open through the UI for an unknown number of further tasks.
+
+**WRITTEN, NOT APPLIED to production**: migration 0221 and everything it
+defines. Depends on 0219 (task 2) AND 0222 (task 5) already being applied
+first — 0222 because `vs_scrub_closed_tickets` calls `year_export_recorded`.
+
+**Exact commands the owner runs next:**
+
+```bash
+git show 9368e7a b189193   # review together — the second is a scrutinize fix to the first
+
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql
+node tools/apply-migration.mjs supabase/migrations/0221_vs_tickets_get_a_samo_year.sql
+
+node tools/db-query.mjs tools/vs0221-samo-year.sql   # prove it on production too
+
+# grant data_admin to whoever should be able to export/scrub, via
+# ทีม SAMO → สิทธิ์ (the checkbox now exists) — then deploy the frontend
+# bundle (ships the VS year picker/chip and the data_admin checkbox)
+```
+
+Updated `STATE.md` (migration high-water mark note, proof count 66→67, a
+one-line task-6 summary in the night-agent block), `docs/state/HANDOFF.md`
+§22 (row 4 — VitalSound), `src/data/changelog.js` (`PENDING`, staff-facing),
+`docs/mistakes/postgres-schema.md` (the resolution-vs-status write-up,
+`npm run mistakes:index` run after — same precedent as task 2's genesis-row
+bug, caught before shipping but still worth paying down once for the next
+reader).
+
+---
+
 ## Task 5 — Backup, export, deletion — the data-safety layer every system uses (2026-10-14)
 
 **What this run built.** Migration 0222, applied to samo-dev only:

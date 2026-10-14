@@ -103,7 +103,7 @@ Open when: adding an access channel, a scope, or a seat.
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(36)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(37)*
 
 Open when: writing a migration.
 
@@ -143,6 +143,7 @@ Open when: writing a migration.
 - Google accounts were saved as "password"
 - house0188 case 53 red for three weeks
 - Reopening the genesis `team_terms` row would have erased its own history
+- A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(107)*
 
@@ -486,4 +487,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_424 entries across 10 files._
+_425 entries across 10 files._
