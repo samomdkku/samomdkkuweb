@@ -80,8 +80,8 @@
 -- year_export_recorded(system, year) (0222) — is keyed by (system, year), so
 -- the scrub itself is naturally "once THIS year's export is on record, you may
 -- scrub closed THIS-year tickets old enough". `p_months` stays a parameter
--- (default 24, the design doc's own invented-and-labelled default) so the
--- owner can tighten or loosen it later with no new migration, per § Deletion.
+-- (24 months, the design doc's invented-and-labelled number, is a FLOOR:
+-- a caller may keep data longer, never shorter — see the guard below).
 -- ============================================================
 
 -- ---------------------------------------------------------------------------
@@ -182,8 +182,13 @@ begin
   if p_year is null or p_year < 2500 or p_year > 2700 then
     raise exception 'vs_scrub_closed_tickets: bad year %', p_year;
   end if;
-  if p_months is null or p_months < 1 then
-    raise exception 'vs_scrub_closed_tickets: bad months %', p_months;
+  -- 24 is a FLOOR, not a default a caller may lower (review 2026-10-14):
+  -- `master` folds into every permission, data_admin included, so 41
+  -- accounts could otherwise record an export row and scrub last month's
+  -- tickets from the console in two calls. Retaining LONGER is always
+  -- allowed; shorter needs a migration, i.e. an owner decision.
+  if p_months is null or p_months < 24 then
+    raise exception 'vs_scrub_closed_tickets: months must be >= 24, got %', p_months;
   end if;
 
   if not public.year_export_recorded('vs_tickets', p_year) then
@@ -210,8 +215,8 @@ comment on function public.vs_scrub_closed_tickets(integer, integer) is
   'PDPA text anonymisation (docs/YEAR-ROLLOVER.md § VitalSound): overwrites '
   'problem/resolution_note on CLOSED tickets (status = ''เสร็จสิ้น'' right now '
   '— never resolution is not null, which stays set across a reopen) filed '
-  'under p_year, untouched for at least p_months (default 24, an invented '
-  'default — tighten/loosen freely, no migration needed). Refuses unless the '
+  'under p_year, untouched for at least p_months (24 = the FLOOR — a caller '
+  'may retain longer, never shorter; lowering it is a migration). Refuses unless the '
   'caller holds data_admin or role=dev, AND year_export_recorded(''vs_tickets'', '
   'p_year) is true (0222) — export before scrub, always. Never deletes the '
   'row; never touches category/resolution/status/target_dept (trend data) or '

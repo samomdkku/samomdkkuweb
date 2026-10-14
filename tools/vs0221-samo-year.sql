@@ -240,6 +240,7 @@ insert into probe select '60. all five §F fixtures insert cleanly', 'ok|ok|ok|o
 
 select pg_temp.as_((select id from p_admin), (select email from p_admin));
 set local role authenticated;
+insert into r select 'scrub_short', pg_temp.try('select public.vs_scrub_closed_tickets(2697, 1)');
 insert into r select 'scrub_run1', pg_temp.try('select public.vs_scrub_closed_tickets(2697, 24)');
 reset role;
 insert into probe select '61. the scrub runs without error now the year is exported', 'ok', (select v from r where k = 'scrub_run1');
@@ -276,6 +277,9 @@ insert into probe select '80. a second scrub of the same year succeeds (not an e
 -- the function RETURNS the row count; capture it directly rather than via try().
 insert into probe select '81. the second run scrubs ZERO rows — A is already anonymized_at, not re-counted', '0',
   (select public.vs_scrub_closed_tickets(2697, 24)::text);
+
+insert into probe select '99. a retention SHORTER than 24 months is refused even with the export on record (master holds data_admin)', 'true',
+  (select (v like 'raised: vs_scrub_closed_tickets: months must be >= 24%')::text from r where k = 'scrub_short');
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
