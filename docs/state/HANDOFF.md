@@ -1822,7 +1822,8 @@ What exists: every neutral colour literal in `src/css/` is a token or a color-mi
 0219, 0220, 0222, 0221, 0223, 0224, then the six proofs below run with
 `node tools/db-query.mjs tools/<proof>.sql` against production, 143/143 PASS
 (and on samo-dev with `--dev`); team0224's §B2 also shown RED on the agent's
-original function. Bundle deployed the same day. Apps Script NOT redeployed.** The night agent was STOPPED
+original function. Bundle deployed the same day; Apps Script v13 deployed after a scan tightened
+its handlers (owner asked, 2026-10-14).** The night agent was STOPPED
 after task 7; rows 8–12 never ran.
 
 **Owner-session review, 2026-10-14 — what changed on branch `year-rollover`
@@ -1857,13 +1858,15 @@ after task 7; rows 8–12 never ran.
 **Still OWED:** the export gate opens on an export
 recorded to LOCAL disk, before any Drive copy succeeds — fine while a human
 runs it, not before anything scheduled calls `vs_scrub_closed_tickets`.
-`server/supabase-backup.*` and the GAS changes (`movePRFileToYear`,
-`uploadArchiveFile`, year segment) are written, never run. Apps Script
-(`npm run deploy:gas`) is NOT deployed: it adds two unauthenticated handlers
-(`movePRFileToYear`, `uploadArchiveFile`) — an owner decision. Until then a new
-PR upload stays in the flat `PR/` folder and `year-export --drive` cannot reach
-Drive; the โครงการ year folder works either way (the deployed walker creates
-the bare `2569` segment). Edge, not fixed: a tab still on the OLD bundle can
+`server/supabase-backup.*` is written, never run. Apps Script v13 IS deployed
+(2026-10-14): new PR uploads land in `PR/<year>`; `movePRFileToYear` and
+`uploadArchiveFile` are live but only accept `<top>/<year>` (2500–2700), and
+archives are PRIVATE — `src/js/gas-drive-scope.test.js` runs the real file
+against a fake Drive. `fileLivesUnderTop_` (every PR/Shop/Team/Projects
+delete/move/read) now needs a REAL top folder, not just the name. Verified
+live: the three bad shapes are refused with the new messages, and 40 random
+production `project_files` ids still resolve through `statProjectFiles`. `tools/pr-organize-drive-by-year.mjs` (sorting the OLD
+flat PR files) and `year-export --drive` have NOT been run — both optional. Edge, not fixed: a tab still on the OLD bundle can
 switch the year with the old two-PATCH write, which skips started_at/ended_at
 (only a future backfill would notice). Full design: `docs/YEAR-ROLLOVER.md` — read it
 before touching any of the rows below; this section is only the per-task
