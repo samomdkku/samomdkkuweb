@@ -1530,3 +1530,14 @@ the previous file.
 **Rule.** A source test reads a check's shape; to know what a public handler
 can reach, run it against a stub and look at what it touched. And a write-up's
 description of a guard is a claim — re-read the predicate.
+
+**Same day, the next layer down: a NEW CONTAINER LEVEL needs the root's
+guard.** The per-year layout put a `Projects/2569/` folder between the root
+and the projects. `deleteProjectFolder` and `getProjectFolderInfo` (public)
+refused only the literal `Projects` root, so one anonymous call with
+`Projects/2569` would have trashed every year-layout โครงการ, or (with
+`share:true`) made the whole year link-public — the enumeration the
+2026-09-10 entry warns about. Latent: no year folder existed yet. v16:
+`endsAtYearContainer_` refuses both; `gas-drive-scope.test.js` shows it red
+without. **When a change adds a level to a tree, every guard written as
+"not the root" must learn the new level.**

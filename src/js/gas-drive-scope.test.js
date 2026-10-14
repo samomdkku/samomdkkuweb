@@ -59,6 +59,9 @@ class FakeFolder {
   createFile(blob) { return new FakeFile(blob.name, this); }
   moveTo(dest) { this.parent.folders = this.parent.folders.filter((f) => f !== this); this.parent = dest; dest.folders.push(this); }
   setSharing(access, perm) { this.sharing = `${access}/${perm}`; }
+  setTrashed(v) { this.trashed = v; }
+  getUrl() { return `https://drive.google.com/drive/folders/${this.id}`; }
+  getFiles() { return iter([...this.files]); }
   child(path) {
     return path.split('/').reduce((f, n) => f && f.folders.find((c) => c.name === n), this);
   }
@@ -184,6 +187,36 @@ describe('uploadPRFile / uploadArchiveFile — exactly <top>/<year>', () => {
     for (const [folderPath, mimeType] of [['Archives/2569/x', 'text/csv'], ['Archives/2569', 'image/png'], ['Archives/12', 'text/csv'], ['PR/2569', 'text/csv']]) {
       expect(d.call('handleUploadArchiveFile', { folderPath, fileData: DATA_URL, mimeType, fileName: 'a' }).success, `${folderPath} ${mimeType}`).toBe(false);
     }
+  });
+});
+
+describe('a YEAR folder is a container, like the Projects root — never trashed, never shared', () => {
+  let d; let year; let a; let b;
+  beforeEach(() => {
+    d = load();
+    const projects = new FakeFolder('Projects', d.app);
+    year = new FakeFolder('2569', projects);
+    a = new FakeFolder('โครงการก_PRJ-AAAA', year);
+    b = new FakeFolder('โครงการข_PRJ-BBBB', year);
+  });
+
+  it('deleteProjectFolder refuses Projects/2569 and trashes nothing', () => {
+    for (const folderPath of ['Projects/2569', 'Projects/2569/']) {
+      expect(d.call('handleDeleteProjectFolder', { folderPath }).success, folderPath).toBe(false);
+    }
+    expect([year.trashed, a.trashed, b.trashed]).toEqual([undefined, undefined, undefined]);
+  });
+
+  it('…while one project under it is still deleted, and only that one', () => {
+    expect(d.call('handleDeleteProjectFolder', { folderPath: 'Projects/2569/โครงการก_PRJ-AAAA' }).success).toBe(true);
+    expect([a.trashed, b.trashed, year.trashed]).toEqual([true, undefined, undefined]);
+  });
+
+  it('getProjectFolderInfo refuses to share Projects/2569, and shares a project folder', () => {
+    expect(d.call('handleGetProjectFolderInfo', { folderPath: 'Projects/2569', share: true }).success).toBe(false);
+    expect(year.sharing).toBe(null);
+    expect(d.call('handleGetProjectFolderInfo', { folderPath: 'Projects/2569/โครงการก_PRJ-AAAA', share: true }).success).toBe(true);
+    expect(a.sharing).toBe('ANYONE_WITH_LINK/VIEW');
   });
 });
 

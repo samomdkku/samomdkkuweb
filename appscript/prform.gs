@@ -98,6 +98,15 @@ function isSamoYearSegment_(s) {
   return n >= 2500 && n <= 2700;
 }
 
+/** Does `path` STOP at a SAMO-year container (`Projects/2569`)? Such a folder
+ *  holds every year-layout โครงการ of that year, so the public folder handlers
+ *  treat it like the `Projects` root itself: never trashed, never shared —
+ *  one anonymous call would otherwise trash or publish a whole year. */
+function endsAtYearContainer_(path) {
+  var parts = String(path || '').split('/').filter(function (p) { return p && p.length; });
+  return parts.length >= 2 && isSamoYearSegment_(parts[parts.length - 1]);
+}
+
 /** Canonical physical name for a logical folder name (identity if unmapped). */
 function canonTopFolder_(name) {
   return TOP_FOLDER_CANON[name] || name;
@@ -1324,6 +1333,11 @@ function handleGetProjectFolderInfo(data) {
     if (path === 'Projects' || path === 'Projects/') {
       return createResponse({ success: false, message: 'refuse to operate on the root Projects folder' });
     }
+    // …and a YEAR container (Projects/2569) is a root too: sharing it would
+    // publish a listing of every year-layout โครงการ of that year.
+    if (endsAtYearContainer_(path)) {
+      return createResponse({ success: false, message: 'refuse to operate on a whole year folder' });
+    }
     // By-code walk: a rename-hook call after the user edits a project
     // or doc title finds the existing folder via its PRJ-/DOC- code
     // and self-renames it to the new desiredName from the path. No
@@ -1359,6 +1373,9 @@ function handleDeleteProjectFolder(data) {
     // same Drive. Only allow sub-paths.
     if (path === 'Projects' || path === 'Projects/') {
       return createResponse({ success: false, message: 'refuse to trash the root Projects folder' });
+    }
+    if (endsAtYearContainer_(path)) {
+      return createResponse({ success: false, message: 'refuse to trash a whole year folder' });
     }
     // Mirror upload's by-code walk so a rename in the app between the
     // last upload and the delete doesn't strand the folder. Each
