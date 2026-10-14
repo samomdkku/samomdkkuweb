@@ -1,0 +1,16 @@
+[Unit]
+Description=Supabase nightly whole-database backup (verified)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/samo-projects/samomdkkuweb
+# SUPABASE_DB_URL — the project's Postgres SUPERUSER connection string.
+# chmod 600, root-owned, never in git (.claude/rules/security.md).
+EnvironmentFile=/etc/supabase-backup.env
+ExecStart=/home/ubuntu/samo-projects/samomdkkuweb/server/supabase-backup.sh
+# The script exits non-zero on a failed verification, so a bad backup shows
+# as a FAILED unit rather than a silent success.
+# Check with: systemctl status supabase-backup.service

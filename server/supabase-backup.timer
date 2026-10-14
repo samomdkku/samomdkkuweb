@@ -1,0 +1,17 @@
+[Unit]
+Description=Run the Supabase database backup nightly
+
+[Timer]
+# ⚠️ OnCalendar, deliberately — NOT OnBootSec+OnUnitActiveSec.
+# .claude/rules/mistakes.md class 7: a timer whose only triggers are monotonic
+# comes back from a `disable` still reporting `enabled`/`active` with
+# NextElapseUSecMonotonic=infinity — i.e. it looks scheduled and never fires.
+# A wall-clock trigger always shows a real NEXT in `systemctl list-timers`.
+# Offset 40 minutes from the vaultwarden backup (03:20) so the two do not
+# compete for disk I/O on the same box.
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

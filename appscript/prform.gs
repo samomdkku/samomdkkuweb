@@ -72,11 +72,12 @@ var TOP_FOLDER_CANON = {
   'SAMO_Shop':      'Shop',
   'Shop':           'Shop',
   'SAMO_Team':      'Team',
-  'Team':           'Team'
+  'Team':           'Team',
+  'Archives':       'Archives'
 };
 
 /** The canonical top-level folders this script owns. */
-var APP_TOP_FOLDERS = ['PR', 'Projects', 'Shop', 'Team'];
+var APP_TOP_FOLDERS = ['PR', 'Projects', 'Shop', 'Team', 'Archives'];
 
 /** Canonical physical name for a logical folder name (identity if unmapped). */
 function canonTopFolder_(name) {
@@ -390,6 +391,7 @@ function doPost(e) {
     if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
     if (data.action === 'deleteTeamFile')    return handleDeleteTeamFile(data);
+    if (data.action === 'uploadArchiveFile')   return handleUploadArchiveFile(data);
     if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
@@ -610,6 +612,50 @@ function handleUploadTeamFile(data) {
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     var file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return createResponse({ success: true, fileUrl: file.getUrl() });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+// ============================================================
+// uploadArchiveFile — tools/year-export.mjs's `--drive` path
+// (docs/YEAR-ROLLOVER.md § Backup, 0222, night agent task 5).
+//
+// Writes a per-year export (JSON or CSV) into its OWN top-level folder,
+// `Archives/<samo_year_be>/`, parallel to PR/Projects/Shop/Team — never
+// INSIDE one of those, because an archive snapshot is not that system's
+// live working folder (moving it there later would also break nothing
+// stored in Postgres pointing at the live files, which this never touches).
+//
+// Same allow-list shape as uploadShopFile/uploadTeamFile: the top segment
+// must canonicalise to 'Archives', so this endpoint — UNAUTHENTICATED like
+// every other upload handler here — cannot be used to write anywhere else
+// in the owner's Drive.
+//
+// WRITTEN, NOT EXERCISED: this night agent has no Google/Drive credential,
+// so this handler has never received a real call. It needs
+// `npm run deploy:gas` before tools/year-export.mjs's `--drive` flag can do
+// anything (skills/backup-and-export.md).
+// ============================================================
+
+function handleUploadArchiveFile(data) {
+  try {
+    var path = String(data.folderPath || '').trim();
+    if (!path) return createResponse({ success: false, message: 'folderPath is required' });
+    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+    if (canonTopFolder_(firstSegment_(path)) !== 'Archives') {
+      return createResponse({ success: false, message: 'folderPath must start with Archives' });
+    }
+
+    var folder = getOrCreateFolderPath_(path);
+    var base64Data = data.fileData.split(',')[1];
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
+    var file = folder.createFile(blob);
+    // Archives are NOT "anyone with the link" by default — an export can
+    // contain PDPA-covered VS text or a buyer's address, unlike a PR cover
+    // image or a team portrait. Shared only with the owner's account
+    // (createFile's default), never widened here.
     return createResponse({ success: true, fileUrl: file.getUrl() });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });

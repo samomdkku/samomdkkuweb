@@ -1833,7 +1833,7 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 | 2 | Core SAMO-year infra | 0219 | `year0219` 23/23 samo-dev | samo-dev only | Review `skills/year-rollover.md`; apply 0219 to production (`node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql`) before task 3+'s migrations land there, since they attach triggers that call `current_samo_year()` |
 | 3 | PR | 0220 | `pr0220` 23/23 samo-dev | samo-dev only | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0220_pr_tickets_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/pr0220-year-filter.sql` to prove it there too. Deploy the frontend bundle (ships the year picker/export/past-year lock) + run `npm run deploy:gas` (ships the per-year Drive folder + `movePRFileToYear`). AFTER that bundle is served, the owner may run `node tools/pr-organize-drive-by-year.mjs` (dry-run) to see how many existing flat `PR/` files would move, then `--apply --move N` to sort them — never required, purely organizational, and paced to avoid degrading the live upload endpoint |
 | 4 | VitalSound | 0221 | | | |
-| 5 | SAMO Shop | 0222 | | | |
+| 5 ‡| Backup/Export/Deletion data-safety layer | 0222 | `data0222` 18/18 samo-dev | samo-dev only | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql`, then `node tools/db-query.mjs tools/data0222-export-gate.sql` to prove it there too. Ships `year_export_log` + the gate every future per-system deletion/anonymisation RPC must call, NOT a per-system anonymiser (VS/Shop/Projects retention stays each own task's job) — details in `docs/state/night-agent.md`'s "Task 5" block and `skills/backup-and-export.md`. Review + install `server/supabase-backup.sh`/`.timer`/`.service` (whole-DB backup, WRITTEN, NEVER RUN — needs `SUPABASE_DB_URL` on the VM and a decision on IPv6 reachability, see that skill). Run `npm run deploy:gas` before `tools/year-export.mjs --drive` can reach Drive (new action `uploadArchiveFile`) |
 | 6 | หนังสือโครงการ | 0223 | | | |
 | 7 †| ทีม SAMO + เกี่ยวกับเรา | 0224 | `team0224` 14/14 samo-dev | samo-dev only | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql`, then `node tools/db-query.mjs tools/team0224-handover.sql` to prove it there too. Fixes a real authz bug (the handover RPC was callable by ~300 VIEW-only accounts, not just editors) and makes the handover auto-archive the outgoing term — read `docs/state/night-agent.md`'s "Task 4" block before deploying. Deploy the frontend bundle (ships the corrected จัดการทีม confirm-dialog copy in `terms.js`) |
 | 8 | ระบบบ้าน | 0225 | | | |
@@ -1856,3 +1856,17 @@ reserved for ทีม SAMO in both places), so this row is updated under its
 original "7", not renumbered to "4" — do not assume the two numbering
 schemes otherwise agree; check which system a task actually built, not its
 number alone, before touching any other row above.
+
+‡ **A second instance of the same mismatch, caught before anything shipped
+under the wrong label.** This table's row "5" originally guessed "SAMO Shop"
+(task 1's provisional scheme) and reserved it migration 0222 — but the real
+night-queue's own task 5 (`~/samo-night/NIGHT-TASKS.md`) is "Backup, export,
+deletion — the data-safety layer every system uses", and ITS preamble
+independently reserved the SAME number, 0222, for that unrelated system. No
+row above had actually built anything under the old guess (Migration/Proof/
+Applied were all blank), so this row was corrected in place rather than
+left to collide later — SAMO Shop's real build, whenever it happens, ships
+under the real queue's task 9, which the real preamble reserves migration
+0226 for (NOT 0222). Same rule as the † note: the MIGRATION NUMBER actually
+used is the ground truth; check what a migration file's own header claims
+before trusting either numbering scheme.

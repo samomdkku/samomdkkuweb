@@ -274,6 +274,7 @@ const GAS_ACTIONS = [
   { name: 'uploadProjectFile',     label: 'อัปโหลดไฟล์หนังสือโครงการ',   counted: true },
   { name: 'uploadShopFile',        label: 'อัปโหลดสลิป/รูปร้านค้า',      counted: true },
   { name: 'uploadTeamFile',        label: 'อัปโหลดรูปทีม/สมาชิก',        counted: false },
+  { name: 'uploadArchiveFile',     label: 'อัปโหลดไฟล์เก็บถาวรรายปี',     counted: false },
   { name: 'notifyProjectEmail',    label: 'ส่งอีเมลแจ้งเตือน',           counted: true },
   { name: 'deletePRFile',          label: 'ลบไฟล์ PR',                  counted: false },
   { name: 'movePRFileToYear',      label: 'ย้ายไฟล์ PR ไปโฟลเดอร์ปี',     counted: false },
