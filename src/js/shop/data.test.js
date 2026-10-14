@@ -273,7 +273,7 @@ describe('picture cache — the page and nginx agree', () => {
     expect(m[1].split('|').map(Number)).toEqual(PICTURE_WIDTHS);
   });
   it('in a page, every picture comes from this site, at a size nginx admits', () => {
-    vi.stubGlobal('location', { origin: 'https://samo.md.kku.ac.th' });
+    vi.stubGlobal('location', { origin: 'https://samo.md.kku.ac.th', hostname: 'samo.md.kku.ac.th' });
     try {
       const id = '15FVJRgNTQNsR-I_sgWl90mN5dcZSJolq';
       const re = new RegExp(`^https://samo\\.md\\.kku\\.ac\\.th/img/d/${id}=w(${m[1]})-rj(-l95)?$`);
@@ -283,6 +283,21 @@ describe('picture cache — the page and nginx agree', () => {
       }
       expect(pictureAt('https://example.com/a.png', 600)).toBe('https://example.com/a.png');
     } finally { vi.unstubAllGlobals(); }
+  });
+  // A preview or `npm run dev` has no /img location: nginx is not in front of
+  // it, and the SPA fallback answers /img/d/… with HTML — a broken picture on
+  // every preview from 2026-09-23 until PICTURE_CACHE_HOSTS.
+  it('on a host WITHOUT the cache (a preview, localhost), pictures come from lh3 directly', () => {
+    const id = '15FVJRgNTQNsR-I_sgWl90mN5dcZSJolq';
+    for (const [origin, hostname] of [
+      ['https://year-rollover.samomdkkuweb.pages.dev', 'year-rollover.samomdkkuweb.pages.dev'],
+      ['http://localhost:5174', 'localhost'],
+    ]) {
+      vi.stubGlobal('location', { origin, hostname });
+      try {
+        expect(pictureAt(L(id), 600)).toBe(L(id, '=w600-rj'));
+      } finally { vi.unstubAllGlobals(); }
+    }
   });
 });
 

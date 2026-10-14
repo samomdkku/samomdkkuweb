@@ -280,7 +280,9 @@ export const PICTURE_WIDTHS = [200, 600, 1200, 2400];
  *
  *  WHY THE CACHE: lh3 takes 0.5-2.6 s before its first byte (measured
  *  2026-09-23 from a laptop and from the VM); the VM answers a cached picture
- *  in ~0.1 s. Outside a web page (no `location`, e.g. a test) it is lh3 direct.
+ *  in ~0.1 s. Outside a web page (no `location`, e.g. a test) or on a host
+ *  without the cache (PICTURE_CACHE_HOSTS — previews, localhost) it is lh3
+ *  direct.
  *
  *  `-rj` is not optional: lh3 answers in the MASTER's format, and the live
  *  masters are 2 MB PNGs (an upload from Safari, which cannot encode WebP —
@@ -293,6 +295,15 @@ export const PICTURE_WIDTHS = [200, 600, 1200, 2400];
  *  PSNR against the PNG, no difference visible at 2x on the pattern's edges.
  *  `quality` 95 is for where a buyer magnifies (the lightbox); any other value
  *  is ignored, because the cache admits only that one. */
+/** Hosts whose web server HAS the /img picture cache (server/nginx-samo.conf).
+ *  An ALLOWLIST, not "everything but previews": anywhere else — a Cloudflare
+ *  preview, `npm run dev` — /img/d/… is answered by the SPA fallback with the
+ *  HTML page (200), so every news cover and shop picture rendered as a broken
+ *  image on every preview from 086c011 (2026-09-23) until this list. A host
+ *  missing from here only costs speed (lh3 direct); a wrong entry costs every
+ *  picture. */
+export const PICTURE_CACHE_HOSTS = ['samo.md.kku.ac.th'];
+
 export function pictureAt(url, w, quality) {
   if (!url) return '';
   const base = imageBase(url);
@@ -300,7 +311,8 @@ export function pictureAt(url, w, quality) {
   const width = PICTURE_WIDTHS.find((x) => x >= Number(w)) || PICTURE_WIDTHS[PICTURE_WIDTHS.length - 1];
   const opts = `=w${width}-rj${Number(quality) === 95 ? '-l95' : ''}`;
   const origin = globalThis.location?.origin;
-  return /^https?:\/\//.test(origin || '')
+  const host = globalThis.location?.hostname;
+  return /^https?:\/\//.test(origin || '') && PICTURE_CACHE_HOSTS.includes(host)
     ? `${origin}/img/d/${base.slice(base.lastIndexOf('/') + 1)}${opts}`
     : `${base}${opts}`;
 }
