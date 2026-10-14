@@ -395,7 +395,7 @@ a class — tighten this paragraph first.
 
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
-- `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
+- `supabase-client.md` *(20)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
 - `authz-rls.md` *(34)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(23)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(37)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
