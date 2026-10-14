@@ -122,3 +122,41 @@ describe('หน้าฝ่าย grants come from ทีม SAMO, never from a
     ].join('\n')).toEqual([]);
   });
 });
+
+// ── The card grid is hand-written HTML; DEPT_DEFS is where a ฝ่าย's mark
+// lives. Two homes for one fact (mistakes class 6), so they are compared here:
+// a logo changed in one place and not the other, or a path to a file that is
+// not there (nginx's SPA fallback answers 200 with HTML, so a wrong path is a
+// silently broken image, never a 404 anyone sees), fails the build.
+describe('the ฝ่าย mark: DEPT_DEFS, the card grid and public/ agree', () => {
+  const grid = read('src/html/tab-departments.html');
+  const cardFor = (key) => grid.match(new RegExp(`data-dept-open="${key}"[\\s\\S]*?</a>`))?.[0] || '';
+
+  it('every key has a card to compare (control)', () => {
+    for (const k of DEPT_KEYS) expect(cardFor(k), k).not.toBe('');
+  });
+
+  it('a ฝ่าย with a logo shows THAT file on its card, and no glyph', () => {
+    const bad = DEPT_KEYS.filter((k) => DEPT_DEFS[k].logo).filter((k) => {
+      const card = cardFor(k);
+      return !card.includes(`src="${DEPT_DEFS[k].logo}"`) || /<i class="bi /.test(card);
+    });
+    expect(bad).toEqual([]);
+  });
+
+  it('a ฝ่าย without one shows its own glyph', () => {
+    const bad = DEPT_KEYS.filter((k) => !DEPT_DEFS[k].logo)
+      .filter((k) => !cardFor(k).includes(`<i class="bi ${DEPT_DEFS[k].icon}"`));
+    expect(bad).toEqual([]);
+  });
+
+  it('every logo is a real PNG under public/', () => {
+    const bad = DEPT_KEYS.filter((k) => DEPT_DEFS[k].logo).filter((k) => {
+      try {
+        const buf = readFileSync(`${ROOT}public${DEPT_DEFS[k].logo}`);
+        return buf.subarray(1, 4).toString('latin1') !== 'PNG';
+      } catch { return true; }
+    });
+    expect(bad).toEqual([]);
+  });
+});
