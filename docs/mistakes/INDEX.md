@@ -12,7 +12,7 @@ different clothes.
 The recurring CLASSES — the part that generalises to code not yet written —
 are in `.claude/rules/mistakes.md`, which every session already has.
 
-## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(19)*
+## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(20)*
 
 Open when: auth.js · db.js · anything calling supabase-js.
 
@@ -35,6 +35,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
+- "when i click ตั้งเป็นปีปัจจุบัน it got DELETE requires a WHERE clause"
 
 ## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(34)*
 
@@ -484,4 +485,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_422 entries across 10 files._
+_423 entries across 10 files._
