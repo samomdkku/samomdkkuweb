@@ -818,12 +818,19 @@ function extractDriveId_(url) {
  * gate DELETION: if one silently stopped matching, every slip/file delete
  * would start refusing with "file is not inside ...".
  */
-/** Ids a real top folder may sit directly under: the app root, My Drive root. */
+/** Ids a real top folder may sit directly under: the app root, My Drive root.
+ *  Memoised for the EXECUTION (a GAS global lives for one request): it is two
+ *  Drive round-trips, and statProjectFiles asks once per file — unmemoised,
+ *  v13 made a 100-id stat take 81 s, past the orphan sweep's 90 s timeout at
+ *  its 200-id batch. */
+var TOP_PARENT_IDS_ = null;
 function topLevelParentIds_() {
+  if (TOP_PARENT_IDS_) return TOP_PARENT_IDS_;
   var ids = {};
   ids[DriveApp.getRootFolder().getId()] = true;
   var app = getAppRootReadOnly_();
   if (app) ids[app.getId()] = true;
+  TOP_PARENT_IDS_ = ids;
   return ids;
 }
 

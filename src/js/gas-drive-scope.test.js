@@ -187,6 +187,22 @@ describe('uploadPRFile / uploadArchiveFile — exactly <top>/<year>', () => {
   });
 });
 
+describe('cost: the top-folder lookup happens once per request, not per file', () => {
+  it('fifty ancestry checks cost the same root lookups as one', () => {
+    const count = (n) => {
+      const d = load();
+      const projects = new FakeFolder('Projects', d.app);
+      let calls = 0;
+      const real = d.ctx.DriveApp.getRootFolder;
+      d.ctx.DriveApp.getRootFolder = () => { calls++; return real(); };
+      for (let i = 0; i < n; i++) d.ctx.fileLivesUnderTop_(new FakeFile(`f${i}`, projects), 'Projects');
+      return calls;
+    };
+    expect(count(1)).toBeGreaterThan(0);
+    expect(count(50)).toBe(count(1));
+  });
+});
+
 describe('the Projects year segment', () => {
   it('a year 2500–2700 is matched by exact name; a bare 4-digit non-year is walked as before', () => {
     const d = load();
