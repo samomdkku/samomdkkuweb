@@ -162,6 +162,169 @@ queue. This handoff step took no action to pause or resume it.
 
 ---
 
+## Task 5 — Backup, export, deletion — the data-safety layer every system uses (2026-10-14)
+
+**What this run built.** Migration 0222, applied to samo-dev only:
+
+1. **`public.year_export_log`** — append-only (no UPDATE/DELETE policy for
+   any role; RLS SELECT restricted to `data_admin`/`dev`). One row per
+   (system, year) export actually taken, never a boolean flag — a flag could
+   be set once and then the data could change under it; a log that a system
+   may re-export any number of times is the only shape that cannot lose that.
+2. **`year_export_recorded(system, year)`** — the gate. Plain boolean,
+   SECURITY DEFINER, leaks nothing but existence. **THE CONTRACT**: any
+   deletion/anonymisation RPC for ANY system, written by ANY later task,
+   must call this first and raise if it returns false.
+3. **`record_year_export(...)`** — the gated write path for a future admin
+   "export now" button. Fails CLOSED for anyone without `data_admin`
+   permission or `dev` role (verified live against samo-dev's `pg_proc`/
+   `information_schema.role_table_grants` during this task's own
+   `/scrutinize` pass — table-level grants give `authenticated` SELECT only,
+   `anon` nothing at all; both new functions carry the same PUBLIC-execute
+   pattern `current_user_has_permission` itself already uses, which is safe
+   here because both fail closed INSIDE the function body regardless of who
+   is allowed to call them). Granted to nobody — a human decides who holds
+   `data_admin` through ทีม SAMO → สิทธิ์, same as every other permission key.
+4. **Deliberately ships NO per-system anonymiser.** VS's 24-month text-scrub
+   (task 6), Shop's and หนังสือโครงการ's own retention (tasks 7/9) are each
+   that task's own job, against a `samo_year_be` column some of those tables
+   do not have yet — building one here, ahead of the column that makes it
+   meaningful, would be deciding another task's policy from outside it and
+   creating a second home for that rule the moment the real task ships
+   (class 6). The contract is proven here with a `pg_temp` demo RPC that
+   never touches a real table, not with a real anonymiser.
+
+**`tools/year-export.mjs`** — one shared JSON+CSV exporter, plan-only by
+default, for `pr_tickets`, `vs_tickets`, `shop_orders` (+`shop_order_items`),
+`projects` (+`project_documents`+`project_sign_requests`),
+`team_archive_nodes`, `team_archive_members`. Reads through the SAME select
+shape each system's own admin screen already uses (`select=*`, or the exact
+`ORDER_FIELDS`/`PROJECT_FIELDS` nested literals from `src/js/shop/api.js`/
+`src/js/projects/api.js` — `year-export.test.js` greps those files so a
+change there cannot silently drift from this tool). Prefers a system's own
+stored `samo_year_be` column when a later task has added one, falls back to
+deriving from the system's own timestamp column via 0219's
+`samo_year_for_timestamp()` when it has not — so the tool needs NO change
+when tasks 6/7/9 ship their own columns. `--apply` writes the files and
+records the export directly into `year_export_log` (NOT through
+`record_year_export()` — the Node tool runs via the Management API as the
+Postgres superuser, where `auth.uid()` is null, so a gate keyed on it would
+refuse the one caller meant to write this row; see the migration header).
+`--drive` uploads the written files to `My Drive/IT Database/Archives/<year>/`
+via a new GAS action, `uploadArchiveFile` (`appscript/prform.gs`) — mirrors
+`uploadShopFile`/`uploadTeamFile`'s allow-list pattern exactly, but
+deliberately does NOT call `setSharing(ANYONE_WITH_LINK)` the way those do,
+since an export can carry PDPA-covered VS text or a buyer's address.
+**Exercised against REAL samo-dev data this run** (plan-only and `--apply`
+both, including the nested shop/projects shapes — 7 orders/9 items, 33
+projects/53 documents/18 sign requests — then cleaned the test log rows and
+scratch files back out); `--drive` was written but never called (no Drive
+credential in this environment).
+
+**`server/supabase-backup.sh` + `.timer`/`.service`/`.env.example`** —
+whole-database `pg_dump`, modelled directly on
+`server/vaultwarden/backup.sh`'s discipline (verify the copy via
+`pg_restore --list`, assert content not just exit 0, never prune until the
+new one verifies, exit non-zero so the timer shows FAILED). **Written, never
+run** — this environment has no `SUPABASE_DB_URL` and no access to the VM.
+The IPv6 question (`SUPABASE_DB_URL`'s direct host is IPv6-only per
+`skills/build-the-dev-database.md`; whether the VM has IPv6 egress is
+unknown) is decided as a plan, not tested: try the direct host, and if it
+times out, switch to Supabase's own Session-mode pooler (IPv4 by design) —
+written up with the exact verification commands in
+`skills/backup-and-export.md`, not claimed as working.
+
+**Decisions made, and what was rejected:**
+- **A log table, not a column on `team_terms`** — a system's export and a
+  team's handover are unrelated events (a cautious ฝ่าย might export twice
+  before a handover that never happens); only a per-attempt log can't lose
+  that.
+- **The Node tool writes `year_export_log` directly, bypassing
+  `record_year_export()`** — rejected making the tool call its own gated
+  RPC, since the Management-API connection's null `auth.uid()` would make
+  the RPC refuse the only caller meant to use it; same shape
+  `apply-migration.mjs` already uses for `schema_migrations`.
+- **No per-system anonymiser built here** — rejected building even one
+  concrete example against a real table (VS was the most fully-speced
+  candidate in `docs/YEAR-ROLLOVER.md`), because VS's own `samo_year_be`
+  column is task 6's to add; proving the CONTRACT against a `pg_temp` demo
+  function instead keeps this task's migration from deciding task 6's
+  policy or creating a second home for it.
+- **Registry excludes `vs_public_comments`/`vs_followers`/`vs_tags`,
+  `project_files`, `shop_pickup_batches`** — no `samo_year_be` to key the
+  first three by yet (task 6), `project_files` is read through Drive-backed
+  GAS handlers rather than the PostgREST shape this tool mirrors (and the
+  app's own `PROJECT_FIELDS` select does not nest it either), and
+  `shop_pickup_batches` is operational state the design doc never names for
+  per-year export. Documented in the registry's own comment, not silently
+  omitted.
+
+**Caught by this task's own `/scrutinize` pass before it shipped, not
+reported by anyone:** the grandchild-fetch loop (`project_sign_requests`
+under `project_documents`) never actually read the `parentOf` field its own
+registry entry set and its own comment claimed to use — it always fetched
+against the immediate container's ids regardless, which only LOOKED correct
+because a plain two-level nest's grandchild's parent always equals its
+immediate container anyway. Fixed by rewriting the fetch as one recursive
+function that reads `node.parentOf` at every level (`fetchChildLevel`),
+with a new test using a synthetic three-level entry whose grandchild
+deliberately points PAST its immediate container to prove the field is
+consulted, not decorative. Also tightened `--year` validation from
+"anything `Number.isFinite` accepts" (so `2569.5` or `" 2569 "` would pass)
+to a plain-integer regex — the looser check let the on-disk folder name
+(built from the raw string) diverge from what actually lands in
+`year_export_log` (coerced and ROUNDED on insert into the `smallint`
+column), a confusing silent mismatch for a typo. Also verified LIVE (not
+assumed) that `record_year_export`/`year_export_recorded`'s table grants and
+RLS match the migration's own claims, and that `handleUploadArchiveFile`
+never calls `setSharing` the way its public siblings do.
+
+**WRITTEN, NOT APPLIED to production**: migration 0222. Depends on 0219
+(task 2) applying first, same ordering constraint as every other per-system
+migration in this queue — `year_export_log` itself has no such dependency,
+but `tools/year-export.mjs`'s timestamp-derived fallback calls 0219's
+`samo_year_for_timestamp()`.
+
+**Exact commands the owner runs next:**
+
+```bash
+git show ed8816c   # review — one commit, this task's whole diff
+
+# apply to production, in order, after review (0219 first if not already there)
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql
+
+# prove it there too
+node tools/db-query.mjs tools/data0222-export-gate.sql
+
+# ship the Drive upload path (new action uploadArchiveFile) before --drive can do anything
+npm run deploy:gas
+
+# try a real export against production once ready
+node tools/year-export.mjs --list
+node tools/year-export.mjs --system pr_tickets --year 2569
+node tools/year-export.mjs --system pr_tickets --year 2569 --apply --out ./exports
+
+# install the whole-DB backup timer on the VM — see skills/backup-and-export.md
+# for the full checklist, including the IPv6 verification step that has
+# never been run from this environment
+sudo cp server/supabase-backup.env.example /etc/supabase-backup.env
+sudo cp server/supabase-backup.service server/supabase-backup.timer /etc/systemd/system/
+```
+
+Updated `STATE.md` (migration high-water mark note, proof count 65→66, a
+one-line task-5 summary in the night-agent block), `docs/state/HANDOFF.md`
+§22 (corrected row "5", which task 1 had provisionally guessed was "SAMO
+Shop" and reserved migration 0222 for — the REAL night-queue's task 5 is
+this backup/export/deletion layer and independently reserved the same
+number; flagged with a ‡ note mirroring the existing † one rather than
+silently overwritten), and `tools/run-proofs.mjs` (registered `data0222`).
+No changelog entry — nothing here is user-visible yet (no admin UI calls
+`tools/year-export.mjs` or the new RPCs; that wiring is each later task's
+job when it builds its own system's export button).
+
+---
+
 ## Task 3 — PR Form dashboard per SAMO year, export, Drive per year (2026-10-14)
 
 **Written up here only — the code and migration shipped in an EARLIER run

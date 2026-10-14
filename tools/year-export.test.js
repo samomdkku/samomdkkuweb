@@ -203,6 +203,42 @@ describe('fetchExport — stubbed DB, asserting the exact SQL sent (not the resu
     expect(sigQuery).toBe("select * from public.project_sign_requests where document_id in ('DOC-1')");
   });
 
+  it('a grandchild\'s `parentOf` is actually consulted, not just documentation — a synthetic entry pointing PAST its immediate container must use the NAMED ancestor\'s ids', async () => {
+    // Regression guard: an earlier draft of fetchExport's recursion computed
+    // a grandchild's parent ids from the tree position alone and never read
+    // `parentOf` at all, so the field was dead — harmless only because the
+    // one real registry entry (project_sign_requests) happens to want its
+    // immediate container's ids anyway. This entry deliberately asks for the
+    // TOP-LEVEL ids instead, which only a correct read of `parentOf` can produce.
+    const syntheticEntry = {
+      table: 'root', idColumn: 'id', yearColumn: 'samo_year_be', timestampColumn: null,
+      children: [
+        {
+          table: 'mid', parentColumn: 'root_id',
+          children: [
+            { table: 'leaf', parentColumn: 'root_id', parentOf: 'root' },
+          ],
+        },
+      ],
+    };
+    const calls = [];
+    const runSqlFn = vi.fn(async (sql) => {
+      calls.push(sql);
+      if (sql.includes('information_schema.columns')) return JSON.stringify([{ e: true }]);
+      if (sql.startsWith('select * from public.root')) return JSON.stringify([{ id: 'ROOT-1' }]);
+      if (sql.startsWith('select * from public.mid')) return JSON.stringify([{ id: 'MID-1', root_id: 'ROOT-1' }]);
+      if (sql.startsWith('select * from public.leaf')) return JSON.stringify([{ id: 'LEAF-1', root_id: 'ROOT-1' }]);
+      throw new Error(`unexpected query: ${sql}`);
+    });
+
+    await fetchExport(syntheticEntry, 2569, { runSqlFn, target: { ref: 'stub' } });
+
+    const leafQuery = calls.find((s) => s.startsWith('select * from public.leaf'));
+    // Must key on ROOT-1 (named by parentOf: 'root'), never MID-1 (the
+    // immediate container) — a wrong read would send `root_id in ('MID-1')`.
+    expect(leafQuery).toBe("select * from public.leaf where root_id in ('ROOT-1')");
+  });
+
   it('a child fetch with zero parent rows sends NO query at all (never `in ()`, which is a SQL error)', async () => {
     const calls = [];
     const runSqlFn = vi.fn(async (sql) => {

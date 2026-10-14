@@ -265,10 +265,28 @@ async function fetchChildren(child, parentIds, runSqlFn, target) {
   return rows;
 }
 
+/** Fetch one level of children (and, recursively, THEIR children) against
+ *  the ids a parent level just produced. `child.parentOf` is read here — it
+ *  is NOT redundant with the tree position: it names which ANCESTOR table's
+ *  ids a child is keyed against, which for a plain two-level nest (the one
+ *  case this registry has today, project_sign_requests under
+ *  project_documents) happens to equal the immediate parent, but a nest
+ *  added later that needs to skip a level (or share one id set across two
+ *  siblings) would silently use the WRONG ids if this ever stopped being
+ *  read — so it is read explicitly, not assumed. */
+async function fetchChildLevel(nodes, parentTable, idsByTable, runSqlFn, target, children) {
+  for (const node of nodes || []) {
+    const parentIds = idsByTable[node.parentOf || parentTable] || [];
+    const rows = await fetchChildren(node, parentIds, runSqlFn, target);
+    children[node.table] = rows;
+    const nextIds = { ...idsByTable, [node.table]: rows.map((r) => r.id).filter((v) => v != null) };
+    await fetchChildLevel(node.children, node.table, nextIds, runSqlFn, target, children);
+  }
+}
+
 /** Resolve one system's nested shape for one year — the DB half. Returns
- *  { base: rows[], children: { table: rows[] } } with children keyed by
- *  table name, one level of nesting at a time (project_sign_requests is
- *  fetched against the PARENT document ids it names via `parentOf`). */
+ *  { base: rows[], children: { table: rows[] } }, fetched top-down so a
+ *  grandchild's ids come from its own level, never guessed from the root. */
 export async function fetchExport(entry, year, { runSqlFn, target }) {
   const hasStored = await columnExists(entry.table, entry.yearColumn, target, runSqlFn);
   const where = yearWhereClause(entry, year, hasStored);
@@ -276,17 +294,7 @@ export async function fetchExport(entry, year, { runSqlFn, target }) {
   const baseIds = base.map((r) => r[entry.idColumn]);
 
   const children = {};
-  const idsByTable = { [entry.table]: baseIds };
-  for (const child of entry.children || []) {
-    const parentIds = idsByTable[child.parentOf || entry.table] || [];
-    const rows = await fetchChildren(child, parentIds, runSqlFn, target);
-    children[child.table] = rows;
-    idsByTable[child.table] = rows.map((r) => r.id).filter((v) => v != null);
-    for (const grandchild of child.children || []) {
-      const gcRows = await fetchChildren(grandchild, idsByTable[child.table], runSqlFn, target);
-      children[grandchild.table] = gcRows;
-    }
-  }
+  await fetchChildLevel(entry.children, entry.table, { [entry.table]: baseIds }, runSqlFn, target, children);
   return { base, children };
 }
 
@@ -351,8 +359,14 @@ async function main(argv = process.argv.slice(2)) {
     console.error(`--system is required and must be one of: ${Object.keys(REGISTRY).join(', ')}`);
     process.exit(1);
   }
-  if (!year || !Number.isFinite(Number(year))) {
-    console.error('--year is required (a พ.ศ. integer, e.g. 2569)');
+  // A plain integer ONLY — not just "finite": `Number("2569.5")` and
+  // `Number(" 2569 ")` both pass Number.isFinite, and if the raw string
+  // continued downstream into a folder name while the DB side coerces with
+  // Number() too, "2569.5" would open a folder next to a database row filed
+  // under the ROUNDED year 2570 — a silent, confusing mismatch for a typo
+  // nobody would otherwise notice until the export was already on disk.
+  if (!year || !/^\d+$/.test(year)) {
+    console.error('--year is required and must be a plain integer, e.g. 2569');
     process.exit(1);
   }
 
