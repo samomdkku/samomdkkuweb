@@ -14,6 +14,850 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## ▶ HANDOFF 2026-10-13T20:53:00Z (night agent, branch agent/2026-10-14)
+
+**1. Do first.** Open `docs/state/HANDOFF.md` §22, then `docs/YEAR-ROLLOVER.md`.
+**Do not apply any of migrations 0219/0220/0224 to production yet** — 8 of
+12 queue tasks have not run (see §3), and task 11 is specifically a bug scan
+of this whole branch that has not happened. If the PR-dashboard relief is
+wanted NOW regardless (the owner's own named pain point, 290 crowded
+tickets), 0219+0220 are self-contained and independently proven (see §2) and
+can be reviewed and applied ahead of the rest — 0224 (ทีม SAMO handover)
+changes a real workflow's behavior (auto-archive on handover) and is better
+read first.
+
+**2. Ready to use vs. still a design.**
+- **Proven green on samo-dev, NOT on production (no production credential
+  exists in this environment — see §5):**
+  - Migration 0219 — `current_samo_year()`, `samo_year_be_default()`
+    trigger, `start_team_term()`. Proof `year0219` reported 23/23 by task 2's
+    own run; **not re-run by this handoff step** (budget call, see §5).
+  - Migration 0220 — `pr_tickets.samo_year_be` + PR Staff Dashboard year
+    picker/export/past-year lock. Proof `pr0220` — **re-run fresh by this
+    handoff step**: 23/23 PASS against `project: xibugtlsphcfuvstnxxh
+    (samo-dev)`.
+  - Migration 0224 — ทีม SAMO handover re-gated to `team_edit`
+    (closes a real authz gap: ~300 VIEW-only accounts could previously call
+    the handover RPC), auto-archives the outgoing term. Proof `team0224`
+    reported 14/14 by task 4's own run; **not re-run by this handoff step**.
+  - `skills/year-rollover.md` (the runbook) and `src/js/samo-year.js` (the
+    one shared year picker every task must reuse) both exist and are used by
+    tasks 2/3/4 already.
+- **Written, not deployed, not exercised against anything real:**
+  `appscript/prform.gs`'s per-year Drive subfolder code and
+  `tools/pr-organize-drive-by-year.mjs` (the dry-run mover) — this
+  environment has no Google/Apps Script credential, so NEITHER has ever run
+  against real Drive, by any task tonight. GAS deploy (`npm run deploy:gas`)
+  and the frontend bundle deploy are both owner-only, unexecuted.
+- **Design only, no code:** everything in `docs/YEAR-ROLLOVER.md` beyond what
+  tasks 2/3/4 actually built — VitalSound, SAMO Shop, หนังสือโครงการ,
+  ระบบบ้าน, Passport, หน้าฝ่าย, announcements, stats/retention, and the whole
+  backup/export/deletion layer are DECIDED IN PROSE, not implemented.
+- **A bookkeeping gap found and fixed by this handoff step, not a code
+  change:** task 3 (PR dashboard) was fully built, proved, and committed
+  earlier in this same session (`3978eeb`, `b998c52`) but the runner kept
+  reporting it `todo` because the required `## Task 3 ` heading was never
+  written to this file. Added it below, with the fresh proof re-run as
+  evidence — no PR code was touched. The next time the runner evaluates this
+  queue, task 3's `Done when:` should pass without anyone redoing the work.
+
+**3. What did not happen, and why.**
+`AGENT_UNRUN=8`, `AGENT_ASKS` is empty (no task ended by asking a question
+nobody was awake to answer), `AGENT_STOP`: quota: รอบ 5 ชั่วโมงนี้ใช้ไป 92%
+แล้ว — รอรีเซ็ต 2026-10-13T23:59:59.814Z. Verbatim queue report from before
+this handoff step ran:
+
+```
+✓ [done] 1. PLAN — decide the SAMO-year model for every system (design doc, no app code) — ผ่านวิธีตรวจ
+! [done] 2. The ONE SAMO year — foundation, admin control, runbook — ถูกตัดกลางทางรอบก่อน แล้วทำต่อจนผ่านวิธีตรวจ
+! [todo] 3. PR Form — a dashboard per SAMO year, export, Drive per year — ลองแล้ว 1 ครั้ง ยังไม่ผ่าน
+✓ [done] 4. ทีม SAMO + จัดการทีม + permissions handover + Discord roles — ผ่านวิธีตรวจ
+! [todo] 5. Backup, export, deletion — the data-safety layer every system uses
+! [todo] 6. VitalSound — per-year board and staff view, PDPA retention
+! [todo] 7. หนังสือโครงการ — ปีงบ completeness, Drive per year, seats across years
+! [todo] 8. ระบบบ้าน + ข้อมูลของฉัน — academic-year rollover, graduates, the next รุ่น
+! [todo] 9. SAMO Shop — orders and products across seasons
+! [todo] 10. Passport, หน้าฝ่าย, announcements, stats, Claude booking, accounts
+! [todo] 11. SCRUTINIZE + BUG SCAN of everything on this branch, and of 2026-10-13's work
+! [todo] 12. HANDOFF — the owner applies, deploys and decides from this
+ต้องให้คนดู 10 งาน (ไม่ได้จบแบบปกติในรอบเดียว) — อย่าสรุปว่าคืนนี้เรียบร้อย
+```
+
+As fixed by this step, line 3 above is stale — the code was done, only its
+record was missing (§2). **Still genuinely undone: tasks 5, 6, 7, 8, 9, 10,
+11, 12 — all eight never started.** None of these are "attempted and
+failed"; the run was cut off by the 5-hour quota after task 4 finished,
+before task 5 could begin. This means:
+- No backup/export/deletion layer exists yet for ANY system (task 5) — the
+  owner's explicit questions about deleting, backing up and exporting data
+  are answered IN PROSE in `docs/YEAR-ROLLOVER.md` only, nothing runnable.
+- VitalSound, Shop, หนังสือโครงการ, ระบบบ้าน, Passport, หน้าฝ่าย,
+  announcements, stats and accounts have NONE of the per-year work the owner
+  asked for yet — only PR and ทีม SAMO do.
+- The branch has not had its own dedicated bug-scan pass (task 11) — only
+  each task's own self-`scrutinize` (which already caught and fixed two real
+  bugs: task 2's genesis-row reopen bug, task 3's past-year-lock-keyed-on-
+  filter bug). A whole-branch pass may find more, especially interactions
+  BETWEEN tasks 2/3/4's migrations.
+- Task 12's own deliverable (making `docs/state/HANDOFF.md` §22 the owner's
+  exact apply-in-order checklist with every decision flagged as overturnable)
+  has not run — §22 as it stands was written incrementally by tasks 1/2/4 and
+  is usable today, but was never given task 12's dedicated polish pass.
+
+Per `NIGHT-TASKS.md`'s own budget (6 runs, 1 night used, until
+2026-10-14T09:00:00Z / weekly reset 16:00 ICT), the runner is expected to
+keep firing further runs automatically after the 5-hour quota resets
+(`2026-10-13T23:59:59Z`) — no owner action is required to continue the
+queue. This handoff step took no action to pause or resume it.
+
+**4. Needs a human decision.**
+- **Apply 0219+0220 to production now (PR relief), or wait for task 11's
+  bug scan first?** Recommendation: if the 290-ticket crowding is urgent,
+  apply now — both are independently proved on samo-dev and self-contained
+  (no other task's migration depends on them going first, only the reverse).
+  Otherwise, default to waiting for task 11, since it is specifically
+  scoped to catch cross-migration interactions this handoff step did not
+  check for.
+- **Apply 0224 (ทีม SAMO handover) now?** Recommendation: read
+  `docs/state/night-agent.md`'s own "Task 4" block first — it changes what
+  "ตั้งเป็นปีปัจจุบัน" actually DOES (auto-archives the outgoing term inline)
+  and closes a real authz hole. Low risk, but it's a workflow behavior
+  change a staffer should know about before it ships, not just a schema add.
+- **Let the automated queue keep consuming its remaining budget
+  unsupervised?** Recommendation: yes — `AGENT_ASKS` is empty across all
+  four runs so far, meaning nothing has needed a judgment call it couldn't
+  make itself, and every task that finished did so with a green proof, not a
+  guess.
+- **`npm run handoff:check` is broken in this environment** (see §5) — fix
+  the memory-path assumption, or leave the two memory stores (interactive
+  session vs. night agent) separate and give the script an escape hatch?
+  Not decided here — this is a tooling question outside tonight's actual
+  feature scope, and guessing at the intended design risked making it worse.
+
+**5. Could not verify.**
+- **No production database credential exists in this environment at all**
+  (measured 2026-10-13: samo-dev's token answers 403 on production). Every
+  production row count cited above and in `docs/YEAR-ROLLOVER.md` is the
+  measured-on-2026-10-13 facts handed to this queue, not something this
+  step confirmed itself.
+- **`npm run handoff:check` could not complete** — it crashed with
+  `ENOENT` reading `~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md`
+  (that directory exists but is empty; the night agent's real ~65-file
+  memory store lives at `~/samo-night/memory/` instead, per this session's
+  own system preamble — the two were never the same store) and separately
+  reported `origin/agent/2026-10-14` as unknown (expected: this branch has
+  never been pushed, since this agent cannot push). Ran with `--local` too;
+  same crash, so the flag does not route around it. Substituted direct
+  checks instead: `npm test` (2716/2716 green), `npm run build` (clean), and
+  a fresh run of `tools/pr0220-year-filter.sql` against samo-dev (23/23,
+  confirmed the project ref printed was samo-dev's).
+- **Did not re-run `year0219-samo-year.sql` or `team0224-handover.sql`**
+  this step — budget call, given the quota is at 92% for this 5-hour window;
+  relying on tasks 2's and 4's own commits and `STATE.md`'s record of having
+  run them green on samo-dev earlier in this SAME session, not a stale claim
+  from a prior night.
+- **Apps Script / Google Drive: zero credentials available, zero real
+  exercise of the per-year folder code or the mover tool, by any task
+  tonight** — everything Drive-related is verified by code reading only.
+
+---
+
+## Task 6 — VitalSound: per-year board/staff view, PDPA retention (2026-10-14)
+
+**What this run built.** Migration 0221, applied to samo-dev only:
+
+1. **`vs_tickets.samo_year_be smallint`** — the same stored-at-INSERT shape
+   as `pr_tickets.samo_year_be` (0220): `samo_year_be_default()` trigger
+   (0219), one-time backfill for the 119 existing rows from `timestamp`
+   (never `created_at`, same reasoning 0220's header gives). RLS unchanged —
+   year is a filter, never an access boundary, per
+   `docs/YEAR-ROLLOVER.md` § VitalSound.
+2. **No past-year edit lock, unlike PR.** The design doc never asks for one,
+   and a real workflow argues against it: a duplicate filed THIS year can
+   merge into a canonical ticket filed LAST year (edge case 14), and staff
+   routinely need to write that canonical row regardless of its filing
+   year. Locking it would fight the merge feature the design doc names by
+   example.
+3. **`vs_scrub_closed_tickets(p_year, p_months default 24)`** — the PDPA
+   anonymiser § VitalSound asked for. FUNCTION ONLY: nothing calls or
+   schedules it (task 11's job, same as 0222's own export gate). Fails
+   closed on three independent axes (permission, the 0222 export gate, bad
+   input), then overwrites `problem`/`resolution_note` on tickets that are
+   filed under `p_year`, CLOSED **right now**, older than `p_months`
+   (`updated_at` as a conservative proxy — no `resolved_at` column exists),
+   and not already scrubbed. Never touches `public_title`/`public_note`
+   (0072 — the public board never reads `problem`/`resolution_note` either,
+   so this changes nothing the board shows, matching "the public board's
+   content stays"). Idempotent via a new `anonymized_at` column.
+4. **NOT scrubbed, flagged rather than silently handled:** `remarks` (the
+   internal timeline jsonb) can also carry a staff-typed name reference.
+   Safely anonymising a jsonb array — keeping each entry's shape while
+   blanking only free text — is bigger than tonight's remaining budget;
+   named in the migration header as a real, open gap rather than claimed
+   as done.
+5. **Added `data_admin` to `PERM_CATALOG`** (`src/js/team-vocab.js`). 0222
+   (task 5) shipped the permission key this function and `record_year_export`
+   both gate on, but it was never added to the catalogue the ทีม SAMO →
+   สิทธิ์ checkbox grid reads — meaning nobody could ever be granted it
+   except by holding `role = 'dev'`. One line, no admin tab of its own
+   (same pattern as `master`/`passport`, which are also absent from
+   `ADMIN_FEATURES`).
+6. **`src/js/vs-year.js`** — the VS-specific pure helpers, mirroring
+   `pr-year.js`'s split (no DOM, no fetch). Moved the `ALL_YEARS` sentinel
+   into `samo-year.js` (the actually-shared module) and had `pr-year.js`
+   re-export it, so VS and PR stop each defining their own copy of the same
+   string — a class-6 drift waiting to happen the moment one changed.
+7. **VS staff kanban** (`vs-staff.js`) gets the shared `samo-year.js` picker
+   as a new facet (`#vsStaffYearFilter`), defaulting to the current year,
+   persisted across re-entry like the dept/cat/tag facets already are, plus
+   a year chip on each card (shown only in "ทุกปี", same rule as PR's
+   `yearFlag`).
+
+**Caught by this task's own `/scrutinize` pass before it shipped, not
+reported by anyone — the one real bug.** The first draft keyed "is this
+ticket closed" on `resolution is not null` in BOTH the SQL function and the
+JS filter. Tracing `submitStaffAction` (vs-staff.js) and the 0074 cascade
+trigger end to end showed `resolution` is written ONCE, the first time a
+ticket closes (0073), and nothing anywhere clears it if a staffer later
+reopens the ticket to a different status — `submitStaffAction`'s PATCH only
+ever WRITES `resolution` inside `if (willWriteResolution)` (itself gated on
+`isDone`), never nulls it, and 0074's cascade trigger clears
+`resolution_note` on a mirrored duplicate but never `resolution` itself. So
+a REOPENED ticket keeps a stale non-null `resolution` forever: the original
+code would have HIDDEN a reopened past-year ticket from the default
+current-year view (the opposite of "open tickets carry over") and made it
+ELIGIBLE for PDPA anonymisation while someone is actively working it again.
+Fixed by keying both the SQL function and `vsTicketMatchesYearFilter` on
+`status = 'เสร็จสิ้น'` instead — the same live signal `vs-staff.js`'s own
+`isDone` already uses — keeping `resolution is not null` only as a
+defensive AND in the SQL function. Moved `DONE_STATUS` into `vs-year.js` so
+`vs-staff.js` imports it rather than keeping its own copy, closing the two-
+homes gap that let the mismatch happen in the first place. Added a
+REOPENED-ticket case to both the proof and the unit tests as a regression
+guard. Separate commit (`b189193`) after the initial build (`9368e7a`), per
+this repo's own convention of a fix-commit distinct from the feature commit.
+
+**Proof `tools/vs0221-samo-year.sql`, 34/34 on samo-dev; registered in
+`tools/run-proofs.mjs`.** Covers: the column/index/trigger/function exist
+(§0); insert with no explicit year is stamped from `current_samo_year()`,
+an explicit year survives the trigger (§A/§B); the backfill resolves from
+history across a REAL handover, not wall-clock "now" (§C, mirrors
+`pr0220-year-filter.sql` §C exactly, sentinel years 2697/2698 — unused by
+every other proof); the scrub's permission gate refuses a stranger and
+passes a `data_admin` holder onto the NEXT gate (§D, paired so a deny-only
+probe cannot hide a broken ALLOW); the export gate actually refuses an
+unexported year and opens once `record_year_export()` records it (§E); five
+fixtures prove exactly what gets scrubbed and what does not — closed+old
+(yes), open (no), closed+recent (no, too young), closed+old+different-year
+(no, scoped to `p_year`), and REOPENED (no — the regression case) (§F); the
+public board's `public_title`/`public_note` are untouched by the scrub
+(§H); a second run scrubs zero additional rows (§G).
+
+**Decisions made, and what was rejected:**
+- **No past-year edit lock** (PR's `pr-year.js` has one) — rejected
+  because the design doc never asks for it and the duplicate-merge-across-
+  years workflow (edge case 14) actively needs to write a canonical ticket
+  from any year, unlike PR which has no such merge relationship.
+- **The public board gets NO year filter or dimension at all** — the
+  design doc's own § VitalSound says "the public board's content stays",
+  and a canonical problem can be the merge target of duplicates filed
+  across multiple years (edge case 14), so "which year does this board
+  card belong to" has no single correct answer for a merged problem. Adding
+  one would either pick an arbitrary year (misleading) or require tracking
+  per-duplicate years on the board (a bigger feature nobody asked for
+  tonight). Rejected rather than half-built.
+- **`updated_at`, not a new `resolved_at` column, as the scrub's age
+  proxy** — rejected adding a column to get an exact "closed at" instant,
+  because the conservative direction (any later touch pushes the scrub
+  window OUT, never in) is the privacy-safe one to be wrong in, and it
+  matches the "no `created_at` on shop_orders either, use what already
+  exists" precedent elsewhere in this design doc.
+- **`year_export_recorded`/`record_year_export` (0222) reused as-is, no VS-
+  specific export gate** — exactly the contract task 5 built this for;
+  writing a second gate would be the class-6 mistake task 5's own migration
+  header explicitly calls out avoiding.
+- **Added `data_admin` to `PERM_CATALOG` now, rather than leaving it for
+  task 11** — rejected waiting, because this task's own scrub function is
+  the first thing that actually needs a human to be able to hold the
+  permission; leaving it ungrantable would have shipped a gate nobody could
+  open through the UI for an unknown number of further tasks.
+
+**WRITTEN, NOT APPLIED to production**: migration 0221 and everything it
+defines. Depends on 0219 (task 2) AND 0222 (task 5) already being applied
+first — 0222 because `vs_scrub_closed_tickets` calls `year_export_recorded`.
+
+**Exact commands the owner runs next:**
+
+```bash
+git show 9368e7a b189193   # review together — the second is a scrutinize fix to the first
+
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql
+node tools/apply-migration.mjs supabase/migrations/0221_vs_tickets_get_a_samo_year.sql
+
+node tools/db-query.mjs tools/vs0221-samo-year.sql   # prove it on production too
+
+# grant data_admin to whoever should be able to export/scrub, via
+# ทีม SAMO → สิทธิ์ (the checkbox now exists) — then deploy the frontend
+# bundle (ships the VS year picker/chip and the data_admin checkbox)
+```
+
+Updated `STATE.md` (migration high-water mark note, proof count 66→67, a
+one-line task-6 summary in the night-agent block), `docs/state/HANDOFF.md`
+§22 (row 4 — VitalSound), `src/data/changelog.js` (`PENDING`, staff-facing),
+`docs/mistakes/postgres-schema.md` (the resolution-vs-status write-up,
+`npm run mistakes:index` run after — same precedent as task 2's genesis-row
+bug, caught before shipping but still worth paying down once for the next
+reader).
+
+---
+
+## Task 5 — Backup, export, deletion — the data-safety layer every system uses (2026-10-14)
+
+**What this run built.** Migration 0222, applied to samo-dev only:
+
+1. **`public.year_export_log`** — append-only (no UPDATE/DELETE policy for
+   any role; RLS SELECT restricted to `data_admin`/`dev`). One row per
+   (system, year) export actually taken, never a boolean flag — a flag could
+   be set once and then the data could change under it; a log that a system
+   may re-export any number of times is the only shape that cannot lose that.
+2. **`year_export_recorded(system, year)`** — the gate. Plain boolean,
+   SECURITY DEFINER, leaks nothing but existence. **THE CONTRACT**: any
+   deletion/anonymisation RPC for ANY system, written by ANY later task,
+   must call this first and raise if it returns false.
+3. **`record_year_export(...)`** — the gated write path for a future admin
+   "export now" button. Fails CLOSED for anyone without `data_admin`
+   permission or `dev` role (verified live against samo-dev's `pg_proc`/
+   `information_schema.role_table_grants` during this task's own
+   `/scrutinize` pass — table-level grants give `authenticated` SELECT only,
+   `anon` nothing at all; both new functions carry the same PUBLIC-execute
+   pattern `current_user_has_permission` itself already uses, which is safe
+   here because both fail closed INSIDE the function body regardless of who
+   is allowed to call them). Granted to nobody — a human decides who holds
+   `data_admin` through ทีม SAMO → สิทธิ์, same as every other permission key.
+4. **Deliberately ships NO per-system anonymiser.** VS's 24-month text-scrub
+   (task 6), Shop's and หนังสือโครงการ's own retention (tasks 7/9) are each
+   that task's own job, against a `samo_year_be` column some of those tables
+   do not have yet — building one here, ahead of the column that makes it
+   meaningful, would be deciding another task's policy from outside it and
+   creating a second home for that rule the moment the real task ships
+   (class 6). The contract is proven here with a `pg_temp` demo RPC that
+   never touches a real table, not with a real anonymiser.
+
+**`tools/year-export.mjs`** — one shared JSON+CSV exporter, plan-only by
+default, for `pr_tickets`, `vs_tickets`, `shop_orders` (+`shop_order_items`),
+`projects` (+`project_documents`+`project_sign_requests`),
+`team_archive_nodes`, `team_archive_members`. Reads through the SAME select
+shape each system's own admin screen already uses (`select=*`, or the exact
+`ORDER_FIELDS`/`PROJECT_FIELDS` nested literals from `src/js/shop/api.js`/
+`src/js/projects/api.js` — `year-export.test.js` greps those files so a
+change there cannot silently drift from this tool). Prefers a system's own
+stored `samo_year_be` column when a later task has added one, falls back to
+deriving from the system's own timestamp column via 0219's
+`samo_year_for_timestamp()` when it has not — so the tool needs NO change
+when tasks 6/7/9 ship their own columns. `--apply` writes the files and
+records the export directly into `year_export_log` (NOT through
+`record_year_export()` — the Node tool runs via the Management API as the
+Postgres superuser, where `auth.uid()` is null, so a gate keyed on it would
+refuse the one caller meant to write this row; see the migration header).
+`--drive` uploads the written files to `My Drive/IT Database/Archives/<year>/`
+via a new GAS action, `uploadArchiveFile` (`appscript/prform.gs`) — mirrors
+`uploadShopFile`/`uploadTeamFile`'s allow-list pattern exactly, but
+deliberately does NOT call `setSharing(ANYONE_WITH_LINK)` the way those do,
+since an export can carry PDPA-covered VS text or a buyer's address.
+**Exercised against REAL samo-dev data this run** (plan-only and `--apply`
+both, including the nested shop/projects shapes — 7 orders/9 items, 33
+projects/53 documents/18 sign requests — then cleaned the test log rows and
+scratch files back out); `--drive` was written but never called (no Drive
+credential in this environment).
+
+**`server/supabase-backup.sh` + `.timer`/`.service`/`.env.example`** —
+whole-database `pg_dump`, modelled directly on
+`server/vaultwarden/backup.sh`'s discipline (verify the copy via
+`pg_restore --list`, assert content not just exit 0, never prune until the
+new one verifies, exit non-zero so the timer shows FAILED). **Written, never
+run** — this environment has no `SUPABASE_DB_URL` and no access to the VM.
+The IPv6 question (`SUPABASE_DB_URL`'s direct host is IPv6-only per
+`skills/build-the-dev-database.md`; whether the VM has IPv6 egress is
+unknown) is decided as a plan, not tested: try the direct host, and if it
+times out, switch to Supabase's own Session-mode pooler (IPv4 by design) —
+written up with the exact verification commands in
+`skills/backup-and-export.md`, not claimed as working.
+
+**Decisions made, and what was rejected:**
+- **A log table, not a column on `team_terms`** — a system's export and a
+  team's handover are unrelated events (a cautious ฝ่าย might export twice
+  before a handover that never happens); only a per-attempt log can't lose
+  that.
+- **The Node tool writes `year_export_log` directly, bypassing
+  `record_year_export()`** — rejected making the tool call its own gated
+  RPC, since the Management-API connection's null `auth.uid()` would make
+  the RPC refuse the only caller meant to use it; same shape
+  `apply-migration.mjs` already uses for `schema_migrations`.
+- **No per-system anonymiser built here** — rejected building even one
+  concrete example against a real table (VS was the most fully-speced
+  candidate in `docs/YEAR-ROLLOVER.md`), because VS's own `samo_year_be`
+  column is task 6's to add; proving the CONTRACT against a `pg_temp` demo
+  function instead keeps this task's migration from deciding task 6's
+  policy or creating a second home for it.
+- **Registry excludes `vs_public_comments`/`vs_followers`/`vs_tags`,
+  `project_files`, `shop_pickup_batches`** — no `samo_year_be` to key the
+  first three by yet (task 6), `project_files` is read through Drive-backed
+  GAS handlers rather than the PostgREST shape this tool mirrors (and the
+  app's own `PROJECT_FIELDS` select does not nest it either), and
+  `shop_pickup_batches` is operational state the design doc never names for
+  per-year export. Documented in the registry's own comment, not silently
+  omitted.
+
+**Caught by this task's own `/scrutinize` pass before it shipped, not
+reported by anyone:** the grandchild-fetch loop (`project_sign_requests`
+under `project_documents`) never actually read the `parentOf` field its own
+registry entry set and its own comment claimed to use — it always fetched
+against the immediate container's ids regardless, which only LOOKED correct
+because a plain two-level nest's grandchild's parent always equals its
+immediate container anyway. Fixed by rewriting the fetch as one recursive
+function that reads `node.parentOf` at every level (`fetchChildLevel`),
+with a new test using a synthetic three-level entry whose grandchild
+deliberately points PAST its immediate container to prove the field is
+consulted, not decorative. Also tightened `--year` validation from
+"anything `Number.isFinite` accepts" (so `2569.5` or `" 2569 "` would pass)
+to a plain-integer regex — the looser check let the on-disk folder name
+(built from the raw string) diverge from what actually lands in
+`year_export_log` (coerced and ROUNDED on insert into the `smallint`
+column), a confusing silent mismatch for a typo. Also verified LIVE (not
+assumed) that `record_year_export`/`year_export_recorded`'s table grants and
+RLS match the migration's own claims, and that `handleUploadArchiveFile`
+never calls `setSharing` the way its public siblings do.
+
+**WRITTEN, NOT APPLIED to production**: migration 0222. Depends on 0219
+(task 2) applying first, same ordering constraint as every other per-system
+migration in this queue — `year_export_log` itself has no such dependency,
+but `tools/year-export.mjs`'s timestamp-derived fallback calls 0219's
+`samo_year_for_timestamp()`.
+
+**Exact commands the owner runs next:**
+
+```bash
+git show ed8816c   # review — one commit, this task's whole diff
+
+# apply to production, in order, after review (0219 first if not already there)
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql
+
+# prove it there too
+node tools/db-query.mjs tools/data0222-export-gate.sql
+
+# ship the Drive upload path (new action uploadArchiveFile) before --drive can do anything
+npm run deploy:gas
+
+# try a real export against production once ready
+node tools/year-export.mjs --list
+node tools/year-export.mjs --system pr_tickets --year 2569
+node tools/year-export.mjs --system pr_tickets --year 2569 --apply --out ./exports
+
+# install the whole-DB backup timer on the VM — see skills/backup-and-export.md
+# for the full checklist, including the IPv6 verification step that has
+# never been run from this environment
+sudo cp server/supabase-backup.env.example /etc/supabase-backup.env
+sudo cp server/supabase-backup.service server/supabase-backup.timer /etc/systemd/system/
+```
+
+Updated `STATE.md` (migration high-water mark note, proof count 65→66, a
+one-line task-5 summary in the night-agent block), `docs/state/HANDOFF.md`
+§22 (corrected row "5", which task 1 had provisionally guessed was "SAMO
+Shop" and reserved migration 0222 for — the REAL night-queue's task 5 is
+this backup/export/deletion layer and independently reserved the same
+number; flagged with a ‡ note mirroring the existing † one rather than
+silently overwritten), and `tools/run-proofs.mjs` (registered `data0222`).
+No changelog entry — nothing here is user-visible yet (no admin UI calls
+`tools/year-export.mjs` or the new RPCs; that wiring is each later task's
+job when it builds its own system's export button).
+
+---
+
+## Task 3 — PR Form dashboard per SAMO year, export, Drive per year (2026-10-14)
+
+**Written up here only — the code and migration shipped in an EARLIER run
+of this same session, in commits `3978eeb` and `b998c52`, between task 2's
+resume and task 4; this run (the handoff step) found the work done but this
+required heading missing, which is why the runner's `Done when:` check kept
+reporting task 3 as `todo` after a real attempt. Nothing below was built or
+changed by the handoff step — it re-verified what already shipped and wrote
+the record the check was waiting for.**
+
+**What shipped (commit `3978eeb`, fixed by `b998c52` after a self-run
+`scrutinize` pass, both already on this branch):**
+
+1. Migration 0220 — `pr_tickets.samo_year_be smallint`, filled by 0219's
+   shared `samo_year_be_default()` trigger at INSERT time, one-time
+   backfilled for the 311 existing rows from their submission timestamp
+   (not "now"), never recomputed after write. Year is a filter, never an
+   access boundary — RLS unchanged.
+2. PR Staff Dashboard (`src/js/pr-year.js` + `pr-staff.js`) — defaults to
+   the current SAMO year via the shared `samo-year.js` picker, so the 290
+   `โพสต์เรียบร้อย (เสร็จสิ้น)` tickets the owner named stop crowding the
+   default view; a "ทุกปี" option still shows everything, with a small
+   year badge per kanban card so a mixed view stays legible. Editing a
+   ticket from a past year is locked behind an explicit "แก้ไขของปีก่อน"
+   override — `scrutinize` caught (`b998c52`) that the first draft keyed
+   the lock on the dashboard's `<select>` (`isPastYearView`) rather than
+   the individual ticket, so switching the filter to "ทุกปี" unlocked
+   editing on every past-year ticket at once; fixed with
+   `isPastYearTicket(ticketYear, currentYear)` read from the ticket's own
+   `samo_year_be`.
+3. CSV export of the filtered view, through the repo's existing
+   formula-safe CSV writer (grepped for, not reimplemented).
+4. Drive: new PR uploads go to a per-year subfolder
+   (`appscript/prform.gs`, NOT deployed — needs `npm run deploy:gas`); a
+   dry-run-by-default `tools/pr-organize-drive-by-year.mjs` sorts the
+   existing flat files into per-year folders via Drive `moveTo`, never
+   trash-to-move (a trashed Drive file is still public).
+5. Every reader of PR data was checked and marked explicitly: Discord
+   notify, the public PR tracking page, and the GAS-quota analytics
+   dashboard are all SAMO-year-agnostic on purpose (each says why, in a
+   comment at the read site) — only the staff dashboard and the Drive
+   layout are year-scoped.
+
+**Re-verified by this handoff step, not assumed:** ran
+`node tools/db-query.mjs tools/pr0220-year-filter.sql` against samo-dev
+fresh — 23/23 PASS, confirmed `→ project: xibugtlsphcfuvstnxxh (samo-dev)`.
+Confirmed the Done-when's other two conditions independently: the grep for
+`samo.year|samoYear|yearPicker|year-picker` over `src/js/pr*`/`src/js/admin*`
+matches, `npm test` is 2716/2716, `npm run build` completes clean.
+
+**WRITTEN, NOT APPLIED to production**: migration 0220 and everything it
+defines. Depends on 0219 (task 2) applying first — same ordering constraint
+as every other per-system migration in this queue.
+
+**Exact commands the owner runs next** (after 0219 is applied and proved,
+per task 2's row):
+
+```bash
+git show 3978eeb b998c52   # review together — the second commit is a fix to the first, not an addition
+
+node tools/apply-migration.mjs supabase/migrations/0220_pr_tickets_get_a_samo_year.sql
+node tools/db-query.mjs tools/pr0220-year-filter.sql   # prove it on production too
+
+npm run deploy:gas   # ships the per-year Drive subfolder + the GAS half of the mover
+# then deploy the frontend bundle (skills/deploy-vm.md) — ships the picker/export/past-year lock
+
+# only after the new bundle is being SERVED (new PR uploads already landing in per-year folders):
+node tools/pr-organize-drive-by-year.mjs            # dry run — see what would move
+node tools/pr-organize-drive-by-year.mjs --apply --move N   # sort the existing flat files; optional, never required
+```
+
+`STATE.md` and `docs/state/HANDOFF.md` §22's row for this task were already
+updated by the commits above — unchanged by this step.
+
+---
+
+## Task 4 — ทีม SAMO + จัดการทีม + permissions handover + Discord roles (2026-10-14)
+
+**What this run built.** Migration 0224, applied to samo-dev only:
+
+1. **Closed a real authz bug in task 2's own 0219.** `start_team_term`
+   (the handover RPC) gated on `current_user_has_permission('team')`. Since
+   migration 0110 (already live, predates this whole queue), `team` is a
+   VIEW-only key that `effective_team_permissions_for_email()` hands to
+   EVERY person found in `team_members` automatically — ~300 accounts on
+   samo-dev, none of whom chose to hold it, none of whom can edit anything.
+   Gating a full year-handover on that key meant any of those ~300 accounts
+   could flip the current SAMO year by calling the public RPC directly (no
+   UI needed). Regated to `team_edit` — the exact predicate
+   `publish_team_term` already uses, confirmed by reading its live body
+   first, not assumed. Found by re-reading 0219 against 0110's own
+   migration comment, not reported by the owner.
+2. **Made the handover self-archiving.** `start_team_term` now calls
+   `publish_team_term(outgoing_year)` inline, in the same transaction,
+   before closing the outgoing term — so a handover always captures
+   whatever the live tree looked like at that exact moment, with no
+   separate "remember to click เผยแพร่ปีนี้ in the right order" step. This
+   is what makes the owner's "next year's team is prepared without
+   touching this year's … published at the boundary" literally true: call
+   `start_team_term` FIRST, edit the live tree for the incoming team AFTER
+   — the only order that needs no manual publish step to get right. Editing
+   the tree BEFORE a handover is still technically possible and would still
+   misfile history exactly as before 0224 — this narrows the failure
+   window, it does not add a block that makes the wrong order impossible
+   (rejected a "last-editor" guard trigger and a parallel "draft tree" for
+   the same reason: both are bigger, riskier changes than one night's
+   budget affords, and the existing `dev`-role escape hatch already covers
+   the one failure mode — "nobody can run the next handover" — that a new
+   trigger would exist to prevent).
+3. **Confirmed, did not change, Discord role sync.** Read
+   `discord_role_targets()` (0184/0196/0197): it reads `team_members`/
+   `team_nodes`/`discord_links` only, zero references to `team_terms`, so
+   it is "the current term" by construction — a handover that touches no
+   tree row moves no Discord role, and one that does is picked up by the
+   existing queue/trigger mechanism within minutes, same as any other tree
+   edit. Pinned with a regression assertion in the proof (§C) rather than
+   left as an unchecked claim, since a future edit threading `team_terms`
+   into that function would silently break this invariant.
+4. **จัดการทีม per year** — confirmed, did not rebuild, that
+   `get_public_team_years()`/`get_public_team_chart()` (0104/0105/0153) are
+   already the one shared registry every picker (ทีม SAMO's own pane,
+   `org-chart.js`, `samo-year.js`) reads from; no drift found.
+
+**Proof `tools/team0224-handover.sql`, 14/14 on samo-dev; registered in
+`tools/run-proofs.mjs`.** Covers: a VIEW-only `team` holder refused calling
+the RPC, paired against a `team_edit` holder being allowed for the identical
+call (deny+allow, so the original bug — which also correctly refused a
+total stranger — could not have passed a deny-only probe); the outgoing
+term's archive matching the live PUBLIC tree's own node/member counts
+(297/447 on samo-dev, not the naive 299/449 total — publish only archives
+`is_public` nodes); and the Discord decoupling regression guard. Re-ran
+`tools/year0219-samo-year.sql` afterward — still 23/23, so the splice did
+not regress task 2's own coverage.
+
+**Self-review.** Ran `/scrutinize` on the task's own diff
+(`git diff b998c52..HEAD`) before closing: traced the permission-fix
+correctness against `current_user_has_permission`'s live body (confirms
+`master` still folds into `team_edit` exactly as it did into `team`), the
+nested-RPC call for escalation/recursion/invariant risk (none — the inner
+call re-checks the same predicate with the same `auth.uid()`, cannot create
+a second `is_current` row, and this nest-a-definer-in-a-definer shape is
+already used elsewhere in the codebase), the proof's temporary-principal
+setup for PII leakage (none — only `id`-derived counts/booleans ever reach
+the printed output, same rollback discipline as `year0219`), the UI copy
+change in `terms.js` for bugs (none — purely informational, reads an
+already-loaded client value), and the documentation claims against the
+actual code (all verified, not assumed). Found one wording overclaim in the
+migration's own header ("the ONLY workflow") and fixed it before this
+block was written, in a follow-up commit — see `git log --oneline
+b998c52..HEAD`.
+
+**Decisions made, and what was rejected** (full reasoning in
+`supabase/migrations/0224_*.sql`'s header and
+`docs/YEAR-ROLLOVER.md`'s "ทีม SAMO" correction block):
+
+- Regate on `team_edit`, not a new narrower "handover" permission —
+  rejected a new key because `team_edit` already functions as root over
+  the tree (0110: holding it lets you grant anyone, including yourself,
+  anything up to `team_edit` itself), so a narrower gate would be a
+  distinction with no enforceable difference.
+- Auto-archive by calling the EXISTING `publish_team_term` inline, not by
+  duplicating its SQL — one body, one place a future bug gets fixed once.
+- No new "last `team_edit` holder" guard trigger, and no "draft tree" for
+  preparing next year's roster ahead of time without touching the live
+  one — both rejected as bigger and riskier than this task's remaining
+  budget, with reasoning in the migration header (permission resolution
+  has too many overlapping channels to re-derive correctly on every tree
+  write; a draft tree would have to either duplicate every permission
+  column or omit them, in which case it could not be "prepared" with real
+  grants attached anyway).
+
+**WRITTEN, NOT APPLIED to production**: migration 0224 and everything it
+redefines. Depends on 0219 already being applied first (task 2's row in
+`docs/state/HANDOFF.md` §22 — unchanged by this task).
+
+**Exact commands the owner runs next:**
+
+```bash
+# review both migrations together — 0224 redefines what 0219 first defined
+git show 20584a3 -- supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql
+
+# apply to production, in order, after review
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+node tools/apply-migration.mjs supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql
+
+# prove both there
+node tools/db-query.mjs tools/year0219-samo-year.sql
+node tools/db-query.mjs tools/team0224-handover.sql
+
+# then deploy the frontend bundle (ships the corrected จัดการทีม confirm-dialog copy)
+```
+
+Updated `STATE.md` (migration high-water mark 0220→0224, proof count
+64→65, a one-line task-4 summary in the night-agent block), `src/data/
+changelog.js` (`PENDING`, staff-facing — the handover confirm dialog's new
+auto-archive wording), `docs/mistakes/authz-grants.md` (the authz
+write-up, `npm run mistakes:index` run after), `skills/year-rollover.md`
+and `docs/YEAR-ROLLOVER.md` (corrected the handover-order guidance and
+recorded the correction as a decision, not a silent edit).
+
+---
+
+## Task 2 — The ONE SAMO year — foundation, admin control, runbook (2026-10-14)
+
+**RESUMED after a quota cut-off.** WIP commit `f9bb1b7` had already shipped
+migration 0219 (`team_terms.started_at`/`ended_at`, `current_samo_year()`,
+`samo_year_for_timestamp()`, `samo_year_be_default()` trigger body,
+`start_team_term(year)` atomic handover RPC), the proof
+`tools/year0219-samo-year.sql` (24 assertions, never yet run), the shared
+picker `src/js/samo-year.js` + its JS/SQL differential test, and the rewire
+of `team/api.js`'s `setCurrentTerm` onto the new RPC. **Left undone by the
+WIP**: the proof had never been applied or run against anything;
+`tools/run-proofs.mjs` did not register it; `skills/year-rollover.md` did
+not exist. All three were the actual `Done when:` gate for this task.
+
+**What this run did, in order:**
+
+1. Applied 0219 to samo-dev and ran the proof — green, 23/23 (`node
+   tools/apply-migration.mjs supabase/migrations/0219_*.sql --dev` then
+   `node tools/db-query.mjs tools/year0219-samo-year.sql`).
+2. Registered `year0219-samo-year.sql` in `tools/run-proofs.mjs` (it was a
+   file on disk the runner had never been told to run — exactly the class-7
+   hazard `run-proofs.mjs`'s own header warns about).
+3. Wrote `skills/year-rollover.md` — the runbook: what a handover IS (not a
+   re-publish), the pre-flight checklist (who loses the admin seat), the one
+   command (`start_team_term`), what happens to every other system
+   afterward, how to verify, and what to do if it goes wrong.
+4. **Ran `/scrutinize` on the full task-2 diff and found a real bug before
+   it shipped anywhere**: the `team_terms` row that was `is_current` when
+   0219 first ran has `started_at = NULL` for a structural reason (the
+   column didn't exist yet). `start_team_term`'s reopen path
+   (`coalesce(started_at, now())`) cannot distinguish that `NULL` from "never
+   started" — so closing that ONE row once, then later reopening it (a real
+   "we handed over and regretted it" scenario), would silently relabel its
+   true "open since before this system existed" meaning as "started just
+   now", breaking `samo_year_for_timestamp()` for every backfill timestamp
+   older than the reopen. **Reproduced in a rolled-back probe against
+   samo-dev before fixing it** (confirmed `NULL` came back for a 2026-06-01
+   lookup after the repro). Fixed by stamping the closing `UPDATE`'s
+   `started_at` to `-infinity` the moment a `NULL`-started_at row closes —
+   before any reopen can misread it. Extended the proof with §G (steps
+   45–48: fix proven RED first by rerunning it against the unfixed
+   migration, then green after). Also narrowed
+   `samo_year_for_timestamp`'s grant from `anon, authenticated` to
+   `authenticated` only (least privilege — nothing anon-triggered calls it).
+   Write-up: `docs/mistakes/postgres-schema.md` ("Reopening the genesis
+   `team_terms` row…").
+5. `npm test` (2687/2687) and `npm run build` green throughout.
+
+**Decisions made, and what was rejected:**
+
+- **Reused the existing จัดการทีม UI as the one admin control**, rather than
+  building a new "SAMO year" admin screen — `team/terms.js`'s existing
+  "ตั้งเป็นปีปัจจุบัน" button already called `setCurrentTerm`; only its
+  implementation changed (two non-atomic PATCHes → one RPC). Building a
+  second control would have been the exact "hand-written list beside a
+  shared constant" class 6 already warns about, for a control that already
+  existed.
+- **No new master-specific check in `start_team_term`** — it gates on
+  `current_user_role() = any(array['vp_admin','dev']) or
+  current_user_has_permission('team')`, and `current_user_has_permission`
+  already folds `master` in (0111). Verified by reading 0111's live body
+  rather than assuming; adding a separate master branch would have
+  duplicated a channel that already works and risked drifting from it later.
+- **Did not touch `samo_year_for_timestamp`'s `is_current`/`ended_at`
+  NULL-handling branches** even though the fix makes the `ended_at is not
+  null` branch structurally unreachable going forward — left for defence in
+  depth (a manually edited row, or a samo-dev reset that reintroduces a raw
+  `NULL`) rather than deleting code that still describes a real, just rarer,
+  case.
+- **Did not add a CLI path for `start_team_term`** separate from the
+  จัดการทีม UI — the design doc's own reasoning (one control, never a second
+  path that can drift) applies to the RPC's callers too.
+
+**WRITTEN, NOT APPLIED to production**: all of migration 0219 (including the
+post-review fix) and the `samo_year_be_default()` trigger body it defines.
+Nothing yet ATTACHES that trigger to any table — tasks 3 (PR), 4 (VS), 5
+(Shop) and 6 (หนังสือโครงการ) do that in their own reserved migrations
+(0220/0221/0222/0223) and must each run `start_team_term`'s prerequisite
+(0219) on production FIRST, since their triggers call `current_samo_year()`.
+
+**Exact commands the owner runs next:**
+
+```bash
+# review the fix commit first — it changed 0219 after the WIP, not just added to it
+git log --oneline d6df0c8..HEAD -- supabase/migrations/0219_one_samo_year_for_every_system.sql
+git show 6475d89
+
+# apply to production (after review)
+node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql
+
+# prove it there too — point db-query at prod (its default) once ready
+node tools/db-query.mjs tools/year0219-samo-year.sql
+
+# then deploy the frontend bundle so team/terms.js's atomic RPC call ships
+# (skills/deploy-vm.md)
+```
+
+Updated `STATE.md` (migration high-water mark, proof count 60→63, a one-line
+task-2 summary in the night-agent block) and `docs/state/HANDOFF.md` §22's
+task-2 row (proof result, applied=samo-dev-only, the exact next command).
+
+---
+
+## Task 1 — design doc (2026-10-14)
+
+**Claims to have** read every system this queue names (PR, VS, Shop,
+หนังสือโครงการ, ทีม SAMO, เกี่ยวกับเรา, ระบบบ้าน, หน้าฝ่าย, Passport,
+Announcements, Accounts, Stats, Claude booking, Discord, Drive) end to end —
+`docs/CONTEXT.md` in full, `docs/INVARIANTS.md` in full, the relevant
+migrations (0104–0106 team terms/archive, `study-year.js`, `passport/db/0006`,
+`appscript/prform.gs`'s folder layout) and `modal-vs-consent.html`'s actual
+PDPA wording rather than assuming it — and written `docs/YEAR-ROLLOVER.md`
+(45 `Decision:` lines, 27 edge cases, a build-order table mapping every later
+task to its reserved migration number 0219–0229) plus
+`docs/state/HANDOFF.md` §22 (the per-task tracking table every later task
+must update its own row of, never another task's).
+
+**Core decision, defended**: `public.team_terms` (existing, with
+`is_current`/archive machinery already built in 0104–0106) becomes the ONE
+SAMO-year registry every other system references — rather than inventing a
+new table, or promoting Passport's own `samo_years` (rejected: Passport's
+year/season answers a different, ฝ่ายกิจกรรม-decided question and lives in an
+isolated schema with no cross-schema FK precedent anywhere in this repo).
+Each operational table gets a nullable `samo_year_be smallint`, trigger-filled
+from a new `current_samo_year()` AT INSERT TIME and never recomputed later —
+mirroring `projects.fiscal_year_be`'s existing override shape, but filled
+automatically rather than left null-by-default, specifically so the PR Staff
+Dashboard (the owner's own named example, 290 `โพสต์เรียบร้อย` tickets) gets a
+working year filter with no gap for new rows. ปีงบ (fiscal year, Oct-start)
+and ปีการศึกษา (academic year, Aug-start, `study-year.js`) are explicitly kept
+as SEPARATE calendars — not unified into "the SAMO year" — because each
+already has correct, independently-moving logic that predates this queue and
+conflating them would corrupt rows a university officer or a student already
+reads.
+
+**Self-review, before ending the task**: ran `scrutinize`'s method by hand
+against this doc (no sub-agent invocation; the skill resolved to prompt-only
+instructions, so I applied its trace/verify steps myself) and found — then
+FIXED in the doc, not left as a note — one real gap worth flagging loudly: the
+first draft gave หนังสือโครงการ's 42 existing rows a one-time
+timestamp-derived backfill for the new `samo_year_be` column but did NOT give
+the same backfill to PR's 311 / VS's 119 / Shop's 43 existing rows, even
+though the identical reasoning applies to all four ("no human has chosen a
+year for a pre-existing row yet, so deriving one from the timestamp
+overwrites nothing"). Left as originally written, every one of the 290
+already-finished PR tickets the owner used as the motivating example would
+have rendered as "ก่อนเริ่มระบบปี" forever instead of being folded into a
+real past year — the feature would ship looking complete and solve nothing
+for the exact pile that was named. Fixed by adding the same backfill decision
+to PR, VS and Shop's sections. Three smaller fixes also applied: clarified
+that `team_terms.started_at`/`ended_at` are owned only by the NEW
+`start_team_term()` RPC (not `publish_team_term`, which is a repeatable
+snapshot action and would otherwise get called every re-publish); separated
+the PDPA retention SHAPE (anonymise, grounded in the consent notice's own
+wording) from the 24-month NUMBER (an invented default, labelled as such) and
+flagged that the consent modal itself never states a retention period, which
+is a pre-existing gap outside this doc's build order; and noted that Shop's
+`samo_year_be` is stamped from wall-clock `current_samo_year()`, not derived
+from `placed_at`, so a hand-entered backdated walk-in order can legitimately
+disagree with its own `placed_at` and needs the same admin-override
+affordance as every other table.
+
+**What is WRITTEN, NOT APPLIED**: everything — this is design-only, task 1 of
+11, and intentionally touches no `supabase/migrations/` file and reserves no
+migration number of its own. `npm test` (2675/2675) and `npm run build` both
+green; the only non-doc change is registering the new file in
+`docs/.vitepress/config.mjs`'s `TOP_GROUPS` (required by
+`docs-site.test.js`, which was red until that one-line addition).
+
+**Exact commands the owner runs next**: none required from this task alone —
+read `docs/YEAR-ROLLOVER.md` once, then let tasks 2–11 proceed against it.
+If reviewing cold, start at `docs/YEAR-ROLLOVER.md`'s `## Build order` table
+and `docs/state/HANDOFF.md` §22's tracking table, in that order.
+
+**What would change my mind**: if the owner would rather fold ปีงบ or
+ปีการศึกษา INTO one unified SAMO year instead of keeping three calendars —
+that is a bigger, riskier rewrite than this queue's remaining budget affords,
+and I chose the smaller, additive design on purpose; flag it in review rather
+than silently rebuilding if the owner disagrees.
+
+---
+
 > ⛔ **Reviewed by the owner's session, 2026-10-13 — read `docs/state/HANDOFF.md` §20, not the block below, for what is true.** Its "do this first" is CLOSED (0214 was already live on production). Its "nothing was skipped" was wrong: task 2 was cut off by the quota and the runner credited the half-done work (runner fixed). 0213 was rewritten to grant nothing — หน้าฝ่าย editors are chosen in ทีม SAMO.
 
 ## ▶ HANDOFF 2026-10-13 04:11 UTC (night agent, branch agent/2026-10-13)

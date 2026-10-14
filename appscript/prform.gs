@@ -2,15 +2,29 @@
 // prform.gs — Drive file upload + projects email only
 //
 // Post-Supabase-migration, GAS serves these actions:
-//   - uploadPRFile         : upload an image to Drive `PR/`
+//   - uploadPRFile         : upload an image to Drive `PR/`, or `PR/<year>`
+//                            when a PR ticket submission passes folderPath
 //                            (chosen over Supabase Storage for the 2 TB quota)
+//   - movePRFileToYear     : move an EXISTING file already under `PR` into
+//                            `PR/<year>` — the one-shot organiser
+//                            (tools/pr-organize-drive-by-year.mjs) uses this
+//                            to sort files uploaded before the per-year split
 //   - uploadShopFile       : upload a file to a nested Drive folder path
 //                            (e.g. 'Shop/Slips/2026-05'). Used by the
 //                            shop module for slips, product photos, QR images.
 //                            Folders are created lazily as needed.
 //   - uploadProjectFile    : same shape as uploadShopFile but allow-listed to
-//                            `Projects/...`. Used by the project-tracking
-//                            module for หนังสือโครงการ attachments.
+//                            `Projects/...`, or `Projects/<samoYear>/...`
+//                            for any project created after migration 0223
+//                            (`drive_layout = 'year'`) — walkProjectsPathByCode_
+//                            detects the year segment by shape (4 digits)
+//                            and matches/creates it by exact name, never by
+//                            code. Every project that existed before 0223
+//                            keeps resolving flat, forever — no mover tool,
+//                            unlike PR's movePRFileToYear/organiser above;
+//                            see 0223's migration header for why. Used by
+//                            the project-tracking module for หนังสือโครงการ
+//                            attachments.
 //   - notifyProjectEmail   : send an email via MailApp to the receiver
 //                            (free, no SMTP needed) when a document is
 //                            sent or a file is replaced.
@@ -67,11 +81,12 @@ var TOP_FOLDER_CANON = {
   'SAMO_Shop':      'Shop',
   'Shop':           'Shop',
   'SAMO_Team':      'Team',
-  'Team':           'Team'
+  'Team':           'Team',
+  'Archives':       'Archives'
 };
 
 /** The canonical top-level folders this script owns. */
-var APP_TOP_FOLDERS = ['PR', 'Projects', 'Shop', 'Team'];
+var APP_TOP_FOLDERS = ['PR', 'Projects', 'Shop', 'Team', 'Archives'];
 
 /** Canonical physical name for a logical folder name (identity if unmapped). */
 function canonTopFolder_(name) {
@@ -380,10 +395,12 @@ function doPost(e) {
 
     if (data.action === 'uploadPRFile')      return handleUploadPRFile(data);
     if (data.action === 'deletePRFile')      return handleDeletePRFile(data);
+    if (data.action === 'movePRFileToYear')  return handleMovePRFileToYear(data);
     if (data.action === 'uploadShopFile')    return handleUploadShopFile(data);
     if (data.action === 'uploadTeamFile')    return handleUploadTeamFile(data);
     if (data.action === 'deleteShopFile')    return handleDeleteShopFile(data);
     if (data.action === 'deleteTeamFile')    return handleDeleteTeamFile(data);
+    if (data.action === 'uploadArchiveFile')   return handleUploadArchiveFile(data);
     if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
@@ -415,15 +432,75 @@ function doPost(e) {
 
 // ============================================================
 // uploadPRFile — accept a base64-encoded image and write to Drive
+//
+// `folderPath` is OPTIONAL (0220, docs/YEAR-ROLLOVER.md § PR) — a PR ticket
+// submission now passes `PR/<samo_year_be>` so new attachments land in a
+// per-year subfolder instead of one flat `PR/` that keeps growing forever.
+// With no folderPath, behaviour is EXACTLY what it was before: a flat
+// `PR/` file. That matters because this same action is shared by
+// uploads.js's `uploadImageToDrive` (announcement covers, Quill images) —
+// those are NOT PR tickets and must keep writing flat, so only pr-form.js
+// sends folderPath. Same shape as uploadShopFile/uploadTeamFile: allow-list
+// the top segment so a caller cannot write outside PR/.
 // ============================================================
 
 function handleUploadPRFile(data) {
   try {
-    const folder = getOrCreateTopFolder_('PR');
+    var path = String(data.folderPath || '').trim();
+    var folder;
+    if (path) {
+      if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+      if (canonTopFolder_(firstSegment_(path)) !== 'PR') {
+        return createResponse({ success: false, message: 'folderPath must start with PR' });
+      }
+      folder = getOrCreateFolderPath_(path);
+    } else {
+      folder = getOrCreateTopFolder_('PR');
+    }
     const base64Data = data.fileData.split(',')[1];
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return createResponse({ success: true, fileUrl: file.getUrl() });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+/**
+ * movePRFileToYear — move an EXISTING file already under `PR` into
+ * `PR/<year>`, in place (same Drive file id, same sharing — Drive's
+ * `moveTo()` only changes the parent folder). Added for
+ * `tools/pr-organize-drive-by-year.mjs`, the one-shot (dry-run by default)
+ * mover that sorts the files `uploadPRFile` wrote flat before 0220 existed.
+ *
+ * Never trash-and-recreate to "move" a file — a trashed Drive file is still
+ * served (lh3 resolves it, HTTP 200) and the id would change, breaking
+ * every `pr_tickets.file_url` already pointing at it. `moveTo()` has
+ * neither problem.
+ *
+ * Ancestry-gated exactly like deletePRFile: this endpoint is UNAUTHENTICATED
+ * (Execute as: Me + Anyone), so the only thing between a caller and the
+ * owner's whole Drive is the "must already be under PR" check.
+ */
+function handleMovePRFileToYear(data) {
+  try {
+    var url = String(data.fileUrl || '').trim();
+    var year = String(data.year || '').trim();
+    if (!url) return createResponse({ success: false, message: 'fileUrl required' });
+    if (!/^\d{4}$/.test(year)) return createResponse({ success: false, message: 'year must be a 4-digit พ.ศ. year' });
+    var id = extractDriveId_(url);
+    if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
+    var file;
+    try { file = DriveApp.getFileById(id); }
+    catch (e) {
+      return createResponse({ success: false, message: 'file not found' });
+    }
+    if (!fileLivesUnderTop_(file, 'PR')) {
+      return createResponse({ success: false, message: 'file is not inside PR' });
+    }
+    var target = getOrCreateFolderPath_('PR/' + year);
+    file.moveTo(target);
     return createResponse({ success: true, fileUrl: file.getUrl() });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
@@ -544,6 +621,50 @@ function handleUploadTeamFile(data) {
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     var file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return createResponse({ success: true, fileUrl: file.getUrl() });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
+}
+
+// ============================================================
+// uploadArchiveFile — tools/year-export.mjs's `--drive` path
+// (docs/YEAR-ROLLOVER.md § Backup, 0222, night agent task 5).
+//
+// Writes a per-year export (JSON or CSV) into its OWN top-level folder,
+// `Archives/<samo_year_be>/`, parallel to PR/Projects/Shop/Team — never
+// INSIDE one of those, because an archive snapshot is not that system's
+// live working folder (moving it there later would also break nothing
+// stored in Postgres pointing at the live files, which this never touches).
+//
+// Same allow-list shape as uploadShopFile/uploadTeamFile: the top segment
+// must canonicalise to 'Archives', so this endpoint — UNAUTHENTICATED like
+// every other upload handler here — cannot be used to write anywhere else
+// in the owner's Drive.
+//
+// WRITTEN, NOT EXERCISED: this night agent has no Google/Drive credential,
+// so this handler has never received a real call. It needs
+// `npm run deploy:gas` before tools/year-export.mjs's `--drive` flag can do
+// anything (skills/backup-and-export.md).
+// ============================================================
+
+function handleUploadArchiveFile(data) {
+  try {
+    var path = String(data.folderPath || '').trim();
+    if (!path) return createResponse({ success: false, message: 'folderPath is required' });
+    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
+    if (canonTopFolder_(firstSegment_(path)) !== 'Archives') {
+      return createResponse({ success: false, message: 'folderPath must start with Archives' });
+    }
+
+    var folder = getOrCreateFolderPath_(path);
+    var base64Data = data.fileData.split(',')[1];
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
+    var file = folder.createFile(blob);
+    // Archives are NOT "anyone with the link" by default — an export can
+    // contain PDPA-covered VS text or a buyer's address, unlike a PR cover
+    // image or a team portrait. Shared only with the owner's account
+    // (createFile's default), never widened here.
     return createResponse({ success: true, fileUrl: file.getUrl() });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
@@ -779,9 +900,19 @@ function getOrCreateProjectSubfolderByCode_(parent, desiredName, code) {
   return parent.createFolder(desiredName);
 }
 
-/** Walk a `Projects/<projectFolder>[/<docFolder>]` path. The first
- *  segment after `Projects/` matches by PRJ-code; the second by
- *  DOC-code. Self-renames stale folders to the current desired name. */
+/** Walk a `Projects/[<samoYear>/]<projectFolder>[/<docFolder>]` path. The
+ *  OPTIONAL year segment (0223, docs/YEAR-ROLLOVER.md § หนังสือโครงการ) is
+ *  detected by shape alone — exactly 4 digits, nothing else — because a
+ *  real project/doc segment always carries a PRJ-/DOC- code plus a slug
+ *  (buildProjectFolderPath/buildDocFolderPath, src/js/projects/data.js)
+ *  and can never be bare digits. When present it is matched/created by
+ *  EXACT name (like the top-level "Projects" folder itself, not by code —
+ *  there is nothing to rename a year folder TO), then every remaining
+ *  segment matches by PRJ-/DOC-code exactly as before. A path with no year
+ *  segment behaves EXACTLY as it did before this change — this is what
+ *  keeps every project created before migration 0223 (`drive_layout =
+ *  'flat'`) resolving to the same folder it always has; see
+ *  projectDriveYear()'s own comment in data.js for why that matters. */
 function walkProjectsPathByCode_(path) {
   var parts = path.split('/').filter(function (p) { return p && p.length; });
   if (parts.length === 0 || canonTopFolder_(parts[0]) !== 'Projects') {
@@ -790,8 +921,16 @@ function walkProjectsPathByCode_(path) {
   // Top-level "Projects" folder: exact-name match (no code), under the
   // app root, adopting a legacy My-Drive-root folder if that's where it is.
   var parent = getOrCreateTopFolder_('Projects');
+  var i = 1;
+  if (parts.length > 1 && /^[0-9]{4}$/.test(parts[1])) {
+    // Year segment: exact-match/create only, same as the "Projects" root
+    // itself — a year folder is never renamed, so no code tracking applies.
+    var yearExact = parent.getFoldersByName(parts[1]);
+    parent = yearExact.hasNext() ? yearExact.next() : parent.createFolder(parts[1]);
+    i = 2;
+  }
   // Walk each remaining segment with by-code matching.
-  for (var i = 1; i < parts.length; i++) {
+  for (; i < parts.length; i++) {
     var name = parts[i];
     var code = extractProjectCode_(name);
     parent = getOrCreateProjectSubfolderByCode_(parent, name, code);

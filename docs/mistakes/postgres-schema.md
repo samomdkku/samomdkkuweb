@@ -1554,3 +1554,98 @@ with `pg_get_functiondef`, never the migration that first defined it — is the
 whole fix for this class, and it was skipped once. A proof that goes red right
 after a migration that rewrote the function it covers is that migration's bug
 until shown otherwise; filing it as "data drift" kept it red for three weeks.
+
+## Reopening the genesis `team_terms` row would have erased its own history — found before it shipped
+
+**Symptom**: none yet observed live — caught in review (`/scrutinize` on
+night-task 2, 2026-10-14) before migration 0219 (the SAMO-year core infra)
+reached production. Reproduced in a rolled-back probe: close the term that
+was `is_current` when 0219 first ran, open a different one, then reopen the
+first one — `samo_year_for_timestamp()` for a date from BEFORE any of this
+came back `NULL` instead of the reopened term's own year.
+
+**Cause**: `team_terms.started_at` is `NULL` for two structurally different
+reasons that `samo_year_for_timestamp()` had to tell apart: (1) "this term
+is current, or was closed, from before this column existed — treat it as
+open since -infinity", and (2) "this term was seeded ahead of time and never
+started — it covers nothing". `start_team_term()`'s closing `UPDATE` left
+case (1)'s `NULL` exactly as it was. `start_team_term()`'s own reopen path
+(`insert … on conflict (year) do update set started_at =
+coalesce(team_terms.started_at, v_now)`) cannot tell the two cases apart
+either — to it, a `NULL` just means "never stamped, stamp it now". So the
+ONE row that is case (1) — the term current at migration time — had a ticking
+window: closed once, it was still `NULL` and still safe; reopened after
+that, the `coalesce` silently relabelled it as "started right now",
+destroying its real "since before this column existed" meaning for every
+timestamp before the reopen. Every OTHER row is immune, because
+`start_team_term` always stamps a REAL `started_at` the first time any OTHER
+term opens — only the original row carries a `NULL` that means something.
+
+**Fix**: the closing `UPDATE` now writes `started_at =
+coalesce(started_at, '-infinity'::timestamptz)` — the first time a `NULL`
+`started_at` row closes, its ambiguous `NULL` becomes a permanent,
+unambiguous `-infinity`, before the reopen path can ever see a `NULL` to
+misread. `samo_year_for_timestamp()`'s own `NULL`-reading branches are
+unchanged (kept for defence in depth) but now structurally unreachable for
+any row that has ever been closed once this fix is live.
+
+**Where it lives now**: `supabase/migrations/0219_one_samo_year_for_every_system.sql`
+(`start_team_term`'s closing `UPDATE`), proof `tools/year0219-samo-year.sql`
+§G (steps 45–48: the genesis row's `started_at` survives a close-then-reopen,
+and a pre-history timestamp keeps resolving to it).
+
+**The general rule**: a `NULL` that means two different things is a bug
+waiting for whichever code path assumes the OTHER meaning — the same class 2
+shape as "an unresolvable reference fails open", just with the resolution
+happening at a DIFFERENT instant than the read that relies on it. When a
+sentinel's meaning depends on WHEN it is read, convert it to an explicit
+value the moment that window would otherwise close, rather than carrying the
+ambiguity forward and hoping every future reader resolves it the same way.
+
+## A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub — found before it shipped
+
+**Symptom**: none yet observed live — caught in review (`/scrutinize` on
+night-task 6, 2026-10-14) before migration 0221 (VitalSound's SAMO-year
+column + PDPA text-scrub function) reached production. Traced
+`submitStaffAction` (`src/js/vs-staff.js`) and the 0074 duplicate-cascade
+trigger end to end: neither ever clears `vs_tickets.resolution` once it is
+first set.
+
+**Cause**: the first draft of both the year-facet filter
+(`vsTicketMatchesYearFilter`) and the new `vs_scrub_closed_tickets()`
+function used `resolution is not null` as "is this ticket closed right
+now". But `resolution` (0073) is written ONCE, the moment a ticket first
+closes — `submitStaffAction`'s PATCH only ever WRITES it, inside
+`if (willWriteResolution)`, itself gated on the status actually being
+`เสร็จสิ้น`; it never nulls the column back out. The 0074 cascade trigger
+clears a mirrored duplicate's `resolution_note` on a sync but never touches
+`resolution` itself. So a ticket a staffer REOPENS (picks a different
+status after it was once closed) keeps a stale non-null `resolution`
+forever — the column answers "has this ever been closed", not "is it
+closed now". Checking it for "closed" would have hidden a reopened
+past-year ticket from the default current-year view (the opposite of the
+feature's own "open tickets carry over" promise) and made it eligible for
+PDPA anonymisation while someone is actively working it again.
+
+**Fix**: both checks now key on `status = 'เสร็จสิ้น'` instead — the live
+column, the same one `vs-staff.js`'s own `isDone` already uses for the
+identical question — keeping `resolution is not null` only as a defensive
+AND inside the SQL function (a closed row should always carry a reason;
+treated as unresolved rather than guessed at if it somehow does not).
+`DONE_STATUS` moved into `src/js/vs-year.js` so `vs-staff.js` imports it
+instead of keeping a second copy, closing the two-homes gap that let the
+original mismatch happen.
+
+**Where it lives now**: `supabase/migrations/0221_vs_tickets_get_a_samo_year.sql`
+(the function body and its header's "WHY ... NOT resolution IS NOT NULL"
+section), `src/js/vs-year.js` (`vsTicketMatchesYearFilter`, `DONE_STATUS`),
+proof `tools/vs0221-samo-year.sql` §F fixture E (a reopened ticket,
+regression-guarded).
+
+**The general rule**: a column that is set once and never reset is a
+HISTORY marker, not a LIVE state — checking it for "is this true right now"
+silently answers "was this ever true". Before keying a check on any column,
+grep every writer of that column for whether reopening/undoing the
+original action also clears it; if nothing does, the live state lives in a
+DIFFERENT column (usually the one the workflow's own UI already treats as
+authoritative), and that is the one to read.

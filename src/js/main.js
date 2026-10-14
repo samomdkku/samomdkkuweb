@@ -239,6 +239,9 @@ window.addNewAgent = () => {};
 window.removeAgent = () => {};
 window.addPRStaffAssignee = () => {};
 window.removePRStaffAssignee = () => {};
+window.onPrStaffYearChange = () => {};
+window.togglePrPastYearOverride = () => {};
+window.exportPRStaffTicketsCsv = () => {};
 
 // VS Form (PUBLIC — visitor submits a problem report)
 window.toggleVitalSoundMode = toggleVitalSoundMode;
@@ -268,6 +271,7 @@ window.fetchStaffTickets = () => { location.href = '/admin/#vs'; };
 window.openStaffModalByIndex = () => { location.href = '/admin/#vs'; };
 window.submitStaffAction = () => {};
 window.onVSAdminRoleChange = () => {};
+window.onVsStaffYearChange = () => {};
 
 // ==============================================
 // DOM CONTENT LOADED

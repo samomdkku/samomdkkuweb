@@ -370,3 +370,27 @@ describe('§5 the stored shapes match the DB CHECK constraint', () => {
     expect(upd[0]).toMatch(/with check \(user_id = auth\.uid\(\)\)/);
   });
 });
+
+// §6 NOTHING BACKFILLS fiscal_year_be. NULL means "ask the clock" (this
+// module's header), so a migration that fills the NULL rows from the date
+// freezes them: a corrected created_at never re-derives again (0128's
+// cohort_year — fill-once means never-correct). 0223's draft did exactly
+// that for 36 rows; the review removed it. The only legal writer is a human
+// moving a โครงการ, through the app.
+describe('§6 no migration backfills fiscal_year_be', () => {
+  const dir = join(HERE, '../../../supabase/migrations');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql'));
+
+  it('reads the migrations (control: the column exists in some of them)', () => {
+    const all = files.map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+    expect(all).toMatch(/fiscal_year_be/);
+  });
+
+  it('no UPDATE of public.projects sets fiscal_year_be', () => {
+    const offenders = files.filter((f) => {
+      const sql = readFileSync(join(dir, f), 'utf8').replace(/--.*$/gm, '');
+      return /update\s+public\.projects\b[^;]*\bset\b[^;]*\bfiscal_year_be\s*=/i.test(sql);
+    });
+    expect(offenders).toEqual([]);
+  });
+});

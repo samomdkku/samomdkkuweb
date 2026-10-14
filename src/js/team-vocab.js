@@ -45,6 +45,12 @@ export const PERM_CATALOG = [
   // may read but never act on would only tell you something is wrong.
   { key: 'discord_bot', label: 'บอท Discord', icon: 'bi-discord',
     hint: 'ดูสถานะและเปิด/ปิดบอทที่จัด role และชื่อใน Discord ให้ตรงกับทีม SAMO' },
+  // Migration 0222 (0222 shipped the key; this is the first entry that makes
+  // it GRANTABLE — before this line, only role='dev' could ever hold it).
+  // No admin tab of its own — exists only so a human can hold the permission
+  // the export/deletion gate (0222) and the VS text-scrub (0221) check.
+  { key: 'data_admin', label: 'ส่งออก/ลบข้อมูลรายปี (Data admin)', icon: 'bi-shield-check',
+    hint: 'ส่งออกข้อมูลรายปีและสั่งลบ/ล้างข้อมูลส่วนบุคคลที่ครบกำหนดของแต่ละระบบ' },
   // Migration 0177. THE BLANKET RUNG: every ฝ่าย page. Most holders should get
   // a SCOPE instead (DEPT_PAGES below) — one ฝ่าย, their own. The two are
   // mutually exclusive by construction, see the ⛔ on DEPT_PAGES.

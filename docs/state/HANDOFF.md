@@ -1815,3 +1815,98 @@ Re-arming later: write a new queue in `server/night-agent/NIGHT-TASKS.md`, then 
 What exists: every neutral colour literal in `src/css/` is a token or a color-mix (`tools/theme-tokens-codemod.mjs`), EXACT in light — pixel-diffed against the previous CSS, 0 px changed below the navbar on 8 pages. Dark values: `src/css/theme.css`. Switch + device-following: `src/js/theme.js` (`DARK_FOLLOWS_DEVICE = false`). Guards: `src/js/theme.test.js` (a new raw neutral colour fails the build).
 
 **Owed before switching it on — Status: OWED:** a page-by-page dark polish, seen at 390/820/1440 (`tools/browser/projects-ui.mjs` for หนังสือโครงการ; the public sweep is the pattern in skills/drive-the-browser.md): the striped shop image placeholder stays bright; the admin notifications bell is a black square in both themes; images and ฝ่าย sandboxed pages stay light by design (say so or adapt); passport (separate app) is untouched. To turn on: `DARK_FOLLOWS_DEVICE = true`, restore the head scripts' device test in BOTH entries, put back the three `data-theme-switch` slots (navbar desktop, mobile menu `segmented`, admin top bar) — the CSS for them is still in theme.css — and re-add the release note.
+
+## 22. SAMO-year handover — night agent 2026-10-14
+
+**Status: VERIFIED on samo-dev ONLY, NOT applied to production — how: the six
+proofs below run with `node tools/db-query.mjs tools/<proof>.sql --dev`
+2026-10-14 by the owner session, 143/143 PASS; team0224's new §B2 also shown
+RED on the agent's original function.** The night agent was STOPPED
+after task 7; rows 8–12 never ran.
+
+**Owner-session review, 2026-10-14 — what changed on branch `year-rollover`
+(supersedes the agent's text in the rows below where they disagree):**
+- **0219** gates `start_team_term` on `team_edit` itself, so 0219 applied alone
+  can no longer let a VIEW-only 'team' holder switch the year. 0224 still
+  re-states it; the "apply 0219 first" order is now safe.
+- **0224** auto-archives the outgoing year ONLY if it was never published.
+  `publish_team_term` deletes and rebuilds, so the agent's unconditional call
+  would replace a correct archive (and every correction made on it) after an
+  edit-then-handover or an undo/redo. Proof §B2.
+- **0223** no longer backfills `fiscal_year_be` (NULL means "ask the clock" —
+  `fiscal-year.js`; guard: `fiscal-year.test.js` §6) and keeps the
+  `drive_layout` DEFAULT at 'flat'; the new bundle's `createProject` sends
+  'year'. A 'year' default would have mislabelled every โครงการ the OLD bundle
+  created between applying the migration and deploying.
+- **PR**: an UNFINISHED ticket from a past year always shows and is never
+  locked (same rule as VitalSound); only finished past-year tickets are
+  filtered/locked. The first version hid the open queue from the new team.
+- **`tools/year-export.mjs`** writes to `~/samo-exports` and refuses any
+  `--out` inside the repo (an export is `select *` of real people; the repo is
+  public). `exports/` is also gitignored.
+- **`tools/db-query.mjs`** now honours `--dev` (it silently ignored it and ran
+  on PRODUCTION — `docs/mistakes/tooling-proofs.md`).
+- 0221: `vs_scrub_closed_tickets` refuses a retention under 24 months — it
+  was a default any caller could lower, and `master` (41 accounts) holds
+  `data_admin` by fold, so two console calls could have blanked last month's
+  complaints. Proof step 99.
+- 0222: EXECUTE revoked from public/anon on both RPCs; `record_year_export`
+  fails closed on NULL; its policy is drop-if-exists so it re-applies.
+
+**Still OWED (decide before production):** the export gate opens on an export
+recorded to LOCAL disk, before any Drive copy succeeds — fine while a human
+runs it, not before anything scheduled calls `vs_scrub_closed_tickets`.
+`server/supabase-backup.*` and the GAS changes (`movePRFileToYear`,
+`uploadArchiveFile`, year segment) are written, never run. Production apply
+order: 0219 → 0220, 0221 needs 0222 → 0222 → 0223 → 0224, then deploy the
+bundle, then `npm run deploy:gas`. Full design: `docs/YEAR-ROLLOVER.md` — read it
+before touching any of the rows below; this section is only the per-task
+tracking table the queue's own rules require. Branch `agent/2026-10-14`,
+migrations 0219–0229 reserved (one block per task), samo-dev only (this
+agent has no production credential). Next owner session: review the branch,
+push it as a preview branch, decide whether/when to apply each migration to
+production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
+
+| Task | System | Migration | Proof | Applied? | Owner action |
+|---|---|---|---|---|---|
+| 1 | Design doc | — (no migration) | `scrutinize` pass on the doc | N/A | Read `docs/YEAR-ROLLOVER.md`; it is the plan every later row implements |
+| 2 | Core SAMO-year infra | 0219 | `year0219` 27/27 samo-dev | samo-dev only | Review `skills/year-rollover.md`; apply 0219 to production (`node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql`) before task 3+'s migrations land there, since they attach triggers that call `current_samo_year()` |
+| 3 | PR | 0220 | `pr0220` 23/23 samo-dev | samo-dev only | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0220_pr_tickets_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/pr0220-year-filter.sql` to prove it there too. Deploy the frontend bundle (ships the year picker/export/past-year lock) + run `npm run deploy:gas` (ships the per-year Drive folder + `movePRFileToYear`). AFTER that bundle is served, the owner may run `node tools/pr-organize-drive-by-year.mjs` (dry-run) to see how many existing flat `PR/` files would move, then `--apply --move N` to sort them — never required, purely organizational, and paced to avoid degrading the live upload endpoint |
+| 4 | VitalSound | 0221 | `vs0221` 35/35 samo-dev | samo-dev only | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0219_one_samo_year_for_every_system.sql` if not already there, then `node tools/apply-migration.mjs supabase/migrations/0221_vs_tickets_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/vs0221-samo-year.sql` to prove it there too. Also depends on 0222 (task 5's export-log gate) already applied — `vs_scrub_closed_tickets()` calls `year_export_recorded()`. Ships `vs_tickets.samo_year_be` + a year facet on the VS staff kanban (NO past-year edit lock, unlike PR — see the migration header) + `vs_scrub_closed_tickets(year, months=24)`, a PDPA anonymiser that is FUNCTION ONLY — nothing calls or schedules it yet (task 11's job). Also added `data_admin` to `PERM_CATALOG` (team-vocab.js) so a human can actually be granted the permission 0222 and this migration both gate on — deploy the frontend bundle for that checkbox to appear in ทีม SAMO → สิทธิ์. Deploy the frontend bundle (ships the year picker/chip in the VS staff kanban) |
+| 5 ‡| Backup/Export/Deletion data-safety layer | 0222 | `data0222` 18/18 samo-dev | samo-dev only | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0222_year_export_log_and_the_deletion_gate.sql`, then `node tools/db-query.mjs tools/data0222-export-gate.sql` to prove it there too. Ships `year_export_log` + the gate every future per-system deletion/anonymisation RPC must call, NOT a per-system anonymiser (VS/Shop/Projects retention stays each own task's job) — details in `docs/state/night-agent.md`'s "Task 5" block and `skills/backup-and-export.md`. Review + install `server/supabase-backup.sh`/`.timer`/`.service` (whole-DB backup, WRITTEN, NEVER RUN — needs `SUPABASE_DB_URL` on the VM and a decision on IPv6 reachability, see that skill). Run `npm run deploy:gas` before `tools/year-export.mjs --drive` can reach Drive (new action `uploadArchiveFile`) |
+| 6 | หนังสือโครงการ | 0223 | `proj0223` 21/21 samo-dev | samo-dev only | Apply 0219 to production FIRST (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0223_projects_get_a_samo_year_and_a_drive_layout.sql`, then `node tools/db-query.mjs tools/proj0223-fiscal-year-and-samo-year.sql` to prove it there too. Ships `projects.samo_year_be` (stamped at insert) + `projects.drive_layout` (default 'flat'; the new bundle's createProject sends 'year' — review 2026-10-14; the agent's `fiscal_year_be` backfill was REMOVED) so a per-year Drive folder can ship WITHOUT relocating any existing project's real folder. Run `npm run deploy:gas` (ships `walkProjectsPathByCode_`'s optional year segment in `appscript/prform.gs`) before any new โครงการ's upload actually lands in `Projects/<year>/...` — until then every upload keeps landing exactly where it does today. Project seats (vpa/staff/prof) need NO migration — confirmed via `recompute_team_managed_permissions()` (newest def 0177): they resync LIVE from `team_nodes`/`team_members`, so reassigning the ตำแหน่ง in จัดการทีม already carries a seat across any handover with no code to write; see `docs/YEAR-ROLLOVER.md` § หนังสือโครงการ, point 3 |
+| 7 †| ทีม SAMO + เกี่ยวกับเรา | 0224 | `team0224` 19/19 samo-dev | samo-dev only | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql`, then `node tools/db-query.mjs tools/team0224-handover.sql` to prove it there too. Fixes a real authz bug (the handover RPC was callable by ~300 VIEW-only accounts, not just editors) and makes the handover auto-archive the outgoing term — read `docs/state/night-agent.md`'s "Task 4" block before deploying. Deploy the frontend bundle (ships the corrected จัดการทีม confirm-dialog copy in `terms.js`) |
+| 8 | ระบบบ้าน | 0225 | — | NOT RUN | Agent stopped 2026-10-14 before this task; re-queue or build by hand |
+| 9 | หน้าฝ่าย | 0226 | — | NOT RUN | Agent stopped 2026-10-14 before this task; re-queue or build by hand |
+| 10 | Passport + Accounts | 0227–0228 | — | NOT RUN | Agent stopped 2026-10-14 before this task; re-queue or build by hand |
+| 11 | Stats/retention + Backup/Export + Announcements | 0229 | — | NOT RUN | Agent stopped 2026-10-14 before this task; re-queue or build by hand |
+
+⛔ **Every later task must update its OWN row above** (migration/proof
+numbers, applied y/n, the exact command the owner runs next) — never rewrite
+another task's row, and never mark a row applied unless a proof actually ran
+green on samo-dev this session.
+
+† **Task-numbering mismatch, flagged rather than silently reconciled.** The
+live night-queue (`~/samo-night/NIGHT-TASKS.md` on the VM) calls the
+ทีม SAMO + จัดการทีม + permissions-handover + Discord work "task 4"; this
+table — written by task 1 before the real queue was finalized — provisionally
+numbered the SAME system "task 7" and reserved it migration 0224. The
+MIGRATION NUMBER is the ground truth tying the two together (0224 was
+reserved for ทีม SAMO in both places), so this row is updated under its
+original "7", not renumbered to "4" — do not assume the two numbering
+schemes otherwise agree; check which system a task actually built, not its
+number alone, before touching any other row above.
+
+‡ **A second instance of the same mismatch, caught before anything shipped
+under the wrong label.** This table's row "5" originally guessed "SAMO Shop"
+(task 1's provisional scheme) and reserved it migration 0222 — but the real
+night-queue's own task 5 (`~/samo-night/NIGHT-TASKS.md`) is "Backup, export,
+deletion — the data-safety layer every system uses", and ITS preamble
+independently reserved the SAME number, 0222, for that unrelated system. No
+row above had actually built anything under the old guess (Migration/Proof/
+Applied were all blank), so this row was corrected in place rather than
+left to collide later — SAMO Shop's real build, whenever it happens, ships
+under the real queue's task 9, which the real preamble reserves migration
+0226 for (NOT 0222). Same rule as the † note: the MIGRATION NUMBER actually
+used is the ground truth; check what a migration file's own header claims
+before trusting either numbering scheme.

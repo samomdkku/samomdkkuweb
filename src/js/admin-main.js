@@ -34,10 +34,10 @@ import { copyText } from './utils.js';
 import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement } from './announcements.js';
 
 // PR Staff
-import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee } from './pr-staff.js';
+import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee, onPrStaffYearChange, togglePrPastYearOverride, exportPRStaffTicketsCsv } from './pr-staff.js';
 
 // VS Staff
-import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, pickRequestedVsDept, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty, toggleKanbanDups, onVsStaffSearch, openVsCategoryManager, vsCatAdd, openVsTagManager, vsTagAdd, vsToggleStaffTag } from './vs-staff.js';
+import { fetchStaffTickets, enterVSStaffDashboard, openStaffModalByIndex, pickRequestedVsDept, submitStaffAction, deleteCurrentVSTicket, setVsKanbanHideEmpty, toggleKanbanDups, onVsStaffSearch, onVsStaffYearChange, openVsCategoryManager, vsCatAdd, openVsTagManager, vsTagAdd, vsToggleStaffTag } from './vs-staff.js';
 
 // Shop admin
 import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
@@ -327,6 +327,9 @@ window.addNewAgent = addNewAgent;
 window.removeAgent = removeAgent;
 window.addPRStaffAssignee = addPRStaffAssignee;
 window.removePRStaffAssignee = removePRStaffAssignee;
+window.onPrStaffYearChange = onPrStaffYearChange;
+window.togglePrPastYearOverride = togglePrPastYearOverride;
+window.exportPRStaffTicketsCsv = exportPRStaffTicketsCsv;
 
 // VS Staff
 window.fetchStaffTickets = fetchStaffTickets;
@@ -337,6 +340,7 @@ window.setVsKanbanHideEmpty = setVsKanbanHideEmpty;
 window.toggleKanbanDups = toggleKanbanDups;
 window.pickRequestedVsDept = pickRequestedVsDept;
 window.onVsStaffSearch = onVsStaffSearch;
+window.onVsStaffYearChange = onVsStaffYearChange;
 window.openVsCategoryManager = openVsCategoryManager;
 window.vsCatAdd = vsCatAdd;
 window.openVsTagManager = openVsTagManager;

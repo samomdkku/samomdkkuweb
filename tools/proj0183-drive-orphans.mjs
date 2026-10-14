@@ -55,7 +55,7 @@ import { readFileSync } from 'node:fs';
 // IMPORTED, never re-implemented: proj0181-repair-orphans.mjs learned this the
 // hard way — a hand-written slugify beside the real one got Thai wrong, and a
 // wrong path silently lists the wrong folder.
-import { buildDocFolderPath } from '../src/js/projects/data.js';
+import { buildDocFolderPath, projectDriveYear } from '../src/js/projects/data.js';
 
 const JSON_OUT = process.argv.includes('--json');
 const ROWS_ONLY = process.argv.includes('--rows-only');
@@ -210,13 +210,15 @@ const pace = () => (SELFTEST ? Promise.resolve() : new Promise((res) => setTimeo
 // ── the two sides ───────────────────────────────────────────────────────────
 const rows = SELFTEST ? [
   { id: 1, drive_file_id: 'DRIVE_A', file_name: 'a.pdf', size_bytes: 10, is_signed: true,
-    document_id: 'DOC-1', doc_title: 'หนังสือ ก', project_id: 'PRJ-1', project_name: 'โครงการ ก' },
+    document_id: 'DOC-1', doc_title: 'หนังสือ ก', project_id: 'PRJ-1', project_name: 'โครงการ ก',
+    drive_layout: 'flat', samo_year_be: null },
   { id: 2, drive_file_id: 'DRIVE_B', file_name: 'b.pdf', size_bytes: 20, is_signed: false,
-    document_id: 'DOC-1', doc_title: 'หนังสือ ก', project_id: 'PRJ-1', project_name: 'โครงการ ก' },
+    document_id: 'DOC-1', doc_title: 'หนังสือ ก', project_id: 'PRJ-1', project_name: 'โครงการ ก',
+    drive_layout: 'flat', samo_year_be: null },
 ] : await sql(`
   select f.id, f.drive_file_id, f.file_name, f.size_bytes, f.is_signed,
          f.document_id, d.title as doc_title, d.project_id,
-         p.name as project_name
+         p.name as project_name, p.drive_layout, p.samo_year_be
     from public.project_files f
     join public.project_documents d on d.id = f.document_id
     join public.projects p on p.id = d.project_id
@@ -267,7 +269,8 @@ const notFound = [];
 const unreachable = [];
 let listed = 0;
 for (const [docId, d] of (ROWS_ONLY ? [] : docs)) {
-  const path = buildDocFolderPath(d.project_id, d.project_name, docId, d.doc_title);
+  const path = buildDocFolderPath(d.project_id, d.project_name, docId, d.doc_title,
+    projectDriveYear({ drive_layout: d.drive_layout, samo_year_be: d.samo_year_be }));
   // The folder listing needs a file we already hold, as proof of prior access.
   // Prefer one the stat pass CONFIRMED resolves — but fall back to the first row
   // we have, because --folders-only skips that pass entirely and the preference

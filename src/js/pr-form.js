@@ -5,7 +5,7 @@
 import { GAS_API_URL } from './config.js';
 import { postGAS } from './gas-post.js';
 import { getIsPrAccountVerified } from './pr-auth.js';
-import { db } from './db.js';
+import { db, dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 
@@ -433,6 +433,28 @@ async function copyPrTicket() {
 }
 
 // --------------------------------------------------
+// Per-year Drive folder (0220, docs/YEAR-ROLLOVER.md § PR)
+//
+// `current_samo_year()` (0219) is SECURITY DEFINER and granted to anon, so a
+// guest submitting this public form can call it directly. Best-effort by
+// design: a failure here must never block a PR submission over a Drive
+// filing nicety — the upload falls back to the flat `PR/` folder exactly
+// like it always has (handleUploadPRFile treats a missing folderPath as the
+// pre-0220 behaviour, unchanged).
+// --------------------------------------------------
+let cachedPrYearFolder;
+async function resolvePrUploadFolderPath() {
+  if (cachedPrYearFolder !== undefined) return cachedPrYearFolder;
+  try {
+    const { data, error } = await dbRest('/rpc/current_samo_year', { method: 'POST', body: {} });
+    cachedPrYearFolder = (!error && data != null) ? `PR/${data}` : null;
+  } catch {
+    cachedPrYearFolder = null;
+  }
+  return cachedPrYearFolder;
+}
+
+// --------------------------------------------------
 // Form Submit Handler
 // --------------------------------------------------
 
@@ -499,6 +521,7 @@ async function handlePrFormSubmit(e) {
 
   const targetUrl = GAS_API_URL;
   let uploadedUrls = [];
+  const folderPath = await resolvePrUploadFolderPath();
 
   // Sequential file upload
   const held = heldPrFiles?.list === fileInput.files ? heldPrFiles.promise : null;
@@ -514,6 +537,7 @@ async function handlePrFormSubmit(e) {
         // account and no way to ask anyone what went wrong.
         const uploadResult = await postGAS(targetUrl, {
           action: 'uploadPRFile', fileName: file.name, mimeType: file.type, fileData: base64,
+          ...(folderPath ? { folderPath } : {}),
         });
         if (uploadResult.success) {
           uploadedUrls.push(uploadResult.fileUrl);

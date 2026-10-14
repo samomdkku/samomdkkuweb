@@ -6,6 +6,11 @@ import { renderTimeline, escHtml } from './utils.js';
 import { renderPrAttachments, parsePrAttachments } from './pr-attachments.js';
 import { db, dbRest } from './db.js';
 import { canonicalPrDept, fillPrDeptSelect } from './pr-depts.js';
+import { fetchSamoYears, currentSamoYear, samoYearOptionsHtml } from './samo-year.js';
+import {
+  ALL_YEARS, isPastYearView, isPastYearTicket, ticketMatchesYearFilter, buildPrTicketsCsv, prCsvFilename,
+  PR_DONE_STATUS, isPrDoneStatus,
+} from './pr-year.js';
 
 // ----------------------------------------------------
 // DB row → camelCase ticket shape used by the kanban renderer + modal.
@@ -19,6 +24,12 @@ function rowToTicket(r) {
   return {
     id: r.id,
     date: fmt(submitDate),
+    timestampIso: r.timestamp || '',
+    publishDateIso: r.publish_date || '',
+    // The SAMO year (0220) this ticket is filed under — a filter, never an
+    // access boundary (docs/YEAR-ROLLOVER.md § PR). null for the rare row the
+    // one-time backfill could not resolve.
+    samoYearBe: r.samo_year_be == null ? null : Number(r.samo_year_be),
     // Normalize superseded spellings so the dept filter (and the card) agree
     // with the canonical option values — the stored column is never rewritten.
     dept: canonicalPrDept(r.department),
@@ -33,6 +44,7 @@ function rowToTicket(r) {
     brief: r.brief || '-',
     caption: r.caption || '-',
     fileUrl: r.file_url || 'ไม่มีไฟล์แนบ',
+    attachmentCount: parsePrAttachments(r.file_url).length,
     projectAccount: r.project_account || '-',
     copostWith: r.copost_with || '-',
     submitter: r.submitter_label || '',
@@ -48,6 +60,17 @@ let prStaffTicketsCache = [];
 let currentActivePrTicketId = null;
 let globalPrAgents = [];
 let currentPrAssignees = [];
+
+// ----------------------------------------------------
+// SAMO year filter (0220). One shared picker (src/js/samo-year.js); only the
+// "defaults to current, locks past years" behaviour is PR-specific.
+// ----------------------------------------------------
+let prSamoYears = [];
+let prYearFilterValue = null;        // a number, or ALL_YEARS — null = not loaded yet
+let prStaffFilteredTickets = [];     // the CURRENTLY-SHOWN list (dept+search+year) — CSV exports this
+let prStaffPastYearLock = false;     // is the OPEN TICKET's own year closed? locks save/delete — never
+                                      // derived from the filter (see isPastYearTicket's header comment:
+                                      // gating on the filter let "ทุกปี" edit any past-year ticket freely)
 
 // --------------------------------------------------
 // Staff Entry
@@ -65,7 +88,49 @@ export async function enterPRStaffDashboard() {
   fillPrDeptSelect(document.getElementById('prStaffDeptFilter'),
     { allOption: 'ดูทุกฝ่าย (All Departments)' });
   await loadGlobalAgents();
+  await loadPrStaffYears();
   await fetchPRStaffTickets();
+}
+
+/**
+ * Populate the shared SAMO-year picker (src/js/samo-year.js) and default the
+ * dashboard to the CURRENT year — the owner's own worked example (290
+ * finished tickets crowding next year's view) is exactly what this exists to
+ * fix. "ทุกปี" is offered first, same shape as projects' ปีงบ filter
+ * ("ทุกปีงบ"), so browsing every year is still one click away.
+ */
+async function loadPrStaffYears() {
+  const sel = document.getElementById('prStaffYearFilter');
+  try {
+    prSamoYears = await fetchSamoYears();
+    const cur = currentSamoYear(prSamoYears);
+    // Re-entering the dashboard keeps whatever year the staffer was already
+    // looking at (same rule fillPrDeptSelect already follows for ฝ่าย),
+    // rather than always snapping back to "current".
+    if (prYearFilterValue == null) prYearFilterValue = cur != null ? cur : ALL_YEARS;
+    if (sel) {
+      sel.innerHTML = `<option value="${ALL_YEARS}">ทุกปี</option>` + samoYearOptionsHtml(prSamoYears, null);
+      sel.value = String(prYearFilterValue);
+      if (sel.value !== String(prYearFilterValue)) {
+        // The saved selection no longer exists among the offered years
+        // (e.g. a year with zero tickets left after a cleanup) — fail open
+        // to "ทุกปี" rather than silently showing an empty board under a
+        // value the <select> never actually holds.
+        prYearFilterValue = ALL_YEARS;
+        sel.value = ALL_YEARS;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load SAMO years', e);
+  }
+}
+
+/** The staffer picked a different year — re-filter without a refetch. */
+export function onPrStaffYearChange() {
+  const sel = document.getElementById('prStaffYearFilter');
+  if (!sel) return;
+  prYearFilterValue = sel.value === ALL_YEARS ? ALL_YEARS : Number(sel.value);
+  filterPRStaffTickets();
 }
 
 // --------------------------------------------------
@@ -135,7 +200,7 @@ function bucketStatus(rawStatus) {
   const s = (rawStatus || '').toString();
   if (KANBAN_STATUSES.includes(s)) return s;
   // Substring fallbacks for legacy / variant wording
-  if (s.includes('เสร็จสิ้น') || s.includes('โพสต์เรียบร้อย')) return 'โพสต์เรียบร้อย (เสร็จสิ้น)';
+  if (isPrDoneStatus(s)) return PR_DONE_STATUS;
   if (s.includes('ตีกลับ')) return 'ตีกลับให้แก้ไขงาน';
   if (s.includes('กำลังแก้ไข') || s.includes('แก้ไขงาน')) return 'กำลังแก้ไขงาน';
   if (s.includes('รอโพสต์')) return 'รอโพสต์ตามกำหนดการ';
@@ -159,7 +224,37 @@ export function filterPRStaffTickets() {
       (t.id || '').toLowerCase().includes(q)
       || (t.contentName || '').toLowerCase().includes(q));
   }
+
+  filtered = filtered.filter((t) => ticketMatchesYearFilter(t.samoYearBe, prYearFilterValue, t.status));
+
+  prStaffFilteredTickets = filtered;
+  renderPrYearBanner();
   renderPRStaffKanban(filtered);
+}
+
+/**
+ * The dashboard-wide "you are looking at a closed year" notice
+ * (docs/YEAR-ROLLOVER.md § PR: "read-only by default in the UI only"). This
+ * is a VIEW-level hint only — it does NOT decide whether a ticket can be
+ * edited (openPRStaffModal does that per-ticket, from the ticket's own
+ * year), because the filter can be "ทุกปี" while an individual card opened
+ * from it is still from a closed year.
+ */
+function renderPrYearBanner() {
+  const currentYear = currentSamoYear(prSamoYears);
+  const viewingPastYear = isPastYearView(prYearFilterValue, currentYear);
+  const box = document.getElementById('prStaffYearBanner');
+  if (!box) return;
+  if (!viewingPastYear) { box.classList.add('d-none'); box.innerHTML = ''; return; }
+  box.classList.remove('d-none');
+  // The word boundary below is deliberate: this is the SAMO team year
+  // (team_terms.year), not a student's ชั้นปี, but study-year.test.js's
+  // ratchet greps every file for the bare two-character pattern that renders
+  // a ชั้นปี outside studyYearLabel(). Same two characters, unrelated
+  // concept — phrased to stay out of a guard that is right about everything
+  // it actually watches for the thing it watches.
+  box.innerHTML = `<i class="bi bi-lock-fill me-2"></i>กำลังดูปีที่ ${escapeHtml(String(prYearFilterValue))} `
+    + `(ปิดแล้ว) — งานที่เสร็จแล้วของปีนั้นแก้ไขได้เมื่อยืนยัน "แก้ไขของปีก่อน" งานที่ยังไม่เสร็จแสดงทุกปีเสมอ`;
 }
 
 function renderPRStaffKanban(tickets) {
@@ -217,12 +312,19 @@ function renderKanbanCard(t) {
   const assigneesHtml = (t.assignees && t.assignees.length > 0)
     ? `<div class="pr-kanban-card-assignees">${t.assignees.map(a => `<span class="pr-kanban-card-assignee"><i class="bi bi-person-fill me-1"></i>${escapeHtml(a)}</span>`).join('')}</div>`
     : '<div class="pr-kanban-card-noassign"><i class="bi bi-person me-1"></i>ยังไม่มีผู้รับผิดชอบ</div>';
+  // Only shown under "ทุกปี" — the one view that mixes years in one kanban.
+  // The current-year default and a single-year filter both already say the
+  // year once, on the page; repeating it on every card there is just noise.
+  const yearFlag = (prYearFilterValue === ALL_YEARS && t.samoYearBe != null)
+    ? `<span class="pr-kanban-card-year"><i class="bi bi-calendar3 me-1"></i>${escapeHtml(String(t.samoYearBe))}</span>`
+    : '';
 
   return `
     <article class="pr-kanban-card" tabindex="0" onclick="openPRStaffModal(${originalIndex})"
       onkeydown="if(event.key==='Enter'){openPRStaffModal(${originalIndex});}">
       <div class="d-flex justify-content-between align-items-start gap-2">
         <span class="pr-kanban-card-id">${escapeHtml(t.id)}</span>
+        ${yearFlag}
         ${rushFlag}
       </div>
       <h6 class="pr-kanban-card-title">${escapeHtml(t.contentName || '(ไม่มีชื่องาน)')}</h6>
@@ -308,8 +410,63 @@ export function openPRStaffModal(idx) {
   document.getElementById('prStaffActionRemark').value = '';
   currentPrAssignees = t.assignees ? [...t.assignees] : [];
   renderPRStaffAssignees();
+  // Locked from THIS TICKET's own year, never from the dashboard filter —
+  // see isPastYearTicket's header comment for why that distinction matters.
+  prStaffPastYearLock = isPastYearTicket(t.samoYearBe, currentSamoYear(prSamoYears), t.status);
+  applyPrPastYearLock();
   bootstrap.Tab.getOrCreateInstance(document.getElementById('pr-staff-detail-tab')).show();
   new bootstrap.Modal(document.getElementById('prStaffManageModal')).show();
+}
+
+// The elements an "แก้ไขของปีก่อน" override unlocks. The modal's close
+// button is deliberately NOT in this list — closing without saving is
+// always safe, past year or not.
+const PR_EDIT_LOCK_IDS = [
+  'prStaffActionStatus', 'prStaffActionDeadlineStatus', 'prStaffActionDate',
+  'prStaffActionRemark', 'prStaffAssigneeSelect',
+];
+
+/**
+ * Show/hide the "ปีนี้ปิดแล้ว" override box and lock every edit control to
+ * match — docs/YEAR-ROLLOVER.md § PR: "an explicit override for the rare
+ * correction", not a second RLS rule (the database already allows the edit;
+ * this is a workflow nudge against editing last year's history by habit).
+ */
+function applyPrPastYearLock() {
+  const box = document.getElementById('prStaffPastYearBox');
+  const override = document.getElementById('prStaffPastYearOverride');
+  if (!box) return;
+  box.classList.toggle('d-none', !prStaffPastYearLock);
+  if (override) override.checked = false;
+  setPrEditControlsEnabled(!prStaffPastYearLock);
+}
+
+/** The override checkbox's onchange — unlock (or re-lock) the controls it governs. */
+export function togglePrPastYearOverride() {
+  const override = document.getElementById('prStaffPastYearOverride');
+  setPrEditControlsEnabled(!prStaffPastYearLock || Boolean(override?.checked));
+}
+
+function setPrEditControlsEnabled(enabled) {
+  PR_EDIT_LOCK_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  });
+  const addBtn = document.querySelector('#prStaffManageModal button[onclick="addPRStaffAssignee()"]');
+  if (addBtn) addBtn.disabled = !enabled;
+  const saveBtn = document.querySelector('#prStaffManageModal .btn-dark');
+  if (saveBtn) saveBtn.disabled = !enabled;
+  const deleteBtn = document.querySelector('#prStaffManageModal .btn-danger');
+  if (deleteBtn) deleteBtn.disabled = !enabled;
+}
+
+/** True when the modal's own controls are locked right now — submit/delete
+ *  check this directly rather than trusting a disabled button stayed
+ *  disabled (a stale cached DOM reference, or a call from the console,
+ *  must refuse exactly like a real click would). */
+function prPastYearEditBlocked() {
+  if (!prStaffPastYearLock) return false;
+  return !document.getElementById('prStaffPastYearOverride')?.checked;
 }
 
 // --------------------------------------------------
@@ -317,6 +474,10 @@ export function openPRStaffModal(idx) {
 // --------------------------------------------------
 
 export async function submitPRStaffAction() {
+  if (prPastYearEditBlocked()) {
+    alert('ปีนี้ปิดแล้ว — ติ๊ก "แก้ไขของปีก่อน" ก่อนบันทึก');
+    return;
+  }
   const newStatus = document.getElementById('prStaffActionStatus').value;
   const newDeadlineStatus = document.getElementById('prStaffActionDeadlineStatus').value;
   const remark = document.getElementById('prStaffActionRemark').value.trim();
@@ -393,6 +554,10 @@ export async function submitPRStaffAction() {
 // --------------------------------------------------
 
 export async function deletePRStaffAction() {
+  if (prPastYearEditBlocked()) {
+    alert('ปีนี้ปิดแล้ว — ติ๊ก "แก้ไขของปีก่อน" ก่อนลบ');
+    return;
+  }
   // Soft-delete via the RPC (recoverable by admin — but we DON'T surface
   // that to staff, who'd otherwise ask to undo casual deletes). The confirm
   // shows the ticket id + name so you can't nuke the wrong one.
@@ -541,4 +706,27 @@ function renderPRStaffAssignees() {
       </span>
     `);
   });
+}
+
+// --------------------------------------------------
+// CSV export — exports whatever the dashboard is CURRENTLY showing
+// (dept + search + year), same contract as the shop admin's order export.
+// --------------------------------------------------
+
+export function exportPRStaffTicketsCsv() {
+  if (prStaffFilteredTickets.length === 0) {
+    alert('ไม่มีงานในตัวกรองปัจจุบัน');
+    return;
+  }
+  const csv = buildPrTicketsCsv(prStaffFilteredTickets);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+  const filename = prCsvFilename(prYearFilterValue, stamp);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
 }

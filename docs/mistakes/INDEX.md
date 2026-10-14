@@ -76,7 +76,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - A buyer could write status, timeline and slips on their own order
 - A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC
 
-## `authz-grants.md` — The permission / seat / scope channel *(22)*
+## `authz-grants.md` — The permission / seat / scope channel *(23)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -102,8 +102,9 @@ Open when: adding an access channel, a scope, or a seat.
 - Unlinking your Discord account was a permanent ฝ่าย role grant
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
+- A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(35)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(37)*
 
 Open when: writing a migration.
 
@@ -142,6 +143,8 @@ Open when: writing a migration.
 - A tab opened before a migration re-sends what it LOADED
 - Google accounts were saved as "password"
 - house0188 case 53 red for three weeks
+- Reopening the genesis `team_terms` row would have erased its own history
+- A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(107)*
 
@@ -363,7 +366,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `install.sh` exited 3 on a successful install
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(72)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(73)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -438,6 +441,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Night agent: task 3 was handed task 2's prompt
 - Night agent said "all 6 tasks done, nothing was skipped"
 - "migration workflow run: all jobs have failed"
+- A proof that opens two team_terms in one transaction got the SAME `started_at` for both
 - `db-query.mjs x.sql --dev` ran x.sql on PRODUCTION
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
@@ -486,4 +490,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_424 entries across 10 files._
+_428 entries across 10 files._

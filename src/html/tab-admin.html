@@ -22,13 +22,16 @@
                   <button class="btn btn-outline-info btn-sm me-2" onclick="openManageAgentsModal()">
                     <i class="bi bi-people"></i> จัดการทีม
                   </button>
+                  <button class="btn btn-outline-secondary btn-sm me-2" onclick="exportPRStaffTicketsCsv()">
+                    <i class="bi bi-download"></i> ส่งออก CSV
+                  </button>
                   <button class="btn btn-outline-primary btn-sm me-2" onclick="fetchPRStaffTickets()">
                     <i class="bi bi-arrow-clockwise"></i> รีเฟรช
                   </button>
                 </div>
               </div>
-              <div class="row mb-3">
-                <div class="col-md-5 col-lg-4">
+              <div class="row mb-3 gy-2">
+                <div class="col-md-4 col-lg-3">
                   <div class="input-group input-group-sm shadow-sm">
                     <span class="input-group-text bg-white text-pink-custom border-end-0"><i
                         class="bi bi-funnel-fill"></i></span>
@@ -39,7 +42,18 @@
                     </select>
                   </div>
                 </div>
-                <div class="col-md-7 col-lg-5 mt-2 mt-md-0">
+                <div class="col-md-3 col-lg-2">
+                  <div class="input-group input-group-sm shadow-sm">
+                    <span class="input-group-text bg-white text-pink-custom border-end-0"><i
+                        class="bi bi-calendar3"></i></span>
+                    <!-- Options filled from src/js/samo-year.js — one picker, every system. -->
+                    <select id="prStaffYearFilter" class="form-select border-start-0"
+                      onchange="onPrStaffYearChange()">
+                      <option value="all">ทุกปี</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-5 col-lg-4">
                   <div class="input-group input-group-sm shadow-sm">
                     <span class="input-group-text bg-white text-pink-custom border-end-0"><i
                         class="bi bi-search"></i></span>
@@ -49,6 +63,7 @@
                   </div>
                 </div>
               </div>
+              <div class="alert alert-secondary py-2 small d-none mb-3" id="prStaffYearBanner" role="status"></div>
               <div class="text-center my-3 d-none" id="prStaffLoading">
                 <div class="spinner-border text-pink-custom" role="status"></div>
               </div>
@@ -86,6 +101,14 @@
                   <select id="vsStaffTagFilter" class="form-select form-select-sm d-none" style="max-width: 190px;"
                     onchange="onVsStaffSearch()">
                     <option value="">ทุกแท็ก</option>
+                  </select>
+                  <!-- SAMO year facet (0221) — options filled from
+                       src/js/samo-year.js, same shared picker every system
+                       reuses. "ทุกปี" is the escape hatch; an OPEN ticket
+                       always shows regardless of this pick. -->
+                  <select id="vsStaffYearFilter" class="form-select form-select-sm" style="max-width: 150px;"
+                    onchange="onVsStaffYearChange()">
+                    <option value="all">ทุกปี</option>
                   </select>
                   <select id="staffRole" class="form-select form-select-sm vs-dept-filter" style="max-width: 280px;"
                     onchange="onVSAdminRoleChange()">
