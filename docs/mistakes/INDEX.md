@@ -294,7 +294,7 @@ Open when: URL state, per-user "seen", import/export.
 - "The public หนังสือโครงการ mirror never refreshed after its first load"
 - "Import the answers the ฝ่าย filled in"
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(35)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(36)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -333,6 +333,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - "Discord sync — error — retrying in 10s: fetch failed" — one network blip posted as an outage, and three quieter defect…
 - "тест / сообщение 1…10" in vs-ดิจิทัล
 - "no webhook configured" after the webhook rotation
+- Apps Script's "is this file inside PR/?" matched any folder NAMED PR
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(27)*
 
@@ -490,4 +491,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_428 entries across 10 files._
+_429 entries across 10 files._

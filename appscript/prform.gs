@@ -88,6 +88,16 @@ var TOP_FOLDER_CANON = {
 /** The canonical top-level folders this script owns. */
 var APP_TOP_FOLDERS = ['PR', 'Projects', 'Shop', 'Team', 'Archives'];
 
+/** A SAMO-year folder name: exactly four digits within the range the database
+ *  accepts for a year (2500–2700, the same bounds as start_team_term). Every
+ *  handler here that creates a year folder asks THIS, so an anonymous caller
+ *  can mint at most ~200 of them, never 10,000. */
+function isSamoYearSegment_(s) {
+  if (!/^[0-9]{4}$/.test(String(s || ''))) return false;
+  var n = Number(s);
+  return n >= 2500 && n <= 2700;
+}
+
 /** Canonical physical name for a logical folder name (identity if unmapped). */
 function canonTopFolder_(name) {
   return TOP_FOLDER_CANON[name] || name;
@@ -449,9 +459,11 @@ function handleUploadPRFile(data) {
     var path = String(data.folderPath || '').trim();
     var folder;
     if (path) {
-      if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
-      if (canonTopFolder_(firstSegment_(path)) !== 'PR') {
-        return createResponse({ success: false, message: 'folderPath must start with PR' });
+      // EXACTLY `PR/<year>` — the only shape pr-form.js sends. A looser
+      // "starts with PR" let any caller grow an arbitrary folder tree here.
+      var pm = path.match(/^PR\/([0-9]{4})$/);
+      if (!pm || !isSamoYearSegment_(pm[1])) {
+        return createResponse({ success: false, message: 'folderPath must be PR/<year>' });
       }
       folder = getOrCreateFolderPath_(path);
     } else {
@@ -488,7 +500,7 @@ function handleMovePRFileToYear(data) {
     var url = String(data.fileUrl || '').trim();
     var year = String(data.year || '').trim();
     if (!url) return createResponse({ success: false, message: 'fileUrl required' });
-    if (!/^\d{4}$/.test(year)) return createResponse({ success: false, message: 'year must be a 4-digit พ.ศ. year' });
+    if (!isSamoYearSegment_(year)) return createResponse({ success: false, message: 'year must be a พ.ศ. year 2500-2700' });
     var id = extractDriveId_(url);
     if (!id) return createResponse({ success: false, message: 'unable to extract Drive id from url' });
     var file;
@@ -651,20 +663,27 @@ function handleUploadTeamFile(data) {
 function handleUploadArchiveFile(data) {
   try {
     var path = String(data.folderPath || '').trim();
-    if (!path) return createResponse({ success: false, message: 'folderPath is required' });
-    if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
-    if (canonTopFolder_(firstSegment_(path)) !== 'Archives') {
-      return createResponse({ success: false, message: 'folderPath must start with Archives' });
+    // EXACTLY `Archives/<year>` (tools/year-export.mjs archiveFolderPath) and
+    // only the two formats that tool writes — this handler is public, and what
+    // it stores is personal data.
+    var am = path.match(/^Archives\/([0-9]{4})$/);
+    if (!am || !isSamoYearSegment_(am[1])) {
+      return createResponse({ success: false, message: 'folderPath must be Archives/<year>' });
+    }
+    var mime = String(data.mimeType || '');
+    if (mime !== 'application/json' && mime !== 'text/csv') {
+      return createResponse({ success: false, message: 'mimeType must be application/json or text/csv' });
     }
 
     var folder = getOrCreateFolderPath_(path);
     var base64Data = data.fileData.split(',')[1];
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.mimeType, data.fileName);
     var file = folder.createFile(blob);
-    // Archives are NOT "anyone with the link" by default — an export can
-    // contain PDPA-covered VS text or a buyer's address, unlike a PR cover
-    // image or a team portrait. Shared only with the owner's account
-    // (createFile's default), never widened here.
+    // Archives are NOT "anyone with the link" — an export can contain
+    // PDPA-covered VS text or a buyer's address, unlike a PR cover image or a
+    // team portrait. Said explicitly rather than trusted to createFile's
+    // default, which a link-shared parent folder would not override.
+    file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
     return createResponse({ success: true, fileUrl: file.getUrl() });
   } catch (e) {
     return createResponse({ success: false, message: e.toString() });
@@ -799,17 +818,39 @@ function extractDriveId_(url) {
  * gate DELETION: if one silently stopped matching, every slip/file delete
  * would start refusing with "file is not inside ...".
  */
+/** Ids a real top folder may sit directly under: the app root, My Drive root. */
+function topLevelParentIds_() {
+  var ids = {};
+  ids[DriveApp.getRootFolder().getId()] = true;
+  var app = getAppRootReadOnly_();
+  if (app) ids[app.getId()] = true;
+  return ids;
+}
+
+function hasParentIn_(folder, ids) {
+  var ps = folder.getParents();
+  while (ps.hasNext()) { if (ids[ps.next().getId()]) return true; }
+  return false;
+}
+
 function fileLivesUnderTop_(file, canonical) {
   var stack = [];
   var parents = file.getParents();
   while (parents.hasNext()) stack.push(parents.next());
   var seen = {};
+  var tops = topLevelParentIds_();
   while (stack.length) {
     var f = stack.pop();
     var fid = f.getId();
     if (seen[fid]) continue;
     seen[fid] = true;
-    if (canonTopFolder_(f.getName()) === canonical) return true;
+    // The NAME alone is not enough: any folder called "PR" or "Projects"
+    // anywhere in this account's Drive used to qualify — including one the
+    // public Shop/Team upload handlers can create under their own trees, or a
+    // personal folder outside IT Database. It must also BE a top folder:
+    // directly under the app root, or under My Drive root (where a legacy,
+    // not-yet-adopted top folder lives — warnIfSplit_).
+    if (canonTopFolder_(f.getName()) === canonical && hasParentIn_(f, tops)) return true;
     var ups = f.getParents();
     while (ups.hasNext()) stack.push(ups.next());
   }
@@ -922,7 +963,7 @@ function walkProjectsPathByCode_(path) {
   // app root, adopting a legacy My-Drive-root folder if that's where it is.
   var parent = getOrCreateTopFolder_('Projects');
   var i = 1;
-  if (parts.length > 1 && /^[0-9]{4}$/.test(parts[1])) {
+  if (parts.length > 1 && isSamoYearSegment_(parts[1])) {
     // Year segment: exact-match/create only, same as the "Projects" root
     // itself — a year folder is never renamed, so no code tracking applies.
     var yearExact = parent.getFoldersByName(parts[1]);

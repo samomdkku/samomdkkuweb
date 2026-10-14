@@ -1499,3 +1499,34 @@ it red). A tolerant parser must still SAY it fell back.
 **The general rule**: *never pass structured data through shell expansion —
 double quotes in a JSON string are indistinguishable from shell quoting. Write
 it with a tool that knows JSON (Python, Node, jq), not echo/sed/heredoc.*
+
+## Apps Script's "is this file inside PR/?" matched any folder NAMED PR — the write-up said it compared IDs
+
+**Symptom.** Found in review before deploying the year-rollover handlers
+(2026-10-14): `fileLivesUnderTop_` — the gate for every PR/Shop/Team/Projects
+delete, the new `movePRFileToYear`, and the read that returns a signed
+หนังสือ's bytes — returned true for a file under ANY folder whose name
+canonicalised to the top folder: `Shop/x/PR/` (which the public Shop upload
+handler can create), or a personal `My Drive/Work/Projects/`. The 2026-07-31
+fix this sits on was written up as "comparing folder IDs not names"; the code
+compared names.
+
+**Cause.** The check climbed the parent chain and stopped at the first
+matching NAME. Names are caller-controlled here (every upload handler creates
+folders on demand) and not unique across a Drive.
+
+**Fix.** The matching folder must also BE a top folder: its parent is the app
+root (`IT Database`) or My Drive root (a legacy, not-yet-adopted top folder).
+Same review: `uploadPRFile` takes exactly `PR/<year>`, `uploadArchiveFile`
+exactly `Archives/<year>` + JSON/CSV and sets the file PRIVATE, and every year
+segment must be 2500–2700 (`isSamoYearSegment_`) so an anonymous caller cannot
+mint thousands of folders.
+
+**Where it lives now.** `appscript/prform.gs` (`fileLivesUnderTop_`,
+`topLevelParentIds_`, `isSamoYearSegment_`); `src/js/gas-drive-scope.test.js`
+RUNS the real file in a VM against a fake Drive — 7 of its 11 cases fail on
+the previous file.
+
+**Rule.** A source test reads a check's shape; to know what a public handler
+can reach, run it against a stub and look at what it touched. And a write-up's
+description of a guard is a claim — re-read the predicate.
