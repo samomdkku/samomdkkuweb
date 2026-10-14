@@ -820,9 +820,10 @@ function extractDriveId_(url) {
  */
 /** Ids a real top folder may sit directly under: the app root, My Drive root.
  *  Memoised for the EXECUTION (a GAS global lives for one request): it is two
- *  Drive round-trips, and statProjectFiles asks once per file — unmemoised,
- *  v13 made a 100-id stat take 81 s, past the orphan sweep's 90 s timeout at
- *  its 200-id batch. */
+ *  Drive round-trips and statProjectFiles asks once per file. Measured
+ *  2026-10-14: a stat costs ~0.8-1 s per file either way (getFileById + the
+ *  parent walk + six metadata reads dominate), so the memo trims, it does not
+ *  rescue — the orphan sweep's 20-id batches take ~20 s of its 90 s budget. */
 var TOP_PARENT_IDS_ = null;
 function topLevelParentIds_() {
   if (TOP_PARENT_IDS_) return TOP_PARENT_IDS_;
