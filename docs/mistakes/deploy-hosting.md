@@ -1217,3 +1217,25 @@ running the installer under `bash -x` while investigating something else.
 2. **A script that reports failure on success is worse than one that reports
    success on failure in one specific way**: nobody chases it, because the thing
    visibly worked. It rots until something automates it.
+
+## "it doesn't load the ประกาศและข่าวสาร picture" on a preview — every news cover and shop picture was a broken image on every preview for three weeks
+
+**Symptom.** On `year-rollover.samomdkkuweb.pages.dev` (2026-10-14) every
+ประกาศและข่าวสาร card showed a broken-image icon. Production was fine.
+
+**Cause.** 086c011 (2026-09-23) routed every Drive picture through
+`<origin>/img/d/<id>=w…-rj`, the picture cache in `server/nginx-samo.conf`.
+`pictureAt()` used the page's own origin unconditionally — but only the VM has
+that location. A Cloudflare preview (and `npm run dev`) answers `/img/d/…` with
+the SPA fallback: HTML, status 200, so nothing errored and every picture broke.
+Same shape as "a missing thing can answer 200".
+
+**Fix.** `PICTURE_CACHE_HOSTS` in `src/js/uploads.js` — an ALLOWLIST of hosts
+that have the cache (`samo.md.kku.ac.th`); anywhere else `pictureAt()` returns
+lh3 directly. An allowlist fails toward slow, never toward broken.
+
+**Where it lives now.** `src/js/uploads.js` `pictureAt`; test in
+`src/js/shop/data.test.js` (red without the fix).
+
+**Rule.** A URL that depends on a server-side route only one host has must
+name that host; "this site's origin" is several sites.

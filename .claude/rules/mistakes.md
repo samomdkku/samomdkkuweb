@@ -402,7 +402,7 @@ a class — tighten this paragraph first.
 - `frontend-ui.md` *(107)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(31)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(35)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
-- `deploy-hosting.md` *(26)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
+- `deploy-hosting.md` *(27)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(73)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(41)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 

@@ -334,7 +334,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - "тест / сообщение 1…10" in vs-ดิจิทัล
 - "no webhook configured" after the webhook rotation
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(26)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(27)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -364,6 +364,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `/admin/assets/<bundle>.js` answers 200 with the SPA fallback, so grepping the wrong path reads as "the code was never…
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
+- "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(73)*
 
@@ -489,4 +490,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_427 entries across 10 files._
+_428 entries across 10 files._
