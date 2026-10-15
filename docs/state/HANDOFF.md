@@ -1782,6 +1782,39 @@ Front end — NOT started:
 Also still owed from §18e: the ธิเบธ → เซฟ link (owner) and granting `discord_bot`.
 Unreleased notes are staged in `PENDING` (the popup colour change, news covers, cart cap, admin dialogs, CSV).
 
+## 18g. SAMO Shop admin — ยอดขาย, ต้องจัดการ, the slip queue, order ประวัติ (2026-10-15)
+
+**Status: VERIFIED 2026-10-15 — how:** unit tests (`sales.test.js`, `order-facts.test.js`, mutation-checked: a `review` order counted as revenue and string-compared timestamps each turn them red); `tools/browser/shop-admin-tour.mjs` signed in as a throwaway `samoshop` account on samo-dev at 1280 and 390 px (no sideways scroll, no console error; period filter, chart arrow keys, jump-to-orders, the A/R keys reaching the button, dead while typing, dead on another admin page; the last one red with the old check restored); two independent code reviews (10 findings on the attention/queue/popup commit, 6+ on the ยอดขาย commits) with every finding fixed and tested; served bundle grepped on production (the sha: STATE.md). No schema change, no new read path: everything reads the rows `listAllOrders()` already loads under the existing admin RLS. Session note: `docs/state/claude-2026-10-15.md`.
+
+**OWED — the first REAL slip at full size.** samo-dev has no slip files, so the
+queue's big slip was only ever seen in its "โหลดรูปสลิปไม่ได้" state. The first
+real check on production is the shop team's first slip. If a slip renders
+blank, `slipSrc()` (admin.js) asks lh3 for `=w1600-rj`; a Drive file that is
+not public returns an HTML page — the fallback note should appear.
+
+**OWED — the shop team sees ยอดขาย with real data.** Production-shaped data was
+drawn from an in-page fixture (`FIXTURE=1` on the tour), never production
+itself. A six-size product in บาท is wider than a phone; the grid scrolls inside
+its card — not yet seen.
+
+**OWED (shop team) — the order of the slip queue changed.** It is oldest slip
+first now (it was newest order first). Tell them; a "newest first" preference
+is one sort in `reviewQueue()` (order-facts.js).
+
+**DECIDED 2026-10-15** — revenue on ยอดขาย = checked-slip lines (`isRevenueOrder`,
+the รายรับสะสม / 0206 rule); unchecked money is shown aside, never in. A fee or a
+hand-edited total shows as its own line, never folded into a product.
+
+**DECIDED 2026-10-15** — a tile's count is the predicate of the filter its click
+applies, within the admin's แหล่งที่มา; the รอตรวจสลิป tile is NOT scoped (the
+queue is not). มีปัญหา = PAID orders with a line flagged issue.
+
+**HYPOTHESIS — pickup is not frozen on an order.** `shop_orders.pickup_location`
+is null on all 44 production orders; checkout sends null and the place comes
+from the product's CURRENT `pickup_location_id`. The popup says "จุดรับตอนนี้"
+for that reason. Freezing it at order time would be a migration + a
+`place_shop_order` change — not asked for, not built.
+
 ## 19. บัญชีผู้ใช้ dashboard (0211) — what it leaves open (2026-10-13)
 
 **Status: VERIFIED 2026-10-13 — how:** `accounts0211-dashboard` 15/15 on production; `tools/browser/accounts-dashboard.mjs` 14/14 signed in as a throwaway master on samo-dev (the total on screen = `auth.users`, a sign-in written to the database appears with no reload, a 390px phone does not scroll sideways, no console error). The anomaly checks were run against the real production payload before shipping (`bug` checks all 0). The items below are OWED.

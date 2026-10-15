@@ -132,6 +132,23 @@ function applySourceDefaultOnce() {
   state.ordersSources = new Set(loadSourceDefault());
 }
 
+/** Every orders-table filter off, แหล่งที่มา included, and the controls
+ *  that show them reset. Callers re-render the facets / table. */
+function clearOrderFilters() {
+  state.ordersStatuses.clear();
+  state.ordersProducts.clear();
+  state.ordersTypes.clear();
+  state.ordersSizes.clear();
+  state.ordersColors.clear();
+  state.ordersItemStatuses.clear();
+  state.ordersSources.clear();
+  state.ordersSearch = '';
+  state.ordersPreorder = 'all';
+  const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
+  document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
+    .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
+}
+
 let mounted = false;
 function ensureMounted() {
   if (mounted) return;
@@ -169,18 +186,7 @@ function ensureMounted() {
 
   // Clear-all chip.
   document.getElementById('shopAdminOrdersClearFilters')?.addEventListener('click', () => {
-    state.ordersStatuses.clear();
-    state.ordersProducts.clear();
-    state.ordersTypes.clear();
-    state.ordersSizes.clear();
-    state.ordersColors.clear();
-    state.ordersItemStatuses.clear();
-    state.ordersSources.clear();
-    state.ordersSearch = '';
-    state.ordersPreorder = 'all';
-    const s = document.getElementById('shopAdminOrdersSearch'); if (s) s.value = '';
-    document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
-      .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
+    clearOrderFilters();
     populateStatusFacet();           // re-render checks
     populateOrdersSourceFacet();
     populateOrdersProductSelect();   // re-render checks
@@ -380,14 +386,16 @@ let salesInFlight = null;
 async function refreshSales() {
   initSales({
     sources: loadSourceDefault(),
+    uid: getUser()?.id || null,
     toast: showShopToast,
     onVerify: () => setTab('verify'),
     onShowOrders: (productId) => {
-      // Jump to the orders tab narrowed to this one product: the product
-      // facet replaces any product/type choice; status, size, colour and
-      // search stay as the admin left them.
+      // Jump to EVERY order of this one product: all other filters cleared,
+      // แหล่งที่มา included — the orders tab keeps its own (the admin's saved
+      // default), and a product the sales tab just showed under ทุกแหล่ง then
+      // opened an empty list.
+      clearOrderFilters();
       state.ordersProducts = new Set([productId]);
-      state.ordersTypes.clear();
       setTab('orders');
       document.getElementById('shopAdminTabs')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     },

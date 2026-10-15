@@ -3619,3 +3619,25 @@ it read (`tipText`), so a pass shows its evidence. Confirmed the edit landed
 backslashes out of it (or `String.raw` it), print what the probe read rather
 than a bare boolean, and check that a mutation landed before trusting the
 re-run.
+
+## A "no-write" browser check rejected a real slip on samo-dev — it trapped one of the two buttons its keys could reach
+
+**Symptom** (2026-10-15): the slip queue on samo-dev was suddenly empty. Order
+SH9349 had moved review → `slip_mismatch`, with a history entry "สลิปไม่ถูกต้อง
+โดย admin" at the minute a tour run happened.
+**Cause**: `shop-admin-tour.mjs` checks the A/R keys "without writing" by putting
+a capture-phase listener on the approve button that stops the click before the
+app's handler runs. The reject button had no trap. In the normal run that never
+mattered, because the fixed code ignores R on other pages. In the run that
+DELIBERATELY restored the bug, to prove the check could fail, R on the other
+page reached the real reject handler and wrote. The check went red as intended
+(`elsewhere: 1` counted only the trapped approve), and the write went unseen.
+**Fix**: both decision buttons are trapped and counted (`rejects`, `elsewhere`
+counts both). SH9349 was put back with a guarded UPDATE that matched the tour's
+exact timeline timestamp. A before/after snapshot of samo-dev's `shop_orders`
+around a tour run is now byte-identical.
+**Where it lives now**: `tools/browser/shop-admin-tour.mjs` (verify branch).
+**Rule**: a "no-write" probe must trap EVERY control its input can reach,
+including the ones the code under test is only SUPPOSED to ignore. The
+reintroduce-the-bug run is exactly when those become reachable. Snapshot the
+rows before and after any probe that sits next to a write.

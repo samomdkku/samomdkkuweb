@@ -522,6 +522,14 @@ Three traps, each hit once:
 
 ## 11. A committed worked example of §4b — shop admin, Apps Script intercepted
 
+**To LOOK at the shop admin, not change it:** `node tools/browser/shop-admin-tour.mjs`
+(2026-10-15) screenshots every shop admin tab at 1280 and 390 px, signed in the
+same way, and fails on sideways scroll or a console error. `TABS=sales,verify`
+narrows it, `MODAL=1` opens an order, and `FIXTURE=1` draws ยอดขาย from
+production-shaped in-page data. It also checks the slip queue's A/R keys
+without writing: a capture-phase listener on the button records the click and
+stops it before the app's handler runs.
+
 `tools/browser/shop-admin-strip.mjs` (2026-09-22) runs §4b's recipe end to end
 as ONE command, and is a template for any "needs a signed-in admin" check. §4b
 explains why the grant goes in `permissions`, never `managed_*`. §10 is the

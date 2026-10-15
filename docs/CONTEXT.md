@@ -284,6 +284,16 @@ LATEST definition of all three carries it).
 Every refusal is translated to Thai in ONE place, `placeOrderErrorMessage`
 (`src/js/shop/api.js`), and the checkout asks the same questions BEFORE showing
 the QR (`cartLineProblems`, `src/js/shop/data.js`). Proof `tools/shop0202-stock-rule.mjs`.
+
+**Admin read side (2026-10-15) — no schema, no new read path.** The shop
+admin's ยอดขาย tab, the ต้องจัดการ row and the slip queue are computed in the
+browser from the rows `listAllOrders()` already loads under the admin RLS.
+Pure rules, unit-tested, one home each: `src/js/shop/sales.js` (revenue =
+checked-slip lines via `isRevenueOrder` — the รายรับสะสม and 0206 rule; Bangkok
+days; per product / size / colour) and `src/js/shop/order-facts.js` (attention
+counts, slip-queue order, merged order + line history). A line's stage is
+`rowDisplayStatus` (data.js), shared by the orders table, the handover bar and
+the history. Rendering: `admin-sales.js` + `admin.js`.
 ```
 
 shop_pickup_batches (bigserial id PK, title, product_ids text[],

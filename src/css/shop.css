@@ -2606,3 +2606,5 @@
   padding: 1rem; font-size: .8rem; line-height: 1.4; color: var(--shop-ink-500);
 }
 .shop-tab .verify-slip-pick .slip-broken-note { width: 56px; height: 72px; padding: .25rem; font-size: .66rem; border-radius: 7px; background: var(--shop-ink-50); }
+.shop-tab .sales-note.is-quiet { background: var(--shop-ink-50); }
+.shop-tab .sales-note.is-quiet > i { color: var(--shop-ink-500); }

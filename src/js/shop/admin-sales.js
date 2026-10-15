@@ -45,12 +45,18 @@ function savePeriod(v) {
  * Mount once. `hooks.onShowOrders(productId)` jumps to the orders tab filtered
  * to one product; `hooks.onVerify()` opens the slip queue.
  */
-export function initSales({ sources = [], onShowOrders, onVerify, toast } = {}) {
+export function initSales({ sources = [], uid = null, onShowOrders, onVerify, toast } = {}) {
   view.hooks = { onShowOrders, onVerify, toast };
+  // The แหล่งที่มา default is per account: re-seed it when the signed-in
+  // account changes (account switcher, no reload), as the orders tab does.
+  if (view.uid !== uid) {
+    view.uid = uid;
+    view.sources = new Set(sources);
+    view.expanded.clear();
+  }
   if (view.wired) return;
   view.wired = true;
   view.period = loadPeriod();
-  view.sources = new Set(sources);
 
   const filters = document.getElementById('shopSalesFilters');
   filters?.addEventListener('click', (e) => {
@@ -179,14 +185,23 @@ function kpisHtml(r) {
 function pendingHtml(r) {
   const t = r.totals;
   if (!t.pendingOrders) return '';
+  const unpaidOrders = t.pendingOrders - t.reviewOrders;
+  const unpaidRevenue = t.pendingRevenue - t.reviewRevenue;
+  // Two different "not yet": a slip in the queue (an admin's move — the
+  // button goes there) and no slip / a rejected slip (the buyer's move). One
+  // sentence for both sent admins to an empty queue.
   return `
+    ${t.reviewOrders ? `
     <div class="sales-note">
       <i class="bi bi-hourglass-split" aria-hidden="true"></i>
-      <div>
-        อีก <b>฿${thb(t.pendingRevenue)}</b> จาก ${thb(t.pendingOrders)} ออเดอร์ยังไม่ได้ตรวจสลิป — ยังไม่นับในรายรับ
-      </div>
+      <div>อีก <b>฿${thb(t.reviewRevenue)}</b> จาก ${thb(t.reviewOrders)} ออเดอร์รอตรวจสลิป — ยังไม่นับในรายรับ</div>
       ${view.hooks.onVerify ? '<button type="button" class="btn btn-sm btn-outline-secondary" data-sales-verify>ไปตรวจสลิป</button>' : ''}
-    </div>`;
+    </div>` : ''}
+    ${unpaidOrders ? `
+    <div class="sales-note is-quiet">
+      <i class="bi bi-wallet2" aria-hidden="true"></i>
+      <div>฿${thb(unpaidRevenue)} จาก ${thb(unpaidOrders)} ออเดอร์ยังไม่ได้ชำระ (ยังไม่ส่งสลิป หรือสลิปไม่ถูกต้อง) — ไม่นับในรายรับ</div>
+    </div>` : ''}`;
 }
 
 function emptyPeriodHtml(r) {
@@ -248,7 +263,8 @@ function productRowHtml(row) {
     row.deleted ? '<span class="sales-meta">สินค้าถูกลบแล้ว</span>' : '',
     row.product && !row.product.is_active ? '<span class="sales-meta">ปิดการขายแล้ว</span>' : '',
     row.preorderPieces ? `<span class="sales-meta">พรีออเดอร์ ${thb(row.preorderPieces)}</span>` : '',
-    row.pendingPieces ? `<span class="sales-meta is-pending">รอตรวจสลิป ${thb(row.pendingPieces)} ชิ้น</span>` : '',
+    row.reviewPieces ? `<span class="sales-meta is-pending">รอตรวจสลิป ${thb(row.reviewPieces)} ชิ้น</span>` : '',
+    row.pendingPieces - row.reviewPieces ? `<span class="sales-meta">ยังไม่ชำระ ${thb(row.pendingPieces - row.reviewPieces)} ชิ้น</span>` : '',
   ].filter(Boolean).join('');
   const zero = row.pieces === 0;
   const panelId = `salesPanel-${cssId(row.productId)}`;
@@ -280,7 +296,10 @@ function cssId(s) { return String(s).replace(/[^\w-]/g, (c) => `_${c.charCodeAt(
 
 function panelHtml(row) {
   if (!row.pieces) {
-    return `<p class="sales-panel-empty">${row.pendingPieces ? 'มีคำสั่งซื้อรอตรวจสลิป — จะนับเมื่ออนุมัติแล้ว' : 'ยังไม่มีคำสั่งซื้อในช่วงนี้'}</p>
+    const why = row.reviewPieces ? 'มีคำสั่งซื้อรอตรวจสลิป — จะนับเมื่ออนุมัติแล้ว'
+      : row.pendingPieces ? 'มีคำสั่งซื้อที่ยังไม่ชำระ — จะนับเมื่อตรวจสลิปแล้ว'
+        : 'ยังไม่มีคำสั่งซื้อในช่วงนี้';
+    return `<p class="sales-panel-empty">${why}</p>
       ${showOrdersBtn(row)}`;
   }
   const single = row.sizes.length === 1 && row.colors.length === 1;
@@ -322,7 +341,10 @@ function matrixHtml(row, metric = 'pieces') {
   const fmt = (n) => (money ? `฿${thb(n)}` : thb(n));
   const total = money ? row.revenue : row.pieces;
   // A share only where there is something to compare it with.
-  const share = (n, of) => (money && total && of > 1 ? `<span class="sales-matrix-pct">${Math.round((n / total) * 100)}%</span>` : '');
+  // Whole percents per margin that add to exactly 100 (33/33/33 read as a bug).
+  const colorPct = wholePercents(row.colors.map((c) => val(row.colorTotals[c])));
+  const sizePct = wholePercents(row.sizes.map((x) => val(row.sizeTotals[x])));
+  const share = (pct, of) => (money && total && of > 1 ? `<span class="sales-matrix-pct">${pct}%</span>` : '');
   const max = Math.max(1, ...Object.values(row.cells).map(val));
   const colors = row.colors;
   const sizes = row.sizes;
@@ -346,10 +368,10 @@ function matrixHtml(row, metric = 'pieces') {
             <tr>
               <th scope="row">${colorHex(c) ? `<span class="sales-swatch" style="background:${escHtml(colorHex(c))}"></span>` : ''}${escHtml(colorName(c))}</th>
               ${sizes.map((s) => cell(s, c)).join('')}
-              <td class="is-total">${fmt(val(row.colorTotals[c]))}${share(val(row.colorTotals[c]), colors.length)}</td>
+              <td class="is-total">${fmt(val(row.colorTotals[c]))}${share(colorPct[colors.indexOf(c)], colors.length)}</td>
             </tr>`).join('')}
         </tbody>
-        <tfoot><tr><th scope="row">รวม</th>${sizes.map((s) => `<td>${fmt(val(row.sizeTotals[s]))}${share(val(row.sizeTotals[s]), sizes.length)}</td>`).join('')}<td class="is-total">${fmt(total)}</td></tr></tfoot>
+        <tfoot><tr><th scope="row">รวม</th>${sizes.map((s) => `<td>${fmt(val(row.sizeTotals[s]))}${share(sizePct[sizes.indexOf(s)], sizes.length)}</td>`).join('')}<td class="is-total">${fmt(total)}</td></tr></tfoot>
       </table>
     </div>`;
 }
@@ -389,7 +411,7 @@ const UNIT_TITLE = { day: 'รายวัน', week: 'รายสัปดา�
 function trendHtml(r) {
   const m = view.metric;
   const vals = r.buckets.map((b) => b[m]);
-  const ticks = niceTicks(Math.max(...vals, 0));
+  const ticks = niceTicks(Math.max(...vals, 0), { integer: m === 'pieces' });
   const top = ticks[ticks.length - 1];
   const n = r.buckets.length;
   const labelIdx = xLabelIndexes(n);
@@ -408,7 +430,7 @@ function trendHtml(r) {
         </div>
       </header>
       <div class="sales-chart">
-        <div class="sales-plot" tabindex="0" role="img"
+        <div class="sales-plot" tabindex="0" role="group"
              aria-label="${escHtml(`กราฟ${m === 'revenue' ? 'รายรับ' : 'ชิ้นที่ขาย'}${UNIT_TITLE[r.unit]} ใช้ลูกศรซ้ายขวาเพื่ออ่านค่า`)}">
           ${ticks.map((v) => `<div class="sales-gridline" style="bottom:${(v / top) * 100}%"><span>${m === 'revenue' ? compactNumber(v) : thb(v)}</span></div>`).join('')}
           <div class="sales-cols ${n > 45 ? 'is-dense' : ''}">

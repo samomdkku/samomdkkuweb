@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  salesReport, bkkDayKey, periodStartKey, makeBuckets, bucketUnit, niceTicks,
+  salesReport, bkkDayKey, periodStartKey, makeBuckets, bucketUnit, niceTicks, addDays,
   sortSalesRows, salesCsv, orderSaleState, wholePercents,
 } from './sales.js';
 import { isRevenueOrder, NOT_YET_REVENUE_STATUSES, STAGES_META } from './data.js';
@@ -171,14 +171,17 @@ describe('buckets', () => {
     expect(bucketUnit(366)).toBe('week');
     expect(bucketUnit(367)).toBe('month');
   });
-  it('weeks start on Monday and cover the range without gaps', () => {
+  it('weeks start on Monday; the first and last are CLAMPED to the range and say so', () => {
     const b = makeBuckets('2026-10-01', '2026-10-15', 'week');   // 1 Oct 2026 is a Thursday
-    expect(b[0].key).toBe('2026-09-28');
-    for (let i = 1; i < b.length; i++) expect(b[i].key > b[i - 1].end).toBe(true);
-    expect(b.at(-1).end >= '2026-10-15').toBe(true);
+    expect(b[0]).toMatchObject({ key: '2026-10-01', end: '2026-10-04', partial: true });
+    expect(b[0].long).toContain('ไม่เต็มสัปดาห์');
+    expect(b[1]).toMatchObject({ key: '2026-10-05', end: '2026-10-11', partial: false });
+    expect(b.at(-1)).toMatchObject({ key: '2026-10-12', end: '2026-10-15', partial: true });
+    for (let i = 1; i < b.length; i++) expect(b[i].key).toBe(addDays(b[i - 1].end, 1));
   });
-  it('months roll over the year', () => {
-    expect(makeBuckets('2026-12-15', '2027-01-02', 'month').map((x) => x.key)).toEqual(['2026-12-01', '2027-01-01']);
+  it('months roll over the year, clamped at both ends', () => {
+    const b = makeBuckets('2026-12-15', '2027-01-02', 'month');
+    expect(b.map((x) => [x.key, x.end])).toEqual([['2026-12-15', '2026-12-31'], ['2027-01-01', '2027-01-02']]);
   });
 });
 
@@ -187,6 +190,11 @@ describe('niceTicks', () => {
     expect(niceTicks(1830)).toEqual([0, 1000, 2000]);
     expect(niceTicks(240)).toEqual([0, 125, 250]);
     expect(niceTicks(0)).toEqual([0, 1]);
+  });
+  it('pieces never get a half-piece gridline', () => {
+    expect(niceTicks(1, { integer: true })).toEqual([0, 1]);
+    expect(niceTicks(3, { integer: true })).toEqual([0, 5]);
+    expect(niceTicks(8, { integer: true })).toEqual([0, 5, 10]);
   });
 });
 
@@ -229,5 +237,51 @@ describe('per-size money', () => {
     expect(polo.sizeTotals.M).toEqual({ qty: 2, revenue: 598 });
     expect(polo.sizeTotals.L).toEqual({ qty: 1, revenue: 329 });
     expect(polo.cells['L|g'].revenue).toBe(329);
+  });
+});
+
+describe('review-round fixes (2026-10-15)', () => {
+  it('a rejected slip or no slip is NOT "waiting for a slip check" — only review is', () => {
+    const r = salesReport([
+      order('M', 'slip_mismatch', '2026-10-14T03:00:00Z', [line('polo', 1, 500)]),
+      order('P', 'pending', '2026-10-14T03:00:00Z', [line('polo', 1, 100)]),
+      order('R', 'review', '2026-10-14T03:00:00Z', [line('polo', 2, 300)]),
+    ], products, { now: NOW });
+    expect(r.totals).toMatchObject({ pendingOrders: 3, pendingRevenue: 1200, reviewOrders: 1, reviewRevenue: 600 });
+    const polo = r.products.find((p) => p.productId === 'polo');
+    expect(polo).toMatchObject({ pendingPieces: 4, reviewPieces: 2 });
+  });
+
+  it('a row\'s แหล่งที่มา is the one its counted lines were filtered by', () => {
+    const moved = [{ ...products[0], source: 'rt' }];          // polo moved to RT after the sale
+    const r = salesReport([order('S', 'paid', '2026-10-14T03:00:00Z', [line('polo', 1, 300, { product_source: 'md' })])],
+      moved, { now: NOW, sources: ['md'] });
+    expect(r.products[0]).toMatchObject({ productId: 'polo', source: 'md' });
+    expect(salesCsv(r)).toContain('"MD"');
+    expect(salesCsv(r)).not.toContain('"RT"');
+  });
+
+  it('an old line carrying the colour LABEL lands in the same grid row as the id', () => {
+    const r = salesReport([order('C', 'paid', '2026-10-14T03:00:00Z', [
+      line('polo', 1, 300, { size: 'M', color: 'g' }),
+      line('polo', 2, 300, { size: 'M', color: 'เขียว' }),
+    ])], products, { now: NOW });
+    const polo = r.products.find((p) => p.productId === 'polo');
+    expect(polo.colors).toEqual(['g']);
+    expect(polo.cells['M|g']).toEqual({ qty: 3, revenue: 900 });
+  });
+
+  it('the CSV explains a fee the same way the page does', () => {
+    const r = salesReport([order('F', 'paid', '2026-10-14T03:00:00Z', [line('pants', 1, 200)], { total: 230 })], products, { now: NOW });
+    const rows = salesCsv(r).split('\r\n');
+    expect(rows.some((x) => x.includes('ค่าธรรมเนียม') && x.includes(',30,'))).toBe(true);
+    expect(rows.at(-1)).toContain(',230,');
+  });
+
+  it('an order stamped after this device\'s "today" (clock behind) still counts', () => {
+    const r = salesReport([order('T', 'paid', '2026-10-15T17:30:00Z', [line('pants', 1, 200)])], products, { now: NOW });
+    expect(r.totals.revenue).toBe(200);
+    expect(r.to).toBe('2026-10-16');
+    expect(r.buckets.at(-1).revenue).toBe(200);
   });
 });

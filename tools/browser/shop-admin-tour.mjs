@@ -110,15 +110,21 @@ try {
         }
       }
       if (t === 'verify' && w === WIDTHS[0]) {
-        // The keys, WITHOUT approving anything: a capture listener on the
-        // approve button records the click and stops it before the app's own
-        // handler (which writes) can run.
+        // The keys, WITHOUT deciding anything: a capture listener on BOTH
+        // decision buttons records the click and stops it before the app's own
+        // handler (which writes) can run. ⚠️ On 2026-10-15 only approve was
+        // trapped; with the bug deliberately restored, R on another page
+        // clicked the real reject and wrote SH9349 to slip_mismatch on
+        // samo-dev (repaired by hand). Every button a key can reach is trapped.
         const keys = JSON.parse(await ev(`
           const btn = document.getElementById('shopVerifyApprove');
-          if (!btn) return JSON.stringify({ skipped: 'queue empty' });
-          let hits = 0;
+          const rej = document.getElementById('shopVerifyReject');
+          if (!btn || !rej) return JSON.stringify({ skipped: 'queue empty' });
+          let hits = 0; let rejects = 0;
           const trap = (e) => { hits += 1; e.stopImmediatePropagation(); e.preventDefault(); };
+          const trapR = (e) => { rejects += 1; e.stopImmediatePropagation(); e.preventDefault(); };
           btn.addEventListener('click', trap, true);
+          rej.addEventListener('click', trapR, true);
           const press = (key, target = document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
           press('a'); const viaA = hits;
           const box = document.createElement('input'); document.body.appendChild(box); box.focus();
@@ -131,12 +137,13 @@ try {
           let elsewhere = null;
           if (other) {
             other.click(); await new Promise(r=>setTimeout(r,800));
-            const before = hits; press('a'); press('r'); elsewhere = hits - before;
+            const before = hits + rejects; press('a'); press('r'); elsewhere = hits + rejects - before;
             document.querySelector('[data-admin-side="shop"]')?.click(); await new Promise(r=>setTimeout(r,2500));
           }
           btn.removeEventListener('click', trap, true);
-          return JSON.stringify({ viaA, whileTyping, viaThai, total: hits, elsewhere, otherPage: other?.dataset.adminSide || null });`) || '{}');
-        const ok = keys.skipped || (keys.viaA === 1 && keys.whileTyping === 0 && keys.viaThai === 1 && keys.total === 3 && keys.elsewhere === 0);
+          rej.removeEventListener('click', trapR, true);
+          return JSON.stringify({ viaA, whileTyping, viaThai, total: hits, rejects, elsewhere, otherPage: other?.dataset.adminSide || null });`) || '{}');
+        const ok = keys.skipped || (keys.viaA === 1 && keys.whileTyping === 0 && keys.viaThai === 1 && keys.total === 3 && keys.rejects === 0 && keys.elsewhere === 0);
         if (!ok) failed += 1;
         console.log(`${ok ? '✓' : '✗'} slip-queue keys: ${JSON.stringify(keys)}`);
       }

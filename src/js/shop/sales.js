@@ -111,9 +111,17 @@ export function makeBuckets(from, to, unit) {
   let k = unit === 'week' ? weekStart(from) : unit === 'month' ? monthStart(from) : from;
   while (k <= to) {
     const next = unit === 'week' ? addDays(k, 7) : unit === 'month' ? nextMonth(k) : addDays(k, 1);
-    const label = unit === 'month' ? thMonth(k) : thDay(k);
-    const long = unit === 'week' ? `สัปดาห์ที่เริ่ม ${thDay(k)}` : unit === 'month' ? thMonth(k) : thDay(k);
-    out.push({ key: k, end: addDays(next, -1), label, long, revenue: 0, pieces: 0, orders: 0 });
+    // The first and last week / month are CLAMPED to the range and say so:
+    // a "week of 13 ก.ค." holding only 2 days of a 90-day period read as a
+    // slow week.
+    const start = k < from ? from : k;
+    const end = addDays(next, -1) > to ? to : addDays(next, -1);
+    const partial = start !== k || end !== addDays(next, -1);
+    const label = unit === 'month' ? thMonth(k) : thDay(start);
+    const long = unit === 'day' ? thDay(start)
+      : partial ? `${thDay(start)} – ${thDay(end)}${unit === 'week' ? ' (ไม่เต็มสัปดาห์)' : ` (${thMonth(k)} ไม่เต็มเดือน)`}`
+        : unit === 'week' ? `สัปดาห์ที่เริ่ม ${thDay(start)}` : thMonth(k);
+    out.push({ key: start, end, label, long, partial, revenue: 0, pieces: 0, orders: 0 });
     k = next;
   }
   return out;
@@ -142,6 +150,15 @@ function colorOrder(product, colors) {
   return [...colors].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b)));
 }
 
+/** The product colour id a line means: an older line can carry the colour's
+ *  LABEL instead of its id; keyed raw, one colour became two grid rows. */
+function colorKey(product, color) {
+  const c = color || 'default';
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
+  if (colors.some((x) => x?.id === c)) return c;
+  return colors.find((x) => x?.label === c)?.id || c;
+}
+
 function emptyStages() {
   return Object.fromEntries(HANDOVER_STAGES.map((s) => [s.id, 0]));
 }
@@ -168,8 +185,10 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
       const p = productMap.get(productId) || null;
       e = {
         productId, product: p, name: p?.name || productId, deleted: !p,
-        source: p?.source || '', pieces: 0, revenue: 0, orders: new Set(),
-        pendingPieces: 0, preorderPieces: 0, stages: emptyStages(),
+        // The row's แหล่งที่มา is taken from the LINES it counts (frozen at
+        // purchase, what the filter used), not the product's current source.
+        source: '', pieces: 0, revenue: 0, orders: new Set(),
+        pendingPieces: 0, reviewPieces: 0, preorderPieces: 0, stages: emptyStages(),
         cells: new Map(), sizes: new Set(), colors: new Set(),
       };
       byProduct.set(productId, e);
@@ -179,12 +198,16 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
 
   const totals = {
     revenue: 0, pieces: 0, orders: 0, buyers: 0, avgOrder: 0,
-    pendingRevenue: 0, pendingOrders: 0, adjustment: 0,
+    // Not yet money, split by what is next: a slip waiting in the queue
+    // (review) vs no slip / a rejected slip (the buyer's move).
+    pendingRevenue: 0, pendingOrders: 0, reviewRevenue: 0, reviewOrders: 0, adjustment: 0,
   };
   const stages = emptyStages();
   const confirmedOrders = new Set();
   const buyers = new Set();
   const pendingOrders = new Set();
+  const reviewOrders = new Set();
+  let lastDay = null;
   const dated = [];            // [day, revenue, pieces, orderId] for the trend
   let firstDay = null;
 
@@ -194,10 +217,14 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
     const day = bkkDayKey(o.placed_at);
     if (!day) continue;
     if (from && day < from) continue;
-    if (day > today) continue;
+    // No "after today" cut: a device clock a little behind Bangkok midnight
+    // would drop a just-placed order from every total. The trend extends to
+    // the latest day instead.
     const lines = (Array.isArray(o.items) ? o.items : []).filter(Boolean).filter(inSlice);
     if (!lines.length) continue;
     if (!firstDay || day < firstDay) firstDay = day;
+    if (!lastDay || day > lastDay) lastDay = day;
+    const inReview = o.status === 'review';
 
     let orderLines = 0;
     for (const it of lines) {
@@ -205,9 +232,11 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
       const money = qty * (Number(it.unit_price) || 0);
       orderLines += money;
       const e = entryFor(it.product_id);
+      if (!e.source) e.source = lineSource(it);
       if (state === 'pending') {
         e.pendingPieces += qty;
         totals.pendingRevenue += money;
+        if (inReview) { e.reviewPieces += qty; totals.reviewRevenue += money; }
         continue;
       }
       e.pieces += qty;
@@ -219,7 +248,7 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
       e.stages[st] += qty;
       stages[st] += qty;
       const size = it.size || 'F';
-      const color = it.color || 'default';
+      const color = colorKey(e.product, it.color);
       e.sizes.add(size); e.colors.add(color);
       const ck = `${size}|${color}`;
       const cell = e.cells.get(ck) || { qty: 0, revenue: 0 };
@@ -229,7 +258,11 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
       totals.revenue += money;
       dated.push([day, money, qty, o.id]);
     }
-    if (state === 'pending') { pendingOrders.add(o.id); continue; }
+    if (state === 'pending') {
+      pendingOrders.add(o.id);
+      if (inReview) reviewOrders.add(o.id);
+      continue;
+    }
     confirmedOrders.add(o.id);
     buyers.add(buyerKey(o));
     // Order total vs its lines — only meaningful when the whole order is in
@@ -240,13 +273,14 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
   totals.orders = confirmedOrders.size;
   totals.buyers = buyers.size;
   totals.pendingOrders = pendingOrders.size;
+  totals.reviewOrders = reviewOrders.size;
   totals.avgOrder = totals.orders ? Math.round(totals.revenue / totals.orders) : 0;
 
   // An ACTIVE product that sold nothing in the slice is information too.
   for (const p of products || []) {
     if (!p?.is_active || byProduct.has(p.id)) continue;
     if (sourceSet.size && !sourceSet.has(p.source || '')) continue;
-    entryFor(p.id);
+    entryFor(p.id).source = p.source || '';
   }
 
   const rows = [...byProduct.values()].map((e) => {
@@ -265,8 +299,8 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
     }
     return {
       productId: e.productId, product: e.product, name: e.name, deleted: e.deleted,
-      source: e.source, pieces: e.pieces, revenue: e.revenue, orders: e.orders.size,
-      pendingPieces: e.pendingPieces, preorderPieces: e.preorderPieces,
+      source: e.source || e.product?.source || '', pieces: e.pieces, revenue: e.revenue, orders: e.orders.size,
+      pendingPieces: e.pendingPieces, reviewPieces: e.reviewPieces, preorderPieces: e.preorderPieces,
       share: totals.revenue ? e.revenue / totals.revenue : 0,
       stages: e.stages,
       sizes, colors,
@@ -276,10 +310,12 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
     };
   });
 
-  // Trend: from the period start (or the first sale) to today.
+  // Trend: from the period start (or the first sale) to today — or to the
+  // latest order, if this device's clock is behind the one that stamped it.
   const trendFrom = from || firstDay;
-  const unit = trendFrom ? bucketUnit(daysBetween(trendFrom, today) + 1) : 'day';
-  const buckets = trendFrom ? makeBuckets(trendFrom, today, unit) : [];
+  const trendTo = lastDay && lastDay > today ? lastDay : today;
+  const unit = trendFrom ? bucketUnit(daysBetween(trendFrom, trendTo) + 1) : 'day';
+  const buckets = trendFrom ? makeBuckets(trendFrom, trendTo, unit) : [];
   const bucketOrders = buckets.map(() => new Set());
   for (const [day, money, qty, id] of dated) {
     const i = bucketIndexFor(buckets, day);
@@ -291,7 +327,7 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
   buckets.forEach((b, i) => { b.orders = bucketOrders[i].size; });
 
   return {
-    period, from: trendFrom, to: today, unit,
+    period, from: trendFrom, to: trendTo, unit,
     sources: [...sourceSet],
     totals, stages, buckets,
     products: sortSalesRows(rows, 'revenue'),
@@ -321,11 +357,13 @@ export function compactNumber(n) {
 }
 
 /** Up to 3 clean ticks (0, half, top) for a max value: top rounds UP to 1/2/2.5/5×10ⁿ. */
-export function niceTicks(max) {
+export function niceTicks(max, { integer = false } = {}) {
   const m = Math.max(0, Number(max) || 0);
   if (m === 0) return [0, 1];
   const pow = 10 ** Math.floor(Math.log10(m));
   const step = [1, 2, 2.5, 5, 10].find((s) => s * pow >= m) * pow;
+  // Pieces are whole: never a "0.5 ชิ้น" gridline.
+  if (integer && !Number.isInteger(step / 2)) return [0, Math.ceil(step)];
   return [0, step / 2, step];
 }
 
@@ -362,7 +400,12 @@ export function salesCsv(report) {
       }
     }
   }
-  rows.push(['รวม', '', '', '', '', report.totals.pieces, report.totals.revenue, range].map(csvCell).join(','));
+  const adj = report.totals.adjustment || 0;
+  if (adj && !(report.sources || []).length) {
+    // The page shows this as a footnote; the file must explain the same gap.
+    rows.push(['ค่าธรรมเนียม / ปรับยอดในคำสั่งซื้อ', '', '', '', '', '', adj, range].map(csvCell).join(','));
+  }
+  rows.push(['รวม', '', '', '', '', report.totals.pieces, report.totals.revenue + (report.sources?.length ? 0 : adj), range].map(csvCell).join(','));
   // UTF-8 BOM so Excel renders Thai; CRLF per RFC 4180 — as the orders export.
   return '﻿' + [headers.map(csvCell).join(','), ...rows].join('\r\n');
 }
