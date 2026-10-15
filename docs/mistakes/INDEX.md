@@ -369,7 +369,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `install.sh` exited 3 on a successful install
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(73)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(74)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -446,6 +446,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - "migration workflow run: all jobs have failed"
 - A proof that opens two team_terms in one transaction got the SAME `started_at` for both
 - `db-query.mjs x.sql --dev` ran x.sql on PRODUCTION
+- A headless probe said the sales chart's tooltip was broken
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -493,4 +494,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_431 entries across 10 files._
+_432 entries across 10 files._

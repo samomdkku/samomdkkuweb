@@ -133,6 +133,31 @@ export const ORDER_ISSUE_STATUSES = ['slip_mismatch', 'cancel'];
  *  data.test.js holds the SQL to this list. */
 export const NOT_YET_REVENUE_STATUSES = ['pending', 'review', 'slip_mismatch', 'cancel'];
 
+/** True when an order's money counts as revenue: its slip was checked. The
+ *  ONE predicate behind รายรับสะสม (orders tab) and ยอดขาย (sales tab). */
+export function isRevenueOrder(order) {
+  return !!order && !NOT_YET_REVENUE_STATUSES.includes(order.status || 'pending');
+}
+
+/** A line's stage as the admin sees it: before payment the whole-order status
+ *  is authoritative (pending/review/off-path/legacy); once paid each line
+ *  shows its own item_status. The orders table and the sales tab's handover
+ *  bar both ask this. */
+export function rowDisplayStatus(o, it) {
+  const s = o?.status || 'pending';
+  if (s !== 'paid') return s;
+  return it ? (it.item_status || 'paid') : 'paid';
+}
+
+/** Map a stored colour id back to its product colour label ('' for none).
+ *  An older line can carry the LABEL instead of the id; both resolve. */
+export function colorLabelFor(product, colorId) {
+  if (!colorId || colorId === 'default') return '';
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
+  const match = colors.find((c) => c && (c.id === colorId || c.label === colorId));
+  return match?.label || colorId;
+}
+
 /** Returns the display label for an order. Currently a plain lookup;
  *  kept as a wrapper so call sites stay future-proof if labels ever
  *  need to vary on side-state again. */

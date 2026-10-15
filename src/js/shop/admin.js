@@ -18,7 +18,8 @@ import {
   getPickupLocations, setPickupLocations,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
-  NOT_YET_REVENUE_STATUSES, takesPreorderSlot, activeStock,
+  isRevenueOrder, takesPreorderSlot, activeStock,
+  rowDisplayStatus, colorLabelFor,
 } from './data.js';
 import { downscaleImage, decode } from '../image-resize.js';
 import { askConfirm } from '../confirm-modal.js';
@@ -38,6 +39,7 @@ import { holdInMemory } from '../read-file.js';
 import { convertDriveUrl } from '../uploads.js';
 import { showShopToast } from './products.js';
 import { invalidateSettingsCache } from './checkout.js';
+import { initSales, renderSales, setSalesLoading } from './admin-sales.js';
 
 const state = {
   tab: 'orders',
@@ -304,17 +306,28 @@ function ensureMounted() {
     });
   }
   document.getElementById('shopAdminStockRefresh')?.addEventListener('click', refreshStock);
+  document.getElementById('shopSalesRefresh')?.addEventListener('click', refreshSales);
+  document.getElementById('shopAdminStats')?.addEventListener('click', (e) => {
+    const go = e.target.closest('[data-shop-goto]');
+    if (go) setTab(go.dataset.shopGoto);
+  });
 }
 
 function setTab(name) {
   state.tab = name;
-  document.querySelectorAll('#shopAdminTabs [data-shop-admin-tab]').forEach((b) =>
-    b.classList.toggle('is-active', b.dataset.shopAdminTab === name));
+  document.querySelectorAll('#shopAdminTabs [data-shop-admin-tab]').forEach((b) => {
+    const on = b.dataset.shopAdminTab === name;
+    b.classList.toggle('is-active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    // The strip scrolls sideways on a phone: keep the chosen tab in sight.
+    if (on) revealTab(b);
+  });
   document.querySelectorAll('#adminShopSection [data-shop-admin-pane]').forEach((p) =>
     p.classList.toggle('d-none', p.dataset.shopAdminPane !== name));
 
   if (name === 'orders')   refreshOrders();
   if (name === 'verify')   renderVerifyQueue();
+  if (name === 'sales')    refreshSales();
   if (name === 'preorder') refreshPreorder();
   if (name === 'batches')  refreshBatches();
   if (name === 'banners')  refreshBanners();
@@ -322,6 +335,72 @@ function setTab(name) {
   if (name === 'stock')    refreshStock();
   if (name === 'qr')       { loadSettingsIntoForm(); refreshQrList(); }
   if (name === 'catalog')  refreshCatalog();
+}
+
+/** Scroll the tab strip (not the page) so `btn` is fully visible. */
+function revealTab(btn) {
+  const strip = btn.parentElement;
+  if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+  const pad = 24;
+  const left = btn.offsetLeft - strip.offsetLeft;
+  const right = left + btn.offsetWidth;
+  if (left - pad < strip.scrollLeft) strip.scrollTo({ left: Math.max(0, left - pad), behavior: 'smooth' });
+  else if (right + pad > strip.scrollLeft + strip.clientWidth) {
+    strip.scrollTo({ left: right + pad - strip.clientWidth, behavior: 'smooth' });
+  }
+}
+
+/** Replace the loaded orders and refresh what every tab shows about them —
+ *  today, the slip-queue count on the ตรวจสลิป tab. */
+function setOrders(orders) {
+  state.orders = orders || [];
+  const n = state.orders.filter((o) => o.status === 'review').length;
+  const badge = document.getElementById('shopAdminVerifyCount');
+  if (badge) {
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.setAttribute('aria-label', `รอตรวจ ${n} รายการ`);
+    badge.classList.toggle('d-none', n === 0);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Sales (ยอดขาย) — rendering lives in admin-sales.js, the counting in sales.js
+// ---------------------------------------------------------------------
+let salesInFlight = null;
+async function refreshSales() {
+  initSales({
+    sources: loadSourceDefault(),
+    toast: showShopToast,
+    onVerify: () => setTab('verify'),
+    onShowOrders: (productId) => {
+      // Jump to the orders tab narrowed to this one product: the product
+      // facet replaces any product/type choice; status, size, colour and
+      // search stay as the admin left them.
+      state.ordersProducts = new Set([productId]);
+      state.ordersTypes.clear();
+      setTab('orders');
+      document.getElementById('shopAdminTabs')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    },
+  });
+  if (salesInFlight) return salesInFlight;      // one load at a time
+  setSalesLoading(true);
+  salesInFlight = (async () => {
+    try {
+      const [orders, products] = await Promise.all([
+        listAllOrders(),
+        listProducts({ activeOnly: false }).catch(() => state.products || []),
+      ]);
+      setOrders(orders);
+      if (products && products.length) state.products = products;
+      renderSales(state.orders, state.products);
+    } catch (e) {
+      setSalesLoading(false);
+      showShopToast(`โหลดยอดขายล้มเหลว: ${e.message || e}`, 'error');
+    } finally {
+      salesInFlight = null;
+    }
+  })();
+  return salesInFlight;
 }
 
 /** Text boxes that grow with what is typed (`.shop-autogrow`, shop.css). CSS
@@ -407,7 +486,7 @@ async function refreshOrders() {
         ? listProducts({ activeOnly: false }).catch(() => [])
         : Promise.resolve(state.products),
     ]);
-    state.orders = orders;
+    setOrders(orders);
     if (products && products.length) state.products = products;
     // Apply the admin's saved default แหล่งที่มา filter on first load (getUser
     // is reliably resolved by the time the shop admin tab is open).
@@ -871,28 +950,23 @@ function renderStats() {
   // 'slip_mismatch' is a slip that was REJECTED — both were being counted as
   // money received under a label that said only cancel/pending were left out.
   const revenue = state.orders
-    .filter((o) => !NOT_YET_REVENUE_STATUSES.includes(o.status))
+    .filter(isRevenueOrder)
     .reduce((s, o) => s + (Number(o.total) || 0), 0);
-  host.innerHTML = `
-    <div class="stat-card is-warning">
+  // The queue card IS the way into the queue when there is something in it.
+  const queueBody = `
       <div class="stat-label">รอตรวจสลิป</div>
       <div class="stat-value">${review}<span class="stat-suffix">รายการ</span></div>
-      <div class="stat-delta" style="color:var(--status-cancel)">รอจัดการ</div>
-    </div>
+      <div class="stat-go">${review ? 'ตรวจเลย <i class="bi bi-arrow-right"></i>' : 'ไม่มีค้าง'}</div>`;
+  host.innerHTML = `
+    ${review
+      ? `<button type="button" class="stat-card is-warning" data-shop-goto="verify">${queueBody}</button>`
+      : `<div class="stat-card">${queueBody}</div>`}
     <div class="stat-card">
       <div class="stat-label">รายรับสะสม (เฉพาะที่ตรวจสลิปแล้ว)</div>
       <div class="stat-value">฿${thb(revenue)}</div>
     </div>`;
 }
 
-/** Per-row display status: before payment the whole-order status is
- *  authoritative (pending/review/off-path/legacy); once paid each row
- *  shows its own item_status. */
-function rowDisplayStatus(o, it) {
-  const s = o.status || 'pending';
-  if (s !== 'paid') return s;
-  return it ? (it.item_status || 'paid') : 'paid';
-}
 
 function rowStatusPill(status) {
   const meta = STAGES_META[status] || STAGES_META.pending;
@@ -935,28 +1009,28 @@ function renderOrdersTable() {
     qtyTotal += items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
     const span = rows.length;
     const selectCell = `
-      <td rowspan="${span}" class="order-group-cell text-center">
+      <td rowspan="${span}" class="order-group-cell oc-sel text-center">
         <input type="checkbox" class="form-check-input" data-order-select="${escHtml(o.id)}"
                ${state.ordersSelected.has(o.id) ? 'checked' : ''} title="เลือกคำสั่งซื้อ" />
       </td>`;
     const orderCell = `
-      <td rowspan="${span}" class="order-group-cell">
+      <td rowspan="${span}" class="order-group-cell oc-order">
         <div class="order-id">${orderIdChipHtml(o.id)}</div>
         <div class="small text-muted text-nowrap">${fmtDate(o.placed_at)}</div>
         <div class="small text-nowrap" style="font-weight:600;">฿${thb(o.total)}</div>
       </td>
-      <td rowspan="${span}" class="order-group-cell">
+      <td rowspan="${span}" class="order-group-cell oc-cust">
         <div style="font-weight:600;">${escHtml(buyerName)}</div>
         ${buyerEmail ? `<div class="small text-muted">${escHtml(buyerEmail)}</div>` : ''}
         ${o.buyer_phone ? `<div class="small text-muted"><i class="bi bi-telephone me-1"></i>${escHtml(o.buyer_phone)}</div>` : ''}
       </td>`;
     const slipCell = `
-      <td rowspan="${span}" class="order-group-cell">
+      <td rowspan="${span}" class="order-group-cell oc-slip">
         ${(o.slip_url || (Array.isArray(o.slips) && o.slips.length))
           ? `<span class="text-success small text-nowrap"><i class="bi bi-check-circle-fill me-1"></i>ส่งแล้ว${Array.isArray(o.slips) && o.slips.length > 1 ? ` (${o.slips.length})` : ''}</span>`
           : `<span class="text-muted small text-nowrap"><i class="bi bi-dash-circle me-1"></i>ยังไม่ส่ง</span>`}
       </td>`;
-    const chevronCell = `<td rowspan="${span}" class="order-group-cell"><i class="bi bi-chevron-right"></i></td>`;
+    const chevronCell = `<td rowspan="${span}" class="order-group-cell oc-chev"><i class="bi bi-chevron-right"></i></td>`;
 
     return rows.map((it, idx) => {
       const p = it ? productMap.get(it.product_id) : null;
@@ -973,7 +1047,7 @@ function renderOrdersTable() {
       return `
         <tr class="is-clickable ${idx === 0 ? 'order-group-start' : 'order-group-cont'}" data-order-id="${escHtml(o.id)}">
           ${idx === 0 ? selectCell + orderCell : ''}
-          <td>
+          <td class="oc-prod">
             <div class="small" style="font-weight:600;">
               ${escHtml(name)}
               ${it?.is_preorder ? '<span class="preorder-tag ms-1">พรีออเดอร์</span>' : ''}
@@ -981,10 +1055,10 @@ function renderOrdersTable() {
             ${variant ? `<div class="small text-muted">${escHtml(variant)}</div>` : ''}
             ${sourceTag}
           </td>
-          <td><span style="font-weight:700;">${it ? `× ${Number(it.qty) || 0}` : '—'}</span></td>
-          <td><span style="font-weight:600;">฿${thb(lineTotal)}</span></td>
+          <td class="oc-qty"><span style="font-weight:700;">${it ? `× ${Number(it.qty) || 0}` : '—'}</span></td>
+          <td class="oc-price"><span style="font-weight:600;">฿${thb(lineTotal)}</span></td>
           ${idx === 0 ? slipCell : ''}
-          <td>${rowStatusPill(status)}</td>
+          <td class="oc-status">${rowStatusPill(status)}</td>
           ${idx === 0 ? chevronCell : ''}
         </tr>`;
     }).join('');
@@ -1755,13 +1829,6 @@ function variantColorOptionsHtml(product, selected) {
   return opts.join('');
 }
 
-/** Map a stored colour id back to its product colour label. */
-function colorLabelFor(product, colorId) {
-  if (!colorId || colorId === 'default') return '';
-  const colors = Array.isArray(product?.colors) ? product.colors : [];
-  const match = colors.find((c) => c && (c.id === colorId || c.label === colorId));
-  return match?.label || colorId;
-}
 
 /** Per-item fulfilment status chips inside the order detail. Each chip
  *  writes immediately (data-item-status + data-item-id wired in
@@ -2095,7 +2162,7 @@ async function refreshPreorder() {
         ? Promise.resolve(state.products)
         : listProducts({ activeOnly: false }).catch(() => []),
     ]);
-    state.orders = orders;
+    setOrders(orders);
     if (products && products.length) state.products = products;
     renderPreorder();
   } catch (e) {
@@ -3506,7 +3573,7 @@ async function refreshStock() {
         : Promise.resolve(state.orders),
     ]);
     state.products = products;
-    if (orders && orders.length) state.orders = orders;
+    if (orders && orders.length) setOrders(orders);
     // Keep only UNSAVED edits for products that still exist. An untouched
     // entry is just a copy of old numbers: kept, it showed stale stock and,
     // after one + on any cell, saved that whole stale grid back.
@@ -3617,7 +3684,7 @@ async function onStockProductionStatusChange(sel) {
     }
     // Refresh orders so the per-product sales summary + per-item
     // progress (item_status cascaded by the RPC) reflect the moves.
-    state.orders = await listAllOrders().catch(() => state.orders);
+    setOrders(await listAllOrders().catch(() => state.orders));
     renderStock();
     renderOrdersTable();
     if (modalOrder) await reloadModalOrderFromServer();

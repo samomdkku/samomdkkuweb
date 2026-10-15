@@ -2102,3 +2102,372 @@
   max-height: 70vh;
   resize: vertical;
 }
+
+/* ==============================================
+ * Admin chrome polish (2026-10-15)
+ * ============================================== */
+
+/* Tab strip: press feedback on the press, not the release. A count rides on
+   the slip-queue tab — the one queue with a daily deadline. */
+.shop-tab .admin-tabs button {
+  display: inline-flex; align-items: center; white-space: nowrap;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .1s ease-out;
+}
+.shop-tab .admin-tabs button:hover:not(.is-active) { border-color: var(--shop-ink-300); }
+.shop-tab .admin-tabs button:active { transform: scale(.97); }
+.shop-tab .admin-tabs button:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.shop-tab .admin-tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.3rem; height: 1.3rem; padding: 0 .4rem; margin-left: .45rem;
+  border-radius: 999px; background: var(--status-review); color: #fff;
+  font-size: .72rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.shop-tab .admin-tabs button.is-active .admin-tab-count { background: var(--surface); color: var(--brand-primary); }
+/* Below 992px: one row that scrolls sideways (five rows of wrapped pills took
+   a third of a phone screen). The edges fade to say "there is more". */
+@media (max-width: 991.98px) {
+  .shop-tab .admin-tabs {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; padding: 2px 2px 10px; margin-bottom: .75rem;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+  }
+  .shop-tab .admin-tabs::-webkit-scrollbar { display: none; }
+  .shop-tab .admin-tabs button { flex: 0 0 auto; }
+}
+
+/* Thai has no letter case, and tracking pulls its stacked marks apart:
+   labels keep their natural spacing. */
+.shop-tab .stat-card .stat-label,
+.shop-tab .admin-table .table th { text-transform: none; letter-spacing: 0; }
+.shop-tab .stat-card .stat-label { font-size: .82rem; }
+.shop-tab .stat-card .stat-value { letter-spacing: -.01em; }
+.shop-tab button.stat-card {
+  border: 0; text-align: left; width: 100%; font: inherit; color: inherit;
+  transition: box-shadow .15s ease, transform .1s ease-out;
+}
+.shop-tab button.stat-card:hover { box-shadow: var(--shop-shadow-md); }
+.shop-tab button.stat-card:active { transform: scale(.985); }
+.shop-tab button.stat-card:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.shop-tab .stat-card .stat-go { font-size: .8rem; color: var(--shop-ink-500); font-weight: 500; }
+.shop-tab button.stat-card .stat-go { color: var(--status-review); font-weight: 600; }
+
+/* Orders table on a phone: one card per order instead of a 900px table cut
+   off at the right edge. The cells are the same; only the layout changes,
+   so the click-to-open and the checkbox keep working. */
+@media (max-width: 767.98px) {
+  .shop-tab .admin-table table.orders-admin-table { min-width: 0; display: block; }
+  .shop-tab .orders-admin-table thead,
+  .shop-tab .orders-admin-table thead tr { display: block; }
+  .shop-tab .orders-admin-table thead th { display: none; }
+  .shop-tab .orders-admin-table thead th:first-child {
+    display: flex; align-items: center; gap: .5rem; width: auto !important;
+    background: var(--shop-ink-50);
+  }
+  .shop-tab .orders-admin-table thead th:first-child::after { content: 'เลือกทั้งหมด'; font-weight: 500; }
+  .shop-tab .orders-admin-table tbody { display: block; }
+  .shop-tab .orders-admin-table tbody tr {
+    display: grid; grid-template-columns: 2rem minmax(0, 1fr) 2.75rem 4.75rem;
+    column-gap: .5rem; padding: 0 .75rem;
+  }
+  .shop-tab .orders-admin-table tbody tr.order-group-start {
+    grid-template-areas:
+      "sel  order  slip  chev"
+      ".    cust   cust  cust"
+      ".    prod   qty   price"
+      ".    status status status";
+    border-top: 6px solid var(--shop-ink-50); padding-top: .75rem;
+  }
+  .shop-tab .orders-admin-table tbody tr.order-group-cont {
+    grid-template-areas:
+      ".    prod   qty   price"
+      ".    status status status";
+  }
+  .shop-tab .orders-admin-table tbody tr:last-child { padding-bottom: .75rem; }
+  .shop-tab .admin-table .orders-admin-table td {
+    display: block; border: 0 !important; padding: .2rem 0 !important;
+  }
+  .shop-tab .orders-admin-table td.oc-sel   { grid-area: sel; }
+  .shop-tab .orders-admin-table td.oc-order { grid-area: order; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .6rem; }
+  .shop-tab .orders-admin-table td.oc-slip  { grid-area: slip; justify-self: end; }
+  .shop-tab .orders-admin-table td.oc-chev  { grid-area: chev; justify-self: end; color: var(--shop-ink-300); }
+  .shop-tab .orders-admin-table td.oc-cust  { grid-area: cust; padding-bottom: .5rem !important; }
+  .shop-tab .orders-admin-table td.oc-prod  { grid-area: prod; padding-top: .5rem !important; border-top: 1px solid var(--shop-ink-100) !important; }
+  .shop-tab .orders-admin-table td.oc-qty   { grid-area: qty; text-align: right; padding-top: .5rem !important; border-top: 1px solid var(--shop-ink-100) !important; }
+  .shop-tab .orders-admin-table td.oc-price { grid-area: price; padding-top: .5rem !important; border-top: 1px solid var(--shop-ink-100) !important; text-align: right; }
+  .shop-tab .orders-admin-table td.oc-status { grid-area: status; padding-bottom: .55rem !important; }
+  /* The empty / "ไม่มีรายการ" row is a single cell spanning the table. */
+  .shop-tab .orders-admin-table tbody tr:not(.order-group-start):not(.order-group-cont) { display: block; }
+}
+
+/* ==============================================
+ * ยอดขาย (sales) — admin-sales.js
+ * ============================================== */
+.shop-tab .sales-filters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .75rem; margin-bottom: 1.25rem;
+}
+.shop-tab .sales-actions { display: flex; gap: .35rem; margin-left: auto; }
+.shop-tab .sales-seg-ctl {
+  display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px;
+  background: var(--shop-ink-100);
+}
+.shop-tab .sales-seg-ctl button {
+  border: 0; background: transparent; color: var(--shop-ink-700);
+  padding: .32rem .85rem; border-radius: 999px; font-size: .85rem; font-weight: 500; white-space: nowrap;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease, transform .1s ease-out;
+}
+.shop-tab .sales-seg-ctl button:active { transform: scale(.96); }
+.shop-tab .sales-seg-ctl button.is-active {
+  background: var(--surface); color: var(--shop-ink-900); font-weight: 600; box-shadow: var(--shop-shadow-sm);
+}
+.shop-tab .sales-seg-ctl button:focus-visible,
+.shop-tab .sales-chip:focus-visible,
+.shop-tab .sales-sort:focus-visible,
+.shop-tab .sales-row:focus-visible,
+.shop-tab .sales-plot:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.shop-tab .sales-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.shop-tab .sales-chip {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border: 1px solid var(--shop-ink-100); background: var(--surface); color: var(--shop-ink-700);
+  padding: .3rem .75rem; border-radius: 999px; font-size: .84rem; font-weight: 500;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease-out;
+}
+.shop-tab .sales-chip:hover { border-color: var(--shop-ink-300); }
+.shop-tab .sales-chip:active { transform: scale(.96); }
+.shop-tab .sales-chip.is-active {
+  border-color: var(--brand-primary); color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 7%, var(--surface));
+}
+.shop-tab .sales-dot { width: .5rem; height: .5rem; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
+
+.shop-tab .sales-body { transition: opacity .2s ease; }
+.shop-tab .sales-body.is-loading { opacity: .5; pointer-events: none; }
+.shop-tab .sales-empty { padding: 2.5rem 1rem; }
+
+/* KPIs — one hero figure, four supporting ones. */
+.shop-tab .sales-kpis {
+  display: grid; gap: .75rem; margin-bottom: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.shop-tab .sales-hero { grid-column: 1 / -1; }
+@media (min-width: 768px) { .shop-tab .sales-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1200px) {
+  .shop-tab .sales-kpis { grid-template-columns: minmax(0, 1.8fr) repeat(4, minmax(0, 1fr)); }
+  .shop-tab .sales-hero { grid-column: auto; }
+}
+.shop-tab .sales-hero,
+.shop-tab .sales-kpi {
+  background: var(--surface); border-radius: var(--shop-radius); box-shadow: var(--shop-shadow-sm);
+  padding: 1rem 1.15rem; min-width: 0;
+}
+.shop-tab .sales-hero { padding: 1.1rem 1.35rem; }
+.shop-tab .sales-kpi-label { font-size: .82rem; color: var(--shop-ink-500); font-weight: 500; }
+.shop-tab .sales-hero-value {
+  font-family: "Prompt", sans-serif; font-weight: 700; color: var(--shop-ink-900);
+  font-size: clamp(2.25rem, 4.2vw, 3rem); line-height: 1.05; letter-spacing: -.02em; margin-top: .15rem;
+}
+.shop-tab .sales-hero-sub { font-size: .8rem; color: var(--shop-ink-500); margin-top: .35rem; }
+.shop-tab .sales-kpi-value {
+  font-family: "Prompt", sans-serif; font-weight: 600; color: var(--shop-ink-900);
+  font-size: 1.45rem; line-height: 1.2; letter-spacing: -.01em; margin-top: .2rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.shop-tab .sales-kpi-suffix { font-family: inherit; font-size: .8rem; font-weight: 400; color: var(--shop-ink-500); margin-left: .25rem; letter-spacing: 0; }
+
+.shop-tab .sales-note {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: .75rem; row-gap: .5rem;
+  padding: .7rem 1rem; margin-bottom: 1rem; border-radius: var(--shop-radius);
+  background: color-mix(in srgb, var(--status-review) 7%, var(--surface));
+  color: var(--shop-ink-700); font-size: .88rem;
+}
+.shop-tab .sales-note > i { color: var(--status-review); }
+@media (max-width: 575.98px) {
+  .shop-tab .sales-note { grid-template-columns: auto minmax(0, 1fr); }
+  .shop-tab .sales-note > .btn { grid-column: 2; justify-self: start; }
+}
+
+/* Cards */
+.shop-tab .sales-card {
+  background: var(--surface); border-radius: var(--shop-radius); box-shadow: var(--shop-shadow-sm);
+  padding: 1.1rem 1.25rem 1.25rem; margin-bottom: 1rem;
+}
+.shop-tab .sales-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap;
+  margin-bottom: .9rem;
+}
+.shop-tab .sales-card-title { font-family: "Prompt", sans-serif; font-weight: 600; font-size: 1.02rem; margin: 0; color: var(--shop-ink-900); }
+.shop-tab .sales-card-sub { margin: .15rem 0 0; font-size: .8rem; color: var(--shop-ink-500); }
+
+/* Per-product table (grid, so a row can re-flow on a phone). */
+.shop-tab .sales-table { --sales-cols: minmax(0, 1fr) 4.5rem 5rem 7rem 9.5rem 1.25rem; }
+.shop-tab .sales-thead,
+.shop-tab .sales-row,
+.shop-tab .sales-tfoot {
+  display: grid; grid-template-columns: var(--sales-cols); align-items: center; column-gap: .75rem;
+}
+.shop-tab .sales-thead { padding: 0 .5rem .45rem; border-bottom: 1px solid var(--shop-ink-100); }
+.shop-tab .sales-sort {
+  border: 0; background: none; padding: .2rem 0; justify-self: end;
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .78rem; font-weight: 600; color: var(--shop-ink-500);
+}
+.shop-tab .sales-sort.is-name { justify-self: start; }
+.shop-tab .sales-sort i { font-size: .7rem; opacity: 0; transition: opacity .15s ease; }
+.shop-tab .sales-sort:hover i { opacity: .5; }
+.shop-tab .sales-sort.is-active { color: var(--shop-ink-900); }
+.shop-tab .sales-sort.is-active i { opacity: 1; }
+.shop-tab .sales-th-share { font-size: .78rem; font-weight: 600; color: var(--shop-ink-500); }
+
+.shop-tab .sales-row-wrap { border-bottom: 1px solid var(--shop-ink-100); }
+.shop-tab .sales-row {
+  width: 100%; border: 0; background: none; text-align: left; color: inherit;
+  padding: .7rem .5rem; border-radius: 8px; transition: background-color .12s ease;
+}
+.shop-tab .sales-row:hover { background: var(--shop-ink-50); }
+.shop-tab .sales-row:active { background: var(--shop-ink-100); }
+.shop-tab .sales-row-wrap.is-zero .sales-share { visibility: hidden; }
+.shop-tab .sales-row-wrap.is-zero .sales-name,
+.shop-tab .sales-row-wrap.is-zero .sales-num { color: var(--shop-ink-500); }
+.shop-tab .sales-name-cell { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.shop-tab .sales-thumb {
+  width: 2.6rem; height: 2.6rem; border-radius: 8px; flex: 0 0 auto;
+  background: var(--shop-ink-50); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .04);
+}
+.shop-tab .sales-name-text { display: flex; flex-direction: column; min-width: 0; }
+.shop-tab .sales-name { font-weight: 600; color: var(--shop-ink-900); line-height: 1.35; overflow-wrap: anywhere; }
+.shop-tab .sales-metas { display: flex; flex-wrap: wrap; gap: .1rem .6rem; margin-top: .1rem; }
+.shop-tab .sales-meta { display: inline-flex; align-items: center; gap: .3rem; font-size: .76rem; color: var(--shop-ink-500); }
+.shop-tab .sales-meta.is-pending { color: var(--status-review); }
+.shop-tab .sales-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--shop-ink-700); }
+.shop-tab .sales-revenue { font-weight: 600; color: var(--shop-ink-900); }
+.shop-tab .sales-share { display: flex; align-items: center; gap: .5rem; }
+.shop-tab .sales-share-track { flex: 1 1 auto; height: 6px; border-radius: 3px; background: var(--shop-ink-100); overflow: hidden; }
+.shop-tab .sales-share-fill { display: block; height: 100%; border-radius: 3px; background: var(--shop-500); transition: width .35s cubic-bezier(.2, .8, .2, 1); }
+.shop-tab .sales-share-pct { width: 3rem; text-align: right; font-size: .78rem; color: var(--shop-ink-500); font-variant-numeric: tabular-nums; }
+.shop-tab .sales-chevron { color: var(--shop-ink-300); transition: transform .2s ease; justify-self: end; }
+.shop-tab .sales-row-wrap.is-open .sales-chevron { transform: rotate(180deg); }
+.shop-tab .sales-tfoot { padding: .75rem .5rem 0; font-weight: 700; color: var(--shop-ink-900); }
+.shop-tab .sales-tfoot .sales-num { color: var(--shop-ink-900); }
+.shop-tab .sales-foot-note { margin: .75rem .5rem 0; font-size: .8rem; color: var(--shop-ink-500); }
+
+.shop-tab .sales-panel { padding: .25rem .5rem 1.1rem 3.85rem; }
+.shop-tab .sales-panel-grid { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 992px) { .shop-tab .sales-panel-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
+.shop-tab .sales-panel-label { font-size: .78rem; font-weight: 600; color: var(--shop-ink-500); margin-bottom: .45rem; }
+.shop-tab .sales-panel-empty { font-size: .85rem; color: var(--shop-ink-500); margin: 0; }
+
+/* Size × colour: one hue, light → dark by quantity; the number always shown. */
+.shop-tab .sales-matrix-scroll { overflow-x: auto; }
+.shop-tab .sales-matrix { border-collapse: separate; border-spacing: 2px; font-size: .84rem; font-variant-numeric: tabular-nums; }
+.shop-tab .sales-matrix th { font-weight: 600; color: var(--shop-ink-500); font-size: .76rem; padding: .25rem .5rem; text-align: center; white-space: nowrap; }
+.shop-tab .sales-matrix tbody th,
+.shop-tab .sales-matrix tfoot th { text-align: left; color: var(--shop-ink-700); }
+.shop-tab .sales-matrix td {
+  min-width: 2.6rem; padding: .4rem .5rem; text-align: center; border-radius: 6px; color: var(--shop-ink-900);
+  background: color-mix(in srgb, var(--shop-500) var(--mix, 0%), var(--surface));
+}
+.shop-tab .sales-matrix td.is-strong { font-weight: 700; }
+.shop-tab .sales-matrix td.is-empty { color: var(--shop-ink-300); background: transparent; }
+.shop-tab .sales-matrix .is-total,
+.shop-tab .sales-matrix tfoot td { background: transparent; font-weight: 600; color: var(--shop-ink-700); }
+.shop-tab .sales-swatch {
+  display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .4rem; vertical-align: -1px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
+
+/* Handover — an ordered progression, so one hue light → dark (the brand
+   green); "มีปัญหา" alone takes the reserved red. Labels carry it too. */
+.shop-tab [data-stage="paid"]    { --stage: #c3e3cc; }
+.shop-tab [data-stage="produce"] { --stage: #7fbf92; }
+.shop-tab [data-stage="ready"]   { --stage: #3f8f5a; }
+.shop-tab [data-stage="done"]    { --stage: #105922; }
+.shop-tab [data-stage="issue"]   { --stage: #c0392b; }
+.shop-tab .sales-stack { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: var(--shop-ink-100); }
+.shop-tab .sales-seg { flex: 1 1 0; min-width: 4px; background: var(--stage); transition: flex-grow .35s cubic-bezier(.2, .8, .2, 1); }
+.shop-tab .sales-legend { list-style: none; padding: 0; margin: .7rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; font-size: .84rem; }
+.shop-tab .sales-legend li { display: inline-flex; align-items: center; gap: .4rem; }
+.shop-tab .sales-legend b { font-variant-numeric: tabular-nums; color: var(--shop-ink-900); }
+.shop-tab .sales-legend-label { color: var(--shop-ink-700); }
+.shop-tab .sales-key { width: .7rem; height: .7rem; border-radius: 3px; background: var(--stage); flex: 0 0 auto; }
+
+/* Trend — one series, HTML columns (text stays text at every width). */
+.shop-tab .sales-chart { padding-left: 2.6rem; }
+.shop-tab .sales-plot { position: relative; height: 190px; touch-action: pan-y; border-radius: 4px; }
+.shop-tab .sales-gridline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--shop-ink-100); }
+.shop-tab .sales-gridline > span {
+  position: absolute; right: 100%; top: 0; transform: translateY(-50%); padding-right: .55rem;
+  font-size: .72rem; color: var(--shop-ink-500); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.shop-tab .sales-cols { position: absolute; inset: 0; display: flex; align-items: stretch; gap: 2px; }
+.shop-tab .sales-cols.is-dense { gap: 1px; }
+.shop-tab .sales-col {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; justify-content: center;
+  border-radius: 4px; transition: background-color .12s ease;
+}
+.shop-tab .sales-col.is-hot { background: color-mix(in srgb, var(--shop-500) 9%, transparent); }
+.shop-tab .sales-bar {
+  display: block; width: 100%; max-width: 24px; border-radius: 4px 4px 0 0; background: var(--shop-500);
+  transition: height .35s cubic-bezier(.2, .8, .2, 1), background-color .12s ease;
+}
+.shop-tab .sales-col.is-hot .sales-bar { background: var(--shop-700); }
+.shop-tab .sales-xaxis { position: relative; height: 1.6rem; margin-top: .35rem; }
+.shop-tab .sales-xaxis > span {
+  position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
+  font-size: .72rem; color: var(--shop-ink-500);
+}
+.shop-tab .sales-tip {
+  position: absolute; top: -.35rem; transform: translate(-50%, -100%); z-index: 3; pointer-events: none;
+  background: var(--shop-ink-900); color: #fff; border-radius: 8px; padding: .4rem .65rem;
+  box-shadow: var(--shop-shadow-md); white-space: nowrap;
+}
+.shop-tab .sales-tip-value { font-weight: 700; font-size: .95rem; font-variant-numeric: tabular-nums; }
+.shop-tab .sales-tip-label { font-size: .74rem; opacity: .8; }
+.shop-tab .sales-details { margin-top: .75rem; }
+.shop-tab .sales-details > summary { font-size: .82rem; color: var(--shop-ink-500); cursor: pointer; width: fit-content; }
+.shop-tab .sales-data-table { margin: .5rem 0 0; font-size: .84rem; font-variant-numeric: tabular-nums; }
+
+/* Phone: each product row re-flows — name, then revenue + pieces, then share. */
+@media (max-width: 575.98px) {
+  .shop-tab .sales-filters { gap: .5rem; }
+  .shop-tab .sales-actions { margin-left: 0; width: 100%; }
+  .shop-tab .sales-actions .btn { flex: 1 1 0; }
+  .shop-tab .sales-hero-value { font-size: 2.4rem; }
+  .shop-tab .sales-card { padding: 1rem; }
+  .shop-tab .sales-thead { display: flex; gap: 1rem; padding: 0 0 .5rem; }
+  .shop-tab .sales-thead .sales-sort { justify-self: auto; }
+  .shop-tab .sales-th-share { display: none; }
+  .shop-tab .sales-row {
+    grid-template-columns: minmax(0, 1fr) auto 1rem;
+    grid-template-areas: "name rev chev" "name pcs chev" "share share share";
+    row-gap: .2rem; padding: .7rem .25rem;
+  }
+  .shop-tab .sales-row .is-name { grid-area: name; }
+  .shop-tab .sales-row .sales-revenue { grid-area: rev; }
+  .shop-tab .sales-row .sales-num[data-label="ชิ้น"] { grid-area: pcs; font-size: .8rem; color: var(--shop-ink-500); }
+  .shop-tab .sales-row .sales-num[data-label="ชิ้น"]::after { content: ' ชิ้น'; }
+  .shop-tab .sales-row-wrap.is-zero .sales-num[data-label="ชิ้น"]::after { content: none; }
+  .shop-tab .sales-row .sales-num[data-label="ออเดอร์"] { display: none; }
+  .shop-tab .sales-row .sales-share { grid-area: share; padding-left: 3.35rem; margin-top: .2rem; }
+  .shop-tab .sales-row .sales-chevron { grid-area: chev; }
+  .shop-tab .sales-tfoot { grid-template-columns: minmax(0, 1fr) auto auto; padding: .75rem .25rem 0; }
+  .shop-tab .sales-tfoot > span:nth-child(3),
+  .shop-tab .sales-tfoot > span:nth-child(5) { display: none; }
+  .shop-tab .sales-tfoot > span:nth-child(2)::after { content: ' ชิ้น'; }
+  .shop-tab .sales-panel { padding: .25rem .25rem 1rem; }
+  .shop-tab .sales-chart { padding-left: 2.2rem; }
+  .shop-tab .sales-plot { height: 160px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-tab .sales-bar,
+  .shop-tab .sales-share-fill,
+  .shop-tab .sales-seg,
+  .shop-tab .sales-chevron,
+  .shop-tab .admin-tabs button,
+  .shop-tab .sales-seg-ctl button,
+  .shop-tab .sales-chip { transition: none; }
+  .shop-tab .admin-tabs button:active,
+  .shop-tab .sales-seg-ctl button:active,
+  .shop-tab .sales-chip:active,
+  .shop-tab button.stat-card:active { transform: none; }
+}

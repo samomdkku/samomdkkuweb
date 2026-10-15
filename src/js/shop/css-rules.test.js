@@ -25,6 +25,10 @@ const CASES = [
   // [module that emits, class pattern, the entry whose page renders it]
   ['src/js/shop/admin.js',   /(?<![-\w])shop-img-[a-z-]+/g, 'src/admin.css'],
   ['src/js/shop/gallery.js', /(?<![-\w])pg-[a-z-]+/g,        'src/main.css'],
+  // The ยอดขาย tab (2026-10-15) and the phone card layout of the orders table.
+  ['src/js/shop/admin-sales.js', /(?<![-\w])sales-[a-z-]+/g,  'src/admin.css'],
+  ['src/js/shop/admin.js',   /(?<![-\w])oc-[a-z]+/g,          'src/admin.css'],
+  ['src/html/tab-admin.html', /(?<![-\w])(?:sales-[a-z-]+|admin-tab-count)/g, 'src/admin.css'],
 ];
 
 describe('shop picture classes have rules where they are rendered', () => {

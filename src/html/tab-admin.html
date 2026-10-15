@@ -164,13 +164,17 @@
                 <p class="shop-page-sub mb-0">จัดการคำสั่งซื้อ ตรวจสอบสลิป และประกาศรับสินค้า</p>
               </div>
               <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
-                <i class="bi bi-shield-check me-1"></i> shop_admin
+                <i class="bi bi-shield-check me-1"></i> ผู้ดูแลร้าน
               </span>
             </div>
 
+            <!-- One row. Below 992px it scrolls sideways instead of wrapping into
+                 five rows of pills (a third of a phone screen); the active tab is
+                 scrolled into view by setTab. -->
             <div class="admin-tabs" id="shopAdminTabs">
               <button data-shop-admin-tab="orders"   class="is-active"><i class="bi bi-list-check me-1"></i> คำสั่งซื้อ</button>
-              <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ</button>
+              <button data-shop-admin-tab="verify"><i class="bi bi-receipt me-1"></i> ตรวจสลิปรอตรวจ<span class="admin-tab-count d-none" id="shopAdminVerifyCount" aria-label="รอตรวจ"></span></button>
+              <button data-shop-admin-tab="sales"><i class="bi bi-graph-up-arrow me-1"></i> ยอดขาย</button>
               <button data-shop-admin-tab="preorder"><i class="bi bi-hourglass-split me-1"></i> พรีออเดอร์</button>
               <button data-shop-admin-tab="batches"><i class="bi bi-megaphone me-1"></i> ประกาศการรับสินค้า</button>
               <button data-shop-admin-tab="banners"><i class="bi bi-image me-1"></i> แบนเนอร์</button>
@@ -321,6 +325,35 @@
 
             <div data-shop-admin-pane="verify" class="d-none">
               <div id="shopAdminVerifyHost"></div>
+            </div>
+
+            <div data-shop-admin-pane="sales" class="d-none">
+              <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+                <div>
+                  <h5 class="font-prompt mb-0" style="font-weight:700;">ยอดขาย</h5>
+                  <p class="text-muted mb-0 small">นับเฉพาะคำสั่งซื้อที่ตรวจสลิปแล้ว · ตามวันที่สั่ง (เวลาไทย)</p>
+                </div>
+              </div>
+              <!-- Filters scope everything below them. Static markup so a
+                   re-render never steals focus from a chip. -->
+              <div class="sales-filters" id="shopSalesFilters">
+                <div class="sales-seg-ctl" role="group" aria-label="ช่วงเวลา">
+                  <button type="button" data-sales-period="7d">7 วัน</button>
+                  <button type="button" data-sales-period="30d">30 วัน</button>
+                  <button type="button" data-sales-period="90d">90 วัน</button>
+                  <button type="button" data-sales-period="all">ทั้งหมด</button>
+                </div>
+                <div class="sales-chips" id="shopSalesSources" role="group" aria-label="แหล่งที่มา"></div>
+                <div class="sales-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="shopSalesRefresh">
+                    <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรช
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="shopSalesExport">
+                    <i class="bi bi-download me-1"></i> ส่งออก CSV
+                  </button>
+                </div>
+              </div>
+              <div id="shopSalesBody" class="sales-body"></div>
             </div>
 
             <div data-shop-admin-pane="preorder" class="d-none">

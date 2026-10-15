@@ -155,7 +155,7 @@ triggered over ssh (needs the KKU VPN).
   pickup locations shown at buy-time, slip upload to Drive (several slips per
   order, shrunk before upload), a Discord message to the shop team for every
   web order (who, what, how much, slip status — no contact details — plus the shop's running totals: slips awaiting review, all orders and their total, checked revenue), pictures served from the VM's own cache as sized JPEGs, order timeline
-  (pending → review → paid → produce → ready → done), per-order QR codes
+  (pending → review → paid → produce → ready → done), a **ยอดขาย (sales) tab** — per product: pieces, orders, revenue and share, the size × colour split and how much is still to be handed over; 7/30/90 days or all, per source, a daily/weekly trend, CSV export; checked slips only, the rest shown aside — per-order QR codes
   (customers show, admins scan via the camera viewfinder in the orders
   tab — `/admin/?scan=<id>` also opens the order directly), pickup-batch
   announcements (with an optional picture), an admin-curated swipe-banner carousel for both

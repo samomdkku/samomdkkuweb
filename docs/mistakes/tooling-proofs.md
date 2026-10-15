@@ -3594,3 +3594,28 @@ target IS samo-dev) and refuses ANY other flag with a usage line.
 understand; "unknown flag ignored" is how a safety switch becomes a no-op. And
 read the `→ project:` line BEFORE the result, not after — it is printed first
 for that reason.
+
+## A headless probe said the sales chart's tooltip was broken — the regex inside the probe had lost its backslash
+
+**Symptom**: `tools/browser/shop-admin-tour.mjs` reported `tip:false` for the
+ยอดขาย chart's keyboard readout (2026-10-15). The tooltip worked; the probe
+was red.
+**Cause**: the check was `/\S/.test(tip.textContent)`, written inside the JS
+template literal that the driver sends to `Runtime.evaluate`. In a template
+literal `\S` is not a recognised escape, so the backslash is dropped and the
+page ran `/S/` — "contains a capital S" — against Thai text and a ฿ amount.
+A second trap sat beside it: the fix was first attempted with `sed`, whose
+pattern had one backslash too many, matched nothing, and left the file
+unchanged. The re-run was red again, which read exactly like a real bug.
+Also: `await import('/src/js/…')` from the driver gets a SECOND module instance
+under vite, so rendering fixture data through it is overwritten as soon as the
+page's own instance handles a click. The fixture shot is therefore taken
+before any click.
+**Fix**: the probe uses `textContent.trim().length > 0` and prints the text
+it read (`tipText`), so a pass shows its evidence. Confirmed the edit landed
+(`grep -c tipText`) before re-running.
+**Where it lives now**: `tools/browser/shop-admin-tour.mjs`.
+**Rule**: code that a driver sends INTO a page is a string first. Keep
+backslashes out of it (or `String.raw` it), print what the probe read rather
+than a bare boolean, and check that a mutation landed before trusting the
+re-run.
