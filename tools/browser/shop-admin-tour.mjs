@@ -102,8 +102,17 @@ try {
       if (!ok) { console.log(`✗ no tab ${t}`); failed += 1; continue; }
       await shot(`${t}-${w}`);
       if (t === 'sales') {
-        const opened = await ev(`const r=document.querySelector('[data-sales-toggle]'); if(!r) return false; r.click(); await new Promise(r=>setTimeout(r,400)); return true;`);
-        if (opened) await shot(`sales-expanded-${w}`);
+        const opened = await ev(`const r=document.querySelector('[data-sales-toggle]'); if(!r) return false; if (r.getAttribute('aria-expanded') !== 'true') r.click(); await new Promise(r=>setTimeout(r,400)); return true;`);
+        if (opened) {
+          await shot(`sales-expanded-${w}`);
+          // The same grid in baht: revenue per size, per colour, per cell.
+          const money = await ev(`const b=document.querySelector('[data-sales-cell-metric="revenue"]'); if(!b) return 'no toggle (single variant)';
+            if (b.getAttribute('aria-pressed') !== 'true') b.click(); await new Promise(r=>setTimeout(r,300));
+            return document.querySelector('.sales-matrix.is-money tfoot .is-total')?.textContent.trim() || 'no money grid';`);
+          console.log(`  grid in baht, total cell: ${money}`);
+          if (/^no money/.test(String(money))) failed += 1;
+          await shot(`sales-expanded-money-${w}`);
+        }
         if (process.env.FIXTURE) {
           // samo-dev holds a handful of old orders; production's shape (3
           // products, ~45 orders a day or two apart over three weeks, per-size

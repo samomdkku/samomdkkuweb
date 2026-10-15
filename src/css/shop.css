@@ -2354,6 +2354,11 @@
 .shop-tab .sales-panel-grid { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 992px) { .shop-tab .sales-panel-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
 .shop-tab .sales-panel-label { font-size: .78rem; font-weight: 600; color: var(--shop-ink-500); margin-bottom: .45rem; }
+.shop-tab .sales-panel-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .45rem; }
+.shop-tab .sales-panel-head .sales-panel-label { margin-bottom: 0; }
+.shop-tab .sales-seg-ctl.is-small button { padding: .18rem .65rem; font-size: .78rem; }
+.shop-tab .sales-matrix.is-money td { min-width: 4.25rem; }
+.shop-tab .sales-matrix-pct { display: block; font-size: .7rem; font-weight: 400; color: var(--shop-ink-500); }
 .shop-tab .sales-panel-empty { font-size: .85rem; color: var(--shop-ink-500); margin: 0; }
 
 /* Size × colour: one hue, light → dark by quantity; the number always shown. */

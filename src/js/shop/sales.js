@@ -252,6 +252,17 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
   const rows = [...byProduct.values()].map((e) => {
     const sizes = sizeOrder(e.product, e.sizes);
     const colors = colorOrder(e.product, e.colors);
+    // The grid's margins: what each size and each colour sold, in pieces AND
+    // money — per-size prices mean a size's money is not pieces × one price.
+    const sizeTotals = {};
+    const colorTotals = {};
+    for (const [k, cell] of e.cells) {
+      const [size, color] = k.split('|');
+      for (const [bag, key] of [[sizeTotals, size], [colorTotals, color]]) {
+        const t = bag[key] || (bag[key] = { qty: 0, revenue: 0 });
+        t.qty += cell.qty; t.revenue += cell.revenue;
+      }
+    }
     return {
       productId: e.productId, product: e.product, name: e.name, deleted: e.deleted,
       source: e.source, pieces: e.pieces, revenue: e.revenue, orders: e.orders.size,
@@ -260,6 +271,7 @@ export function salesReport(orders, products, { period = 'all', sources = [], no
       stages: e.stages,
       sizes, colors,
       cells: Object.fromEntries(e.cells),
+      sizeTotals, colorTotals,
       colorLabels: Object.fromEntries(colors.map((c) => [c, colorLabelFor(e.product, c) || (c === 'default' ? '' : c)])),
     };
   });

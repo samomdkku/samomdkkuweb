@@ -21,6 +21,7 @@ const view = {
   period: 'all',
   sources: new Set(),
   metric: 'revenue',          // trend: 'revenue' | 'pieces'
+  cellMetric: 'pieces',       // size × colour grid: 'pieces' | 'revenue'
   sort: { key: 'revenue', dir: 'desc' },
   expanded: new Set(),
   report: null,
@@ -283,11 +284,20 @@ function panelHtml(row) {
       ${showOrdersBtn(row)}`;
   }
   const single = row.sizes.length === 1 && row.colors.length === 1;
+  const m = view.cellMetric;
+  const toggle = `
+    <div class="sales-seg-ctl is-small" role="group" aria-label="ไซส์ × สี แสดงเป็น">
+      <button type="button" data-sales-cell-metric="pieces" class="${m === 'pieces' ? 'is-active' : ''}" aria-pressed="${m === 'pieces'}">ชิ้น</button>
+      <button type="button" data-sales-cell-metric="revenue" class="${m === 'revenue' ? 'is-active' : ''}" aria-pressed="${m === 'revenue'}">บาท</button>
+    </div>`;
   return `
     <div class="sales-panel-grid">
       <div>
-        <div class="sales-panel-label">ไซส์ × สี <span class="text-muted">(ชิ้น)</span></div>
-        ${single ? `<p class="sales-panel-empty">แบบเดียว · ${thb(row.pieces)} ชิ้น</p>` : matrixHtml(row)}
+        <div class="sales-panel-head">
+          <div class="sales-panel-label">ไซส์ × สี <span class="text-muted">(${m === 'revenue' ? 'รายรับ' : 'ชิ้น'})</span></div>
+          ${single ? '' : toggle}
+        </div>
+        ${single ? `<p class="sales-panel-empty">แบบเดียว · ${thb(row.pieces)} ชิ้น · ฿${thb(row.revenue)}</p>` : matrixHtml(row, m)}
       </div>
       <div>
         ${handoverHtml(row.stages, row.pieces, 'การส่งมอบ', '', true)}
@@ -302,34 +312,44 @@ function showOrdersBtn(row) {
     <i class="bi bi-list-check me-1" aria-hidden="true"></i>ดูคำสั่งซื้อของสินค้านี้</button>`;
 }
 
-/** Sizes across, colours down; each cell tinted by its share of the busiest
- *  cell — one hue, light → dark (sequential), the number always printed. */
-function matrixHtml(row) {
-  const max = Math.max(1, ...Object.values(row.cells).map((c) => c.qty));
+/** Sizes across, colours down, in pieces or baht. The margins are what each
+ *  colour (right) and each size (bottom) sold; in baht they also say their
+ *  share of the product. Each cell is tinted by its share of the busiest cell
+ *  — one hue, light → dark (sequential), the number always printed. */
+function matrixHtml(row, metric = 'pieces') {
+  const money = metric === 'revenue';
+  const val = (x) => (money ? x?.revenue : x?.qty) || 0;
+  const fmt = (n) => (money ? `฿${thb(n)}` : thb(n));
+  const total = money ? row.revenue : row.pieces;
+  // A share only where there is something to compare it with.
+  const share = (n, of) => (money && total && of > 1 ? `<span class="sales-matrix-pct">${Math.round((n / total) * 100)}%</span>` : '');
+  const max = Math.max(1, ...Object.values(row.cells).map(val));
   const colors = row.colors;
   const sizes = row.sizes;
-  const sizeTotal = (s) => colors.reduce((a, c) => a + (row.cells[`${s}|${c}`]?.qty || 0), 0);
-  const colorTotal = (c) => sizes.reduce((a, s) => a + (row.cells[`${s}|${c}`]?.qty || 0), 0);
+  const sizeName = (s) => (s === 'F' ? 'ฟรีไซส์' : s);
+  const colorName = (c) => row.colorLabels[c] || 'มาตรฐาน';
   const colorHex = (c) => (row.product?.colors || []).find((x) => x?.id === c)?.hex;
   const cell = (s, c) => {
-    const q = row.cells[`${s}|${c}`]?.qty || 0;
-    if (!q) return '<td class="is-empty">·</td>';
-    const mix = Math.round(12 + 58 * (q / max));
-    return `<td style="--mix:${mix}%" class="${mix > 48 ? 'is-strong' : ''}">${thb(q)}</td>`;
+    const x = row.cells[`${s}|${c}`];
+    if (!x) return '<td class="is-empty">·</td>';
+    const mix = Math.round(12 + 58 * (val(x) / max));
+    // Both numbers in the accessible name, whichever one is printed.
+    const label = `ไซส์ ${sizeName(s)} ${colorName(c)}: ${thb(x.qty)} ชิ้น ฿${thb(x.revenue)}`;
+    return `<td style="--mix:${mix}%" class="${mix > 48 ? 'is-strong' : ''}" title="${escHtml(label)}" aria-label="${escHtml(label)}">${fmt(val(x))}</td>`;
   };
   return `
     <div class="sales-matrix-scroll">
-      <table class="sales-matrix">
-        <thead><tr><th scope="col"></th>${sizes.map((s) => `<th scope="col">${escHtml(s === 'F' ? 'ฟรีไซส์' : s)}</th>`).join('')}<th scope="col" class="is-total">รวม</th></tr></thead>
+      <table class="sales-matrix ${money ? 'is-money' : ''}">
+        <thead><tr><th scope="col"></th>${sizes.map((s) => `<th scope="col">${escHtml(sizeName(s))}</th>`).join('')}<th scope="col" class="is-total">รวม</th></tr></thead>
         <tbody>
           ${colors.map((c) => `
             <tr>
-              <th scope="row">${colorHex(c) ? `<span class="sales-swatch" style="background:${escHtml(colorHex(c))}"></span>` : ''}${escHtml(row.colorLabels[c] || 'มาตรฐาน')}</th>
+              <th scope="row">${colorHex(c) ? `<span class="sales-swatch" style="background:${escHtml(colorHex(c))}"></span>` : ''}${escHtml(colorName(c))}</th>
               ${sizes.map((s) => cell(s, c)).join('')}
-              <td class="is-total">${thb(colorTotal(c))}</td>
+              <td class="is-total">${fmt(val(row.colorTotals[c]))}${share(val(row.colorTotals[c]), colors.length)}</td>
             </tr>`).join('')}
         </tbody>
-        <tfoot><tr><th scope="row">รวม</th>${sizes.map((s) => `<td>${thb(sizeTotal(s))}</td>`).join('')}<td class="is-total">${thb(row.pieces)}</td></tr></tfoot>
+        <tfoot><tr><th scope="row">รวม</th>${sizes.map((s) => `<td>${fmt(val(row.sizeTotals[s]))}${share(val(row.sizeTotals[s]), sizes.length)}</td>`).join('')}<td class="is-total">${fmt(total)}</td></tr></tfoot>
       </table>
     </div>`;
 }
@@ -497,6 +517,13 @@ function onBodyClick(e) {
       : { key, dir: key === 'name' ? 'asc' : 'desc' };
     renderBody();
     document.querySelector(`[data-sales-sort="${key}"]`)?.focus({ preventScroll: true });
+    return;
+  }
+  const cellMetric = t.closest('[data-sales-cell-metric]');
+  if (cellMetric) {
+    view.cellMetric = cellMetric.dataset.salesCellMetric;
+    renderBody();
+    document.querySelector(`[data-sales-cell-metric="${view.cellMetric}"]`)?.focus({ preventScroll: true });
     return;
   }
   const metric = t.closest('[data-sales-metric]');

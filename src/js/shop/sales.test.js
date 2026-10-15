@@ -111,6 +111,10 @@ describe('salesReport — all time, every source', () => {
     expect(polo.colors).toEqual(['g', 'b']);
     expect(Object.values(polo.cells).reduce((s, c) => s + c.qty, 0)).toBe(polo.pieces);
     expect(polo.colorLabels).toEqual({ g: 'เขียว', b: 'ดำ' });
+    // revenue by size and by colour — the grid's margins — sum to the product
+    expect(polo.sizeTotals).toEqual({ S: { qty: 1, revenue: 300 }, M: { qty: 2, revenue: 600 } });
+    expect(polo.colorTotals).toEqual({ g: { qty: 2, revenue: 600 }, b: { qty: 1, revenue: 300 } });
+    expect(Object.values(polo.cells).reduce((s, c) => s + c.revenue, 0)).toBe(polo.revenue);
     expect(polo.pendingPieces).toBe(5);
     expect(polo.preorderPieces).toBe(1);
   });
@@ -214,5 +218,16 @@ describe('wholePercents', () => {
     expect(wholePercents([1, 1, 1])).toEqual([34, 33, 33]);
     expect(wholePercents([0, 4, 0])).toEqual([0, 100, 0]);
     expect(wholePercents([0, 0])).toEqual([0, 0]);
+  });
+});
+
+describe('per-size money', () => {
+  it('a size priced higher earns more than its share of pieces', () => {
+    const lines = [line('polo', 2, 299, { size: 'M', color: 'g' }), line('polo', 1, 329, { size: 'L', color: 'g' })];
+    const r = salesReport([order('P', 'paid', '2026-10-14T03:00:00Z', lines)], products, { now: NOW });
+    const polo = r.products.find((p) => p.productId === 'polo');
+    expect(polo.sizeTotals.M).toEqual({ qty: 2, revenue: 598 });
+    expect(polo.sizeTotals.L).toEqual({ qty: 1, revenue: 329 });
+    expect(polo.cells['L|g'].revenue).toBe(329);
   });
 });
