@@ -101,6 +101,45 @@ try {
       const ok = await ev(`const b=document.querySelector('[data-shop-admin-tab="${t}"]'); if(!b) return false; b.click(); await new Promise(r=>setTimeout(r,2500)); window.scrollTo(0,0); return true;`);
       if (!ok) { console.log(`✗ no tab ${t}`); failed += 1; continue; }
       await shot(`${t}-${w}`);
+      if (t === 'orders' && process.env.MODAL) {
+        // The order detail popup — where most of an admin's day happens.
+        const opened = await ev(`const r=document.querySelector('#shopAdminOrdersTbody tr[data-order-id]'); if(!r) return false; r.click(); await new Promise(r=>setTimeout(r,1500)); return !!document.querySelector('.modal.show');`);
+        if (opened) {
+          await shot(`order-modal-${w}`);
+          await ev(`document.querySelector('.modal.show [data-bs-dismiss="modal"]')?.click(); await new Promise(r=>setTimeout(r,600)); return 1;`);
+        }
+      }
+      if (t === 'verify' && w === WIDTHS[0]) {
+        // The keys, WITHOUT approving anything: a capture listener on the
+        // approve button records the click and stops it before the app's own
+        // handler (which writes) can run.
+        const keys = JSON.parse(await ev(`
+          const btn = document.getElementById('shopVerifyApprove');
+          if (!btn) return JSON.stringify({ skipped: 'queue empty' });
+          let hits = 0;
+          const trap = (e) => { hits += 1; e.stopImmediatePropagation(); e.preventDefault(); };
+          btn.addEventListener('click', trap, true);
+          const press = (key, target = document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+          press('a'); const viaA = hits;
+          const box = document.createElement('input'); document.body.appendChild(box); box.focus();
+          press('a', box); const whileTyping = hits - viaA; box.remove();
+          press('ฟ'); const viaThai = hits - viaA - whileTyping;
+          press('a', document.body); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true }));
+          // Leave the shop for another admin page: the queue is still in the
+          // DOM, hidden by an ANCESTOR — the keys must be dead there.
+          const other = [...document.querySelectorAll('[data-admin-side]')].find((b) => b.dataset.adminSide !== 'shop' && b.offsetParent);
+          let elsewhere = null;
+          if (other) {
+            other.click(); await new Promise(r=>setTimeout(r,800));
+            const before = hits; press('a'); press('r'); elsewhere = hits - before;
+            document.querySelector('[data-admin-side="shop"]')?.click(); await new Promise(r=>setTimeout(r,2500));
+          }
+          btn.removeEventListener('click', trap, true);
+          return JSON.stringify({ viaA, whileTyping, viaThai, total: hits, elsewhere, otherPage: other?.dataset.adminSide || null });`) || '{}');
+        const ok = keys.skipped || (keys.viaA === 1 && keys.whileTyping === 0 && keys.viaThai === 1 && keys.total === 3 && keys.elsewhere === 0);
+        if (!ok) failed += 1;
+        console.log(`${ok ? '✓' : '✗'} slip-queue keys: ${JSON.stringify(keys)}`);
+      }
       if (t === 'sales') {
         const opened = await ev(`const r=document.querySelector('[data-sales-toggle]'); if(!r) return false; if (r.getAttribute('aria-expanded') !== 'true') r.click(); await new Promise(r=>setTimeout(r,400)); return true;`);
         if (opened) {

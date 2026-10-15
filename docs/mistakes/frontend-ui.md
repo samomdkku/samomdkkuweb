@@ -4320,3 +4320,43 @@ can pass while one entry is still borrowing a DIFFERENT concept's token by
 coincidence of nobody else picking the same one. Where a one-to-one identity
 convention exists (`--dept-<key>` for every other dept here), assert the
 NAMING convention itself, not just that the resolved values don't collide.
+
+## Pressing "a" on ระบบบ้าน approved a slip — the slip queue's keys checked `d-none` on two elements, and an ANCESTOR hid the queue
+
+**Symptom** (found by review before it shipped, 2026-10-15): the new SAMO Shop
+slip queue takes A / R to approve or reject. After opening ตรวจสลิป and then
+any non-PR/VS admin page (ระบบบ้าน, ทีม SAMO, ภาพรวม), an "a" typed outside a
+text box clicked อนุมัติ on the oldest slip, which nobody was looking at.
+**Cause**: the handler decided "the queue is on screen" from
+`state.tab === 'verify'` plus the absence of `d-none` on the verify pane and on
+`#adminShopSection`. `showAdminSide` (admin-main.js) leaves the shop section
+alone and hides the PARENT admin pane instead, so neither element ever got the
+class. Visibility is a property of the whole ancestor chain, and two class
+checks can't see it.
+**Fix**: `pane.getClientRects().length === 0` → return, which is true for any
+hidden ancestor. `tools/browser/shop-admin-tour.mjs` presses A and R on another
+admin page with a capture-phase trap on the button (so nothing is written) and
+fails unless 0 clicks land. With the old check restored it reported
+`elsewhere: 1`.
+**Rule**: a global key handler is a gate on a ROUTE, not a widget (class 4).
+Ask the DOM whether the target is rendered; never infer it from the classes
+your own module happens to set.
+
+## Deleting two dead CSS rules by LINE left a rule body with no selector — it would have swallowed the orders table's phone layout
+
+**Symptom**: none on screen. `npm test` and `npm run build` were green.
+`esbuild src/css/shop.css` warned "Unexpected 0" at a line holding `border: 0;
+…` with no selector above it.
+**Cause**: `sed '/button\.stat-card/d'` removed every line naming the selector.
+It took the `button.stat-card {` opener and left its two-line body plus `}`
+behind. In a reduced-motion block it also took the last selector of a list,
+leaving `.x:active,` before `}`. A CSS parser reads stray text as the PRELUDE of
+the next rule, so the orphan body would have run into the next `{` and dropped
+the following rule, the phone card layout of the orders table. Class 6, "never
+slice source by line number", in a deletion this time.
+**Fix**: both repaired by hand. A new guard, `src/js/css-parses.test.js`,
+parses every `src/css/*.css` with esbuild (the parser Vite already uses) and
+fails on any warning. Its control proves a stray declaration IS reported, and
+re-injecting this exact orphan into shop.css turned it red.
+**Rule**: delete CSS by RULE, never by matching line. After any CSS edit made
+by a tool, parse the file.

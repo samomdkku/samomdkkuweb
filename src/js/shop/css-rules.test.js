@@ -28,6 +28,8 @@ const CASES = [
   // The ยอดขาย tab (2026-10-15) and the phone card layout of the orders table.
   ['src/js/shop/admin-sales.js', /(?<![-\w])sales-[a-z-]+/g,  'src/admin.css'],
   ['src/js/shop/admin.js',   /(?<![-\w])oc-[a-z]+/g,          'src/admin.css'],
+  // The attention row, the slip queue and the order popup (2026-10-15).
+  ['src/js/shop/admin.js',   /(?<![-\w])(?:(?:attn|verify|om)-[a-z-]+|slip-broken-note)/g, 'src/admin.css'],
   ['src/html/tab-admin.html', /(?<![-\w])(?:sales-[a-z-]+|admin-tab-count)/g, 'src/admin.css'],
 ];
 

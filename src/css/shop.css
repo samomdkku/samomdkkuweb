@@ -2142,15 +2142,6 @@
 .shop-tab .admin-table .table th { text-transform: none; letter-spacing: 0; }
 .shop-tab .stat-card .stat-label { font-size: .82rem; }
 .shop-tab .stat-card .stat-value { letter-spacing: -.01em; }
-.shop-tab button.stat-card {
-  border: 0; text-align: left; width: 100%; font: inherit; color: inherit;
-  transition: box-shadow .15s ease, transform .1s ease-out;
-}
-.shop-tab button.stat-card:hover { box-shadow: var(--shop-shadow-md); }
-.shop-tab button.stat-card:active { transform: scale(.985); }
-.shop-tab button.stat-card:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
-.shop-tab .stat-card .stat-go { font-size: .8rem; color: var(--shop-ink-500); font-weight: 500; }
-.shop-tab button.stat-card .stat-go { color: var(--status-review); font-weight: 600; }
 
 /* Orders table on a phone: one card per order instead of a 900px table cut
    off at the right edge. The cells are the same; only the layout changes,
@@ -2474,5 +2465,144 @@
   .shop-tab .admin-tabs button:active,
   .shop-tab .sales-seg-ctl button:active,
   .shop-tab .sales-chip:active,
-  .shop-tab button.stat-card:active { transform: none; }
+  .shop-tab button.attn-tile:active { transform: none; }
+  .shop-tab .attn-tile { transition: none; }
 }
+
+/* ==============================================
+ * ต้องจัดการ — the attention row above the orders table (2026-10-15)
+ * ============================================== */
+.shop-tab #shopAdminStats.admin-stats {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem;
+}
+.shop-tab .attn-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; min-width: 0;
+  text-align: left; font: inherit; color: inherit;
+  background: var(--surface); border: 1px solid transparent; border-radius: var(--shop-radius);
+  box-shadow: var(--shop-shadow-sm); padding: .85rem 1rem; position: relative; overflow: hidden;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .1s ease-out;
+}
+.shop-tab .attn-tile::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--attn, transparent);
+}
+.shop-tab .attn-tile.is-review  { --attn: var(--status-review); }
+.shop-tab .attn-tile.is-warning { --attn: var(--status-pending); }
+.shop-tab .attn-tile.is-danger  { --attn: var(--status-cancel); }
+.shop-tab button.attn-tile:hover { box-shadow: var(--shop-shadow-md); }
+.shop-tab button.attn-tile:active { transform: scale(.985); }
+.shop-tab button.attn-tile:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.shop-tab .attn-tile.is-active { border-color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 5%, var(--surface)); }
+.shop-tab .attn-tile.is-quiet { box-shadow: none; background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.shop-tab .attn-tile.is-quiet .attn-value { color: var(--shop-ink-300); }
+.shop-tab .attn-label { font-size: .82rem; color: var(--shop-ink-500); font-weight: 500; }
+.shop-tab .attn-value {
+  font-family: "Prompt", sans-serif; font-size: 1.55rem; font-weight: 700; line-height: 1.2;
+  color: var(--shop-ink-900); letter-spacing: -.01em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.shop-tab .attn-unit { font-family: inherit; font-size: .8rem; font-weight: 400; color: var(--shop-ink-500); margin-left: .25rem; letter-spacing: 0; }
+.shop-tab .attn-sub { font-size: .76rem; color: var(--shop-ink-500); line-height: 1.35; }
+.shop-tab .attn-tile.is-danger .attn-sub,
+.shop-tab .attn-tile.is-review .attn-sub { color: var(--attn); font-weight: 600; }
+.shop-tab .attn-tile.is-quiet .attn-sub { color: var(--shop-ink-300); font-weight: 400; }
+@media (max-width: 575.98px) {
+  .shop-tab #shopAdminStats.admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .shop-tab .attn-tile { padding: .7rem .8rem; }
+  .shop-tab .attn-tile:last-child { grid-column: 1 / -1; }
+}
+
+/* ==============================================
+ * ตรวจสลิป — the slip queue (2026-10-15): the slip big, the amount beside it
+ * ============================================== */
+.shop-tab .verify-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.shop-tab .verify-card {
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1.5rem;
+  background: var(--surface); border-radius: var(--shop-radius); box-shadow: var(--shop-shadow-sm); padding: 1.25rem;
+}
+@media (max-width: 767.98px) { .shop-tab .verify-card { grid-template-columns: minmax(0, 1fr); padding: 1rem; gap: 1rem; } }
+.shop-tab .verify-slip { min-width: 0; }
+.shop-tab .verify-slip-frame {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  min-height: 320px; max-height: 72vh; border-radius: 12px; overflow: hidden;
+  background: var(--shop-ink-50); box-shadow: inset 0 0 0 1px var(--shop-ink-100); text-decoration: none;
+}
+.shop-tab .verify-slip-frame img { max-width: 100%; max-height: 72vh; object-fit: contain; display: block; }
+.shop-tab .verify-slip-frame.is-empty { flex-direction: column; gap: .5rem; color: var(--shop-ink-500); font-size: .9rem; }
+.shop-tab .verify-slip-frame.is-empty i { font-size: 2.5rem; color: var(--shop-ink-300); }
+.shop-tab .verify-slip-open {
+  position: absolute; right: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
+  background: rgba(20, 20, 20, .62); color: #fff; font-size: .75rem;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.shop-tab .verify-slip-strip { display: flex; gap: .5rem; margin-top: .6rem; overflow-x: auto; padding-bottom: .25rem; }
+.shop-tab .verify-slip-pick {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: .2rem;
+  border: 2px solid transparent; border-radius: 10px; background: none; padding: 2px; font-size: .68rem; color: var(--shop-ink-500);
+}
+.shop-tab .verify-slip-pick img { width: 56px; height: 72px; object-fit: cover; border-radius: 7px; background: var(--shop-ink-50); }
+.shop-tab .verify-slip-pick.is-active { border-color: var(--brand-primary); color: var(--shop-ink-900); }
+.shop-tab .verify-slip-pick:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.shop-tab .verify-facts { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.shop-tab .verify-amount {
+  display: flex; flex-direction: column; padding: 1rem 1.1rem; border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-primary) 6%, var(--surface));
+}
+.shop-tab .verify-amount-label { font-size: .82rem; color: var(--shop-ink-500); font-weight: 500; }
+.shop-tab .verify-amount-value {
+  font-family: "Prompt", sans-serif; font-weight: 700; color: var(--shop-ink-900);
+  font-size: clamp(2.2rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -.02em;
+}
+.shop-tab .verify-amount-hint { font-size: .78rem; color: var(--shop-ink-500); margin-top: .25rem; }
+.shop-tab .verify-meta { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: .5rem .75rem; margin: 0; font-size: .9rem; }
+.shop-tab .verify-meta dt { font-weight: 500; color: var(--shop-ink-500); }
+.shop-tab .verify-meta dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.shop-tab .verify-wait {
+  display: inline-block; margin-left: .4rem; padding: .05rem .5rem; border-radius: 999px; font-size: .74rem;
+  background: var(--shop-ink-50); color: var(--shop-ink-700);
+}
+.shop-tab .verify-wait.is-late { background: color-mix(in srgb, var(--status-cancel) 10%, var(--surface)); color: var(--status-cancel); font-weight: 600; }
+.shop-tab .verify-items { border-top: 1px solid var(--shop-ink-100); padding-top: .5rem; }
+.shop-tab .verify-item { display: flex; justify-content: space-between; gap: .75rem; padding: .25rem 0; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.shop-tab .verify-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.shop-tab .verify-actions .btn { padding-top: .6rem; padding-bottom: .6rem; }
+.shop-tab .verify-actions .btn-success { flex: 1 1 12rem; }
+.shop-tab .verify-actions kbd,
+.shop-tab .verify-keys kbd {
+  font-family: inherit; font-size: .7rem; padding: .05rem .35rem; border-radius: 4px; margin-left: .3rem;
+  background: rgba(0, 0, 0, .12); color: inherit; box-shadow: none;
+}
+.shop-tab .verify-keys { font-size: .76rem; color: var(--shop-ink-500); margin: 0; }
+.shop-tab .verify-keys kbd { margin-left: 0; background: var(--shop-ink-100); }
+/* No physical keyboard on a phone: the hints would only be noise. */
+@media (hover: none) and (pointer: coarse) {
+  .shop-tab .verify-keys, .shop-tab .verify-actions kbd { display: none; }
+}
+
+/* ==============================================
+ * Order popup — summary line + history (2026-10-15)
+ * ============================================== */
+.shop-tab .om-summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1rem;
+  padding: 0 0 .9rem; margin-bottom: 1rem; border-bottom: 1px solid var(--shop-ink-100);
+  font-size: .88rem; color: var(--shop-ink-700);
+}
+.shop-tab .om-tag { font-size: .74rem; padding: .1rem .5rem; border-radius: 999px; background: var(--shop-ink-50); color: var(--shop-ink-500); }
+.shop-tab .om-history { list-style: none; margin: 0; padding: 0 0 0 .9rem; border-left: 2px solid var(--shop-ink-100); }
+.shop-tab .om-history li { position: relative; padding: 0 0 .7rem .25rem; font-size: .84rem; display: flex; flex-direction: column; }
+.shop-tab .om-history li::before {
+  content: ''; position: absolute; left: calc(-.9rem - 6px); top: .35rem; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--surface); box-shadow: inset 0 0 0 2px var(--shop-ink-300);
+}
+.shop-tab .om-history li:last-child::before { box-shadow: inset 0 0 0 2px var(--brand-primary); background: var(--brand-primary); }
+.shop-tab .om-history li[data-stage="slip_mismatch"]::before,
+.shop-tab .om-history li[data-stage="cancel"]::before,
+.shop-tab .om-history li[data-stage="issue"]::before { box-shadow: inset 0 0 0 2px var(--status-cancel); }
+.shop-tab .om-h-time { font-size: .74rem; color: var(--shop-ink-500); font-variant-numeric: tabular-nums; }
+.shop-tab .om-h-what { line-height: 1.45; overflow-wrap: anywhere; }
+/* A slip picture that would not load: a readable message, not alt text in a sliver. */
+.shop-tab .slip-thumb.is-broken,
+.shop-tab .verify-slip-pick.is-broken { min-width: 120px; }
+.shop-tab .slip-broken-note {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 1rem; font-size: .8rem; line-height: 1.4; color: var(--shop-ink-500);
+}
+.shop-tab .verify-slip-pick .slip-broken-note { width: 56px; height: 72px; padding: .25rem; font-size: .66rem; border-radius: 7px; background: var(--shop-ink-50); }

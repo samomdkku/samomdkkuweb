@@ -15,7 +15,7 @@ import {
   batchDateEntries, ITEM_STAGES_ORDER, rollupOrderStage, itemStatusMeta,
   effectivePrice, unitPriceFor, priceRange,
   getShopTypes, setShopTypes, getPromptpayQrs, setPromptpayQrs,
-  getPickupLocations, setPickupLocations,
+  getPickupLocations, setPickupLocations, findPickupLocation,
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
   isRevenueOrder, takesPreorderSlot, activeStock,
@@ -40,6 +40,10 @@ import { convertDriveUrl } from '../uploads.js';
 import { showShopToast } from './products.js';
 import { invalidateSettingsCache } from './checkout.js';
 import { initSales, renderSales, setSalesLoading } from './admin-sales.js';
+import {
+  attentionCounts, reviewQueue, slipSentAt, waitedLabel, isOverdue, orderHistory, actorLabel,
+  STALE_PENDING_DAYS,
+} from './order-facts.js';
 
 const state = {
   tab: 'orders',
@@ -64,6 +68,8 @@ const state = {
   ordersPreorder: 'all',
   orderCreateDraft: null,  // admin "create order" inline panel state
   verifyIdx: 0,
+  verifySlip: 0,          // which of the current order's slips is shown big
+  verifyOrderId: null,    // the order on screen — a new one resets verifySlip
   productEditor: null,
   batchEditor: null,
   // Catalog-config managers (migration 0057). Lists mirror the data.js
@@ -132,6 +138,8 @@ function ensureMounted() {
   mounted = true;
   applySourceDefaultOnce();
   wireAutogrowFallback();
+  wireVerifyKeys();
+  wireSlipImageFallback();
 
   // Tab switcher
   document.getElementById('shopAdminTabs')?.addEventListener('click', (e) => {
@@ -309,7 +317,9 @@ function ensureMounted() {
   document.getElementById('shopSalesRefresh')?.addEventListener('click', refreshSales);
   document.getElementById('shopAdminStats')?.addEventListener('click', (e) => {
     const go = e.target.closest('[data-shop-goto]');
-    if (go) setTab(go.dataset.shopGoto);
+    if (go) { setTab(go.dataset.shopGoto); return; }
+    const quick = e.target.closest('[data-shop-quick]');
+    if (quick) applyQuickFilter(quick.dataset.shopQuick);
   });
 }
 
@@ -502,8 +512,7 @@ async function refreshOrders() {
     populateOrdersSizeFacet();
     populateOrdersColorFacet();
     populateOrdersItemStatusFacet();
-    renderStats();
-    renderOrdersTable();
+    renderOrdersTable();   // also redraws the attention tiles
   } catch (e) {
     showShopToast(`โหลดคำสั่งซื้อล้มเหลว: ${e.message || e}`, 'error');
   }
@@ -938,33 +947,97 @@ function updateFilterChromes() {
 // trigger added in migration 0025. Admin changes the product status
 // once; orders cascade. No manual bulk button needed.)
 
+/** The "ต้องจัดการ" row above the orders table: what is waiting on an admin,
+ *  each tile one click from the orders it counts. The counts and the filter
+ *  a tile applies are the same predicate (order-facts.js says which). */
 function renderStats() {
   const host = document.getElementById('shopAdminStats');
   if (!host) return;
-  // Trimmed to the two cards admins actually act on: slip review (the
-  // only one with a daily SLA) and cumulative revenue. Production /
-  // ready counts have their own filter pills below and were just
-  // visual noise here.
-  const review = state.orders.filter((o) => o.status === 'review').length;
-  // Only orders whose slip was CHECKED. 'review' is unchecked and
-  // 'slip_mismatch' is a slip that was REJECTED — both were being counted as
-  // money received under a label that said only cancel/pending were left out.
+  // Each filter tile counts within the admin's แหล่งที่มา, because the filter
+  // its click applies keeps แหล่งที่มา — the number on a tile is the number of
+  // orders the click shows. The slip queue is NOT scoped by source, so neither
+  // is its tile.
+  const scoped = attentionCounts(state.orders, Date.now(), { lineInScope: itemMatchesSource });
+  const queue = attentionCounts(state.orders);
+  // Only orders whose slip was CHECKED — the รายรับสะสม rule (isRevenueOrder),
+  // the same number the shop's Discord message reports.
   const revenue = state.orders
     .filter(isRevenueOrder)
     .reduce((s, o) => s + (Number(o.total) || 0), 0);
-  // The queue card IS the way into the queue when there is something in it.
-  const queueBody = `
-      <div class="stat-label">รอตรวจสลิป</div>
-      <div class="stat-value">${review}<span class="stat-suffix">รายการ</span></div>
-      <div class="stat-go">${review ? 'ตรวจเลย <i class="bi bi-arrow-right"></i>' : 'ไม่มีค้าง'}</div>`;
-  host.innerHTML = `
-    ${review
-      ? `<button type="button" class="stat-card is-warning" data-shop-goto="verify">${queueBody}</button>`
-      : `<div class="stat-card">${queueBody}</div>`}
-    <div class="stat-card">
-      <div class="stat-label">รายรับสะสม (เฉพาะที่ตรวจสลิปแล้ว)</div>
-      <div class="stat-value">฿${thb(revenue)}</div>
-    </div>`;
+  const overdue = isOverdue(queue.oldestReviewAt);
+  // The tiles are rebuilt on every table render; keep keyboard focus on the
+  // same tile across the rebuild.
+  const focused = document.activeElement?.closest?.('#shopAdminStats [data-shop-quick], #shopAdminStats [data-shop-goto]');
+  const focusKey = focused ? (focused.dataset.shopQuick ? `[data-shop-quick="${focused.dataset.shopQuick}"]` : `[data-shop-goto="${focused.dataset.shopGoto}"]`) : null;
+  const tile = ({ n, label, sub, tone, quick, goto, unit = 'ออเดอร์', value }) => {
+    const active = !!quick && quickFilterIs(quick);
+    // A tile whose filter is ON stays a button even at 0, so it can be
+    // switched off — otherwise the table sits filtered with nothing saying why.
+    const live = value != null || n > 0 || active;
+    const attr = quick ? `data-shop-quick="${quick}"` : `data-shop-goto="${goto}"`;
+    const inner = `
+      <span class="attn-label">${label}</span>
+      <span class="attn-value">${value ?? `${thb(n)}<span class="attn-unit">${unit}</span>`}</span>
+      <span class="attn-sub">${active ? 'กำลังกรองอยู่ · กดอีกครั้งเพื่อยกเลิก' : sub}</span>`;
+    return live
+      ? `<button type="button" class="attn-tile ${tone ? `is-${tone}` : ''} ${active ? 'is-active' : ''}" ${attr}
+           ${quick ? `aria-pressed="${active}"` : ''}>${inner}</button>`
+      : `<div class="attn-tile is-quiet">${inner}</div>`;
+  };
+  host.innerHTML = [
+    tile({ n: queue.review, label: 'รอตรวจสลิป', tone: overdue ? 'danger' : 'review', goto: 'verify',
+      sub: queue.review ? `${overdue ? 'รอนานสุด' : 'เก่าสุด'} ${waitedLabel(queue.oldestReviewAt)} · ตรวจเลย <i class="bi bi-arrow-right"></i>` : 'ไม่มีค้าง' }),
+    tile({ n: scoped.mismatch, label: 'สลิปไม่ถูกต้อง', tone: 'warning', quick: 'slip_mismatch',
+      sub: scoped.mismatch ? 'รอลูกค้าส่งสลิปใหม่' : 'ไม่มี' }),
+    tile({ n: scoped.pending, label: 'ยังไม่ส่งสลิป', tone: scoped.pendingStale ? 'warning' : '', quick: 'pending',
+      sub: scoped.pending ? (scoped.pendingStale ? `เกิน ${STALE_PENDING_DAYS} วัน ${scoped.pendingStale} ออเดอร์ — ยังกันสต็อกไว้` : 'ยังอยู่ในเวลา') : 'ไม่มี' }),
+    tile({ n: scoped.issueOrders, label: 'มีปัญหา', tone: 'danger', quick: 'issue',
+      sub: scoped.issueOrders ? 'มีสินค้าที่ทำเครื่องหมายมีปัญหา' : 'ไม่มี' }),
+    tile({ label: 'รายรับสะสม', value: `฿${thb(revenue)}`, goto: 'sales',
+      sub: 'ตรวจสลิปแล้ว · ดูยอดขาย <i class="bi bi-arrow-right"></i>' }),
+  ].join('');
+  if (focusKey) host.querySelector(focusKey)?.focus({ preventScroll: true });
+}
+
+/** The quick filters the attention tiles apply. Each REPLACES the table's
+ *  filters (status, product, size, colour, progress, preorder, search) and
+ *  keeps แหล่งที่มา — the admin's own scope. */
+const QUICK_FILTERS = {
+  slip_mismatch: { statuses: ['slip_mismatch'] },
+  pending:       { statuses: ['pending'] },
+  // A line's มีปัญหา is its stage only once the order is paid (rowDisplayStatus);
+  // a cancelled order keeps the flag but needs nothing more.
+  issue:         { statuses: ['paid'], itemStatuses: ['issue'] },
+};
+function quickFilterIs(kind) {
+  const q = QUICK_FILTERS[kind];
+  if (!q) return false;
+  const same = (set, arr = []) => set.size === arr.length && arr.every((x) => set.has(x));
+  return same(state.ordersStatuses, q.statuses) && same(state.ordersItemStatuses, q.itemStatuses)
+    && !state.ordersProducts.size && !state.ordersTypes.size && !state.ordersSizes.size
+    && !state.ordersColors.size && !(state.ordersSearch || '').trim() && (state.ordersPreorder || 'all') === 'all';
+}
+function applyQuickFilter(kind) {
+  const q = QUICK_FILTERS[kind];
+  if (!q) return;
+  const off = quickFilterIs(kind);   // clicking the active tile again clears it
+  state.ordersStatuses.clear();
+  state.ordersItemStatuses.clear();
+  state.ordersProducts.clear();
+  state.ordersTypes.clear();
+  state.ordersSizes.clear();
+  state.ordersColors.clear();
+  state.ordersSearch = '';
+  state.ordersPreorder = 'all';
+  const search = document.getElementById('shopAdminOrdersSearch'); if (search) search.value = '';
+  document.querySelectorAll('#shopAdminOrdersPreorderGroup [data-orders-preorder]')
+    .forEach((b) => b.classList.toggle('is-active', b.dataset.ordersPreorder === 'all'));
+  if (!off) {
+    (q.statuses || []).forEach((x) => state.ordersStatuses.add(x));
+    (q.itemStatuses || []).forEach((x) => state.ordersItemStatuses.add(x));
+  }
+  repopulateOrderFacets();
+  renderOrdersTable();
 }
 
 
@@ -987,6 +1060,7 @@ function renderOrdersTable() {
     tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">ไม่มีรายการ</td></tr>`;
     if (countEl) countEl.textContent = 'แสดง 0 รายการสินค้า · 0 ชิ้น · 0 คำสั่งซื้อ';
     syncBulkBar();
+    renderStats();   // both outcomes, or a tile stays lit for a filter that changed
     return;
   }
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
@@ -1068,6 +1142,7 @@ function renderOrdersTable() {
     countEl.textContent = `แสดง ${lineCount} รายการสินค้า · ${qtyTotal} ชิ้น · ${list.length} คำสั่งซื้อ`;
   }
   syncBulkBar();
+  renderStats();   // the attention tiles show which quick filter is on
 }
 
 /** Reflect the current selection into the bulk action bar + the
@@ -1605,8 +1680,7 @@ async function reloadModalOrderFromServer(orderId = modalOrder?.id) {
     console.warn('[shop/admin] reload order failed:', e);
   }
   if (modalOrder?.id === orderId) await repaintOrderModalBody();
-  renderOrdersTable();
-  renderStats();
+  renderOrdersTable();   // also redraws the attention tiles
 }
 
 /** Save all edits for one existing line item (ไซส์ / สี / จำนวน / ราคา /
@@ -1717,8 +1791,7 @@ async function onItemStatusClick(btn, body) {
       body.innerHTML = orderModalBodyHtml(order);
       wireOrderModalBody(body);
     }
-    renderOrdersTable();
-    renderStats();
+    renderOrdersTable();   // also redraws the attention tiles
   } catch (e) {
     console.error('[shop/admin] item status update failed:', e);
     showShopToast(`อัปเดตล้มเหลว: ${e?.message || e}`, 'error');
@@ -1784,7 +1857,7 @@ function slipThumbsHtml(o) {
     <div class="slip-thumb-grid mb-2">
       ${slips.map((s) => `
         <a href="${safeUrl(s.url)}" target="_blank" rel="noreferrer" class="slip-thumb">
-          <img src="${safeUrl(s.url)}" alt="slip" />
+          <img src="${safeUrl(slipSrc(s.url, 600))}" alt="สลิป" loading="lazy" />
           ${s.at ? `<span class="slip-thumb-date">${escHtml(fmtDateTime(s.at))}</span>` : ''}
         </a>`).join('')}
     </div>`;
@@ -1924,7 +1997,17 @@ function orderModalBodyHtml(o) {
   const productMap = new Map((state.products || []).map((p) => [p.id, p]));
   const buyerName  = o.buyer_name  || o.buyer_label || '—';
   const buyerEmail = o.buyer_email || '';
+  const pieces = items.reduce((n, it) => n + (Number(it.qty) || 0), 0);
+  const phoneDigits = String(o.buyer_phone || '').replace(/[^0-9+]/g, '');
+  const history = orderHistory(o, state.products);
   return `
+    <div class="om-summary">
+      ${rowStatusPill(rollupOrderStage(o))}
+      <span><i class="bi bi-calendar3 me-1" aria-hidden="true"></i>สั่งเมื่อ ${escHtml(fmtDateTime(o.placed_at))}</span>
+      <span>${thb(pieces)} ชิ้น · <b>฿${thb(o.total)}</b></span>
+      ${items.some((it) => it.is_preorder) ? '<span class="preorder-tag">พรีออเดอร์</span>' : ''}
+      ${o.pickup_location ? `<span><i class="bi bi-geo-alt me-1" aria-hidden="true"></i>รับที่ ${escHtml(findPickupLocation(o.pickup_location)?.label || o.pickup_location)}</span>` : ''}
+    </div>
     <div class="row g-3">
       <div class="col-md-7">
         <h5>ลูกค้า</h5>
@@ -1935,6 +2018,11 @@ function orderModalBodyHtml(o) {
               <i class="bi bi-envelope me-1 text-muted"></i>
               <a href="mailto:${escHtml(buyerEmail)}" class="text-decoration-none">${escHtml(buyerEmail)}</a>
             </div>` : '<div class="small text-muted mt-1"><i class="bi bi-envelope-slash me-1"></i>ไม่มีอีเมล</div>'}
+          ${phoneDigits ? `
+            <div class="small mt-1">
+              <i class="bi bi-telephone me-1 text-muted"></i>
+              <a href="tel:${escHtml(phoneDigits)}" class="text-decoration-none">${escHtml(o.buyer_phone)}</a>
+            </div>` : ''}
         </div>
 
         <h5>รายการสินค้า</h5>
@@ -1953,6 +2041,14 @@ function orderModalBodyHtml(o) {
                 <div class="oil-variant">
                   ${it.size && it.size !== 'F' ? `ไซส์ ${escHtml(it.size)}` : 'Unisex'}
                   ${colorLabel ? ` · ${escHtml(colorLabel)}` : ''}
+                  ${(() => {
+                    // Not recorded on the order (pickup_location is empty on
+                    // every web order), so this is the product's setting NOW —
+                    // said as such, since it may have changed since the sale.
+                    if (o.pickup_location) return '';
+                    const pk = findPickupLocation(product?.pickup_location_id);
+                    return pk ? ` · <i class="bi bi-geo-alt" aria-hidden="true"></i> จุดรับตอนนี้: ${escHtml(pk.label)}` : '';
+                  })()}
                 </div>
               </div>
               <div class="oil-qty">× ${it.qty}</div>
@@ -1972,6 +2068,16 @@ function orderModalBodyHtml(o) {
         ${modalEditItems ? editItemsPanelHtml(o, productMap) : ''}
 
         ${o.buyer_note ? `<h5 class="mt-4">หมายเหตุจากลูกค้า</h5><div class="small bg-light rounded p-2">${escHtml(o.buyer_note)}</div>` : ''}
+
+        <h5 class="mt-4">ประวัติ</h5>
+        ${history.length ? `
+          <ol class="om-history">
+            ${history.map((e) => `
+              <li data-stage="${escHtml(e.stage)}">
+                <span class="om-h-time">${e.at ? escHtml(fmtDateTime(e.at)) : '—'}</span>
+                <span class="om-h-what"><b>${escHtml(e.label)}</b>${e.what ? ` <span class="text-muted">· ${escHtml(e.what)}</span>` : ''}${e.by ? ` <span class="text-muted">· โดย${escHtml(actorLabel(e.by))}</span>` : ''}</span>
+              </li>`).join('')}
+          </ol>` : '<p class="small text-muted">ยังไม่มีประวัติ</p>'}
       </div>
       <div class="col-md-5">
         <h5>สลิปการโอน${(() => { const n = orderSlipList(o).length; return n > 1 ? ` (${n})` : ''; })()}</h5>
@@ -2050,85 +2156,142 @@ async function persistAdminNoteIfChanged() {
 // ---------------------------------------------------------------------
 // Verify queue (one-at-a-time review)
 // ---------------------------------------------------------------------
+/** A slip picture at a width. lh3 sizes it server-side; the slip goes
+ *  straight to Google, never through the VM's /img cache — a bank slip is
+ *  not something to keep a copy of on our disk. */
+function slipSrc(url, w) {
+  const base = imageBase(url);
+  // -rj: lh3 otherwise returns the master's format, and a phone-screenshot
+  // slip is a PNG — ~1 MB at 1600px for every slip the queue shows.
+  return /lh3\.googleusercontent\.com/.test(base) ? `${base}=w${w}-rj` : base;
+}
+
+/** The slip queue: one order at a time, oldest slip first. The slip is big
+ *  and the amount it must show sits right beside it — the whole job is
+ *  comparing those two. Keys: A อนุมัติ · R สลิปไม่ถูกต้อง · ← → เลื่อน. */
 function renderVerifyQueue() {
   const host = document.getElementById('shopAdminVerifyHost');
   if (!host) return;
-  const queue = state.orders.filter((o) => o.status === 'review');
+  const queue = reviewQueue(state.orders);
   if (queue.length === 0) {
     host.innerHTML = `
       <div class="empty-state">
         <i class="bi bi-check2-all"></i>
         <h4>ไม่มีสลิปรอตรวจ</h4>
-        <p>ยอดเยี่ยม! ตามดูใหม่อีกครั้งเมื่อมีคำสั่งซื้อเข้า</p>
+        <p>ตรวจครบแล้ว — สลิปใหม่จะเข้ามาที่นี่ และแท็บนี้จะขึ้นตัวเลขบอก</p>
       </div>`;
     return;
   }
   const idx = Math.max(0, Math.min(state.verifyIdx, queue.length - 1));
+  if (idx !== state.verifyIdx || state.verifyOrderId !== queue[idx].id) state.verifySlip = 0;
   state.verifyIdx = idx;
   const current = queue[idx];
-  const items = Array.isArray(current.items) ? current.items : [];
+  state.verifyOrderId = current.id;
+  const items = (Array.isArray(current.items) ? current.items : []).filter(Boolean);
+  const slips = orderSlipList(current).slice().reverse();   // newest first: the one just sent
+  const slipI = Math.max(0, Math.min(state.verifySlip || 0, slips.length - 1));
+  const slip = slips[slipI];
+  const sentAt = slipSentAt(current);
+  const late = isOverdue(sentAt);
+  const productMap = new Map((state.products || []).map((p) => [p.id, p]));
 
   host.innerHTML = `
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="verify-head">
       <div>
-        <h5 class="font-prompt mb-0" style="font-weight:700;">ตรวจสลิปทีละรายการ</h5>
-        <p class="text-muted mb-0 small">รายการ ${idx + 1} จาก ${queue.length}</p>
+        <h5 class="font-prompt mb-0" style="font-weight:700;">ตรวจสลิป</h5>
+        <p class="text-muted mb-0 small">รายการ ${idx + 1} จาก ${queue.length} · เรียงจากส่งสลิปก่อน</p>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-ghost btn-sm" id="shopVerifyPrev" ${idx === 0 ? 'disabled' : ''}>
-          <i class="bi bi-chevron-left"></i> ก่อนหน้า
+        <button class="btn btn-ghost btn-sm" id="shopVerifyPrev" ${idx === 0 ? 'disabled' : ''} aria-label="ก่อนหน้า">
+          <i class="bi bi-chevron-left"></i><span class="d-none d-sm-inline"> ก่อนหน้า</span>
         </button>
-        <button class="btn btn-ghost btn-sm" id="shopVerifyNext" ${idx >= queue.length - 1 ? 'disabled' : ''}>
-          ถัดไป <i class="bi bi-chevron-right"></i>
+        <button class="btn btn-ghost btn-sm" id="shopVerifyNext" ${idx >= queue.length - 1 ? 'disabled' : ''} aria-label="ถัดไป">
+          <span class="d-none d-sm-inline">ถัดไป </span><i class="bi bi-chevron-right"></i>
         </button>
       </div>
     </div>
 
-    <div class="admin-detail-card">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <h5>สลิปที่อัปโหลด${(() => { const n = orderSlipList(current).length; return n > 1 ? ` (${n})` : ''; })()}</h5>
-          ${slipThumbsHtml(current)}
-        </div>
-        <div class="col-md-6">
-          <h5>เปรียบเทียบยอด</h5>
-          <table class="table table-sm">
-            <tbody>
-              <tr><th class="text-muted" style="font-weight:500;">คำสั่งซื้อ</th><td>${escHtml(current.id)}</td></tr>
-              <tr><th class="text-muted" style="font-weight:500;">ลูกค้า</th><td>${escHtml(current.buyer_name || current.buyer_label || '—')}${current.buyer_email ? `<div class="small text-muted">${escHtml(current.buyer_email)}</div>` : ''}</td></tr>
-              <tr><th class="text-muted" style="font-weight:500;">ยอดที่ต้องโอน</th><td><b>฿${thb(current.total)}</b></td></tr>
-              <tr><th class="text-muted" style="font-weight:500;">เวลาส่งสลิป</th><td>${current.slip_uploaded_at ? fmtDateTime(current.slip_uploaded_at) : '—'}</td></tr>
-            </tbody>
-          </table>
+    <div class="verify-card">
+      <div class="verify-slip">
+        ${slip ? `
+          <a class="verify-slip-frame" href="${safeUrl(slip.url)}" target="_blank" rel="noreferrer" title="เปิดสลิปขนาดเต็ม">
+            <img src="${safeUrl(slipSrc(slip.url, 1600))}" alt="สลิปของคำสั่งซื้อ ${escHtml(current.id)}" />
+            <span class="verify-slip-open"><i class="bi bi-arrows-fullscreen"></i> ขนาดเต็ม</span>
+          </a>
+          ${slips.length > 1 ? `
+            <div class="verify-slip-strip" role="group" aria-label="สลิปทั้งหมด ${slips.length} รูป">
+              ${slips.map((sl, i) => `
+                <button type="button" class="verify-slip-pick ${i === slipI ? 'is-active' : ''}" data-verify-slip="${i}"
+                        aria-pressed="${i === slipI}" aria-label="สลิปรูปที่ ${slips.length - i}${sl.at ? ` ส่งเมื่อ ${escHtml(fmtDateTime(sl.at))}` : ''}">
+                  <img src="${safeUrl(slipSrc(sl.url, 200))}" alt="" />
+                  <span>${i === 0 ? 'ล่าสุด' : escHtml(sl.at ? fmtDateTime(sl.at) : `รูปที่ ${slips.length - i}`)}</span>
+                </button>`).join('')}
+            </div>` : ''}
+        ` : `
+          <div class="verify-slip-frame is-empty"><i class="bi bi-x-octagon"></i><span>ไม่พบไฟล์สลิป</span></div>`}
+      </div>
 
-          <h5 class="mt-3">รายการ</h5>
+      <div class="verify-facts">
+        <div class="verify-amount">
+          <span class="verify-amount-label">ยอดที่ต้องโอน</span>
+          <span class="verify-amount-value">฿${thb(current.total)}</span>
+          <span class="verify-amount-hint">ตรวจว่ายอดและชื่อบัญชีปลายทางในสลิปตรงกัน</span>
+        </div>
+
+        <dl class="verify-meta">
+          <dt>คำสั่งซื้อ</dt>
+          <dd>${orderIdChipHtml(current.id)}
+            <button type="button" class="btn btn-link btn-sm p-0 ms-2" data-verify-open>ดูรายละเอียดทั้งหมด</button></dd>
+          <dt>ลูกค้า</dt>
+          <dd><b>${escHtml(current.buyer_name || current.buyer_label || '—')}</b>
+            ${current.buyer_email ? `<div class="small text-muted">${escHtml(current.buyer_email)}</div>` : ''}
+            ${current.buyer_phone ? `<div class="small"><a href="tel:${escHtml(String(current.buyer_phone).replace(/[^0-9+]/g, ''))}">${escHtml(current.buyer_phone)}</a></div>` : ''}</dd>
+          <dt>สั่งเมื่อ</dt>
+          <dd>${fmtDateTime(current.placed_at)}</dd>
+          <dt>ส่งสลิป</dt>
+          <dd>${sentAt ? fmtDateTime(sentAt) : '—'}
+            ${sentAt ? `<span class="verify-wait ${late ? 'is-late' : ''}">รอมา ${waitedLabel(sentAt)}</span>` : ''}
+            ${slips.length > 1 ? `<div class="small text-muted">ส่งมาทั้งหมด ${slips.length} รูป</div>` : ''}</dd>
+          ${current.customer_note || current.admin_note ? `
+          <dt>หมายเหตุ</dt>
+          <dd class="small">${current.admin_note ? `<div><span class="text-muted">ภายใน:</span> ${escHtml(current.admin_note)}</div>` : ''}${current.customer_note ? `<div><span class="text-muted">ถึงลูกค้า:</span> ${escHtml(current.customer_note)}</div>` : ''}</dd>` : ''}
+        </dl>
+
+        <div class="verify-items">
           ${items.map((it) => {
-            const p = (state.products || []).find((pp) => pp.id === it.product_id);
-            const name = p?.name || it.product_id || '(สินค้าถูกลบ)';
+            const p = productMap.get(it.product_id);
+            const variant = [it.size && it.size !== 'F' ? `ไซส์ ${it.size}` : '', colorLabelFor(p, it.color)].filter(Boolean).join(' · ');
             return `
-            <div class="d-flex justify-content-between py-1 small">
-              <span>${escHtml(name)}${it.size && it.size !== 'F' ? ` <span class="text-muted">ไซส์ ${escHtml(it.size)}</span>` : ''} <span class="text-muted">× ${it.qty}</span></span>
+            <div class="verify-item">
+              <span>${escHtml(p?.name || it.product_id || '(สินค้าถูกลบ)')}${variant ? ` <span class="text-muted">${escHtml(variant)}</span>` : ''} <span class="text-muted">× ${Number(it.qty) || 0}</span></span>
               <span>฿${thb((Number(it.unit_price) || 0) * (Number(it.qty) || 0))}</span>
             </div>`;
           }).join('')}
-
-          <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-success flex-grow-1" id="shopVerifyApprove">
-              <i class="bi bi-check2-circle me-1"></i> อนุมัติ
-            </button>
-            <button class="btn btn-outline-warning" id="shopVerifyReject">
-              <i class="bi bi-exclamation-triangle me-1"></i> สลิปไม่ถูกต้อง
-            </button>
-          </div>
         </div>
+
+        <div class="verify-actions">
+          <button class="btn btn-success" id="shopVerifyApprove">
+            <i class="bi bi-check2-circle me-1"></i> อนุมัติ <kbd>A</kbd>
+          </button>
+          <button class="btn btn-outline-warning" id="shopVerifyReject">
+            <i class="bi bi-exclamation-triangle me-1"></i> สลิปไม่ถูกต้อง <kbd>R</kbd>
+          </button>
+        </div>
+        <p class="verify-keys">คีย์ลัด: <kbd>A</kbd> อนุมัติ · <kbd>R</kbd> สลิปไม่ถูกต้อง · <kbd>←</kbd> <kbd>→</kbd> เลื่อน · ตัดสินแล้วไปรายการถัดไปเอง</p>
       </div>
     </div>`;
 
   document.getElementById('shopVerifyPrev')?.addEventListener('click', () => { state.verifyIdx = Math.max(0, idx - 1); renderVerifyQueue(); });
   document.getElementById('shopVerifyNext')?.addEventListener('click', () => { state.verifyIdx = Math.min(queue.length - 1, idx + 1); renderVerifyQueue(); });
+  host.querySelectorAll('[data-verify-slip]').forEach((b) => b.addEventListener('click', () => {
+    state.verifySlip = Number(b.dataset.verifySlip) || 0;
+    renderVerifyQueue();
+  }));
+  host.querySelector('[data-verify-open]')?.addEventListener('click', () => openOrderModal(current.id));
   // One decision per render: both buttons lock on the first click (a double
   // click appended the timeline entry twice), and the write only lands if the
-  // order is still the version on screen (expectUpdatedAt).
+  // order is still the version on screen (expectUpdatedAt). The decided order
+  // leaves the queue, so the same index is the next one.
   const decide = async (next, okMsg, tone) => {
     ['shopVerifyApprove', 'shopVerifyReject'].forEach((id) => {
       const b = document.getElementById(id); if (b) b.disabled = true;
@@ -2143,9 +2306,55 @@ function renderVerifyQueue() {
     renderVerifyQueue();
   };
   document.getElementById('shopVerifyApprove')?.addEventListener('click',
-    () => decide('paid', 'อนุมัติสลิป — ย้ายไป "ชำระแล้ว"', 'success'));
+    () => decide('paid', `อนุมัติ ${current.id} แล้ว — ย้ายไป "ชำระแล้ว"`, 'success'));
   document.getElementById('shopVerifyReject')?.addEventListener('click',
-    () => decide('slip_mismatch', 'แจ้งสลิปไม่ถูกต้อง — ลูกค้าจะอัปโหลดสลิปใหม่ได้', 'warn'));
+    () => decide('slip_mismatch', `${current.id}: แจ้งสลิปไม่ถูกต้อง — ลูกค้าจะอัปโหลดสลิปใหม่ได้`, 'warn'));
+}
+
+/** A slip whose file will not load (deleted, unshared, offline) showed its
+ *  alt text squeezed into a 38px sliver. `error` does not bubble, so one
+ *  capture listener catches every slip picture the admin draws — the queue,
+ *  the popup, the strip — and puts a plain message in its place. The link
+ *  around it still opens the original. */
+function wireSlipImageFallback() {
+  document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement)) return;
+    const box = img.closest('.slip-thumb, .verify-slip-frame, .verify-slip-pick');
+    if (!box || box.classList.contains('is-broken')) return;
+    box.classList.add('is-broken');
+    const note = document.createElement('span');
+    note.className = 'slip-broken-note';
+    note.textContent = box.classList.contains('verify-slip-pick') ? 'โหลดไม่ได้' : 'โหลดรูปสลิปไม่ได้ — กดเพื่อเปิดไฟล์ต้นฉบับ';
+    img.replaceWith(note);
+  }, true);
+}
+
+/** The slip queue's keys. Only while that pane is on screen, nothing is
+ *  being typed, no dialog is open and no modifier is held — a stray "a" in a
+ *  note must never approve a slip. Keys click the real buttons, so the
+ *  one-decision lock applies to them too. */
+function wireVerifyKeys() {
+  document.addEventListener('keydown', (e) => {
+    if (state.tab !== 'verify' || e.defaultPrevented || e.repeat) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    // VISIBLE, not "no d-none on two elements": leaving the shop for another
+    // admin page hides an ANCESTOR (the admin pane), and the keys stayed live
+    // there — an "a" on ระบบบ้าน approved a slip nobody was looking at.
+    const pane = document.querySelector('#adminShopSection [data-shop-admin-pane="verify"]');
+    if (!pane || pane.getClientRects().length === 0) return;
+    if (document.querySelector('.modal.show')) return;
+    const t = e.target;
+    if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const id = { a: 'shopVerifyApprove', r: 'shopVerifyReject', ArrowLeft: 'shopVerifyPrev', ArrowRight: 'shopVerifyNext' }[
+      e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    // Thai keyboard layout: the A and R keys type ฟ and พ.
+    const thai = { 'ฟ': 'shopVerifyApprove', 'พ': 'shopVerifyReject' }[e.key];
+    const btn = document.getElementById(id || thai || '');
+    if (!btn || btn.disabled) return;
+    e.preventDefault();
+    btn.click();
+  });
 }
 
 // ---------------------------------------------------------------------
