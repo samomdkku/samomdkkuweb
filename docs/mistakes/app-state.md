@@ -200,6 +200,16 @@ nothing else in the public bundle reads or writes it.
    `#track/<id>` immediately would always take the signed-out path. `await
    authReady` first, then fall back to the by-id guest lookup — which grants
    nothing new, since the id is already in the user's own URL.
+   **Second site, 2026-10-16 — `/me`, caught before shipping.** The page's
+   "เข้าสู่ระบบเพื่อดูข้อมูลของคุณ" prompt was toggled straight from the
+   `onAuthChange` callback, whose FIRST call is always `null` (it fires on
+   subscribe, before the session restore). A signed-in person opening `/me`
+   directly was told to sign in for as long as the restore took. Now the
+   prompt shows only once `authReady` has settled (`syncMePage` in main.js);
+   `tools/browser/me-page.mjs` watches for the flash with a MutationObserver
+   from the first byte, and goes red with the gate removed. **An
+   `onAuthChange` null is "not known yet" until `authReady` — any UI that SAYS
+   "you are signed out" must wait for it.**
 **Also**: `replaceState`, not `pushState`. The mode radios are a segmented
 control; one history entry per tap makes the back button feel broken.
 **Where**: `src/js/vs-route.js`; writers in `vs-form.js toggleVitalSoundMode`,

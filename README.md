@@ -69,8 +69,9 @@ triggered over ssh (needs the KKU VPN).
 - **One account across the portal.** A person is one record
   (`public.people`): fixing your name or ชื่อเล่น anywhere — your own card, the
   ทีม SAMO admin pane, the ระบบบ้าน admin pane — updates everywhere. Signed-in
-  users see a single **ข้อมูลของฉัน** card with their identity once, then a
-  ทีม SAMO section and a ระบบบ้าน section. The three copies of a person (main
+  users have their own page, **ข้อมูลของฉัน** (`/me` — from the avatar, the
+  home page's account row or the menu): their identity once, then a ทีม SAMO
+  section and a ระบบบ้าน section, and the account controls. The three copies of a person (main
   card, ทีม SAMO, ระบบบ้าน) sync by themselves — including when someone is
   newly added to one of them — and any disagreement is listed in ระบบบ้าน →
   ข้อมูลไม่ครบ with a one-tap ซิงก์ให้ตรงกัน.

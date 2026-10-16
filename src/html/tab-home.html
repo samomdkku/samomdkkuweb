@@ -98,29 +98,25 @@
             </button>
           </section>
 
-          <section id="homeAuthSignedIn" class="home-welcome d-none">
-            <div>
-              <p class="welcome-greeting mb-1">สวัสดี <span id="homeUserName">—</span></p>
-              <span class="welcome-dept" id="homeUserDept" hidden></span>
-            </div>
-            <!-- Hidden on mobile: signout there lives in the top-bar navbar
-                 button + offcanvas. Desktop keeps it in the welcome strip. -->
-            <button type="button" class="btn btn-outline-secondary btn-sm d-none d-lg-inline-flex" onclick="samoSignOut()">
-              <i class="bi bi-box-arrow-right me-1"></i>ออกจากระบบ
-            </button>
-          </section>
-
-          <!-- ตำแหน่งของฉันในทีม SAMO. Rendered by my-seat.js ONLY for a signed-in
-               account whose kkumail holds a posting in the org tree; everyone
-               else (every ordinary student login) never sees it. -->
-          <!-- ตรวจสอบข้อมูล — the import's disagreements with THIS person, and the
-               ยืนยัน button (0138). ABOVE both cards and outside either of them
-               on purpose: it applies to a house-only student and to a ทีม SAMO
-               shared account alike, and putting it inside my-seat.js would have
-               hidden it from the ~1,800 people who have no posting. -->
-          <section id="homeIdentityCheck" class="identity-check" aria-label="ตรวจสอบข้อมูลของฉัน" hidden></section>
-          <section id="homeMySeat" class="myseat" aria-label="ข้อมูลของฉัน" hidden></section>
-          <section id="homeMyHouse" class="myhouse mt-3" aria-label="บ้านของฉัน" hidden></section>
+          <!-- ACCOUNT ROW — signed in. One line that says who you are and leads
+               to /me, where everything about you lives (identity check, ทีม SAMO,
+               ระบบบ้าน, Discord, account). It replaced those cards HERE: they
+               pushed the news below the fold on every visit. The flag keeps the
+               identity check from going quiet now it is a tap away. -->
+          <a id="homeAuthSignedIn" class="home-me d-none" href="/me" data-dept-tool-tab="pills-me-tab">
+            <span class="home-me-avatar" aria-hidden="true">
+              <img id="homeUserPic" alt="" width="48" height="48" hidden />
+              <span id="homeUserInitial"></span>
+            </span>
+            <span class="home-me-body">
+              <span class="home-me-greet">สวัสดี <span id="homeUserName">—</span></span>
+              <span class="home-me-sub" id="homeUserDept">ดูและแก้ไขข้อมูลของฉัน</span>
+              <span class="home-me-alert" id="homeMeAlert" hidden>
+                <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> มีข้อมูลรอให้คุณตรวจสอบ
+              </span>
+            </span>
+            <span class="home-me-go">ข้อมูลของฉัน <i class="bi bi-chevron-right" aria-hidden="true"></i></span>
+          </a>
 
           <!-- NEWS — featured story + grid of recent posts.
                Populated by announcements.js renderHomeAnnouncements(). -->

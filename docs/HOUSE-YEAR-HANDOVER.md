@@ -463,7 +463,7 @@ network call on its own (only the receipt and the claim submit do). On
 
 1. Open the browser devtools console on the page.
 2. `const m = await import('/src/js/house/my-house.js')`
-3. `const el = document.getElementById('homeMyHouse')`
+3. `const el = document.getElementById('meMyHouse')` (on `/me` since 2026-10-16)
 4. `m.renderMyHouse(el, null, { signedIn: true, account: 'anything@gmail.com' })`
    → outcome 2, the "switch account" card.
 5. `m.renderMyHouse(el, null, { signedIn: true, account: 'anything@kkumail.com' })`

@@ -1,0 +1,68 @@
+      <!-- /me — ข้อมูลของฉัน. Everything about the signed-in person, one tap from
+           the home page's account row, the avatar menu and the phone top bar.
+           The three cards are owned by their own modules and painted here by
+           main.js's auth handler; this file is only where they stand.
+           Why it is a page and not part of home: src/js/me-page.js. -->
+      <div class="tab-pane fade me-tab" id="pills-me" role="tabpanel">
+        <div class="container me-container">
+
+          <header class="me-head">
+            <h1 class="me-title">ข้อมูลของฉัน</h1>
+            <p class="me-lead">ข้อมูลของคุณที่สโมสรใช้ ตรวจสอบและแก้ไขได้ที่นี่</p>
+          </header>
+
+          <!-- Signed out: the page has nobody to describe. Hidden until auth has
+               SETTLED (main.js syncMePage) — before that, "no user" only means
+               the stored session has not been restored yet. -->
+          <section id="meSignedOut" class="me-signedout" hidden>
+            <span class="me-signedout-icon" aria-hidden="true"><i class="bi bi-person-circle"></i></span>
+            <h2>เข้าสู่ระบบเพื่อดูข้อมูลของคุณ</h2>
+            <button type="button" class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#signinModal">
+              <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
+            </button>
+          </section>
+
+          <div id="meSignedIn" hidden>
+            <!-- ตรวจสอบข้อมูล — the import's disagreements with THIS person, and
+                 the ยืนยัน button (0138). Above both cards, outside either: it
+                 applies to a house-only student and a ทีม SAMO account alike. -->
+            <section id="meIdentityCheck" class="identity-check" aria-label="ตรวจสอบข้อมูลของฉัน" hidden></section>
+            <!-- ทีม SAMO card (my-seat.js) — only for an account whose kkumail
+                 holds a posting; ระบบบ้าน and Discord paint into its slots. -->
+            <section id="meMySeat" class="myseat" aria-label="ข้อมูลของฉัน" hidden></section>
+            <!-- ระบบบ้าน on its own, for everyone with no posting (most students),
+                 including the claim flow for an account it cannot find yet. -->
+            <section id="meMyHouse" class="myhouse mt-3" aria-label="บ้านของฉัน" hidden></section>
+
+            <!-- บัญชี — a grouped list, Settings-style. One row per action; the
+                 destructive one last, alone, in red. -->
+            <section class="me-account" aria-labelledby="meAccountHeading">
+              <h2 class="me-group-title" id="meAccountHeading">บัญชี</h2>
+              <p class="me-account-who" id="meAccountWho"></p>
+              <div class="me-group">
+                <button type="button" class="me-row" onclick="samoOpenProfile()">
+                  <span class="me-row-icon" style="--row-color: var(--brand-primary);"><i class="bi bi-person-gear"></i></span>
+                  <span class="me-row-body">
+                    <span class="me-row-title">จัดการบัญชี</span>
+                    <span class="me-row-sub">ชื่อที่แสดง อีเมล รหัสผ่าน และการเชื่อมบัญชี Google</span>
+                  </span>
+                  <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="me-row" onclick="samoSwitchAccount()">
+                  <span class="me-row-icon" style="--row-color: var(--ink-500);"><i class="bi bi-person-bounding-box"></i></span>
+                  <span class="me-row-body">
+                    <span class="me-row-title">เปลี่ยนบัญชี</span>
+                  </span>
+                  <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="me-group">
+                <button type="button" class="me-row me-row--danger" onclick="samoSignOut()">
+                  <span class="me-row-body"><span class="me-row-title">ออกจากระบบ</span></span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+        </div>
+      </div>

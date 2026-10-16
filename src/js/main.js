@@ -19,7 +19,7 @@ import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
 
 // --- Module Imports ---
-import { initAuth, onAuthChange, signOut as samoSignOut, getUser as authGetUser, userCanAccess, holdsMaster } from './auth.js';
+import { initAuth, onAuthChange, authReady, signOut as samoSignOut, getUser as authGetUser, userCanAccess, holdsMaster } from './auth.js';
 import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
 import { mountSigninModal } from './signin-modal.js';
 import { initProfileModal, openProfileModal } from './profile.js';
@@ -38,13 +38,14 @@ import { initHomeHero, initHomeRail } from './home-hero.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { renderDiscordCard, readDiscordOutcome } from './discord-link.js';
-import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
+import { showMyHouse, renderMyHouse, clearMyHouseCache, loadMyHouse } from './house/my-house.js';
 // ปีการศึกษา is an admin-set value (0141); every ชั้นปี on the page derives from
 // it, so it is fetched once before anything that renders one.
 import { primeAcademicYear } from './house/api.js';
 import {
-  showIdentityCheck, renderIdentityCheck, clearIdentityCheckCache,
+  showIdentityCheck, renderIdentityCheck, clearIdentityCheckCache, loadIdentityStatus,
 } from './identity-check.js';
+import { summarizeMe, paintHomeMe, paintAvatar, paintMeAccount, discordReturnPath } from './me-page.js';
 // The one list of "which grants open /admin/". Shared with admin-main.js
 // canUseAdmin() so the navbar link and the door it opens cannot drift.
 import { ADMIN_FEATURES } from './team-vocab.js';
@@ -321,6 +322,7 @@ document.addEventListener('shown.bs.tab', (e) => {
       || e.target?.id === 'pills-projects-view-tab'
       || e.target?.id === 'pills-golden-period-tab'
       || e.target?.id === 'pills-tool-embed-tab'
+      || e.target?.id === 'pills-me-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
@@ -405,6 +407,7 @@ const PATH_ROUTES = [
   { path: '/tools/golden-period', tab: 'pills-golden-period-tab' },
   { path: '/about',    tab: 'pills-about-tab' },
   { path: '/updates',  tab: 'pills-updates-tab' },
+  { path: '/me',       tab: 'pills-me-tab' },
 ];
 
 /** Open the release-notes page. Bound to window so the footer link and the
@@ -654,6 +657,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // would yank the user out of the kanban they were working in.
   let prevAuthKey = '__init__';
 
+  // The FIRST auth callback fires with no user, before the stored session is
+  // restored — so "signed out" is not known until authReady. Painting the
+  // sign-in prompt on that first call told a signed-in person who opened /me
+  // directly to sign in, for as long as the restore took.
+  let authSettled = false;
+  const syncMePage = (user) => {
+    document.getElementById('meSignedOut')?.toggleAttribute('hidden', !(authSettled && !user));
+    document.getElementById('meSignedIn')?.toggleAttribute('hidden', !user);
+  };
+  authReady.then(() => { authSettled = true; syncMePage(authGetUser()); });
+
   // Subscribe navbar + home page + sign-in modal to global auth state.
   onAuthChange((user) => {
     const role = user?.role || null;
@@ -698,6 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mobile top-bar sign-out button — mirror of the sign-in button, shown
     // only when signed in (and only <lg via its d-lg-none class).
     document.getElementById('navAuthSignedInMobile')?.classList.toggle('d-none', !user);
+    if (user) paintAvatar(document.getElementById('navUserPicMobile'), document.getElementById('navUserInitialMobile'), user);
 
     // Mobile offcanvas: sign-in CTA (signed-out), user strip + sign-out (signed-in)
     document.getElementById('mobileAuthSignedOut')?.classList.toggle('d-none', !!user);
@@ -754,33 +769,33 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.toggle('d-none', role !== 'dev' && !holdsMaster(user));
     });
 
-    // Home page
+    // Home page: the sign-in strip signed out, the account row signed in.
+    // The row's sub-line starts as the account's own ฝ่าย / role and is
+    // replaced by the ตำแหน่ง / บ้าน summary once the cards' data resolves.
     const homeOut = document.getElementById('homeAuthSignedOut');
     const homeIn = document.getElementById('homeAuthSignedIn');
     if (homeOut && homeIn) {
       homeOut.classList.toggle('d-none', !!user);
       homeIn.classList.toggle('d-none', !user);
-      if (user) {
-        const homeName = document.getElementById('homeUserName');
-        const homeDept = document.getElementById('homeUserDept');
-        if (homeName) homeName.textContent = user.name || user.username || '';
-        // No "ยังไม่ได้ระบุฝ่าย" fallback: for a ทีม SAMO member it was simply
-        // WRONG (their ฝ่าย is in the org tree, not in users.department), and for
-        // everyone else it is a nag about a field they cannot set from here. An
-        // empty line is hidden outright; the ตำแหน่งของฉัน card below carries the
-        // real answer for anyone who has one.
-        const deptText = user.department || roleLabel(role) || '';
-        if (homeDept) { homeDept.textContent = deptText; homeDept.hidden = !deptText; }
-      }
+      // No "ยังไม่ได้ระบุฝ่าย" fallback: for a ทีม SAMO member it was simply
+      // WRONG (their ฝ่าย is in the org tree, not in users.department), and for
+      // everyone else it is a nag about a field they cannot set from here.
+      if (user) paintHomeMe(user, { line: user.department || roleLabel(role) || '', needsYou: false });
     }
 
-    // ตำแหน่งของฉันในทีม SAMO — under the greeting, so the answer to "what am I"
-    // sits where the app already says hello. Async and best-effort: it paints
+    // /me — ข้อมูลของฉัน. The page exists signed out too (a shared link, the
+    // back button after sign-out), and then it asks the visitor to sign in.
+    syncMePage(user);
+    if (user) paintMeAccount(user);
+
+    // ตำแหน่งของฉันในทีม SAMO — on /me since 2026-10-16 (it used to sit under
+    // the home greeting; me-page.js says why). Async and best-effort: it paints
     // itself in when the lookup resolves and stays hidden for the (many) people
     // with no posting. Signing out clears the cache so the next account cannot
     // inherit the previous person's card.
-    const seatHost = document.getElementById('homeMySeat');
-    const houseHost = document.getElementById('homeMyHouse');
+    const seatHost = document.getElementById('meMySeat');
+    const houseHost = document.getElementById('meMyHouse');
+    const identityHost = document.getElementById('meIdentityCheck');
     if (user) {
       // ONE decision, taken once: does this person hold a ทีม SAMO posting?
       // REPORTED: the two cards "show similar information two times". They both
@@ -819,6 +834,9 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       const paintHouseInto = (seatEl) => {
         paintDiscordInto(seatEl);
+        // Every seat-card render — including the one after a save — may have
+        // changed what the home row says (a photo added clears its flag).
+        refreshHomeMe();
         const slot = seatEl?.querySelector?.('[data-profile-slot="house"]');
         if (slot) {
           houseHost.hidden = true;
@@ -835,16 +853,33 @@ document.addEventListener('DOMContentLoaded', () => {
       // — 0132's mirrors carry it to ระบบบ้าน and to ทีม SAMO, and a block that
       // updated itself while the identity below it still said the old name
       // would read as the save having failed.
+      // The home row's summary + flag, from the SAME loaders the cards use
+      // (cached, so this costs no extra request). Re-run after anything that
+      // can change its answer; the uid check drops a late answer that belongs
+      // to an account switched away from in the meantime.
+      // `compact` drops the card's own "ข้อมูลของฉัน" eyebrow: on /me the page
+      // title already says it, and the card is the page's first block.
+      const refreshHomeMe = () => Promise.all([
+        loadMySeat(user.id).catch(() => null),
+        loadMyHouse(user.id),
+        loadIdentityStatus(),
+      ]).then(([seat, house, identity]) => {
+        if (prevAuthKey !== authKey) return;
+        paintHomeMe(user, summarizeMe({ seat, house, identity, fallback: user.department || roleLabel(role) || '' }));
+      });
       primeAcademicYear();
       clearIdentityCheckCache();
-      showIdentityCheck(document.getElementById('homeIdentityCheck'), {
+      showIdentityCheck(identityHost, {
         afterResolve: () => {
           clearMySeatCache();
           clearMyHouseCache();
-          showMySeat(seatHost, user.id, { afterRender: paintHouseInto });
+          clearIdentityCheckCache();
+          showMySeat(seatHost, user.id, { compact: true, afterRender: paintHouseInto });
+          refreshHomeMe();
         },
       });
-      showMySeat(seatHost, user.id, { afterRender: paintHouseInto });
+      showMySeat(seatHost, user.id, { compact: true, afterRender: paintHouseInto });
+      refreshHomeMe();
       // showMySeat renders NOTHING when there is no posting, so afterRender
       // never fires for a house-only person — paint them here.
       loadMySeat(user.id)
@@ -867,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // leaving it painted would show the previous account's name to the next
       // one — the module-scope-cache-across-an-account-switch shape.
       clearIdentityCheckCache();
-      renderIdentityCheck(document.getElementById('homeIdentityCheck'), null);
+      renderIdentityCheck(identityHost, null);
     }
 
     // PR form auth wrapper: hide whenever the user is signed in (the global
@@ -992,6 +1027,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Apply the URL on first load — if the user lands on /pr or /news/{id}
   // directly, activate the right tab. Wrapped in a microtask so it runs
   // after the initial Bootstrap tab activation (default = home).
+  // Back from linking Discord: the callback returns to `/#discord=…`, and the
+  // card that reads it lives on /me now. Move there before the router runs.
+  const discordBack = discordReturnPath(location);
+  if (discordBack) history.replaceState(null, '', discordBack);
   queueMicrotask(applyPathRoute);
 });
 

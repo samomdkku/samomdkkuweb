@@ -95,6 +95,12 @@
           <!-- The shared host for every /tools/<slug> embed (DEPT-TOOLS §3).
                ONE button and ONE pane serve every ฝ่าย tool: which tool is
                shown comes from the path, not from a tab per tool. -->
+          <!-- ข้อมูลของฉัน (/me). Off-tablist: reached from the avatar menu, the
+               phone top bar's avatar and the home page's account row. -->
+          <li class="d-none" role="presentation">
+            <button class="nav-link" id="pills-me-tab" data-bs-toggle="pill"
+              data-bs-target="#pills-me" type="button" role="tab" aria-hidden="true" tabindex="-1"></button>
+          </li>
           <li class="d-none" role="presentation">
             <button class="nav-link" id="pills-tool-embed-tab" data-bs-toggle="pill"
               data-bs-target="#pills-tool-embed" type="button" role="tab" aria-hidden="true" tabindex="-1"></button>
@@ -130,6 +136,11 @@
 
               <li>
                 <hr class="dropdown-divider my-1">
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" onclick="activateTab('pills-me-tab')">
+                  <i class="bi bi-person-vcard me-2"></i>ข้อมูลของฉัน
+                </button>
               </li>
               <li>
                 <button class="dropdown-item" type="button" onclick="samoOpenProfile()">
@@ -197,15 +208,17 @@
         <i class="bi bi-box-arrow-in-right me-1"></i><span class="nav-signin-label">Login</span>
       </button>
 
-      <!-- Mobile-only sign-out button. Occupies the same top-bar slot as the
-           sign-in button above (main.js toggles d-none opposite it) so a
-           signed-in user can log out without opening the drawer. The offcanvas
-           signout + account management stay as-is. -->
+      <!-- Mobile-only account button — signed in. Your avatar, top right, opens
+           ข้อมูลของฉัน (/me), the way every app puts the account. It used to be
+           a "Logout" button: the most destructive action in the app's most
+           prominent slot. Sign-out now lives on /me and in the drawer, one tap
+           further, which is where an action you rarely mean belongs. -->
       <button type="button" id="navAuthSignedInMobile"
-        class="btn btn-custom-grey nav-signin-mobile ms-auto d-lg-none d-none"
-        onclick="samoSignOut()"
-        aria-label="ออกจากระบบ">
-        <i class="bi bi-box-arrow-right me-1"></i><span class="nav-signin-label">Logout</span>
+        class="nav-me-mobile ms-auto d-lg-none d-none"
+        onclick="activateTab('pills-me-tab')"
+        aria-label="ข้อมูลของฉัน">
+        <img id="navUserPicMobile" alt="" width="40" height="40" hidden />
+        <span id="navUserInitialMobile" aria-hidden="true"></span>
       </button>
     </div>
   </nav>
@@ -220,13 +233,15 @@
     </div>
     <div class="offcanvas-body">
       <!-- Signed-in user strip -->
-      <div class="d-none mobile-user-strip" id="mobileAuthSignedIn">
+      <button type="button" class="d-none mobile-user-strip" id="mobileAuthSignedIn"
+        onclick="activateTab('pills-me-tab')" aria-label="ข้อมูลของฉัน">
         <img id="mobileUserPic" alt="" class="rounded-circle" width="44" height="44" />
-        <div class="flex-grow-1 min-w-0">
-          <div class="fw-semibold text-truncate" id="mobileUserName">—</div>
-          <div class="small text-muted text-truncate" id="mobileUserDept"></div>
-        </div>
-      </div>
+        <span class="flex-grow-1 min-w-0 text-start">
+          <span class="d-block fw-semibold text-truncate" id="mobileUserName">—</span>
+          <span class="d-block small text-muted text-truncate" id="mobileUserDept"></span>
+        </span>
+        <i class="bi bi-chevron-right text-muted" aria-hidden="true"></i>
+      </button>
 
       <!-- Sign-in CTA -->
       <div id="mobileAuthSignedOut" class="mb-3">
