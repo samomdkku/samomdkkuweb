@@ -24,12 +24,20 @@
 
 import { escHtml } from './utils.js';
 import { toolTarget, toolPath } from '../data/tools.js';
+import { DEPT_DEFS } from '../data/depts.js';
+
+/** The ฝ่าย's own logo when the entry asks for it — from depts.js, its one home. */
+const deptLogoOf = (tool) => (tool.deptLogo ? DEPT_DEFS[tool.dept]?.logo || null : null);
 
 /** The inner content — identical for every kind. */
 function cardInner(tool) {
   const arrow = tool.kind === 'external' ? 'bi-box-arrow-up-right' : 'bi-arrow-right';
+  const logo = deptLogoOf(tool);
+  const icon = logo
+    ? `<span class="launcher-tool-icon launcher-tool-icon--logo"><img src="${escHtml(logo)}" alt="" loading="lazy" draggable="false" /></span>`
+    : `<span class="launcher-tool-icon"><i class="bi ${escHtml(tool.icon)}"></i></span>`;
   return `
-    <span class="launcher-tool-icon"><i class="bi ${escHtml(tool.icon)}"></i></span>
+    ${icon}
     <span class="launcher-tool-body">
       <span class="launcher-tool-name">${escHtml(tool.name)}</span>
       <span class="launcher-tool-desc">${escHtml(tool.desc)}</span>
@@ -50,7 +58,8 @@ export function renderToolCard(tool) {
   const search = `${tool.keywords || ''} ${tool.name}`.trim().toLowerCase();
   const attrs = [
     `class="launcher-tool"`,
-    `style="--tool-color: ${escHtml(tool.color || 'var(--brand-primary)')};"`,
+    `style="--tool-color: ${escHtml(tool.color || 'var(--brand-primary)')};${
+      tool.ink ? ` --tool-ink: ${escHtml(tool.ink)};` : ''}"`,
     `data-name="${escHtml(search)}"`,
     `data-cats="${escHtml(tool.cats || 'public')}"`,
     tool.roles ? `data-roles="${escHtml(tool.roles)}"` : '',

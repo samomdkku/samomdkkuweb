@@ -321,7 +321,7 @@ const ALL_TOOLS_TILE = {
   slug: 'all-tools',
   kind: 'tab',
   tabId: 'pills-tools-tab',
-  name: 'เครื่องมือทั้งหมด',
+  name: 'ดูทั้งหมด',
   desc: 'ค้นหาเครื่องมือของทุกฝ่ายในที่เดียว',
   icon: 'bi-grid-3x3-gap-fill',
   color: 'var(--ink-700)',
@@ -351,9 +351,31 @@ export function initHomeRail() {
     left: dir * Math.max(160, track.clientWidth * 0.8),
     behavior: reduceMotion() ? 'auto' : 'smooth',
   });
+  // How far the rail's column sits from each SCREEN edge, so the track can run
+  // to the edge and its first tile still line up with the content. Measured on
+  // the section (which the bleed does not move), against clientWidth (which
+  // excludes a scrollbar). Below 992px only — wider, the rail stays in the
+  // column and fades at its ends instead.
+  const syncBleed = () => {
+    const r = rail.getBoundingClientRect();
+    const wide = window.matchMedia?.('(min-width: 992px)').matches;
+    if (!r.width || wide) {
+      rail.style.removeProperty('--rail-bleed-l');
+      rail.style.removeProperty('--rail-bleed-r');
+      return;
+    }
+    const vw = document.documentElement.clientWidth;
+    rail.style.setProperty('--rail-bleed-l', `${Math.max(0, Math.round(r.left))}px`);
+    rail.style.setProperty('--rail-bleed-r', `${Math.max(0, Math.round(vw - r.right))}px`);
+  };
   prev?.addEventListener('click', () => page(-1));
   next?.addEventListener('click', () => page(1));
   track.addEventListener('scroll', syncEdges, { passive: true });
-  if ('ResizeObserver' in window) new ResizeObserver(syncEdges).observe(track);
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(syncEdges).observe(track);
+    new ResizeObserver(syncBleed).observe(rail);
+  }
+  window.addEventListener('resize', syncBleed, { passive: true });
+  syncBleed();
   syncEdges();
 }

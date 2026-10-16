@@ -237,9 +237,17 @@
   justify-content: center;
   font-size: 1.25rem;
   color: #ffffff;
+  color: var(--tool-ink, #ffffff); /* white unless the tool's mark has its own (tools.js `ink`) */
   background: var(--tool-color, var(--brand-primary));
   box-shadow: 0 4px 10px color-mix(in srgb, var(--tool-color, var(--brand-primary)) 25%, transparent);
 }
+/* White on every colour, the owner's call (2026-10-16) — including pale ones
+   (#fbde8f, #c0dfff) where white alone sits near 1.3:1. A soft shadow gives the
+   glyph an edge there without changing its colour. */
+.launcher-tool-icon i { filter: drop-shadow(0 1px 1.5px rgba(15, 23, 42, 0.22)); }
+/* The ฝ่าย's own logo IS the icon: its artwork carries its own background. */
+.launcher-tool-icon--logo { overflow: hidden; background: none; }
+.launcher-tool-icon--logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .launcher-tool-body {
   display: flex;

@@ -8,7 +8,7 @@
 //
 // What it asserts (each line ✓/✗, exit 1 on any ✗):
 //   - three slides; the rail leads with SAMO Shop · จองห้องสโม · PR Form ·
-//     หนังสือโครงการ · VitalSound and ends with เครื่องมือทั้งหมด
+//     หนังสือโครงการ · VitalSound and ends with ดูทั้งหมด
 //   - the next arrow / a dot / a MOUSE drag+flick / a TOUCH swipe each land on
 //     the slide they should, exactly snapped
 //   - autoplay moves on by itself, and does NOT while paused
@@ -75,7 +75,14 @@ try {
     await send('Emulation.setDeviceMetricsOverride', { width: view.width, height: view.height, deviceScaleFactor: 2, mobile: view.mobile });
     await send('Emulation.setTouchEmulationEnabled', view.touch ? { enabled: true, maxTouchPoints: 5 } : { enabled: false });
     await send('Page.navigate', { url: URL_ });
-    await sleep(3500);
+    // Wait for the page's OWN boot signal, not a fixed sleep: a cold dev
+    // server can take longer than any guess, and a check that runs before the
+    // app has started reports "no slides, no tiles" — a false red.
+    for (let t = 0; t < 60; t += 1) {
+      if (await ev(`return !!window.__samoBooted && document.querySelectorAll('#homeRailTrack .launcher-tool').length > 0`)) break;
+      await sleep(250);
+    }
+    await sleep(1200); // announcements fill the ประกาศ slide after boot
 
     const info = await ev(`return {
       slides: document.querySelectorAll('#homeHero .hero-slide').length,
@@ -86,9 +93,9 @@ try {
       newsLatest: document.querySelector('.hero-news-latest')?.hidden === false ? document.querySelector('.hero-news-title').textContent : '(hidden)',
     };`);
     say('slides / dots', `${info.slides} / ${info.dots}`, info.slides === 3 && info.dots === 3);
-    const lead = ['SAMO Shop', 'จองห้องสโม', 'PR Form', 'หนังสือโครงการ', 'VitalSound'];
+    const lead = ['SAMO Shop', 'SAMO Booking', 'PR Form', 'SAMO Project', 'VitalSound'];
     say('rail leads with', info.rail.slice(0, 5).join(' · '), JSON.stringify(info.rail.slice(0, 5)) === JSON.stringify(lead));
-    say('rail ends with', info.rail.at(-1), info.rail.at(-1) === 'เครื่องมือทั้งหมด');
+    say('rail ends with', info.rail.at(-1), info.rail.at(-1) === 'ดูทั้งหมด');
     say('rail scrolls sideways', info.railOverflows, info.railOverflows);
     say('no horizontal PAGE scroll', !info.pageOverflowX, !info.pageOverflowX);
     say('news slide headline', info.newsLatest, true);

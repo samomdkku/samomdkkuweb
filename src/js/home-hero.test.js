@@ -86,10 +86,17 @@ describe('the home tool rail', () => {
     expect(ranks.every(Number.isFinite)).toBe(true);
   });
 
-  it('the website-bug route stays readable on the first screen', () => {
-    // It used to be the home quick strip's job, which this rail replaced.
-    const vs = rail.find((t) => t.slug === 'vitalsound');
-    expect(vs.desc).toContain('เว็บมีปัญหา');
+  it('the rail labels VitalSound by its name (owner, 2026-10-16)', () => {
+    expect(rail.find((t) => t.slug === 'vitalsound').short).toBe('VitalSound');
+  });
+
+  it('a home-screen tile is an icon and a name: description and arrow are not drawn', () => {
+    expect(css).toMatch(/\.home-rail-track \.launcher-tool-desc,\s*\.home-rail-track \.launcher-tool-arrow \{ display: none; \}/);
+  });
+
+  it('every label fits under an icon — two short lines, never an ellipsis', () => {
+    const long = rail.map((t) => t.short || t.name).filter((n) => [...n].length > 18);
+    expect(long, 'give these a `short` in src/data/tools.js').toEqual([]);
   });
 
   it('the markup carries no hand-written tile', () => {

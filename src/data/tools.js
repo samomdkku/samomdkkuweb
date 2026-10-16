@@ -44,8 +44,16 @@
 //             the rail in rank order; every other launcher tool follows in
 //             registry order. The rail is the first thing under the banner,
 //             so rank only what most visitors came for.
-//   short     a name that fits a narrow rail tile. Optional — falls back to
-//             `name`. Display only; search still reads `name`.
+//   color     the icon square's colour. The glyph on it is white (owner,
+//             2026-10-16); on a pale colour it leans on a soft shadow for its
+//             edge — see .launcher-tool-icon i in launcher.css.
+//   ink       optional glyph colour, for a tool whose mark has its own (the
+//             shop's milk-on-espresso). Default white.
+//   deptLogo  true = the icon IS the ฝ่าย's own logo (src/data/depts.js `logo`
+//             for this entry's `dept`), drawn full-bleed in the square.
+//   short     the label under the icon on the home rail (which shows no
+//             description). Optional — falls back to `name`. Display only;
+//             search still reads `name`.
 //
 // ORDER IS THE LAUNCHER ORDER. The ฝ่าย pages filter this list, so an entry's
 // position also decides where it sits on its ฝ่าย page.
@@ -60,7 +68,7 @@ export const TOOLS = [
     name: 'PR Form',
     desc: 'ฝากงานประชาสัมพันธ์ลง IG / FB ของคณะ',
     icon: 'bi-megaphone-fill',
-    color: 'var(--pink-400)',
+    color: '#ff8bbf',
     keywords: 'pr ฝากงาน ประชาสัมพันธ์',
     cats: 'public pr',
     home: 3,
@@ -73,7 +81,7 @@ export const TOOLS = [
     name: 'Golden Period',
     desc: 'ดูว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน ก่อนเลือกวันจัดโครงการ',
     icon: 'bi-calendar-heart',
-    color: 'var(--dept-strategy)',
+    color: '#ffd077',
     keywords: 'gpc ปฏิทิน ช่วงเวลา จัดกิจกรรม จัดโครงการ ว่าง',
     cats: 'public',
     home: 7,
@@ -85,15 +93,16 @@ export const TOOLS = [
     tabId: 'pills-vitalsound-tab',
     name: 'VitalSound',
     // The website-bug route has to be READABLE AS ONE wherever this card is
-    // drawn — the home rail is on the first screen and needs no login, which is
-    // what a guest reporting a broken page has. It used to be a footer link,
-    // and a footer is where a link goes to not be found.
+    // drawn (it used to be a footer link, and a footer is where a link goes to
+    // not be found) — the launcher and ฝ่าย pages show this desc. The home rail
+    // shows no description and labels it VitalSound (owner, 2026-10-16).
     desc: 'ร้องเรียน ข้อเสนอแนะ หรือแจ้งว่าเว็บมีปัญหา / พบบัค',
     icon: 'bi-clipboard2-pulse',
-    color: 'var(--vs-accent)',
+    color: '#588269',
     keywords: 'vs ร้องเรียน ปัญหา ข้อเสนอแนะ',
     cats: 'public vs',
     home: 5,
+    short: 'VitalSound',
   },
   {
     slug: 'shop',
@@ -102,8 +111,12 @@ export const TOOLS = [
     tabId: 'pills-shop-tab',
     name: 'ร้านค้า SAMO',
     desc: 'สั่งซื้อเสื้อ ของที่ระลึก และอื่นๆ',
-    icon: 'bi-bag-heart',
-    color: 'var(--brand-orange)',
+    // The same mark as the banner's shop slide (owner, 2026-10-16): the
+    // storefront's espresso square with the filled bag in its milk colour.
+    // Values are shop-storefront.css's --sf-espresso / --sf-milk.
+    icon: 'bi-bag-heart-fill',
+    color: '#4C2B08',
+    ink: '#FFF9F0',
     keywords: 'shop สินค้า',
     cats: 'public',
     home: 1,
@@ -118,11 +131,11 @@ export const TOOLS = [
     name: 'ระบบจองห้องสโม',
     desc: 'จองห้องสโมสรนักศึกษาสำหรับกิจกรรม',
     icon: 'bi-calendar-check',
-    color: 'var(--brand-primary)',
+    color: '#bdc96c',
     keywords: 'ห้องสโม จองห้อง booking room reservation',
     cats: 'public',
     home: 2,
-    short: 'จองห้องสโม',
+    short: 'SAMO Booking',
   },
   {
     // A SEPARATE app at its own base — a full page load here is correct.
@@ -133,7 +146,7 @@ export const TOOLS = [
     name: 'SAMO Passport',
     desc: 'เก็บหน่วยกิจกรรมและตรวจสอบสถานะของคุณ',
     icon: 'bi-patch-check',
-    color: 'var(--brand-orange)',
+    color: '#8dc3e1',
     keywords: 'passport activity points หน่วยกิจกรรม กิจกรรม สะสมแต้ม',
     cats: 'public',
     home: 6,
@@ -146,11 +159,11 @@ export const TOOLS = [
     name: 'หนังสือโครงการ (มุมมองทั่วไป)',
     desc: 'ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว',
     icon: 'bi-folder2',
-    color: 'var(--brand-primary)',
+    color: '#99765e',
     keywords: 'ดู สถานะ ลูกค้า customer view projects bookkeeping',
     cats: 'public',
     home: 4,
-    short: 'หนังสือโครงการ',
+    short: 'SAMO Project',
   },
   {
     slug: 'acad-notion',
@@ -160,7 +173,7 @@ export const TOOLS = [
     name: 'SAMO Resource Database (Notion)',
     desc: 'ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ',
     icon: 'bi-journals',
-    color: 'var(--dept-academic)',
+    color: '#2f5f9c',
     keywords: 'ฝ่ายวิชาการ การเรียน แหล่งเรียนรู้',
     cats: 'public',
     short: 'Resource Database',
@@ -173,7 +186,7 @@ export const TOOLS = [
     name: 'MDKKU Self Exam Bank',
     desc: 'คลังข้อสอบสำหรับฝึกทำด้วยตนเอง',
     icon: 'bi-card-checklist',
-    color: 'var(--dept-academic)',
+    color: '#112957',
     keywords: 'ฝ่ายวิชาการ คลังข้อสอบ ข้อสอบ ฝึกทำ',
     cats: 'public',
     short: 'Self Exam Bank',
@@ -203,6 +216,7 @@ export const TOOLS = [
     name: 'MDI Website',
     desc: 'เว็บไซต์ของฝ่ายเวชนิทัศน์',
     icon: 'bi-globe2',
+    deptLogo: true,
     color: 'var(--dept-media)',
     keywords: 'mdi medical illustration ฝ่ายเวชนิทัศน์ media',
     cats: 'public',
@@ -215,6 +229,7 @@ export const TOOLS = [
     name: 'RT Website',
     desc: 'เว็บไซต์ของฝ่ายรังสีเทคนิค',
     icon: 'bi-stars',
+    deptLogo: true,
     color: 'var(--dept-rt)',
     keywords: 'rt rangsi รังสีเทคนิค radiology',
     cats: 'public',
