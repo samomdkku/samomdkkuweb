@@ -4385,6 +4385,19 @@ makes the driver's "drag with no move event" case go red with
 **Where it lives now.** `endPointer` in `src/js/home-hero.js`; driven by
 `tools/browser/home-hero.mjs` (desktop + emulated phone, 28 checks).
 
+**Second finding, same driver, on PRODUCTION after the first fix shipped.** The
+flick check still failed 2 runs in 10. Instrumented, every event was there — the
+DECISION was wrong: the landing slide came only from the momentum projection,
+and a 120 px drag at 816 px/s projected to 1.54 slides and rounded back home. A
+short quick flick did not page. Now (Apple's rule) a release above
+`FLICK_PX_S` is decided by the velocity's SIGN measured against the drag's own
+direction — with it commits, against it returns to the starting slide — and only
+a slow release uses the projection. The first draft used the bare sign, which
+sent a drag-forward-then-flick-back from the MIDDLE slide one slide backwards;
+the unit test that "proved" reversal had used the FIRST slide, where the edge
+clamp made it pass by accident. Test a direction rule from a slide with
+neighbours on both sides.
+
 **The general rule.** *Classify a gesture from its displacement at release,
 never from the intermediate events you happened to receive* — the browser may
 deliver none of them. And an intermittent failure in a gesture driver is a

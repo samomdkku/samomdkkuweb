@@ -28,6 +28,22 @@ describe('where a mouse drag lands', () => {
     expect(landingIndex({ pos: 150, v: 1500, width: W, from: 0, count: 3 })).toBe(1);
     expect(landingIndex({ pos: 1850, v: -1500, width: W, from: 2, count: 3 })).toBe(1);
   });
+  it('a short QUICK flick pages even when its projection falls short (prod: 120px at 816px/s)', () => {
+    expect(landingIndex({ pos: 2192, v: -816, width: 1156, from: 2, count: 3 })).toBe(1);
+  });
+  it('a drag that ends moving BACK reverses, wherever it got to', () => {
+    // from the MIDDLE slide (an end clamp would make this pass by accident):
+    // dragged 70% toward slide 3, then flicked back → home to slide 2, not 1
+    expect(landingIndex({ pos: 1700, v: -600, width: W, from: 1, count: 3 })).toBe(1);
+    expect(landingIndex({ pos: 300, v: 600, width: W, from: 1, count: 3 })).toBe(1);
+    // and with the drag, it commits
+    expect(landingIndex({ pos: 1300, v: 600, width: W, from: 1, count: 3 })).toBe(2);
+    expect(landingIndex({ pos: 700, v: -600, width: W, from: 1, count: 3 })).toBe(0);
+  });
+  it('a slow release is decided by position, not by a crawl of velocity', () => {
+    expect(landingIndex({ pos: 300, v: 200, width: W, from: 0, count: 3 })).toBe(0);
+    expect(landingIndex({ pos: 600, v: -200, width: W, from: 0, count: 3 })).toBe(1);
+  });
   it('a hard flick still moves ONE slide, never past it', () => {
     expect(landingIndex({ pos: 200, v: 20000, width: W, from: 0, count: 3 })).toBe(1);
   });

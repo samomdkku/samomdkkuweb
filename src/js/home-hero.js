@@ -38,15 +38,28 @@ export function project(v, decelerationRate = 0.998) {
   return ((v / 1000) * decelerationRate) / (1 - decelerationRate);
 }
 
+/** Above this release speed (px/s) a drag is a FLICK: it pages in the
+ *  direction the pointer was moving, however short the drag was. */
+export const FLICK_PX_S = 300;
+
 /** Which slide a mouse drag released at scroll offset `pos` with scroll
- *  velocity `v` (px/s) lands on. Chosen from the PROJECTED endpoint, so a quick
- *  flick moves on while a slow drag past the middle and back settles home — and
- *  never more than one slide from where the drag began. */
+ *  velocity `v` (px/s) lands on. Apple's rule: commit-or-reverse is decided by
+ *  the velocity's SIGN at release — a quick 100 px flick pages, and a drag that
+ *  ends moving back reverses. Only a slow release is decided by position, from
+ *  the momentum-PROJECTED endpoint. Never more than one slide from where the
+ *  drag began. (Projection alone was not enough: a real 120 px / 0.8 px-ms
+ *  flick projected to 1.54 slides and rounded back home — measured, prod.) */
 export function landingIndex({ pos, v, width, from, count }) {
   if (!(width > 0) || count < 1) return 0;
+  const clamp = (i) => Math.max(0, Math.min(count - 1, i));
+  if (Math.abs(v) >= FLICK_PX_S) {
+    // Judged against the drag's OWN direction: moving with it commits to the
+    // next slide; moving against it reverses to the slide it started on.
+    const dir = Math.sign(pos - from * width) || Math.sign(v);
+    return clamp(Math.sign(v) === dir ? from + dir : from);
+  }
   const raw = Math.round((pos + project(v)) / width);
-  const oneStep = Math.max(from - 1, Math.min(from + 1, raw));
-  return Math.max(0, Math.min(count - 1, oneStep));
+  return clamp(Math.max(from - 1, Math.min(from + 1, raw)));
 }
 
 /** i modulo n, always non-negative: next from the last slide is the first. */
