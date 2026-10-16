@@ -47,7 +47,7 @@ import { initProjects, enterProjectsWorkspace } from './projects/index.js';
 
 // SAMO Team (org tree)
 import { initTeam, enterTeamWorkspace } from './team/index.js';
-// The ONE ตำแหน่งของฉัน card — same component the public home page renders.
+// The ONE ตำแหน่งของฉัน card — same component the public /me page renders.
 import { loadMySeat, renderMySeat } from './my-seat.js';
 import { initAnalytics, trackTab } from './analytics.js';
 import { initAnalyticsDashboard, enterAnalytics } from './analytics-dashboard.js';
@@ -401,7 +401,7 @@ function swapAccountReload() {
  *
  * Deliberately thin, exactly as the ทีม SAMO version was: the markup, the
  * findings, the self-edit round trip and the photo upload all live in
- * ../my-seat.js and are the same code the public home page runs. A second
+ * ../my-seat.js and are the same code the public /me page runs. A second
  * implementation is what this repo means by "two implementations of one rule
  * drift"; the only thing this function decides is where it goes.
  *

@@ -9,7 +9,7 @@
 //
 // ⚠️ THIS CARD OWNS A SLOT ANOTHER MODULE PAINTS INTO. Every re-render wipes it
 // (a save does exactly that), so renderMySeat calls `opts.afterRender` and the
-// home page uses it to put the house section back. Removing that hook makes
+// /me page (main.js) uses it to put the house section back. Removing that hook makes
 // ระบบบ้าน vanish the first time somebody edits their name — the "shared
 // render() repaints a pane another module owns" entry in mistakes.md.
 //
@@ -25,9 +25,9 @@
 // roster lookup. Every field it returns is the CALLER'S OWN.
 //
 // TWO SURFACES, ONE FETCH:
-//   • the home page, under the greeting — the answer to "what am I" belongs
-//     where the app already says hello, and this is the only place a member who
-//     never opens /admin/ will see it;
+//   • /me, ข้อมูลของฉัน (on the home page under the greeting until 2026-10-16;
+//     home now shows one account row that opens it) — the only place a member
+//     who never opens /admin/ will see it;
 //   • the โปรไฟล์ modal — the canonical "about my account" surface, where
 //     someone goes when they specifically want to check.
 // Both render from the same cached payload, so opening the modal after the home
@@ -107,7 +107,7 @@ export function loadMySeat(uid) {
       // that painted against the clock fallback and then never repainted is how
       // a derived value acquires its own staleness bug.
       setAcademicYear(data.academic_year);
-      // Stamped here, not at the call site, so BOTH surfaces (home card and the
+      // Stamped here, not at the call site, so BOTH surfaces (the /me card and the
       // profile modal, which calls loadMySeat directly) can refetch and repaint
       // after a self-edit without each having to remember to pass it.
       data.__uid = uid;
@@ -779,7 +779,7 @@ function wireSelfEdit(host, seat) {
     show(true);
     // Fill the สาขา chooser the first time the form is actually opened, not on
     // every card paint: the list is only needed by someone editing, and the card
-    // renders for every signed-in member on the home page.
+    // renders for every signed-in member who opens /me.
     loadMajorOptions().then(() => {
       const sel = form.querySelector('[name="major"]');
       if (!sel) return;

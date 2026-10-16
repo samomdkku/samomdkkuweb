@@ -280,8 +280,8 @@ function renderHelp() {
 // ---------- ยังนำเข้าไม่ได้ ----------
 //
 // SORTED SO THE ADMIN'S OWN WORK IS AT THE TOP, which is what `claimable` is
-// for. A row WITH a รหัสนักศึกษา can be closed by the student it names, from the
-// home page, without anyone here doing anything — so it is not a task. A row
+// for. A row WITH a รหัสนักศึกษา can be closed by the student it names, from
+// ข้อมูลของฉัน (/me), without anyone here doing anything — so it is not a task. A row
 // without one can be closed by nobody but an admin, and there is no queue it
 // will ever drain into. Ordering by that difference is the difference between a
 // list of 165 and a worklist of 13.

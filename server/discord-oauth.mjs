@@ -72,6 +72,10 @@ function same(a, b) {
  * redirect hands the result to the app that already has the person's session.
  */
 function back(res, origin, status, detail) {
+  // Returns to `/`; the browser moves a `#discord=` return on to /me, where the
+  // card that reads it lives (src/js/me-page.js discordReturnPath). If this
+  // ever returns to /me directly, that redirect becomes dead code — its test
+  // (me-page.test.js) asserts this line so the two cannot drift silently.
   const url = new URL('/', origin);
   url.hash = `discord=${encodeURIComponent(status)}`
     + (detail ? `&why=${encodeURIComponent(detail)}` : '');

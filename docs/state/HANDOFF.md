@@ -1974,7 +1974,7 @@ before trusting either numbering scheme.
 
 ## 23. Home page + ข้อมูลของฉัน (/me) — what the 2026-10-16 session leaves open
 
-**Status: VERIFIED 2026-10-16 — how: `tools/browser/home-hero.mjs` 33/33 against production (banner gestures, keyboard, autoplay/pause, tool rail, ⌘-click, `/tools`, the MDI ฝ่าย page, `/admin/`), `tools/browser/me-page.mjs` 17/17 on samo-dev signed in; every fixed bug falsified.** Why each piece is the way it is: `docs/state/claude-2026-10-16.md`. Below is only what is NOT done.
+**Status: VERIFIED 2026-10-16 — how: `tools/browser/home-hero.mjs` 34/34 against production after the last deploy (banner gestures, keyboard, autoplay/pause, tool rail, ⌘-click, `/tools`, the MDI ฝ่าย page, `/admin/`), `tools/browser/me-page.mjs` 17/17 on samo-dev signed in; every fixed bug falsified.** Why each piece is the way it is: `docs/state/claude-2026-10-16.md`. Below is only what is NOT done.
 
 **a. White glyphs on pale icon colours — Status: DECIDED 2026-10-16** (owner: "make the icon white"). Measured white-on-colour contrast; 3:1 is the usual floor for an icon: Golden Period `#ffd077` **1.44:1**, SAMO Booking `#bdc96c` 1.79:1, SAMO Passport `#8dc3e1` 1.90:1, PR Form `#ff8bbf` 2.17:1 (VitalSound 4.36, SAMO Project 4.11, the rest higher). A soft drop-shadow gives the glyph an edge. Do not re-propose a coloured glyph unless the owner raises legibility; if they do, the deep same-hue ink was built once and is in git (`git log -S toolInk`).
 

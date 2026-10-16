@@ -1,5 +1,5 @@
 // ==============================================
-// "บ้านของฉัน" — what a signed-in student sees on the home page.
+// "บ้านของฉัน" — what a signed-in student sees on ข้อมูลของฉัน (/me).
 //
 // Mirrors my-seat.js in shape and for the same reason: one SECURITY DEFINER RPC
 // that takes NO argument (identity comes from auth.uid()), so this module cannot
@@ -874,7 +874,7 @@ function wireCard(host, rec, opts = {}) {
       b.classList.toggle('is-open', b.dataset.houseAct === open);
     });
     // Filled when the form is actually opened, not on every card paint: the
-    // card renders for every signed-in student on the home page, and only the
+    // card renders for every signed-in student who opens /me, and only the
     // few who edit need the list.
     if (open === 'edit') {
       const sel = editForm?.querySelector('[data-house-majors]');

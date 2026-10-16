@@ -186,6 +186,12 @@ triggered over ssh (needs the KKU VPN).
   signature and place it on the PDF) or by uploading an externally-signed
   file — or rejects them back. The officer can also add / replace / remove
   files like the sender; the professor sees only the documents sent to him.
+- **Home page.** A banner carousel (welcome · SAMO Shop · ประกาศและข่าวสาร with
+  the latest post) that autoplays, swipes on a phone and drags on a desktop,
+  holding still while touched, hovered, focused or paused. Under it, the tools
+  as home-screen icons in one sideways-scrolling row, ordered and labelled from
+  the tool registry (`src/data/tools.js` → `home`, `short`). Signed in, one
+  account row opens ข้อมูลของฉัน (`/me`) and flags anything waiting for you.
 - **Departments tab (`ฝ่าย`).** Top-level navbar entry showing all 10
   ฝ่ายในสโมสร with per-dept tool drill-down. Each ฝ่าย links to its
   own tools (SAMOShop + customer หนังสือโครงการ for บริหารองค์กร,

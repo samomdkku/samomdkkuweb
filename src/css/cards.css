@@ -4,8 +4,8 @@
  * ============================================== */
 
 /* ==============================================
- * HOME — Slim auth strip and welcome strip. The banner carousel and
- * tool rail are home-hero.css; news rendering lives in news.css.
+ * HOME — the slim sign-in strip. The banner carousel and tool rail are
+ * home-hero.css, the signed-in account row is me.css, news is news.css.
  * ============================================== */
 
 .home-container {
@@ -64,36 +64,11 @@
 
 /* On mobile the sign-in CTA moves to the top navbar (#navAuthSignedOutMobile),
    so the home auth strip is hidden to keep the landing view clean. The
-   signed-in welcome strip below stays. */
+   signed-in account row (.home-me, me.css) stays. */
 @media (max-width: 991.98px) {
   .home-auth-cta {
     display: none !important;
   }
-}
-
-/* Signed-in welcome strip */
-.home-welcome {
-  background: var(--surface);
-  border: 1px solid var(--ink-200);
-  border-radius: var(--radius-lg);
-  padding: 1rem 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.home-welcome .welcome-greeting {
-  color: var(--ink-900);
-  font-weight: 600;
-  font-size: 1.05rem;
-  margin: 0;
-}
-
-.home-welcome .welcome-dept {
-  color: var(--ink-500);
-  font-size: 0.85rem;
 }
 
 /* ==============================================

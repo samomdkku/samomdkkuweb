@@ -568,14 +568,15 @@ KKU anyway:
 - **`node tools/browser/home-hero.mjs`** — no account, no database; safe against
   production (`URL=https://samo.md.kku.ac.th/`). Desktop 1280 + emulated phone
   390: the banner's arrow / dot / mouse flick / slow drag / a drag whose moves
-  were coalesced away / keyboard → with focus on a slide / touch swipe /
+  were coalesced away / keyboard → with focus on a slide / ⌘-Ctrl-click left
+  to the browser / touch swipe /
   autoplay and pause; the tool rail's order and touch scroll; then `/tools`, the
-  MDI ฝ่าย page and `/admin/`. 32 checks, screenshots in `$OUT`.
+  MDI ฝ่าย page and `/admin/`. Exit 1 on any ✗; screenshots in `$OUT`.
 - **`node tools/browser/me-page.mjs`** — signed in, samo-dev ONLY (it registers
   a throwaway account and deletes it in a `finally`; it refuses production).
   Every way into `/me`, the sign-in prompt never flashing for a signed-in
   person (a MutationObserver from the first byte), the home row's flag both
-  ways, a Discord return, sign-out from `/me`. 17 checks.
+  ways, a Discord return, sign-out from `/me`. Exit 1 on any ✗.
 
 Instrument traps each of them hit, so the next driver does not:
 

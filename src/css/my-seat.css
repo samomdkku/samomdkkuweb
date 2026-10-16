@@ -1,7 +1,7 @@
 /* my-seat.css — "ตำแหน่งของฉันในทีม SAMO".
  *
- * Rendered in two places from one markup shape (src/js/my-seat.js): under the
- * home-page greeting, and inside the โปรไฟล์ modal. The modal variant
+ * Rendered in two places from one markup shape (src/js/my-seat.js): on /me
+ * (ข้อมูลของฉัน), and inside the โปรไฟล์ modal. The modal variant
  * (.myseat--modal) drops the card chrome, because it is already inside one.
  *
  * DIRECTION. This is a STATEMENT, not a control — it tells a person what they
