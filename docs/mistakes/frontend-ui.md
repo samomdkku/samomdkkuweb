@@ -4360,3 +4360,33 @@ fails on any warning. Its control proves a stray declaration IS reported, and
 re-injecting this exact orphan into shop.css turned it red.
 **Rule**: delete CSS by RULE, never by matching line. After any CSS edit made
 by a tool, parse the file.
+
+## "a fast drag on the banner opened the ประกาศ page instead of swiping"
+
+**Symptom.** Caught before it shipped, by `tools/browser/home-hero.mjs`: the
+home banner's mouse-flick check failed once in five full runs and passed in
+isolation. A press → release 140 px to the right with no `pointermove` between
+them left the carousel where it was AND navigated to ประกาศและข่าวสาร — the
+drag was read as a click on the slide's link.
+
+**Cause.** The drag decided "is this a drag?" from whether a `pointermove` past
+the 6 px slop had been DELIVERED. Chrome coalesces pointer moves to the frame,
+so a fast enough gesture (or a busy main thread) can reach `pointerup` with the
+moves folded away. With `moved` still false, the handler returned early, no
+pointer capture had been taken, and `pointerdown` and `pointerup` landed on the
+same `<a>` — so the browser fired a perfectly valid click on it.
+
+**Fix.** `pointerup` judges by where the pointer ENDED: if it is ≥ 6 px from
+where it went down, the gesture is a drag whatever events arrived, the final
+offset is applied, and the click is suppressed. Falsified: reverting the branch
+makes the driver's "drag with no move event" case go red with
+`tab=pills-announcements`.
+
+**Where it lives now.** `endPointer` in `src/js/home-hero.js`; driven by
+`tools/browser/home-hero.mjs` (desktop + emulated phone, 28 checks).
+
+**The general rule.** *Classify a gesture from its displacement at release,
+never from the intermediate events you happened to receive* — the browser may
+deliver none of them. And an intermittent failure in a gesture driver is a
+finding, not noise: rerunning until green would have shipped a link that opens
+when you try to swipe past it.

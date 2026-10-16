@@ -40,6 +40,12 @@
 //             The visible name is searched too, so do not repeat it here.
 //   cats      launcher filter chips, space-separated ('public', 'pr', 'vs')
 //   launcher  set false to keep a tool off the launcher (default: shown)
+//   home      rank on the HOME page's tool rail (1 = first). Ranked tools lead
+//             the rail in rank order; every other launcher tool follows in
+//             registry order. The rail is the first thing under the banner,
+//             so rank only what most visitors came for.
+//   short     a name that fits a narrow rail tile. Optional — falls back to
+//             `name`. Display only; search still reads `name`.
 //
 // ORDER IS THE LAUNCHER ORDER. The ฝ่าย pages filter this list, so an entry's
 // position also decides where it sits on its ฝ่าย page.
@@ -57,6 +63,7 @@ export const TOOLS = [
     color: 'var(--pink-400)',
     keywords: 'pr ฝากงาน ประชาสัมพันธ์',
     cats: 'public pr',
+    home: 3,
   },
   {
     slug: 'golden-period',
@@ -69,6 +76,7 @@ export const TOOLS = [
     color: 'var(--dept-strategy)',
     keywords: 'gpc ปฏิทิน ช่วงเวลา จัดกิจกรรม จัดโครงการ ว่าง',
     cats: 'public',
+    home: 7,
   },
   {
     slug: 'vitalsound',
@@ -76,11 +84,16 @@ export const TOOLS = [
     kind: 'tab',
     tabId: 'pills-vitalsound-tab',
     name: 'VitalSound',
-    desc: 'ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร',
+    // The website-bug route has to be READABLE AS ONE wherever this card is
+    // drawn — the home rail is on the first screen and needs no login, which is
+    // what a guest reporting a broken page has. It used to be a footer link,
+    // and a footer is where a link goes to not be found.
+    desc: 'ร้องเรียน ข้อเสนอแนะ หรือแจ้งว่าเว็บมีปัญหา / พบบัค',
     icon: 'bi-clipboard2-pulse',
     color: 'var(--vs-accent)',
     keywords: 'vs ร้องเรียน ปัญหา ข้อเสนอแนะ',
     cats: 'public vs',
+    home: 5,
   },
   {
     slug: 'shop',
@@ -93,6 +106,8 @@ export const TOOLS = [
     color: 'var(--brand-orange)',
     keywords: 'shop สินค้า',
     cats: 'public',
+    home: 1,
+    short: 'SAMO Shop',
   },
   {
     // Belongs to no single ฝ่าย, so it appears in the launcher only.
@@ -106,6 +121,8 @@ export const TOOLS = [
     color: 'var(--brand-primary)',
     keywords: 'ห้องสโม จองห้อง booking room reservation',
     cats: 'public',
+    home: 2,
+    short: 'จองห้องสโม',
   },
   {
     // A SEPARATE app at its own base — a full page load here is correct.
@@ -119,6 +136,7 @@ export const TOOLS = [
     color: 'var(--brand-orange)',
     keywords: 'passport activity points หน่วยกิจกรรม กิจกรรม สะสมแต้ม',
     cats: 'public',
+    home: 6,
   },
   {
     slug: 'projects-view',
@@ -131,6 +149,8 @@ export const TOOLS = [
     color: 'var(--brand-primary)',
     keywords: 'ดู สถานะ ลูกค้า customer view projects bookkeeping',
     cats: 'public',
+    home: 4,
+    short: 'หนังสือโครงการ',
   },
   {
     slug: 'acad-notion',
@@ -143,6 +163,7 @@ export const TOOLS = [
     color: 'var(--dept-academic)',
     keywords: 'ฝ่ายวิชาการ การเรียน แหล่งเรียนรู้',
     cats: 'public',
+    short: 'Resource Database',
   },
   {
     slug: 'self-exam-bank',
@@ -155,6 +176,7 @@ export const TOOLS = [
     color: 'var(--dept-academic)',
     keywords: 'ฝ่ายวิชาการ คลังข้อสอบ ข้อสอบ ฝึกทำ',
     cats: 'public',
+    short: 'Self Exam Bank',
   },
   {
     // THE STARTER KIT, and the living proof that the frame works.
@@ -204,6 +226,15 @@ export const toolsForDept = (dept) => TOOLS.filter((t) => t.dept === dept);
 
 /** The tools the searchable launcher renders, in registry order. */
 export const launcherTools = () => TOOLS.filter((t) => t.launcher !== false);
+
+/** The home page's tool rail: ranked tools first (by `home`), then every
+ *  other launcher tool in registry order. Derived from the launcher list so a
+ *  tool hidden from the launcher can never surface here by accident. */
+export const homeRailTools = () => {
+  const all = launcherTools();
+  const ranked = all.filter((t) => Number.isFinite(t.home)).sort((a, b) => a.home - b.home);
+  return [...ranked, ...all.filter((t) => !Number.isFinite(t.home))];
+};
 
 /** The in-app path of a tool that has one, else null.
  *  An embed's path is DERIVED from its slug and never stored: two fields for

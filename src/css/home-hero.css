@@ -1,0 +1,542 @@
+/* ==============================================
+ * HOME — banner carousel (#homeHero) and tool rail (#homeRail).
+ * Behaviour: src/js/home-hero.js. Only transform/opacity animate; the
+ * carousel's motion is the browser's own scroller.
+ * ============================================== */
+
+/* ---------- Carousel ---------- */
+
+.hero {
+  margin: 0 0 1.5rem;
+}
+
+.hero-viewport {
+  position: relative;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--ink-100);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-track {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  aspect-ratio: 3 / 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.hero-track::-webkit-scrollbar { display: none; }
+
+@media (pointer: fine) {
+  .hero-track { cursor: grab; }
+  .hero.is-dragging .hero-track { cursor: grabbing; user-select: none; }
+}
+.hero.is-dragging .hero-link { pointer-events: none; }
+
+.hero-slide {
+  flex: 0 0 100%;
+  position: relative;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+}
+
+.hero-slide--welcome img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 45%;
+  user-select: none;
+}
+
+.hero-link {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(1.25rem, 5.5vw, 4.5rem);
+  color: inherit;
+  text-decoration: none;
+  user-select: none;
+}
+.hero-link:focus-visible {
+  outline: 3px solid var(--brand-primary);
+  outline-offset: -3px;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  max-width: min(34rem, 62%);
+}
+
+.hero-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  font-family: "Prompt", "Noto Sans Thai", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(1.15rem, 2.9vw, 2.2rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.hero-sub {
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  line-height: 1.45;
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: transform var(--t-fast) var(--ease);
+}
+.hero-cta .bi { transition: transform var(--t-base) var(--ease); }
+.hero-link:hover .hero-cta .bi { transform: translateX(3px); }
+.hero-link:active .hero-cta { transform: scale(0.97); transition-duration: 80ms; }
+
+/* Shop promo — the storefront's own palette (tokens: shop-storefront.css). */
+.hero-slide--shop {
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--sf-sky) 0%, transparent 55%),
+    var(--sf-milk);
+  color: var(--sf-espresso);
+}
+.hero-slide--shop .hero-eyebrow { color: var(--sf-taupe); }
+.hero-shop-word {
+  font-family: var(--sf-script);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(2rem, 6vw, 4.25rem);
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+  color: var(--sf-espresso);
+}
+.hero-shop-word span { color: var(--sf-sky-deep); }
+.hero-slide--shop .hero-sub { color: var(--sf-espresso-soft); }
+.hero-slide--shop .hero-cta { background: var(--sf-espresso); color: var(--sf-milk); }
+.hero-slide--shop .hero-link:hover .hero-cta { background: var(--sf-espresso-hover); }
+
+.hero-shop-art {
+  position: absolute;
+  right: clamp(1rem, 7vw, 6rem);
+  top: 50%;
+  width: clamp(7rem, 22vw, 15rem);
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+}
+.hero-shop-orb {
+  position: absolute;
+  border-radius: 50%;
+}
+.hero-shop-orb--sky {
+  inset: 0;
+  background: linear-gradient(145deg, var(--sf-sky) 0%, var(--sf-sky-deep) 100%);
+}
+.hero-shop-orb--milk {
+  width: 38%;
+  aspect-ratio: 1;
+  left: -12%;
+  bottom: -4%;
+  background: var(--sf-milk);
+  box-shadow: 0 10px 24px rgba(76, 43, 8, 0.12);
+}
+.hero-shop-badge {
+  position: absolute;
+  inset: 22%;
+  display: grid;
+  place-items: center;
+  border-radius: 28%;
+  background: var(--sf-espresso);
+  color: var(--sf-milk);
+  font-size: clamp(1.9rem, 5.5vw, 4rem);
+  box-shadow: 0 18px 36px rgba(76, 43, 8, 0.28);
+  transform: rotate(-8deg);
+}
+
+/* News promo — a dark slate island in BOTH themes (deliberately off the
+   --ink scale, which flips in dark mode), the newest cover on the right. */
+.hero-slide--news {
+  --hero-night: #111a2e;
+  background: linear-gradient(115deg, var(--hero-night) 0%, #2e3d58 100%);
+  color: #ffffff;
+}
+.hero-slide--news .hero-eyebrow {
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.02em; /* Thai: tracking breaks the stacked vowels apart */
+  text-transform: none;
+  font-size: 0.8rem;
+}
+.hero-slide--news .hero-cta { background: var(--surface); color: var(--ink-900); }
+.hero-news-latest {
+  font-size: clamp(0.8rem, 1.35vw, 0.98rem);
+  color: rgba(255, 255, 255, 0.86);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hero-news-title { font-weight: 600; color: #ffffff; }
+.hero-news-media {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 55%;
+  /* The picture itself fades out, so it dissolves into whatever the slide's
+     gradient is at that point — a painted scrim matches it at one x only. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 60%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 60%);
+}
+.hero-news-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* A light dim keeps white text legible where a narrow screen overlaps it. */
+.hero-news-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+/* No cover: two stacked "sheets" so the right half is not an empty field. */
+.hero-news-art {
+  position: absolute;
+  right: clamp(1rem, 8vw, 7rem);
+  top: 50%;
+  width: clamp(7rem, 20vw, 14rem);
+  aspect-ratio: 4 / 5;
+  transform: translateY(-50%);
+}
+.hero-slide--news.has-cover .hero-news-art { display: none; }
+.hero-news-sheet {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+}
+.hero-news-sheet--back {
+  background: rgb(var(--surface-rgb) / 0.08);
+  border: 1px solid rgb(var(--surface-rgb) / 0.14);
+  transform: rotate(8deg) translate(10%, -2%);
+}
+.hero-news-sheet--front {
+  display: flex;
+  flex-direction: column;
+  gap: 9%;
+  padding: 14%;
+  background: linear-gradient(160deg, rgb(var(--surface-rgb) / 0.2), rgb(var(--surface-rgb) / 0.07));
+  border: 1px solid rgb(var(--surface-rgb) / 0.24);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+  transform: rotate(-4deg);
+  color: var(--brand-orange);
+  font-size: clamp(1.4rem, 3.6vw, 2.6rem);
+}
+.hero-news-sheet--front span {
+  height: 7%;
+  border-radius: 99px;
+  background: rgb(var(--surface-rgb) / 0.32);
+}
+.hero-news-sheet--front span:nth-of-type(2) { width: 82%; }
+.hero-news-sheet--front span:nth-of-type(3) { width: 58%; }
+
+/* Arrows — on a pointer that can hover, shown while hovering the banner. */
+.hero-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(var(--surface-rgb) / 0.72);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  color: var(--ink-900);
+  font-size: 1.05rem;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
+}
+.hero-prev { left: 0.85rem; }
+.hero-next { right: 0.85rem; }
+.hero-arrow:active { transform: scale(0.92); }
+.hero-arrow:focus-visible { opacity: 1; outline: 3px solid var(--brand-primary); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .hero:hover .hero-arrow { opacity: 1; }
+}
+@media (hover: none) {
+  .hero-arrow { display: none; }
+}
+
+/* Dots + pause. The active dot is a pill whose fill IS the autoplay clock. */
+.hero-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+.hero-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.hero-dot {
+  /* 24px hit target around an 8px mark */
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  transition: width var(--t-slow) var(--ease);
+}
+.hero-dot::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ink-300);
+  transition: width var(--t-slow) var(--ease), background-color var(--t-base) var(--ease);
+}
+.hero-dot-fill {
+  grid-area: 1 / 1;
+  justify-self: start;
+  width: 0;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ink-700);
+  opacity: 0;
+}
+.hero-dot.is-active { width: 36px; }
+.hero-dot.is-active::before { width: 28px; }
+.hero-dot.is-active .hero-dot-fill {
+  margin-left: 4px;
+  opacity: 1;
+  animation: hero-progress var(--hero-ms, 6500ms) linear forwards;
+}
+.hero[data-paused] .hero-dot.is-active .hero-dot-fill { animation-play-state: paused; }
+.hero.is-static .hero-dot.is-active .hero-dot-fill { animation: none; width: 28px; }
+.hero.is-static .hero-pause { display: none; }
+
+@keyframes hero-progress {
+  from { width: 0; }
+  to   { width: 28px; }
+}
+
+.hero-pause {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--ink-200);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-600);
+  font-size: 0.85rem;
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-base) var(--ease);
+}
+.hero-pause:hover { border-color: var(--ink-300); color: var(--ink-900); }
+.hero-pause:active { transform: scale(0.92); }
+.hero-dot:focus-visible,
+.hero-pause:focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 1px; border-radius: var(--radius-pill); }
+
+@media (max-width: 991.98px) {
+  .hero-track { aspect-ratio: 2.5 / 1; }
+}
+@media (max-width: 575.98px) {
+  .hero { margin-bottom: 1.1rem; }
+  .hero-viewport { border-radius: var(--radius-lg); }
+  .hero-track { aspect-ratio: 2 / 1; }
+  .hero-link { padding: 0 1.1rem; }
+  .hero-copy { gap: 0.2rem; max-width: 68%; }
+  .hero-eyebrow { font-size: 0.6rem; letter-spacing: 0.14em; }
+  .hero-cta { margin-top: 0.3rem; padding: 0.35rem 0.75rem; font-size: 0.74rem; }
+  .hero-shop-art { right: 0.9rem; width: 6.25rem; }
+  .hero-slide--shop .hero-copy { max-width: 64%; }
+  .hero-slide--shop .hero-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hero-news-media { width: 58%; }
+  .hero-slide--news .hero-copy { max-width: 74%; }
+  .hero-slide--news .hero-eyebrow { font-size: 0.66rem; }
+  .hero-slide--news .hero-title { font-size: 1.02rem; }
+  .hero-news-latest { font-size: 0.74rem; }
+  .hero-news-art { right: 0.9rem; width: 4.75rem; }
+}
+
+/* ---------- Tool rail ---------- */
+
+.home-rail {
+  margin: 0 0 1.75rem;
+}
+
+.home-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+.home-rail-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+.home-rail-nav { display: flex; gap: 0.4rem; }
+.home-rail-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--ink-200);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-700);
+  transition: opacity var(--t-base) var(--ease), transform var(--t-fast) var(--ease), border-color var(--t-base) var(--ease);
+}
+.home-rail-btn:hover:not(:disabled) { border-color: var(--ink-300); color: var(--ink-900); }
+.home-rail-btn:active:not(:disabled) { transform: scale(0.92); }
+.home-rail-btn:disabled { opacity: 0.35; cursor: default; }
+.home-rail-btn:focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 1px; }
+@media (hover: none) {
+  .home-rail-nav { display: none; }
+}
+
+/* The track bleeds to the screen edge on a phone (the cut-off tile is the cue
+   that it scrolls) and keeps its first tile aligned with the content column. */
+.home-rail-track {
+  --rail-gutter: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 11.5rem;
+  gap: 0.75rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--rail-gutter);
+  scrollbar-width: none;
+  margin: 0 calc(-1 * var(--rail-gutter));
+  /* vertical room so the hover lift and shadow are not clipped */
+  padding: 0.35rem var(--rail-gutter) 0.85rem;
+}
+.home-rail-track::-webkit-scrollbar { display: none; }
+
+@media (min-width: 992px) {
+  .home-rail-track {
+    margin: 0;
+    padding-inline: 0;
+    scroll-padding-inline: 0;
+    grid-auto-columns: calc((100% - 5 * 0.75rem) / 6);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 1.5rem, #000 calc(100% - 1.5rem), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 1.5rem, #000 calc(100% - 1.5rem), transparent 100%);
+  }
+  .home-rail.at-start .home-rail-track {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent 100%);
+  }
+  .home-rail.at-end .home-rail-track {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 1.5rem);
+    mask-image: linear-gradient(90deg, transparent 0, #000 1.5rem);
+  }
+  .home-rail.at-start.at-end .home-rail-track { -webkit-mask-image: none; mask-image: none; }
+}
+
+/* A tile is the launcher's card (same renderer), stood upright. */
+.home-rail-track .launcher-tool {
+  scroll-snap-align: start;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  height: 100%;
+  padding: 1rem 1rem 1.05rem;
+  border-radius: var(--radius-lg);
+  -webkit-tap-highlight-color: transparent;
+}
+.home-rail-track .launcher-tool::before { display: none; }
+.home-rail-track .launcher-tool:hover { transform: translateY(-2px); }
+.home-rail-track .launcher-tool:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+.home-rail-track .launcher-tool-icon {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  font-size: 1.3rem;
+}
+.home-rail-track .launcher-tool-name {
+  font-size: 0.95rem;
+  /* wraps, never ellipsis: a cut name has no tooltip on a phone */
+  overflow-wrap: anywhere;
+  padding-right: 1.1rem; /* clear of the corner arrow */
+}
+.home-rail-track .launcher-tool-desc {
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+.home-rail-track .launcher-tool-body { width: 100%; }
+.home-rail-track .launcher-tool-arrow {
+  position: absolute;
+  top: 1rem;
+  right: 0.95rem;
+  font-size: 0.95rem;
+}
+.home-rail-track .launcher-tool:hover .launcher-tool-arrow { transform: translate(2px, 0); }
+.home-rail-track .launcher-tool[data-dept-tool-tab="pills-tools-tab"] {
+  background: var(--ink-50);
+  border-style: dashed;
+}
+
+@media (max-width: 575.98px) {
+  .home-rail-track { grid-auto-columns: 8.75rem; gap: 0.6rem; }
+  .home-rail-track .launcher-tool { padding: 0.85rem 0.8rem 0.9rem; gap: 0.55rem; }
+  .home-rail-track .launcher-tool-icon { width: 40px; height: 40px; border-radius: 12px; font-size: 1.15rem; }
+  .home-rail-track .launcher-tool-name { font-size: 0.88rem; }
+  .home-rail-track .launcher-tool-desc { font-size: 0.72rem; }
+  .home-rail-track .launcher-tool-arrow { top: 0.85rem; right: 0.75rem; font-size: 0.85rem; }
+  .home-rail-head h2 { font-size: 1.05rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-dot,
+  .hero-dot::before,
+  .hero-cta,
+  .hero-cta .bi,
+  .home-rail-track .launcher-tool { transition: none; }
+  .home-rail-track .launcher-tool:hover,
+  .home-rail-track .launcher-tool:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .hero-arrow { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

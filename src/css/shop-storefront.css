@@ -14,7 +14,8 @@
 #pills-shop,
 #shopProductModal,
 #shopCartOffcanvas,
-.shop-cart-fab {
+.shop-cart-fab,
+.hero-slide--shop { /* the home banner's shop promo — same palette, one home */
   --sf-milk:          #FFF9F0;
   --sf-sky:           #D0E3FF;
   --sf-sky-deep:      #AFCBF3;

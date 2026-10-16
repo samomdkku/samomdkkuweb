@@ -1,0 +1,192 @@
+#!/usr/bin/env node
+// ============================================================
+// home-hero.mjs — drive the HOME banner carousel and tool rail in headless
+// Chrome, on a desktop width and an emulated phone, and screenshot both.
+//
+// No database and no sign-in: the home page is public. Point it at the dev
+// server or at production — it only reads.
+//
+// What it asserts (each line ✓/✗, exit 1 on any ✗):
+//   - three slides; the rail leads with SAMO Shop · จองห้องสโม · PR Form ·
+//     หนังสือโครงการ · VitalSound and ends with เครื่องมือทั้งหมด
+//   - the next arrow / a dot / a MOUSE drag+flick / a TOUCH swipe each land on
+//     the slide they should, exactly snapped
+//   - autoplay moves on by itself, and does NOT while paused
+//   - tapping a rail tile opens its tab; no console error on the way
+//
+// RUN:  npm run dev &   then   node tools/browser/home-hero.mjs
+//       URL=https://samo.md.kku.ac.th/ OUT=/tmp/x node tools/browser/home-hero.mjs
+// ============================================================
+import { spawn } from 'node:child_process';
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const URL_ = process.env.URL || 'http://localhost:5174/';
+const OUT = process.env.OUT || mkdtempSync(join(tmpdir(), 'home-hero-'));
+const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const PORT = 9341;
+mkdirSync(OUT, { recursive: true });
+
+const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${PORT}`,
+  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'home-hero-chrome-'))}`], { stdio: 'ignore' });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
+const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
+const send = (method, params = {}) => new Promise((res, rej) => {
+  const i = ++id; pend[i] = { res, rej }; ws.send(JSON.stringify({ id: i, method, params }));
+});
+const ev = async (expr) => {
+  const r = await send('Runtime.evaluate', { expression: `(async()=>{try{${expr}}catch(e){return 'ERR '+e.stack}})()`, awaitPromise: true, returnByValue: true });
+  return r.result?.value;
+};
+const shot = async (name) => {
+  const r = await send('Page.captureScreenshot', { format: 'png' });
+  writeFileSync(join(OUT, name), Buffer.from(r.data, 'base64'));
+};
+const state = () => ev(`const t=document.querySelector('#homeHero .hero-track');
+  const a=[...document.querySelectorAll('#homeHero .hero-dot')].findIndex(d=>d.classList.contains('is-active'));
+  return {left:t.scrollLeft, w:t.clientWidth, active:a, paused:document.getElementById('homeHero').hasAttribute('data-paused')};`);
+const settled = async () => { await sleep(900); return state(); };
+const snappedTo = (s) => (s.w ? s.left / s.w : NaN);
+
+try {
+  for (let i = 0; i < 30 && !ws; i += 1) {
+    try {
+      const t = await (await fetch(`http://127.0.0.1:${PORT}/json/new?about:blank`, { method: 'PUT' })).json();
+      ws = new WebSocket(t.webSocketDebuggerUrl);
+    } catch { await sleep(300); }
+  }
+  await new Promise((r) => { ws.onopen = r; });
+  ws.onmessage = (m) => {
+    const d = JSON.parse(m.data);
+    if (d.id && pend[d.id]) { (d.error ? pend[d.id].rej(new Error(d.error.message)) : pend[d.id].res(d.result)); delete pend[d.id]; }
+    if (d.method === 'Runtime.exceptionThrown') errs.push(d.params.exceptionDetails?.exception?.description || d.params.exceptionDetails?.text);
+    if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') errs.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
+  };
+  await send('Runtime.enable');
+  await send('Page.enable');
+
+  for (const view of [
+    { name: 'desktop', width: 1280, height: 900, mobile: false, touch: false },
+    { name: 'phone', width: 390, height: 844, mobile: true, touch: true },
+  ]) {
+    console.log(`\n── ${view.name} ${view.width}px`);
+    await send('Emulation.setDeviceMetricsOverride', { width: view.width, height: view.height, deviceScaleFactor: 2, mobile: view.mobile });
+    await send('Emulation.setTouchEmulationEnabled', view.touch ? { enabled: true, maxTouchPoints: 5 } : { enabled: false });
+    await send('Page.navigate', { url: URL_ });
+    await sleep(3500);
+
+    const info = await ev(`return {
+      slides: document.querySelectorAll('#homeHero .hero-slide').length,
+      dots: document.querySelectorAll('#homeHero .hero-dot').length,
+      rail: [...document.querySelectorAll('#homeRailTrack .launcher-tool-name')].map(n=>n.textContent.trim()),
+      railOverflows: (()=>{const t=document.getElementById('homeRailTrack');return t.scrollWidth>t.clientWidth})(),
+      pageOverflowX: document.documentElement.scrollWidth > innerWidth,
+      newsLatest: document.querySelector('.hero-news-latest')?.hidden === false ? document.querySelector('.hero-news-title').textContent : '(hidden)',
+    };`);
+    say('slides / dots', `${info.slides} / ${info.dots}`, info.slides === 3 && info.dots === 3);
+    const lead = ['SAMO Shop', 'จองห้องสโม', 'PR Form', 'หนังสือโครงการ', 'VitalSound'];
+    say('rail leads with', info.rail.slice(0, 5).join(' · '), JSON.stringify(info.rail.slice(0, 5)) === JSON.stringify(lead));
+    say('rail ends with', info.rail.at(-1), info.rail.at(-1) === 'เครื่องมือทั้งหมด');
+    say('rail scrolls sideways', info.railOverflows, info.railOverflows);
+    say('no horizontal PAGE scroll', !info.pageOverflowX, !info.pageOverflowX);
+    say('news slide headline', info.newsLatest, true);
+    await shot(`${view.name}-1.png`);
+
+    // Hover/press holds would skew the next checks — move the mouse away.
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: view.height - 5 });
+
+    if (!view.touch) {
+      await ev(`document.querySelector('#homeHero .hero-next').click(); return 1`);
+      let s = await settled();
+      say('next arrow → slide 2, snapped', `active=${s.active} pos=${snappedTo(s).toFixed(3)}`, s.active === 1 && Math.abs(snappedTo(s) - 1) < 0.01);
+      await shot(`${view.name}-2-shop.png`);
+      await ev(`document.querySelectorAll('#homeHero .hero-dot')[2].click(); return 1`);
+      s = await settled();
+      say('dot 3 → slide 3', `active=${s.active} pos=${snappedTo(s).toFixed(3)}`, s.active === 2 && Math.abs(snappedTo(s) - 2) < 0.01);
+      await shot(`${view.name}-3-news.png`);
+
+      // A quick mouse FLICK right-to-left of ~120px from slide 3 → back to... it is the last
+      // slide, so flick LEFT-to-right to go back to slide 2.
+      const box = await ev(`const r=document.querySelector('#homeHero .hero-track').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}`);
+      const y = box.y + box.h / 2; let x = box.x + box.w * 0.3;
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+      for (let k = 0; k < 6; k += 1) { x += 20; await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 }); await sleep(12); }
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+      s = await settled();
+      say('mouse flick (120px, fast) → slide 2', `active=${s.active} pos=${snappedTo(s).toFixed(3)}`, s.active === 1 && Math.abs(snappedTo(s) - 1) < 0.01);
+      const tab = await ev(`return document.querySelector('.tab-pane.active')?.id`);
+      say('a drag over a slide link does not open it', tab, tab === 'pills-home');
+
+      // A drag whose moves were all coalesced away: down here, up 140px right,
+      // no move in between. Must still move a slide — and must NOT open the link.
+      await ev(`document.querySelectorAll('#homeHero .hero-dot')[2].click(); return 1`);
+      await settled();
+      x = box.x + box.w * 0.3;
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + 140, y, button: 'left', clickCount: 1 });
+      s = await settled();
+      const tab2 = await ev(`return document.querySelector('.tab-pane.active')?.id`);
+      say('drag with no move event → slide 2, link not opened', `active=${s.active} tab=${tab2}`, s.active === 1 && tab2 === 'pills-home');
+      if (tab2 !== 'pills-home') { await ev(`activateTab('pills-home-tab'); return 1`); await sleep(500); }
+
+      // A slow short drag settles back.
+      x = box.x + box.w * 0.5;
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+      for (let k = 0; k < 8; k += 1) { x -= 10; await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 }); await sleep(60); }
+      await sleep(200);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+      s = await settled();
+      say('slow 80px drag → settles back on slide 2', `active=${s.active} pos=${snappedTo(s).toFixed(3)}`, s.active === 1 && Math.abs(snappedTo(s) - 1) < 0.01);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: view.height - 5 });
+    } else {
+      // A real touch swipe through the browser's own scroller.
+      const box = await ev(`const r=document.querySelector('#homeHero .hero-track').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}`);
+      await send('Input.synthesizeScrollGesture', { x: Math.round(box.x + box.w * 0.8), y: Math.round(box.y + box.h / 2), xDistance: -Math.round(box.w * 0.6), yDistance: 0, gestureSourceType: 'touch', speed: 1600 });
+      let s = await settled();
+      say('touch swipe → slide 2, snapped', `active=${s.active} pos=${snappedTo(s).toFixed(3)}`, s.active === 1 && Math.abs(snappedTo(s) - 1) < 0.02);
+      await shot(`${view.name}-2-shop.png`);
+      await send('Input.synthesizeScrollGesture', { x: Math.round(box.x + box.w * 0.8), y: Math.round(box.y + box.h / 2), xDistance: -Math.round(box.w * 0.6), yDistance: 0, gestureSourceType: 'touch', speed: 1600 });
+      s = await settled();
+      say('touch swipe → slide 3', `active=${s.active}`, s.active === 2);
+      await shot(`${view.name}-3-news.png`);
+      // Rail swipe
+      const rb = await ev(`const r=document.getElementById('homeRailTrack').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}`);
+      await send('Input.synthesizeScrollGesture', { x: Math.round(rb.x + rb.w * 0.8), y: Math.round(rb.y + rb.h / 2), xDistance: -200, yDistance: 0, gestureSourceType: 'touch', speed: 1200 });
+      await sleep(600);
+      const rl = await ev(`return document.getElementById('homeRailTrack').scrollLeft`);
+      say('touch swipe scrolls the rail', rl, rl > 50);
+      await ev(`document.getElementById('homeRailTrack').scrollLeft=0; return 1`);
+    }
+
+    // Autoplay: from wherever it is, it should move on within one period.
+    let s0 = await state();
+    await sleep(7300);
+    let s1 = await state();
+    say('autoplay moves on by itself', `${s0.active} → ${s1.active} (held=${s1.paused})`, s1.active === (s0.active + 1) % 3);
+    await ev(`document.querySelector('#homeHero .hero-pause').click(); return 1`);
+    s0 = await state();
+    await sleep(7300);
+    s1 = await state();
+    say('paused: stays put', `${s0.active} → ${s1.active}`, s1.active === s0.active && s1.paused);
+    await ev(`document.querySelector('#homeHero .hero-pause').click(); return 1`);
+
+    await ev(`window.scrollTo(0,0); return 1`);
+    await shot(`${view.name}-top.png`);
+    // Tap a rail tile → its tab opens.
+    await ev(`[...document.querySelectorAll('#homeRailTrack .launcher-tool')].find(e=>e.textContent.includes('PR Form')).click(); return 1`);
+    await sleep(800);
+    const pane = await ev(`return document.querySelector('.tab-pane.active')?.id + ' ' + location.pathname`);
+    say('rail tile "PR Form" opens its tab', pane, /pills-pr\b/.test(pane));
+  }
+  say('console errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
+} catch (e) {
+  failed += 1;
+  console.log(`✗ driver error: ${e.stack || e}`);
+} finally {
+  try { ws?.close(); } catch { /* */ }
+  chrome.kill();
+  console.log(`\nscreenshots: ${OUT}`);
+  process.exit(failed ? 1 : 0);
+}

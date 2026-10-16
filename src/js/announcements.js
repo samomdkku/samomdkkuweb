@@ -8,6 +8,7 @@ import { dbRest } from './db.js';
 import { deletePRFile, driveIdsInHtml } from './uploads.js';
 import { convertDriveUrl, pictureAt } from './uploads.js';
 import { escHtml } from './utils.js';
+import { setHeroNews } from './home-hero.js';
 
 /** In-memory cache of loaded announcements */
 let globalAnnouncements = [];
@@ -708,6 +709,7 @@ function renderHomeAnnouncements({ error = false } = {}) {
   if (globalAnnouncements.length === 0) {
     featured.innerHTML = '';
     grid.innerHTML = '';
+    setHeroNews(null);
     if (empty) {
       empty.classList.remove('d-none');
       empty.innerHTML = '<i class="bi bi-inbox"></i><p>ยังไม่มีประกาศในขณะนี้</p>';
@@ -716,6 +718,13 @@ function renderHomeAnnouncements({ error = false } = {}) {
   }
 
   if (empty) empty.classList.add('d-none');
+
+  // The banner's ประกาศ slide names the post the home page leads with — the
+  // pinned one, else the newest — and shows its cover only if it has a real
+  // one; the stock placeholder would read as news it is not.
+  const lead = globalAnnouncements.find((p) => p.pinned) || globalAnnouncements[0];
+  const leadCover = pickCover(lead, 1200);
+  setHeroNews(lead, leadCover === PLACEHOLDER_IMG ? null : leadCover);
 
   // Featured slot is driven by the explicit `pinned` flag — NOT by list
   // position. If an admin has pinned a post, it becomes the single large

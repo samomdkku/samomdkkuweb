@@ -148,7 +148,7 @@ Open when: writing a migration.
 - Reopening the genesis `team_terms` row would have erased its own history
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(109)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(110)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -261,6 +261,7 @@ Open when: markup, modals, layout, touch, icons.
 - ฝ่ายรังสีเทคนิค borrowed a different concept's colour, not its own
 - Pressing "a" on ระบบบ้าน approved a slip
 - Deleting two dead CSS rules by LINE left a rule body with no selector
+- "a fast drag on the banner opened the ประกาศ page instead of swiping"
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(31)*
 
@@ -497,4 +498,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_435 entries across 10 files._
+_436 entries across 10 files._

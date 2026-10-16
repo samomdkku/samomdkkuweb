@@ -34,6 +34,7 @@ import { initVsRoute, vsSetRoute } from './vs-route.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
 import { initLauncher } from './launcher.js';
+import { initHomeHero, initHomeRail } from './home-hero.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { renderDiscordCard, readDiscordOutcome } from './discord-link.js';
@@ -976,6 +977,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Departments tab — grid drill-down to per-ฝ่าย tool list.
   initDepartments();
   initLauncher();
+  initHomeHero();
+  initHomeRail();
   initOrgChart();
 
   // Public read-only mirror of /admin/'s หนังสือโครงการ (customer view).

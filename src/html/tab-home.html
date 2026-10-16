@@ -5,9 +5,77 @@
       <div class="tab-pane fade show active" id="pills-home" role="tabpanel">
         <div class="container home-container">
 
-          <!-- WELCOME BANNER — first thing a visitor sees, above the auth strip. -->
-          <img src="/welcome-banner.jpg" class="home-welcome-banner"
-            alt="ยินดีต้อนรับสู่ MDKKU SAMO PORTAL" />
+          <!-- HERO — the welcome banner plus two promos, one per slide. Swipe on
+               a phone, drag or use the arrows on a desktop; it moves by itself
+               every few seconds and holds still while someone is touching,
+               hovering, focused on it, or has pressed pause. Mechanics and the
+               reasons for each: src/js/home-hero.js. -->
+          <section id="homeHero" class="hero" aria-roledescription="carousel" aria-label="แนะนำ SAMO Portal">
+            <div class="hero-viewport">
+              <div class="hero-track">
+
+                <div class="hero-slide hero-slide--welcome" role="group" aria-roledescription="slide" aria-label="1 จาก 3">
+                  <img src="/welcome-banner.jpg" alt="ยินดีต้อนรับสู่ MDKKU SAMO PORTAL"
+                    width="2000" height="666" draggable="false" fetchpriority="high" />
+                </div>
+
+                <div class="hero-slide hero-slide--shop" role="group" aria-roledescription="slide" aria-label="2 จาก 3">
+                  <a class="hero-link" href="/shop" data-dept-tool-tab="pills-shop-tab" draggable="false">
+                    <span class="hero-copy">
+                      <span class="hero-eyebrow">MDKKU SAMO</span>
+                      <span class="hero-shop-word">samo <span>shop</span></span>
+                      <span class="hero-sub">เสื้อ ของที่ระลึก และอื่น ๆ ของสโมสร สั่งซื้อออนไลน์ได้เลย</span>
+                      <span class="hero-cta">เลือกซื้อเลย <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                    </span>
+                    <span class="hero-shop-art" aria-hidden="true">
+                      <span class="hero-shop-orb hero-shop-orb--sky"></span>
+                      <span class="hero-shop-orb hero-shop-orb--milk"></span>
+                      <span class="hero-shop-badge"><i class="bi bi-bag-heart-fill"></i></span>
+                    </span>
+                  </a>
+                </div>
+
+                <div class="hero-slide hero-slide--news" id="heroNewsSlide" role="group" aria-roledescription="slide" aria-label="3 จาก 3">
+                  <a class="hero-link" href="/news" data-dept-tool-tab="pills-announcements-tab" draggable="false">
+                    <span class="hero-news-media" hidden><img alt="" loading="lazy" draggable="false" /></span>
+                    <span class="hero-news-art" aria-hidden="true">
+                      <span class="hero-news-sheet hero-news-sheet--back"></span>
+                      <span class="hero-news-sheet hero-news-sheet--front"><i class="bi bi-megaphone-fill"></i><span></span><span></span><span></span></span>
+                    </span>
+                    <span class="hero-copy">
+                      <span class="hero-eyebrow">ประกาศและข่าวสาร</span>
+                      <span class="hero-title">ทุกเรื่องจากสโมสร อ่านได้ที่นี่</span>
+                      <!-- Filled by announcements.js → setHeroNews() with the
+                           pinned post, else the newest. Hidden until then. -->
+                      <span class="hero-news-latest" hidden>ล่าสุด: <span class="hero-news-title"></span></span>
+                      <span class="hero-cta">ดูประกาศทั้งหมด <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                    </span>
+                  </a>
+                </div>
+
+              </div>
+              <button type="button" class="hero-arrow hero-prev" aria-label="สไลด์ก่อนหน้า"><i class="bi bi-chevron-left"></i></button>
+              <button type="button" class="hero-arrow hero-next" aria-label="สไลด์ถัดไป"><i class="bi bi-chevron-right"></i></button>
+            </div>
+            <div class="hero-controls">
+              <button type="button" class="hero-pause" aria-pressed="false" aria-label="หยุดเลื่อนสไลด์อัตโนมัติ"><i class="bi bi-pause-fill"></i></button>
+              <div class="hero-dots"></div>
+            </div>
+          </section>
+
+          <!-- TOOL RAIL — the tools most visitors came for, first screen, one
+               horizontal row. Filled from src/data/tools.js (homeRailTools):
+               rank a tool with `home:` there, never with markup here. -->
+          <section id="homeRail" class="home-rail at-start" aria-labelledby="homeRailHeading">
+            <header class="home-rail-head">
+              <h2 id="homeRailHeading">เครื่องมือ</h2>
+              <div class="home-rail-nav">
+                <button type="button" class="home-rail-btn home-rail-prev" aria-label="เลื่อนไปทางซ้าย"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="home-rail-btn home-rail-next" aria-label="เลื่อนไปทางขวา"><i class="bi bi-chevron-right"></i></button>
+              </div>
+            </header>
+            <div class="home-rail-track" id="homeRailTrack"></div>
+          </section>
 
           <!-- AUTH STRIP — compact CTA when signed-out, slim welcome when signed-in.
                No giant hero; the news IS the hero now. -->
@@ -83,54 +151,6 @@
           <!-- USAGE STATS — animated social-proof strip. Hidden until
                home-stats.js fills it from the public_stats() RPC (0065). -->
           <section id="homeStats" class="home-stats d-none" aria-label="สถิติการใช้งาน SAMO Portal"></section>
-
-          <!-- QUICK ACTIONS — single restrained strip, not a card grid.
-               3 most-used tasks; the full launcher lives in #pills-tools. -->
-          <section class="home-quick mt-5">
-            <header class="news-section-head">
-              <h2>เริ่มต้นกับ SAMO</h2>
-              <a class="news-section-head-link" href="#"
-                onclick="activateTab('pills-tools-tab'); return false;">
-                เครื่องมือทั้งหมด <i class="bi bi-arrow-right"></i>
-              </a>
-            </header>
-
-            <div class="home-quick-row">
-              <a class="home-quick-item" onclick="activateTab('pills-pr-tab')"
-                style="--quick-color: var(--pink-400);">
-                <span class="home-quick-icon"><i class="bi bi-megaphone-fill"></i></span>
-                <span class="home-quick-body">
-                  <span class="home-quick-name">ฝากงาน PR</span>
-                  <span class="home-quick-desc">ประชาสัมพันธ์ลง IG / FB คณะ</span>
-                </span>
-                <i class="bi bi-arrow-right home-quick-arrow" aria-hidden="true"></i>
-              </a>
-              <a class="home-quick-item" onclick="activateTab('pills-vitalsound-tab')"
-                style="--quick-color: var(--vs-accent);">
-                <span class="home-quick-icon"><i class="bi bi-clipboard2-pulse"></i></span>
-                <span class="home-quick-body">
-                  <span class="home-quick-name">แจ้งปัญหา / VitalSound</span>
-                  <!-- The website-bug route has to be READABLE AS ONE, here on
-                       the home page. It was only a footer link, and a footer is
-                       where a link goes to not be found — least of all by
-                       somebody whose page has just broken. This card is on the
-                       first screen and needs no login, which is what a guest
-                       reporting a bug has. -->
-                  <span class="home-quick-desc">ร้องเรียน ข้อเสนอแนะ หรือแจ้งว่าเว็บมีปัญหา / พบบัค</span>
-                </span>
-                <i class="bi bi-arrow-right home-quick-arrow" aria-hidden="true"></i>
-              </a>
-              <a class="home-quick-item" onclick="activateTab('pills-shop-tab')"
-                style="--quick-color: var(--brand-orange);">
-                <span class="home-quick-icon"><i class="bi bi-bag-heart"></i></span>
-                <span class="home-quick-body">
-                  <span class="home-quick-name">ร้านค้า SAMO</span>
-                  <span class="home-quick-desc">เสื้อ ของที่ระลึก และอื่นๆ</span>
-                </span>
-                <i class="bi bi-arrow-right home-quick-arrow" aria-hidden="true"></i>
-              </a>
-            </div>
-          </section>
 
         </div>
       </div>
