@@ -111,6 +111,18 @@ src/js/
 ├── vs-board.js          ─ VS public "Problem" board (browse/me-too/comments)
 ├── vs-staff.js          ─ VS staff dashboard + SE publish-to-board panel
 ├── announcements.js     ─ announcement CRUD via dbRest
+├── home-hero.js         ─ HOME: the banner carousel (native scroll-snap; autoplay
+│                          clocked by the active dot's CSS animation; mouse drag
+│                          landed by velocity sign / momentum projection) and
+│                          the tool rail, rendered from src/data/tools.js
+│                          (homeRailTools: `home` rank, `short` label)
+├── me-page.js           ─ /me "ข้อมูลของฉัน": the home account row's summary +
+│                          "needs you" flag (from the cards' own functions) and
+│                          the Discord-return redirect /#discord=… → /me. The
+│                          cards themselves are my-seat.js, house/my-house.js,
+│                          identity-check.js, painted into /me by main.js
+├── tool-card.js         ─ THE tool card renderer (launcher, ฝ่าย pages, home
+│                          rail); `ink` glyph colour, `deptLogo` ฝ่าย artwork
 ├── discord-queue.js     ─ shared Discord core: ONE global rate-limit-aware
 │                          queue + logged GAS caller for PR/VS/projects
 ├── notify.js            ─ PR + VS Discord fire-and-forget (rides discord-queue)
@@ -1341,7 +1353,7 @@ everyone while looking exactly like the policies working.
 **Frontend**: `src/js/house/` — `fields.js` (pure rules incl. the file-level
 `auditSaiWidths` leading-zero check), `io.js` (CSV parse/diff/export),
 `api.js`, `index.js` (admin workspace, section `house`), `my-house.js` (the
-student's own card on the home page). Permission key `house` is threaded through
+student's own card on ข้อมูลของฉัน, `/me` — it was on the home page until 2026-10-16). Permission key `house` is threaded through
 `PERM_CATALOG`, `ADMIN_FEATURES`, `PERM_SECTION`, `SECTION_META`, `SIDE_FEATURE`
 and the sidebar.
 

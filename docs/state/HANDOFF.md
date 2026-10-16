@@ -1971,3 +1971,19 @@ under the real queue's task 9, which the real preamble reserves migration
 0226 for (NOT 0222). Same rule as the † note: the MIGRATION NUMBER actually
 used is the ground truth; check what a migration file's own header claims
 before trusting either numbering scheme.
+
+## 23. Home page + ข้อมูลของฉัน (/me) — what the 2026-10-16 session leaves open
+
+**Status: VERIFIED 2026-10-16 — how: `tools/browser/home-hero.mjs` 33/33 against production (banner gestures, keyboard, autoplay/pause, tool rail, ⌘-click, `/tools`, the MDI ฝ่าย page, `/admin/`), `tools/browser/me-page.mjs` 17/17 on samo-dev signed in; every fixed bug falsified.** Why each piece is the way it is: `docs/state/claude-2026-10-16.md`. Below is only what is NOT done.
+
+**a. White glyphs on pale icon colours — Status: DECIDED 2026-10-16** (owner: "make the icon white"). Measured white-on-colour contrast; 3:1 is the usual floor for an icon: Golden Period `#ffd077` **1.44:1**, SAMO Booking `#bdc96c` 1.79:1, SAMO Passport `#8dc3e1` 1.90:1, PR Form `#ff8bbf` 2.17:1 (VitalSound 4.36, SAMO Project 4.11, the rest higher). A soft drop-shadow gives the glyph an edge. Do not re-propose a coloured glyph unless the owner raises legibility; if they do, the deep same-hue ink was built once and is in git (`git log -S toolInk`).
+
+**b. Phone top bar: Logout → your avatar (opens /me) — Status: OWED, owner to confirm.** Shipped as part of "design the workflow properly", but it removes a one-tap sign-out the owner had chosen earlier (navbar.html comment). Sign-out is now on `/me` and in the drawer. If they want it back, restore the old `#navAuthSignedInMobile` button and keep the avatar elsewhere.
+
+**c. Golden Period — Status: OWED, owner to confirm.** The "ตารางข้อมูลเต็ม" heading and its lead were removed; the "เปิดชีท GPC Dashboard" button was KEPT because only the text was pasted.
+
+**d. Never seen on a real phone — Status: HYPOTHESIS that it works on iOS Safari.** Headless Chrome with emulated touch passed the swipes, autoplay and the rail; iOS's scroller (scroll-snap with programmatic smooth `scrollTo`, `scroll-snap-stop: always`) has not been looked at on a device. Open the home page on an iPhone: swipe the banner, let it autoplay a full cycle, scroll the tool row, tap the avatar.
+
+**e. /me with a REAL ทีม SAMO + ระบบบ้าน record has not been looked at on production — Status: OWED.** The signed-in driver refuses production by design (it creates an account); the full page was rendered with a synthetic person through the real renderers on samo-dev. One look by a team member at `samo.md.kku.ac.th/me` closes it.
+
+**f. `discord-sync.test.js` › "after a pass the panel is told when and what" — Status: HYPOTHESIS: timing flake, unrelated.** Failed once during a full `npm test` while headless Chrome was also running; passed 3/3 alone and CI is green. It spawns the sync service with a fixed 1500 ms window (`loop(1500)`). If it fails again, give it the event-based ending its sibling loop test got (`git log --grep "waits for events"`), not a longer timer.

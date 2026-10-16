@@ -560,3 +560,35 @@ KKU anyway:
 - Chrome with `--host-resolver-rules="MAP samo.md.kku.ac.th:443 127.0.0.1:8443"`
   and `--ignore-certificate-errors`. The VM's own certificate is self-signed
   for its internal IP.
+
+---
+
+## 12. Home page and ข้อมูลของฉัน — two committed drivers (2026-10-16)
+
+- **`node tools/browser/home-hero.mjs`** — no account, no database; safe against
+  production (`URL=https://samo.md.kku.ac.th/`). Desktop 1280 + emulated phone
+  390: the banner's arrow / dot / mouse flick / slow drag / a drag whose moves
+  were coalesced away / keyboard → with focus on a slide / touch swipe /
+  autoplay and pause; the tool rail's order and touch scroll; then `/tools`, the
+  MDI ฝ่าย page and `/admin/`. 32 checks, screenshots in `$OUT`.
+- **`node tools/browser/me-page.mjs`** — signed in, samo-dev ONLY (it registers
+  a throwaway account and deletes it in a `finally`; it refuses production).
+  Every way into `/me`, the sign-in prompt never flashing for a signed-in
+  person (a MutationObserver from the first byte), the home row's flag both
+  ways, a Discord return, sign-out from `/me`. 17 checks.
+
+Instrument traps each of them hit, so the next driver does not:
+
+- **`.tab-pane.active` is not "the page".** Tabs nest (the PR tab has its own
+  active inner pane), and the first match in document order is that one. Ask
+  for the top-level `pills-*` pane.
+- **`/` → `/#x` is a same-page hash change, not a load.** Navigate to
+  `about:blank` first when the thing under test happens on a FULL load (the
+  Discord callback is a cross-site redirect).
+- **Wait for `window.__samoBooted`, never a fixed sleep.** A cold dev server
+  re-bundling after an edit took longer than 3.5 s, and the checks reported
+  "no slides, no tiles" — a false red that reads exactly like a broken boot.
+- **An intermittent gesture failure is a finding.** Both carousel drag bugs
+  surfaced as 1-in-5 flakes; instrumenting the events (not rerunning) found
+  them. See `docs/mistakes/frontend-ui.md`.
+

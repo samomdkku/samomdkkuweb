@@ -4403,3 +4403,117 @@ never from the intermediate events you happened to receive* — the browser may
 deliver none of them. And an intermittent failure in a gesture driver is a
 finding, not noise: rerunning until green would have shipped a link that opens
 when you try to swipe past it.
+
+## "pressing → on the banner left keyboard focus on a slide you can no longer see"
+
+**Symptom.** Caught in the 2026-10-16 bug scan, before anyone reported it. Tab to
+the SAMO Shop slide's link, press → : the carousel moves to the ประกาศ slide,
+but focus stays on the shop link — now inside an `aria-hidden` slide with
+`tabIndex=-1`. A keyboard or screen-reader user is parked on an invisible
+control, and Enter opens the shop from the news slide.
+
+**Cause.** `setIndex()` hid the outgoing slide (aria-hidden + tabIndex −1 on its
+controls) and never asked where focus was. Hiding an element does not move
+focus out of it.
+
+**Fix.** Before hiding, `setIndex` notes whether `document.activeElement` is in
+the outgoing slide; if so it focuses the incoming slide's link, else its dot,
+with `preventScroll`. Falsified: disabling the branch makes
+`home-hero.mjs`'s "→ with focus on a slide" case go red with `onHidden:true`.
+
+**Where it lives now.** `setIndex` in `src/js/home-hero.js`.
+
+**The general rule.** *Whatever hides a region must ask whether focus is inside
+it.* aria-hidden, `hidden`, `inert`, a collapsed panel, a closed tab — none of
+them move focus. Same family as class 4's "a message a renderer can turn ON
+must be turned OFF": a state a component ENTERS on one path must be left on
+every path that makes it untrue.
+
+## "the admin page tells staff a student fixes it on the home page" — after it moved
+
+**Symptom.** Found in the same scan, the day ข้อมูลของฉัน moved from the home
+page to `/me`. Four pieces of UI copy and three docs still sent people to
+"หน้าแรก" for things that now live on `/me`: the ระบบบ้าน admin's
+รายชื่อที่ยังนำเข้าไม่ได้ panel ("ยืนยันตัวตนเองได้จากหน้าแรก"), the import
+preview ("ขึ้นถามเจ้าตัวในหน้าแรก"), the ข้อมูลไม่ครบ reason in `gaps.js`, and
+`tools/house-gaps.mjs`'s instruction that ฝ่ายข้อมูล passes on to students —
+plus `HOUSE-DATA-REPAIR.md`, `HOUSE-YEAR-HANDOVER.md` and `CONTEXT.md`.
+
+**Cause.** The move was made where the cards are RENDERED (main.js, the two
+partials) and checked there. The SENTENCES that describe where they are live in
+other files, other entries (admin), and in a tool's output that a human relays.
+None of them imports anything that moved, so no test, build or grep for the
+element ids could notice.
+
+**Fix.** `grep -rn "หน้าแรก" src server appscript tools docs` filtered for the
+moved things (บ้าน, ยืนยัน, ตรวจสอบ, ข้อมูลของฉัน, Discord), every hit
+rewritten to ข้อมูลของฉัน — the student-facing one with "(กดรูปโปรไฟล์มุมขวาบน)"
+because it is read cold.
+
+**Where it lives now.** The four strings above; the docs.
+
+**The general rule.** *Moving a feature moves its DIRECTIONS.* After relocating
+anything a person is told to go to, grep for the OLD LOCATION'S NAME in prose
+(Thai and English), not only for the code identifiers — the instructions are a
+second implementation of "where is it" (class 6, prose is an implementation
+too), and the copy most likely to be stale is the one written for a different
+audience than the one you were looking at.
+
+## "the tool row stops short of the screen edge, and a long name runs into the next icon" (phone)
+
+**Symptom.** Seen in the 390 px screenshots, 2026-10-16. The home tool rail was
+meant to run to the screen edge (the cut-off icon is the cue that it scrolls)
+but stopped 24 px short on both sides; and "หนังสือโครงการ" under its icon ran
+across the next column instead of wrapping.
+
+**Cause.** Two, both found by MEASURING (bounding rects), not by reading CSS.
+(1) The bleed was `margin: 0 calc(-1 * gutter)` — it undid the `.container`'s
+own 12 px padding, but the container itself sits a further 24 px in from the
+viewport. A bleed sized from one ancestor's padding is a guess about every
+ancestor. (2) The label's flex column had `align-items: center`, and a centred
+flex child is sized to its max-content: Thai, with no spaces, never got a
+narrower box to wrap in.
+
+**Fix.** (1) `syncBleed` measures the rail section's distance to each screen
+edge (`getBoundingClientRect` against `documentElement.clientWidth`, which
+excludes a scrollbar) and the track's margins/padding read those variables;
+below 992 px only. NOT `calc(50% - 50vw)`: `100vw` counts a desktop
+scrollbar, and with no `overflow-x: clip` on the page that is a sideways page
+scroll in any desktop browser narrower than 992 px. (2) `align-items: stretch`
++ `text-align: center` on the label's box.
+
+**Where it lives now.** `initHomeRail` in `src/js/home-hero.js`; the rail block
+of `src/css/home-hero.css`.
+
+**The general rule.** *A full-bleed element must be sized from the viewport it
+bleeds to, measured — not from the padding of the one ancestor in view.* And
+in a centred flex column, give text a stretched box or it will not wrap.
+
+## "⌘-click / Ctrl-click on a tool or the banner just switches the page instead of opening a new tab"
+
+**Symptom.** Found in the 2026-10-16 scan. Every in-app link drawn as
+`<a href="/x" data-dept-tool-tab|path>` — the launcher's path tools, the ฝ่าย
+pages' tools, and since that day the banner slides and the home account row —
+ignored ⌘/Ctrl-click (new tab) and Shift-click (new window): the current page
+switched, and no tab opened.
+
+**Cause.** The document-level handler in `departments.js` called
+`preventDefault()` on EVERY click that reached such an element. The `href` was
+kept on purpose (`tool-card.js`: "so middle-click, open in new tab and copy
+link behave like real links"), and a guard asserts the href survives — but
+middle-click is `auxclick`, not `click`, so it was the only one of the three
+that worked, and that was what anyone tried. A modified LEFT click is a
+`click`, and was cancelled.
+
+**Fix.** The handler returns early for a modified click (meta/ctrl/shift/alt,
+or a non-primary button) on an `a[href]` carrying either hook, leaving it to
+the browser. A `<button>` has no href, so it stays the app's. Falsified:
+removing the early return makes `home-hero.mjs`'s ⌘/Ctrl case go red with
+the page switched to `pills-shop`.
+
+**Where it lives now.** `initDepartments` in `src/js/departments.js`.
+
+**The general rule.** *Keeping an `href` for "open in new tab" is only half of
+it — the click handler must also stand aside for a modified click.* Assert the
+behaviour (the event is not cancelled), not the attribute: the href guard was
+green the whole time.

@@ -121,6 +121,10 @@ export function initHomeHero() {
 
   function setIndex(i) {
     if (i === index) return;
+    // Was keyboard focus on the slide that is about to be hidden? Then it must
+    // follow, or it is left on a control the reader can no longer see (the
+    // arrow keys move the slide while focus sits on its link).
+    const focusLeaving = index >= 0 && slides[index]?.contains(document.activeElement);
     index = i;
     slides.forEach((s, k) => {
       const on = k === i;
@@ -135,6 +139,10 @@ export function initHomeHero() {
       if (k === i) d.setAttribute('aria-current', 'true');
       else d.removeAttribute('aria-current');
     });
+    if (focusLeaving) {
+      // preventScroll: moving focus must not yank the page to the banner.
+      (slides[i].querySelector('a, button') || dots[i])?.focus({ preventScroll: true });
+    }
     restartProgress();
   }
 

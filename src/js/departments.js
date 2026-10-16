@@ -143,6 +143,13 @@ export function initDepartments() {
       backToGrid();
       return;
     }
+    // A modified click on a real LINK (⌘/Ctrl = new tab, Shift = new window,
+    // Alt = download) is the browser's to handle — the href is kept on these
+    // anchors precisely so that works. Cancelling it opened nothing new and
+    // just switched the current page. A <button> has no href, so it is still
+    // ours whatever the modifiers.
+    const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0;
+    if (modified && e.target.closest('a[href][data-dept-tool-tab], a[href][data-dept-tool-path]')) return;
     const tabBtn = e.target.closest('[data-dept-tool-tab]');
     if (tabBtn) {
       e.preventDefault();

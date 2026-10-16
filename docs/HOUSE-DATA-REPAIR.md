@@ -65,7 +65,7 @@ fields, because those are the two the claim matches on.
 
 | รหัส | ชื่อ | The student can | The admin must |
 |:---:|:---:|---|---|
-| ✓ | ✓ | **Fix it themselves.** Sign in with kkumail → หน้าแรก → type รหัส + ชื่อ → the seat is theirs, with its สาย and บ้าน. → then Case A. | nothing |
+| ✓ | ✓ | **Fix it themselves.** Sign in with kkumail → ข้อมูลของฉัน (`/me`, the avatar top right) → type รหัส + ชื่อ → the seat is theirs, with its สาย and บ้าน. → then Case A. | nothing |
 | ✓ | ✗ or wrong | nothing — the claim needs both | Search the held list by **รหัส**, type their address into that row (`กรอกอีเมล`). |
 | ✗ or wrong | ✓ | nothing | Search the held list by **ชื่อ**, same. |
 | ✗ | ✗ | nothing | Only นามสกุล and สาย remain. If นามสกุล identifies them, promote by hand; otherwise **→ ฝ่ายข้อมูล**. |

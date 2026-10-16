@@ -119,7 +119,7 @@ const claimable = held
   .sort((a, b) => a.cohort.localeCompare(b.cohort) || String(a.sai).localeCompare(String(b.sai)));
 if (claimable.length) {
   md.push(`## ภาคผนวก — ${claimable.length} คนที่ยืนยันตัวตนเองได้`, '',
-    'บอกเขาครั้งเดียว: เข้าสู่ระบบด้วย kkumail แล้วกรอกรหัสนักศึกษากับชื่อจริงที่หน้าแรก', '',
+    'บอกเขาครั้งเดียว: เข้าสู่ระบบด้วย kkumail แล้วกรอกรหัสนักศึกษากับชื่อจริงที่หน้าข้อมูลของฉัน (กดรูปโปรไฟล์มุมขวาบน)', '',
     '| รุ่น | สาย | ชื่อ | รหัสนักศึกษา |', '|---|---|---|---|');
   claimable.forEach((h) => md.push(
     `| ${h.cohort} | ${h.sai || '—'} | ${[h.first_name_th, h.last_name_th].filter(Boolean).join(' ')} | ${h.student_id} |`));

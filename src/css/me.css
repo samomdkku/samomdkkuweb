@@ -122,6 +122,8 @@
    followed a greeting on the home page. */
 #pills-me .identity-check:not([hidden]) { margin-top: 0; margin-bottom: 1rem; }
 #pills-me .myseat { margin-top: 0; }
+/* ระบบบ้าน on its own (no ทีม SAMO card above it) starts at the top too. */
+#pills-me #meMySeat[hidden] + #meMyHouse { margin-top: 0 !important; }
 
 .me-signedout {
   text-align: center;

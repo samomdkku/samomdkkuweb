@@ -487,7 +487,7 @@ creates one obviously-fake held seat (รหัส `000000001-1`, ชื่อ "
    `contributor-credentials`) and sign in with any spare **@kkumail.com**
    account that is not already a student (does not need to be a real MDKKU
    student — only the domain is checked).
-3. On the home page, find "บ้านของฉัน" — it should show the claim form
+3. Open ข้อมูลของฉัน (`/me`), find "บ้านของฉัน" — it should show the claim form
    (outcome 3).
 4. Type a wrong รหัส or ชื่อ first (e.g. `000000001-1` / `ไม่ใช่ชื่อนี้`) and
    submit — confirm you get the neutral "ยังไม่พบรายชื่อ…" sentence (outcome

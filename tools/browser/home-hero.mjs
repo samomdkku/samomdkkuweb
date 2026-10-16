@@ -138,6 +138,20 @@ try {
       say('drag with no move event → slide 2, link not opened', `active=${s.active} tab=${tab2}`, s.active === 1 && tab2 === 'pills-home');
       if (tab2 !== 'pills-home') { await ev(`activateTab('pills-home-tab'); return 1`); await sleep(500); }
 
+      // Keyboard: focus on a slide's link, then → . Focus must follow to the new
+      // slide, never stay on the one that just went aria-hidden.
+      await ev(`document.querySelectorAll('#homeHero .hero-dot')[1].click(); return 1`);
+      await settled();
+      await ev(`document.querySelector('#homeHero .hero-slide--shop .hero-link').focus(); return 1`);
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+      s = await settled();
+      const foc = await ev(`const a = document.activeElement; const sl = a.closest('.hero-slide');
+        return { onHidden: sl ? sl.getAttribute('aria-hidden') === 'true' : false, inNews: !!a.closest('.hero-slide--news') }`);
+      say('→ with focus on a slide: slide 3, focus followed', `active=${s.active} ${JSON.stringify(foc)}`, s.active === 2 && foc.inNews && !foc.onHidden);
+      await ev(`document.activeElement.blur(); document.querySelectorAll('#homeHero .hero-dot')[1].click(); return 1`);
+      await settled();
+
       // A slow short drag settles back.
       x = box.x + box.w * 0.5;
       await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
@@ -181,12 +195,46 @@ try {
 
     await ev(`window.scrollTo(0,0); return 1`);
     await shot(`${view.name}-top.png`);
+    // ⌘/Ctrl-click on an in-app LINK is the browser's (new tab) — the app must
+    // not cancel it; a plain click is the app's. Read on window, which runs
+    // after the app's document handler; the probe then cancels it itself so
+    // nothing actually opens.
+    const mod = await ev(`const a = document.querySelector('#homeHero .hero-slide--shop .hero-link');
+      const seen = []; const spy = (e) => { seen.push(e.defaultPrevented); e.preventDefault(); };
+      window.addEventListener('click', spy);
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true }));
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }));
+      window.removeEventListener('click', spy);
+      return { modifiedLeftToBrowser: seen[0] === false && seen[1] === false,
+        pane: [...document.querySelectorAll('.tab-pane.active')].find(p=>p.id.startsWith('pills-'))?.id }`);
+    say('⌘/Ctrl-click on a slide link is left to the browser (new tab)', JSON.stringify(mod), mod.modifiedLeftToBrowser && mod.pane === 'pills-home');
     // Tap a rail tile → its tab opens.
     await ev(`[...document.querySelectorAll('#homeRailTrack .launcher-tool')].find(e=>e.textContent.includes('PR Form')).click(); return 1`);
     await sleep(800);
     const pane = await ev(`return document.querySelector('.tab-pane.active')?.id + ' ' + location.pathname`);
     say('rail tile "PR Form" opens its tab', pane, /pills-pr\b/.test(pane));
   }
+  // Every OTHER page that draws a registry tool card: the launcher, a ฝ่าย page
+  // whose tool uses the ฝ่าย logo, and the admin app (which imports the same
+  // modules). Colours and logos changed in the registry reach all of them.
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
+  const base = URL_.replace(/\/$/, '');
+  await send('Page.navigate', { url: `${base}/tools` }); await sleep(4000);
+  const tools = await ev(`const cards = [...document.querySelectorAll('#launcherGridPublic .launcher-tool')];
+    const bad = cards.filter(c => { const i = c.querySelector('.launcher-tool-icon'); const r = i.getBoundingClientRect();
+      return !r.width || getComputedStyle(i).backgroundColor === 'rgba(0, 0, 0, 0)' && !i.querySelector('img'); }).length;
+    const logos = cards.filter(c => c.querySelector('.launcher-tool-icon--logo img')).map(c => c.querySelector('img').naturalWidth);
+    return { n: cards.length, bad, logos }`);
+  say('/tools: every card has a painted icon, both ฝ่าย logos loaded', JSON.stringify(tools), tools.n > 8 && tools.bad === 0 && tools.logos.length === 2 && tools.logos.every((w) => w > 0));
+  await shot('tools.png');
+  await send('Page.navigate', { url: `${base}/departments#dept/media` }); await sleep(4000);
+  const dept = await ev(`const img = document.querySelector('#pills-departments .launcher-tool-icon--logo img');
+    return { logo: !!img, loaded: img ? img.naturalWidth > 0 : false }`);
+  say('ฝ่าย media page: its tool shows the ฝ่าย logo', JSON.stringify(dept), dept.logo && dept.loaded);
+  await send('Page.navigate', { url: `${base}/admin/` }); await sleep(5000);
+  const admin = await ev(`return { booted: document.readyState, body: document.body.innerText.length > 50 }`);
+  say('/admin/ loads (it imports the same modules)', JSON.stringify(admin), admin.body);
+
   say('console errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
 } catch (e) {
   failed += 1;

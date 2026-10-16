@@ -113,6 +113,7 @@ const TAB_TH = {
   'tab:home': 'หน้าแรก', 'tab:pr': 'PR', 'tab:vitalsound': 'VitalSound', 'tab:shop': 'ร้านค้า',
   'tab:announcements': 'ประกาศ', 'tab:about': 'เกี่ยวกับ', 'tab:tools': 'เครื่องมือ',
   'tab:departments': 'ฝ่าย', 'tab:team': 'ทีม', 'tab:projects-view': 'ติดตามโครงการ',
+  'tab:me': 'ข้อมูลของฉัน', 'tab:updates': 'อัปเดตระบบ', 'tab:golden-period': 'Golden Period',
 };
 
 function tile(num, label, sub, accent) {

@@ -797,3 +797,21 @@ continuously (HANDOFF §14b; design `docs/DISCORD-ROLE-SYNC.md`):
   the service strips everyone the web does not place there within seconds.
 - The change log goes to `🤖┆samo-role-assignment-bot`; its webhook lives ONLY
   in `/etc/samo-notify.env` on the VM. `docs/` is published — never put it here.
+
+## Home page and ข้อมูลของฉัน (2026-10-16)
+
+- **The home tool rail is the registry.** Order = `home` rank in
+  `src/data/tools.js`, label = `short`, then every other launcher tool. Never a
+  tile in `tab-home.html` (`home-hero.test.js` fails on one). Colours set there
+  reach the launcher and the ฝ่าย pages too — one renderer, `tool-card.js`.
+- **Personal cards live on `/me`, not home.** Home shows one account row. Its
+  "มีข้อมูลรอให้คุณตรวจสอบ" flag is computed by the cards' OWN functions
+  (`identityCheckState`, `ownIssues`) — moving the identity check off home is
+  safe only while that flag tells the truth.
+- **"Signed out" is not known until `authReady`.** The first `onAuthChange`
+  call is always null; any UI that SAYS you are signed out waits for it.
+- **In-app links keep their `href` AND let a modified click through**
+  (`departments.js`): ⌘/Ctrl-click is a new tab, and cancelling it switched the
+  page instead.
+- **The banner's autoplay clock is a CSS animation named `hero-progress`.**
+  JS advances on its `animationend`; renaming it stops autoplay with no error.
