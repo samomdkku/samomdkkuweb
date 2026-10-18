@@ -50,10 +50,17 @@ tests in `src/js/night-queue.test.js`, one per row above):
   limit ends the task, as before.
 - **watcher**: once a minute, from local files only (no network, no tokens).
   At `stop`, or at a reset whose new window has a booking ON or is fully
-  booked, it stops the task. The runner keeps the WIP, marks the task
+  booked, it stops the task. At any other reset it TAKES A NEW FIXED
+  ALLOWANCE (`watch` exit 6), exactly as a task start does. Without that, the
+  old window's line would never apply again, and a booking known to sit later
+  in the new window would be eaten. The runner keeps the WIP, marks the task
   `interrupted` with the reason ("เพื่อให้คนที่จอง Claude ไว้ใช้"), and the next
   run resumes it. The model handoff is skipped then, because it would spend the
-  booker's share; the runner's own Discord report still goes out.
+  booker's share; the runner's own Discord report still goes out. The same
+  applies when the check BEFORE a task refuses for a booking (`usage` exit 5,
+  vs 3 for the account's own spent quota). Such a run is **not counted against
+  `Budget:`**, so a busy board cannot end the queue with quota unused;
+  `Until:` still ends it for good.
 - **a missing or stale board** at START exits 4 (wait, one Discord alert,
   `~/samo-night/.board-error`). Mid-task it never kills work.
 

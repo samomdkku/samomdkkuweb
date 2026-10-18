@@ -155,7 +155,14 @@ claude_capped() {
       while kill -0 "$pid" 2>/dev/null; do
         sleep "${BOOKING_POLL_SEC:-60}"
         kill -0 "$pid" 2>/dev/null || break
-        if ! why="$(node "$QUEUE" watch "$TASKS" "$USAGE" "$BOOKINGS" "$allow" 2>&1)"; then
+        why="$(node "$QUEUE" watch "$TASKS" "$USAGE" "$BOOKINGS" "$allow" 2>&1)"; wrc=$?
+        if [ "$wrc" -eq 6 ]; then
+          # The 5-hour reset: take a new FIXED allowance, as a task start does.
+          allow="$(node "$QUEUE" allowance "$TASKS" "$USAGE" "$BOOKINGS" 2>/dev/null)"
+          [ -n "$allow" ] || allow="-"
+          echo "(new 5-hour window — allowance now $allow)"
+          [ "$allow" = "-" ] && break
+        elif [ "$wrc" -ne 0 ]; then
           printf '%s\n' "$why" > "$2.yield"
           echo "!! giving the window back: $why"
           kill -TERM "$pid" 2>/dev/null
@@ -277,21 +284,27 @@ MEM_LINE="ความจำ: $MEM_N ไฟล์ (อัปเดตล่า�
 [ "$MEM_AGE_D" -ge 3 ] && MEM_LINE="$MEM_LINE ⚠️ เก่าแล้ว — รัน install.sh เพื่อซิงก์"
 echo "$MEM_LINE"
 
+# ⛔ NO COMMIT IDENTITY = EVERY COMMIT FAILS SILENTLY. The runner commits with
+# `--quiet`, so a checkout with no user.email would lose every WIP sweep while
+# the queue recorded "WIP <sha>" naming a commit that holds none of the work
+# (seen in the 2026-10-18 rehearsal, whose fresh clone had no identity). Refuse
+# before spending anything — and BEFORE the "started" post, saying so ONCE
+# (`.identity-error`): this refusal repeats every 20-minute tick.
+if [ -z "$(git -C "$REPO" config user.email 2>/dev/null)" ]; then
+  echo "!! $REPO has no git user.email — commits would fail silently; not running"
+  if [ ! -e "$NIGHT_HOME/.identity-error" ]; then
+    : > "$NIGHT_HOME/.identity-error"
+    post_discord "night agent: ไม่ได้เริ่มงาน — checkout ไม่มี git user.email จึง commit ไม่ได้ (git -C $REPO config user.email …)"
+  fi
+  exit 1
+fi
+rm -f "$NIGHT_HOME/.identity-error"
+
 post_discord "$(printf 'เริ่มทำงานแล้ว %s (ICT)\nคิวงาน: %s\n%s\n%s\nจะรายงานผลอีกครั้งตอนจบ' \
   "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$(grep -c '^## ' "$TASKS" 2>/dev/null || echo '?')" \
   "$GATE_WHY" "$MEM_LINE")"
 
 cd "$REPO" || { echo "!! no $REPO"; exit 1; }
-# ⛔ NO COMMIT IDENTITY = EVERY COMMIT FAILS SILENTLY. The runner commits with
-# `--quiet`, so a checkout with no user.email would lose every WIP sweep while
-# the queue recorded "WIP <sha>" naming a commit that holds none of the work
-# (seen in the 2026-10-18 rehearsal, whose fresh clone had no identity). Refuse
-# before spending anything.
-if [ -z "$(git config user.email)" ]; then
-  echo "!! $REPO has no git user.email — commits would fail silently; not running"
-  post_discord "night agent: ไม่ได้เริ่มงาน — checkout ไม่มี git user.email จึง commit ไม่ได้ (git -C $REPO config user.email …)"
-  exit 1
-fi
 
 git fetch --quiet origin main 2>/dev/null || echo "(fetch failed — using the local clone)"
 # ⛔ ONE BRANCH FOR THE WHOLE QUEUE, AND A LATER RUN CONTINUES IT. This used to
@@ -360,9 +373,13 @@ for i in "${!STARTS[@]}"; do
   # the last task ran stops the NEXT one from starting. It never stops a task
   # already running — the owner's call (2026-10-18): "it doesn't have to stop
   # the task". A refusal here is a wait, like the quota: the next run resumes.
-  if ! U_WHY="$(node "$QUEUE" usage "$TASKS" "$USAGE" "$BOOKINGS" 2>&1)"; then
+  U_WHY="$(node "$QUEUE" usage "$TASKS" "$USAGE" "$BOOKINGS" 2>&1)"; U_RC=$?
+  if [ "$U_RC" -ne 0 ]; then
     stop_reason="not starting another task: $U_WHY"
-    UNRUN=$(( TOTAL - i )); QUOTA_GONE=1; break
+    UNRUN=$(( TOTAL - i )); QUOTA_GONE=1
+    # 5 = the reason is somebody's booking: no model handoff in their share.
+    [ "$U_RC" -eq 5 ] && BOOKING_YIELD=1
+    break
   fi
 
   # ⛔ RE-READ THE HEADINGS EVERY TASK. The runner writes Status/Attempts/Note
@@ -432,7 +449,8 @@ for i in "${!STARTS[@]}"; do
     RESUMED=1
     WIP_NOTE="$(sed -n "${start},${end}p" "$TASKS" | grep -m1 '^Note:' | sed 's/^Note: *//')"
     echo "(ทำต่อจากรอบที่ถูกตัด: $WIP_NOTE)"
-    prompt="⛔ THIS TASK WAS CUT OFF PART-WAY BY THE USAGE LIMIT IN AN EARLIER RUN.
+    prompt="⛔ THIS TASK WAS CUT OFF PART-WAY IN AN EARLIER RUN (the usage limit, the run's
+time limit, or giving the window to somebody's Claude booking — the note says which).
 The runner recorded: ${WIP_NOTE}
 Its half-done work is already committed on this branch. Do NOT start over and
 do NOT assume it is finished because files exist or tests pass. First read
@@ -654,7 +672,15 @@ echo ""
 # every interrupted night into a permanently skipped queue.
 # One night against the budget — the stop that does not depend on the checks
 # being written correctly. A mistyped `Done when:` never terminates on its own.
-[ -r "$QUEUE" ] && [ -r "$TASKS" ] && node "$QUEUE" spend "$TASKS" 2>/dev/null || true
+# ⛔ NOT for a run that ended by giving the window to a booking: on a busy board
+# that would spend the Budget on interruptions and end the queue with quota
+# still unused. Termination stays guaranteed — `Until:` is a hard end, and a
+# give-back only happens after real use has reached the allowance.
+if [ "$BOOKING_YIELD" -eq 1 ]; then
+  echo "(this run gave the window to a booking — not counted against Budget)"
+else
+  [ -r "$QUEUE" ] && [ -r "$TASKS" ] && node "$QUEUE" spend "$TASKS" 2>/dev/null || true
+fi
 
 # Is the queue OVER now? Then stop here, rather than at the next tick: the
 # STOPPED file makes systemd skip every later tick without running anything.
@@ -669,7 +695,11 @@ commits="$(git log --oneline origin/main.."$BRANCH" 2>/dev/null | wc -l)"
 echo "commits on $BRANCH: $commits"
 
 alert=""
-[ "$UNRUN" -gt 0 ] && alert+="RAN OUT OF TIME — $UNRUN task(s) never started"$'\n'
+if [ "$UNRUN" -gt 0 ] && [ "$BOOKING_YIELD" -eq 1 ]; then
+  alert+="หยุดให้คนที่จอง Claude — $UNRUN งานรอรอบหน้า"$'\n'
+elif [ "$UNRUN" -gt 0 ]; then
+  alert+="RAN OUT OF TIME — $UNRUN task(s) never started"$'\n'
+fi
 [ -n "$NEEDS_DECISION" ] && alert+="NEEDS YOUR DECISION: $(printf '%s' "$NEEDS_DECISION" | tr '\n' ';')"$'\n'
 [ -n "$alert" ] && echo "$alert"
 

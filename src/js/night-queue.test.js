@@ -437,8 +437,15 @@ describe('the board — the agent takes what an unbooked person would be offered
     // new work starts inside somebody's booking
     const small = { ...k, starts_at: iso(end + 5 * 60e3), pct: 10 };
     expect(watchGate(u, board(after - 60e3, [small], [[after - 60e3, after + H, 85]]), after, a, 1).run).toBe(false);
-    // a new window nobody booked → carry on
-    expect(watchGate(u, board(after - 60e3, [], [[after - 60e3, after + 5 * H, 98]]), after, a, 1).run).toBe(true);
+    // a new window nobody booked → carry on, but RE-TAKE the allowance (a reset is a start)
+    const w = watchGate(u, board(after - 60e3, [], [[after - 60e3, after + 5 * H, 98]]), after, a, 1);
+    expect(w).toMatchObject({ run: true, retake: true });
+    // and the re-taken allowance protects a booking known to sit LATER in the new window
+    const later = { starts_at: iso(after + 2 * H), ends_at: iso(after + 3 * H), pct: 70 };
+    const nb = board(after - 60e3, [later], [[after - 60e3, after + 5 * H, 28]]);
+    const a2 = allowanceAtStart(u, nb, after, 1);
+    expect(a2.stop).toBe(2 + 28 - BOOKING_MARGIN_PCT);
+    expect(watchGate(usage(after + H, 26, after + 5 * H), nb, after + H - 30e3, a2, 1).run).toBe(false);
   });
   it('a task is not worth starting under MIN_START_PCT, and the owner\'s week reserve is kept', () => {
     const now = at('2026-10-20T01:00:00Z');
@@ -513,6 +520,11 @@ describe('queue.mjs CLI — the exit codes run-night.sh reads', async () => {
       right_now: { session: { pool_pct: 100 }, week: { pool_pct: 700 } } }));
     return f;
   };
+  it('usage (between tasks): 5 when the refusal is for a booking, 3 otherwise', () => {
+    expect(run(['usage', tasks, usageF, boardF([{ starts_at: iso(-10), ends_at: iso(50), pct: 100 }])]).rc).toBe(5);
+    expect(run(['usage', tasks, usageF, join(dir, 'missing.json')]).rc).toBe(3);
+    expect(run(['usage', tasks, usageF, boardF([])]).rc).toBe(0);
+  });
   it('gate: 0 nobody booked · 3 inside a booking · 3 too little free · 4 no board', () => {
     expect(run(['gate', tasks, usageF, boardF([])]).rc).toBe(0);
     expect(run(['gate', tasks, usageF, boardF([{ starts_at: iso(-10), ends_at: iso(50), pct: 100 }])]).rc).toBe(3);
@@ -605,5 +617,46 @@ describe('a cut-off task says WHY in the queue — the resume rule is the same, 
     const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
     expect(sh).toMatch(/cut "\$TASKS" "\$i" "\$\(git rev-parse --short HEAD\)" board/);
     expect(sh).toMatch(/cut "\$TASKS" "\$i" "\$\(git rev-parse --short HEAD\)" time/);
+  });
+});
+
+describe('quotaGate says WHEN a refusal is for somebody\'s booking (the handoff then stays out of their share)', () => {
+  const now = Date.parse('2026-10-20T01:00:00Z');
+  const iso = (ms) => new Date(ms).toISOString();
+  const H = 3600e3;
+  const u = (pct) => ({ sampled_at: iso(now - 60e3), five_hour_pct: pct, five_hour_resets_at: iso(now + 2 * H),
+    seven_day_pct: 30, seven_day_resets_at: iso(now + 50 * H) });
+  const b = (bookings, free) => ({ sampled_at: iso(now - 60e3), bookings,
+    free_windows: [{ starts_at: iso(now - H), ends_at: iso(now + H), free_pct: free, week_free_pct: 500, bound_by: 'session' }],
+    right_now: { session: { pool_pct: 100 }, week: { pool_pct: 700 } } });
+  it('a booking ON → forBooking', () => {
+    const on = [{ starts_at: iso(now - 60e3), ends_at: iso(now + H), pct: 10 }];
+    expect(quotaGate(u(20), b(on, 70), now, 1)).toMatchObject({ run: false, forBooking: true });
+  });
+  it('little free because bookings hold it → forBooking; because the account spent it → not', () => {
+    expect(quotaGate(u(30), b([], 5), now, 1)).toMatchObject({ run: false, forBooking: true });   // 65 held
+    expect(quotaGate(u(88), b([], 8), now, 1)).toMatchObject({ run: false, forBooking: false });  // spent
+  });
+});
+
+describe('run-night.sh — the scrutinize findings of 2026-10-18 stay fixed', () => {
+  const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
+  it('a between-task refusal for a booking (exit 5) skips the handoff', () => {
+    expect(sh).toMatch(/\[ "\$U_RC" -eq 5 \] && BOOKING_YIELD=1/);
+  });
+  it('the watcher re-takes the allowance at the reset (exit 6)', () => {
+    const w = sh.slice(sh.indexOf('claude_capped() {'), sh.indexOf('wait "$pid"; rc=$?'));
+    expect(w).toMatch(/"\$wrc" -eq 6[\s\S]*allow="\$\(node "\$QUEUE" allowance/);
+  });
+  it('a run that gave the window to a booking is not counted against Budget', () => {
+    const at = sh.indexOf('node "$QUEUE" spend');
+    expect(sh.slice(Math.max(0, at - 600), at)).toMatch(/if \[ "\$BOOKING_YIELD" -eq 1 \]; then/);
+  });
+  it('the missing-identity refusal comes BEFORE the "started" post, and is said once', () => {
+    const ident = sh.indexOf('config user.email');
+    const started = sh.indexOf("post_discord \"$(printf 'เริ่มทำงานแล้ว");
+    expect(ident).toBeGreaterThan(0);
+    expect(started).toBeGreaterThan(ident);
+    expect(sh.slice(ident, started)).toContain('.identity-error');
   });
 });

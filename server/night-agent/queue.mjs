@@ -40,9 +40,9 @@
 // armed: there is nothing to disable.
 //
 //   node queue.mjs gate   <file> [usage.json [bookings.json]] → exit 0 run · 10 STOP for good · 3 wait · 4 wait, board unreadable
-//   node queue.mjs usage  <file> <usage.json> [bookings.json] → exit 0 next task may start · 3 stop this run
+//   node queue.mjs usage  <file> <usage.json> [bookings.json] → exit 0 next task may start · 3 stop this run · 5 stop, for a booking
 //   node queue.mjs allowance <file> <usage.json> <bookings.json> → JSON: a task's fixed allowance
-//   node queue.mjs watch  <file> <usage.json> <bookings.json> <allowance> → 0 carry on · 3 stop the task
+//   node queue.mjs watch  <file> <usage.json> <bookings.json> <allowance> → 0 carry on · 3 stop the task · 6 carry on with a new allowance
 //   node queue.mjs classify <outfile>        → ok | quota | auth (only the CLI's own error line)
 //   node queue.mjs list   <file>              → JSON: budget + every task
 //   node queue.mjs set    <file> <n> <status> → write one task's verdict
@@ -352,8 +352,16 @@ export function allowanceAtStart(usage, bk, nowMs, reserveSessions = 1) {
 }
 
 /**
- * PURE. May a RUNNING task carry on? { run, why }. Never stops a task for a
- * reporter hiccup (an unreadable or stale board mid-task means "carry on").
+ * PURE. May a RUNNING task carry on? { run, why, retake }. Never stops a task
+ * for a reporter hiccup (an unreadable or stale board mid-task means "carry
+ * on").
+ *
+ * `retake: true` = the 5-hour reset checkpoint passed: the watcher must take a
+ * NEW fixed allowance now (`allowance`), exactly as a task start does. Checking
+ * the live board on every later poll instead would let a booking made after
+ * the reset stop the task ("too soon"), and checking nothing would let the task
+ * eat a booking known to sit later in the new window — the old window's line
+ * never applies again once its window is gone.
  */
 export function watchGate(usage, bk, nowMs, allow, reserveSessions = 1) {
   const sampled = usage && Date.parse(usage.sampled_at);
@@ -370,7 +378,7 @@ export function watchGate(usage, bk, nowMs, allow, reserveSessions = 1) {
     if (band && band.free < BOOKING_MARGIN_PCT) {
       return { run: false, why: 'รอบใหม่ถูกจองไว้จนเหลือไม่พอ — หยุดให้คนที่จองไว้' };
     }
-    return { run: true, why: 'รอบใหม่ — ทำต่อได้' };
+    return { run: true, retake: true, why: 'รอบใหม่ — ตั้งส่วนที่ใช้ได้ใหม่ แล้วทำต่อ' };
   }
   if (allow && allow.stop != null && fresh && Date.parse(usage.five_hour_resets_at) > nowMs
       && Number(usage.five_hour_pct) >= allow.stop) {
@@ -379,12 +387,29 @@ export function watchGate(usage, bk, nowMs, allow, reserveSessions = 1) {
   return { run: true, why: 'ทำต่อได้' };
 }
 
-/** PURE. The quota (owner's reserve, 90% ceiling, staleness), then the board. */
+/**
+ * PURE. The quota (owner's reserve, 90% ceiling, staleness), then the board.
+ * `forBooking` marks a refusal whose reason is somebody's booking — one ON
+ * now, or a window whose free part is held by bookings — as opposed to a
+ * window the account itself has spent. The runner skips the model handoff
+ * after such a refusal: the handoff would spend the booker's share.
+ */
 export function quotaGate(usage, bk, nowMs, reserveSessions = 1) {
   const u = usageGate(usage, nowMs, reserveSessions);
   if (!u.run) return u;
   const b = boardGate(bk, nowMs, reserveSessions);
-  if (!b.run) return b;
+  if (!b.run) {
+    let forBooking = false;
+    if (!b.unreadable) {
+      if (bookingOn(bk, nowMs)) forBooking = true;
+      else {
+        const band = bandAt(bk, nowMs, reserveSessions);
+        const held = band ? 100 - liveWindow(usage, nowMs).used - band.free : 0;
+        forBooking = held > BOOKING_MARGIN_PCT;
+      }
+    }
+    return { ...b, forBooking };
+  }
   return { run: true, why: `${u.why} · ${b.why}` };
 }
 
@@ -582,7 +607,9 @@ if (cmd && file) {
       ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions)
       : usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
     console.log(u.why);
-    process.exit(u.run ? 0 : 3);
+    // 5 = refused because of somebody's booking (the runner then skips the
+    // model handoff, which would spend their share); 3 = any other reason.
+    process.exit(u.run ? 0 : u.forBooking ? 5 : 3);
   } else if (cmd === 'allowance') {
     // `allowance <q> <usage> <board>` → one JSON line, saved by the runner at
     // the start of a task and handed back to `watch` every minute.
@@ -596,7 +623,8 @@ if (cmd && file) {
     try { allow = JSON.parse(rest[2] || 'null'); } catch { allow = null; }
     const w = watchGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), allow, q.reserveSessions);
     console.log(w.why);
-    process.exit(w.run ? 0 : 3);
+    // 6 = carry on, but take a NEW allowance first (the 5-hour reset checkpoint)
+    process.exit(!w.run ? 3 : w.retake ? 6 : 0);
   } else if (cmd === 'list') {
     const q = parseQueue(read());
     console.log(JSON.stringify({
