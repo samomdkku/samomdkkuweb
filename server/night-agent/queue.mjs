@@ -202,6 +202,122 @@ export function usageGate(snap, nowMs, reserveSessions = 1) {
   return { run: true, why: `สัปดาห์ ${snap.seven_day_pct ?? '?'}% (หยุดที่ ${weekCap.toFixed(0)}%) · รอบนี้ ${snap.five_hour_pct ?? '?'}%` };
 }
 
+// ── the booking board (2026-10-18) ───────────────────────────────────────────
+// ⛔ A PERSON'S BOOKING OUTRANKS THE AGENT. Found on the evening it was re-armed:
+// a 100% booking 21:30–00:00 ICT and the timer due at 23:07 — the runner read
+// the QUOTA numbers and nothing else, so it would have started inside somebody's
+// booked session and spent it. Nothing on the board told it the time was taken.
+//
+// Two things a booking claims, and the agent must honour both:
+//   TIME   — nobody else works in [starts_at, ends_at). The agent does not START
+//            inside one, does not start a task it cannot finish LEAD minutes
+//            before the next one, and gives the window back mid-task when one
+//            appears (the runner's watcher asks `watch` every minute).
+//   QUOTA  — a 5-hour window is SHARED BY WHOEVER IT COVERS (0159, the board's
+//            own rule). If the agent opens a window at 19:00 and someone booked
+//            30% at 21:00, their 30% comes out of the agent's window. So the
+//            agent's 5-hour ceiling is 100 − every booked % that lands in the
+//            window it would be spending, and the week keeps every future
+//            booking's share on top of `Reserve sessions`.
+// A booking that already ENDED inside the live window needs nothing: what it
+// used is in `five_hour_pct`, measured.
+//
+// ⛔ NO SNAPSHOT MEANS WAIT, same rule as the quota: the reporter writes
+// bookings.json only after it has PROVED it holds the `claude` permission (its
+// sample insert returned a row), because RLS answers a reader without it with
+// an EMPTY list — which reads exactly like "nobody booked anything".
+export const BOOKING_LEAD_MIN = 30;   // hand the window back this long before a booking
+export const MIN_TASK_MIN = 60;       // do not START a task with less clear time than this
+export const BOOKING_MARGIN_PCT = 5;  // left over a booked % — samples are ≤15 min old
+const SESSION_MS = 5 * 3600e3;
+
+const ict = (ms) => {
+  const d = new Date(ms + 7 * 3600e3).toISOString();
+  return `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
+};
+
+/**
+ * PURE. Is the board clear for the agent at `nowMs`?
+ *   mode 'start' — about to start a run or a task: needs MIN_TASK_MIN of clear
+ *                  time before the next booking's lead.
+ *   mode 'watch' — a task is running: only the lead itself, so a booking two
+ *                  hours away does not kill work that will be finished by then.
+ * Returns { run, why, stopAt, fiveHourCeil, weekBookedPct }. `stopAt` (epoch ms
+ * or null) is when the agent must have handed the window back.
+ */
+export function bookingGate(bk, usage, nowMs, mode = 'start') {
+  const sampled = bk && Date.parse(bk.sampled_at);
+  if (!bk || !Number.isFinite(sampled) || !Array.isArray(bk.bookings)) {
+    return { run: false, why: 'ยังไม่รู้ว่ามีใครจอง Claude ไว้หรือไม่ — รอรอบหน้า' };
+  }
+  if (nowMs - sampled > SNAPSHOT_MAX_AGE_MIN * 60000) {
+    return { run: false, why: `ข้อมูลการจอง Claude เก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — รอรอบหน้า` };
+  }
+  const lead = BOOKING_LEAD_MIN * 60000;
+  const list = bk.bookings
+    .map((b) => ({ s: Date.parse(b.starts_at), e: Date.parse(b.ends_at), pct: Number(b.pct) || 0 }))
+    .filter((b) => Number.isFinite(b.s) && Number.isFinite(b.e) && b.e > nowMs)
+    .sort((a, b) => a.s - b.s);
+
+  // TIME. Inside a booking, or inside the lead before one: wait for it to end.
+  const busy = list.find((b) => b.s - lead <= nowMs);
+  if (busy) {
+    return { run: false, why: `มีคนจอง Claude ไว้ ${ict(busy.s)}–${ict(busy.e)} — รอให้จบก่อน` };
+  }
+  const next = list[0] || null;
+  const stopAt = next ? next.s - lead : null;
+  if (mode === 'start' && stopAt != null && stopAt - nowMs < MIN_TASK_MIN * 60000) {
+    return { run: false, why: `คิวจองถัดไป ${ict(next.s)} — เวลาว่างก่อนหน้านั้นไม่พอสำหรับหนึ่งงาน`, stopAt };
+  }
+
+  // QUOTA. The window the agent would spend: the open one, or one it opens now.
+  const liveEnd = usage && Date.parse(usage.five_hour_resets_at);
+  const open = Number.isFinite(liveEnd) && liveEnd > nowMs && Number(usage.five_hour_pct) > 0;
+  const winEnd = open ? liveEnd : nowMs + SESSION_MS;
+  const bookedInWindow = list.filter((b) => b.s < winEnd).reduce((n, b) => n + b.pct, 0);
+  const fiveHourCeil = Math.min(FIVE_HOUR_CEIL_PCT, 100 - bookedInWindow - BOOKING_MARGIN_PCT);
+  const used = open ? Number(usage.five_hour_pct) : 0;
+  if (bookedInWindow > 0 && used >= fiveHourCeil) {
+    return {
+      run: false,
+      why: `รอบ 5 ชั่วโมงนี้ต้องเหลือ ${bookedInWindow}% ให้คนที่จองไว้ (ใช้ไป ${used}%) — รอรอบถัดไป`,
+      stopAt, fiveHourCeil,
+    };
+  }
+  const weekEnd = usage && Date.parse(usage.seven_day_resets_at);
+  const weekBookedPct = list
+    .filter((b) => !Number.isFinite(weekEnd) || b.s < weekEnd)
+    .reduce((n, b) => n + (b.pct * SESSION_SHARE_OF_WEEK) / 100, 0);
+
+  const until = stopAt != null ? `ทำได้ถึง ${ict(stopAt)} (คิวจองถัดไป ${ict(next.s)})` : 'ไม่มีคิวจองข้างหน้า';
+  return { run: true, why: until, stopAt, fiveHourCeil, weekBookedPct };
+}
+
+/**
+ * PURE. The quota gate with the board folded in: the week keeps every booked
+ * session's share on top of the owner's reserve, and the 5-hour ceiling drops
+ * to what the bookings in that window leave. One answer for the runner to ask.
+ */
+export function quotaGate(usage, bk, nowMs, reserveSessions = 1, mode = 'start') {
+  const b = bookingGate(bk, usage, nowMs, mode);
+  if (!b.run) return b;
+  const extra = (b.weekBookedPct || 0) / SESSION_SHARE_OF_WEEK;
+  const u = usageGate(usage, nowMs, reserveSessions + extra);
+  if (!u.run) return { ...u, stopAt: b.stopAt };
+  return { run: true, why: `${u.why} · ${b.why}`, stopAt: b.stopAt };
+}
+
+/** PURE. Minutes until the next booking STARTS (0 inside one, null if none). */
+export function minutesClear(bk, nowMs) {
+  if (!bk || !Array.isArray(bk.bookings)) return 0;
+  const ahead = bk.bookings
+    .map((b) => ({ s: Date.parse(b.starts_at), e: Date.parse(b.ends_at) }))
+    .filter((b) => Number.isFinite(b.s) && b.e > nowMs)
+    .sort((a, b) => a.s - b.s);
+  if (!ahead.length) return null;
+  return Math.max(0, Math.floor((ahead[0].s - nowMs) / 60000));
+}
+
 /**
  * PURE. What the runner does with a task before calling anybody.
  *   skip   — terminal: its verdict is the record; do not re-run its check and
@@ -337,18 +453,33 @@ if (cmd && file) {
     const g = gate(q);
     if (!g.run) { console.log(g.why); process.exit(10); }
     if (rest[0]) {
-      const u = usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
+      // ⛔ The booking file is NOT optional once named: `gate <q> <usage> <bookings>`
+      // with a missing bookings.json WAITS (bookingGate's no-snapshot rule).
+      const u = rest[1]
+        ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions, 'start')
+        : usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
       if (!u.run) { console.log(u.why); process.exit(3); }
       console.log(`${g.why} · ${u.why}`);
     } else {
       console.log(g.why);
     }
     process.exit(0);
-  } else if (cmd === 'usage') {
+  } else if (cmd === 'usage' || cmd === 'watch') {
+    // usage = about to START a task (needs clear time) · watch = a task is
+    // running (only the lead) — the runner's watcher asks this every minute.
     const q = parseQueue(read());
-    const u = usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
+    const u = rest[1]
+      ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions,
+          cmd === 'watch' ? 'watch' : 'start')
+      : usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
     console.log(u.why);
     process.exit(u.run ? 0 : 3);
+  } else if (cmd === 'clear') {
+    // `clear <q> <bookings.json>` → minutes until the next booking starts, or
+    // `none`. The handoff after a yield is sized from it.
+    const m = minutesClear(readUsage(rest[0]), Date.now());
+    console.log(m == null ? 'none' : String(m));
+    process.exit(0);
   } else if (cmd === 'list') {
     const q = parseQueue(read());
     console.log(JSON.stringify({

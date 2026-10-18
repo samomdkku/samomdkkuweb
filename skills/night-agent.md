@@ -3,6 +3,52 @@
 Runs `claude -p` through a queue of tasks while the subscription's 5-hour window
 is open, on the KKU VM, with nobody's laptop on. Built 2026-09-15.
 
+## ⛔ SINCE 2026-10-18 A PERSON'S CLAUDE BOOKING OUTRANKS IT
+
+The evening the agent was re-armed for tasks 8–12, somebody had booked **100%,
+21:30–00:00 ICT**, and the timer was due at 23:07. The runner read only the
+quota numbers, so it would have started inside that booking and spent it. The
+owner asked for the board to be checked before any work, and for this rule:
+*after a booking ends, use whatever is left of that 5-hour window; if it is
+used up, wait for the reset.*
+
+**Where the board comes from.** `samo-claude-usage` (every 15 min, signed in
+as an account holding `claude`) writes **`~/samo-night/bookings.json`** —
+start, end and % of every booking not yet ended in the next 8 days. No names,
+no purpose. It is written only after a non-empty read of a permission-gated
+table proves the account can see the board, because RLS answers a reader
+without the permission with an EMPTY list, and that reads as "nobody booked".
+No file, or one older than 45 min, means the agent WAITS.
+
+**The rules** (`bookingGate` / `quotaGate` in `queue.mjs`; tests in
+`src/js/night-queue.test.js`, built from that evening's real booking):
+
+| when | rule |
+|---|---|
+| a booking is on now, or starts within `BOOKING_LEAD_MIN` (30) | do not start; a running task is stopped (below) |
+| before a run or a NEW task | needs `MIN_TASK_MIN` (60) of clear time before the next booking's lead, or it does not start |
+| a booking falls inside the 5-hour window the agent would spend (the open one, or now + 5 h if none is open) | the window is SHARED (0159), so the agent's ceiling is `100 − booked % − 5`, and never above the usual 90 |
+| a booking has ENDED | it no longer holds anything back. What it used is in the measured `five_hour_pct`, so the agent runs on what is left. If nothing is left it waits for the reset |
+| future bookings this week | their share of the week comes off the week cap, ON TOP of `Reserve sessions:` |
+
+Tonight, worked through: 23:07 → wait (inside the booking). At ~00:07 (the
+first tick after it ends) → run if the window is under 90%, else wait. After
+the 02:31 reset → the next tick (~02:47) runs and RESUMES whatever was cut.
+
+**Mid-task: the watcher.** Beside every `claude -p`, the runner asks `queue.mjs
+watch` once a minute (local files only: no network, no tokens). When the answer
+is no, it writes the reason to `<out>.yield` and stops the task. The runner
+then does exactly what it does for a quota cut: WIP committed, task
+`interrupted`, RESUMED next run. The OAuth retry never re-runs a stopped task.
+The handoff after a yield runs UNWATCHED under a timeout ending 5 min before
+the booking. It is skipped if that leaves under 10 min; the next run's handoff
+reads the whole branch.
+
+**Staleness, stated plainly.** The board copy is ≤15 min old, so a booking
+made for "right now" can take up to ~16 min to stop the agent. Book at least
+30 min ahead and the agent is gone before you start. To take the window
+immediately, see "Stopping it mid-run" under Operating it.
+
 ## ⛔ SINCE 2026-10-13 IT RUNS BY THE WINDOW, NOT BY THE NIGHT — read this first
 
 The owner asked for "as many 5-hour sessions as the work needs, but leave one
@@ -34,7 +80,7 @@ Branch: agent/2026-10-13    ← one branch for every run of this queue
 ```
 
 Gate exit codes (the contract with `run-night.sh`): `0` run · `10` over →
-STOPPED · `3` not now (quota), silent.
+STOPPED · `3` not now (quota or the booking board), silent.
 
 ⚠️ If Claude monitoring is switched off on `/admin#claude`, the reporter writes
 no `usage.json` and the agent WAITS. That is deliberate — the reserve cannot be
@@ -112,6 +158,16 @@ ssh samo-vm 'cd ~/samo-agent && git log --oneline main..HEAD'   # what it did
 ssh samo-vm 'ls -t ~/samo-night/logs/ | head'
 # run now, against a scratch queue, without disturbing tonight's:
 ssh samo-vm 'cd ~/samo-night && NIGHT_TASKS=$HOME/samo-night/my-test.md ./run-night.sh'
+```
+
+**Stopping it mid-run** (to take the window NOW): kill `run-night.sh` FIRST,
+then its `timeout … claude -p` child. Killing only the child lets the runner
+start the NEXT task within seconds. Then `touch ~/samo-night/STOPPED`; `bash
+server/night-agent/install.sh --arm` clears it. Its checkout commits as it
+goes, so check `git status` in `~/samo-agent` afterwards.
+
+```bash
+ssh samo-vm 'pkill -f run-night.sh; pkill -f "claude -p"; touch ~/samo-night/STOPPED'
 ```
 
 ⛔ **`enable` is not `schedule`.** Read `NextElapseUSecRealtime`, never

@@ -42,6 +42,7 @@ TASKS="${NIGHT_TASKS:-$NIGHT_HOME/NIGHT-TASKS.md}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG="$LOG_DIR/$STAMP.log"
 USAGE="$NIGHT_HOME/usage.json"    # written by samo-claude-usage every 15 min
+BOOKINGS="$NIGHT_HOME/bookings.json"  # same writer: the Claude booking board, no names
 STOPPED="$NIGHT_HOME/STOPPED"     # the service's ConditionPathExists=! — see below
 
 # A run lasts at most ONE 5-hour window, measured from its own start: since
@@ -95,19 +96,52 @@ fi
 # The retry costs one refused call and clears it, because starting a fresh
 # `claude` re-reads the credential file that the timer has since rotated.
 run_claude() {
-  local prompt="$1" out="$2" rc
-  timeout "${TASK_TIMEOUT_SEC:-5400}" claude -p "$prompt" --permission-mode bypassPermissions \
-      --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
-  rc=$?
+  local prompt="$1" out="$2" watch="${3:-1}" tmo="${4:-${TASK_TIMEOUT_SEC:-5400}}" rc
+  claude_once "$prompt" "$out" "$watch" "$tmo"; rc=$?
+  # A yield is not an auth failure: never retry into somebody's booking.
+  [ -e "$out.yield" ] && return $rc
   if grep -qiE '401|access token has expired|Failed to authenticate' "$out"; then
     echo "!! OAuth token expired — waiting 90s for the refresh timer, then retrying ONCE"
     sleep 90
-    timeout "${TASK_TIMEOUT_SEC:-5400}" claude -p "$prompt" --permission-mode bypassPermissions \
-        --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null
-    rc=$?
+    claude_once "$prompt" "$out" "$watch" "$tmo"; rc=$?
     grep -qiE '401|access token has expired' "$out" \
       && echo "!! still expired after retry — the credential needs \`claude login\` on the VM"
   fi
+  return $rc
+}
+
+# ── claude_once — one `claude -p`, and (watch=1) a WATCHER beside it ─────────
+# ⛔ A PERSON WHO BOOKS MID-RUN GETS THE WINDOW BACK (2026-10-18). Checking the
+# board only between tasks would let a 90-minute task run straight through a
+# booking made after it started. Every minute the watcher asks `queue.mjs
+# watch` — local files only, no network, no tokens — and when the answer is no
+# (a booking starts within BOOKING_LEAD_MIN, or the 5-hour window is down to
+# what the bookings in it need) it writes the reason to "$out.yield" and stops
+# the task. `timeout` forwards the TERM to claude. The runner then treats it
+# exactly like a quota cut: WIP committed, task `interrupted`, RESUMED next run.
+claude_once() {
+  local prompt="$1" out="$2" watch="$3" tmo="$4" pid wpid="" rc
+  rm -f "$out.yield"
+  timeout "$tmo" claude -p "$prompt" --permission-mode bypassPermissions \
+      --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$out" 2>&1 < /dev/null &
+  pid=$!
+  if [ "$watch" = "1" ]; then
+    (
+      while kill -0 "$pid" 2>/dev/null; do
+        sleep "${BOOKING_POLL_SEC:-60}"
+        kill -0 "$pid" 2>/dev/null || break
+        if ! why="$(node "$QUEUE" watch "$TASKS" "$USAGE" "$BOOKINGS" 2>&1)"; then
+          printf '%s\n' "$why" > "$out.yield"
+          echo "!! yielding to the booking board: $why"
+          kill -TERM "$pid" 2>/dev/null
+          break
+        fi
+      done
+    ) &
+    wpid=$!
+  fi
+  wait "$pid"; rc=$?
+  if [ -n "$wpid" ]; then kill "$wpid" 2>/dev/null; wait "$wpid" 2>/dev/null; fi
   return $rc
 }
 
@@ -143,8 +177,10 @@ flock -n 9 || { echo "another run holds $NIGHT_HOME/.lock — not starting a sec
 #         STOPPED: the unit carries ConditionPathExists=!STOPPED, so from now on
 #         systemd does not even start this script. Said on Discord ONCE, because
 #         there is no next time. `install.sh --arm` with a new queue removes it.
-#   rc 3  not now — the 5-hour window is spent, or the week is down to the
-#         owner's reserve. SILENT: a post every 20 minutes would bury the channel.
+#   rc 3  not now — the 5-hour window is spent, the week is down to the
+#         owner's reserve, or the BOOKING BOARD has the time or the quota
+#         (bookingGate in queue.mjs). SILENT: a post every 20 minutes would bury
+#         the channel.
 # ⛔ ABSOLUTE. `dirname "$0"` is "." for `./run-night.sh` — the manual command
 # the playbook documents — and the script cd's into the repo below, so a
 # relative path then named ~/samo-agent/queue.mjs, which does not exist
@@ -152,7 +188,7 @@ flock -n 9 || { echo "another run holds $NIGHT_HOME/.lock — not starting a sec
 QUEUE="$(cd "$(dirname "$0")" && pwd)/queue.mjs"
 [ -r "$QUEUE" ] || QUEUE="$NIGHT_HOME/queue.mjs"
 [ -r "$QUEUE" ] && [ -r "$TASKS" ] || { echo "!! missing $QUEUE or $TASKS"; exit 1; }
-GATE_WHY="$(node "$QUEUE" gate "$TASKS" "$USAGE" 2>&1)"; GATE_RC=$?
+GATE_WHY="$(node "$QUEUE" gate "$TASKS" "$USAGE" "$BOOKINGS" 2>&1)"; GATE_RC=$?
 if [ "$GATE_RC" -eq 10 ]; then
   echo "queue over: $GATE_WHY — writing $STOPPED"
   printf '%s\n%s\n' "$(date -u +%FT%TZ)" "$GATE_WHY" > "$STOPPED"
@@ -203,9 +239,9 @@ MEM_LINE="ความจำ: $MEM_N ไฟล์ (อัปเดตล่า�
 [ "$MEM_AGE_D" -ge 3 ] && MEM_LINE="$MEM_LINE ⚠️ เก่าแล้ว — รัน install.sh เพื่อซิงก์"
 echo "$MEM_LINE"
 
-post_discord "$(printf 'เริ่มทำงานแล้ว %s (ICT)\nคิวงาน: %s\n%s\nจะรายงานผลอีกครั้งตอนจบ' \
+post_discord "$(printf 'เริ่มทำงานแล้ว %s (ICT)\nคิวงาน: %s\n%s\n%s\nถ้ามีคนจอง Claude ระหว่างนี้ จะหยุดให้ก่อนเวลาจอง %s นาที\nจะรายงานผลอีกครั้งตอนจบ' \
   "$(TZ=Asia/Bangkok date +'%d/%m %H:%M')" "$(grep -c '^## ' "$TASKS" 2>/dev/null || echo '?')" \
-  "$MEM_LINE")"
+  "$GATE_WHY" "$MEM_LINE" "$(node -e 'import(process.argv[1]).then(m=>console.log(m.BOOKING_LEAD_MIN))' "$QUEUE" 2>/dev/null || echo 30)")"
 
 cd "$REPO" || { echo "!! no $REPO"; exit 1; }
 
@@ -260,7 +296,7 @@ ${SHARED}
 
 --- YOUR TASK ---
 "
-done_n=0; fail_n=0; stop_reason="queue finished"; SUMMARY=""; UNRUN=0; NEEDS_DECISION=""; QUOTA_GONE=0
+done_n=0; fail_n=0; stop_reason="queue finished"; SUMMARY=""; UNRUN=0; NEEDS_DECISION=""; QUOTA_GONE=0; BOOKING_YIELD=0
 
 for i in "${!STARTS[@]}"; do
   if [ "$(date -u +%s)" -ge "$RESERVE_EPOCH" ]; then
@@ -270,9 +306,12 @@ for i in "${!STARTS[@]}"; do
   # ⛔ THE RESERVE IS CHECKED BETWEEN TASKS TOO, not only at the start — a run
   # that began at 60% of the week would otherwise spend straight through the
   # owner's session. The numbers are ≤15 min old; usageGate keeps a margin.
-  if ! U_WHY="$(node "$QUEUE" usage "$TASKS" "$USAGE" 2>&1)"; then
-    stop_reason="quota: $U_WHY"
-    UNRUN=$(( TOTAL - i )); QUOTA_GONE=1; break
+  # ⛔ AND THE BOOKING BOARD — `usage` with the bookings file is 'start' mode:
+  # no new task unless MIN_TASK_MIN of clear time remains before the next
+  # booking's lead. A refusal here is a YIELD, not a spent quota.
+  if ! U_WHY="$(node "$QUEUE" usage "$TASKS" "$USAGE" "$BOOKINGS" 2>&1)"; then
+    stop_reason="not starting another task: $U_WHY"
+    UNRUN=$(( TOTAL - i )); BOOKING_YIELD=1; break
   fi
 
   # ⛔ RE-READ THE HEADINGS EVERY TASK. The runner writes Status/Attempts/Note
@@ -384,6 +423,19 @@ ${prompt}"
     SUMMARY+="ASK  $title — ended by asking a question; nobody was there"$'\n'
   fi
 
+  # ⛔ YIELDED TO A BOOKING: the same bookkeeping as a quota cut — WIP kept,
+  # task `interrupted`, the next run RESUMES it — but the reason is a person.
+  if [ -e "$out.yield" ]; then
+    Y_WHY="$(head -1 "$out.yield")"
+    stop_reason="หยุดตามกระดานจอง Claude / โควตา 5 ชม.: $Y_WHY"
+    if [ -n "$(git status --porcelain)" ]; then
+      git add -A && git commit --quiet -m "agent: WIP $title (stopped by the booking/quota watcher)" -m "Unattended run $STAMP. $Y_WHY"
+    fi
+    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)"
+    fail_n=$((fail_n+1)); SUMMARY+="YIELD $title — $Y_WHY (work kept as WIP, the next run RESUMES it)"$'\n'
+    UNRUN=$(( TOTAL - i - 1 )); BOOKING_YIELD=1; break
+  fi
+
   if grep -qiE 'session limit|usage limit|rate limit|quota|exceeded your|429|Please try again later' "$out"; then
     stop_reason="claude reported a usage/rate limit — stopped rather than hammering it"
     # No verdict: a task cut off by the quota was not ATTEMPTED, and counting
@@ -448,14 +500,18 @@ done
 
 # ── run_one <file> <label> — one prompt, same preamble, same commit discipline ──
 run_one() {
-  local f="$1" label="$2" out
+  local f="$1" label="$2" watch="${3:-1}" tmo="${4:-}" out
   [ -r "$f" ] || { echo "(no $f — skipping $label)"; return 0; }
   out="$LOG_DIR/$STAMP-$label.out"
   local b4; b4="$(git rev-parse HEAD)"
   echo ""
   echo "--- $label  ($(date -u +%H:%M)Z) ---"
-  run_claude "${preamble_base}$(cat "$f")" "$out"
+  run_claude "${preamble_base}$(cat "$f")" "$out" "$watch" "$tmo"
   local rc=$?
+  if [ -e "$out.yield" ]; then
+    echo "!! $label stopped for a Claude booking: $(head -1 "$out.yield")"
+    BOOKING_YIELD=1
+  fi
   tail -c 1200 "$out"
   # ⛔ THE QUOTA CHECK BELONGS HERE TOO. It used to live only in the main queue,
   # so when the window ran out the revise loop kept firing passes and the handoff
@@ -489,7 +545,8 @@ run_one() {
 # NIGHT_REVISE=1 turns them back on for a run that wants them.
 pass=0
 while [ "${NIGHT_REVISE:-0}" = "1" ] && [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
-      && [ "$QUOTA_GONE" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ]; do
+      && [ "$QUOTA_GONE" -eq 0 ] && [ "$BOOKING_YIELD" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ] \
+      && node "$QUEUE" usage "$TASKS" "$USAGE" "$BOOKINGS" >/dev/null 2>&1; do
   pass=$((pass+1))
   [ "$pass" -gt 6 ] && { echo "(stopping after 6 revision passes — diminishing returns)"; break; }
   run_one "$NIGHT_HOME/REVISE.md" "revise-$pass"
@@ -504,7 +561,27 @@ QUEUE_REPORT="$(node "$QUEUE" report "$TASKS" 2>&1)"
 export AGENT_UNRUN="$UNRUN" AGENT_STOP="$stop_reason" AGENT_ASKS="$NEEDS_DECISION" AGENT_QUEUE_REPORT="$QUEUE_REPORT"
 # The handoff still ATTEMPTS even with the quota gone — it costs one refused
 # call, and if any quota remains it is the most valuable thing left to spend it on.
-run_one "$NIGHT_HOME/HANDOFF.md" "handoff" && SUMMARY+="OK   handoff written"$'\n'
+# ⛔ AFTER A YIELD THE HANDOFF IS SIZED TO THE GAP, NOT WATCHED. The watcher
+# would kill it at once (the board is exactly what said no), so it runs
+# unwatched under a hard timeout ending 5 minutes before the booking starts —
+# and is SKIPPED when that leaves under 10 minutes, or when the booking has
+# already begun: somebody else's session is not ours to write notes in. The
+# next run's handoff reads the whole branch, so nothing is lost but the timing.
+if [ "$BOOKING_YIELD" -eq 1 ]; then
+  CLEAR_MIN="$(node "$QUEUE" clear "$TASKS" "$BOOKINGS" 2>/dev/null)"
+  if [ "$CLEAR_MIN" = "none" ]; then
+    # The yield was the 5-hour quota, not a start time: keep the handoff short.
+    run_one "$NIGHT_HOME/HANDOFF.md" "handoff" 0 900 && SUMMARY+="OK   handoff written (short — quota left for a booking)"$'\n'
+  elif [ -n "$CLEAR_MIN" ] && [ "$CLEAR_MIN" -ge 15 ]; then
+    run_one "$NIGHT_HOME/HANDOFF.md" "handoff" 0 $(( (CLEAR_MIN - 5) * 60 )) \
+      && SUMMARY+="OK   handoff written (before the booking)"$'\n'
+  else
+    echo "(handoff skipped — a Claude booking starts in ${CLEAR_MIN:-?} min; the next run's handoff covers this one)"
+    SUMMARY+="SKIP handoff — มีคนจอง Claude ใน ${CLEAR_MIN:-?} นาที รอบหน้าจะเขียนแทน"$'\n'
+  fi
+else
+  run_one "$NIGHT_HOME/HANDOFF.md" "handoff" && SUMMARY+="OK   handoff written"$'\n'
+fi
 
 echo ""
 # Stamped HERE, at the end, and only here: a queue that was abandoned half way

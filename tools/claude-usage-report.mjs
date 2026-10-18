@@ -395,6 +395,61 @@ async function monitoringEnabled(supaUrl, anonKey, accessToken) {
   return { on: false, why: `switch read returned ${JSON.stringify(value)}, which is not a yes` };
 }
 
+/**
+ * Leave ~/samo-night/bookings.json for the night agent: every booking not yet
+ * ended and starting within 8 days — start, end and % ONLY (no name, no
+ * purpose: the agent's process can read this file, and it needs no more).
+ *
+ * WHY HERE. The agent has no database credential by design, and a person's
+ * booking must stop it (a 100% booking 21:30–00:00 on 2026-10-18 would have
+ * been run straight through). This sampler already signs in every 15 minutes
+ * as an account holding `claude`, so it is the one reader. Done BEFORE the
+ * switch and the Anthropic call, so a paused monitor or a 429 does not let the
+ * board copy go stale.
+ *
+ * ⛔ AN EMPTY LIST IS NOT EVIDENCE. RLS answers a reader WITHOUT the `claude`
+ * permission with zero rows — "nobody booked anything", the one answer that
+ * sends the agent into a booking. So the file is written only after a
+ * permission-gated table this account can always see (claude_usage_samples,
+ * never empty once the board has run) has returned a row. No proof → no file
+ * → the agent's snapshot ages past 45 minutes → it WAITS.
+ */
+async function leaveNightAgentBookings(supaUrl, anonKey, accessToken) {
+  const nightHome = join(homedir(), 'samo-night');
+  if (!existsSync(nightHome)) return;
+  const get = (path) => fetch(`${supaUrl}/rest/v1/${path}`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+  });
+  try {
+    const proof = await get('claude_usage_samples?select=id&limit=1');
+    const seen = proof.ok ? await proof.json() : null;
+    if (!Array.isArray(seen) || seen.length === 0) {
+      console.error('  (night agent bookings NOT written: this account cannot see the board — the agent will wait)');
+      return;
+    }
+    const now = new Date();
+    const horizon = new Date(now.getTime() + 8 * 86400e3);
+    const res = await get('claude_bookings?select=starts_at,ends_at,pct'
+      + `&ends_at=gt.${encodeURIComponent(now.toISOString())}`
+      + `&starts_at=lt.${encodeURIComponent(horizon.toISOString())}`
+      + '&order=starts_at.asc');
+    if (!res.ok) {
+      console.error(`  (night agent bookings NOT written: HTTP ${res.status})`);
+      return;
+    }
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    const tmp = join(nightHome, '.bookings.json.tmp');
+    writeFileSync(tmp, JSON.stringify({
+      sampled_at: now.toISOString(),
+      bookings: rows.map((r) => ({ starts_at: r.starts_at, ends_at: r.ends_at, pct: r.pct })),
+    }));
+    renameSync(tmp, join(nightHome, 'bookings.json'));
+  } catch (e) {
+    console.error(`  (could not leave the night agent its bookings copy: ${e.message})`);
+  }
+}
+
 async function main() {
   const env = loadEnv();
   const supaUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
@@ -424,6 +479,9 @@ async function main() {
   }
   const session = await signIn.json();
   if (!session?.access_token || !session?.user?.id) die('Supabase sign-in returned no session');
+
+  // ---- 1b. the night agent's copy of the BOOKING BOARD (2026-10-18) ----
+  await leaveNightAgentBookings(supaUrl, anonKey, session.access_token);
 
   // ---- 2. the switch (migration 0167) ----
   const gate = await monitoringEnabled(supaUrl, anonKey, session.access_token);

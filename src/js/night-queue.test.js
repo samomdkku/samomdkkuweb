@@ -16,6 +16,7 @@ import {
   parseQueue, gate, verdict, writeTask, spendNight, pending, MAX_ATTEMPTS,
   usageGate, SESSION_SHARE_OF_WEEK, WEEK_SAFETY_PCT,
   plan, interrupted, report, NOTE_PASSED, NOTE_RESUMED,
+  bookingGate, quotaGate, minutesClear, BOOKING_LEAD_MIN, MIN_TASK_MIN,
 } from '../../server/night-agent/queue.mjs';
 
 const Q = `# NIGHT-TASKS
@@ -338,5 +339,116 @@ describe('install.sh replaces the live queue only with --arm', () => {
     const arm = sh.slice(sh.search(/^if .*--arm/m));
     expect(arm.indexOf('LIVE_HEADS')).toBeGreaterThan(-1);
     expect(arm.indexOf('LIVE_HEADS')).toBeLessThan(arm.indexOf('cat > ~/samo-night/NIGHT-TASKS.md'));
+  });
+});
+
+// ── 2026-10-18: the board. A 100% booking 21:30–00:00 ICT, and the timer due at
+// 23:07 — the runner read the quota numbers and nothing else. These are that
+// evening's real shapes (ICT = UTC+7).
+describe('bookingGate — a person\'s booking outranks the agent', () => {
+  const at = (iso) => Date.parse(iso);
+  const tonight = { starts_at: '2026-10-18T14:30:00Z', ends_at: '2026-10-18T17:00:00Z', pct: 100 };
+  const board = (bookings, sampled = '2026-10-18T15:55:00Z') => ({ sampled_at: sampled, bookings });
+  // the live window measured that evening: resets 02:31 ICT
+  const usage = (o) => ({ sampled_at: '2026-10-18T15:55:00Z', five_hour_pct: 11,
+    five_hour_resets_at: '2026-10-18T19:31:00Z', seven_day_pct: 28,
+    seven_day_resets_at: '2026-10-21T08:59:59Z', ...o });
+
+  it('23:07 inside the booking: WAIT, and say whose time it is', () => {
+    const g = quotaGate(usage(), board([tonight]), at('2026-10-18T16:07:00Z'), 1);
+    expect(g.run).toBe(false);
+    expect(g.why).toContain('21:30');
+  });
+  it('the TIME rule alone: a 10% booking still means not inside it, even mid-task', () => {
+    const small = { ...tonight, pct: 10 };
+    const g = quotaGate(usage(), board([small]), at('2026-10-18T16:07:00Z'), 1, 'watch');
+    expect(g.run).toBe(false);
+    expect(g.why).toContain('รอให้จบก่อน');
+  });
+  it('00:07 after it ended, leftover in the window: RUN on what is left', () => {
+    const now = at('2026-10-18T17:07:00Z');
+    const u = usage({ sampled_at: '2026-10-18T17:00:00Z', five_hour_pct: 60 });
+    const g = quotaGate(u, board([tonight], '2026-10-18T17:00:00Z'), now, 1);
+    expect(g.run).toBe(true);
+  });
+  it('00:07 with the window burned: WAIT for the 02:31 reset, then run', () => {
+    const b = board([tonight], '2026-10-18T17:00:00Z');
+    const burned = usage({ sampled_at: '2026-10-18T17:00:00Z', five_hour_pct: 100 });
+    expect(quotaGate(burned, b, at('2026-10-18T17:07:00Z'), 1).run).toBe(false);
+    const after = usage({ sampled_at: '2026-10-18T19:40:00Z', five_hour_pct: 100 });
+    expect(quotaGate(after, board([tonight], '2026-10-18T19:40:00Z'), at('2026-10-18T19:47:00Z'), 1).run).toBe(true);
+  });
+  it('does not start inside the lead before a booking, and the watcher yields there', () => {
+    const next = { starts_at: '2026-10-19T03:00:00Z', ends_at: '2026-10-19T05:00:00Z', pct: 20 };
+    const s = (m) => at('2026-10-19T03:00:00Z') - m * 60000;
+    const b = (now) => board([next], new Date(now - 60000).toISOString());
+    const u = (now) => usage({ sampled_at: new Date(now - 60000).toISOString(), five_hour_pct: 0 });
+    // start: needs MIN_TASK_MIN of clear time BEFORE the lead
+    expect(bookingGate(b(s(BOOKING_LEAD_MIN + MIN_TASK_MIN + 1)), u(s(91)), s(BOOKING_LEAD_MIN + MIN_TASK_MIN + 1)).run).toBe(true);
+    expect(bookingGate(b(s(BOOKING_LEAD_MIN + MIN_TASK_MIN - 1)), u(s(89)), s(BOOKING_LEAD_MIN + MIN_TASK_MIN - 1)).run).toBe(false);
+    // watch: a running task carries on until the lead itself
+    expect(bookingGate(b(s(BOOKING_LEAD_MIN + 1)), u(s(31)), s(BOOKING_LEAD_MIN + 1), 'watch').run).toBe(true);
+    expect(bookingGate(b(s(BOOKING_LEAD_MIN - 1)), u(s(29)), s(BOOKING_LEAD_MIN - 1), 'watch').run).toBe(false);
+  });
+  it('a booking inside the window the agent would spend keeps its % (the window is shared)', () => {
+    const now = at('2026-10-19T01:00:00Z');
+    const later = { starts_at: '2026-10-19T04:00:00Z', ends_at: '2026-10-19T05:00:00Z', pct: 40 };
+    const b = board([later], '2026-10-19T00:55:00Z');
+    const u = (pct) => usage({ sampled_at: '2026-10-19T00:55:00Z', five_hour_pct: pct,
+      five_hour_resets_at: '2026-10-19T05:00:00Z' });
+    expect(quotaGate(u(50), b, now, 1, 'watch').run).toBe(true);      // 50 < 100 − 40 − 5
+    expect(quotaGate(u(55), b, now, 1, 'watch').run).toBe(false);     // 40% is theirs
+    // a booking AFTER the window resets is not in it
+    const far = { ...later, starts_at: '2026-10-19T06:00:00Z', ends_at: '2026-10-19T07:00:00Z' };
+    expect(quotaGate(u(55), board([far], '2026-10-19T00:55:00Z'), now, 1, 'watch').run).toBe(true);
+  });
+  it('with no window open, a 100% booking within 5 hours keeps the agent from opening one', () => {
+    const now = at('2026-10-19T01:00:00Z');
+    const full = { starts_at: '2026-10-19T04:00:00Z', ends_at: '2026-10-19T05:00:00Z', pct: 100 };
+    const closed = usage({ sampled_at: '2026-10-19T00:55:00Z', five_hour_pct: 0, five_hour_resets_at: null });
+    expect(quotaGate(closed, board([full], '2026-10-19T00:55:00Z'), now, 1, 'watch').run).toBe(false);
+  });
+  it('future bookings this week come off the week on top of the reserve', () => {
+    const now = at('2026-10-19T01:00:00Z');
+    const u = usage({ sampled_at: '2026-10-19T00:55:00Z', five_hour_pct: 0, five_hour_resets_at: null, seven_day_pct: 70 });
+    expect(quotaGate(u, board([], '2026-10-19T00:55:00Z'), now, 1).run).toBe(true);
+    const twoSessions = [1, 2].map((d) => ({ starts_at: `2026-10-2${d}T01:00:00Z`, ends_at: `2026-10-2${d}T03:00:00Z`, pct: 100 }));
+    expect(quotaGate(u, board(twoSessions, '2026-10-19T00:55:00Z'), now, 1).run).toBe(false);
+  });
+  it('NO board, a stale board, or a malformed one means WAIT — never "nobody booked"', () => {
+    const now = at('2026-10-19T01:00:00Z');
+    const u = usage({ sampled_at: '2026-10-19T00:55:00Z' });
+    expect(quotaGate(u, null, now, 1).run).toBe(false);
+    expect(quotaGate(u, board([], '2026-10-18T23:00:00Z'), now, 1).run).toBe(false);
+    expect(quotaGate(u, { sampled_at: '2026-10-19T00:55:00Z' }, now, 1).run).toBe(false);
+    expect(quotaGate(u, board([], '2026-10-19T00:55:00Z'), now, 1).run).toBe(true);   // control
+  });
+  it('minutesClear sizes the handoff after a yield', () => {
+    const b = board([tonight]);
+    expect(minutesClear(b, at('2026-10-18T14:00:00Z'))).toBe(30);
+    expect(minutesClear(b, at('2026-10-18T15:00:00Z'))).toBe(0);
+    expect(minutesClear(b, at('2026-10-18T18:00:00Z'))).toBe(null);
+  });
+});
+
+describe('run-night.sh asks the board at every point it could start spending', () => {
+  const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
+  it('the start gate, the between-task gate and the watcher all pass the bookings file', () => {
+    expect(sh).toMatch(/node "\$QUEUE" gate "\$TASKS" "\$USAGE" "\$BOOKINGS"/);
+    expect(sh).toMatch(/node "\$QUEUE" usage "\$TASKS" "\$USAGE" "\$BOOKINGS"/);
+    expect(sh).toMatch(/node "\$QUEUE" watch "\$TASKS" "\$USAGE" "\$BOOKINGS"/);
+    // control: no gate call left that ignores the board
+    expect(sh).not.toMatch(/node "\$QUEUE" (gate|usage) "\$TASKS" "\$USAGE" 2>/);
+  });
+  it('a yield commits the WIP and marks the task interrupted, so it is RESUMED', () => {
+    const from = sh.indexOf('if [ -e "$out.yield" ]; then');
+    expect(from).toBeGreaterThan(0);
+    const y = sh.slice(from, sh.indexOf('BOOKING_YIELD=1; break', from));
+    expect(y).toContain('agent: WIP');
+    expect(y).toMatch(/node "\$QUEUE" cut /);
+  });
+  it('the OAuth retry never re-runs a task the watcher stopped', () => {
+    const rc = sh.slice(sh.indexOf('run_claude() {'), sh.indexOf('claude_once() {'));
+    expect(rc.indexOf('.yield')).toBeLessThan(rc.indexOf('sleep 90'));
   });
 });
