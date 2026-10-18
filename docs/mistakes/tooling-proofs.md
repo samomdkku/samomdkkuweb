@@ -3671,7 +3671,7 @@ Reviewing the runner for that change turned up three older bugs:
    is now capped to the time left (`HARD_END` 290 min), and a clock cut is
    `interrupted`.
 3. **No commit identity meant silent loss.** `git commit --quiet` in a checkout
-   without `user.email` fails while the queue records "WIP <sha>". Found by the
+   without `user.email` fails while the queue records `WIP <sha>`. Found by the
    rehearsal, whose fresh clone had no identity. The runner now refuses to start.
 
 **Where it lives now**: `server/night-agent/{queue.mjs,run-night.sh}`,
