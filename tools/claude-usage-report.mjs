@@ -396,57 +396,67 @@ async function monitoringEnabled(supaUrl, anonKey, accessToken) {
 }
 
 /**
- * Leave ~/samo-night/bookings.json for the night agent: every booking not yet
- * ended and starting within 8 days — start, end and % ONLY (no name, no
- * purpose: the agent's process can read this file, and it needs no more).
+ * Leave ~/samo-night/bookings.json for the night agent: the board's OWN answer
+ * to "how much may be used right now without booking, and until when" —
+ * `right_now` from get_claude_board(), i.e. claude_free_now(), the same number
+ * the web shows people as "ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง".
  *
- * WHY HERE. The agent has no database credential by design, and a person's
- * booking must stop it (a 100% booking 21:30–00:00 on 2026-10-18 would have
- * been run straight through). This sampler already signs in every 15 minutes
- * as an account holding `claude`, so it is the one reader. Done BEFORE the
- * switch and the Anthropic call, so a paused monitor or a 429 does not let the
- * board copy go stale.
+ * WHY THE BOARD'S ANSWER AND NOT A LIST OF BOOKINGS. The agent is an unbooked
+ * user, and the board already knows what an unbooked user may take: a booking
+ * keeps its % in whichever 5-hour window it lands in (0159 — the window is
+ * shared by whoever it covers), an ended booking's share is released because
+ * its real cost is in the measured use (0159 §1), and the week holds back
+ * every future booking (0158). Re-deriving any of that in the agent would be a
+ * second copy of the rule that refuses people's bookings — and two copies
+ * drift. So the agent obeys exactly what a person would be told.
  *
- * ⛔ AN EMPTY LIST IS NOT EVIDENCE. RLS answers a reader WITHOUT the `claude`
- * permission with zero rows — "nobody booked anything", the one answer that
- * sends the agent into a booking. So the file is written only after a
- * permission-gated table this account can always see (claude_usage_samples,
- * never empty once the board has run) has returned a row. No proof → no file
- * → the agent's snapshot ages past 45 minutes → it WAITS.
+ * Names and purposes are stripped: the agent's process can read this file.
+ * get_claude_board() raises without the `claude` permission, so a reporter that
+ * lost it writes NO file and the agent waits — never an empty "nobody booked".
+ * Called AFTER the sample insert, so the answer uses this tick's measurement.
  */
-async function leaveNightAgentBookings(supaUrl, anonKey, accessToken) {
+async function leaveNightAgentBoard(supaUrl, anonKey, accessToken) {
   const nightHome = join(homedir(), 'samo-night');
   if (!existsSync(nightHome)) return;
-  const get = (path) => fetch(`${supaUrl}/rest/v1/${path}`, {
-    headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
-  });
   try {
-    const proof = await get('claude_usage_samples?select=id&limit=1');
-    const seen = proof.ok ? await proof.json() : null;
-    if (!Array.isArray(seen) || seen.length === 0) {
-      console.error('  (night agent bookings NOT written: this account cannot see the board — the agent will wait)');
-      return;
-    }
-    const now = new Date();
-    const horizon = new Date(now.getTime() + 8 * 86400e3);
-    const res = await get('claude_bookings?select=starts_at,ends_at,pct'
-      + `&ends_at=gt.${encodeURIComponent(now.toISOString())}`
-      + `&starts_at=lt.${encodeURIComponent(horizon.toISOString())}`
-      + '&order=starts_at.asc');
+    const res = await fetch(`${supaUrl}/rest/v1/rpc/get_claude_board`, {
+      method: 'POST',
+      headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     if (!res.ok) {
-      console.error(`  (night agent bookings NOT written: HTTP ${res.status})`);
+      console.error(`  (night agent board NOT written: HTTP ${res.status})`);
       return;
     }
-    const rows = await res.json();
-    if (!Array.isArray(rows)) return;
+    const board = await res.json();
+    const rn = board?.right_now;
+    if (!rn || typeof rn !== 'object' || rn.free_pct == null || !rn.session
+        || !Array.isArray(board.free_windows) || !Array.isArray(board.bookings)) {
+      console.error('  (night agent board NOT written: the answer is missing right_now/free_windows/bookings)');
+      return;
+    }
+    const slim = (b) => (b ? { starts_at: b.starts_at, ends_at: b.ends_at, pct: b.pct } : null);
     const tmp = join(nightHome, '.bookings.json.tmp');
     writeFileSync(tmp, JSON.stringify({
-      sampled_at: now.toISOString(),
-      bookings: rows.map((r) => ({ starts_at: r.starts_at, ends_at: r.ends_at, pct: r.pct })),
+      sampled_at: new Date().toISOString(),
+      // The RAIL: the board's answer for starting at every instant of the week
+      // (claude_free_windows → claude_free_now per band). The agent looks up the
+      // band holding NOW, because "how much if I start now" changes at each
+      // booking's start − 5 h: 08:00 → 100%, 08:01 → 30%.
+      free_windows: board.free_windows.map((w) => ({
+        starts_at: w.starts_at, ends_at: w.ends_at, free_pct: w.free_pct,
+        week_free_pct: w.week_free_pct, bound_by: w.bound_by,
+      })),
+      bookings: board.bookings.map(slim),
+      right_now: {
+        at: rn.at, free_pct: rn.free_pct, until: rn.until, reason: rn.reason, bound_by: rn.bound_by,
+        session: rn.session, week: rn.week,
+        live_booking: slim(rn.live_booking), next_booking: slim(rn.next_booking),
+      },
     }));
     renameSync(tmp, join(nightHome, 'bookings.json'));
   } catch (e) {
-    console.error(`  (could not leave the night agent its bookings copy: ${e.message})`);
+    console.error(`  (could not leave the night agent its board copy: ${e.message})`);
   }
 }
 
@@ -479,9 +489,6 @@ async function main() {
   }
   const session = await signIn.json();
   if (!session?.access_token || !session?.user?.id) die('Supabase sign-in returned no session');
-
-  // ---- 1b. the night agent's copy of the BOOKING BOARD (2026-10-18) ----
-  await leaveNightAgentBookings(supaUrl, anonKey, session.access_token);
 
   // ---- 2. the switch (migration 0167) ----
   const gate = await monitoringEnabled(supaUrl, anonKey, session.access_token);
@@ -603,6 +610,10 @@ async function main() {
   if (!Array.isArray(parsed) || parsed.length === 0) {
     die('insert returned no row — the reporter account probably lacks the `claude` permission');
   }
+
+  // ---- 5. the night agent's copy of the BOARD (2026-10-18) — after the insert,
+  // so its answer is computed from the sample this tick just wrote.
+  await leaveNightAgentBoard(supaUrl, anonKey, session.access_token);
 
   console.log(`✓ sample written · 5h ${fmt(fiveHour.pct)} · 7d ${fmt(sevenDay.pct)}`);
   if (sevenDay.resetsAt) console.log(`  weekly resets ${sevenDay.resetsAt}`);

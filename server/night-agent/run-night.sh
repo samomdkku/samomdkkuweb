@@ -108,32 +108,66 @@ fi
 # The retry costs one refused call and clears it, because starting a fresh
 # `claude` re-reads the credential file that the timer has since rotated.
 run_claude() {
-  local prompt="$1" out="$2" deadline="${3:-$RESERVE_EPOCH}" rc
-  claude_capped "$prompt" "$out" "$deadline"; rc=$?
+  local prompt="$1" out="$2" deadline="${3:-$RESERVE_EPOCH}" allow="${4:--}" rc
+  claude_capped "$prompt" "$out" "$deadline" "$allow"; rc=$?
+  # A task the watcher stopped is not an auth failure: never re-run it.
+  [ -e "$out.yield" ] && return $rc
   # Only the CLI's own short error line counts (classifyOutput) — a task whose
   # REPORT mentions "401" is finished, and re-running it would redo the work.
   if [ "$(node "$QUEUE" classify "$out")" = "auth" ]; then
     echo "!! OAuth token expired — waiting 90s for the refresh timer, then retrying ONCE"
     sleep 90
-    claude_capped "$prompt" "$out" "$deadline"; rc=$?
+    claude_capped "$prompt" "$out" "$deadline" "$allow"; rc=$?
     [ "$(node "$QUEUE" classify "$out")" = "auth" ] \
       && echo "!! still expired after retry — the credential needs \`claude login\` on the VM"
   fi
   return $rc
 }
 
-# claude_capped <prompt> <out> <deadline-epoch> — one call, its timeout cut to
-# the time left before <deadline>. Under a minute left → not called at all
-# (rc 124, as if timed out), so a late retry cannot start past the hard end.
+# claude_capped <prompt> <out> <deadline-epoch> <allowance-json|-> — one call,
+# its timeout cut to the time left before <deadline>. Under a minute left → not
+# called at all (rc 124, as if timed out), so a late retry cannot start past the
+# hard end.
+#
+# ⛔ AND, WITH AN ALLOWANCE, A WATCHER (2026-10-18). The allowance is what the
+# booking board said this task may take WHEN IT STARTED (`queue.mjs
+# allowance`) — fixed, so a booking made afterwards does not move it ("they
+# book too soon"), while a booking it already knew about keeps its share. Once
+# a minute the watcher asks `queue.mjs watch` (local files only: no network, no
+# tokens). It answers no when the measured use reaches the allowance, or at a
+# 5-hour reset whose new window is booked; then the reason goes to
+# "$out.yield" and the task is stopped (`timeout` forwards the TERM). The
+# runner keeps the work and RESUMES it, exactly as for a quota cut. With nobody
+# booked the allowance has no line and the watcher never fires.
 claude_capped() {
-  local left=$(( $3 - $(date -u +%s) )) tmo="${TASK_TIMEOUT_SEC:-5400}"
+  local left=$(( $3 - $(date -u +%s) )) tmo="${TASK_TIMEOUT_SEC:-5400}" allow="$4" pid wpid="" rc
   [ "$left" -lt "$tmo" ] && tmo="$left"
+  rm -f "$2.yield"
   if [ "$tmo" -lt 60 ]; then
     echo "(no time left before this run's deadline — not calling claude)" > "$2"
     return 124
   fi
   timeout "$tmo" claude -p "$1" --permission-mode bypassPermissions \
-      --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$2" 2>&1 < /dev/null
+      --max-turns "${TASK_MAX_TURNS:-200}" --add-dir "$MEM_DIR" > "$2" 2>&1 < /dev/null &
+  pid=$!
+  if [ "$allow" != "-" ]; then
+    (
+      while kill -0 "$pid" 2>/dev/null; do
+        sleep "${BOOKING_POLL_SEC:-60}"
+        kill -0 "$pid" 2>/dev/null || break
+        if ! why="$(node "$QUEUE" watch "$TASKS" "$USAGE" "$BOOKINGS" "$allow" 2>&1)"; then
+          printf '%s\n' "$why" > "$2.yield"
+          echo "!! giving the window back: $why"
+          kill -TERM "$pid" 2>/dev/null
+          break
+        fi
+      done
+    ) &
+    wpid=$!
+  fi
+  wait "$pid"; rc=$?
+  if [ -n "$wpid" ]; then kill "$wpid" 2>/dev/null; wait "$wpid" 2>/dev/null; fi
+  return $rc
 }
 
 # ── post_discord <text> ──────────────────────────────────────────────────────
@@ -310,7 +344,7 @@ ${SHARED}
 
 --- YOUR TASK ---
 "
-done_n=0; fail_n=0; stop_reason="queue finished"; SUMMARY=""; UNRUN=0; NEEDS_DECISION=""; QUOTA_GONE=0
+done_n=0; fail_n=0; stop_reason="queue finished"; SUMMARY=""; UNRUN=0; NEEDS_DECISION=""; QUOTA_GONE=0; BOOKING_YIELD=0
 
 for i in "${!STARTS[@]}"; do
   # 20 min short of the reserve, not at it: a task started with two minutes on
@@ -426,7 +460,11 @@ ${prompt}"
     continue
   fi
 
-  run_claude "${preamble_base}${prompt}" "$out"
+  # The allowance is taken NOW, as the task starts, and fixed for the task.
+  ALLOW="$(node "$QUEUE" allowance "$TASKS" "$USAGE" "$BOOKINGS" 2>/dev/null)"
+  [ -n "$ALLOW" ] || ALLOW="-"
+  echo "allowance: $ALLOW"
+  run_claude "${preamble_base}${prompt}" "$out" "$RESERVE_EPOCH" "$ALLOW"
   rc=$?
   tail -c 1500 "$out"
 
@@ -444,8 +482,21 @@ ${prompt}"
   # same bookkeeping as a quota cut — the agent did not get to finish, so it is
   # `interrupted` and RESUMED, not counted as a failed attempt.
   CUT_BY=""
-  [ "$(node "$QUEUE" classify "$out")" = "quota" ] && CUT_BY="quota"
+  [ -e "$out.yield" ] && CUT_BY="board"
+  [ -z "$CUT_BY" ] && [ "$(node "$QUEUE" classify "$out")" = "quota" ] && CUT_BY="quota"
   [ -z "$CUT_BY" ] && [ "$rc" -eq 124 ] && [ "$(date -u +%s)" -ge $(( RESERVE_EPOCH - 60 )) ] && CUT_BY="time"
+  # ⛔ GAVE THE WINDOW BACK to somebody's booking: WIP kept, task `interrupted`,
+  # the next run RESUMES it once the board has room again.
+  if [ "$CUT_BY" = "board" ]; then
+    Y_WHY="$(head -1 "$out.yield")"
+    stop_reason="ให้คนที่จอง Claude ใช้ก่อน: $Y_WHY"
+    if [ -n "$(git status --porcelain)" ]; then
+      git add -A && git commit --quiet -m "agent: WIP $title (gave the window back to a Claude booking)" -m "Unattended run $STAMP. $Y_WHY"
+    fi
+    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)"
+    fail_n=$((fail_n+1)); SUMMARY+="YIELD $title — $Y_WHY (work kept as WIP, the next run RESUMES it)"$'\n'
+    UNRUN=$(( TOTAL - i - 1 )); BOOKING_YIELD=1; break
+  fi
   if [ "$CUT_BY" = "time" ]; then
     stop_reason="this run reached its ${RUN_RESERVE_MIN:-245}-min limit mid-task — the next run RESUMES it"
     if [ -n "$(git status --porcelain)" ]; then
@@ -519,14 +570,22 @@ done
 
 # ── run_one <file> <label> — one prompt, same preamble, same commit discipline ──
 run_one() {
-  local f="$1" label="$2" deadline="${3:-$RESERVE_EPOCH}" out
+  local f="$1" label="$2" deadline="${3:-$RESERVE_EPOCH}" allow="${4:-}" out
   [ -r "$f" ] || { echo "(no $f — skipping $label)"; return 0; }
   out="$LOG_DIR/$STAMP-$label.out"
   local b4; b4="$(git rev-parse HEAD)"
   echo ""
   echo "--- $label  ($(date -u +%H:%M)Z) ---"
-  run_claude "${preamble_base}$(cat "$f")" "$out" "$deadline"
+  if [ -z "$allow" ]; then
+    allow="$(node "$QUEUE" allowance "$TASKS" "$USAGE" "$BOOKINGS" 2>/dev/null)"
+    [ -n "$allow" ] || allow="-"
+  fi
+  run_claude "${preamble_base}$(cat "$f")" "$out" "$deadline" "$allow"
   local rc=$?
+  if [ -e "$out.yield" ]; then
+    echo "!! $label gave the window back: $(head -1 "$out.yield")"
+    BOOKING_YIELD=1
+  fi
   tail -c 1200 "$out"
   # ⛔ THE QUOTA CHECK BELONGS HERE TOO. It used to live only in the main queue,
   # so when the window ran out the revise loop kept firing passes and the handoff
@@ -560,7 +619,8 @@ run_one() {
 # NIGHT_REVISE=1 turns them back on for a run that wants them.
 pass=0
 while [ "${NIGHT_REVISE:-0}" = "1" ] && [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
-      && [ "$QUOTA_GONE" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ]; do
+      && [ "$QUOTA_GONE" -eq 0 ] && [ "$BOOKING_YIELD" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ] \
+      && node "$QUEUE" usage "$TASKS" "$USAGE" "$BOOKINGS" >/dev/null 2>&1; do
   pass=$((pass+1))
   [ "$pass" -gt 6 ] && { echo "(stopping after 6 revision passes — diminishing returns)"; break; }
   run_one "$NIGHT_HOME/REVISE.md" "revise-$pass"
@@ -575,7 +635,17 @@ QUEUE_REPORT="$(node "$QUEUE" report "$TASKS" 2>&1)"
 export AGENT_UNRUN="$UNRUN" AGENT_STOP="$stop_reason" AGENT_ASKS="$NEEDS_DECISION" AGENT_QUEUE_REPORT="$QUEUE_REPORT"
 # The handoff still ATTEMPTS even with the quota gone — it costs one refused
 # call, and if any quota remains it is the most valuable thing left to spend it on.
-run_one "$NIGHT_HOME/HANDOFF.md" "handoff" "$HARD_END" && SUMMARY+="OK   handoff written"$'\n'
+# ⛔ NOT AFTER GIVING THE WINDOW BACK. The handoff is a model call, and the
+# quota left in this window is the booker's — writing notes in it would spend
+# exactly the share the yield protected. The runner's own Discord report below
+# still goes out (no model), and the next run's handoff reads the whole branch.
+# Unwatched otherwise ("-"): it is the run's record, sized by HARD_END alone.
+if [ "$BOOKING_YIELD" -eq 1 ]; then
+  echo "(handoff skipped — the rest of this window belongs to a Claude booking; the next run's handoff covers this one)"
+  SUMMARY+="SKIP handoff — ให้คนที่จอง Claude ใช้ก่อน รอบหน้าจะเขียนแทน"$'\n'
+else
+  run_one "$NIGHT_HOME/HANDOFF.md" "handoff" "$HARD_END" "-" && SUMMARY+="OK   handoff written"$'\n'
+fi
 
 echo ""
 # Stamped HERE, at the end, and only here: a queue that was abandoned half way

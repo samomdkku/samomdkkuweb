@@ -41,6 +41,9 @@
 //
 //   node queue.mjs gate   <file> [usage.json [bookings.json]] → exit 0 run · 10 STOP for good · 3 wait · 4 wait, board unreadable
 //   node queue.mjs usage  <file> <usage.json> [bookings.json] → exit 0 next task may start · 3 stop this run
+//   node queue.mjs allowance <file> <usage.json> <bookings.json> → JSON: a task's fixed allowance
+//   node queue.mjs watch  <file> <usage.json> <bookings.json> <allowance> → 0 carry on · 3 stop the task
+//   node queue.mjs classify <outfile>        → ok | quota | auth (only the CLI's own error line)
 //   node queue.mjs list   <file>              → JSON: budget + every task
 //   node queue.mjs set    <file> <n> <status> → write one task's verdict
 //   node queue.mjs plan   <file> <n>          → skip | resume | fresh (what to do with task n)
@@ -203,50 +206,186 @@ export function usageGate(snap, nowMs, reserveSessions = 1) {
 }
 
 // ── the booking board (2026-10-18) ───────────────────────────────────────────
-// ⛔ THE AGENT DOES NOT START WORK INSIDE SOMEBODY'S CLAUDE BOOKING. Found the
-// evening tasks 8–12 were re-armed: a 100% booking 21:30–00:00 ICT and the
-// timer due at 23:07 — the runner read the QUOTA numbers and nothing else.
+// ⛔ THE AGENT IS AN UNBOOKED USER OF THE BOARD, AND OBEYS WHAT A PERSON IS TOLD.
+// Found the evening tasks 8–12 were re-armed: a 100% booking 21:30–00:00 ICT and
+// the timer due at 23:07 — the runner read the QUOTA numbers and nothing else.
 //
-// The rule is the owner's, and deliberately small:
-//   • a booking that is ON right now → do not start a run, nor the next task
-//   • a task already running is NEVER stopped for a booking ("it doesn't have
-//     to stop the task", 2026-10-18)
-//   • once a booking has ENDED it holds nothing back: whatever is left of the
-//     5-hour window is the agent's, and usageGate's 90% ceiling is the only
-//     limit — burned to the ceiling, it waits for the reset like any night.
-// No board at all is the ordinary case and changes nothing: an empty list of
-// bookings means the quota rules alone decide, exactly as before 2026-10-18.
+// The owner's rule (2026-10-18), in their examples:
+//   • booking 13:00–15:00 @70%. Start at 08:00 → its window ends 13:00, so all
+//     of it is yours. Start at 08:30 → the window reaches 13:30, the booking
+//     lands inside it, so 30% is yours: "the next 5hr reset will be ok for the
+//     booking person".
+//   • working, and someone books for the next hour → do NOT stop: "they book
+//     too soon". It counts from the next task on.
+//   • the next window holds a booking → leave it to them until it finishes,
+//     then continue.
+//   • a booking has ended → use whatever is left; burned → wait for the reset.
+//   • and: fair, efficient, the most use of the tokens, common sense.
 //
-// ⛔ BUT A MISSING OR STALE BOARD IS NOT AN EMPTY ONE. The reporter writes
-// bookings.json only after proving it can SEE the board (RLS answers a reader
-// without `claude` with zero rows — "nobody booked"), so no file, a file older
-// than SNAPSHOT_MAX_AGE_MIN, or a malformed one means "cannot tell" → wait, and
-// `gate` exits 4 so the runner can say so once instead of waiting in silence.
+// Every one of those is ALREADY the board's rule for people — claude_free_now(),
+// shown on the web as "ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง": a window is shared by
+// whoever it covers (0159), an ended booking's share is released because its
+// cost is in the measurement (0159 §1, live window "only from now forward"),
+// and the week holds back every booking still to come (0158). The reporter
+// copies that answer — the RAIL, `free_windows`, the board's answer for starting
+// at every instant of the week, plus this week's bookings (times and % only) —
+// into bookings.json; this file only decides WHEN
+// to ask it and what to do with the number. A second copy of the arithmetic
+// here would drift from the one that refuses people's bookings.
+//
+// WHEN IT IS ASKED:
+//   START (a run, or the next task): no booking ON now; the board's answer not
+//     past its own `until` (then it is about a moment that has gone — wait the
+//     ≤15 min for the next one); and at least MIN_START_PCT free after the
+//     owner's reserve, because a task that can do 3% of work still pays its
+//     whole start-up.
+//   DURING a task: the allowance is FIXED AT THE START. A booking made later
+//     does not move it ("too soon"). A booking known at the start is protected:
+//     when the measured use reaches the allowance the task is stopped, its work
+//     kept and resumed. With nobody booked there is no line at all — the CLI's
+//     own limit ends the task, exactly as before.
+//   A 5-HOUR RESET mid-task is a fresh decision, like a start: the first board
+//     answer from the new window is asked, and a booking ON in it, or a new
+//     window already fully booked, stops the task.
+//
+// ⛔ A MISSING OR STALE BOARD IS NOT AN EMPTY ONE. get_claude_board() raises
+// without the `claude` permission, so the reporter then writes no file. No file,
+// a stale one, or a malformed one → `gate` exits 4: wait, and the runner says so
+// once. Mid-task the same condition is NOT a reason to kill work.
+export const MIN_START_PCT = 10;   // free % below which a task is not worth starting
+export const BOOKING_MARGIN_PCT = 5; // stop this far short: samples are ≤15 min old
+
 const ict = (ms) => {
   const d = new Date(ms + 7 * 3600e3).toISOString();
   return `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
 };
+const num = (v) => (v == null || v === '' ? null : Number(v));
 
-/**
- * PURE. May the agent START something at `nowMs`, as far as the booking board
- * is concerned? { run, why, unreadable } — `unreadable` marks a wait caused by
- * the board copy itself, not by a booking.
- */
-export function bookingGate(bk, nowMs) {
+/** PURE. The board copy, or why it cannot be used. */
+function readBoard(bk, nowMs) {
   const sampled = bk && Date.parse(bk.sampled_at);
-  if (!bk || !Number.isFinite(sampled) || !Array.isArray(bk.bookings)) {
-    return { run: false, unreadable: true, why: 'อ่านตารางจอง Claude ไม่ได้ (ไม่มีไฟล์หรือไฟล์เสีย) — ไม่รู้ว่ามีใครจองอยู่' };
+  if (!bk || !Number.isFinite(sampled) || !Array.isArray(bk.free_windows) || !Array.isArray(bk.bookings)) {
+    return { bad: 'อ่านกระดานจอง Claude ไม่ได้ (ไม่มีไฟล์หรือไฟล์เสีย) — ไม่รู้ว่ามีใครจองอยู่' };
   }
   if (nowMs - sampled > SNAPSHOT_MAX_AGE_MIN * 60000) {
-    return { run: false, unreadable: true, why: `ตารางจอง Claude เก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — ไม่รู้ว่ามีใครจองอยู่` };
+    return { bad: `กระดานจอง Claude เก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — ไม่รู้ว่ามีใครจองอยู่` };
   }
-  const list = bk.bookings
-    .map((b) => ({ s: Date.parse(b.starts_at), e: Date.parse(b.ends_at) }))
-    .filter((b) => Number.isFinite(b.s) && Number.isFinite(b.e) && b.e > nowMs)
-    .sort((a, b) => a.s - b.s);
-  const on = list.find((b) => b.s <= nowMs);
+  return { bk, sampled };
+}
+
+/** PURE. The booking ON at nowMs, or null. */
+function bookingOn(bk, nowMs) {
+  for (const b of bk.bookings) {
+    const s = Date.parse(b?.starts_at); const e = Date.parse(b?.ends_at);
+    if (Number.isFinite(s) && Number.isFinite(e) && s <= nowMs && e > nowMs) return { s, e, pct: b.pct };
+  }
+  return null;
+}
+
+/**
+ * PURE. The rail band holding nowMs, and what the agent may take from it after
+ * the owner's reserve: min(band free, the week's free less `reserveSessions`
+ * sessions and the safety margin). A band's free_pct is already min(session,
+ * week), so taking the min again with the week-after-reserve is exact.
+ * null when no band holds nowMs (past the week's last band) → wait.
+ */
+function bandAt(bk, nowMs, reserveSessions) {
+  const band = bk.free_windows.find((w) => Date.parse(w.starts_at) <= nowMs && nowMs < Date.parse(w.ends_at));
+  if (!band) return null;
+  const free = Math.max(0, num(band.free_pct) ?? 0);
+  const wk = num(band.week_free_pct);
+  if (wk == null) return { free, by: 'session', until: Date.parse(band.ends_at) };
+  const sessPool = num(bk.right_now?.session?.pool_pct) || 100;
+  const weekPool = num(bk.right_now?.week?.pool_pct) || 700;
+  const keep = reserveSessions * sessPool + (WEEK_SAFETY_PCT * weekPool) / 100;
+  const weekRoom = Math.max(0, wk - keep);
+  return weekRoom < free
+    ? { free: weekRoom, by: 'week', until: Date.parse(band.ends_at) }
+    : { free, by: band.bound_by === 'week' ? 'week' : 'session', until: Date.parse(band.ends_at) };
+}
+
+/** PURE. The live 5-hour window per the measurement: { used, end } (used 0 when none is open). */
+function liveWindow(usage, nowMs) {
+  const end = usage && Date.parse(usage.five_hour_resets_at);
+  if (Number.isFinite(end) && end > nowMs && Number(usage.five_hour_pct) > 0) {
+    return { used: Number(usage.five_hour_pct), end };
+  }
+  return { used: 0, end: nowMs + 5 * 3600e3 };
+}
+
+/**
+ * PURE. May the agent START a run or a task at nowMs? { run, why, unreadable }.
+ */
+export function boardGate(bk, nowMs, reserveSessions = 1) {
+  const b = readBoard(bk, nowMs);
+  if (b.bad) return { run: false, unreadable: true, why: b.bad };
+  const on = bookingOn(bk, nowMs);
   if (on) return { run: false, why: `มีคนจอง Claude ไว้ ${ict(on.s)}–${ict(on.e)} — รอให้จบก่อน` };
-  return { run: true, why: list.length ? `ไม่มีใครจองตอนนี้ (คิวถัดไป ${ict(list[0].s)})` : 'ไม่มีใครจอง Claude' };
+  const band = bandAt(bk, nowMs, reserveSessions);
+  if (!band) return { run: false, why: 'กระดานจองไม่มีช่วงเวลานี้ — รอค่าใหม่จากรอบวัดถัดไป' };
+  if (band.free < MIN_START_PCT) {
+    return {
+      run: false,
+      why: band.by === 'week'
+        ? `สัปดาห์นี้เหลือให้ใช้โดยไม่ต้องจองไม่พอ (เก็บไว้ให้เจ้าของ ${reserveSessions} รอบ และให้คนที่จองไว้)`
+        : `ตอนนี้ใช้ได้โดยไม่ต้องจองแค่ ${Math.round(band.free)}% — รอถึง ${ict(band.until)}`,
+    };
+  }
+  return { run: true, why: `ใช้ได้โดยไม่ต้องจอง ${Math.round(band.free)}% (ช่วงนี้ถึง ${ict(band.until)})` };
+}
+
+/**
+ * PURE. The allowance a task starts with — FIXED for the task, so a booking
+ * made after it began does not move it. `stop` is the measured five_hour_pct at
+ * which it gives the window back; null when only the window's own size binds
+ * (nobody booked into it, the week has room) — then the CLI's own limit ends
+ * the task, as before. `windowEnd` is the reset checkpoint.
+ */
+export function allowanceAtStart(usage, bk, nowMs, reserveSessions = 1) {
+  const win = liveWindow(usage, nowMs);
+  const b = readBoard(bk, nowMs);
+  const band = b.bad ? null : bandAt(bk, nowMs, reserveSessions);
+  if (!band) return { stop: null, windowEnd: win.end };
+  const ceiling = win.used + band.free;
+  const stop = ceiling < 100 - BOOKING_MARGIN_PCT ? Math.max(0, ceiling - BOOKING_MARGIN_PCT) : null;
+  return { stop, windowEnd: win.end };
+}
+
+/**
+ * PURE. May a RUNNING task carry on? { run, why }. Never stops a task for a
+ * reporter hiccup (an unreadable or stale board mid-task means "carry on").
+ */
+export function watchGate(usage, bk, nowMs, allow, reserveSessions = 1) {
+  const sampled = usage && Date.parse(usage.sampled_at);
+  const fresh = Number.isFinite(sampled) && nowMs - sampled <= SNAPSHOT_MAX_AGE_MIN * 60000;
+  if (allow && allow.windowEnd != null && nowMs >= allow.windowEnd) {
+    // The reset checkpoint — a fresh decision, from the NEW window's answer only.
+    const b = readBoard(bk, nowMs);
+    if (b.bad || b.sampled <= allow.windowEnd || !fresh || Date.parse(usage.sampled_at) <= allow.windowEnd) {
+      return { run: true, why: 'รอบใหม่ — รอค่าของรอบใหม่' };
+    }
+    const on = bookingOn(bk, nowMs);
+    if (on) return { run: false, why: `รอบใหม่อยู่ในช่วงที่มีคนจองไว้ ${ict(on.s)}–${ict(on.e)} — หยุดให้ก่อน` };
+    const band = bandAt(bk, nowMs, reserveSessions);
+    if (band && band.free < BOOKING_MARGIN_PCT) {
+      return { run: false, why: 'รอบใหม่ถูกจองไว้จนเหลือไม่พอ — หยุดให้คนที่จองไว้' };
+    }
+    return { run: true, why: 'รอบใหม่ — ทำต่อได้' };
+  }
+  if (allow && allow.stop != null && fresh && Date.parse(usage.five_hour_resets_at) > nowMs
+      && Number(usage.five_hour_pct) >= allow.stop) {
+    return { run: false, why: `ใช้ครบส่วนที่ไม่มีใครจองแล้ว (${usage.five_hour_pct}%) — ที่เหลือเป็นของคนที่จองไว้` };
+  }
+  return { run: true, why: 'ทำต่อได้' };
+}
+
+/** PURE. The quota (owner's reserve, 90% ceiling, staleness), then the board. */
+export function quotaGate(usage, bk, nowMs, reserveSessions = 1) {
+  const u = usageGate(usage, nowMs, reserveSessions);
+  if (!u.run) return u;
+  const b = boardGate(bk, nowMs, reserveSessions);
+  if (!b.run) return b;
+  return { run: true, why: `${u.why} · ${b.why}` };
 }
 
 // ── what a `claude -p` output MEANS ──────────────────────────────────────────
@@ -273,14 +412,6 @@ export function classifyOutput(text) {
   return 'ok';
 }
 
-/** PURE. The board, then the quota — one answer for the runner to ask. */
-export function quotaGate(usage, bk, nowMs, reserveSessions = 1) {
-  const b = bookingGate(bk, nowMs);
-  if (!b.run) return b;
-  const u = usageGate(usage, nowMs, reserveSessions);
-  if (!u.run) return u;
-  return { run: true, why: `${u.why} · ${b.why}` };
-}
 
 /**
  * PURE. What the runner does with a task before calling anybody.
@@ -443,6 +574,20 @@ if (cmd && file) {
       : usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
     console.log(u.why);
     process.exit(u.run ? 0 : 3);
+  } else if (cmd === 'allowance') {
+    // `allowance <q> <usage> <board>` → one JSON line, saved by the runner at
+    // the start of a task and handed back to `watch` every minute.
+    const q = parseQueue(read());
+    console.log(JSON.stringify(allowanceAtStart(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions)));
+    process.exit(0);
+  } else if (cmd === 'watch') {
+    // `watch <q> <usage> <board> <allowance-json>` → 0 carry on · 3 stop the task.
+    const q = parseQueue(read());
+    let allow = null;
+    try { allow = JSON.parse(rest[2] || 'null'); } catch { allow = null; }
+    const w = watchGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), allow, q.reserveSessions);
+    console.log(w.why);
+    process.exit(w.run ? 0 : 3);
   } else if (cmd === 'list') {
     const q = parseQueue(read());
     console.log(JSON.stringify({
