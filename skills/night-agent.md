@@ -64,10 +64,16 @@ tests in `src/js/night-queue.test.js`, one per row above):
 - **a missing or stale board** at START exits 4 (wait, one Discord alert,
   `~/samo-night/.board-error`). Mid-task it never kills work.
 
-Tonight, worked through: 23:07 → wait (booking ON). ~00:07, from the first
-board copy after 00:00 → the board offers 100 − what the booker used (36% at
-the last reading), so the agent runs on that until the 02:40 reset, then on a
-fresh window.
+**Latency, stated plainly.** The reporter samples every 15 min (:10/:25/:40/:55
+on 2026-10-18; it drifts with manual starts) and the agent ticks at :07/:27/:47.
+So a booking's END is acted on 2–30 min late, and a booking made less than
+~15 min before a start can be missed. Both err toward waiting, never toward
+taking someone's share.
+
+Tonight, worked through: 23:07 → wait (booking ON). the first tick that
+reads a board copy taken after 00:00 (~00:27, from the ~00:10 sample) → the
+board offers 100 − what the booker used, so the agent runs on that until the
+02:40 reset, then on a fresh window.
 
 ### Also fixed in the 2026-10-18 review of the runner
 

@@ -660,3 +660,16 @@ describe('run-night.sh — the scrutinize findings of 2026-10-18 stay fixed', ()
     expect(sh.slice(ident, started)).toContain('.identity-error');
   });
 });
+
+describe('the reset checkpoint is the MEASURED reset, even when the window reads 0%', () => {
+  it('windowEnd follows five_hour_resets_at, not start + 5 h', () => {
+    const now = Date.parse('2026-10-20T01:00:00Z');
+    const reset = now + 40 * 60e3;
+    const u = { sampled_at: new Date(now - 60e3).toISOString(), five_hour_pct: 0,
+      five_hour_resets_at: new Date(reset).toISOString(), seven_day_pct: 10, seven_day_resets_at: '2026-10-21T08:59:59Z' };
+    const b = { sampled_at: new Date(now - 60e3).toISOString(), bookings: [],
+      free_windows: [{ starts_at: new Date(now - 3600e3).toISOString(), ends_at: new Date(now + 3600e3).toISOString(), free_pct: 100, week_free_pct: 500 }],
+      right_now: { session: { pool_pct: 100 }, week: { pool_pct: 700 } } };
+    expect(allowanceAtStart(u, b, now, 1).windowEnd).toBe(reset);
+  });
+});

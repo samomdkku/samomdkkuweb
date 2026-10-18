@@ -197,16 +197,16 @@ true. Detail: `HANDOFF.md` §9.
 that asymmetry went red in both directions. `npm run test:clean` runs it over
 exactly what git will carry. Both live in `HANDOFF.md` §9.
 
-## 🌙 SAMO-YEAR WORK — night agent STOPPED, branch reviewed (2026-10-14)
+## 🌙 NIGHT AGENT — RE-ARMED 2026-10-18 for SAMO-year tasks 8–12, obeying the Claude booking board
 
-The owner stopped the night agent at ~12:20 ICT after tasks 1–7 (`~/samo-night/STOPPED`
-on the VM; tasks 8–12 — ระบบบ้าน, หน้าฝ่าย, Shop, Passport/stats, final scrutinize —
-never ran). Its branch was reviewed and fixed on `year-rollover` (pushed as a
-Cloudflare preview against samo-dev), then merged to `main` and SHIPPED 2026-10-14:
-0219–0224 applied to production (six proofs 143/143 there) and the bundle
-deployed. Apps Script deployed (v13 hardening, live v16 — STATE "Apps Script" line).
-Then 0225–0228 (publish fixed, anon grant, publish → edit → switch, a used year is
-undeletable). Owed: HANDOFF §22 · why + NOT verified: `docs/state/claude-2026-10-14.md`.
+Tasks 1–7 shipped 2026-10-14 (0219–0228 on production). Tasks 8–12 (ระบบบ้าน, Shop,
+Passport/stats/หน้าฝ่าย, scrutinize, handoff) are queued on the VM, branch
+`agent/2026-10-18`, migrations 0229–0233 reserved, `Until` 2026-10-21 08:30 UTC.
+The agent now takes only what the booking board offers an unbooked person
+(`skills/night-agent.md`, top section). Its migrations reach samo-dev only, and it
+cannot push or deploy. ⛔ Review its branch before applying anything to production.
+Morning check, what is owed and what was NOT verified: HANDOFF §17 · why:
+`docs/state/claude-2026-10-18.md`.
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 

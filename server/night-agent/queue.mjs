@@ -304,13 +304,19 @@ function bandAt(bk, nowMs, reserveSessions) {
     : { free, by: band.bound_by === 'week' ? 'week' : 'session', until: Date.parse(band.ends_at) };
 }
 
-/** PURE. The live 5-hour window per the measurement: { used, end } (used 0 when none is open). */
+/**
+ * PURE. The live 5-hour window per the measurement: { used, end }.
+ * ⛔ The END comes from any reset instant still ahead, whatever the %: a window
+ * reading 0% is still the window whose reset is the checkpoint. Keying the end
+ * on `pct > 0` (as `used` is) put the checkpoint at start + 5 h instead, so a
+ * reset part-way through went unnoticed for up to five hours (scrutinize,
+ * 2026-10-18). Re-taking an allowance early is harmless; late is not.
+ */
 function liveWindow(usage, nowMs) {
   const end = usage && Date.parse(usage.five_hour_resets_at);
-  if (Number.isFinite(end) && end > nowMs && Number(usage.five_hour_pct) > 0) {
-    return { used: Number(usage.five_hour_pct), end };
-  }
-  return { used: 0, end: nowMs + 5 * 3600e3 };
+  const ahead = Number.isFinite(end) && end > nowMs;
+  const used = ahead && Number(usage.five_hour_pct) > 0 ? Number(usage.five_hour_pct) : 0;
+  return { used, end: ahead ? end : nowMs + 5 * 3600e3 };
 }
 
 /**

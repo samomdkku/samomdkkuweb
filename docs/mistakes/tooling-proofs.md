@@ -3680,6 +3680,19 @@ Reviewing the runner for that change turned up three older bugs:
    without `user.email` fails while the queue records `WIP <sha>`. Found by the
    rehearsal, whose fresh clone had no identity. The runner now refuses to start.
 
+Two `/scrutinize` passes over the finished design found six more:
+- after a 5-hour reset a running task had no stop line, because the old
+  window's allowance never applies again. It now re-takes a fixed allowance
+  at the reset.
+- a between-task refusal FOR A BOOKING still ran the model handoff in the
+  booker's share. `usage` now exits 5 for that case.
+- every give-back spent one `Budget` run.
+- the missing-identity refusal posted to Discord every 20 min.
+- the resume prompt and end alert named the wrong cause.
+- the reset checkpoint keyed on `five_hour_pct > 0`, so a window reading 0%
+  moved it to start + 5 h.
+All six are pinned by tests shown red when the fix is removed.
+
 **Where it lives now**: `server/night-agent/{queue.mjs,run-night.sh}`,
 `tools/claude-usage-report.mjs`, `src/js/night-queue.test.js`,
 `skills/night-agent.md` (top section, which also documents the rehearsal

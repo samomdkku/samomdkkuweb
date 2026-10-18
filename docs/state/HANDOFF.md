@@ -1473,12 +1473,44 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ---
 
-## 17. The night agent — RE-ARMED 2026-10-13 (history below is September's)
+## 17. The night agent — RE-ARMED 2026-10-18 for tasks 8–12 (history below is older)
 
-**2026-10-13: ARMED again with a new queue and a new runner — see §20 for what
-it is doing and the morning checklist.** Everything below this line is the
-September record; its "STOPPED", "fires 15:41" and "fingerprint" statements are
-superseded (`skills/night-agent.md`, top section).
+**Status: VERIFIED 2026-10-18 — how: the live gate refused, the VM code diffs clean, rehearsals and tests green, each listed here:**
+- the live gate on the VM, reading the real board, refused with the 21:30–00:00
+  booking (journal: `not now: มีคนจอง Claude ไว้ …`)
+- the VM's `run-night.sh` and `queue.mjs` diff clean against the repo; the live
+  queue file is byte-identical to `server/night-agent/NIGHT-TASKS.md`
+- three scratch rehearsals on the VM with a stub `claude`
+- 69 tests in `src/js/night-queue.test.js`, each new rule shown red when removed
+
+**HYPOTHESIS until the first real run:** that a real `claude -p` stopped by the
+watcher leaves a clean WIP. The rehearsals used a stub.
+
+**What it is doing.** Queue = `server/night-agent/NIGHT-TASKS.md` (its preamble
+states every constraint). It obeys the Claude booking board as an unbooked
+person would: no new work during a booking, a booked window keeps the
+booker's %, and a booking made while a task runs does not stop that task. Rules
+and mechanics: `skills/night-agent.md`, top section.
+
+**Morning checklist (owner):**
+1. Discord, the night-agent channel: the runner's per-task verdicts (`✓` = clean, `!` = look).
+2. `ssh samo-vm 'grep -E "^## |^Status|^Note" ~/samo-night/NIGHT-TASKS.md'`
+3. `git fetch samo-vm:samo-agent agent/2026-10-18:refs/remotes/vm/agent/2026-10-18`, then review
+   `git log --oneline origin/main..vm/agent/2026-10-18` and `docs/state/night-agent.md` (its
+   `## Task N` blocks). ⛔ Nothing it wrote is on production. Apply its migrations only
+   after review, in order, proof before and after (§22 rows 8–12).
+4. To take the window back NOW: `ssh samo-vm 'pkill -f run-night.sh; pkill -f "claude -p"; touch ~/samo-night/STOPPED'`
+   (runner FIRST); `bash server/night-agent/install.sh --arm` resumes.
+
+**Known limits, not bugs:**
+- The board copy is ≤15 min old, and the reporter's ticks (:10/:25/:40/:55)
+  and the agent's (:07/:27/:47) are not aligned. So a booking's end is acted
+  on up to ~30 min late, and a booking made <15 min before a start can be missed.
+- `~/.claude` is read-only inside the unit (`ProtectHome=read-only`). The
+  October runs completed under it; the reporter owns the OAuth refresh.
+
+**September record below:** its "STOPPED", "fires 15:41" and "fingerprint"
+statements are superseded.
 
 ### (September) The night agent is STOPPED, and what it is holding (2026-09-18)
 

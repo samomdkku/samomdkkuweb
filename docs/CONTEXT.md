@@ -1504,6 +1504,16 @@ picker on the week label jumps weeks; a throttled refresh re-reads the database
 `TERMS_VERSION` and from the toolbar. Discord via `sendNotify('claude', …)` →
 `notifyClaudeBooking` → `DISCORD_CLAUDE_WEBHOOK` in `/etc/samo-notify.env`.
 
+**The night agent is a reader of this board (2026-10-18).** It is an
+unbooked user and takes only what `claude_free_now()` offers, the web's
+"ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง". It has no database credential for production,
+so `tools/claude-usage-report.mjs` copies `get_claude_board()`'s rail
+(`free_windows`), this week's bookings (times and % only) and `right_now` into
+`~/samo-night/bookings.json` after each sample. No `claude` permission means no
+file, and the agent waits. It never re-derives the window rule.
+`server/night-agent/queue.mjs` only decides when to ask, and fixes a task's
+allowance at its start (`skills/night-agent.md`).
+
 **It coordinates; it does not enforce.** Everyone shares one login and can use
 Claude outside their block — and the window model assumes people who book turn
 up, which is why "จองแล้วเข้ามาใช้ และเริ่มให้ตรงเวลา" is rule 2 and 3 of the
