@@ -16,7 +16,7 @@ import {
   parseQueue, gate, verdict, writeTask, spendNight, pending, MAX_ATTEMPTS,
   usageGate, SESSION_SHARE_OF_WEEK, WEEK_SAFETY_PCT,
   plan, interrupted, report, NOTE_PASSED, NOTE_RESUMED,
-  bookingGate, quotaGate, minutesClear, BOOKING_LEAD_MIN, MIN_TASK_MIN,
+  bookingGate, quotaGate, classifyOutput,
 } from '../../server/night-agent/queue.mjs';
 
 const Q = `# NIGHT-TASKS
@@ -308,7 +308,7 @@ describe('run-night.sh delegates every verdict to queue.mjs', () => {
     expect(sh).not.toMatch(/node "\$QUEUE" set /);
   });
   it('marks a quota cut-off in the queue, in the same branch that commits the WIP', () => {
-    const from = sh.indexOf('session limit|usage limit|rate limit');
+    const from = sh.indexOf('if [ "$CUT_BY" = "quota" ]; then');
     expect(from, 'the quota branch is not where this test looks for it').toBeGreaterThan(0);
     const quota = sh.slice(from, sh.indexOf('QUOTA_GONE=1; break', from));
     expect(quota).toContain('agent: WIP');
@@ -344,111 +344,174 @@ describe('install.sh replaces the live queue only with --arm', () => {
 
 // ── 2026-10-18: the board. A 100% booking 21:30–00:00 ICT, and the timer due at
 // 23:07 — the runner read the quota numbers and nothing else. These are that
-// evening's real shapes (ICT = UTC+7).
-describe('bookingGate — a person\'s booking outranks the agent', () => {
+// evening's real shapes (ICT = UTC+7). The owner's rule: do not START inside a
+// booking; never stop a running task for one; after it ends, use what is left.
+describe('bookingGate — no new work inside somebody\'s booking, nothing more', () => {
   const at = (iso) => Date.parse(iso);
-  const tonight = { starts_at: '2026-10-18T14:30:00Z', ends_at: '2026-10-18T17:00:00Z', pct: 100 };
-  const board = (bookings, sampled = '2026-10-18T15:55:00Z') => ({ sampled_at: sampled, bookings });
-  // the live window measured that evening: resets 02:31 ICT
-  const usage = (o) => ({ sampled_at: '2026-10-18T15:55:00Z', five_hour_pct: 11,
-    five_hour_resets_at: '2026-10-18T19:31:00Z', seven_day_pct: 28,
+  const tonight = { starts_at: '2026-10-18T14:30:00+00:00', ends_at: '2026-10-18T17:00:00+00:00', pct: 100 };
+  const board = (bookings, sampled) => ({ sampled_at: sampled, bookings });
+  const usage = (sampled, o) => ({ sampled_at: sampled, five_hour_pct: 25,
+    five_hour_resets_at: '2026-10-18T19:31:00Z', seven_day_pct: 30,
     seven_day_resets_at: '2026-10-21T08:59:59Z', ...o });
 
+  it('NOBODY booked: the quota alone decides, exactly as before the board existed', () => {
+    const now = at('2026-10-19T03:07:00Z');
+    const t = '2026-10-19T03:00:00Z';
+    const u = usage(t, { five_hour_resets_at: '2026-10-19T05:00:00Z' });
+    expect(quotaGate(u, board([], t), now, 1).run).toBe(true);
+    expect(quotaGate(u, board([], t), now, 1).run).toBe(usageGate(u, now, 1).run);
+    const full = { ...u, five_hour_pct: 95 };
+    expect(quotaGate(full, board([], t), now, 1).run).toBe(false);   // control: quota still bites
+  });
   it('23:07 inside the booking: WAIT, and say whose time it is', () => {
-    const g = quotaGate(usage(), board([tonight]), at('2026-10-18T16:07:00Z'), 1);
+    const t = '2026-10-18T16:01:00Z';
+    const g = quotaGate(usage(t), board([tonight], t), at('2026-10-18T16:07:00Z'), 1);
     expect(g.run).toBe(false);
+    expect(g.unreadable).toBeFalsy();
     expect(g.why).toContain('21:30');
   });
-  it('the TIME rule alone: a 10% booking still means not inside it, even mid-task', () => {
-    const small = { ...tonight, pct: 10 };
-    const g = quotaGate(usage(), board([small]), at('2026-10-18T16:07:00Z'), 1, 'watch');
-    expect(g.run).toBe(false);
-    expect(g.why).toContain('รอให้จบก่อน');
+  it('a small booking still means not inside it — the rule is time, not %', () => {
+    const t = '2026-10-18T16:01:00Z';
+    expect(bookingGate(board([{ ...tonight, pct: 5 }], t), at('2026-10-18T16:07:00Z')).run).toBe(false);
   });
-  it('00:07 after it ended, leftover in the window: RUN on what is left', () => {
-    const now = at('2026-10-18T17:07:00Z');
-    const u = usage({ sampled_at: '2026-10-18T17:00:00Z', five_hour_pct: 60 });
-    const g = quotaGate(u, board([tonight], '2026-10-18T17:00:00Z'), now, 1);
+  it('00:07, booking over, window has room: RUN on the leftover', () => {
+    const t = '2026-10-18T17:01:00Z';
+    expect(quotaGate(usage(t, { five_hour_pct: 60 }), board([tonight], t), at('2026-10-18T17:07:00Z'), 1).run).toBe(true);
+  });
+  it('00:07 with the window burned: WAIT — then RUN after the 02:31 reset', () => {
+    const t = '2026-10-18T17:01:00Z';
+    expect(quotaGate(usage(t, { five_hour_pct: 100 }), board([tonight], t), at('2026-10-18T17:07:00Z'), 1).run).toBe(false);
+    const t2 = '2026-10-18T19:40:00Z';
+    expect(quotaGate(usage(t2, { five_hour_pct: 100 }), board([tonight], t2), at('2026-10-18T19:47:00Z'), 1).run).toBe(true);
+  });
+  it('a booking LATER does not stop it now (a task may run into it)', () => {
+    const t = '2026-10-18T14:20:00Z';
+    const g = quotaGate(usage(t), board([tonight], t), at('2026-10-18T14:29:00Z'), 1);
     expect(g.run).toBe(true);
+    expect(g.why).toContain('21:30');                 // but it names the next one
   });
-  it('00:07 with the window burned: WAIT for the 02:31 reset, then run', () => {
-    const b = board([tonight], '2026-10-18T17:00:00Z');
-    const burned = usage({ sampled_at: '2026-10-18T17:00:00Z', five_hour_pct: 100 });
-    expect(quotaGate(burned, b, at('2026-10-18T17:07:00Z'), 1).run).toBe(false);
-    const after = usage({ sampled_at: '2026-10-18T19:40:00Z', five_hour_pct: 100 });
-    expect(quotaGate(after, board([tonight], '2026-10-18T19:40:00Z'), at('2026-10-18T19:47:00Z'), 1).run).toBe(true);
+  it('the boundaries: start instant is booked, end instant is free', () => {
+    const t = '2026-10-18T14:00:00Z';
+    expect(bookingGate(board([tonight], t), at('2026-10-18T14:30:00Z')).run).toBe(false);
+    const t2 = '2026-10-18T16:50:00Z';
+    expect(bookingGate(board([tonight], t2), at('2026-10-18T17:00:00Z')).run).toBe(true);
   });
-  it('does not start inside the lead before a booking, and the watcher yields there', () => {
-    const next = { starts_at: '2026-10-19T03:00:00Z', ends_at: '2026-10-19T05:00:00Z', pct: 20 };
-    const s = (m) => at('2026-10-19T03:00:00Z') - m * 60000;
-    const b = (now) => board([next], new Date(now - 60000).toISOString());
-    const u = (now) => usage({ sampled_at: new Date(now - 60000).toISOString(), five_hour_pct: 0 });
-    // start: needs MIN_TASK_MIN of clear time BEFORE the lead
-    expect(bookingGate(b(s(BOOKING_LEAD_MIN + MIN_TASK_MIN + 1)), u(s(91)), s(BOOKING_LEAD_MIN + MIN_TASK_MIN + 1)).run).toBe(true);
-    expect(bookingGate(b(s(BOOKING_LEAD_MIN + MIN_TASK_MIN - 1)), u(s(89)), s(BOOKING_LEAD_MIN + MIN_TASK_MIN - 1)).run).toBe(false);
-    // watch: a running task carries on until the lead itself
-    expect(bookingGate(b(s(BOOKING_LEAD_MIN + 1)), u(s(31)), s(BOOKING_LEAD_MIN + 1), 'watch').run).toBe(true);
-    expect(bookingGate(b(s(BOOKING_LEAD_MIN - 1)), u(s(29)), s(BOOKING_LEAD_MIN - 1), 'watch').run).toBe(false);
-  });
-  it('a booking inside the window the agent would spend keeps its % (the window is shared)', () => {
+  it('NO board, a stale one or a malformed one is UNREADABLE — wait, never "nobody booked"', () => {
     const now = at('2026-10-19T01:00:00Z');
-    const later = { starts_at: '2026-10-19T04:00:00Z', ends_at: '2026-10-19T05:00:00Z', pct: 40 };
-    const b = board([later], '2026-10-19T00:55:00Z');
-    const u = (pct) => usage({ sampled_at: '2026-10-19T00:55:00Z', five_hour_pct: pct,
-      five_hour_resets_at: '2026-10-19T05:00:00Z' });
-    expect(quotaGate(u(50), b, now, 1, 'watch').run).toBe(true);      // 50 < 100 − 40 − 5
-    expect(quotaGate(u(55), b, now, 1, 'watch').run).toBe(false);     // 40% is theirs
-    // a booking AFTER the window resets is not in it
-    const far = { ...later, starts_at: '2026-10-19T06:00:00Z', ends_at: '2026-10-19T07:00:00Z' };
-    expect(quotaGate(u(55), board([far], '2026-10-19T00:55:00Z'), now, 1, 'watch').run).toBe(true);
-  });
-  it('with no window open, a 100% booking within 5 hours keeps the agent from opening one', () => {
-    const now = at('2026-10-19T01:00:00Z');
-    const full = { starts_at: '2026-10-19T04:00:00Z', ends_at: '2026-10-19T05:00:00Z', pct: 100 };
-    const closed = usage({ sampled_at: '2026-10-19T00:55:00Z', five_hour_pct: 0, five_hour_resets_at: null });
-    expect(quotaGate(closed, board([full], '2026-10-19T00:55:00Z'), now, 1, 'watch').run).toBe(false);
-  });
-  it('future bookings this week come off the week on top of the reserve', () => {
-    const now = at('2026-10-19T01:00:00Z');
-    const u = usage({ sampled_at: '2026-10-19T00:55:00Z', five_hour_pct: 0, five_hour_resets_at: null, seven_day_pct: 70 });
-    expect(quotaGate(u, board([], '2026-10-19T00:55:00Z'), now, 1).run).toBe(true);
-    const twoSessions = [1, 2].map((d) => ({ starts_at: `2026-10-2${d}T01:00:00Z`, ends_at: `2026-10-2${d}T03:00:00Z`, pct: 100 }));
-    expect(quotaGate(u, board(twoSessions, '2026-10-19T00:55:00Z'), now, 1).run).toBe(false);
-  });
-  it('NO board, a stale board, or a malformed one means WAIT — never "nobody booked"', () => {
-    const now = at('2026-10-19T01:00:00Z');
-    const u = usage({ sampled_at: '2026-10-19T00:55:00Z' });
-    expect(quotaGate(u, null, now, 1).run).toBe(false);
-    expect(quotaGate(u, board([], '2026-10-18T23:00:00Z'), now, 1).run).toBe(false);
-    expect(quotaGate(u, { sampled_at: '2026-10-19T00:55:00Z' }, now, 1).run).toBe(false);
-    expect(quotaGate(u, board([], '2026-10-19T00:55:00Z'), now, 1).run).toBe(true);   // control
-  });
-  it('minutesClear sizes the handoff after a yield', () => {
-    const b = board([tonight]);
-    expect(minutesClear(b, at('2026-10-18T14:00:00Z'))).toBe(30);
-    expect(minutesClear(b, at('2026-10-18T15:00:00Z'))).toBe(0);
-    expect(minutesClear(b, at('2026-10-18T18:00:00Z'))).toBe(null);
+    expect(bookingGate(null, now)).toMatchObject({ run: false, unreadable: true });
+    expect(bookingGate(board([], '2026-10-19T00:00:00Z'), now)).toMatchObject({ run: false, unreadable: true });
+    expect(bookingGate({ sampled_at: '2026-10-19T00:55:00Z' }, now)).toMatchObject({ run: false, unreadable: true });
+    expect(bookingGate(board([], '2026-10-19T00:55:00Z'), now).run).toBe(true);   // control
   });
 });
 
-describe('run-night.sh asks the board at every point it could start spending', () => {
+describe('run-night.sh asks the board wherever new work starts, and nowhere else', () => {
   const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
-  it('the start gate, the between-task gate and the watcher all pass the bookings file', () => {
+  it('the start gate and the between-task gate both pass the bookings file', () => {
     expect(sh).toMatch(/node "\$QUEUE" gate "\$TASKS" "\$USAGE" "\$BOOKINGS"/);
     expect(sh).toMatch(/node "\$QUEUE" usage "\$TASKS" "\$USAGE" "\$BOOKINGS"/);
-    expect(sh).toMatch(/node "\$QUEUE" watch "\$TASKS" "\$USAGE" "\$BOOKINGS"/);
-    // control: no gate call left that ignores the board
-    expect(sh).not.toMatch(/node "\$QUEUE" (gate|usage) "\$TASKS" "\$USAGE" 2>/);
+    expect(sh).not.toMatch(/node "\$QUEUE" (gate|usage) "\$TASKS" "\$USAGE" 2>/);   // none ignores it
   });
-  it('a yield commits the WIP and marks the task interrupted, so it is RESUMED', () => {
-    const from = sh.indexOf('if [ -e "$out.yield" ]; then');
+  it('an unreadable board (exit 4) waits AND is said once, not silently for ever', () => {
+    const from = sh.indexOf('elif [ "$GATE_RC" -eq 4 ]');
     expect(from).toBeGreaterThan(0);
-    const y = sh.slice(from, sh.indexOf('BOOKING_YIELD=1; break', from));
-    expect(y).toContain('agent: WIP');
-    expect(y).toMatch(/node "\$QUEUE" cut /);
+    const branch = sh.slice(from, sh.indexOf('exit 0', from));
+    expect(branch).toContain('post_discord');
+    expect(branch).toContain('BOARD_ERR');
   });
-  it('the OAuth retry never re-runs a task the watcher stopped', () => {
-    const rc = sh.slice(sh.indexOf('run_claude() {'), sh.indexOf('claude_once() {'));
-    expect(rc.indexOf('.yield')).toBeLessThan(rc.indexOf('sleep 90'));
+  it('a running task is never killed for a booking (owner, 2026-10-18)', () => {
+    expect(sh).not.toMatch(/kill -TERM/);
+    expect(sh).not.toMatch(/\.yield/);
+  });
+});
+
+describe('queue.mjs CLI — the exit codes run-night.sh reads', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'nq-'));
+  const qmjs = new URL('../../server/night-agent/queue.mjs', import.meta.url).pathname;
+  const tasks = join(dir, 'q.md'); writeFileSync(tasks, '# Q\nBudget: 2 runs\n\n## 1. a\nDone when: false\n');
+  const now = new Date();
+  const iso = (m) => new Date(now.getTime() + m * 60000).toISOString();
+  const usageF = join(dir, 'u.json');
+  writeFileSync(usageF, JSON.stringify({ sampled_at: iso(-1), five_hour_pct: 10, five_hour_resets_at: iso(120),
+    seven_day_pct: 10, seven_day_resets_at: iso(3000) }));
+  const rc = (args) => { try { execFileSync('node', [qmjs, ...args], { stdio: 'pipe' }); return 0; } catch (e) { return e.status; } };
+  const boardF = (bookings, sampledMin = -1) => {
+    const f = join(dir, `b${Math.random()}.json`);
+    writeFileSync(f, JSON.stringify({ sampled_at: iso(sampledMin), bookings })); return f;
+  };
+  it('gate: 0 with nobody booked, 3 inside a booking, 4 with no board', () => {
+    expect(rc(['gate', tasks, usageF, boardF([])])).toBe(0);
+    expect(rc(['gate', tasks, usageF, boardF([{ starts_at: iso(-10), ends_at: iso(50), pct: 100 }])])).toBe(3);
+    expect(rc(['gate', tasks, usageF, join(dir, 'missing.json')])).toBe(4);
+    expect(rc(['gate', tasks, usageF, boardF([], -60)])).toBe(4);
+  });
+  it('usage (between tasks): 0 clear, 3 inside a booking or with no board', () => {
+    expect(rc(['usage', tasks, usageF, boardF([])])).toBe(0);
+    expect(rc(['usage', tasks, usageF, boardF([{ starts_at: iso(-1), ends_at: iso(30), pct: 10 }])])).toBe(3);
+    expect(rc(['usage', tasks, usageF, join(dir, 'missing.json')])).toBe(3);
+  });
+});
+
+// ── 2026-10-18 review: the runner read every task REPORT as if it were an error ──
+describe('classifyOutput — only the CLI\'s own short error line is an error', () => {
+  it('the real lines from ~/samo-night/logs', () => {
+    expect(classifyOutput("You've hit your session limit · resets 3:40pm (UTC)")).toBe('quota');
+    expect(classifyOutput("You've hit your session limit · resets 5am (UTC)\n")).toBe('quota');
+    expect(classifyOutput('Failed to authenticate. API Error: 401 OAuth access token has expired. Re-authenticate to continue.')).toBe('auth');
+    expect(classifyOutput("You've hit your weekly limit · resets Oct 21, 4pm")).toBe('quota');
+    expect(classifyOutput('Claude AI usage limit reached|1760000000')).toBe('quota');
+    expect(classifyOutput('API Error: 429 {"type":"error","error":{"type":"rate_limit_error"}}')).toBe('quota');
+  });
+  it('a finished task that WRITES about the quota, 401 or 429 is ok', () => {
+    const report = ('Task 10 done. Added prune_claude_usage_samples so the quota tables stay small; '
+      + 'the claude quota proofs pass 12/12. The reporter now treats HTTP 429 (rate limit) as a skipped tick '
+      + 'and a 401 as an expired token. Migration 0231 applied to samo-dev. ').repeat(4);
+    expect(report.length).toBeGreaterThan(600);
+    expect(classifyOutput(report)).toBe('ok');
+    // SHORT reports too — under the size limit, so only the anchoring saves them
+    for (const short of ['Fixed the rate limit handling; tests green.',
+      'Done: usage limit reached message now shown in Thai.',
+      'Done. The 401 path (Failed to authenticate) is now retried once.',
+      "Task done — you've hit your session limit is now parsed by the reporter."]) {
+      expect(classifyOutput(short), short).toBe('ok');
+    }
+  });
+  it('empty or missing output is ok — the verdict check still decides', () => {
+    expect(classifyOutput('')).toBe('ok');
+    expect(classifyOutput(undefined)).toBe('ok');
+  });
+});
+
+describe('run-night.sh never outlives systemd, and never greps a report for errors', () => {
+  const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
+  const unit = readFileSync(new URL('../../server/night-agent/samo-night-agent.service', import.meta.url), 'utf8');
+  it('HARD_END sits inside the unit\'s TimeoutStartSec', () => {
+    const hours = Number(unit.match(/^TimeoutStartSec=(\d+)h/m)?.[1]);
+    const hard = Number(sh.match(/RUN_HARD_END_MIN:-(\d+)/)?.[1]);
+    const reserve = Number(sh.match(/RUN_RESERVE_MIN:-(\d+)/)?.[1]);
+    expect(hours).toBeGreaterThan(0);
+    expect(hard).toBeLessThan(hours * 60);
+    expect(reserve).toBeLessThan(hard);
+  });
+  it('every claude call goes through the capped timeout, and the handoff gets HARD_END', () => {
+    const calls = sh.match(/timeout "\$tmo" claude -p/g) || [];
+    expect(calls.length).toBe(1);
+    expect(sh).not.toMatch(/timeout "\$\{TASK_TIMEOUT_SEC:-5400\}" claude/);
+    expect(sh).toMatch(/run_one "\$NIGHT_HOME\/HANDOFF\.md" "handoff" "\$HARD_END"/);
+  });
+  it('no error pattern is grepped out of an output any more — classify decides', () => {
+    expect(sh).not.toMatch(/grep -qiE '[^']*(quota|401|429)/);
+    expect((sh.match(/node "\$QUEUE" classify /g) || []).length).toBeGreaterThanOrEqual(3);
+  });
+  it('a task cut by the run\'s own clock is marked interrupted, like a quota cut', () => {
+    const from = sh.indexOf('if [ "$CUT_BY" = "time" ]; then');
+    expect(from).toBeGreaterThan(0);
+    const branch = sh.slice(from, sh.indexOf('break', from));
+    expect(branch).toContain('agent: WIP');
+    expect(branch).toMatch(/node "\$QUEUE" cut /);
   });
 });

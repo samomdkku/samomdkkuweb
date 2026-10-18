@@ -3641,3 +3641,44 @@ around a tour run is now byte-identical.
 including the ones the code under test is only SUPPOSED to ignore. The
 reintroduce-the-bug run is exactly when those become reachable. Snapshot the
 rows before and after any probe that sits next to a write.
+
+## The night agent would have started inside a 100% Claude booking — and three runner bugs found reviewing the fix
+
+**Symptom** (2026-10-18): the agent was re-armed at 22:50 ICT and its timer
+was due at 23:07, while somebody held a 100% Claude booking 21:30–00:00. The
+owner caught it ("someone book at 21.30 - 00.00"). The runner would have
+started inside that booking.
+**Cause**: the runner's gate read only the quota snapshot (`usage.json`).
+Nothing on the VM could see the booking board, and the session that armed it
+reported "starts in 15 minutes" from the timer alone.
+**Fix**: `samo-claude-usage` leaves `~/samo-night/bookings.json`, written only
+after a non-empty read of a permission-gated table (RLS would otherwise return
+an empty list that reads as "nobody booked"). `bookingGate` refuses to START a
+run or the next task inside a booking. Per the owner, it never stops a running
+task. A missing or stale board exits 4 and says so once on Discord.
+
+Reviewing the runner for that change turned up three older bugs:
+1. **A report was read as an error.** Each output was grepped for
+   `quota|rate limit|429` and `401`. A finished task whose summary mentioned
+   the quota (this queue's tasks are ABOUT the quota tables) would have been
+   filed as cut off, and one mentioning "HTTP 401" re-ran a finished task.
+   Now `classifyOutput` matches only the CLI's own short error lines, anchored
+   to how they begin. Mutation: the loose pattern turns two tests red.
+2. **systemd killed late runs.** `TimeoutStartSec=5h`, but a task could start
+   at minute 245 with a 90-min timeout and the handoff had another 90. The kill
+   left nothing committed, the task un-marked, and `spend` (the Budget
+   decrement that guarantees termination) never reached. Every call's timeout
+   is now capped to the time left (`HARD_END` 290 min), and a clock cut is
+   `interrupted`.
+3. **No commit identity meant silent loss.** `git commit --quiet` in a checkout
+   without `user.email` fails while the queue records "WIP <sha>". Found by the
+   rehearsal, whose fresh clone had no identity. The runner now refuses to start.
+
+**Where it lives now**: `server/night-agent/{queue.mjs,run-night.sh}`,
+`tools/claude-usage-report.mjs`, `src/js/night-queue.test.js`,
+`skills/night-agent.md` (top section, which also documents the rehearsal
+overrides `NIGHT_HOME`/`NIGHT_REPO`/`NIGHT_QUIET`).
+**Rule**: before saying when an unattended job will run, ask every resource it
+shares, not just its timer. And never grep a free-text REPORT for error words:
+recognise the error line by its shape, and test it against a report that uses
+those same words.

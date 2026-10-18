@@ -39,8 +39,8 @@
 // out-of-budget queue spends no tokens at all. That is why the timer can stay
 // armed: there is nothing to disable.
 //
-//   node queue.mjs gate   <file> [usage.json] → exit 0 run · 10 STOP for good · 3 wait
-//   node queue.mjs usage  <file> <usage.json> → exit 0 keep going · 3 stop this run
+//   node queue.mjs gate   <file> [usage.json [bookings.json]] → exit 0 run · 10 STOP for good · 3 wait · 4 wait, board unreadable
+//   node queue.mjs usage  <file> <usage.json> [bookings.json] → exit 0 next task may start · 3 stop this run
 //   node queue.mjs list   <file>              → JSON: budget + every task
 //   node queue.mjs set    <file> <n> <status> → write one task's verdict
 //   node queue.mjs plan   <file> <n>          → skip | resume | fresh (what to do with task n)
@@ -203,119 +203,83 @@ export function usageGate(snap, nowMs, reserveSessions = 1) {
 }
 
 // ── the booking board (2026-10-18) ───────────────────────────────────────────
-// ⛔ A PERSON'S BOOKING OUTRANKS THE AGENT. Found on the evening it was re-armed:
-// a 100% booking 21:30–00:00 ICT and the timer due at 23:07 — the runner read
-// the QUOTA numbers and nothing else, so it would have started inside somebody's
-// booked session and spent it. Nothing on the board told it the time was taken.
+// ⛔ THE AGENT DOES NOT START WORK INSIDE SOMEBODY'S CLAUDE BOOKING. Found the
+// evening tasks 8–12 were re-armed: a 100% booking 21:30–00:00 ICT and the
+// timer due at 23:07 — the runner read the QUOTA numbers and nothing else.
 //
-// Two things a booking claims, and the agent must honour both:
-//   TIME   — nobody else works in [starts_at, ends_at). The agent does not START
-//            inside one, does not start a task it cannot finish LEAD minutes
-//            before the next one, and gives the window back mid-task when one
-//            appears (the runner's watcher asks `watch` every minute).
-//   QUOTA  — a 5-hour window is SHARED BY WHOEVER IT COVERS (0159, the board's
-//            own rule). If the agent opens a window at 19:00 and someone booked
-//            30% at 21:00, their 30% comes out of the agent's window. So the
-//            agent's 5-hour ceiling is 100 − every booked % that lands in the
-//            window it would be spending, and the week keeps every future
-//            booking's share on top of `Reserve sessions`.
-// A booking that already ENDED inside the live window needs nothing: what it
-// used is in `five_hour_pct`, measured.
+// The rule is the owner's, and deliberately small:
+//   • a booking that is ON right now → do not start a run, nor the next task
+//   • a task already running is NEVER stopped for a booking ("it doesn't have
+//     to stop the task", 2026-10-18)
+//   • once a booking has ENDED it holds nothing back: whatever is left of the
+//     5-hour window is the agent's, and usageGate's 90% ceiling is the only
+//     limit — burned to the ceiling, it waits for the reset like any night.
+// No board at all is the ordinary case and changes nothing: an empty list of
+// bookings means the quota rules alone decide, exactly as before 2026-10-18.
 //
-// ⛔ NO SNAPSHOT MEANS WAIT, same rule as the quota: the reporter writes
-// bookings.json only after it has PROVED it holds the `claude` permission (its
-// sample insert returned a row), because RLS answers a reader without it with
-// an EMPTY list — which reads exactly like "nobody booked anything".
-export const BOOKING_LEAD_MIN = 30;   // hand the window back this long before a booking
-export const MIN_TASK_MIN = 60;       // do not START a task with less clear time than this
-export const BOOKING_MARGIN_PCT = 5;  // left over a booked % — samples are ≤15 min old
-const SESSION_MS = 5 * 3600e3;
-
+// ⛔ BUT A MISSING OR STALE BOARD IS NOT AN EMPTY ONE. The reporter writes
+// bookings.json only after proving it can SEE the board (RLS answers a reader
+// without `claude` with zero rows — "nobody booked"), so no file, a file older
+// than SNAPSHOT_MAX_AGE_MIN, or a malformed one means "cannot tell" → wait, and
+// `gate` exits 4 so the runner can say so once instead of waiting in silence.
 const ict = (ms) => {
   const d = new Date(ms + 7 * 3600e3).toISOString();
   return `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
 };
 
 /**
- * PURE. Is the board clear for the agent at `nowMs`?
- *   mode 'start' — about to start a run or a task: needs MIN_TASK_MIN of clear
- *                  time before the next booking's lead.
- *   mode 'watch' — a task is running: only the lead itself, so a booking two
- *                  hours away does not kill work that will be finished by then.
- * Returns { run, why, stopAt, fiveHourCeil, weekBookedPct }. `stopAt` (epoch ms
- * or null) is when the agent must have handed the window back.
+ * PURE. May the agent START something at `nowMs`, as far as the booking board
+ * is concerned? { run, why, unreadable } — `unreadable` marks a wait caused by
+ * the board copy itself, not by a booking.
  */
-export function bookingGate(bk, usage, nowMs, mode = 'start') {
+export function bookingGate(bk, nowMs) {
   const sampled = bk && Date.parse(bk.sampled_at);
   if (!bk || !Number.isFinite(sampled) || !Array.isArray(bk.bookings)) {
-    return { run: false, why: 'ยังไม่รู้ว่ามีใครจอง Claude ไว้หรือไม่ — รอรอบหน้า' };
+    return { run: false, unreadable: true, why: 'อ่านตารางจอง Claude ไม่ได้ (ไม่มีไฟล์หรือไฟล์เสีย) — ไม่รู้ว่ามีใครจองอยู่' };
   }
   if (nowMs - sampled > SNAPSHOT_MAX_AGE_MIN * 60000) {
-    return { run: false, why: `ข้อมูลการจอง Claude เก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — รอรอบหน้า` };
+    return { run: false, unreadable: true, why: `ตารางจอง Claude เก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — ไม่รู้ว่ามีใครจองอยู่` };
   }
-  const lead = BOOKING_LEAD_MIN * 60000;
   const list = bk.bookings
-    .map((b) => ({ s: Date.parse(b.starts_at), e: Date.parse(b.ends_at), pct: Number(b.pct) || 0 }))
+    .map((b) => ({ s: Date.parse(b.starts_at), e: Date.parse(b.ends_at) }))
     .filter((b) => Number.isFinite(b.s) && Number.isFinite(b.e) && b.e > nowMs)
     .sort((a, b) => a.s - b.s);
-
-  // TIME. Inside a booking, or inside the lead before one: wait for it to end.
-  const busy = list.find((b) => b.s - lead <= nowMs);
-  if (busy) {
-    return { run: false, why: `มีคนจอง Claude ไว้ ${ict(busy.s)}–${ict(busy.e)} — รอให้จบก่อน` };
-  }
-  const next = list[0] || null;
-  const stopAt = next ? next.s - lead : null;
-  if (mode === 'start' && stopAt != null && stopAt - nowMs < MIN_TASK_MIN * 60000) {
-    return { run: false, why: `คิวจองถัดไป ${ict(next.s)} — เวลาว่างก่อนหน้านั้นไม่พอสำหรับหนึ่งงาน`, stopAt };
-  }
-
-  // QUOTA. The window the agent would spend: the open one, or one it opens now.
-  const liveEnd = usage && Date.parse(usage.five_hour_resets_at);
-  const open = Number.isFinite(liveEnd) && liveEnd > nowMs && Number(usage.five_hour_pct) > 0;
-  const winEnd = open ? liveEnd : nowMs + SESSION_MS;
-  const bookedInWindow = list.filter((b) => b.s < winEnd).reduce((n, b) => n + b.pct, 0);
-  const fiveHourCeil = Math.min(FIVE_HOUR_CEIL_PCT, 100 - bookedInWindow - BOOKING_MARGIN_PCT);
-  const used = open ? Number(usage.five_hour_pct) : 0;
-  if (bookedInWindow > 0 && used >= fiveHourCeil) {
-    return {
-      run: false,
-      why: `รอบ 5 ชั่วโมงนี้ต้องเหลือ ${bookedInWindow}% ให้คนที่จองไว้ (ใช้ไป ${used}%) — รอรอบถัดไป`,
-      stopAt, fiveHourCeil,
-    };
-  }
-  const weekEnd = usage && Date.parse(usage.seven_day_resets_at);
-  const weekBookedPct = list
-    .filter((b) => !Number.isFinite(weekEnd) || b.s < weekEnd)
-    .reduce((n, b) => n + (b.pct * SESSION_SHARE_OF_WEEK) / 100, 0);
-
-  const until = stopAt != null ? `ทำได้ถึง ${ict(stopAt)} (คิวจองถัดไป ${ict(next.s)})` : 'ไม่มีคิวจองข้างหน้า';
-  return { run: true, why: until, stopAt, fiveHourCeil, weekBookedPct };
+  const on = list.find((b) => b.s <= nowMs);
+  if (on) return { run: false, why: `มีคนจอง Claude ไว้ ${ict(on.s)}–${ict(on.e)} — รอให้จบก่อน` };
+  return { run: true, why: list.length ? `ไม่มีใครจองตอนนี้ (คิวถัดไป ${ict(list[0].s)})` : 'ไม่มีใครจอง Claude' };
 }
 
-/**
- * PURE. The quota gate with the board folded in: the week keeps every booked
- * session's share on top of the owner's reserve, and the 5-hour ceiling drops
- * to what the bookings in that window leave. One answer for the runner to ask.
- */
-export function quotaGate(usage, bk, nowMs, reserveSessions = 1, mode = 'start') {
-  const b = bookingGate(bk, usage, nowMs, mode);
+// ── what a `claude -p` output MEANS ──────────────────────────────────────────
+// ⛔ A TASK'S REPORT IS NOT AN ERROR LINE. The runner used to grep every output
+// for `quota|rate limit|429|…` and `401`. That only worked because no task had
+// yet ended by WRITING those words — and this queue's tasks are about the Claude
+// quota tables, so a finished task's summary saying "pruned the quota samples"
+// would have been filed as "cut off by the quota": its verdict skipped, the run
+// ended, the task resumed for nothing. Same for a report mentioning "HTTP 401",
+// which re-ran a FINISHED task after a 90-second wait.
+// What the CLI actually prints in those cases is ONE short line (measured in
+// ~/samo-night/logs, 2026-09-15 → 10-14):
+//   You've hit your session limit · resets 3:40pm (UTC)                   (53 B)
+//   Failed to authenticate. API Error: 401 OAuth access token has expired. (100 B)
+// so the error patterns apply only to an output that short.
+export const ERROR_LINE_MAX_BYTES = 600;
+export function classifyOutput(text) {
+  const t = String(text ?? '').trim();
+  if (!t || Buffer.byteLength(t, 'utf8') > ERROR_LINE_MAX_BYTES) return 'ok';
+  // ANCHORED to how the CLI's lines BEGIN, not to words anywhere: a short
+  // final message such as "fixed the rate limit handling" is a report too.
+  if (/^(Failed to authenticate\b|API Error: 401\b|OAuth access token has expired)/i.test(t)) return 'auth';
+  if (/^(You've hit your [\w-]+ limit|You.ve reached your [\w-]+ limit|Claude AI usage limit reached|API Error: (429|529)\b)/i.test(t)) return 'quota';
+  return 'ok';
+}
+
+/** PURE. The board, then the quota — one answer for the runner to ask. */
+export function quotaGate(usage, bk, nowMs, reserveSessions = 1) {
+  const b = bookingGate(bk, nowMs);
   if (!b.run) return b;
-  const extra = (b.weekBookedPct || 0) / SESSION_SHARE_OF_WEEK;
-  const u = usageGate(usage, nowMs, reserveSessions + extra);
-  if (!u.run) return { ...u, stopAt: b.stopAt };
-  return { run: true, why: `${u.why} · ${b.why}`, stopAt: b.stopAt };
-}
-
-/** PURE. Minutes until the next booking STARTS (0 inside one, null if none). */
-export function minutesClear(bk, nowMs) {
-  if (!bk || !Array.isArray(bk.bookings)) return 0;
-  const ahead = bk.bookings
-    .map((b) => ({ s: Date.parse(b.starts_at), e: Date.parse(b.ends_at) }))
-    .filter((b) => Number.isFinite(b.s) && b.e > nowMs)
-    .sort((a, b) => a.s - b.s);
-  if (!ahead.length) return null;
-  return Math.max(0, Math.floor((ahead[0].s - nowMs) / 60000));
+  const u = usageGate(usage, nowMs, reserveSessions);
+  if (!u.run) return u;
+  return { run: true, why: `${u.why} · ${b.why}` };
 }
 
 /**
@@ -438,6 +402,14 @@ export function spendNight(text) {
 
 // ---- CLI ------------------------------------------------------------------
 const [, , cmd, file, ...rest] = process.argv;
+if (cmd === 'classify' && file) {
+  // `classify <outfile>` → ok | quota | auth. A missing file is `ok`: nothing
+  // to retry, and the verdict check still runs.
+  let text = '';
+  try { text = readFileSync(file, 'utf8'); } catch { /* missing → ok */ }
+  console.log(classifyOutput(text));
+  process.exit(0);
+}
 if (cmd && file) {
   const read = () => readFileSync(file, 'utf8');
   const readUsage = (p) => { try { return p ? JSON.parse(readFileSync(p, 'utf8')) : null; } catch { return null; } };
@@ -453,33 +425,24 @@ if (cmd && file) {
     const g = gate(q);
     if (!g.run) { console.log(g.why); process.exit(10); }
     if (rest[0]) {
-      // ⛔ The booking file is NOT optional once named: `gate <q> <usage> <bookings>`
-      // with a missing bookings.json WAITS (bookingGate's no-snapshot rule).
+      // ⛔ Once the bookings file is NAMED it is not optional: missing → wait (4).
       const u = rest[1]
-        ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions, 'start')
+        ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions)
         : usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
-      if (!u.run) { console.log(u.why); process.exit(3); }
+      if (!u.run) { console.log(u.why); process.exit(u.unreadable ? 4 : 3); }
       console.log(`${g.why} · ${u.why}`);
     } else {
       console.log(g.why);
     }
     process.exit(0);
-  } else if (cmd === 'usage' || cmd === 'watch') {
-    // usage = about to START a task (needs clear time) · watch = a task is
-    // running (only the lead) — the runner's watcher asks this every minute.
+  } else if (cmd === 'usage') {
+    // Between tasks: may the NEXT one start? Exit 0 yes · 3 no (any reason).
     const q = parseQueue(read());
     const u = rest[1]
-      ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions,
-          cmd === 'watch' ? 'watch' : 'start')
+      ? quotaGate(readUsage(rest[0]), readUsage(rest[1]), Date.now(), q.reserveSessions)
       : usageGate(readUsage(rest[0]), Date.now(), q.reserveSessions);
     console.log(u.why);
     process.exit(u.run ? 0 : 3);
-  } else if (cmd === 'clear') {
-    // `clear <q> <bookings.json>` → minutes until the next booking starts, or
-    // `none`. The handoff after a yield is sized from it.
-    const m = minutesClear(readUsage(rest[0]), Date.now());
-    console.log(m == null ? 'none' : String(m));
-    process.exit(0);
   } else if (cmd === 'list') {
     const q = parseQueue(read());
     console.log(JSON.stringify({

@@ -3,51 +3,71 @@
 Runs `claude -p` through a queue of tasks while the subscription's 5-hour window
 is open, on the KKU VM, with nobody's laptop on. Built 2026-09-15.
 
-## ⛔ SINCE 2026-10-18 A PERSON'S CLAUDE BOOKING OUTRANKS IT
+## ⛔ SINCE 2026-10-18 IT DOES NOT START WORK INSIDE A CLAUDE BOOKING
 
 The evening the agent was re-armed for tasks 8–12, somebody had booked **100%,
 21:30–00:00 ICT**, and the timer was due at 23:07. The runner read only the
-quota numbers, so it would have started inside that booking and spent it. The
-owner asked for the board to be checked before any work, and for this rule:
-*after a booking ends, use whatever is left of that 5-hour window; if it is
-used up, wait for the reset.*
+quota numbers and would have started inside that booking. The owner's rule
+(2026-10-18), deliberately small:
 
-**Where the board comes from.** `samo-claude-usage` (every 15 min, signed in
-as an account holding `claude`) writes **`~/samo-night/bookings.json`** —
-start, end and % of every booking not yet ended in the next 8 days. No names,
-no purpose. It is written only after a non-empty read of a permission-gated
-table proves the account can see the board, because RLS answers a reader
-without the permission with an EMPTY list, and that reads as "nobody booked".
-No file, or one older than 45 min, means the agent WAITS.
-
-**The rules** (`bookingGate` / `quotaGate` in `queue.mjs`; tests in
-`src/js/night-queue.test.js`, built from that evening's real booking):
-
-| when | rule |
+| situation | what the agent does |
 |---|---|
-| a booking is on now, or starts within `BOOKING_LEAD_MIN` (30) | do not start; a running task is stopped (below) |
-| before a run or a NEW task | needs `MIN_TASK_MIN` (60) of clear time before the next booking's lead, or it does not start |
-| a booking falls inside the 5-hour window the agent would spend (the open one, or now + 5 h if none is open) | the window is SHARED (0159), so the agent's ceiling is `100 − booked % − 5`, and never above the usual 90 |
-| a booking has ENDED | it no longer holds anything back. What it used is in the measured `five_hour_pct`, so the agent runs on what is left. If nothing is left it waits for the reset |
-| future bookings this week | their share of the week comes off the week cap, ON TOP of `Reserve sessions:` |
+| nobody booked | exactly what it did before the board existed: the quota rules alone decide |
+| a booking is ON when a run would start | does not start. The tick exits silently and the next one asks again |
+| a booking STARTS while a task runs | the task FINISHES ("it doesn't have to stop the task"). The NEXT task does not start; the run hands off and ends |
+| a booking ENDED | holds nothing back. The agent uses whatever is left of that 5-hour window (up to the usual 90% ceiling). If the window is used up, it waits for the reset |
+| a booking LATER | ignored until it starts. A task may run into it |
 
-Tonight, worked through: 23:07 → wait (inside the booking). At ~00:07 (the
-first tick after it ends) → run if the window is under 90%, else wait. After
-the 02:31 reset → the next tick (~02:47) runs and RESUMES whatever was cut.
+Worked through for that evening: 23:07 → wait. ~00:07 (the first tick after
+00:00) → run on the leftover if the window is under 90%, else wait. After the
+02:31 reset → the next tick (~02:47) runs.
 
-**Mid-task: the watcher.** Beside every `claude -p`, the runner asks `queue.mjs
-watch` once a minute (local files only: no network, no tokens). When the answer
-is no, it writes the reason to `<out>.yield` and stops the task. The runner
-then does exactly what it does for a quota cut: WIP committed, task
-`interrupted`, RESUMED next run. The OAuth retry never re-runs a stopped task.
-The handoff after a yield runs UNWATCHED under a timeout ending 5 min before
-the booking. It is skipped if that leaves under 10 min; the next run's handoff
-reads the whole branch.
+**Where the board comes from.** `samo-claude-usage` (every 15 min, as an
+account holding `claude`) writes **`~/samo-night/bookings.json`**: start, end
+and % of every booking not yet ended. No names, no purpose. It is written only
+after a non-empty read of a permission-gated table proves the account can see
+the board, because RLS answers a reader without the permission with an EMPTY
+list, and that reads as "nobody booked". It is written BEFORE the monitoring
+switch and the Anthropic call, so a 429 or a paused monitor does not age it.
 
-**Staleness, stated plainly.** The board copy is ≤15 min old, so a booking
-made for "right now" can take up to ~16 min to stop the agent. Book at least
-30 min ahead and the agent is gone before you start. To take the window
-immediately, see "Stopping it mid-run" under Operating it.
+**A missing or stale board is not an empty one.** No file, a file older than
+45 min, or a malformed one means the gate cannot tell. It exits **4**: wait,
+and say so on Discord ONCE (`~/samo-night/.board-error`, cleared on the next
+readable tick). Unlike a full quota, it does not fix itself.
+`journalctl -u samo-claude-usage -n 20` says why.
+
+Code: `bookingGate` / `quotaGate` in `queue.mjs`; tests in
+`src/js/night-queue.test.js`, built from that evening's real booking.
+
+### Also fixed in the 2026-10-18 review of the runner
+
+- **A task's REPORT was read as an error.** Every output was grepped for
+  `quota|rate limit|429|…` and `401`. Tasks 9–10 are about the Claude quota
+  tables, so a finished task's summary would have been filed as "cut off by
+  the quota", and one mentioning "HTTP 401" re-ran a finished task.
+  `classifyOutput` now recognises only the CLI's own short error lines,
+  anchored to how they begin (`You've hit your session limit · resets …`,
+  `Failed to authenticate. API Error: 401 …`).
+- **systemd killed late runs.** `TimeoutStartSec=5h`, but a task could start
+  at minute 245 with a 90-min timeout, and the handoff after it had another
+  90. The run died mid-task: nothing committed, the task un-marked, `spend`
+  never reached. Every call's timeout is now cut to the time left (tasks to
+  the 245-min reserve, the handoff to `HARD_END` = 290 min), no task starts in
+  the reserve's last 20 min, and a task cut by the run's own clock is
+  `interrupted` and resumed, like a quota cut.
+- **No commit identity = silent loss.** A checkout without `user.email` makes
+  every `git commit --quiet` fail while the queue records "WIP <sha>". The
+  runner now refuses to start (seen in the rehearsal, whose clone had none;
+  the real `~/samo-agent` has a local identity).
+
+### Rehearsing it (no real queue, checkout or Discord touched)
+
+`NIGHT_HOME` (scratch home: its own lock, queue, STOPPED, usage/bookings
+copies), `NIGHT_REPO` (a scratch clone, with a git identity) and `NIGHT_QUIET=1`
+(no Discord). Put a stub `claude` first on `PATH`. The 2026-10-18 rehearsal ran
+three scratch runs this way, covering a normal task, a quota cut and its
+resume, a booking starting mid-task, a report full of "quota/429/401", and an
+unreadable board.
 
 ## ⛔ SINCE 2026-10-13 IT RUNS BY THE WINDOW, NOT BY THE NIGHT — read this first
 
