@@ -3,41 +3,64 @@
 Runs `claude -p` through a queue of tasks while the subscription's 5-hour window
 is open, on the KKU VM, with nobody's laptop on. Built 2026-09-15.
 
-## ⛔ SINCE 2026-10-18 IT DOES NOT START WORK INSIDE A CLAUDE BOOKING
+## ⛔ SINCE 2026-10-18 IT USES THE BOOKING BOARD LIKE A PERSON WITHOUT A BOOKING
 
 The evening the agent was re-armed for tasks 8–12, somebody had booked **100%,
 21:30–00:00 ICT**, and the timer was due at 23:07. The runner read only the
-quota numbers and would have started inside that booking. The owner's rule
-(2026-10-18), deliberately small:
+quota numbers and would have started inside that booking. The owner asked for
+a design that is "fair, … make use of the token the most, according to common
+sense", and gave the cases:
 
-| situation | what the agent does |
+| case (owner's words) | what the agent does |
 |---|---|
-| nobody booked | exactly what it did before the board existed: the quota rules alone decide |
-| a booking is ON when a run would start | does not start. The tick exits silently and the next one asks again |
-| a booking STARTS while a task runs | the task FINISHES ("it doesn't have to stop the task"). The NEXT task does not start; the run hands off and ends |
-| a booking ENDED | holds nothing back. The agent uses whatever is left of that 5-hour window (up to the usual 90% ceiling). If the window is used up, it waits for the reset |
-| a booking LATER | ignored until it starts. A task may run into it |
+| nobody booked | runs as before: the quota rules alone, no line inside the window |
+| a booking 13:00–15:00 @70%; agent starts **08:00** | its window ends at 13:00, before the booking, so **all of it** is the agent's |
+| same booking; agent starts **08:30** | its window reaches 13:30 and the booking lands inside it, so **30%** is the agent's: "the next 5hr reset will be ok for the booking person". The task is stopped when measured use reaches it, the work is kept and resumed later |
+| a booking is ON | no new run and no new task. "let them use it, until the finished time" |
+| someone books while a task runs ("they book too soon") | the task is NOT stopped: its allowance was fixed when it started. The booking counts from the next task on |
+| the agent's next window holds a booking | that window is left to its booker. At the 5-hour reset the agent re-decides as if starting, and stops if the new window is booked |
+| a booking has ENDED and did not use its 100% | the unused part is the agent's. The board drops an ended booking from the measured window, so it offers `100 − measured use` |
+| the window is used up | wait for the reset |
+| little left (< `MIN_START_PCT` 10%) | not worth a task's start-up cost: wait |
+| the week | the board already holds back every future booking's share; the owner's `Reserve sessions:` comes off on top |
 
-Worked through for that evening: 23:07 → wait. ~00:07 (the first tick after
-00:00) → run on the leftover if the window is under 90%, else wait. After the
-02:31 reset → the next tick (~02:47) runs.
+**One rule, not two.** Every row above is ALREADY the board's rule for people:
+`claude_free_now()`, shown on the web as "ใช้ได้เลยตอนนี้ โดยไม่ต้องจอง". A
+window is shared by whoever it covers (0159), the measured window counts
+bookings "only from now forward" (0159 §1), and the week holds back what is
+still booked (0158). So the agent does not re-derive any of it. It reads the
+board's **rail** (`free_windows`: the answer for starting at each instant of
+the week, which changes at every booking's start − 5 h), takes the band holding
+the current minute, and obeys it. A second copy of that arithmetic would drift
+from the copy that refuses people's bookings.
 
-**Where the board comes from.** `samo-claude-usage` (every 15 min, as an
-account holding `claude`) writes **`~/samo-night/bookings.json`**: start, end
-and % of every booking not yet ended. No names, no purpose. It is written only
-after a non-empty read of a permission-gated table proves the account can see
-the board, because RLS answers a reader without the permission with an EMPTY
-list, and that reads as "nobody booked". It is written BEFORE the monitoring
-switch and the Anthropic call, so a 429 or a paused monitor does not age it.
+**Where it comes from.** After each sample, `samo-claude-usage` calls
+`get_claude_board()` (it raises without the `claude` permission, so no
+permission → no file → the agent waits) and writes `~/samo-night/bookings.json`:
+the rail, this week's bookings, and `right_now`. It holds times and % only, no
+names or purposes.
 
-**A missing or stale board is not an empty one.** No file, a file older than
-45 min, or a malformed one means the gate cannot tell. It exits **4**: wait,
-and say so on Discord ONCE (`~/samo-night/.board-error`, cleared on the next
-readable tick). Unlike a full quota, it does not fix itself.
-`journalctl -u samo-claude-usage -n 20` says why.
+**The mechanics** (`queue.mjs`: `boardGate`, `allowanceAtStart`, `watchGate`;
+tests in `src/js/night-queue.test.js`, one per row above):
+- **start** (a run, or the next task): no booking ON, and the rail band for
+  now offers ≥ 10% after the owner's reserve.
+- **allowance**, taken just before each task and fixed for it: `stop =
+  measured use + what the band offers − 5` (the margin covers the ≤15-min-old
+  sample). It is `null` when only the window's own size binds; then the CLI's
+  limit ends the task, as before.
+- **watcher**: once a minute, from local files only (no network, no tokens).
+  At `stop`, or at a reset whose new window has a booking ON or is fully
+  booked, it stops the task. The runner keeps the WIP, marks the task
+  `interrupted` with the reason ("เพื่อให้คนที่จอง Claude ไว้ใช้"), and the next
+  run resumes it. The model handoff is skipped then, because it would spend the
+  booker's share; the runner's own Discord report still goes out.
+- **a missing or stale board** at START exits 4 (wait, one Discord alert,
+  `~/samo-night/.board-error`). Mid-task it never kills work.
 
-Code: `bookingGate` / `quotaGate` in `queue.mjs`; tests in
-`src/js/night-queue.test.js`, built from that evening's real booking.
+Tonight, worked through: 23:07 → wait (booking ON). ~00:07, from the first
+board copy after 00:00 → the board offers 100 − what the booker used (36% at
+the last reading), so the agent runs on that until the 02:40 reset, then on a
+fresh window.
 
 ### Also fixed in the 2026-10-18 review of the runner
 
@@ -100,7 +123,7 @@ Branch: agent/2026-10-13    ← one branch for every run of this queue
 ```
 
 Gate exit codes (the contract with `run-night.sh`): `0` run · `10` over →
-STOPPED · `3` not now (quota or the booking board), silent.
+STOPPED · `3` not now (quota or the booking board), silent · `4` not now, the board copy is unreadable (said once on Discord).
 
 ⚠️ If Claude monitoring is switched off on `/admin#claude`, the reporter writes
 no `usage.json` and the agent WAITS. That is deliberate — the reserve cannot be

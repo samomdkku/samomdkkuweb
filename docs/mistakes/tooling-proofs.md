@@ -3651,11 +3651,17 @@ started inside that booking.
 **Cause**: the runner's gate read only the quota snapshot (`usage.json`).
 Nothing on the VM could see the booking board, and the session that armed it
 reported "starts in 15 minutes" from the timer alone.
-**Fix**: `samo-claude-usage` leaves `~/samo-night/bookings.json`, written only
-after a non-empty read of a permission-gated table (RLS would otherwise return
-an empty list that reads as "nobody booked"). `bookingGate` refuses to START a
-run or the next task inside a booking. Per the owner, it never stops a running
-task. A missing or stale board exits 4 and says so once on Discord.
+**Fix**: the agent became an UNBOOKED USER of the board and obeys what a person
+is told. `samo-claude-usage` copies `get_claude_board()`'s rail (`free_windows`)
+and this week's bookings to `~/samo-night/bookings.json`; no `claude`
+permission means no file and a wait. A run or task starts only with no booking
+ON and ≥ 10% offered for the current minute. A task's allowance is fixed at its
+start: a booking made later does not stop it (the owner: "they book too soon"),
+a booking known at the start keeps its share, and a reset is a fresh decision.
+Two first drafts were wrong, and the way they were wrong is the lesson. One was
+a hand-written copy of the board's window arithmetic. The other was "a booking
+only blocks starts", which ignored the window that both parties share. The
+owner's own examples were already `claude_free_now()`'s test cases (0159).
 
 Reviewing the runner for that change turned up three older bugs:
 1. **A report was read as an error.** Each output was grepped for
@@ -3679,6 +3685,7 @@ Reviewing the runner for that change turned up three older bugs:
 `skills/night-agent.md` (top section, which also documents the rehearsal
 overrides `NIGHT_HOME`/`NIGHT_REPO`/`NIGHT_QUIET`).
 **Rule**: before saying when an unattended job will run, ask every resource it
-shares, not just its timer. And never grep a free-text REPORT for error words:
-recognise the error line by its shape, and test it against a report that uses
-those same words.
+shares, not just its timer. When the shared resource already has an arbiter
+that people obey, make the job obey THAT arbiter rather than a copy of its
+rule. And never grep a free-text REPORT for error words: recognise the error
+line by its shape, and test it against a report that uses those same words.

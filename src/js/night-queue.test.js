@@ -17,6 +17,7 @@ import {
   usageGate, SESSION_SHARE_OF_WEEK, WEEK_SAFETY_PCT,
   plan, interrupted, report, NOTE_PASSED, NOTE_RESUMED,
   boardGate, quotaGate, allowanceAtStart, watchGate, classifyOutput, MIN_START_PCT, BOOKING_MARGIN_PCT,
+  CUT_REASONS,
 } from '../../server/night-agent/queue.mjs';
 
 const Q = `# NIGHT-TASKS
@@ -588,5 +589,21 @@ describe('run-night.sh never outlives systemd, and never greps a report for erro
     const branch = sh.slice(from, sh.indexOf('break', from));
     expect(branch).toContain('agent: WIP');
     expect(branch).toMatch(/node "\$QUEUE" cut /);
+  });
+});
+
+describe('a cut-off task says WHY in the queue — the resume rule is the same, the reason is not', () => {
+  const t = { attempts: 1 };
+  it('quota (the default), the run\'s clock, and giving the window to a booking', () => {
+    expect(interrupted(t, 'abc').note).toContain(CUT_REASONS.quota);
+    expect(interrupted(t, 'abc', 'time').note).toContain(CUT_REASONS.time);
+    expect(interrupted(t, 'abc', 'board').note).toContain(CUT_REASONS.board);
+    expect(interrupted(t, 'abc', 'board').note).not.toContain(CUT_REASONS.quota);
+    for (const w of ['quota', 'time', 'board']) expect(interrupted(t, 'abc', w).status).toBe('interrupted');
+  });
+  it('run-night.sh names the reason on the board and clock cuts', () => {
+    const sh = readFileSync(new URL('../../server/night-agent/run-night.sh', import.meta.url), 'utf8');
+    expect(sh).toMatch(/cut "\$TASKS" "\$i" "\$\(git rev-parse --short HEAD\)" board/);
+    expect(sh).toMatch(/cut "\$TASKS" "\$i" "\$\(git rev-parse --short HEAD\)" time/);
   });
 });

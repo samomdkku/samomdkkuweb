@@ -49,7 +49,7 @@
 //   node queue.mjs plan   <file> <n>          → skip | resume | fresh (what to do with task n)
 //   node queue.mjs judge  <file> <n> <after 1|0|-> <before 0|1> <resumed 0|1>
 //                                              → write the verdict from what was OBSERVED
-//   node queue.mjs cut    <file> <n> <sha>    → task n was cut off by the quota
+//   node queue.mjs cut    <file> <n> <sha> [quota|time|board] → task n was cut off, and why
 //   node queue.mjs report <file>              → one line per task, for the morning
 //   node queue.mjs spend  <file>              → count one night against Budget
 //
@@ -468,11 +468,20 @@ export function verdict(t, passed, passedBefore = false, resumed = false) {
  * out must not block it), NOT terminal (the next run resumes it), and the note
  * names the WIP commit so the morning reviewer can read exactly what was left.
  */
-export function interrupted(t, sha) {
+// Why a task was cut off, in the words the morning report shows. The resume
+// rule is the same for all three; only the reason differs, and a wrong reason
+// ("quota ran out" for a task that gave the window to a booking) sends the
+// reader looking for the wrong problem.
+export const CUT_REASONS = {
+  quota: 'เพราะโควตาหมด',
+  time: 'เพราะครบเวลาของรอบนี้',
+  board: 'เพื่อให้คนที่จอง Claude ไว้ใช้',
+};
+export function interrupted(t, sha, why = 'quota') {
   return {
     status: 'interrupted',
     attempts: t.attempts,
-    note: `ถูกตัดกลางทางเพราะโควตาหมด (WIP ${sha || '?'}) — รอบหน้าต้องทำต่อ ห้ามข้าม`,
+    note: `ถูกตัดกลางทาง${CUT_REASONS[why] || CUT_REASONS.quota} (WIP ${sha || '?'}) — รอบหน้าต้องทำต่อ ห้ามข้าม`,
   };
 }
 
@@ -616,10 +625,10 @@ if (cmd && file) {
     writeFileSync(file, writeTask(read(), Number(n), v), 'utf8');
     console.log(`${v.status}\t${v.note}`);
   } else if (cmd === 'cut') {
-    const [n, sha] = rest;
+    const [n, sha, why] = rest;
     const t = parseQueue(read()).tasks[Number(n)];
     if (!t) process.exit(2);
-    writeFileSync(file, writeTask(read(), Number(n), interrupted(t, sha)), 'utf8');
+    writeFileSync(file, writeTask(read(), Number(n), interrupted(t, sha, why)), 'utf8');
   } else if (cmd === 'report') {
     console.log(report(parseQueue(read())));
   } else if (cmd === 'spend') {

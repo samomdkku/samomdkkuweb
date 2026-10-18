@@ -493,7 +493,7 @@ ${prompt}"
     if [ -n "$(git status --porcelain)" ]; then
       git add -A && git commit --quiet -m "agent: WIP $title (gave the window back to a Claude booking)" -m "Unattended run $STAMP. $Y_WHY"
     fi
-    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)"
+    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)" board
     fail_n=$((fail_n+1)); SUMMARY+="YIELD $title — $Y_WHY (work kept as WIP, the next run RESUMES it)"$'\n'
     UNRUN=$(( TOTAL - i - 1 )); BOOKING_YIELD=1; break
   fi
@@ -502,7 +502,7 @@ ${prompt}"
     if [ -n "$(git status --porcelain)" ]; then
       git add -A && git commit --quiet -m "agent: WIP $title (cut off by the run's time limit)" -m "Unattended run $STAMP."
     fi
-    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)"
+    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)" time
     fail_n=$((fail_n+1)); SUMMARY+="STOP $title — run time limit (work kept as WIP, the next run RESUMES it)"$'\n'
     UNRUN=$(( TOTAL - i - 1 )); break
   fi
