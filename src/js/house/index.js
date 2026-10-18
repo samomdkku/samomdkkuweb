@@ -57,7 +57,7 @@ import { diagnoseHelpRequest } from './help-diagnosis.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
-  studyYear, studyYearLabel, offsetForPickedYear,
+  studyYear, studyYearLabel, isGraduated, offsetForPickedYear,
 } from './fields.js';
 import { holdInMemory } from '../read-file.js';
 
@@ -87,6 +87,12 @@ let majors = [];            // team_majors — the ONE สาขา vocabulary
 let held = [];
 let heldQuery = '';
 let heldShowDone = false;
+// The นักศึกษา roster's default: a graduated รุ่น (MD49 past ปี 6, derived —
+// see isGraduated() — never stored) is hidden until this is flipped on.
+// Resets to false on every pane load on purpose, the same choice houseMode's
+// other transient filters make: nobody wants LAST session's admin to decide
+// whether a NEW session starts showing people who have already left.
+let houseShowGraduated = false;
 // The other direction: people with no seat. Loaded beside `held` because the
 // admin's job is matching the two, and a count that only appears once somebody
 // opens the pane is a count nobody sees.
@@ -602,6 +608,11 @@ const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f
 function filteredStudents() {
   const f = readFilters();
   return students.filter((s) => {
+    // A graduated รุ่น stays in `students` forever (never deleted — see
+    // isGraduated's own header) but is not the roster a new team opens this
+    // tab to see. Checked FIRST and independent of every other box: flip
+    // houseShowGraduated on to look one up, don't type around it.
+    if (!houseShowGraduated && isGraduated(s)) return false;
     if (f.house !== '' && String(saiHouse(s.sai_code)) !== f.house) return false;
     if (f.cohort && !String(cohortOf(s) || '').toLowerCase().includes(f.cohort)) return false;
     if (f.major && !String(s.major || '').toLowerCase().includes(f.major)) return false;
@@ -649,6 +660,13 @@ function renderStudents() {
   // ten ids are fixed but their NAMES are not, so a house renamed in ภาพรวม
   // left this list showing "บ้าน 3" until a full page reload.
   fillHouseSelect($('houseFilterHouse'), 'ทุกบ้าน');
+  const gradToggle = $('houseShowGraduated');
+  if (gradToggle) gradToggle.checked = houseShowGraduated;
+  const gradCount = $('houseGraduatedCount');
+  if (gradCount) {
+    const n = students.filter((s) => isGraduated(s)).length;
+    gradCount.textContent = n ? ` (${n.toLocaleString('th-TH')} คน)` : '';
+  }
   fillDatalist('houseYearList',
     [...new Set(students.map(cohortOf).filter(Boolean))].sort().reverse());
   fillDatalist('houseMajorList',
@@ -1744,6 +1762,12 @@ async function renderCheckStatus() {
 
   const year = Number(ay?.academic_year || 0);
   const behind = Number(ay?.behind || 0);
+  // Who is at ปี 6 RIGHT NOW — i.e. who the bump button is about to turn
+  // "จบแล้ว". Computed from the live roster against the CURRENT ปีการศึกษา
+  // (not a simulation of the year after bumping), so it needs no second
+  // implementation of the arithmetic and stays honest if the bump is pressed
+  // twice in a row for different years.
+  const aboutToGraduate = students.filter((s) => studyYear(s) === 6).length;
 
   host.innerHTML = `
     <div class="card">
@@ -1794,11 +1818,14 @@ async function renderCheckStatus() {
             ${year ? '' : 'disabled'}>เลื่อนเป็น ${year ? (year + 1).toLocaleString('th-TH') : ''}</button>
           ${behind ? `<span class="badge bg-warning-subtle text-warning-emphasis border">
             ถึงกำหนดเลื่อนแล้ว (ปฏิทินอยู่ที่ ${Number(ay.clock_year).toLocaleString('th-TH')})</span>` : ''}
+          ${aboutToGraduate ? `<span class="badge bg-info-subtle text-info-emphasis border">
+            ${aboutToGraduate.toLocaleString('th-TH')} คนอยู่ปี 6 ตอนนี้ — จะกลายเป็น “จบแล้ว” ถ้าเลื่อน</span>` : ''}
         </div>
         <p class="small text-muted mb-0 mt-1">
           ระบบ<strong>ไม่เลื่อนชั้นปีให้เอง</strong> — กดปุ่มนี้ปีละครั้งเมื่อขึ้นปีการศึกษาใหม่
           แล้วทุกคนจะเลื่อนพร้อมกัน ใครที่ลาพักหรือเรียนซ้ำและเคยเลือกชั้นปีที่ถูกไว้แล้ว
-          ระบบจำส่วนต่างไว้ให้ ไม่ต้องไล่แก้รายคน
+          ระบบจำส่วนต่างไว้ให้ ไม่ต้องไล่แก้รายคน คนที่จบแล้วจะหายไปจากรายชื่อเริ่มต้นในแท็บ
+          “นักศึกษา” โดยอัตโนมัติ (มีสวิตช์ให้ดูย้อนได้)
         </p>
       </div>
     </div>`;
@@ -2877,6 +2904,10 @@ function wire() {
     $(id)?.addEventListener('input', renderStudents);
   });
   $('houseFilterHouse')?.addEventListener('change', renderStudents);
+  $('houseShowGraduated')?.addEventListener('change', (e) => {
+    houseShowGraduated = !!e.target.checked;
+    renderStudents();
+  });
   $('houseClearFilters')?.addEventListener('click', () => {
     ['houseSearch', 'houseFilterHouse', 'houseFilterYear', 'houseFilterMajor', 'houseFilterSai']
       .forEach((id) => { const el = $(id); if (el) el.value = ''; });

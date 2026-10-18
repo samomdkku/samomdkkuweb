@@ -177,6 +177,18 @@
           <datalist id="houseSaiList"></datalist>
         </div>
         <div class="col-auto">
+          <!-- Graduated (ชั้นปี > 6, derived live — never stored, see
+               isGraduated() in study-year.js) is hidden by default: a new team
+               opening this tab should see who is HERE, not every รุ่น ever
+               imported. -->
+          <div class="form-check form-switch mt-1">
+            <input class="form-check-input" type="checkbox" id="houseShowGraduated" />
+            <label class="form-check-label small" for="houseShowGraduated">
+              แสดงรุ่นที่จบแล้ว<span id="houseGraduatedCount" class="text-muted"></span>
+            </label>
+          </div>
+        </div>
+        <div class="col-auto">
           <button type="button" class="btn btn-sm btn-primary w-100 text-nowrap" id="houseAddStudent">
             <i class="bi bi-person-plus"></i> เพิ่ม
           </button>
