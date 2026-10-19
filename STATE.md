@@ -197,14 +197,14 @@ true. Detail: `HANDOFF.md` §9.
 that asymmetry went red in both directions. `npm run test:clean` runs it over
 exactly what git will carry. Both live in `HANDOFF.md` §9.
 
-## 🌙 NIGHT AGENT — RE-ARMED 2026-10-18 for SAMO-year tasks 8–12, obeying the Claude booking board
+## 🌙 NIGHT AGENT — RUNNING TO 100% since 2026-10-19 19:27 ICT (owner: "until 100%")
 
-Tasks 1–7 shipped 2026-10-14 (0219–0228 on production). Tasks 8–12 (ระบบบ้าน, Shop,
-Passport/stats/หน้าฝ่าย, scrutinize, handoff) are queued on the VM, branch
-`agent/2026-10-18`, migrations 0229–0233 reserved, `Until` 2026-10-21 08:30 UTC.
-The agent now takes only what the booking board offers an unbooked person
-(`skills/night-agent.md`, top section). Its migrations reach samo-dev only, and it
-cannot push or deploy. ⛔ Review its branch before applying anything to production.
+Tasks 8–9 done; 10 (Passport/stats/หน้าฝ่าย) resumed, 11 scrutinize, 12 handoff left;
+branch `agent/2026-10-18`, migrations 0229–0233 reserved. Live queue header: `Reserve
+sessions: 0` (no owner reserve, no margin), `Revise passes: 6` (bug-scan passes after
+the tasks, run after run), `Budget: 20 runs`, `Until` 2026-10-21 08:30 UTC — the
+owner uses a one-time free reset before 22/10. Bookings are still honoured.
+Its migrations reach samo-dev only; it cannot push or deploy. ⛔ Review its branch first.
 Morning check, what is owed and what was NOT verified: HANDOFF §17 · why:
 `docs/state/claude-2026-10-18.md`.
 

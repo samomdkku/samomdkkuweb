@@ -1475,6 +1475,31 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ## 17. The night agent — RE-ARMED 2026-10-18 for tasks 8–12 (history below is older)
 
+**2026-10-19 — RUNNING TO 100%. Status: VERIFIED 2026-10-19 — how: the live
+gate on the VM printed `สัปดาห์ 80% (หยุดที่ 100%)`, `allowance` returned
+`"stop":null`, and the journal shows the 19:27 ICT run resuming task 10.**
+- The owner asked for the week to be spent to 100%: a one-time free reset has to
+  be used before 22/10. Live `~/samo-night/NIGHT-TASKS.md` header: `Reserve
+  sessions: 0`, `Revise passes: 6`, `Budget: 20 runs`; `Until` unchanged
+  (2026-10-21 08:30 UTC, just before the weekly reset). The previous header is
+  kept beside it as `NIGHT-TASKS.md.<stamp>.prev`.
+- **OWED (owner):** use the free reset once the week reads 100%. After that the
+  agent continues on the next tick, with no action needed. To use it past
+  `Until`, edit that line on the VM.
+- **HYPOTHESIS until it runs:** revise-only runs once tasks 10–12 are terminal.
+  A finished queue with `Revise passes:` now keeps running REVISE.md passes
+  instead of writing STOPPED. Tested in `night-queue.test.js` and not yet seen
+  live. Check the journal for `รอบทบทวนหาบั๊ก`.
+- Reserve 0 is per queue. The next `--arm` with a header lacking the line
+  defaults back to 1.
+- ✅ **No longer a hypothesis:** a real `claude -p` stopped by the watcher left a
+  clean WIP commit (2026-10-19 18:23 ICT), and the next run resumed it. That
+  stop was mislabelled as a booking yield; fixed the same day
+  (`docs/mistakes/tooling-proofs.md`, "showed nobody booked").
+- Noise, not a fault: `deploy:owed` warns that 0224 no longer matches production.
+  The 2026-10-14 handover fix added a comment-only "superseded order" note after the migration was
+  applied, and 0227 carries the real fix. Leave it.
+
 **Status: VERIFIED 2026-10-18 — how: the live gate refused, the VM code diffs clean, rehearsals and tests green, each listed here:**
 - the live gate on the VM, reading the real board, refused with the 21:30–00:00
   booking (journal: `not now: มีคนจอง Claude ไว้ …`)
