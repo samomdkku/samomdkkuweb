@@ -1038,11 +1038,21 @@ function renderStats() {
   // its click applies keeps แหล่งที่มา — the number on a tile is the number of
   // orders the click shows. The slip queue is NOT scoped by source, so neither
   // is its tile.
-  const scoped = attentionCounts(state.orders, Date.now(), { lineInScope: itemMatchesSource });
+  //
+  // Year (0230): "ยังไม่ส่งสลิป"/"สลิปไม่ถูกต้อง"/"มีปัญหา" land on the orders
+  // table and "รายรับสะสม" lands on ยอดขาย — both year-filtered by
+  // filterOrders()/yearFilteredOrders() — so their counts must read the SAME
+  // year-filtered set, or the tile shows a number the click can't produce
+  // (the "scoped is not full" mistake, applied to a filter added after this
+  // comment was written). The slip queue stays on ALL years on purpose: its
+  // destination (ตรวจสลิป) is never year-filtered — unresolved review work
+  // must not hide behind whichever year is picked.
+  const yearScoped = yearFilteredOrders();
+  const scoped = attentionCounts(yearScoped, Date.now(), { lineInScope: itemMatchesSource });
   const queue = attentionCounts(state.orders);
   // Only orders whose slip was CHECKED — the รายรับสะสม rule (isRevenueOrder),
   // the same number the shop's Discord message reports.
-  const revenue = state.orders
+  const revenue = yearScoped
     .filter(isRevenueOrder)
     .reduce((s, o) => s + (Number(o.total) || 0), 0);
   const overdue = isOverdue(queue.oldestReviewAt);

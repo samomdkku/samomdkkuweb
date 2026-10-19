@@ -1329,6 +1329,39 @@ actually executes.
 
 ## Task 9 — SAMO Shop: orders across SAMO years, plus the customer-flow worry (2026-10-18)
 
+**RESUMED after a quota cut-off.** The run that wrote everything below through
+"`npm run handoff:check` verdict" (commit `8f6ee17`) was cut off by the quota
+immediately after writing that verdict — this heading already existed,
+`npm test`/`npm run build` already passed, and parts A and B below were, on
+inspection, actually complete (migration 0230 31/31 on samo-dev, admin year
+picker wired on both tabs, the cross-tab cart fix with red-then-green tests).
+**What the cut-off actually left undone, found by re-running the verification
+this resumption was told not to skip:**
+- `npm test` was RED on resume: `docs/state/HANDOFF.md` §22 row 9 named
+  `shop/state.js` (relative to `src/js/shop/`, not the repo root) —
+  `state-handoff.test.js`'s "names no file that is not there" check failed.
+  One-line path fix (`2acb60c`).
+- `/scrutinize` on this task's own diff (`41fbf2c^..HEAD`) found a real bug
+  0230 introduced and the WIP never caught: the "ต้องจัดการ" tiles
+  (ยังไม่ส่งสลิป / สลิปไม่ถูกต้อง / มีปัญหา) and "รายรับสะสม" counted across
+  **every** SAMO year while the view each tile opens into (the orders table,
+  the ยอดขาย tab) was year-filtered to the current year by default — so a
+  pending/review order left over from a previous team (exactly the
+  "ค้างจากปีก่อน" case this task exists to handle) could inflate a tile's
+  count with no way to reach it by clicking. Fixed: `scoped`/`revenue` in
+  `renderStats()` (`src/js/shop/admin.js`) now read `yearFilteredOrders()`;
+  `queue` (the slip-review count) stays on `state.orders` unchanged on
+  purpose, because its destination (ตรวจสลิป) is deliberately never
+  year-filtered. Write-up: `docs/mistakes/app-state.md` ("SAMO Shop admin: the
+  'ต้องจัดการ' tile said one number, clicking it showed fewer rows").
+- Added direct unit coverage for `orderMatchesYearFilter` itself
+  (`src/js/shop/data.test.js`) — it had none; its PR mirror
+  `ticketMatchesYearFilter` did.
+- Everything else below (parts A and B, the proof, the admin UI, the cart
+  fix) was verified as-is, not rebuilt: re-ran `tools/shop0230-samo-year.sql`
+  live against samo-dev (31/31 again) and the full `npm test`/`npm run build`
+  after each fix above.
+
 **Two unrelated pieces of work, both inside this task's own scope:** (A) give
 `shop_orders` a SAMO year, same shape as PR/VS/โครงการ; (B) walk the
 customer checkout flow end to end for the owner's named worry and fix
@@ -1481,14 +1514,18 @@ discipline `.claude/rules/mistakes.md` class 7 asks for.
 5. Decide whether the "correct this order's year" admin control (§A, OWED)
    is worth building now or later — nothing depends on it.
 
-**`npm run handoff:check` verdict — same known crash as Tasks 1 and 8**:
+**`npm run handoff:check` verdict — same known crash as Tasks 1 and 8,
+re-confirmed on resume**:
 `ENOENT` reading
 `~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md` (confirmed
 unchanged, not re-diagnosed; this session's real memory store is
 `~/samo-night/memory/`). Ran with `--local` too; same crash, plus
 `origin/agent/2026-10-18` reported unknown (expected — this agent cannot
-push). **Substituted direct checks**: `npm test` (172 files / 2974 tests
-green, both before and after every change in this task), `npm run build`
-(clean, both entries), `git status` (clean after each commit), and
-`tools/shop0230-samo-year.sql` run live against samo-dev (31/31,
-`→ project: xibugtlsphcfuvstnxxh (samo-dev)`).
+push). **Substituted direct checks**: `npm test` (172 files / 2977 tests
+green, after every change in both the cut-off run and this resumption —
+2974 before the resumption's +3 `orderMatchesYearFilter` tests), `npm run
+build` (clean, both entries), `git status` (clean after each commit), and
+`tools/shop0230-samo-year.sql` run live against samo-dev (31/31 both before
+and after the resumption's fixes, `→ project: xibugtlsphcfuvstnxxh
+(samo-dev)` — the resumption's fixes were frontend-only, so this proof did
+not need to change).

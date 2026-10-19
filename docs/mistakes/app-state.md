@@ -1374,3 +1374,44 @@ of one fact. A module that owns a piece of `localStorage` and lets more than
 one tab write it needs the `storage` event as its own module-scope cache's
 invalidation signal, same as an account switch needs one for an in-memory
 cache (see this file's "Module-scope caches…" entry above).
+
+## SAMO Shop admin: the "ต้องจัดการ" tile said one number, clicking it showed fewer rows
+
+**Symptom (found by `/scrutinize` on night-agent task 9's own diff, 0230, not
+reported by a person):** the admin orders tab's own comment claims "The counts
+and the filter a tile applies are the same predicate" — but after 0230 added
+a SAMO-year picker defaulting to the current year, the "ยังไม่ส่งสลิป" /
+"สลิปไม่ถูกต้อง" / "มีปัญหา" tiles and the "รายรับสะสม" tile counted across
+**every** year while the view each one opens into (the orders table, the
+ยอดขาย tab) was year-filtered. A pending/review order left over from a
+previous team ("ค้างจากปีก่อน" — exactly the case 0230 exists to handle)
+inflated a tile's count with no way to reach it: clicking the tile opened a
+table that silently excluded it, with nothing telling the admin why the
+numbers didn't match.
+
+**Cause:** `renderStats()` (`src/js/shop/admin.js`) computed `scoped`
+(`attentionCounts`) and `revenue` from `state.orders` — unfiltered — while
+`renderOrdersTable()`'s `filterOrders()` and the ยอดขาย tab's
+`yearFilteredOrders()` both gate on `state.ordersYear`. The year filter was
+added as one more fact `filterOrders` checks, but the tile counts were never
+updated to read the same filtered set — a scope added on one side of a
+count/destination pair and not the other (class 3/6: the tile's own comment
+documented the invariant it then broke).
+
+**Fix:** `scoped` and `revenue` now read `yearFilteredOrders()` instead of
+`state.orders`. `queue` (the slip-review count, whose destination — the
+ตรวจสลิป tab — is deliberately never year-filtered, since unresolved review
+work must not hide behind whichever year happens to be picked) is left
+reading `state.orders`, unchanged on purpose. Added direct unit coverage for
+the shared predicate itself, `orderMatchesYearFilter` (`src/js/shop/
+data.test.js`), which had none before — its PR mirror `ticketMatchesYearFilter`
+did.
+
+**Where it lives now:** `src/js/shop/admin.js` (`renderStats`),
+`src/js/shop/data.test.js`.
+
+**The general rule**: when a new filter is added to a view, grep every COUNT
+that promises to equal what a click on it reveals, not just the view's own
+render path — a count and its destination are two call sites for one
+invariant, and a comment stating the invariant is not a guard against a
+change made somewhere else.
