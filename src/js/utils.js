@@ -287,14 +287,25 @@ export function orderIdChipHtml(id) {
 // a formula and is left alone. The ทีม SAMO / ระบบบ้าน files are ROUND-TRIPPED
 // (export → edit → import), so parseCsv takes the apostrophe off again with
 // csvUnguard — or every re-import would store it.
+//
+// A real value can itself start with `'` (someone literally typed one), and
+// if what follows THAT happens to look like a formula ("'=1+1"), the old
+// version here could not tell "I escaped this" from "this is raw text that
+// starts with a quote" — unguard used the look of what follows the quote to
+// guess, and guessed wrong for exactly that input. So: csvGuard escapes a
+// leading `'` too (doubling it, same idea as SQL's `''`), and csvUnguard
+// always strips exactly one leading `'` with no guessing. That makes the
+// transform unconditionally its own inverse — provable without reading what
+// follows the quote at all.
 // ---------------------------------------------------------------------------
 const CSV_FORMULA_START = /^[=+\-@\t\r]/;
 const CSV_PLAIN_NUMBER = /^[-+]?\d+(\.\d+)?$/;
 export function csvGuard(v) {
   const s = v == null ? '' : String(v);
+  if (s.startsWith("'")) return `'${s}`;
   return CSV_FORMULA_START.test(s) && !CSV_PLAIN_NUMBER.test(s) ? `'${s}` : s;
 }
 export function csvUnguard(s) {
   const t = String(s ?? '');
-  return t.startsWith("'") && CSV_FORMULA_START.test(t.slice(1)) && !CSV_PLAIN_NUMBER.test(t.slice(1)) ? t.slice(1) : t;
+  return t.startsWith("'") ? t.slice(1) : t;
 }

@@ -708,15 +708,7 @@ function openProductModal(product) {
     modalState.qty = Math.max(1, modalState.qty - 1); renderQty();
   }));
   document.getElementById('shopProductModalQtyPlus')?.replaceWith(rebuildBtn('shopProductModalQtyPlus', '+', () => {
-    // Cap at available qty so a buyer can't request more than they can
-    // have. An unlimited product (a preorder with an empty grid) keeps the
-    // 99 ceiling.
-    const p = modalState.product;
-    let ceiling = 99;
-    if (p && !isUnlimitedBuying(p)) {
-      const avail = availableForVariant(p, modalState.size, modalState.color);
-      if (avail != null) ceiling = Math.max(1, avail);
-    }
+    const ceiling = qtyCeilingFor(modalState.product, modalState.size, modalState.color);
     modalState.qty = Math.min(ceiling, modalState.qty + 1); renderQty();
   }));
 
@@ -831,15 +823,24 @@ function renderColorOptions(colors) {
       const found = colors.find((c) => c.id === modalState.color);
       label.textContent = found?.label || '';
     }
+    // The qty cap was unknown while no colour was picked (qtyCeilingFor
+    // returns 1 for that); now it's known, re-clamp — renderOOS alone used
+    // to skip this (0207 cold review).
+    renderQty();
     renderOOS();
   };
 }
 function renderQty() {
-  // A size/colour switch can leave the quantity above what the new one has.
+  // A size/colour switch — or a colour switch that just made the per-variant
+  // stock KNOWN where it was not before — can leave the quantity above what
+  // the new state allows. Called from every path that changes size, colour
+  // or the product itself (0207 cold review: the colour handler used to skip
+  // this, so a qty raised to 99 while no colour was picked survived picking
+  // a colour with 3 left — docs/mistakes/frontend-ui.md).
   const pq = modalState.product;
-  if (pq && !isUnlimitedBuying(pq)) {
-    const avail = availableForVariant(pq, modalState.size, modalState.color);
-    if (avail != null && avail > 0 && modalState.qty > avail) modalState.qty = avail;
+  if (pq) {
+    const ceiling = qtyCeilingFor(pq, modalState.size, modalState.color);
+    if (modalState.qty > ceiling) modalState.qty = ceiling;
   }
   const qty = document.getElementById('shopProductModalQty');
   if (qty) qty.value = String(modalState.qty);
@@ -852,8 +853,28 @@ function renderQty() {
 /** A colour still to be picked: the product offers more than one and the
  *  buyer has not chosen. */
 function colorMissing() {
-  const p = modalState.product;
-  return !!p && Array.isArray(p.colors) && p.colors.length > 1 && !modalState.color;
+  return isColorMissing(modalState.product, modalState.color);
+}
+
+/** PURE — same colour predicate colorMissing() uses, taking its arguments
+ *  explicitly so it can be unit-tested without the DOM (no jsdom here; see
+ *  products.test.js). */
+export function isColorMissing(p, color) {
+  return !!p && Array.isArray(p.colors) && p.colors.length > 1 && !color;
+}
+
+/** PURE. The most of one variant the popup's + may ask for: 1 while the
+ *  colour is still to be picked (the per-variant stock isn't known yet — a
+ *  qty raised past a low-stock colour's real count before it was picked is
+ *  the 0207 cold-review bug), the matrix's available count once a colour
+ *  (or there is only one) is set, or 99 for an unlimited preorder / a
+ *  product with no stock matrix at all. Mirrors cart.js's maxQtyFor, same
+ *  reason: tested without the render pass it feeds. */
+export function qtyCeilingFor(p, size, color) {
+  if (!p || isUnlimitedBuying(p)) return 99;
+  if (isColorMissing(p, color)) return 1;
+  const avail = availableForVariant(p, size, color);
+  return avail != null ? Math.max(1, avail) : 99;
 }
 
 /** The add button's label AND whether it can be pressed — ONE function, called

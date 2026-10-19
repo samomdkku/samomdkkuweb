@@ -309,7 +309,11 @@ describe('the service sets nicknames — for real, against the stub', () => {
     const r = await once({ DISCORD_SYNC_NICKNAMES: 'apply' });
     expect(r.code, r.out).toBe(0);
     expect(w.nicked).toEqual([{ id: 'U2', nick: 'ปอม_#3_054-6' }]);
-    expect(w.posted.map((m) => m.content).join('\n')).toMatch(/\*\*old1\*\* — Discord ไม่อนุญาต/);
+    // A full pass (--once names nobody) only LOGS a failed rename — same rule
+    // as an unbuildable name (see "the periodic full pass only LOGS it"
+    // below): posting it here would repeat on every restart (HANDOFF §18f #6).
+    expect(r.out).toMatch(/FAILED nick U1: Discord HTTP 403/);
+    expect(w.posted.map((m) => m.content).join('\n')).not.toMatch(/ไม่อนุญาต/);
   });
   it('a failed read of the name inputs leaves the ROLE sync running', async () => {
     w.nickInputsFail = true;
@@ -366,7 +370,11 @@ describe('the service loop', () => {
     const posts = texts();
     const alerts = posts.filter((c) => /⚠️ Discord sync/.test(c));
     expect(alerts, out).toHaveLength(1);
-    expect(alerts[0]).toMatch(/Supabase HTTP 503 discord_sync_queue/);
+    // The reason is run through mdLine (every ALERT text is, since the review:
+    // HANDOFF §18f #3), so `_` and `:` come back backslash-escaped — unescape
+    // before matching the raw error text, same trick as the mention-escaping
+    // test below ("the server pattern survives, character for character").
+    expect(alerts[0].replace(/\\(.)/g, '$1')).toMatch(/Supabase HTTP 503 discord_sync_queue/);
     expect(posts.filter((c) => /กลับมาทำงานปกติ/.test(c))).toHaveLength(1);
   }, 20000);
   it('a single failure that heals on the next try posts NOTHING', async () => {
