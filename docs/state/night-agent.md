@@ -1631,6 +1631,170 @@ not need to change).
 
 ---
 
+## Task 10 — Passport, หน้าฝ่าย, announcements, stats retention, accounts (2026-10-18)
+
+**RESUMED after a quota cut-off** (WIP `392017a` gave the window back to a
+Claude booking; `7aa1f67` continued it and was itself cut off by the quota —
+two WIP commits, neither followed by this task's own write-up or a
+`/scrutinize` pass, which is exactly the gap tasks 11 and 12 both flagged and
+is what this session closes).
+
+**Point-by-point against the brief — what the WIP already did vs. what this
+session finished:**
+
+- **Stats (migration 0231, required).** ✅ Already done by the WIP, verified
+  not redone: `analytics_daily_rollup` + `claude_usage_weekly_rollup`,
+  `prune_analytics()` rewritten to roll up a day in the SAME transaction it
+  deletes it, `prune_claude_usage_samples(weeks=8)` added new,
+  `analytics_overview()` rewritten so `visitors_by_day`/`top_paths` prefer the
+  rollup for a pruned day and the raw table for a live one — proved by
+  `tools/stats0231-retention.sql`, which explicitly asserts
+  `analytics_overview()` survives a prune (steps 20/30). Re-ran live against
+  samo-dev this session: **31/31**, unchanged. `notify_log`'s existing
+  `prune_notify_log` (0055) is scheduled alongside the other two in the same
+  VM timer script, not re-migrated. `project_notifications` deliberately gets
+  NO prune (age-AND-read only, per the brief) — confirmed by reading
+  `server/stats-retention.sh`, which calls exactly three functions and none
+  of them touch `project_notifications`.
+- **pg_cron vs. a VM timer — decided, not left open.** pg_cron is NOT
+  installed on this project (confirmed, STATE.md) and enabling it is a
+  one-click Database→Extensions action only the owner can take; this agent
+  has no production credential to take it even if it wanted to. WIP wrote
+  `server/stats-retention.{sh,service,timer,env.example}` (same pattern as
+  the existing `server/supabase-backup.*`, same `SUPABASE_DB_URL` reused, not
+  a new credential) — WRITTEN, NEVER INSTALLED, same as every other VM asset
+  this queue produces (no VM access from this sandbox). Timer uses
+  `OnCalendar=Sun *-*-* 04:40:00` (wall-clock, not `OnBootSec`/
+  `OnUnitActiveSec` — the exact class-7 trap `.claude/rules/mistakes.md`
+  names) offset 40 minutes from the nightly backup timer so the two don't
+  compete for the same DB connection window. If the owner prefers pg_cron
+  instead, the migration's own header says the swap is one `cron.schedule`
+  call per function, nothing here needs rewriting first.
+- **Revision-pass fix, found AFTER the WIP, before this task's own
+  write-up: 0231's `prune_analytics()` cutoff was NOT day-aligned.** A
+  WEEKLY timer with a non-day-aligned cutoff silently **splits** a calendar
+  day across two runs — the first run rolls up and deletes the early hours,
+  the second run recomputes the same day from only the surviving late hours
+  and `on conflict do update` **overwrites** (not adds to) the first run's
+  count, permanently losing the first half. Reproduced live on samo-dev
+  (20 events before a simulated cutoff, 4 after, same day — first prune
+  rolled up 20, second overwrote it to 4), fixed in migration 0233
+  (`date_trunc('day', ...)` on the cutoff, so a day is only captured once it
+  is ENTIRELY before cutoff). Write-up: `docs/mistakes/postgres-schema.md`.
+  Proof `tools/stats0233-no-split-day.sql` re-run live this session: **7/7**.
+  This was credited to "revision-pass work" in STATE.md/HANDOFF rather than
+  folded silently into 0231, on purpose — it is a real bug in migration
+  0231's own design, not a cosmetic follow-up, and the queue's own rule is
+  ADD, never silently retype a prior migration once it may have been applied
+  anywhere.
+- **Passport (0232).** ✅ Already done by the WIP: `passport.samo_years.
+  team_term_year` (nullable, no FK — matches the deliberate public/passport
+  schema isolation; set by hand via the admin `startNewYear()` prompt in
+  `passport/js/admin-page.js`, read back in the years list). The
+  "never a gap between two years/seasons" invariant was NOT touched —
+  confirmed by reading `startNewYear()`'s own open-before-close shape
+  (`admin-page.js:1518-1565`), which already matched the invariant before
+  this queue started; nothing here needed to change it. Leaderboard-per-year
+  and past-year browsing were ALSO already live before this task (student
+  dashboard's `lb-year-select`, admin's `#lb-year`, `fl-year-select`) —
+  confirmed by grep, not rebuilt. Re-ran `tools/passport0232-bridge-
+  dept-editor-accounts.sql` live this session: **22/22**.
+- **หน้าฝ่าย.** ✅ Already done by the WIP: `dept_content_editor_info(p_dept)`,
+  gated with the SAME predicate `dept_content`'s own RLS uses
+  (`current_user_dept_page_scope()`), wired into `src/js/dept-page-admin.js`
+  to render "แก้ไขล่าสุดโดย … เมื่อ …" under the ฝ่าย picker. UI-only, no
+  year column, no version-history table — matches the design doc's explicit
+  rejection of versioning (a ฝ่าย page is a living document, not a ticket).
+- **Announcements.** ✅ Already done by the WIP: reuses the existing
+  `status` CHECK values (`approved`/`archived`), no new column — เก็บเข้าคลัง/
+  เผยแพร่อีกครั้ง buttons on the manage pane, a status filter
+  (เผยแพร่/เก็บเข้าคลัง/ทั้งหมด), and the public feed confirmed (by reading
+  `loadAnnouncements`'s default `statusFilter = 'approved'` and its only
+  caller on the public page) to already filter to approved-only — the
+  pre-existing bug the design doc flagged as "verify, don't silently fix"
+  turned out to not exist. **Task 11 (not this task) found and fixed the one
+  real announcements bug**: editing an archived post silently republished it
+  (`nextAnnouncementStatus()` now preserves the row's own status across an
+  edit) — noted here for completeness, not reclaimed as this task's work.
+- **Accounts.** ✅ Already done by the WIP: `account_dashboard(p_samo_year_be
+  default null)` — the old zero-arg signature was dropped first (two
+  overloads would make PostgREST's no-arg RPC call ambiguous), the new one
+  adds PR/VS/Shop/Projects activity counts optionally scoped to a year, master
+  gate unchanged. Graduates/departing-staff account closure stays a PERSON
+  decision, never a year one — confirmed by reading `## Accounts` in
+  `docs/YEAR-ROLLOVER.md`, which this task did NOT touch (no new deletion
+  path was built). Default is "ทุกปี" (unscoped), not the current year —
+  deliberate, reasoned in HANDOFF §22's per-decision list, not revisited
+  here.
+- **Claude booking.** No code owed beyond the sample-pruning covered under
+  Stats above — `claude_bookings`/`claude_settings` are a weekly operational
+  cycle, not year-scoped (confirmed by reading `## Claude booking` in
+  `docs/YEAR-ROLLOVER.md`); no migration number was reserved for it and none
+  was needed.
+
+**What THIS session actually did (the part the two WIP commits and tasks
+11/12 left genuinely undone):**
+1. **Wrote this block** — `docs/state/night-agent.md` had no `## Task 10 `
+   heading at all; tasks 11 and 12 both read and reviewed task 10's work but
+   neither wrote its own-task narrative, which is what the queue's `Done
+   when:` check for this task actually greps for.
+2. **Fixed a real, mechanically-detected staleness bug**: `STATE.md` said
+   "67 of 72 LIVE PROOFS" but `tools/run-proofs.mjs` now registers 73 (the
+   previous run's sweep-up commit `0ea0fcc` added `stats0233-no-split-day.sql`
+   to the registry without updating this count) — `npm test` was RED on
+   `state-handoff.test.js`'s "its live-proof count matches what npm run
+   proofs actually runs" assertion before this fix. Corrected to "67 of 73"
+   and named `stats0233-no-split-day` alongside the other samo-dev-only
+   proofs in that sentence. This is exactly the "prose outlives the
+   predicate" class (`.claude/rules/mistakes.md` class 6) — a number with ONE
+   home that drifted the moment a sibling file changed next to it.
+3. **Re-verified all three of this task's proofs live against samo-dev**
+   (not trusting the counts already recorded by tasks 11/12): `stats0231-
+   retention` 31/31, `stats0233-no-split-day` 7/7, `passport0232-bridge-
+   dept-editor-accounts` 22/22 — all green, `→ project: xibugtlsphcfuvstnxxh
+   (samo-dev)` confirmed in each run's output.
+4. Confirmed `docs/mistakes/INDEX.md` is already up to date
+   (`npm run mistakes:index` → "up to date (446 entries across 10 files)")
+   and HANDOFF §22 row 10 was already corrected by task 12 (DONE, with the
+   apply-in-order checklist) — neither needed a further edit from this task.
+
+**Decision, restated for the record (made by the WIP, confirmed correct by
+this session, not re-litigated): the whole brief was built as THREE small,
+independent additions — a stats-retention scheduling gap, a Passport bridge
+column, and two read-only UI/RPC conveniences — rather than one bigger
+"year-rollover for everything else" feature.** This matches every other
+system in this queue (0219's own shape: additive columns + functions, no
+behavioural change until the frontend reads them) and the design doc's own
+explicit rejections (no dept_content versioning, no announcements year
+column, no Passport/team_terms merge). **What would change this**: if the
+owner wants real version history on หน้าฝ่าย pages, or a scheduled (not
+manual) Passport↔team_term bridge, those are both bigger features this
+queue's budget deliberately did not build — flagged, not silently expanded.
+
+**`npm test`**: 173 files / 2982 tests, all green (the one failure this
+session found — the proof-count mismatch above — is fixed, not worked
+around). **`npm run build`**: clean, both entries (public/admin + Passport).
+**`git status`**: clean after this task's commit.
+
+**`npm run handoff:check` verdict**: same known crash as every prior task
+this queue (`ENOENT` reading `~/.claude/projects/-home-ubuntu-samo-agent/
+memory/MEMORY.md` — this session's real memory store is `~/samo-night/
+memory/` — and `origin/agent/2026-10-18` unknown, since this agent cannot
+push). Not re-diagnosed; already documented by Tasks 1/8/9/11. **Substituted
+direct checks**: `npm test`, `npm run build`, `git status`, and the three
+migration proofs re-run live against samo-dev, all shown above.
+
+**Commands the owner runs next:** unchanged from HANDOFF §22's row 10 and
+the apply-in-order checklist above it (task 12's work) — apply 0230 before
+0231/0232 (`account_dashboard()`'s rewrite reads `shop_orders.samo_year_be`),
+then 0231, then 0233 (MUST follow 0231 — it redefines `prune_analytics()`),
+then 0232; install the VM timer or enable pg_cron; deploy the bundle; click
+through the browser-verification table. Nothing in this resumption changed
+any of those commands — it closed a documentation gap and a stale count, not
+new schema or new UI.
+
+---
+
 ## Task 11 — Scrutinize + bug scan: tasks 8–10, and the owner's work since 2026-10-14 (2026-10-18)
 
 **Scope, per the queue's own brief:** run `scrutinize` over this branch's own
