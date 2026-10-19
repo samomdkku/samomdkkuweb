@@ -197,16 +197,16 @@ true. Detail: `HANDOFF.md` §9.
 that asymmetry went red in both directions. `npm run test:clean` runs it over
 exactly what git will carry. Both live in `HANDOFF.md` §9.
 
-## 🌙 NIGHT AGENT — RUNNING TO 100% since 2026-10-19 19:27 ICT (owner: "until 100%")
+## 🌙 NIGHT AGENT — quality queue 13–21 ARMED 2026-10-20 (owner: "all 7 sessions")
 
-Tasks 8–9 done; 10 (Passport/stats/หน้าฝ่าย) resumed, 11 scrutinize, 12 handoff left;
-branch `agent/2026-10-18`, migrations 0229–0233 reserved. Live queue header: `Reserve
-sessions: 0` (no owner reserve, no margin), `Revise passes: 6` (bug-scan passes after
-the tasks, run after run), `Budget: 20 runs`, `Until` 2026-10-21 08:30 UTC — the
-owner uses a one-time free reset before 22/10. Bookings are still honoured.
-Its migrations reach samo-dev only; it cannot push or deploy. ⛔ Review its branch first.
-Morning check, what is owed and what was NOT verified: HANDOFF §17 · why:
-`docs/state/claude-2026-10-18.md`.
+Tasks 8–12 DONE (2026-10-19) on `agent/2026-10-18` — 0229–0233 on samo-dev only,
+UNREVIEWED, HANDOFF §22. New queue on `agent/2026-10-20`, STACKED on that tip:
+13 review leftovers · 14 dev fidelity + red proofs · 15 security guards · 16 lint ·
+17 a11y/390px · 18 speed · 19 split big modules · 20 scrutinize · 21 handoff §24.
+Header: `Reserve sessions: 0`, `Revise passes: 6`, `Budget: 30 runs`, `Until`
+2026-10-27 08:00 UTC; bookings still win. Migrations 0234–0239 reserved.
+samo-dev only; it cannot push or deploy. ⛔ Merge 10-18 first, then 10-20.
+What is owed and NOT verified: HANDOFF §17 · design: `server/night-agent/NIGHT-TASKS.md`.
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 

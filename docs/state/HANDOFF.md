@@ -1473,7 +1473,27 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ---
 
-## 17. The night agent — RE-ARMED 2026-10-18 for tasks 8–12 (history below is older)
+## 17. The night agent — RE-ARMED 2026-10-20 for tasks 13–21, the quality queue (history below is older)
+
+**2026-10-20 — NEW QUEUE ARMED. Status: VERIFIED 2026-10-20 — how: `install.sh --arm`
+replaced the live queue (old one kept as `.prev`), the live gate printed `เหลือ 9 งาน ·
+คืนที่ 1 จาก 30`, no STOPPED file.**
+- Tasks 8–12 finished 2026-10-19 21:14 UTC (3 of 5 resumed after a quota cut; runner
+  report in the VM log). Their branch `agent/2026-10-18` is still UNREVIEWED and
+  unmerged — §22 is its checklist.
+- Owner (2026-10-20): spend the reset week on improving samoweb, all 7 sessions
+  (`Reserve sessions: 0`, `Revise passes: 6`, `Budget: 30 runs`, `Until`
+  2026-10-27 08:00 UTC). Tasks, in priority order: 13 the §18f/§23f leftovers ·
+  14 samo-dev auth triggers + the two red proofs · 15 security property guards +
+  the open privacy item + Apps Script upload limits · 16 ESLint (correctness
+  rules only) · 17 axe + 390px student-flow sweep · 18 phone load speed +
+  `check:bundle` · 19 split `src/js/shop/admin.js` and `src/js/team/index.js` (moves only) ·
+  20 scrutinize · 21 HANDOFF §24.
+- `agent/2026-10-20` was created on the VM from `agent/2026-10-18`'s tip
+  so it STACKS: review and merge 10-18 first, then 10-20. Its own
+  work is `agent/2026-10-18..HEAD`. Migrations 0234–0239 are reserved.
+- OWED (owner): nothing until it finishes. If you want a session for yourself
+  this week, book it on the board.
 
 **2026-10-19 — RUNNING TO 100%. Status: VERIFIED 2026-10-19 — how: the live
 gate on the VM printed `สัปดาห์ 80% (หยุดที่ 100%)`, `allowance` returned
