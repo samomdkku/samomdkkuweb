@@ -1508,7 +1508,8 @@ function renderSamoHistory() {
         return `<div class="samo-hist-year">
             <div class="samo-hist-head"><strong>${escapeHtml(y.name)}</strong> ${cur
                 ? '<span class="samo-badge">current</span>'
-                : `<small>ended ${fmtDate(y.ended_at)}</small>`}</div>
+                : `<small>ended ${fmtDate(y.ended_at)}</small>`}
+                ${y.team_term_year ? `<small style="opacity:.65;">· ทีม SAMO ${escapeHtml(String(y.team_term_year))}</small>` : ''}</div>
             ${seasonHtml}
           </div>`;
     }).join('');
@@ -1522,6 +1523,17 @@ window.startNewYear = async () => {
     // started would land in the uncategorized (season_id NULL) bucket. Require it here.
     const seasonName = (prompt(`Name the FIRST season for "${name}" (e.g. Q1):`) || '').trim();
     if (!seasonName) { alert('Cancelled — a วาระสโม must start with a season (so scans are never uncategorized).'); return; }
+    // team_term_year bridge (0232, docs/YEAR-ROLLOVER.md § Passport) — a loose,
+    // hand-set reference to public.team_terms.year so a FUTURE report can join
+    // "how much km did ทีม SAMO term X award" without merging the two year
+    // systems. Optional on purpose: Passport's own year boundary (QR posters,
+    // badges) is decided by ฝ่าย กิจกรรม on their own calendar, not by a ทีม
+    // SAMO handover, so the two will not always line up 1:1.
+    const teamTermRaw = (prompt('ปีทีม SAMO ที่ตรงกัน (พ.ศ., ถ้ามี — เว้นว่างได้):') || '').trim();
+    const teamTermYear = teamTermRaw ? Number(teamTermRaw) : null;
+    if (teamTermRaw && (!Number.isInteger(teamTermYear) || teamTermYear < 2500 || teamTermYear > 2700)) {
+        alert('ปีทีม SAMO ต้องเป็นเลขปี พ.ศ. (เช่น 2569) — เว้นว่างได้ถ้าไม่ทราบ'); return;
+    }
     if (!confirm(`Start "${name}" with season "${seasonName}"?\n\nThis ENDS the current วาระสโม + season and resets the live leaderboard and current-year totals. All past logs and standings are kept.`)) return;
     // ⛔ THE ORDER IS LOAD-BEARING: CREATE the new rows, THEN end the old ones.
     // This used to end first, and that left a window — four network round-trips
@@ -1539,7 +1551,8 @@ window.startNewYear = async () => {
     // currentYearRow (its list is loaded started_at-descending). And if an
     // insert fails, nothing has been ended — the current วาระ is still running.
     // docs/INVARIANTS.md, "Never leave a GAP between two วาระ or two seasons".
-    const { data: yRows, error } = await adminDb.from('samo_years').insert([{ name }]).select();
+    const { data: yRows, error } = await adminDb.from('samo_years')
+        .insert([{ name, team_term_year: teamTermYear }]).select();
     if (error) { alert(`Failed: ${error.message}\nNothing was changed — the current วาระสโม is still running.`); return; }
     const newYear = yRows && yRows[0];
     if (!newYear) { alert('Could not read the new วาระสโม back — nothing was ended; check the list and retry.'); await loadSamoData(); renderSamoControl(); return; }

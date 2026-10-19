@@ -20,6 +20,8 @@
 
 /* live strip */
 .acct-live { display: flex; align-items: center; gap: .75rem; padding: .7rem 1.1rem; }
+.acct-live-actions { display: flex; align-items: center; gap: .5rem; }
+.acct-year { width: auto; }
 .acct-live-text { flex: 1; min-width: 0; }
 .acct-live-main { font-weight: 600; font-size: .92rem; }
 .acct-live-sub { font-size: .78rem; color: var(--acct-ink-2); }

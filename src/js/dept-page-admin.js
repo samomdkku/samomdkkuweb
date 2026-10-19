@@ -371,6 +371,30 @@ async function refresh(root) {
   if (error) { say(root, errMsg(error, 'โหลดเนื้อหาไม่สำเร็จ')); return; }
   state.rows = rows;
   paint(root);
+  paintLastEdit(root);
+}
+
+/**
+ * "แก้ไขล่าสุดโดย … เมื่อ …" — a UI nudge (docs/YEAR-ROLLOVER.md § หน้าฝ่าย),
+ * not a version history: a new ฝ่าย officer gets no signal today that the
+ * page they inherited is last year's team's text. `updated_at`/`updated_by`
+ * already exist on every row (0177's touch trigger); this just surfaces the
+ * MOST RECENT one, name resolved via dept_content_editor_info (0232) since
+ * an editor who holds only a dept_page grant cannot read `public.people`/
+ * `users` directly (0132/0147 close that off to everyone else).
+ */
+async function paintLastEdit(root) {
+  const el = root.querySelector('#dpaLastEdit');
+  if (!el) return;
+  el.textContent = '';
+  if (!state.rows.length) return;
+  const { data, error } = await dbRest('/rpc/dept_content_editor_info',
+    { method: 'POST', body: { p_dept: state.dept } });
+  if (error || !Array.isArray(data) || !data.length) return;
+  const latest = data.reduce((a, b) => (new Date(b.updated_at) > new Date(a.updated_at) ? b : a));
+  if (!latest?.updated_at) return;
+  const when = new Date(latest.updated_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+  el.textContent = `แก้ไขล่าสุดโดย ${latest.editor_name || 'ไม่ทราบ'} เมื่อ ${when}`;
 }
 
 /**

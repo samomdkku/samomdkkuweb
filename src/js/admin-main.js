@@ -31,7 +31,7 @@ import { initProfileModal, openProfileModal } from './profile.js';
 import { copyText } from './utils.js';
 
 // Announcements / Creator
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement } from './announcements.js';
+import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement, toggleArchiveAnnouncement, setManageStatusFilter, getManageStatusFilter, getLoadedAnnouncements } from './announcements.js';
 
 // PR Staff
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee, onPrStaffYearChange, togglePrPastYearOverride, exportPRStaffTicketsCsv } from './pr-staff.js';
@@ -578,7 +578,12 @@ async function enterCreator() {
   // `#creator/{id}` call editAnnouncement() right after this, re-filling it.)
   cancelEdit();
   try {
-    await loadAnnouncements();
+    // 'all': an admin opening เขียนประกาศ fresh does not need this, but
+    // tryCreatorDeepLink() below reuses enterCreator's load — and a
+    // #creator/{id} deep link to an ARCHIVED post must still resolve (0232
+    // added the archive toggle; before it nothing could become archived, so
+    // this case never existed).
+    await loadAnnouncements('all');
   } catch (e) {
     console.warn('[admin-main] creator: loadAnnouncements failed:', e?.message || e);
   }
@@ -589,8 +594,9 @@ async function enterCreator() {
 async function enterAnnouncementOrder() {
   const listEl = document.getElementById('announcementsOrderList');
   if (!listEl) return;
+  wireAnnouncementManageFilter();
   try {
-    await loadAnnouncements();
+    await loadAnnouncements(getManageStatusFilter());
   } catch (e) {
     console.warn('[admin-main] order: loadAnnouncements failed:', e?.message || e);
   }
@@ -665,6 +671,73 @@ window.togglePinAnnouncement = async (id) => {
   if (ok) renderAnnouncementOrderList(document.getElementById('announcementsOrderList'));
 };
 
+// Exposed for the เก็บเข้าคลัง/เผยแพร่อีกครั้ง button on each manage card
+// (0232). toggleArchiveAnnouncement reloads under the manage pane's OWN
+// status filter, so an archived card disappears from "เผยแพร่อยู่" and a
+// restored one disappears from "เก็บเข้าคลัง" — same reload shape as pin.
+window.toggleArchiveAnnouncement = async (id) => {
+  const ok = await toggleArchiveAnnouncement(id);
+  if (ok) renderAnnouncementOrderList(document.getElementById('announcementsOrderList'));
+};
+
+/**
+ * The manage pane's status filter (ทั้งหมด/เผยแพร่อยู่/เก็บเข้าคลัง) +
+ * "เก็บประกาศเก่าเข้าคลังทั้งหมด" bulk action (docs/YEAR-ROLLOVER.md §
+ * Announcements: "archive-by-year control for admins"). MANUAL, never
+ * automatic — the design doc left the choice between scheduled/manual to
+ * whichever task built this; automatic archival at a ทีม SAMO handover risks
+ * surprising an admin mid-term with posts vanishing from a page they did not
+ * touch, so every archive here is a button a person presses.
+ */
+let announcementFilterWired = false;
+function wireAnnouncementManageFilter() {
+  const sel = document.getElementById('announcementStatusFilter');
+  const bulkBtn = document.getElementById('announcementBulkArchive');
+  const bulkYear = document.getElementById('announcementBulkArchiveYear');
+  if (sel) sel.value = getManageStatusFilter();
+  if (announcementFilterWired) return;
+  announcementFilterWired = true;
+  sel?.addEventListener('change', async () => {
+    setManageStatusFilter(sel.value);
+    const listEl = document.getElementById('announcementsOrderList');
+    try {
+      await loadAnnouncements(sel.value);
+    } catch (e) {
+      console.warn('[admin-main] announcement filter reload failed:', e?.message || e);
+    }
+    renderAnnouncementOrderList(listEl);
+  });
+  bulkBtn?.addEventListener('click', async () => {
+    const year = Number(bulkYear?.value);
+    if (!Number.isFinite(year)) { alert('พิมพ์ปี พ.ศ. ก่อนกดเก็บเข้าคลัง'); return; }
+    // ค.ศ. boundary from the พ.ศ. year typed: everything CREATED before 1
+    // มกราคม of that พ.ศ. year. Simple date arithmetic, no RPC — the design
+    // doc's "a scheduled job at start_team_term time" was explicitly left as
+    // EITHER scheduled or manual; this is the manual half, scoped by a typed
+    // year rather than auto-reading team_terms.started_at, so an admin
+    // reviewing old announcements chooses the cutoff instead of it being
+    // silently decided by whenever the current team happened to take over.
+    const cutoffCe = year - 543;
+    const cutoff = new Date(Date.UTC(cutoffCe, 0, 1));
+    // Fetch the approved set explicitly — the manage pane's CURRENT filter
+    // may be showing เก็บเข้าคลัง/ทั้งหมด at the moment this button is
+    // pressed, and only an approved post can be archived.
+    await loadAnnouncements('approved');
+    const targets = getLoadedAnnouncements().filter((p) =>
+      p.status === 'approved' && p.createdAtIso && new Date(p.createdAtIso) < cutoff);
+    if (!targets.length) { alert(`ไม่มีประกาศที่เผยแพร่อยู่ซึ่งสร้างก่อนปี พ.ศ. ${year}`); return; }
+    if (!confirm(`เก็บประกาศ ${targets.length} รายการที่สร้างก่อนปี พ.ศ. ${year} เข้าคลัง?`)) return;
+    for (const p of targets) await toggleArchiveAnnouncement(p.id);
+    const listEl = document.getElementById('announcementsOrderList');
+    try {
+      await loadAnnouncements(getManageStatusFilter());
+    } catch (e) {
+      console.warn('[admin-main] bulk archive reload failed:', e?.message || e);
+    }
+    renderAnnouncementOrderList(listEl);
+  });
+}
+
 /** Handle `#creator/{id}` deep-link: navigate to the creator pane and
  *  pre-populate the form with that article. Returns true if it routed,
  *  false to let the caller fall back to the section-only behavior. */
@@ -678,7 +751,7 @@ async function tryCreatorDeepLink(hash) {
   const id = decodeURIComponent(m[1]);
   showAdminSide('creator');
   try {
-    await loadAnnouncements();
+    await loadAnnouncements('all'); // an archived post must still resolve (0232)
     const ok = editAnnouncement(id);
     if (!ok) {
       console.warn('[admin-main] /creator/' + id + ' — article not found in loaded list');
