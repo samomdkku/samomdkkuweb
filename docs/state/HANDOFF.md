@@ -1976,8 +1976,10 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 
 Everything below is **WRITTEN, proved on samo-dev, NOT on production.** Task 8
 shipped no migration (ระบบบ้าน graduation is derived in JS, nothing to apply).
-Tasks 9–10 together reserved 0229–0233; 0229 and 0233 are unused on purpose
-(no SQL those tasks needed) — `migration-numbers.test.js` allows the gap.
+Tasks 9–10 together reserved 0229–0233; 0229 was unused on purpose (ระบบบ้าน
+graduation needed no SQL). **0233 is no longer unused** — a 2026-10-18
+revision pass found a real bug in 0231 (below, Step B2) and used 0233 for the
+fix.
 
 **1. Migrations — apply in this exact order, proof after each (dev, then prod):**
 
@@ -1997,6 +1999,19 @@ node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.
 node tools/db-query.mjs tools/stats0231-retention.sql --dev    # expect 31/31
 node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.sql
 node tools/db-query.mjs tools/stats0231-retention.sql          # expect 31/31 on production
+
+# Step B2 — 0233 (revision pass, 2026-10-18). MUST come after 0231 — it
+# redefines prune_analytics(), which 0231 creates. Fixes a real bug: 0231's
+# cutoff was a raw timestamp, not day-aligned, so the WEEKLY VM timer would
+# split a calendar day across two runs and silently lose the earlier half's
+# count forever (reproduced live on samo-dev before fixing; see migration
+# header and docs/mistakes/postgres-schema.md). Apply this BEFORE installing
+# or first-running the stats-retention VM timer (step 3 below) — the bug
+# needs a real weekly cadence to bite, so it is invisible in a one-off run.
+node tools/apply-migration.mjs supabase/migrations/0233_prune_analytics_never_splits_a_day.sql --dev
+node tools/db-query.mjs tools/stats0233-no-split-day.sql --dev   # expect 7/7
+node tools/apply-migration.mjs supabase/migrations/0233_prune_analytics_never_splits_a_day.sql
+node tools/db-query.mjs tools/stats0233-no-split-day.sql         # expect 7/7 on production
 
 # Step C — 0232 (task 10, Passport bridge + หน้าฝ่าย editor info + accounts
 # year filter). MUST come after 0230 — its account_dashboard() rewrite reads
