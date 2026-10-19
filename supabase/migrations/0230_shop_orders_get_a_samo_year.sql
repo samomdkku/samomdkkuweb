@@ -113,7 +113,16 @@ as $$
     'revenue',         coalesce(sum(total) filter (where status not in ('pending', 'review', 'slip_mismatch', 'cancel')), 0)
   )
   from public.shop_orders
-  where samo_year_be is null or samo_year_be = public.current_samo_year();
+  where samo_year_be is null
+     or samo_year_be = public.current_samo_year()
+     -- current_samo_year() reading NULL would mean team_terms has no
+     -- `is_current` row at all — should never happen once a team exists
+     -- (start_team_term always swaps it atomically), but the ORIGINAL
+     -- function (0206) counted every row unconditionally, so this fallback
+     -- keeps that same safe behaviour rather than going near-silent (only
+     -- null-year rows) the one time the assumption this scoping rests on
+     -- turns out to be wrong.
+     or public.current_samo_year() is null;
 $$;
 
 comment on function public.shop_order_totals() is

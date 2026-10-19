@@ -43,7 +43,12 @@ function persist() {
 
 if (typeof window !== 'undefined' && window.addEventListener) {
   window.addEventListener('storage', (e) => {
-    if (e.key !== STORAGE_KEY) return;
+    // `key === null` is the browser's own signal for `localStorage.clear()`
+    // (MDN: "If this is null, it has been cleared") — nothing in this app
+    // calls clear() today, but treating it as "ignore" would mean a future
+    // clear() in one tab leaves every OTHER tab's stale cart to persist
+    // itself right back on its next write, silently undoing the clear.
+    if (e.key !== STORAGE_KEY && e.key !== null) return;
     cart = load();
     notify();
   });

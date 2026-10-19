@@ -205,7 +205,7 @@ Passport/stats/หน้าฝ่าย, scrutinize, handoff) are queued on the 
 The agent now takes only what the booking board offers an unbooked person
 (`skills/night-agent.md`, top section). Its migrations reach samo-dev only, and it
 cannot push or deploy. ⛔ Review its branch before applying anything to production.
-**Task 9 done:** 0230 `shop_orders.samo_year_be` + year-scoped `shop_order_totals()` + the shared year picker on the orders/ยอดขาย tabs + the customer-flow walk the owner asked for. Proof `shop0230` 29/29 samo-dev; NOT prod. Detail: `docs/state/night-agent.md` Task 9.
+**Task 9 done:** 0230 `shop_orders.samo_year_be` + year-scoped `shop_order_totals()` + the shared year picker on the orders/ยอดขาย tabs + the customer-flow walk the owner asked for. Proof `shop0230` 31/31 samo-dev; NOT prod. Detail: `docs/state/night-agent.md` Task 9.
 Morning check, what is owed and what was NOT verified: HANDOFF §17 · why: `docs/state/claude-2026-10-18.md`.
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)

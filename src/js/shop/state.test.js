@@ -75,4 +75,21 @@ describe('cart cross-tab sync', () => {
     listeners[0]({ key: 'some.other.key' });
     expect(tab.getCart().map((i) => i.productId)).toEqual(['X']);
   });
+
+  it('a storage event with key:null (localStorage.clear()) reloads too, so a clear elsewhere is not undone by this tab\'s next write', async () => {
+    const sharedLocalStorage = makeLocalStorage();
+    const listeners = [];
+    global.localStorage = sharedLocalStorage;
+    global.window = { addEventListener: (type, cb) => { if (type === 'storage') listeners.push(cb); } };
+
+    vi.resetModules();
+    const tab = await import('./state.js');
+    tab.addItem({ productId: 'X', size: 'F', color: 'default', fit: null, qty: 1, price: 10 });
+    expect(tab.getCart()).toHaveLength(1);
+
+    // Simulate another tab calling localStorage.clear() for real.
+    sharedLocalStorage.removeItem('samoshop.cart.v1');
+    listeners[0]({ key: null });
+    expect(tab.getCart()).toEqual([]);
+  });
 });

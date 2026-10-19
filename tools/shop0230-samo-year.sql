@@ -21,6 +21,10 @@
 --       does not leak into the new year's totals — proven by SNAPSHOT
 --       DELTAS, never an absolute count, so this proof holds regardless of
 --       how many real orders already exist on whatever database runs it
+--   §F  if current_samo_year() is ever NULL (no is_current row — should not
+--       happen once a team exists, but this function must not go
+--       near-silent the one time it does), shop_order_totals() falls back
+--       to counting EVERYTHING, same as the original 0206 behaviour
 --
 -- Insert path: shop admin direct insert (shop_orders_insert_admin, 0035) —
 -- buyers have had NO direct INSERT on shop_orders since 0199
@@ -271,6 +275,31 @@ insert into probe select '52. orders_total rose by exactly 777+333 — the 2696 
   pg_temp.delta('t5_after_2696_opens', 't6_after_ef', 'orders_total')::text;
 insert into probe select '53. revenue rose by exactly the same 1110 — both are "paid"', '1110',
   pg_temp.delta('t5_after_2696_opens', 't6_after_ef', 'revenue')::text;
+
+-- ── §F current_samo_year() is NULL → fall back to counting EVERYTHING ──────
+-- Should not happen once a team exists (start_team_term always swaps
+-- is_current atomically) — but if it ever does, this function must not go
+-- near-silent (only null-year rows); it must behave like the ORIGINAL 0206
+-- (unconditional over every row), not drop every properly-stamped order.
+update public.team_terms set is_current = false where year = 2696;
+insert into probe select '60. current_samo_year() is now NULL (no current term)', '',
+  coalesce(public.current_samo_year()::text, '');
+select pg_temp.take_snap('t7_no_current_year');
+-- Recomputed independently from the LIVE table, never a hardcoded literal —
+-- this samo-dev database already carries real rows outside 2696/null (year
+-- 2569 and earlier), and the fallback must pick up EVERY one of them, not
+-- just this proof's own A/B/C/C2. "Outside the 2696/null scope" is exactly
+-- what t6's scoped total excluded; the jump must equal exactly that.
+insert into probe select '61. orders_total jumps by exactly the sum of every non-cancel row OUTSIDE the 2696/null scope — the fallback adds exactly what was excluded, nothing more',
+  (select coalesce(sum(total), 0)::text from public.shop_orders
+    where status <> 'cancel' and not (samo_year_be is null or samo_year_be = 2696)),
+  pg_temp.delta('t6_after_ef', 't7_no_current_year', 'orders_total')::text;
+insert into probe select '62. revenue jumps by exactly the sum of every revenue-eligible row OUTSIDE the 2696/null scope',
+  (select coalesce(sum(total), 0)::text from public.shop_orders
+    where status not in ('pending', 'review', 'slip_mismatch', 'cancel')
+      and not (samo_year_be is null or samo_year_be = 2696)),
+  pg_temp.delta('t6_after_ef', 't7_no_current_year', 'revenue')::text;
+update public.team_terms set is_current = true where year = 2696;
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,

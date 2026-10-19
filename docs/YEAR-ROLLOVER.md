@@ -272,6 +272,23 @@ discontinued product is already handled by `is_active=false`; adding a year
 dimension on top would create exactly the "scope vs identity" confusion
 class 6 warns about (a product is not "from" a year the way a ticket is).
 
+Decision: `shop_order_totals()` (0206 — the per-order Discord ping's
+awaiting_review/orders/orders_total/revenue line) IS year-scoped, to the
+CURRENT year only (falling back to counting everything the one time
+`current_samo_year()` itself is null — see 0230's own comment on the
+function). It is an operational snapshot of the team presently in office,
+not an all-time counter; left unscoped, the day after a handover the
+incoming team's first sale would ping Discord with a number that includes
+every order the outgoing team ever took — precisely the PR complaint this
+whole design doc opens with, just one system over.
+
+⏳ **OWED, not built in task 9**: an explicit "correct this order's SAMO
+year" control in the admin order detail modal (the affordance
+`fiscal_year_be` gets on a โครงการ). The column is admin-overridable at the
+DATABASE level (an UPDATE is never re-stamped by the INSERT-only trigger —
+proven in `shop0230`), there is simply no button for it yet; today a
+mis-filed order can only be corrected with a direct SQL UPDATE.
+
 ---
 
 ## หนังสือโครงการ

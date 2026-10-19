@@ -1324,3 +1324,171 @@ status` (clean after each commit), and a live run of `node
 tools/house-gaps.mjs` against samo-dev (confirmed by its own
 `→ project: … (samo-dev)` line) to prove the new SQL query the WIP added
 actually executes.
+
+---
+
+## Task 9 — SAMO Shop: orders across SAMO years, plus the customer-flow worry (2026-10-18)
+
+**Two unrelated pieces of work, both inside this task's own scope:** (A) give
+`shop_orders` a SAMO year, same shape as PR/VS/โครงการ; (B) walk the
+customer checkout flow end to end for the owner's named worry and fix
+whatever actually breaks.
+
+### A. `shop_orders.samo_year_be` (0230)
+
+Built `docs/YEAR-ROLLOVER.md § SAMO Shop` (never built before tonight):
+
+- `shop_orders.samo_year_be smallint`, stamped at INSERT by 0219's shared
+  `samo_year_be_default()` trigger — copied 0220's (PR) shape exactly, with
+  one difference explained in the migration's own header: the backfill
+  reads `placed_at`, not `created_at`/`timestamp`, because `shop_orders` has
+  no `created_at` at all (STATE.md, measured) and `place_shop_order()` sets
+  `placed_at` in the same INSERT that creates the row.
+- **Decision, confirmed against the design doc, not re-litigated**:
+  unpaid/in-review orders keep their ORIGINAL year across a handover — this
+  falls out of the stamp-once-at-insert rule for free (nothing re-stamps on
+  UPDATE), proven directly in the proof (§C2: an order stamped under a
+  sentinel term stays stamped that term after the NEXT handover moves
+  `current_samo_year()` on).
+- **Decision**: `shop_order_totals()` (0206 — the per-order Discord ping's
+  totals line) IS year-scoped, to the current year only. **Rejected
+  alternative**: leave it unscoped (all-time) — rejected because it is an
+  OPERATIONAL snapshot ("how is the shop doing right now"), and left
+  unscoped it would, the day after every future handover, ping Discord with
+  a number inflated by every order every PAST team ever took — the exact PR
+  complaint ("the next samoyear … it'll be a mess", 0220's own header) one
+  system over. Added a defensive fallback after my own `/scrutinize` pass
+  caught it (below): if `current_samo_year()` is ever NULL (no `is_current`
+  row — should not happen once a team exists, but the function must not go
+  near-silent the one time it does), the WHERE clause falls back to counting
+  EVERYTHING, matching the ORIGINAL 0206 behaviour rather than reporting
+  almost nothing.
+- **Decision, unchanged from design**: `shop_products` stays un-scoped — a
+  product is inventory, not a transaction.
+- **Admin UI**: the orders table AND the ยอดขาย tab both got the shared
+  `samo-year.js` picker (two `<select>`s, `shopAdminOrdersYearFilter` /
+  `shopSalesYearFilter`, kept in sync by one `setOrdersYear()` in
+  `admin.js`), defaulting to the current year. ONE predicate —
+  `orderMatchesYearFilter` in `src/js/shop/data.js` — decides whether an
+  order matches the picked year for BOTH tabs, so they can never disagree
+  on what "2569" means (class 6: a hand-written list beside a shared
+  constant). An order whose year the backfill could not resolve (null)
+  always matches, same "unresolvable ≠ hidden" rule `pr-year.js`'s
+  `ticketMatchesYearFilter` already uses.
+- `tools/year-export.mjs`'s `REGISTRY.shop_orders` already had `yearColumn:
+  'samo_year_be'` written in ahead of this column existing (task 5,
+  2026-10-14) — nothing to add there; it starts reading the real column
+  automatically now that it exists.
+- **OWED, not built**: an explicit "correct this order's year" control in
+  the admin order detail modal (same affordance `fiscal_year_be` gets on a
+  โครงการ). The column is admin-overridable at the database level already
+  (an UPDATE is never re-stamped — proven in the proof); there is just no
+  button yet.
+
+**Proof `tools/shop0230-samo-year.sql`, 31/31 on samo-dev; registered in
+`tools/run-proofs.mjs`.** Covers: §0 the column/index/trigger exist; §A/§B
+insert-time stamping + an explicit year surviving the trigger; §C/§C2 the
+backfill expression across a REAL two-step handover (sentinel years
+2695/2696, backdated `started_at` so the two handovers land at genuinely
+different instants in one frozen-`now()` transaction) including an UNPAID
+order staying on its original year; §D RLS unchanged (buyer owns their own
+row regardless of year, a stranger is denied, admin sees every year); §E/§F
+`shop_order_totals()`'s current-year scoping AND its null-fallback, both by
+SNAPSHOT DELTA against `shop_order_totals()` itself — never an absolute
+count, so the proof holds regardless of how many real orders already exist
+on whatever database runs it (§F's first draft used a hardcoded expected
+delta and failed loudly against samo-dev's own pre-existing rows; fixed to
+recompute the expected value from the live table instead of guessing a
+constant). Insert path throughout: `shop_orders_insert_admin` (0035) as a
+`role='dev'` principal (satisfies BOTH `current_user_is_shop_admin()` and
+`start_team_term`'s `vp_admin`/`dev` gate, same shape `pr0220`'s principal
+uses) — buyers have had no direct INSERT on `shop_orders` since 0199.
+
+### B. The customer-flow walk
+
+Traced the owner's named worry — "login ด้วย username password แล้วซื้อแบบนี้
+กดออกไปหน้านี้แล้วมีปัญหา" (sign in, add to cart, navigate away, come back,
+something's wrong) — through the actual code, not just the shop files: cart
+persistence (`shop/state.js`), the router (`main.js`'s `navigateTo`/
+`pathToTab`/the `shown.bs.tab` handler), auth session handling
+(`auth.js`'s `onAuthStateChange`), and `checkout.js`'s own prefill/retry
+logic.
+
+**Found nothing wrong with the "navigate away" part itself.** Every in-app
+destination the worry names — the shop tab, `/me`, the home banner's shop
+slide (`departments.js`'s `data-dept-tool-tab` click-intercept) — routes
+with `history.pushState` + Bootstrap `Tab.show()`. Nothing on any of those
+paths calls `location.reload()`, so the cart (`localStorage`) and the
+signed-in session (`supabase-js`'s own persisted session + `auth.js`'s
+`currentUser`) both survive automatically, same as any SPA tab switch.
+`checkout.js` already has extensive, DELIBERATE handling for the related
+"the page re-renders under me" cases — `applyBuyerPrefill`'s two rules
+(overwrite on account switch, fill-only-if-empty within one account), the
+`placing` lock against double-submit when `SIGNED_IN` re-fires on tab
+visibility, and `findMyOrderBySlip`-based retry so a lost response doesn't
+double-charge. None of that needed a change.
+
+**Found one real bug, in `shop/state.js`, unrelated to navigation
+mechanics**: the cart is loaded into memory ONCE per browser tab and every
+mutation persists the WHOLE array, overwriting — not merging — whatever is
+in `localStorage` right now. Two tabs open on the shop (a product link
+opened in a new tab, a long-press "open in new tab", a duplicated tab) each
+hold their own stale copy; whichever tab writes NEXT silently drops whatever
+the OTHER tab had added, with no error and no toast. This is exactly the
+"another tab" half of the owner's own phrasing. **Fix**: a `window`
+`storage`-event listener (fires in every OTHER tab, never the one that
+wrote) reloads the in-memory cart before the next mutation can clobber it;
+also handles `key === null` (a future `localStorage.clear()`) since treating
+that as "ignore" would let a stale tab's next write silently undo a real
+clear — nothing calls `clear()` today, but the guard is free. Verified
+red-then-green (`src/js/shop/state.test.js`, two module instances sharing
+one fake `localStorage`): reverting the fix reproduces the exact loss.
+Write-up: `docs/mistakes/app-state.md` (new entry, "SAMO Shop: a product
+added to the cart in one browser tab could vanish…").
+
+**OWED, not run**: a live-browser walk of the rest of the flow — the typed
+buyer fields and a picked-but-not-yet-uploaded slip file surviving a
+navigate-away-and-back mid-checkout — written at
+`tools/browser/shop-checkout-navigate-away.mjs` (same CDP-over-WebSocket
+pattern as `shop-admin-tour.mjs`) but **NEVER RUN**: this sandbox has no
+Chrome/Chromium binary and no network to install one (`which
+google-chrome`/`chromium`: nothing; `npx playwright install webkit`: `EROFS`
+on the npm cache — no network). The code trace above is strong (cart/session
+state is architecturally reload-proof here), but it is a trace, not a
+browser run; the script is the next thing to run on a machine that has
+Chrome.
+
+**`/scrutinize` pass on this task's own diff (`git log --oneline
+e9af2fa..HEAD`) found two real gaps, both fixed before this write-up**:
+(1) `shop_order_totals()`'s current-year scoping had no fallback for
+`current_samo_year()` itself being NULL — fixed (§ A above) and proof
+extended (§F); (2) the `storage` listener did not treat `key === null`
+(`localStorage.clear()`) as a reason to reload — fixed and tested. Both
+caught by tracing inputs the happy-path proof/test did not try, exactly the
+discipline `.claude/rules/mistakes.md` class 7 asks for.
+
+**Commands the owner runs next:**
+1. Review this branch (`agent/2026-10-18`) and merge like any other task.
+2. Apply 0219 to production first if not already (task 2's row), then
+   `node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql`,
+   then `node tools/db-query.mjs tools/shop0230-samo-year.sql` to prove it
+   there too.
+3. Deploy the frontend bundle (ships the year picker on both shop admin tabs
+   + the cross-tab cart fix).
+4. Optionally, on a machine with Chrome: `node
+   tools/browser/shop-checkout-navigate-away.mjs` against `npm run dev` to
+   get the live-browser confirmation this sandbox could not produce.
+5. Decide whether the "correct this order's year" admin control (§A, OWED)
+   is worth building now or later — nothing depends on it.
+
+**`npm run handoff:check` verdict — same known crash as Tasks 1 and 8**:
+`ENOENT` reading
+`~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md` (confirmed
+unchanged, not re-diagnosed; this session's real memory store is
+`~/samo-night/memory/`). Ran with `--local` too; same crash, plus
+`origin/agent/2026-10-18` reported unknown (expected — this agent cannot
+push). **Substituted direct checks**: `npm test` (172 files / 2974 tests
+green, both before and after every change in this task), `npm run build`
+(clean, both entries), `git status` (clean after each commit), and
+`tools/shop0230-samo-year.sql` run live against samo-dev (31/31,
+`→ project: xibugtlsphcfuvstnxxh (samo-dev)`).
