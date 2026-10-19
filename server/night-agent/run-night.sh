@@ -111,7 +111,7 @@ run_claude() {
   local prompt="$1" out="$2" deadline="${3:-$RESERVE_EPOCH}" allow="${4:--}" rc
   claude_capped "$prompt" "$out" "$deadline" "$allow"; rc=$?
   # A task the watcher stopped is not an auth failure: never re-run it.
-  [ -e "$out.yield" ] && return $rc
+  [ -e "$out.yield" ] || [ -e "$out.reserve" ] && return $rc
   # Only the CLI's own short error line counts (classifyOutput) — a task whose
   # REPORT mentions "401" is finished, and re-running it would redo the work.
   if [ "$(node "$QUEUE" classify "$out")" = "auth" ]; then
@@ -142,7 +142,7 @@ run_claude() {
 claude_capped() {
   local left=$(( $3 - $(date -u +%s) )) tmo="${TASK_TIMEOUT_SEC:-5400}" allow="$4" pid wpid="" rc
   [ "$left" -lt "$tmo" ] && tmo="$left"
-  rm -f "$2.yield"
+  rm -f "$2.yield" "$2.reserve"
   if [ "$tmo" -lt 60 ]; then
     echo "(no time left before this run's deadline — not calling claude)" > "$2"
     return 124
@@ -162,6 +162,13 @@ claude_capped() {
           [ -n "$allow" ] || allow="-"
           echo "(new 5-hour window — allowance now $allow)"
           [ "$allow" = "-" ] && break
+        elif [ "$wrc" -eq 7 ]; then
+          # The line was the owner's week reserve, not a booking (nobody is
+          # booked ahead): stopped like a quota cut, and SAID as one.
+          printf '%s\n' "$why" > "$2.reserve"
+          echo "!! stopping at the owner's reserve: $why"
+          kill -TERM "$pid" 2>/dev/null
+          break
         elif [ "$wrc" -ne 0 ]; then
           printf '%s\n' "$why" > "$2.yield"
           echo "!! giving the window back: $why"
@@ -501,6 +508,7 @@ ${prompt}"
   # `interrupted` and RESUMED, not counted as a failed attempt.
   CUT_BY=""
   [ -e "$out.yield" ] && CUT_BY="board"
+  [ -z "$CUT_BY" ] && [ -e "$out.reserve" ] && CUT_BY="reserve"
   [ -z "$CUT_BY" ] && [ "$(node "$QUEUE" classify "$out")" = "quota" ] && CUT_BY="quota"
   [ -z "$CUT_BY" ] && [ "$rc" -eq 124 ] && [ "$(date -u +%s)" -ge $(( RESERVE_EPOCH - 60 )) ] && CUT_BY="time"
   # ⛔ GAVE THE WINDOW BACK to somebody's booking: WIP kept, task `interrupted`,
@@ -514,6 +522,20 @@ ${prompt}"
     node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)" board
     fail_n=$((fail_n+1)); SUMMARY+="YIELD $title — $Y_WHY (work kept as WIP, the next run RESUMES it)"$'\n'
     UNRUN=$(( TOTAL - i - 1 )); BOOKING_YIELD=1; break
+  fi
+  # ⛔ STOPPED AT THE OWNER'S WEEK RESERVE, nobody booked: the same bookkeeping
+  # as the between-task reserve refusal — WIP kept, task resumed, the handoff
+  # still runs and the night still counts. Calling this a booking yield (until
+  # 2026-10-19) told the owner somebody had booked when the board was empty.
+  if [ "$CUT_BY" = "reserve" ]; then
+    R_WHY="$(head -1 "$out.reserve")"
+    stop_reason="not continuing: $R_WHY"
+    if [ -n "$(git status --porcelain)" ]; then
+      git add -A && git commit --quiet -m "agent: WIP $title (stopped at the owner's week reserve)" -m "Unattended run $STAMP. $R_WHY"
+    fi
+    node "$QUEUE" cut "$TASKS" "$i" "$(git rev-parse --short HEAD)" reserve
+    fail_n=$((fail_n+1)); SUMMARY+="STOP $title — $R_WHY (work kept as WIP, the next run RESUMES it)"$'\n'
+    UNRUN=$(( TOTAL - i - 1 )); QUOTA_GONE=1; break
   fi
   if [ "$CUT_BY" = "time" ]; then
     stop_reason="this run reached its ${RUN_RESERVE_MIN:-245}-min limit mid-task — the next run RESUMES it"
@@ -603,6 +625,10 @@ run_one() {
   if [ -e "$out.yield" ]; then
     echo "!! $label gave the window back: $(head -1 "$out.yield")"
     BOOKING_YIELD=1
+  fi
+  if [ -e "$out.reserve" ]; then
+    echo "!! $label stopped at the owner's reserve: $(head -1 "$out.reserve")"
+    QUOTA_GONE=1
   fi
   tail -c 1200 "$out"
   # ⛔ THE QUOTA CHECK BELONGS HERE TOO. It used to live only in the main queue,

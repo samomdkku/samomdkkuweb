@@ -3702,3 +3702,31 @@ shares, not just its timer. When the shared resource already has an arbiter
 that people obey, make the job obey THAT arbiter rather than a copy of its
 rule. And never grep a free-text REPORT for error words: recognise the error
 line by its shape, and test it against a report that uses those same words.
+
+## The night agent said it stopped "for somebody's Claude booking" — the booking board showed nobody booked
+
+**Symptom** (2026-10-19, owner): the Discord report read "หยุดให้คนที่จอง Claude"
+and "ใช้ครบส่วนที่ไม่มีใครจองแล้ว (52%) — ที่เหลือเป็นของคนที่จองไว้", but the
+Claude booking tab was empty. "is it a bug, why it detect someone book".
+**Cause**: the line was not a booking. Every booking on the board had ended at
+17:00 ICT. Task 10 started at 18:02 with the week at ~77%. The owner's reserve
+is one session plus 6% (142 of 700), which left about 10% for the agent in that
+window, so `allowanceAtStart` set `stop: 34`. That part was correct. But
+`watchGate` had ONE message for every stop, written when the only line it drew
+was a booking's share. The week reserve went through the same `bandAt()`
+min() later, and the stop kept the booking wording. The runner then acted on
+that wording: `.yield`, `CUT_BY=board`, handoff skipped "for the booker", night
+not counted against `Budget`, task note "เพื่อให้คนที่จอง Claude ไว้ใช้".
+**Fix**: the allowance now records whose share its line protects. It says
+`for: 'booking'` only when a booking is still ahead, and `'reserve'` otherwise.
+A reserve stop exits `watch` with 7, not 3. The runner writes `.reserve` and
+handles it like the between-task reserve refusal: WIP is kept, the task is cut
+`reserve`, the handoff runs and the night counts. An old CLI test asserted exit
+3 for a board with NO bookings. It had encoded the mislabel, and it now expects
+7. Mutation: always `'booking'` turns two tests red.
+**Where it lives now**: `server/night-agent/queue.mjs` (`bookingAhead`,
+`allowanceAtStart`, `watchGate`), `run-night.sh` (`CUT_BY=reserve`),
+`src/js/night-queue.test.js` ("2026-10-19").
+**Rule**: when a min() gains a second operand, every message, exit code and
+side-effect keyed on the result still names the FIRST one. Carry WHICH operand
+won out of the min(), and give each reason its own branch.

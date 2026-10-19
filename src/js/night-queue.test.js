@@ -456,6 +456,27 @@ describe('the board — the agent takes what an unbooked person would be offered
     expect(g.run).toBe(false);
     expect(g.why).toContain('สัปดาห์');
   });
+  it('2026-10-19: a stop with NO booking ahead is the owner\'s reserve, never "for a booking"', () => {
+    // the real run: every booking had ended, the week had 152 of 700 left, the
+    // reserve keeps 142 → 10 more in this window. It said "the rest belongs to
+    // whoever booked" with the board empty, skipped its handoff, did not count.
+    const now = at('2026-10-19T11:02:00Z');
+    const ended = { starts_at: '2026-10-19T05:45:00+00:00', ends_at: '2026-10-19T10:00:00+00:00', pct: 100 };
+    const b = board(now - 60e3, [tonight, ended], [[now - H, now + 4 * H, 71, 152]]);
+    const a = allowanceAtStart(usage(now - 60e3, 29, now + 4 * H, 77), b, now, 1);
+    expect(a).toMatchObject({ stop: 34, for: 'reserve' });
+    const w = watchGate(usage(now + H - 60e3, 52, now + 4 * H, 79), b, now + H, a, 1);
+    expect(w).toMatchObject({ run: false, reserve: true });
+    expect(w.why).not.toContain('คนที่จองไว้');
+    // the same line with a booking still ahead IS for the booking
+    const ahead = { starts_at: iso(now + 2 * H), ends_at: iso(now + 3 * H), pct: 50 };
+    const a2 = allowanceAtStart(usage(now - 60e3, 29, now + 4 * H, 77),
+      board(now - 60e3, [ahead], [[now - H, now + 4 * H, 21]]), now, 1);
+    expect(a2.for).toBe('booking');
+    const w2 = watchGate(usage(now + H - 60e3, 52, now + 4 * H), b, now + H, a2, 1);
+    expect(w2.reserve).toBeUndefined();
+    expect(w2.why).toContain('จอง');
+  });
   it('NO board, a stale one or a malformed one is UNREADABLE at start — and never kills a running task', () => {
     const now = at('2026-10-20T01:00:00Z');
     expect(boardGate(null, now, 1)).toMatchObject({ run: false, unreadable: true });
@@ -489,6 +510,16 @@ describe('run-night.sh asks the board wherever new work starts, and fixes a task
     expect(y).toMatch(/node "\$QUEUE" cut /);
     expect(sh).toMatch(/if \[ "\$BOOKING_YIELD" -eq 1 \]; then\n\s+echo "\(handoff skipped/);
     expect(sh).toMatch(/run_one "\$NIGHT_HOME\/HANDOFF\.md" "handoff" "\$HARD_END" "-"/);
+  });
+  it('a stop at the owner\'s reserve (watch exit 7) is a quota-style cut: handoff runs, never a booking yield', () => {
+    expect(sh).toMatch(/elif \[ "\$wrc" -eq 7 \]; then\n[^\n]*\n[^\n]*\n\s+printf '%s\\n' "\$why" > "\$2\.reserve"/);
+    const from = sh.indexOf('if [ "$CUT_BY" = "reserve" ]; then');
+    expect(from).toBeGreaterThan(0);
+    const r = sh.slice(from, sh.indexOf('break', from));
+    expect(r).toContain('agent: WIP');
+    expect(r).toMatch(/node "\$QUEUE" cut [^\n]* reserve/);
+    expect(r).toContain('QUOTA_GONE=1');
+    expect(r).not.toContain('BOOKING_YIELD');
   });
   it('an unreadable board (exit 4) waits AND is said once', () => {
     const from = sh.indexOf('elif [ "$GATE_RC" -eq 4 ]');
@@ -540,7 +571,16 @@ describe('queue.mjs CLI — the exit codes run-night.sh reads', async () => {
     const hot = join(dir, 'hot.json');
     writeFileSync(hot, JSON.stringify({ sampled_at: iso(-1), five_hour_pct: 36, five_hour_resets_at: iso(120),
       seven_day_pct: 10, seven_day_resets_at: iso(3000) }));
-    expect(run(['watch', tasks, hot, b, a]).rc).toBe(3);
+    // nobody booked: the line is the owner's reserve (3 before 2026-10-19, a mislabel)
+    expect(run(['watch', tasks, hot, b, a]).rc).toBe(7);
+  });
+  it('watch: 7 when the line it reached was the owner\'s reserve, not a booking', () => {
+    const hot = join(dir, 'hot7.json');
+    writeFileSync(hot, JSON.stringify({ sampled_at: iso(-1), five_hour_pct: 36, five_hour_resets_at: iso(120),
+      seven_day_pct: 10, seven_day_resets_at: iso(3000) }));
+    const b = boardF([], 30);
+    expect(run(['watch', tasks, hot, b, JSON.stringify({ stop: 35, windowEnd: now + 3600e3, for: 'reserve' })]).rc).toBe(7);
+    expect(run(['watch', tasks, hot, b, JSON.stringify({ stop: 35, windowEnd: now + 3600e3, for: 'booking' })]).rc).toBe(3);
   });
 });
 
