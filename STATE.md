@@ -197,14 +197,14 @@ true. Detail: `HANDOFF.md` §9.
 that asymmetry went red in both directions. `npm run test:clean` runs it over
 exactly what git will carry. Both live in `HANDOFF.md` §9.
 
-## 🌙 NIGHT AGENT — quality queue 13–21 ARMED 2026-10-20 (owner: "all 7 sessions")
+## 🌙 NIGHT AGENT — quality queue 13–23 ARMED 2026-10-20 (owner: "all 7 sessions")
 
 Tasks 8–12 DONE (2026-10-19) on `agent/2026-10-18` — 0229–0233 on samo-dev only,
 UNREVIEWED, HANDOFF §22. New queue on `agent/2026-10-20`, STACKED on that tip:
 13 review leftovers · 14 dev fidelity + red proofs · 15 security guards · 16 lint ·
-17 a11y/390px · 18 speed · 19 split big modules · 20 scrutinize · 21 handoff §24.
+17 a11y/390px · 18 speed · 19 split · 20 tests · 21 Passport phone · 22 review · 23 §24.
 Header: `Reserve sessions: 0`, `Revise passes: 6`, `Budget: 30 runs`, `Until`
-2026-10-27 08:00 UTC; bookings still win. Migrations 0234–0239 reserved.
+2026-10-27 08:00 UTC; bookings still win. Migrations 0234–0241 reserved.
 samo-dev only; it cannot push or deploy. ⛔ Merge 10-18 first, then 10-20.
 What is owed and NOT verified: HANDOFF §17 · design: `server/night-agent/NIGHT-TASKS.md`.
 

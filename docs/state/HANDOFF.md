@@ -1473,7 +1473,7 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ---
 
-## 17. The night agent — RE-ARMED 2026-10-20 for tasks 13–21, the quality queue (history below is older)
+## 17. The night agent — RE-ARMED 2026-10-20 for tasks 13–23, the quality queue (history below is older)
 
 **2026-10-20 — NEW QUEUE ARMED. Status: VERIFIED 2026-10-20 — how: `install.sh --arm`
 replaced the live queue (old one kept as `.prev`), the live gate printed `เหลือ 9 งาน ·
@@ -1488,10 +1488,14 @@ replaced the live queue (old one kept as `.prev`), the live gate printed `เห
   the open privacy item + Apps Script upload limits · 16 ESLint (correctness
   rules only) · 17 axe + 390px student-flow sweep · 18 phone load speed +
   `check:bundle` · 19 split `src/js/shop/admin.js` and `src/js/team/index.js` (moves only) ·
-  20 scrutinize · 21 HANDOFF §24.
+  20 tests for untested business rules · 21 Passport on a phone (a11y, flaky
+  network, speed) · 22 scrutinize · 23 HANDOFF §24. Tasks 20–21 were spliced into
+  the LIVE queue mid-run (owner: fill all 7 sessions); the running loop keeps its
+  start-time count, so the run that was live then stops after 21 and the next run
+  does 22–23.
 - `agent/2026-10-20` was created on the VM from `agent/2026-10-18`'s tip
   so it STACKS: review and merge 10-18 first, then 10-20. Its own
-  work is `agent/2026-10-18..HEAD`. Migrations 0234–0239 are reserved.
+  work is `agent/2026-10-18..HEAD`. Migrations 0234–0241 are reserved.
 - OWED (owner): nothing until it finishes. If you want a session for yourself
   this week, book it on the board.
 

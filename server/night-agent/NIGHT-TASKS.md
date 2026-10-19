@@ -1,4 +1,4 @@
-# NIGHT-TASKS — 2026-10-20: the quality queue, tasks 13–21 (one full week)
+# NIGHT-TASKS — 2026-10-20: the quality queue, tasks 13–23 (one full week)
 Budget: 30 runs
 Until: 2026-10-27T08:00:00Z
 Reserve sessions: 0
@@ -10,7 +10,9 @@ the owner has a fresh week of Claude to give — "improve samoweb from ui ux to
 workflow, code, architecture, security, bugs … for most benefit". This queue is
 the answer, IN PRIORITY ORDER: finish what earlier reviews found and left open,
 make the proofs trustworthy, then security, static analysis, the student's phone
-experience, speed, maintainability, and a final review. If the week runs out,
+experience, speed, maintainability, tests for untested logic, the Passport app
+on a phone, and a final review (20 and 21 added the same morning — owner: fill
+all 7 sessions with real work). If the week runs out,
 the tasks that did not run are the least valuable ones — keep the order.
 
 ⛔ **WHAT IS DIFFERENT FROM THE 2026-10-18 QUEUE. Read this first.**
@@ -26,7 +28,7 @@ the tasks that did not run are the least valuable ones — keep the order.
   branches in order).
 - **Migration numbers RESERVED, new block** (0229–0233 belong to the 2026-10-18
   branch): task 14 → 0234, task 15 → 0235–0237, task 17 → 0238, task 20 →
-  0239. A task that needs no migration leaves its number unused (a gap is fine;
+  0239, task 21 → 0240, task 22 → 0241. A task that needs no migration leaves its number unused (a gap is fine;
   `migration-numbers.test.js` must stay green — read it).
 - **These tasks are QUALITY work, not features.** Do not add a system, a page,
   a permission or a setting nobody asked for. A finding you cannot fix in your
@@ -325,35 +327,95 @@ state in one place), behaviour UNCHANGED:
 
 If one split cannot be verified this way, do the other one only and say why.
 
-## 20. SCRUTINIZE + BUG SCAN — this whole branch
+## 20. Tests for the logic nothing tests yet
+Done when: grep -q "^## Task 20 " docs/state/night-agent.md && npm test --silent && npm run --silent build
+
+Measure first: run vitest with coverage (`@vitest/coverage-v8`, pinned
+devDependency matching the installed vitest; add an `npm run coverage` script,
+NOT a coverage threshold in `npm test`). List the modules holding BUSINESS
+RULES — money, stock, status transitions, who may see or do what, dates and
+SAMO years, import/export round-trips — whose rules have no test. Likely
+candidates (check, do not assume): `src/js/shop/checkout.js`,
+`src/js/shop/api.js`, `src/js/pr-staff.js`, `src/js/vs-staff.js`,
+`src/js/house/io.js`, `src/js/announcements.js`, `src/js/projects/inbox.js`,
+`passport/js/scanning.js`.
+
+For each rule you pick, highest stakes first: extract the PURE decision out of
+the DOM/network code only where that is a small, behaviour-preserving move
+(the shop's `order-facts.js` / `sales.js` are the house pattern), then write
+tests that state the rule as a person would ("a cancelled order frees its
+stock"), including the edge cases (empty, null, the year boundary, two tabs).
+⛔ A test asserts the RULE, not today's output copied back (class 7: never write
+a guard from the SAME LIST the code came from). Mutate the code for each rule
+and watch its test go red — check the mutation landed.
+
+A test that exposes a REAL bug: fix it in its own commit, write it up in
+`docs/mistakes/`, add a `PENDING` changelog entry if a person would notice. SQL
+fixes → 0239. Record in your block: coverage before/after for the modules you
+touched, the rules now pinned, and the rules you found but could not test (and
+why).
+
+## 21. SAMO Passport on a phone — accessibility, friction and speed
+Done when: grep -q "^## Task 21 " docs/state/night-agent.md && npm test --silent && npm run --silent build
+
+Tasks 17 and 18 covered the main site. Passport (`passport/`, its own vite app:
+`npm run dev:passport`, `npm run build:passport`) is what students open on a
+phone to scan a QR at an event — often on bad signal, in a hurry. Read
+`docs/mistakes/passport.md` and memories passport-repo-and-deploy,
+passport-kkumail-only-gate, two-supabase-projects and
+passport-security-hardening-inflight FIRST. ⛔ `passport/` is NOT an env
+directory (vite's `envDir` follows `root`) — never add a `.env*` under it.
+
+1. Extend `tools/browser/a11y-sweep.mjs` (task 17) or add a sibling to cover
+   Passport's routes at 390px, signed out and signed in (a throwaway
+   kkumail-shaped account on samo-dev, deleted after; the kkumail-only gate is
+   ON PURPOSE — never loosen it). axe violations by rule, overflow, console
+   errors, focus, tap targets.
+2. Walk the student's flow as that student: open a scan link → sign in → the
+   stamp lands → my stamps / km / certificate; then again with the network
+   dropping mid-scan (CDP offline, slow 3G): no duplicate scan, no silent loss,
+   an honest message, a way to retry. Fix DEFECTS with tests; design opinions
+   go under "proposals for the owner".
+3. Speed: task 18's method (390px, throttled, cold, median of three, against a
+   `vite preview` of the passport build) for the scan landing page and the
+   dashboard; fix the biggest avoidable costs; extend `npm run check:bundle`
+   to the passport entry with its own budget.
+4. Admin side (`passport/js/admin-page.js`, `passport/js/dashboard.js`): bug
+   scan only — no split, no redesign.
+
+Any SQL → 0240, with a both-directions proof; the passport schema had its RLS
+silently dropped once (0182), so after anything you change re-assert the
+property: every passport table has row security. Record before/after numbers.
+
+## 22. SCRUTINIZE + BUG SCAN — this whole branch
 Done when: test -s docs/state/agent-notes/2026-10-20-review.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-20-review.md && npm test --silent && npm run --silent build
 
-Run `scrutinize` over `git diff agent/2026-10-18..HEAD` (tasks 13–19), one
+Run `scrutinize` over `git diff agent/2026-10-18..HEAD` (tasks 13–21), one
 task at a time, as a hostile reviewer who must sign off production: does each
 change do what its block claims? Was anything asserted that was never run? Is
 any guard green against the bug it exists for (reintroduce, watch it go red,
 restore — check the mutation landed)? Did a "behaviour unchanged" split change
 behaviour? Did a lint fix change semantics? Then a bug scan of whatever the
 earlier tasks recorded as "spotted, not fixed". Fix every real finding (write
-each up in `docs/mistakes/`; 0239 for SQL). Report in
+each up in `docs/mistakes/`; 0241 for SQL). Report in
 `docs/state/agent-notes/2026-10-20-review.md` with a `## Verdict` section:
 findings, fixed / not fixed, and why not. Security findings → the private
 report, never the repo.
 
-## 21. HANDOFF — what the owner reviews, applies, deploys and decides
-Done when: grep -q "^## Task 21 " docs/state/night-agent.md && grep -q "Night agent 2026-10-20" docs/state/HANDOFF.md && npm test --silent && npm run --silent build
+## 23. HANDOFF — what the owner reviews, applies, deploys and decides
+Done when: grep -q "^## Task 23 " docs/state/night-agent.md && grep -q "Night agent 2026-10-20" docs/state/HANDOFF.md && npm test --silent && npm run --silent build
 
 Add `docs/state/HANDOFF.md` §24, headed `## 24. Night agent 2026-10-20 — the
 quality queue`, with a `Status:` line, as the owner's exact checklist:
 
 1. **Merge order**: `agent/2026-10-18` first (§22), then this branch.
-2. Per migration in order (0234 → 0239, skipping unused numbers): apply to
+2. Per migration in order (0234 → 0241, skipping unused numbers): apply to
    samo-dev, run its proof, apply to production, run again.
 3. Every step only the owner can do: Apps Script redeploy (task 15), nginx
    change (task 13), anything on the VM — the exact commands.
 4. Deploy, then what to click to verify each change in the browser (at 390px
    too), and which `tools/browser/*.mjs` to run.
-5. Every DECISION tasks 13–20 made that the owner may want to overturn, one
+5. Every DECISION tasks 13–22 made that the owner may want to overturn, one
    line each with its consequence; every "proposal for the owner" collected in
    one list.
 
