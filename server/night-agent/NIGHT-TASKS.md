@@ -1,7 +1,8 @@
 # NIGHT-TASKS — 2026-10-18: the SAMO-year queue, tasks 8–12 (re-queued)
-Budget: 5 runs
+Budget: 20 runs
 Until: 2026-10-21T08:30:00Z
-Reserve sessions: 1
+Reserve sessions: 0
+Revise passes: 6
 Branch: agent/2026-10-18
 
 THE OWNER'S ASK (2026-10-13, unchanged): make "every single system … persist

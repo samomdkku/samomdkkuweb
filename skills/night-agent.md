@@ -131,9 +131,19 @@ New queue header fields (`server/night-agent/queue.mjs`, tests in
 ```markdown
 Budget: 6 runs              ← runs, not nights now; decremented per run
 Until: 2026-10-14T08:00:00Z ← hard end: past it the queue STOPS for good
-Reserve sessions: 1         ← 5-hour sessions of the WEEK kept for humans (absent → 1)
+Reserve sessions: 1         ← 5-hour sessions of the WEEK kept for humans (absent → 1).
+                              0 = run to 100%: no reserve, no 6% margin, no stop line
+                              unless a booking is ahead (the CLI's limit ends the task)
+Revise passes: 6            ← optional. After the tasks finish, keep doing REVISE.md
+                              passes (bug scan of the branch), N per run, run after run
+                              until Budget / Until / quota. Absent → a finished queue STOPS
 Branch: agent/2026-10-13    ← one branch for every run of this queue
 ```
+
+A mid-task stop says WHOSE share it protects: `watch` exits **3** for a
+booking still ahead (a yield — no handoff, the run is not counted) and **7**
+for the owner's reserve (cut like a quota stop — handoff runs, run counted).
+Until 2026-10-19 every stop was called a booking yield.
 
 Gate exit codes (the contract with `run-night.sh`): `0` run · `10` over →
 STOPPED · `3` not now (quota or the booking board), silent · `4` not now, the board copy is unreadable (said once on Discord).

@@ -660,13 +660,18 @@ run_one() {
 # ⛔ OFF BY DEFAULT SINCE 2026-10-13 (owner: "i dont want my token to go to
 # waste"). Six open-ended "improve it" passes are exactly that when the queue is
 # done; with runs now starting every window, a finished queue should STOP.
-# NIGHT_REVISE=1 turns them back on for a run that wants them.
+# NIGHT_REVISE=1 turns them back on for a run that wants them, and so does a
+# queue header `Revise passes: N` (N per run) — scoped to that queue, so it ends
+# with it; the queue then also stays alive on these passes after its tasks.
+REVISE_N="$(node "$QUEUE" list "$TASKS" 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{process.stdout.write(String(JSON.parse(d).revisePasses||0))}catch{process.stdout.write("0")}})')"
+case "$REVISE_N" in ''|*[!0-9]*) REVISE_N=0 ;; esac
+REVISE_MAX=6; [ "$REVISE_N" -gt 0 ] && REVISE_MAX="$REVISE_N"
 pass=0
-while [ "${NIGHT_REVISE:-0}" = "1" ] && [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
+while { [ "${NIGHT_REVISE:-0}" = "1" ] || [ "$REVISE_N" -gt 0 ]; } && [ "$(date -u +%s)" -lt "$RESERVE_EPOCH" ] && [ "$UNRUN" -eq 0 ] \
       && [ "$QUOTA_GONE" -eq 0 ] && [ "$BOOKING_YIELD" -eq 0 ] && [ -r "$NIGHT_HOME/REVISE.md" ] \
       && node "$QUEUE" usage "$TASKS" "$USAGE" "$BOOKINGS" >/dev/null 2>&1; do
   pass=$((pass+1))
-  [ "$pass" -gt 6 ] && { echo "(stopping after 6 revision passes — diminishing returns)"; break; }
+  [ "$pass" -gt "$REVISE_MAX" ] && { echo "(stopping after $REVISE_MAX revision passes — diminishing returns)"; break; }
   run_one "$NIGHT_HOME/REVISE.md" "revise-$pass"
   SUMMARY+="REV  revision pass $pass"$'\n'
 done

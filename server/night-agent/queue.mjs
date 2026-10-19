@@ -90,6 +90,7 @@ export function parseQueue(text) {
   const usedM = header.match(/^Nights used:\s*(\d+)/mi);
   const untilM = header.match(/^Until:\s*(\S+)/mi);
   const reserveM = header.match(/^Reserve sessions:\s*(\d+)/mi);
+  const reviseM = header.match(/^Revise passes:\s*(\d+)/mi);
   const branchM = header.match(/^Branch:\s*(agent\/[\w.-]+)\s*$/mi);
 
   const field = (block, name) => {
@@ -127,6 +128,12 @@ export function parseQueue(text) {
     // 5-hour sessions of the WEEKLY pool kept back for the humans. Absent → 1:
     // an omitted field fails toward leaving the owner something.
     reserveSessions: reserveM ? Number(reserveM[1]) : 1,
+    // Revision passes (REVISE.md: bug scan + guard check of the branch) per run
+    // once the tasks are finished. 0/absent = off, and a finished queue STOPS.
+    // >0 keeps the queue alive on revision passes until Budget or `Until:` —
+    // the owner's call when the quota left would otherwise go unused
+    // (2026-10-19: "keep running until 100% reached").
+    revisePasses: reviseM ? Number(reviseM[1]) : 0,
     // One branch for the whole queue, so run 2 builds on run 1. Absent → the
     // runner names one by date, as before.
     branch: branchM ? branchM[1] : null,
@@ -149,7 +156,7 @@ export function gate(q, nowMs = Date.now()) {
     return { run: false, why: `เลยเวลาสิ้นสุดของคิวนี้แล้ว (${new Date(q.until).toISOString()}) — หยุดถาวร ยังเหลือ ${pending(q).length} งาน` };
   }
   const left = pending(q);
-  if (!left.length) {
+  if (!left.length && !(q.revisePasses > 0)) {
     const done = q.tasks.filter((t) => t.status === 'done').length;
     return {
       run: false,
@@ -161,6 +168,9 @@ export function gate(q, nowMs = Date.now()) {
       run: false,
       why: `ใช้ครบ ${q.budget} คืนแล้ว แต่ยังเหลือ ${left.length} งาน — ต่ออายุด้วยการแก้ Budget ถ้าต้องการ`,
     };
+  }
+  if (!left.length) {
+    return { run: true, why: `งานในคิวครบแล้ว — รอบทบทวนหาบั๊ก (สูงสุด ${q.revisePasses} รอบ) · คืนที่ ${q.used + 1} จาก ${q.budget}` };
   }
   return { run: true, why: `เหลือ ${left.length} งาน · คืนที่ ${q.used + 1} จาก ${q.budget}` };
 }
@@ -174,6 +184,10 @@ export const SESSION_SHARE_OF_WEEK = 100 / 7;
 // hour, so stop starting work this far BEFORE the reserve, or the reserve is
 // what gets spent.
 export const WEEK_SAFETY_PCT = 6;
+// The margin protects the owner's reserve from a late reading. With no reserve
+// (`Reserve sessions: 0`) there is nothing to protect: the CLI's own limit ends
+// the last task at 100%, and the cut is resumed like any quota cut.
+export const weekSafety = (reserveSessions) => (reserveSessions > 0 ? WEEK_SAFETY_PCT : 0);
 export const FIVE_HOUR_CEIL_PCT = 90;
 export const SNAPSHOT_MAX_AGE_MIN = 45;
 
@@ -193,7 +207,7 @@ export function usageGate(snap, nowMs, reserveSessions = 1) {
   if (nowMs - sampled > SNAPSHOT_MAX_AGE_MIN * 60000) {
     return { run: false, why: `ข้อมูลการใช้งานเก่าเกิน ${SNAPSHOT_MAX_AGE_MIN} นาที — รอรอบหน้า` };
   }
-  const weekCap = 100 - reserveSessions * SESSION_SHARE_OF_WEEK - WEEK_SAFETY_PCT;
+  const weekCap = 100 - reserveSessions * SESSION_SHARE_OF_WEEK - weekSafety(reserveSessions);
   const weekLive = Date.parse(snap.seven_day_resets_at) > nowMs;
   if (weekLive && Number(snap.seven_day_pct) >= weekCap) {
     return { run: false, why: `ใช้โควตาสัปดาห์ไป ${snap.seven_day_pct}% แล้ว — เก็บที่เหลือไว้ให้เจ้าของ ${reserveSessions} รอบ (หยุดที่ ${weekCap.toFixed(0)}%)` };
@@ -309,7 +323,7 @@ function bandAt(bk, nowMs, reserveSessions) {
   if (wk == null) return { free, by: 'session', until: Date.parse(band.ends_at) };
   const sessPool = num(bk.right_now?.session?.pool_pct) || 100;
   const weekPool = num(bk.right_now?.week?.pool_pct) || 700;
-  const keep = reserveSessions * sessPool + (WEEK_SAFETY_PCT * weekPool) / 100;
+  const keep = reserveSessions * sessPool + (weekSafety(reserveSessions) * weekPool) / 100;
   const weekRoom = Math.max(0, wk - keep);
   return weekRoom < free
     ? { free: weekRoom, by: 'week', until: Date.parse(band.ends_at) }
@@ -345,7 +359,9 @@ export function boardGate(bk, nowMs, reserveSessions = 1) {
     return {
       run: false,
       why: band.by === 'week'
-        ? `สัปดาห์นี้เหลือให้ใช้โดยไม่ต้องจองไม่พอ (เก็บไว้ให้เจ้าของ ${reserveSessions} รอบ และให้คนที่จองไว้)`
+        ? (reserveSessions > 0
+          ? `สัปดาห์นี้เหลือให้ใช้โดยไม่ต้องจองไม่พอ (เก็บไว้ให้เจ้าของ ${reserveSessions} รอบ และให้คนที่จองไว้)`
+          : 'โควตาสัปดาห์นี้ใกล้หมดแล้ว (ส่วนที่เหลือมีคนจองไว้ หรือใช้ไปเกือบครบ) — รอรีเซ็ต')
         : `ตอนนี้ใช้ได้โดยไม่ต้องจองแค่ ${Math.round(band.free)}% — รอถึง ${ict(band.until)}`,
     };
   }
@@ -369,7 +385,11 @@ export function allowanceAtStart(usage, bk, nowMs, reserveSessions = 1) {
   const ceiling = win.used + band.free;
   const stop = ceiling < 100 - BOOKING_MARGIN_PCT ? Math.max(0, ceiling - BOOKING_MARGIN_PCT) : null;
   if (stop == null) return { stop, windowEnd: win.end };
-  return { stop, windowEnd: win.end, for: bookingAhead(bk, nowMs) ? 'booking' : 'reserve' };
+  if (bookingAhead(bk, nowMs)) return { stop, windowEnd: win.end, for: 'booking' };
+  // No booking and no reserve: the line would be the week's own end, which the
+  // CLI enforces — drawing it 5% early would only leave quota unspent.
+  if (!(reserveSessions > 0)) return { stop: null, windowEnd: win.end };
+  return { stop, windowEnd: win.end, for: 'reserve' };
 }
 
 /**
@@ -658,6 +678,7 @@ if (cmd && file) {
       budget: q.budget,
       used: q.used,
       branch: q.branch,
+      revisePasses: q.revisePasses,
       tasks: q.tasks.map(({ index, title, check, status, attempts }) =>
         ({ index, title, check, status, attempts })),
     }));
