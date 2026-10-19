@@ -24,7 +24,7 @@ ships.
 | หนังสือโครงการ | `projects`(+documents/files/sign_requests) | 42 projects, 36 with `fiscal_year_be` NULL | ✅ Already has a ปีงบ picker UI (`fiscal-year.js`) — the ONLY system with a working per-year filter today |
 | ทีม SAMO | `team_nodes`, `team_members`, `team_terms`(+archive) | 300 nodes, 450 members, 2 terms | ✅ Already has publish/archive (0104–0106) — a new year is `publish_team_term` + edit the live tree. **The model every other system should copy** |
 | เกี่ยวกับเรา (org chart) | reads `team_terms`/archive via `get_public_team_chart(year)` | — | ✅ Rides ทีม SAMO's archive already; nothing to build, confirm it is wired to the SAME registry this doc creates |
-| ระบบบ้าน | `students`, `people`, `houses`, `sais`, `advisors` | ~1,800 students, 6 รุ่น (MD49–54) | MD49 (ปี 6 now) has no graduation step — stays in the live roster forever, มีปัญหา counts include people who already left |
+| ระบบบ้าน | `students`, `people`, `houses`, `sais`, `advisors` | ~1,800 students, 6 รุ่น (MD49–54) | ✅ fixed (task 8): MD49 (ปี 6 now, จบแล้ว next rollover) drops out of the default roster + มีปัญหา counts automatically — `isGraduated()`, computed live, see `## ระบบบ้าน` below |
 | หน้าฝ่าย | `dept_content`, `src/data/depts.js` | 12 ฝ่าย, few dozen content rows | Content has no year at all — a new ฝ่าย officer inherits last year's text silently, with no "this is stale" signal |
 | Passport | `passport.samo_years`/`samo_seasons`/`scans`/`certificates` | 1 year row, 1 season, 1,161 scans | ✅ Has its OWN year/season model (admin-declared, `ended_at IS NULL` = current) — the oldest rollover mechanism in the codebase, and the one every other system's design borrows the SHAPE from |
 | Announcements | `announcements` | small | No year at all; an old ประกาศ stays `approved` forever with no archive view |
@@ -490,24 +490,61 @@ handles the ชั้นปี arithmetic correctly. This section's only real as
 **graduation**, which the owner's queue preamble explicitly scopes to MD49
 reaching ปี 7 (i.e., `studyYear() > 6`).
 
-Decision: a graduating รุ่น is ARCHIVED, never deleted. Add
-`students.graduated_at timestamptz`, set by a yearly job (or an admin
-button) the first time `studyYearLabel()` would read "จบแล้ว" for every
-member of a รุ่น. A graduated student's row stays in `students` (their
-`person_id` link and ทีม SAMO history must survive — see
-`one-person-registry` memory: a person can hold a ทีม SAMO posting for years
-after graduating), but the ระบบบ้าน admin's DEFAULT roster view excludes
-`graduated_at is not null`, with a "รุ่นที่จบแล้ว" toggle to see them.
-**Rejected alternative:** delete graduated students' house placement —
-rejected hard: `team_members.person_id` and Discord links both depend on the
-person registry row surviving, and `advisors`/สาย history is exactly the
-kind of record ฝ่ายข้อมูล has spent months reconciling (สาย 141/256 — see
-STATE.md); deleting it now would destroy work already paid for.
+Decision: a graduating รุ่น is ARCHIVED, never deleted — but **"archived" is
+computed, not stored.** Built (task 8, 2026-10-18) as `isGraduated(rec, now)`
+in `study-year.js`, the exact same live arithmetic `studyYear`/`studyYearLabel`
+already do (`studyYear(rec, now) > 6`), re-exported through `house/fields.js`.
+A graduated student's row stays in `students` untouched (their `person_id`
+link and ทีม SAMO history survive — see `one-person-registry` memory), but
+`house/index.js`'s roster filter (`filteredStudents`) hides `isGraduated()`
+rows by default, with a "แสดงรุ่นที่จบแล้ว" switch to see them, and
+`house/gaps.js`'s per-person worklists (no สาย / no ชื่อ / no ชื่อเล่น / หาย
+ตัว) exclude them from both the numerator and the scope denominator so a
+graduated รุ่น is never chased for a field it will never need again.
+**Rejected alternative (this doc's own first draft): `students.graduated_at`,
+set by a yearly job.** Rejected on build — a stored flag is exactly the
+"fill once, never correct" shape `.claude/rules/mistakes.md` class 6 warns
+about: it would need its OWN re-derivation whenever `year_offset` changes (a
+ลาพัก correction un-graduating someone, or the reverse) or whenever an admin
+moves ปีการศึกษา back by mistake, and `study-year.js` already has a header
+rule — "THERE IS DELIBERATELY NO SQL TWIN" — that the same argument extends
+to: one derivation, no job to run, no column to keep in step, so the
+rollover needs no code change and no migration next year either. Also
+rejected: delete graduated students' house placement — rejected hard:
+`team_members.person_id` and Discord links both depend on the person
+registry row surviving, and `advisors`/สาย history is exactly the kind of
+record ฝ่ายข้อมูล has spent months reconciling (สาย 141/256 — see STATE.md);
+deleting it now would destroy work already paid for.
 
 Decision: สาย/บ้าน assignment is NEVER re-run at rollover. It is a one-time
 university assignment per รหัสนักศึกษา (already documented as "not derivable,
-nothing may compute or repair one") — graduation changes nothing about it,
-it just stops being the ACTIVE roster's concern.
+nothing may compute or repair one") — graduation changes nothing about it, it
+just stops being the ACTIVE roster's concern. `gaps.js`'s สายรหัส audit
+deliberately keeps graduated students in `occupants` (unlike the per-person
+worklists above) so a สาย short a member still reads as a gap.
+
+Decision: held rows (unclaimed seats) and help requests are NOT time-filtered
+by graduation — an unresolved row from a now-graduated รุ่น stays actionable
+forever, closed only through 0217's `follow_up` remark (ติดต่อไม่ได้ /
+คาดว่าลาออกแล้ว / ลาออก / เลขนี้ไม่มีตัวตน), never by the clock passing.
+**Rejected alternative:** auto-hide a held row once its รุ่น's ชั้นปี exceeds
+6 — rejected because a held row represents a real person ฝ่ายข้อมูล never
+finished placing; "they would have graduated by now" is a reason to close the
+case with a remark (most likely ลาออก or เลขนี้ไม่มีตัวตน), not a reason to
+stop asking. `help-diagnosis.js`'s `coveredCohortLabels`/`houseCoversCohort`
+already answer a DIFFERENT question — whether a freshly-submitted claim's รหัส
+belongs to a รุ่น ระบบบ้าน currently tracks — and already recompute live from
+the same `studyYear`, so a claim for a graduated รุ่น is correctly diagnosed as
+`outside` with no further change.
+
+Decision: MD55 (and every รุ่น after it) needs no code change to "arrive."
+`cohortFromStudentId`'s accepted window is `2540`–`2580` พ.ศ. (`study-year.js`),
+MD55 is cohort_year 2570 — inside it — and nothing in the import path
+(`house/io.js`, `tools/house-kkumail-import.mjs`) or in
+`help-diagnosis.js`'s covered-รุ่น range hardcodes MD49–MD54; both are derived
+from `academicYear()` at call time. Checked by grep across `src/js/house/` and
+`src/js/me-page.js` for a literal `MD49`/`MD5[0-4]`/`49`..`54` driving logic —
+every hit left is a comment or a test fixture, none a branch.
 
 ---
 
@@ -844,8 +881,10 @@ extract it there).
 5. **Discord**: confirm the sync has reconciled (≤15 min, automatic); by
    hand, review the `DISCORD_SYNC_ALLOW_POWER` allow-list for anyone who
    just left office (`## Discord`).
-6. **ระบบบ้าน**: if a รุ่น has reached ปี 7 this cycle, run the graduation
-   step (sets `graduated_at`, flips the admin roster's default filter).
+6. **ระบบบ้าน**: nothing to run — a รุ่น reaching ปี 7 drops out of the
+   default roster view the moment `academicYear()` ticks over (`isGraduated`
+   is computed live, no job, no column). Spot-check the "แสดงรุ่นที่จบแล้ว"
+   switch still finds them if someone needs a graduated รุ่น's record.
 7. **Passport**: if ฝ่ายกิจกรรม wants a new Passport year/season (independent
    calendar, their call), open the new row BEFORE closing the old one — never
    a gap.
