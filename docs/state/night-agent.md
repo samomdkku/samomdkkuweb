@@ -1306,3 +1306,21 @@ diff; review and merge like any other task on this branch. If the owner
 disagrees with the derived-vs-stored call, the revert is confined to
 `study-year.js`'s `isGraduated` + its three call sites — no migration to roll
 back since none was written.
+
+**`npm run handoff:check` verdict — could not complete, same known crash as
+Task 1's §5 (2026-10-14):** `ENOENT` reading
+`~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md` (that directory
+exists but is still empty; this session's real memory store is
+`~/samo-night/memory/`, per this session's own system preamble — confirmed
+unchanged from the prior write-up, not re-diagnosed). Also reported
+`origin/agent/2026-10-18` as unknown (this branch has never been pushed —
+expected, this agent cannot push). Ran with `--local` too; same crash. Per
+Task 1's own note, fixing the memory-path assumption in
+`tools/handoff-check.mjs` is a tooling question outside this task's scope
+(it would touch every other task's handoff step too) — left alone again.
+**Substituted direct checks**: `npm test` (171 files / 2971 tests green,
+both before and after this task's changes), `npm run build` (clean), `git
+status` (clean after each commit), and a live run of `node
+tools/house-gaps.mjs` against samo-dev (confirmed by its own
+`→ project: … (samo-dev)` line) to prove the new SQL query the WIP added
+actually executes.
