@@ -1169,3 +1169,140 @@ rather than lockdown gaps) — named in the private report, not here.
 Everything else checked (this branch's own 0211–0213, every `create table`
 has matching RLS, no permanently-disabled trigger, a handful of previously-
 unreviewed migrations) came back clean.
+
+---
+
+## Task 8 — ระบบบ้าน + ข้อมูลของฉัน: academic-year rollover, graduates, the next รุ่น (2026-10-18)
+
+**RESUMED after a quota cut-off** (WIP `392017a`).
+
+**The WIP commit (`392017a`) had left undone:** it stopped right after
+building and testing the core mechanism — nothing in it was wrong, but it had
+not yet (a) checked whether the rollover design doc and HANDOFF still matched
+what it actually built, (b) swept `src/js/house/` and `src/js/me-page.js` for
+a hardcoded MD49–MD54/49..54 literal that would block MD55, (c) reasoned
+through held rows / help requests / the สายรหัส audit explicitly rather than
+just leaving them untouched, (d) run `/scrutinize`, or (e) written this block.
+This session did all five, found one real polish gap (below), fixed it, and
+confirmed the rest of the WIP was already correct as built.
+
+**What the WIP already did (verified, not redone):**
+- `isGraduated(rec, now)` in `src/js/study-year.js` — the exact same live
+  ชั้นปี arithmetic as `studyYearLabel`, as a boolean (`studyYear(rec, now) >
+  6`). Re-exported through `house/fields.js`.
+- `house/gaps.js`'s per-person worklists (no สาย / no ชื่อ-นามสกุล / no
+  รหัส / no ชื่อเล่น / หายไปจากไฟล์) filter to `active = students.filter(s =>
+  !isGraduated(s, now))`, and the scope denominator (`SCOPE_STUDENTS`) was
+  changed to match (`active.length`, not `students.length`) so the percentage
+  never compares two different populations.
+- `house/index.js`: the นักศึกษา roster hides a graduated รุ่น by default
+  (`filteredStudents`), with a "แสดงรุ่นที่จบแล้ว (N คน)" switch
+  (`houseShowGraduated`, same module-scope-`let`-resets-on-page-load pattern
+  as the pre-existing `heldShowDone`); the ปีการศึกษา bump card now shows "N
+  คนอยู่ปี 6 ตอนนี้ — จะกลายเป็น จบแล้ว ถ้าเลื่อน" before the admin presses it.
+- `tools/house-gaps.mjs` now primes `setAcademicYear()` from
+  `public.get_academic_year()` before calling `computeGaps`, so the CLI report
+  and the admin pane read the same population — **ran it against samo-dev
+  live (not just unit tests) to confirm the new query doesn't error**: `node
+  tools/house-gaps.mjs` → `→ project: xibugtlsphcfuvstnxxh (samo-dev)`,
+  printed a clean report (1 active student in samo-dev's current house data,
+  so the sample is thin, but the code path executed end to end with no
+  crash).
+- `gaps.test.js` — a new describe block (4 cases, one a CONTROL on an active
+  รุ่น) pins `setAcademicYear(2569)` module-wide specifically so the fixtures
+  don't start silently failing once the real clock's fallback ปีการศึกษา
+  passes 2569 — the exact "a proof whose geometry runs out" trap
+  `.claude/rules/mistakes.md` class 7 names. `npm test`: 171 files, 2971
+  tests, all green both before and after this session's changes.
+- A `PENDING` changelog entry in plain Thai.
+
+**Decision (confirmed, not re-made): no migration, no `students.graduated_at`
+column — contrary to `docs/YEAR-ROLLOVER.md`'s own first-draft proposal.**
+The design doc had proposed a stored flag "set by a yearly job." The WIP
+built the derived form instead and documented why in `study-year.js`'s own
+header; I agreed with that call and **corrected `docs/YEAR-ROLLOVER.md`'s
+`## ระบบบ้าน` section and the summary table** (it was still describing the
+rejected column as the plan, which would have been exactly the kind of
+doc/code drift `.claude/rules/mistakes.md` warns about — a reader opening
+the doc fresh would have gone looking for a column that doesn't exist) and
+**`docs/state/HANDOFF.md` §22 row 8** (still said "QUEUED," no migration
+number used). Rejected alternative, restated for the record: `graduated_at`
+needs its own re-derivation every time `year_offset` changes (a ลาพัก
+correction) or an admin corrects ปีการศึกษา backwards — a second thing to
+keep in step for no benefit, when `studyYear` already recomputes for free.
+**What would change my mind**: if ชั้นปี arithmetic ever needs a SQL-side
+gate (RLS, a trigger) — `study-year.js`'s header already says there is
+deliberately no SQL twin today, and if that changes, a derived JS-only
+`isGraduated` would need a SQL-side twin or a differential test at that
+point, not before.
+
+**Decision: held rows and help requests are NOT time-filtered by
+graduation.** An unresolved held row for a รุ่น that has since aged past
+ปี 6 stays actionable forever — closed only through 0217's `follow_up` remark
+(ติดต่อไม่ได้ / คาดว่าลาออกแล้ว / ลาออก / เลขนี้ไม่มีตัวตน), never by the
+clock. **Rejected alternative**: auto-close or hide a held row once its รุ่น
+ages out — rejected because a held row represents a real person ฝ่ายข้อมูล
+never finished placing, and "they'd have graduated by now" is a reason for a
+human to write ลาออก/เลขนี้ไม่มีตัวตน on it, not a reason to stop asking.
+`help-diagnosis.js`'s `coveredCohortLabels`/`houseCoversCohort` already
+answer the adjacent question (is a freshly-typed รหัส's รุ่น one ระบบบ้าน
+currently tracks) from the same live `studyYear`, so a claim for a graduated
+รุ่น is already correctly diagnosed `outside` — no change needed there.
+
+**Decision: สายรหัส assignment is never filtered by graduation.**
+`gaps.js`'s `auditSai` still runs over `occupants = [...students, ...held]`
+unfiltered (confirmed by a WIP test: a graduated person still occupies their
+สาย in the audit). This matches the doc's existing "สาย/บ้าน is never re-run"
+rule — graduation is a roster-visibility question, not a สาย-correctness
+one.
+
+**Decision: MD55+ needs no code change — verified, not assumed.** Grepped
+`src/js/house/` and `src/js/me-page.js` for a literal `MD49`/`MD5[0-4]`/the
+range `49`..`54` driving a branch; every hit left is a comment or a test
+fixture. `cohortFromStudentId`'s accepted window (`study-year.js`, 2540–2580
+พ.ศ.) already covers MD55 (cohort_year 2570). `/me`'s own house card
+(`house/my-house.js`) already renders `studyYearLabel()` directly, so a
+graduated person's own card already says "จบแล้ว" with zero changes from this
+task — confirmed by reading the file, not assumed from the name.
+
+**What this session added, beyond the WIP (one real gap found by tracing the
+UI end to end, not just reading the diff):** the roster's empty state said
+"ไม่พบนักศึกษาที่ตรงกับตัวกรอง" (no match) whether the search typo'd a name or
+whether it correctly matched a real person who is simply hidden by the
+graduated switch — indistinguishable to the admin, who would read the second
+case as "this person was never in the system." `src/js/house/index.js`:
+factored the non-graduation half of `filteredStudents`'s predicate into
+`matchesTypedFilters(s, f)`, and on an actual empty result (only when a
+filter is set and the switch is off) check once whether any graduated row
+would have matched the SAME typed filters; if so, the empty row now reads
+"ไม่พบในรุ่นที่ยังเรียนอยู่ — คนที่ตรงอาจอยู่ในรุ่นที่จบแล้ว ลองเปิด
+'แสดงรุ่นที่จบแล้ว'" instead. Costs one extra `.some()` pass, and only on the
+miss path.
+
+**`/scrutinize` run** on `git diff c5cf70f..HEAD` (the whole of task 8,
+WIP + this session): traced `isGraduated` through every call site
+(`gaps.js`'s active filter and scope text, `index.js`'s roster filter/count
+badge/bump-card badge, `tools/house-gaps.mjs`'s priming), confirmed the
+academic-year singleton (`setAcademicYear`/`academicYear()` in
+`study-year.js`) is primed once at pane load (`house/api.js`) and shared
+consistently by every one of those call sites with no second clock; confirmed
+`gaps.test.js`'s module-wide `setAcademicYear(2569)` does not leak across
+test files (vitest's default per-file module isolation; full suite stayed
+green); confirmed the ผังตามสาย grid view (`sai-grid.js` via
+`renderSaiGridPane`) deliberately reads the unfiltered `students` array, not
+`filteredStudents()`, so a graduated person's สาย placement is still visible
+there — consistent with the "สาย is never re-run" rule, not a gap. The one
+finding (the empty-state hint) is fixed above; nothing else survived review.
+
+**Not touched, correctly out of scope:** ทีม SAMO's own `year`-column drift
+(already fixed historically, per `study-year.js`'s own header story) and the
+Passport/หน้าฝ่าย/Announcements rollover work — those are tasks 9–10's rows in
+`docs/state/HANDOFF.md` §22, not this one.
+
+**Commands the owner runs next:** none required for this task — no migration,
+nothing to apply to any database, no deploy dependency beyond the normal
+bundle. `git log --oneline c5cf70f..HEAD` on `agent/2026-10-18` for the full
+diff; review and merge like any other task on this branch. If the owner
+disagrees with the derived-vs-stored call, the revert is confined to
+`study-year.js`'s `isGraduated` + its three call sites — no migration to roll
+back since none was written.
