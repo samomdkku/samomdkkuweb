@@ -19,8 +19,9 @@ import {
   bannerLinkTarget, csvCell, csvPhoneCell, bkkTime,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER,
   isRevenueOrder, takesPreorderSlot, activeStock,
-  rowDisplayStatus, colorLabelFor,
+  rowDisplayStatus, colorLabelFor, orderMatchesYearFilter,
 } from './data.js';
+import { fetchSamoYears, currentSamoYear, samoYearOptionsHtml, ALL_YEARS } from '../samo-year.js';
 import { downscaleImage, decode } from '../image-resize.js';
 import { askConfirm } from '../confirm-modal.js';
 import {
@@ -63,6 +64,12 @@ const state = {
   ordersSources: new Set(),    // แหล่งที่มา (owning dept) — item-level; matches on product_source
   ordersSelected: new Set(),   // order ids ticked for bulk delete
   ordersSearch: '',
+  // SAMO year filter (0230) — ONE shared picker (../samo-year.js), reused by
+  // both the orders table and the ยอดขาย tab (setOrdersYear below keeps the
+  // two <select>s in sync) so "2569" never means two different things in
+  // two tabs of the same admin. null = not loaded yet; ALL_YEARS or a number.
+  ordersYear: null,
+  years: [],
   // 'all' | 'preorder' | 'in_stock' — gates the orders table on the
   // shop_orders.is_preorder flag set by place_shop_order (mig 0030).
   ordersPreorder: 'all',
@@ -132,6 +139,63 @@ function applySourceDefaultOnce() {
   state.ordersSources = new Set(loadSourceDefault());
 }
 
+/**
+ * Populate the shared SAMO-year picker (../samo-year.js) once and default to
+ * the CURRENT year — same shape as pr-staff.js's loadPrStaffYears(). Both
+ * the orders table and the ยอดขาย tab read ONE selection (state.ordersYear);
+ * this fills both <select>s so a year picked in either tab is reflected in
+ * the other without a second fetch.
+ */
+async function loadShopAdminYears() {
+  try {
+    state.years = await fetchSamoYears();
+    const cur = currentSamoYear(state.years);
+    if (state.ordersYear == null) state.ordersYear = cur != null ? cur : ALL_YEARS;
+    const optionsHtml = `<option value="${ALL_YEARS}">ทุกปี</option>` + samoYearOptionsHtml(state.years, null);
+    for (const id of ['shopAdminOrdersYearFilter', 'shopSalesYearFilter']) {
+      const sel = document.getElementById(id);
+      if (!sel) continue;
+      sel.innerHTML = optionsHtml;
+      sel.value = String(state.ordersYear);
+      if (sel.value !== String(state.ordersYear)) {
+        // The saved selection no longer exists among the offered years
+        // (e.g. a year with zero orders left) — fail open to "ทุกปี" rather
+        // than silently showing an empty table under a value the <select>
+        // never actually holds.
+        state.ordersYear = ALL_YEARS;
+        sel.value = ALL_YEARS;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load SAMO years', e);
+  }
+}
+
+/** The admin picked a different year in EITHER tab's <select> — keep both in
+ *  sync and redraw whichever tab is on screen. No refetch: both tabs read
+ *  from the already-loaded state.orders. */
+function setOrdersYear(y) {
+  state.ordersYear = y;
+  const v = String(y);
+  for (const id of ['shopAdminOrdersYearFilter', 'shopSalesYearFilter']) {
+    const sel = document.getElementById(id);
+    if (sel && sel.value !== v) sel.value = v;
+  }
+  if (state.tab === 'orders') {
+    repopulateOrderFacets();
+    renderOrdersTable();
+  } else if (state.tab === 'sales') {
+    renderSales(yearFilteredOrders(), state.products);
+  }
+}
+
+/** state.orders narrowed to the picked SAMO year — what the ยอดขาย tab
+ *  reads (the orders table filters inside filterOrders() instead, since it
+ *  combines with every other facet there). */
+function yearFilteredOrders() {
+  return state.orders.filter((o) => orderMatchesYearFilter(o, state.ordersYear));
+}
+
 /** Every orders-table filter off, แหล่งที่มา included, and the controls
  *  that show them reset. Callers re-render the facets / table. */
 function clearOrderFilters() {
@@ -164,6 +228,14 @@ function ensureMounted() {
     if (!btn) return;
     setTab(btn.dataset.shopAdminTab);
   });
+
+  // SAMO-year picker (0230) — one <select> per tab, both backed by
+  // state.ordersYear (loadShopAdminYears / setOrdersYear above).
+  for (const id of ['shopAdminOrdersYearFilter', 'shopSalesYearFilter']) {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      setOrdersYear(e.target.value === ALL_YEARS ? ALL_YEARS : Number(e.target.value));
+    });
+  }
 
   // Multi-select status facet — populated once from STAGES_META.
   populateStatusFacet();
@@ -410,7 +482,7 @@ async function refreshSales() {
       ]);
       setOrders(orders);
       if (products && products.length) state.products = products;
-      renderSales(state.orders, state.products);
+      renderSales(yearFilteredOrders(), state.products);
     } catch (e) {
       setSalesLoading(false);
       showShopToast(`โหลดยอดขายล้มเหลว: ${e.message || e}`, 'error');
@@ -445,6 +517,7 @@ export async function openShopAdmin() {
   // caches so the product editor's selects + the customer surfaces have
   // them. Best-effort — a missing 0057 migration just yields empty lists.
   await refreshCatalogConfig();
+  await loadShopAdminYears();
   setTab(state.tab || 'orders');
 }
 
@@ -1438,6 +1511,7 @@ function filterOrders(source) {
   const q = (state.ordersSearch || '').trim();
   const itemFacetActive = anyItemFacetActive();
   return (source || []).filter((o) => {
+    if (!orderMatchesYearFilter(o, state.ordersYear)) return false;
     if (statuses.size > 0 && !statuses.has(o.status)) return false;
     if (itemFacetActive && visibleOrderItems(o).length === 0) return false;
     if (q) {
