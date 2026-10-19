@@ -605,6 +605,24 @@ function readFilters() {
 
 const anyFilterSet = (f) => !!(f.q || f.house !== '' || f.cohort || f.major || f.sai);
 
+/** Every box EXCEPT the graduated switch — factored out so the empty state
+ *  below can ask "would this match if the switch were on?" without a second
+ *  copy of the five conditions. */
+function matchesTypedFilters(s, f) {
+  if (f.house !== '' && String(saiHouse(s.sai_code)) !== f.house) return false;
+  if (f.cohort && !String(cohortOf(s) || '').toLowerCase().includes(f.cohort)) return false;
+  if (f.major && !String(s.major || '').toLowerCase().includes(f.major)) return false;
+  // Digits only, so a stray space or a pasted "สาย 017" still lands.
+  if (f.sai) {
+    const want = f.sai.replace(/\D/g, '');
+    if (want && !String(s.sai_code || '').includes(want)) return false;
+  }
+  if (!f.q) return true;
+  // NOTE: sai_code is deliberately absent — it has its own box above.
+  return [s.full_name, s.nickname, s.student_id, s.kkumail]
+    .some((v) => String(v || '').toLowerCase().includes(f.q));
+}
+
 function filteredStudents() {
   const f = readFilters();
   return students.filter((s) => {
@@ -613,18 +631,7 @@ function filteredStudents() {
     // tab to see. Checked FIRST and independent of every other box: flip
     // houseShowGraduated on to look one up, don't type around it.
     if (!houseShowGraduated && isGraduated(s)) return false;
-    if (f.house !== '' && String(saiHouse(s.sai_code)) !== f.house) return false;
-    if (f.cohort && !String(cohortOf(s) || '').toLowerCase().includes(f.cohort)) return false;
-    if (f.major && !String(s.major || '').toLowerCase().includes(f.major)) return false;
-    // Digits only, so a stray space or a pasted "สาย 017" still lands.
-    if (f.sai) {
-      const want = f.sai.replace(/\D/g, '');
-      if (want && !String(s.sai_code || '').includes(want)) return false;
-    }
-    if (!f.q) return true;
-    // NOTE: sai_code is deliberately absent — it has its own box above.
-    return [s.full_name, s.nickname, s.student_id, s.kkumail]
-      .some((v) => String(v || '').toLowerCase().includes(f.q));
+    return matchesTypedFilters(s, f);
   });
 }
 
@@ -673,8 +680,15 @@ function renderStudents() {
     [...new Set(students.map((s) => s.major).filter(Boolean))].sort());
   fillDatalist('houseSaiList', sais.map((s) => s.code));
 
+  const f = readFilters();
   const rows = filteredStudents();
-  $('houseClearFilters')?.classList.toggle('d-none', !anyFilterSet(readFilters()));
+  $('houseClearFilters')?.classList.toggle('d-none', !anyFilterSet(f));
+  // A search for a known graduated person (by name/รหัส/sai/house/major) would
+  // otherwise read as "ไม่พบ" with no clue why — the switch, not the typo, is
+  // what is hiding them. Checked only on an actual miss, so this costs nothing
+  // on the common case.
+  const hiddenByGraduation = !rows.length && !houseShowGraduated && anyFilterSet(f)
+    && students.some((s) => isGraduated(s) && matchesTypedFilters(s, f));
   const body = $('houseStudentRows');
   if (body) {
     body.innerHTML = rows.length ? rows.slice(0, 500).map((s) => {
@@ -697,7 +711,8 @@ function renderStudents() {
         </tr>`;
     }).join('') : `
       <tr><td colspan="9" class="text-center text-muted py-4">
-        ${students.length ? 'ไม่พบนักศึกษาที่ตรงกับตัวกรอง'
+        ${hiddenByGraduation ? 'ไม่พบในรุ่นที่ยังเรียนอยู่ — คนที่ตรงอาจอยู่ในรุ่นที่จบแล้ว ลองเปิด “แสดงรุ่นที่จบแล้ว”'
+    : students.length ? 'ไม่พบนักศึกษาที่ตรงกับตัวกรอง'
     : 'ยังไม่มีข้อมูลนักศึกษา — นำเข้าไฟล์จากแท็บ “นำเข้าข้อมูล”'}
       </td></tr>`;
   }
