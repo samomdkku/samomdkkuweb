@@ -1324,3 +1324,53 @@ check what the human could get wrong, not only what our sheet could — the
 address itself, a pasted-twice row, a column they moved. And a rule written in a
 handoff note ("put the kkumail on the person FIRST") is not in the tool until it
 is an assertion the transaction fails on.
+
+## SAMO Shop: a product added to the cart in one browser tab could vanish if another tab added one too
+
+**Symptom (owner's worry, 2026-10-18 night-agent task 9):** "login ด้วย
+username password แล้วซื้อแบบนี้ กดออกไปหน้านี้แล้วมีปัญหา" — sign in, add to
+cart, navigate away, come back, something is wrong. Every IN-APP navigation
+(the shop tab, `/me`, the home banner's shop slide) is client-side-routed —
+`pushState` + Bootstrap `Tab.show()`, never `location.reload()` — so the
+cart's own module state survives all of those for free; that part of the
+worry turned out not to be a bug.
+
+**Cause:** `shop/state.js` loads `cart` into memory ONCE, at module-load
+time, from `localStorage`, and every mutation (`addItem`/`updateQty`/
+`removeItem`) persists the WHOLE in-memory array back — not a merge. Each
+browser TAB gets its own module instance with its own copy. Open a product
+link in a second tab (or duplicate the tab, or open the shop in two windows)
+and add something in each: tab A's `addItem` reads its own stale `cart`
+(unaware of anything tab B wrote), computes `[...stale, X]`, and persists it
+— overwriting whatever tab B had already saved. Whichever tab writes LAST
+wins outright; the other tab's item is gone from `localStorage` with no
+error, no toast, nothing — the customer finds out only when the order total
+at checkout is short a product.
+
+**Fix:** `state.js` now listens for the browser's own `storage` event, which
+fires in every OTHER tab (never the one that wrote) the instant
+`localStorage` changes. On a hit for this cart's key, it reloads `cart` from
+storage and notifies subscribers — so the NEXT mutation in that tab starts
+from the freshest array instead of a stale one, and nothing another tab
+wrote is still in storage can get silently clobbered. Verified red-then-green:
+reverting the listener reproduces exactly this loss in
+`src/js/shop/state.test.js` (two module instances sharing one fake
+`localStorage`, one tab's registered listener invoked by hand since there is
+no real DOM in this repo's test runner).
+
+**Where it lives now:** `src/js/shop/state.js` (the `storage` listener,
+guarded for `typeof window === 'undefined'` since the module is also
+imported under Node's jsdom-less test runner); `src/js/shop/state.test.js`.
+A live-browser walk of the rest of the flow (prefill, the no-email notice,
+a slip picked and typed fields surviving a navigate-away-and-back mid
+checkout) is written at `tools/browser/shop-checkout-navigate-away.mjs` but
+**NOT RUN** — this sandbox has no Chrome/Chromium binary and no network to
+install one; it is the next thing to run on a machine that has one.
+
+**The general rule**: `localStorage` is shared STATE, not a message —
+writing the whole value back is "last write wins" across every tab that has
+the page open, the same shape class 6 already names for two database writers
+of one fact. A module that owns a piece of `localStorage` and lets more than
+one tab write it needs the `storage` event as its own module-scope cache's
+invalidation signal, same as an account switch needs one for an in-memory
+cache (see this file's "Module-scope caches…" entry above).

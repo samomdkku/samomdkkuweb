@@ -4,6 +4,20 @@
 // Each cart line: { productId, size, color, fit, qty, price }.
 // Subscribers fire on every mutation so the FAB count, cart drawer, and
 // checkout summary all stay in sync without a framework.
+//
+// CROSS-TAB: `cart` is loaded into memory ONCE per tab (module-load time)
+// and every mutation here persists the WHOLE array, overwriting whatever is
+// in localStorage right now — not a merge. Two tabs open on the shop (a
+// product link opened in a new tab, a long-press "open in new tab", a
+// second device-emulator window) each hold their OWN stale in-memory copy;
+// whichever tab calls addItem/updateQty/removeItem NEXT persists ITS copy
+// over the other tab's, silently dropping anything the other tab added that
+// this tab never saw. The `storage` listener below is the fix: it fires in
+// every OTHER tab (never the one that wrote) the instant localStorage
+// changes, so this tab's in-memory copy is refreshed before its next
+// mutation can clobber it. Guarded for `window` because this module is also
+// imported under Node's test runner, which has no DOM (mistakes.md:
+// "this repo's tests run without jsdom").
 // ==============================================
 
 const STORAGE_KEY = 'samoshop.cart.v1';
@@ -25,6 +39,14 @@ function load() {
 function persist() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); }
   catch (e) { console.warn('[shop/state] persist failed:', e); }
+}
+
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== STORAGE_KEY) return;
+    cart = load();
+    notify();
+  });
 }
 
 function notify() {

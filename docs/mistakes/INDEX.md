@@ -267,7 +267,7 @@ Open when: markup, modals, layout, touch, icons.
 - "the tool row stops short of the screen edge, and a long name runs into the next icon" (phone)
 - "⌘-click / Ctrl-click on a tool or the banner just switches the page instead of opening a new tab"
 
-## `app-state.md` — Routing, read-state, caches & serialization *(31)*
+## `app-state.md` — Routing, read-state, caches & serialization *(32)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -302,6 +302,7 @@ Open when: URL state, per-user "seen", import/export.
 - Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 - "The public หนังสือโครงการ mirror never refreshed after its first load"
 - "Import the answers the ฝ่าย filled in"
+- SAMO Shop: a product added to the cart in one browser tab could vanish if another tab added one too
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(36)*
 
@@ -503,4 +504,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_441 entries across 10 files._
+_442 entries across 10 files._
