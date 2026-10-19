@@ -1891,6 +1891,18 @@ original function. Bundle deployed the same day; Apps Script v13 deployed after 
 its handlers (owner asked, 2026-10-14).** The night agent was STOPPED
 after task 7; rows 8–12 never ran — RE-QUEUED 2026-10-18 (`server/night-agent/NIGHT-TASKS.md`, branch `agent/2026-10-18`, migrations 0229–0233).
 
+**Update 2026-10-19 — tasks 8–12 are now ALL DONE on branch `agent/2026-10-18`,
+NOTHING of theirs applied to production.** Migrations 0230 (shop), 0231
+(stats retention), 0232 (passport/หน้าฝ่าย/accounts) exist on samo-dev ONLY;
+0229 and 0233 are intentional gaps (no SQL needed by those tasks). See
+"**Rows 8–12 — the owner's apply-in-order checklist**" immediately below the
+OWED paragraph for the exact commands, in order, plus every overturnable
+decision tasks 8–11 made. Task 12 (this update) is the dedicated handoff pass
+`docs/state/night-agent.md`'s Task 11 block flagged as still missing for
+task 10 specifically — row 10 below was still reading "QUEUED" despite two
+full migrations and a 31/31 + 22/22 proof pair already sitting on samo-dev;
+fixed below, not just noted.
+
 **Owner-session review, 2026-10-14 — what changed on branch `year-rollover`
 (supersedes the agent's text in the rows below where they disagree):**
 - **0219** gates `start_team_term` on `team_edit` itself, so 0219 applied alone
@@ -1960,6 +1972,169 @@ agent has no production credential). Next owner session: review the branch,
 push it as a preview branch, decide whether/when to apply each migration to
 production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 
+### Rows 8–12 — the owner's apply-in-order checklist (2026-10-18 queue, written by task 12)
+
+Everything below is **WRITTEN, proved on samo-dev, NOT on production.** Task 8
+shipped no migration (ระบบบ้าน graduation is derived in JS, nothing to apply).
+Tasks 9–10 together reserved 0229–0233; 0229 and 0233 are unused on purpose
+(no SQL those tasks needed) — `migration-numbers.test.js` allows the gap.
+
+**1. Migrations — apply in this exact order, proof after each (dev, then prod):**
+
+```bash
+# 0219 is a PREREQUISITE already on production (2026-10-14, row 2) — confirm
+# before starting, do not re-apply:
+node tools/db-query.mjs tools/year0219-samo-year.sql          # expect PASS on prod already
+
+# Step A — 0230 (task 9, SAMO Shop gets a SAMO year). Depends on 0219.
+node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql --dev
+node tools/db-query.mjs tools/shop0230-samo-year.sql --dev     # expect 31/31
+node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql
+node tools/db-query.mjs tools/shop0230-samo-year.sql           # expect 31/31 on production
+
+# Step B — 0231 (task 10, stats retention rollups). No dependency on 0230.
+node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.sql --dev
+node tools/db-query.mjs tools/stats0231-retention.sql --dev    # expect 31/31
+node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.sql
+node tools/db-query.mjs tools/stats0231-retention.sql          # expect 31/31 on production
+
+# Step C — 0232 (task 10, Passport bridge + หน้าฝ่าย editor info + accounts
+# year filter). MUST come after 0230 — its account_dashboard() rewrite reads
+# shop_orders.samo_year_be, which 0230 is what creates.
+node tools/apply-migration.mjs supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql --dev
+node tools/db-query.mjs tools/passport0232-bridge-dept-editor-accounts.sql --dev   # expect 22/22
+node tools/apply-migration.mjs supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql
+node tools/db-query.mjs tools/passport0232-bridge-dept-editor-accounts.sql         # expect 22/22 on production
+```
+
+Every one of these proofs has been RUN against samo-dev during this queue
+(most recently by task 11's review, re-run live rather than trusted off
+`STATE.md`) — the "expect" counts above are not a guess. None has ever run
+against production; that is the one thing only the owner can do (no
+production credential exists in this agent's environment).
+
+**2. Apps Script — nothing to do.** Tasks 8–12 touched no `appscript/*.gs`
+file (confirmed: `git diff origin/main..HEAD -- appscript/` is empty).
+`npm run deploy:gas` is NOT part of this queue's checklist.
+
+**3. VM timer to install by hand (task 10, stats retention) — optional, not
+blocking anything:**
+
+```bash
+sudo cp server/stats-retention.env.example /etc/stats-retention.env
+sudo chown root:root /etc/stats-retention.env && sudo chmod 600 /etc/stats-retention.env
+sudo nano /etc/stats-retention.env   # paste the SAME SUPABASE_DB_URL already in /etc/supabase-backup.env — do not mint a second one
+sudo cp server/stats-retention.service server/stats-retention.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now stats-retention.timer
+systemctl list-timers stats-retention.timer   # confirm a real NEXT, not infinity (.claude/rules/mistakes.md class 7)
+```
+
+Decided over enabling `pg_cron` (Database → Extensions, a one-click the
+owner could take instead) — see the migration 0231 header for the full
+reasoning; if the owner prefers pg_cron, `select cron.schedule(...)` calling
+`prune_analytics()` / `prune_claude_usage_samples()` / `prune_notify_log()` is
+a one-line swap, nothing here needs rewriting first. **Until one of the two
+is installed, `analytics_events`/`claude_usage_samples`/`notify_log` keep
+growing unpruned — exactly today's behaviour, nothing regresses by waiting.**
+
+**4. Deploy the frontend bundle** (`skills/deploy-vm.md`) — ships, in one
+bundle: ระบบบ้าน's graduated-รุ่น switch + empty-state hint (task 8, no
+migration needed first); the shop admin year picker on both the orders table
+and ยอดขาย, plus the cross-tab cart fix (task 9, needs 0230 live first or the
+picker's RPC call 404s); the ทีม SAMO → สิทธิ์ `data_admin` checkbox wording
+is already live from task 6 (2026-10-14), unaffected here; the หน้าฝ่าย
+editor's "แก้ไขล่าสุดโดย … เมื่อ …" line (task 10, needs 0232 live first);
+the announcements เก็บเข้าคลัง/เผยแพร่อีกครั้ง toggle on the manage pane
+(task 10, needs NO migration — it only flips the existing `status` column);
+the accounts (บัญชีผู้ใช้) กิจกรรม-by-year picker (task 10, needs 0232 live
+first, defaults to "ทุกปี" so it degrades gracefully if clicked before 0232
+is live — it will just show empty activity counts, not error).
+
+**5. Browser verification — what to click, at both desktop and 390px width:**
+
+| System | Where | What to look for |
+|---|---|---|
+| ระบบบ้าน | /admin/ → ระบบบ้าน → นักศึกษา | Roster hides a graduated รุ่น by default; "แสดงรุ่นที่จบแล้ว (N คน)" switch reveals them; the ปีการศึกษา bump card shows "N คนอยู่ปี 6 ตอนนี้"; a search that only matches a graduated person (with the switch off) shows the new hint text, not the generic "no match" |
+| SAMO Shop admin | /admin/ → SAMO Shop → คำสั่งซื้อ / ยอดขาย | Year `<select>` on both tabs, defaults to current year, kept in sync; ต้องจัดการ tile counts match what clicking into them shows (the bug task 9 fixed) |
+| SAMO Shop customer | the shop tab, add to cart in two browser tabs | Both tabs see both items after either reloads/re-renders (the cross-tab fix) |
+| หน้าฝ่าย editor | /admin/ → หน้าฝ่าย → pick a ฝ่าย | "แก้ไขล่าสุดโดย … เมื่อ …" line under the ฝ่าย picker, once 0232 is live |
+| Announcements | /admin/ → ประกาศ → จัดการ | Status filter (เผยแพร่/เก็บเข้าคลัง/ทั้งหมด); เก็บเข้าคลัง button on a card removes it from the public `/updates`-adjacent archive feed; เผยแพร่อีกครั้ง restores it; editing an archived post's text no longer silently republishes it (task 11's fix) |
+| บัญชีผู้ใช้ (master only) | /admin/ → บัญชีผู้ใช้ | กิจกรรมปี `<select>` next to โหลดใหม่; opening an account's detail card shows PR/VS/Shop/หนังสือโครงการ counts scoped to the picked year |
+| Passport admin | passport admin → เปิดปีใหม่ (startNewYear) | Prompts for a `team_term_year` bridge value when opening a new Passport year (0232 part A) |
+
+**6. Every decision tasks 8–11 made that the owner may want to overturn —
+one line each, with the consequence of flipping it:**
+
+- **(8) ระบบบ้าน graduation is DERIVED (`isGraduated()` in `study-year.js`),
+  not a stored `students.graduated_at` column** — the design doc's
+  first draft proposed the column. *Flip it* → write a migration, backfill,
+  and keep it re-derived on every ลาพัก correction or an admin moving
+  ปีการศึกษา backwards (a second thing to keep in step, which is exactly
+  why it was rejected).
+- **(8) Held rows and help requests are NEVER hidden or auto-closed by
+  graduation** — they stay actionable until a human writes
+  ติดต่อไม่ได้/ลาออก/etc. *Flip it* → a held row for a long-graduated รุ่น
+  would stop surfacing, which quietly drops a real person ฝ่ายข้อมูล never
+  finished placing.
+- **(8) สายรหัส assignment audit is NEVER filtered by graduation** —
+  matches the pre-existing "สาย is never re-run" rule. *Flip it* → breaks
+  that existing invariant for no stated benefit.
+- **(9) `shop_order_totals()` is rescoped to the CURRENT year, with a
+  fallback to all-time only if `current_samo_year()` is ever NULL** — the
+  design doc didn't specify this; chosen so Discord's "how's the shop doing"
+  ping doesn't balloon with every past team's orders after a handover, same
+  complaint PR had one system over. *Flip it* → revert to unscoped (0206's
+  original shape) — simpler, but reintroduces that exact complaint.
+- **(9) SAMO Shop products stay un-scoped by year** — a product is
+  inventory, not a transaction. *Flip it* → would need a per-year product
+  catalogue, a materially bigger feature nobody asked for.
+- **(9) No admin UI control yet to correct a mis-filed order's
+  `samo_year_be`** (OWED, not built — the column is admin-overridable at
+  the DB level already). *Decide*: build it now, or leave it to whenever an
+  order actually needs correcting — nothing depends on it existing sooner.
+- **(10) `passport.samo_years.team_term_year` is a loose column with NO
+  foreign key, set by hand when an admin opens a new Passport year** —
+  matches this codebase's deliberate public/passport schema isolation
+  (passport-security-hardening memory). *Flip it* → would need to break
+  that isolation or build a sync job; neither is free, and nothing today
+  needs the two calendars to move together.
+- **(10) `dept_content_editor_info()` is UI-only ("last edited by"), not a
+  real version-history table** — the design doc explicitly said a ฝ่าย
+  page is a living document, not a ticket. *Flip it* → build real
+  versioning, a materially bigger feature than this queue's three-task
+  scope.
+- **(10) Stats retention scheduling is a NEW VM systemd timer, not
+  `pg_cron`** — pg_cron needs a one-click dashboard enable only the owner
+  can take; the timer needed nothing new (the VM already holds
+  `SUPABASE_DB_URL` for the backup job). *Flip it* → enable pg_cron, then
+  `select cron.schedule(...)` the same three functions — a one-line swap,
+  not a rewrite (migration 0231's own header says so).
+- **(10) Announcement archiving reuses the existing `status` column**
+  (flips between `'approved'`/`'archived'`, both already valid per the 0001
+  CHECK constraint) **— no new column, no new table.** *Flip it* → would
+  need a reason beyond what's built; the public feed already filters
+  `status=eq.approved`, so this was the smallest change that worked.
+- **(10) `account_dashboard()`'s new year filter defaults to "ทุกปี"
+  (unscoped)**, matching 0211's original unscoped behaviour, rather than
+  defaulting to the current year like PR/VS/Shop's own admin pickers do.
+  *Flip it* → change `acctYearValue`'s initial value in
+  `src/js/accounts/admin.js` from `ALL_YEARS` to "current" — a one-line
+  change, not reconsidered here because บัญชีผู้ใช้ is a cross-system
+  lifetime view by nature (unlike a single system's own order/ticket list),
+  so "ทุกปี" is arguably the more useful default, not just the lazier one.
+- **(11) The owner's own already-shipped code (shop admin, home/`/me`,
+  `terms.js`) was reviewed by a background subagent instead of by hand** —
+  deliberate: that code had already been through one review when it
+  shipped, and task 10 (never reviewed at all, two WIP/cut-off commits) was
+  judged the higher-value use of this task's budget. *If the owner wants a
+  from-scratch review of that code too*: it was not skipped out of
+  oversight, it was a budget call — ask for it explicitly and it's a normal
+  `/code-review` or `/scrutinize` run.
+- **(11) Migration 0233 was reserved and left unused** — task 11 needed no
+  SQL of its own; everything it reviewed belonged to tasks 9/10's own
+  migrations. No consequence either way; the number stays retired.
+
 | Task | System | Migration | Proof | Applied? | Owner action |
 |---|---|---|---|---|---|
 | 1 | Design doc | — (no migration) | `scrutinize` pass on the doc | N/A | Read `docs/YEAR-ROLLOVER.md`; it is the plan every later row implements |
@@ -1971,9 +2146,9 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 | 7 †| ทีม SAMO + เกี่ยวกับเรา | 0224 | `team0224` 19/19 prod + samo-dev | ✅ PRODUCTION 2026-10-14 | Apply 0219 to production FIRST, then `node tools/apply-migration.mjs supabase/migrations/0224_team_handover_edit_gated_self_archiving.sql`, then `node tools/db-query.mjs tools/team0224-handover.sql` to prove it there too. Fixes a real authz bug (the handover RPC was callable by ~300 VIEW-only accounts, not just editors) and makes the handover auto-archive the outgoing term — read `docs/state/night-agent.md`'s "Task 4" block before deploying. Deploy the frontend bundle (ships the corrected จัดการทีม confirm-dialog copy in `terms.js`) |
 | 8 | ระบบบ้าน + ข้อมูลของฉัน | none (deliberately — see below) | `gaps.test.js` (new describe block, 4 cases) | DONE on branch `agent/2026-10-18`, samo-dev/prod untouched (no schema change) | Review and deploy the bundle. No migration: graduation is `isGraduated()` in `study-year.js`, computed live from the existing ชั้นปี arithmetic — NOT the `students.graduated_at` column `docs/YEAR-ROLLOVER.md` originally proposed (rejected on build, see that doc's `## ระบบบ้าน` + `docs/state/night-agent.md`'s Task 8 block for why). ระบบบ้าน's นักศึกษา tab now hides a graduated รุ่น by default (switch to show it); `gaps.js`'s per-person worklists + scope denominator exclude graduated students; สายรหัส audit still includes them (สาย is never re-run). MD55+ and `/me`'s own house card need no code change — checked by grep, no hardcoded MD49–MD54 literal drives any branch |
 | 9 | SAMO Shop (orders per year + customer flow) | 0230 | `shop0230` 31/31 samo-dev | DONE on branch `agent/2026-10-18`, samo-dev ONLY — NOT production | Review, then apply 0219 to production FIRST if not already (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/shop0230-samo-year.sql` to prove it there too. Ships `shop_orders.samo_year_be` (stamped at insert, backfilled from `placed_at`) + `shop_order_totals()` (0206) rescoped to the current year (falls back to counting everything if `current_samo_year()` is ever null) + the shared `samo-year.js` picker on the admin orders table AND the ยอดขาย tab, current year by default, one predicate (`orderMatchesYearFilter`, `src/js/shop/data.js`). Products stay un-scoped (design). **Separately, fixed a real bug found while tracing the customer checkout flow** (the owner's "navigate away mid-purchase" worry): `src/js/shop/state.js`'s cart loaded into memory once per browser TAB and persisted the whole array on every write, so two tabs open on the shop could silently clobber each other's added item with no error — fixed with a `storage`-event listener, test in `src/js/shop/state.test.js`, write-up in `docs/mistakes/app-state.md`. The rest of that worry (navigating via `/me`/the home banner/the shop tab) checked out fine by code trace — this app is a client-side router, nothing on that path calls `location.reload()`. **Resumed after a quota cut-off (same day): `/scrutinize` on the task's own diff found the year picker had broken the "ต้องจัดการ" tiles' own invariant** — their counts read every year while the views they open into (orders table, ยอดขาย) were year-filtered, so a past-year pending order could inflate a tile with no way to reach it. Fixed: `renderStats()`'s `scoped`/`revenue` now read `yearFilteredOrders()`; the slip-review count stays all-years on purpose (its destination is never year-filtered). Write-up: `docs/mistakes/app-state.md`. **OWED**: a live-browser run of the full flow (`tools/browser/shop-checkout-navigate-away.mjs`, WRITTEN, NEVER RUN — no Chrome/network in the night agent's sandbox) and an admin UI control to correct a mis-filed order's `samo_year_be` (`docs/YEAR-ROLLOVER.md` § SAMO Shop) |
-| 10 | Passport + หน้าฝ่าย + Announcements + Stats retention + Accounts | 0231–0232 | — | QUEUED 2026-10-18 | As row 8 |
-| 11 | Scrutinize + bug scan (tasks 8–10 + the owner's work since 2026-10-14) | none (0233 left unused — no SQL needed) | `stats0231-retention` 31/31 + `passport0232-bridge-dept-editor-accounts` 22/22 + `shop0230-samo-year` 31/31, all RE-RUN live on samo-dev during this review (not just read off STATE.md) | DONE on branch `agent/2026-10-18` — review-only, no schema touched | Full report: `docs/state/agent-notes/2026-10-18-review.md`. Found + fixed one real bug (editing an archived ประกาศ silently republished it — `nextAnnouncementStatus()` in `announcements.js`, test + write-up in `docs/mistakes/app-state.md`) and one cosmetic dead-selector cleanup in the owner's `departments.js`. Everything else checked (0231/0232's RLS, tasks 8–9's own prior scrutinize fixes, the owner's shop-admin math + home banner + `terms.js` handover order, login cache for both sign-in kinds, cross-tab account switching, the shop customer flow) came back clean. 0 security findings. Owed, not a defect: task 10's own `/scrutinize` pass + `docs/state/night-agent.md` write-up + HANDOFF row 10 update were never done (its commits are tagged WIP/cut-off) — task 12 should not skip it |
-| 12 | Handoff checklist for rows 8–11 | — | — | QUEUED 2026-10-18 | As row 8 |
+| 10 | Passport + หน้าฝ่าย + Announcements + Stats retention + Accounts | 0231 (stats retention), 0232 (passport bridge + หน้าฝ่าย editor info + accounts year filter) | `stats0231-retention` 31/31 samo-dev · `passport0232-bridge-dept-editor-accounts` 22/22 samo-dev — both RE-RUN live during task 11's review, not just read off `STATE.md` | DONE on branch `agent/2026-10-18`, samo-dev ONLY — NOT production (built across two WIP commits, both "cut off by the quota" per their own messages — `git log --oneline` on this branch; never got its own `/scrutinize` pass or this row's update until task 12) | Apply 0230 FIRST if not already (row 9 — `account_dashboard()`'s rewrite reads `shop_orders.samo_year_be`), then `node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.sql`, proof `tools/stats0231-retention.sql`; then `node tools/apply-migration.mjs supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql`, proof `tools/passport0232-bridge-dept-editor-accounts.sql`. Install the VM timer (`server/stats-retention.*`, see the checklist above — pg_cron is NOT installed on this project, so nothing prunes `analytics_events`/`claude_usage_samples` until either the timer or pg_cron exists). Deploy the bundle for the หน้าฝ่าย "แก้ไขล่าสุดโดย" line, the announcements เก็บเข้าคลัง/เผยแพร่อีกครั้อง toggle (no migration needed, reuses the `status` column), and the accounts กิจกรรม-by-year picker. Full detail + every decision: the apply-in-order checklist above |
+| 11 | Scrutinize + bug scan (tasks 8–10 + the owner's work since 2026-10-14) | none (0233 left unused — no SQL needed) | `stats0231-retention` 31/31 + `passport0232-bridge-dept-editor-accounts` 22/22 + `shop0230-samo-year` 31/31, all RE-RUN live on samo-dev during this review (not just read off STATE.md) | DONE on branch `agent/2026-10-18` — review-only, no schema touched | Full report: `docs/state/agent-notes/2026-10-18-review.md`. Found + fixed one real bug (editing an archived ประกาศ silently republished it — `nextAnnouncementStatus()` in `announcements.js`, test + write-up in `docs/mistakes/app-state.md`) and one cosmetic dead-selector cleanup in the owner's `departments.js`. Everything else checked (0231/0232's RLS, tasks 8–9's own prior scrutinize fixes, the owner's shop-admin math + home banner + `terms.js` handover order, login cache for both sign-in kinds, cross-tab account switching, the shop customer flow) came back clean. 0 security findings. Task 10's own write-up/row-update gap (noted here) is closed by row 10 above, done by task 12 |
+| 12 | Handoff checklist for rows 8–11 | — (no SQL — pure docs) | — (nothing to prove; this task made row 10 match what tasks 9–11 already verified, and added the apply-in-order checklist above) | DONE on branch `agent/2026-10-18` — docs only | Read the apply-in-order checklist above top to bottom: migrations 0230→0231→0232 on samo-dev then production (with proofs each step), no GAS step, install the optional stats-retention VM timer, deploy the bundle, click through the browser-verification table, then read the per-decision list before overturning anything. `npm test` and `npm run build` both green on this commit |
 
 ⛔ **Every later task must update its OWN row above** (migration/proof
 numbers, applied y/n, the exact command the owner runs next) — never rewrite
