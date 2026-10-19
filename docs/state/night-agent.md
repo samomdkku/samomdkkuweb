@@ -1529,3 +1529,107 @@ build` (clean, both entries), `git status` (clean after each commit), and
 and after the resumption's fixes, `→ project: xibugtlsphcfuvstnxxh
 (samo-dev)` — the resumption's fixes were frontend-only, so this proof did
 not need to change).
+
+---
+
+## Task 11 — Scrutinize + bug scan: tasks 8–10, and the owner's work since 2026-10-14 (2026-10-18)
+
+**Scope, per the queue's own brief:** run `scrutinize` over this branch's own
+diff (tasks 8–10) AND over the owner's session work on `main` since
+2026-10-14 (shop admin, home banner + tool icons + `/me`, year-rollover
+0225–0228 + `team/terms.js`), then a bug scan of the whole app focused on
+what the year work touched and the owner's named worries: login cache for
+both sign-in kinds, switching accounts in one browser, the shop customer
+flow. Fix every real finding, write it up, 0233 for SQL. Full report:
+`docs/state/agent-notes/2026-10-18-review.md` (that directory is excluded
+from git by `.git/info/exclude` — on disk, not committed, same as the
+2026-10-13 bug-review files were before they got force-added; left as-is
+since the task's own `Done when:` only checks the file exists).
+
+**Task 10 was reviewed too, and it needed it most** — its two commits are
+tagged `WIP`/"cut off by the quota" and had never been through a
+`/scrutinize` pass of their own, unlike tasks 8 and 9 (both of which already
+show a resumed/fixed pass in their own blocks above). Reading 0231/0232 in
+full and re-running their proofs LIVE against samo-dev (not trusting the
+counts already recorded in STATE.md) found them solid: `stats0231-retention`
+31/31, `passport0232-bridge-dept-editor-accounts` 22/22, `shop0230-samo-year`
+31/31 (re-checked for completeness, task 9's own). Every new SECURITY
+DEFINER function fails closed and anon is explicitly revoked, not just
+`public`. Tasks 8 and 9's prior fixes also held up under a fresh trace —
+`isGraduated()` has one home with no drift between `gaps.js`'s denominator
+and `house/index.js`'s roster filter, and the shop admin tile/year-filter fix
+(`8552b4b`) reads `yearFilteredOrders()` exactly where its own comment says
+it must.
+
+**One real bug found and fixed, in task 10's announcements-archive work**:
+0232's sibling feature added เก็บเข้าคลัง/เผยแพร่อีกครั้ง for ประกาศ and
+explicitly wired `admin-main.js`'s `enterCreator()` / `tryCreatorDeepLink()`
+to resolve an archived post into the editor — but `publishAnnouncement()`
+still hardcoded `status: 'approved'` on every save (written before archiving
+existed), so editing an archived post's text — even a typo fix, no intent to
+republish — silently put it back on the public site. Fixed by extracting the
+decision into `nextAnnouncementStatus(beforeRow, isEditing)`: new posts are
+always 'approved', edits preserve whatever the row already had. Tested
+(`src/js/announcement-status.test.js`, since `publishAnnouncement` itself is
+too DOM-heavy to unit test directly) and written up in
+`docs/mistakes/app-state.md`.
+
+**The owner's work (shop admin, home/`/me`, `terms.js`) was delegated to a
+background general-purpose agent** with the same "trace the real call path,
+don't trust the diff" brief this skill always uses, rather than re-walked by
+hand — it is already-shipped, already-reviewed code (commit `466451b` alone
+logged six independently-found defects with tests) and re-deriving every
+predicate by hand a second time was lower value than spending that effort on
+task 10, which had never been looked at. It came back with one cosmetic
+finding: `departments.js`'s modified-click allow-list named
+`a[href][data-dept-tool-tab]`, but `data-dept-tool-tab` (`tool-card.js`) is
+only ever emitted on a `<button>`, which has no `href` — so that clause can
+never match. No behavior change (buttons were already excluded correctly by
+the surrounding code), so no `docs/mistakes/` entry — there is no bug shape
+here to warn a future session about, only a dead selector removed and the
+comment reworded to say why.
+
+**Login cache for both sign-in kinds, and switching accounts in one
+browser — checked by hand, not delegated** (security-sensitive;
+`docs/mistakes/supabase-client.md` read first, per CLAUDE.md). `auth.js`'s
+`buildCurrentUser` treats Google and username/password symmetrically (method
+comes from `auth.users.app_metadata.provider` first, the stored column only
+as fallback — the 0211 fix) and reruns on every `onAuthStateChange` fire
+including the 25-minute `TOKEN_REFRESHED`, so a permission change reaches an
+open tab without a full sign-out. `account-switch.js`'s fast-switch path
+already carries fixes for the two races this exact feature paid for before
+(the outgoing-token-capture race, the iPad Safari `setSession` wedge); the
+cross-tab case is supabase-js's own `BroadcastChannel`, confirmed present and
+wired in the installed `auth-js` version for `persistSession: true` — no app
+code needed, and none was missing. No new finding in either file. The shop
+customer-flow worry was task 9's own (the cross-tab cart `storage` listener,
+already fixed and tested there) — re-verified by trace, not re-fixed.
+
+**0233 was reserved and left unused** — this task needed no SQL of its own;
+all three migrations it reviewed (0230/0231/0232) belonged to tasks 9/10.
+
+**`npm test`**: 173 files / 2981 tests before this task's own change, 2982
+after (the 4 new `announcement-status.test.js` cases plus the mistakes-index
+rebuild). **`npm run build`**: clean, both entries (public/admin + Passport).
+**`git status`**: clean after this task's commit.
+
+**`npm run handoff:check` verdict**: same known crash as every prior task
+this queue — `fatal: ambiguous argument 'origin/agent/2026-10-18..HEAD'`
+(this agent cannot push, so the remote branch does not exist) followed by
+`ENOENT` reading `~/.claude/projects/-home-ubuntu-samo-agent/memory/
+MEMORY.md` (this session's real memory store is `~/samo-night/memory/`).
+Not re-diagnosed — already documented by Tasks 1/8/9. **Substituted direct
+checks** (same shape Tasks 8/9 used): `npm test`, `npm run build`, `git
+status`, and the three migration proofs re-run live against samo-dev with
+`→ project: xibugtlsphcfuvstnxxh (samo-dev)` confirmed in each run's output.
+
+**Commands the owner runs next:**
+1. Review this branch (`agent/2026-10-18`) — tasks 8–11 are now all DONE on
+   it, nothing applied to production.
+2. Read `docs/state/agent-notes/2026-10-18-review.md` (on disk, not in git —
+   see the scope note above) for the full trace behind every finding.
+3. Task 10 never got its own `/scrutinize` write-up or HANDOFF row-10
+   update (its commits are WIP/cut-off) — task 12 (handoff checklist) should
+   close that, not skip it because this task's review covered the code.
+4. Nothing from this task needs applying — no schema change, and the two
+   fixes are already committed on this branch.

@@ -1415,3 +1415,41 @@ that promises to equal what a click on it reveals, not just the view's own
 render path — a count and its destination are two call sites for one
 invariant, and a comment stating the invariant is not a guard against a
 change made somewhere else.
+
+---
+
+## Editing an archived announcement silently republished it
+
+**Symptom (found reviewing night-agent task 10's own diff, 0232, before any
+person hit it):** 0232 added เก็บเข้าคลัง/เผยแพร่อีกครั้ง (archive/restore) for
+ประกาศ, including explicit support for reopening an archived post in the
+editor — `admin-main.js`'s `enterCreator()` and `tryCreatorDeepLink()` both
+call `loadAnnouncements('all')` specifically so a `#creator/{id}` deep link or
+the manage card's pencil can resolve an archived row. But saving that edit —
+even a typo fix with no intent to republish — flipped the post straight back
+onto the public site.
+
+**Cause:** `publishAnnouncement()` (`src/js/announcements.js`) built its
+PATCH/POST body with a hardcoded `status: 'approved'`, written back when
+archiving didn't exist and every row WAS 'approved' by construction. 0232
+added a second status value reachable through the editor without updating
+the one place that writes `status` on save — a flow the code's own comments
+show was anticipated (reopening an archived post was deliberately wired) but
+not carried all the way to the write path (class 6: a value correct until a
+sibling feature changes the population it is drawn from).
+
+**Fix:** extracted the decision into a pure, tested function,
+`nextAnnouncementStatus(beforeRow, isEditing)` — a new post is always
+'approved' (no UI offers "create pre-archived"); an edit preserves whatever
+the row already had. `publishAnnouncement()` now calls it instead of
+hardcoding the literal.
+
+**Where it lives now:** `src/js/announcements.js` (`nextAnnouncementStatus`,
+used in `publishAnnouncement`), `src/js/announcement-status.test.js`.
+
+**The general rule**: adding a new value to an enum-like column (here,
+`status` gaining 'archived') means re-auditing every WRITE site that sets
+that column to a literal, not just the read/filter sites — a write path that
+predates the new value has no reason to know it exists, even when a sibling
+change in the SAME feature deliberately made the new value reachable from
+that write's own entry point.

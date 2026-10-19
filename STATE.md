@@ -165,23 +165,10 @@ those four items and drifted from them; do not re-add a copy here.
 
 ---
 
-## ระบบบ้าน — EVERY held row now has a รุ่น (2026-09-19)
-
-✅ **The 13 held rows with no รุ่น are fixed.** They carry no รหัสนักศึกษา (`#N/A`
-in the file), so `cohortFromStudentId()` — how everyone else gets theirs,
-65→MD50, 66→MD51 — had nothing to read; 0188 had already given
-`student_import_unresolved` a `cohort_year` for exactly this and the importer
-never filled it. `tools/house-unplaced-cohort.mjs` reads it back out of the
-handover file's block headings, refusing any row whose สาย in the file disagrees
-with the database. **There is no `_unplaced` population any more.**
-
-⚠️ **That CHANGED a number already reported.** `_สายมีปัญหา` dropped to **5**:
-most "nobody is on this สาย" rows were these people, uncounted because the audit
-groups by รุ่น and they had none. Any older note saying 18 is stale. What remains
-is real — สาย 256 held twice in MD53 and twice in MD54, สาย 141 empty in both,
-and **nothing unplaced can explain 141 any more**.
-✅ **MD50 ANSWERED AND IS DONE (2026-09-19)** — promoted via
-`tools/house-kkumail-import.mjs`; five รุ่น still owed, `HANDOFF.md` §16.
+⛔ **ระบบบ้าน's 13 unplaced held rows: FIXED, pruned to `docs/state-archive/
+2026-09-19-state-prune.md`** (2026-09-19) — detail there and in memory
+`house-unplaced-cohort-fixed.md`; `_สายมีปัญหา` is 5, not 18. Five รุ่น still
+owed on MD50's promotion pattern, `HANDOFF.md` §16.
 
 ## ✅ THE HANDOFF IS A COMMAND NOW (2026-09-19)
 
@@ -206,6 +193,7 @@ The agent now takes only what the booking board offers an unbooked person
 (`skills/night-agent.md`, top section). Its migrations reach samo-dev only, and it
 cannot push or deploy. ⛔ Review its branch before applying anything to production.
 **Task 9 done:** 0230 `shop_orders.samo_year_be` + year-scoped `shop_order_totals()` + the shared year picker on the orders/ยอดขาย tabs + the customer-flow walk the owner asked for. Proof `shop0230` 31/31 samo-dev; NOT prod. Detail: `docs/state/night-agent.md` Task 9.
+**Task 11 done:** scrutinize + bug scan over tasks 8–10 and the owner's work since 2026-10-14 — one real bug fixed (editing an archived ประกาศ silently republished it), one cosmetic cleanup, 0 security findings. Re-ran 0230/0231/0232's proofs live on samo-dev (all still green) rather than trusting the recorded counts. Full report: `docs/state/agent-notes/2026-10-18-review.md`; HANDOFF §22 row 11.
 Morning check, what is owed and what was NOT verified: HANDOFF §17 · why: `docs/state/claude-2026-10-18.md`.
 
 ## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)

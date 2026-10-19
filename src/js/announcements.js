@@ -123,6 +123,18 @@ export function getViewingAnnouncementId() {
   return viewingAnnouncementId;
 }
 
+/** Which `status` a save should write. A NEW post is always 'approved' —
+ *  there is no form control to create something pre-archived. An EDIT must
+ *  preserve whatever the row already had: before 0232 every row was
+ *  'approved' by construction, so hardcoding it was harmless; since an
+ *  archived post can now be reopened in the editor (the #creator/{id}
+ *  deep link and the manage-card pencil both resolve archived rows), saving
+ *  an edit must not silently republish it. */
+export function nextAnnouncementStatus(beforeRow, isEditing) {
+  if (!isEditing) return 'approved';
+  return beforeRow?.status === 'archived' ? 'archived' : 'approved';
+}
+
 /** Load a specific article into the creator form. If no id is given,
  *  falls back to the one currently being viewed in the reader. */
 export function editAnnouncement(targetId) {
@@ -280,7 +292,7 @@ export async function publishAnnouncement() {
     department: dept,
     content: contentHtml,
     thumbnail_url: thumbnail,
-    status: 'approved',
+    status: nextAnnouncementStatus(beforeRow, isEditing),
   };
   // Only include excerpt if we know the column exists. The loader's
   // graceful fallback sets __samoWarnedExcerpt when the SELECT 400s on
