@@ -3735,3 +3735,42 @@ call sites) before trusting a migration that "only adds a default parameter".
 
 **Where it lives now**: `tools/accounts0211-dashboard.mjs`,
 `supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql`.
+
+---
+
+## One backticked path outside the repo blinded `state-handoff.test.js`'s whole dead-pointer sweep — not just itself
+
+**Symptom**: writing `` `/home/ubuntu/.claude/projects/.../MEMORY.md` `` in a
+new `docs/state/night-agent.md` paragraph (describing why
+`npm run handoff:check` crashes) made THREE paths fail "the split files name
+no file that is not there either" — the new path, correctly, AND two
+unrelated, already-exempted `externaldata/...` paths in
+`docs/state/phuriphatma.md` that had been green for weeks and that this edit
+never touched.
+
+**Cause**: the test batches every backticked path from every `docs/state/*.md`
+file into ONE `git check-ignore --stdin` call so a gitignored path (like
+`externaldata/`, present on a laptop, absent on CI) is correctly treated as
+"not a repo file worth checking" rather than "missing". `git check-ignore`
+refuses outright — exit 128, `fatal: … is outside repository` — the moment
+ANY path in that batch is absolute and outside the working tree. The test
+catches exactly that exit code and falls back to an EMPTY ignored-set for the
+WHOLE batch, meaning every other document's legitimately-gitignored
+exemption stops being recognised as ignored in the same run. One careless
+absolute path in prose silenced every other file's cooperation with this
+guard, not just its own sentence — the same shape as class 7's "a guard whose
+instrument can be defeated by the very thing it is meant to tolerate," here a
+batch-wide fallback triggered by a single bad element.
+
+**Fix**: reworded the sentence to describe the hardcoded memory-index path in
+prose instead of a backticked absolute path (`~/.claude/projects/…` stays
+outside backticks). General rule: never backtick a full absolute filesystem
+path (anything starting `/home/`, `/etc/`, `/root/`, …) in a `docs/state/*.md`
+note — describe it, or wrap only the relative tail. If a future note
+genuinely needs one, the sweep should check each path's ignore status
+independently (or filter `/`-rooted absolute paths before the batch) rather
+than failing the whole batch on the first one `git check-ignore` refuses.
+
+**Where it lives now**: `src/js/state-handoff.test.js` (`GIT_IGNORED`'s
+`git check-ignore --stdin` call, `r.status === 128` fallback),
+`docs/state/night-agent.md`.

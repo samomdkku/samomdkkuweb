@@ -14,6 +14,127 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## ▶ HANDOFF 2026-10-19T21:07:00Z (night agent, branch agent/2026-10-18)
+
+**1. Do first.** Open `docs/state/HANDOFF.md` §22's "Rows 8–12 — the owner's
+apply-in-order checklist" (just above the per-task table) and follow it top
+to bottom: apply `0230 → 0231 → 0233 → 0232` to samo-dev (already done this
+queue, re-confirm), then production, with the proof named after each step —
+note `shop0230-samo-year.sql` is **32/32**, not the 31/31 an earlier commit
+this same queue recorded (caught by a later task re-running it live, not by
+trusting the written number).
+
+**2. Ready to use vs. still a design.** The whole queue (tasks 8–12) is
+**WRITTEN and proved on samo-dev, NOT ON PRODUCTION** — this agent has no
+production credential (confirmed by every task this queue; samo-dev's token
+answers 403 there) and cannot push, deploy, or run Apps Script. Nothing in
+this run changed that.
+- **Ready, pending the owner's apply/deploy**: migrations 0230 (Shop gets a
+  samo year), 0231 (stats-retention rollups), 0233 (fixes a real bug in
+  0231 — a weekly prune without a day-aligned cutoff silently lost ~20 of
+  every ~24 days of analytics; MUST apply after 0231, before 0232), 0232
+  (Passport↔team_term bridge, หน้าฝ่าย "แก้ไขล่าสุดโดย", accounts
+  activity-by-year) — all proved green on samo-dev this queue (32/32, 31/31,
+  7/7, 22/22 respectively, each re-run live more than once rather than
+  trusted from a prior count). ระบบบ้าน's graduation (task 8) needed no
+  migration — it is derived in JS (`isGraduated()`), not stored.
+- **Written, never run anywhere**: the VM systemd timer
+  (`server/stats-retention.*`) for the stats prune — pg_cron is not
+  installed on this project, so until the owner installs this timer OR
+  enables pg_cron, nothing prunes `analytics_events`/`claude_usage_samples`
+  (today's behavior continues; nothing regresses by waiting).
+  `tools/browser/shop-checkout-navigate-away.mjs` (written, never run — no
+  Chrome/network in this sandbox).
+- **Design only, not touched this queue**: everything in
+  `docs/YEAR-ROLLOVER.md` beyond what tasks 8–10 actually built.
+
+**3. What did not happen, and why.** `AGENT_UNRUN=0`, `AGENT_ASKS` is empty —
+every queued task (8–12) ran and finished, and none ended by asking a
+question nobody was awake to answer. `AGENT_STOP`: queue finished. But three
+of the five did **not** finish normally in one pass — flagging them by name,
+as the runner's own report insists ("ต้องให้คนดู 3 งาน … อย่าสรุปว่าคืนนี้
+เรียบร้อย" — 3 tasks need a human look, don't call tonight clean):
+
+- **Task 8** (ระบบบ้าน + ข้อมูลของฉัน) — cut off mid-run by the quota once
+  (`392017a`), resumed the same queue and reached a green `Done when:` check.
+  Its own `/scrutinize` pass ran and is recorded in HANDOFF §22 row 8.
+- **Task 9** (SAMO Shop) — cut off/attempted twice (`Attempts: 2` in
+  `NIGHT-TASKS.md`), resumed and finished; its own resumption's
+  `/scrutinize` pass found and fixed a real bug in itself (the "ต้องจัดการ"
+  admin tiles counted all years while the views they opened into were
+  year-filtered) — a case where the cut-off-and-resume cycle actually
+  caught something a single clean run might not have, since the bug was in
+  code the WIP commit itself had just written.
+- **Task 10** (Passport/หน้าฝ่าย/announcements/stats/accounts) — cut off
+  twice (`Attempts: 2`), and its two WIP commits built everything the brief
+  asked but **neither wrote the task's own `docs/state/night-agent.md`
+  heading** the `Done when:` check greps for, nor ran its own `/scrutinize`
+  pass. Tasks 11 and 12 both read and flagged this gap without closing it;
+  a later run in this same session ("10 RESUMED", commit `e2e6358`) finally
+  wrote the missing heading, re-ran all three of its proofs live, and — in
+  the same pass — `npm test` caught a real staleness bug: `STATE.md` said
+  "67 of 72 LIVE PROOFS" when `tools/run-proofs.mjs` had registered 73 since
+  a prior commit added one without updating this sentence
+  (`state-handoff.test.js` was red). Fixed. **Recommend the owner skim this
+  task's block specifically** (`docs/state/night-agent.md`, "Task 10") —
+  not because anything in it is known-wrong, but because it is the one
+  piece of this queue that went through the most re-entry before closing,
+  and a second human read is cheap insurance.
+
+Tasks 11 (scrutinize + bug scan) and 12 (handoff checklist) each finished
+cleanly in one pass (`✓` in the queue report).
+
+**4. Needs a human decision** (every one is already written out with its
+consequence in HANDOFF §22's per-decision list below the table — this is
+only the index):
+- **Apply 0230→0231→0233→0232 to production now, or wait and re-review
+  first?** Recommendation: apply — all four are proved on samo-dev this
+  queue (most re-run live more than once, not just read off a recorded
+  count), task 11's dedicated scan found nothing blocking, and the longer
+  they sit unapplied the more `STATE.md`'s "samo-dev ONLY, NOT production"
+  caveat is pure downside with no offsetting benefit.
+- **systemd timer vs. enabling pg_cron for stats retention?** Recommendation:
+  the timer (already written, matches the existing backup-timer pattern) —
+  pg_cron is a one-click Database→Extensions action only the owner can take,
+  and the migration's own header makes the swap a one-line change later if
+  preferred, so neither choice forecloses the other.
+- **ระบบบ้าน graduation: derived (`isGraduated()`) vs. the originally-proposed
+  stored `students.graduated_at` column?** Already built as derived — the
+  recommendation task 8 made and this run is not revisiting — because a
+  stored flag can drift from the rule that computes it (class 6, "fill-once
+  means never-correct"), and the JS already has one home
+  (`study-year.js`) every reader shares.
+- **`account_dashboard()`'s year filter defaults to "ทุกปี" (unscoped)** —
+  recommendation in HANDOFF §22: leave it, since a cross-system lifetime
+  account view is arguably more useful unscoped than a single system's own
+  order/ticket list; flip is a one-line change in
+  `src/js/accounts/admin.js` if the owner disagrees.
+
+**5. Could not verify.**
+- **Nothing against production** — no production credential exists in this
+  environment (samo-dev's token answers 403 there); every "applied"
+  claim above is scoped to samo-dev only.
+- **`npm run handoff:check` still crashes, same as every task this queue**:
+  `fatal: ambiguous argument 'origin/agent/2026-10-18..HEAD'` (this branch
+  has never been pushed, so `origin/agent/2026-10-18` doesn't exist to diff
+  against) followed by an `ENOENT` reading a memory-index path the script
+  hardcodes under `~/.claude/projects/…` — this session's real memory store
+  is `~/samo-night/memory/` instead, a different path entirely. Not
+  re-diagnosed — documented
+  identically by tasks across this whole queue. **Substituted direct
+  checks, re-run fresh by this handoff step**: `npm test` — 173 files /
+  2984 tests, green. `npm run build` — both entries (public/admin +
+  Passport) clean. `git status` — clean.
+- **No browser was driven this step** — the shop checkout navigate-away
+  walk and a real-phone look at the house/accounts UI remain code-trace
+  verified only, per tasks 9/10's own notes.
+- **Apps Script / Google Drive** — confirmed by `git diff
+  origin/main..HEAD -- appscript/` being empty that this queue needed no GAS
+  step; not independently exercised (no Google credential in this
+  environment, same as every prior queue).
+
+---
+
 ## Task 12 — HANDOFF: the owner applies, deploys and decides from this (2026-10-18)
 
 **What this run built: nothing new to apply — a documentation pass over
