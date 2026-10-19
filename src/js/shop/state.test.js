@@ -93,3 +93,39 @@ describe('cart cross-tab sync', () => {
     expect(tab.getCart()).toEqual([]);
   });
 });
+
+// THE BUG (HANDOFF §18f — "CONFIRMED cart"). addItem merging an existing
+// line only capped the TOTAL at the hardcoded 99, never at what the caller
+// knows is actually available for that variant — so adding a low-stock item
+// already in the cart again pushed the line past real stock, something the
+// drawer's own +/- (cart.js's maxQtyFor) was careful to prevent for the SAME
+// line. The product popup now passes qtyCeilingFor(...) as this cap
+// (products.js); checkout.js rebuilding a failed order's cart passes none,
+// keeping the old 99 ceiling since that is restoring pre-existing qty, not
+// adding past a stock limit.
+describe('addItem respects a per-call stock cap', () => {
+  const ITEM = { productId: 'X', size: 'F', color: 'red', fit: 'unisex', qty: 2, price: 10 };
+  it('merging past the cap clamps to it, not to 99', async () => {
+    global.localStorage = makeLocalStorage();
+    vi.resetModules();
+    const tab = await import('./state.js');
+    tab.addItem(ITEM, 5);   // 2 of 5
+    tab.addItem(ITEM, 5);   // 4 of 5
+    tab.addItem(ITEM, 5);   // would be 6 — must clamp to 5
+    expect(tab.getCart()[0].qty).toBe(5);
+  });
+  it('a first add whose OWN qty exceeds the cap is clamped too', async () => {
+    global.localStorage = makeLocalStorage();
+    vi.resetModules();
+    const tab = await import('./state.js');
+    tab.addItem({ ...ITEM, qty: 10 }, 3);
+    expect(tab.getCart()[0].qty).toBe(3);
+  });
+  it('no cap given keeps the old 99 ceiling', async () => {
+    global.localStorage = makeLocalStorage();
+    vi.resetModules();
+    const tab = await import('./state.js');
+    tab.addItem({ ...ITEM, qty: 150 });
+    expect(tab.getCart()[0].qty).toBe(99);
+  });
+});

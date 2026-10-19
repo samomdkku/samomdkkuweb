@@ -73,8 +73,17 @@ export function cartSubtotal() {
 /**
  * Add an item; if the same product/size/color/fit is already in the cart,
  * bump qty instead of duplicating the line.
+ *
+ * `maxQty` is the real cap for THIS variant (the product popup passes
+ * products.js's qtyCeilingFor — what the cart drawer's own +/- already
+ * enforces via cart.js's maxQtyFor). Without it, merging into an existing
+ * line only checked the hardcoded 99, so re-adding a low-stock item already
+ * in the cart could push the line past what is actually available
+ * (HANDOFF §18f). Default 99 keeps checkout.js's "rebuild the cart from a
+ * failed order" call working unchanged — it is restoring a quantity that
+ * was already in the cart, not adding past a limit.
  */
-export function addItem(item) {
+export function addItem(item, maxQty = 99) {
   const i = cart.findIndex(
     (it) => it.productId === item.productId
         && it.size === item.size
@@ -82,9 +91,9 @@ export function addItem(item) {
         && it.fit === item.fit,
   );
   if (i >= 0) {
-    cart[i] = { ...cart[i], qty: Math.min(99, cart[i].qty + (item.qty || 1)) };
+    cart[i] = { ...cart[i], qty: Math.min(maxQty, cart[i].qty + (item.qty || 1)) };
   } else {
-    cart.push({ ...item, qty: Math.max(1, Math.min(99, item.qty || 1)) });
+    cart.push({ ...item, qty: Math.max(1, Math.min(maxQty, item.qty || 1)) });
   }
   persist();
   notify();

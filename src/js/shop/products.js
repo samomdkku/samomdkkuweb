@@ -727,7 +727,7 @@ function openProductModal(product) {
         fit: 'unisex',
         qty: modalState.qty,
         price: unitPriceFor(product, modalState.size),
-      });
+      }, qtyCeilingFor(product, modalState.size, modalState.color));
       inst?.hide();
       showShopToast(`เพิ่ม "${product.name}" ลงตะกร้าแล้ว`, 'success');
     };

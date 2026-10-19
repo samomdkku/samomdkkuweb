@@ -1,6 +1,7 @@
 // The บอท Discord panel's verdict on the bot (0208). The dangerous answer is a
 // dead bot shown as healthy — every stale / unconfirmed case is asserted WARN.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { botHealth, ago, STALE_MINUTES } from './discord-bot-admin.js';
 
 const NOW = '2026-09-23T15:00:00Z';
@@ -60,5 +61,50 @@ describe('ago', () => {
     expect(ago(min(180), NOW)).toBe('3 ชม.ที่แล้ว');
     expect(botHealth({ now: NOW, sync_enabled: true, last_seen_at: min(95) }).lines[0]).toMatch(/^ไม่ได้รับสัญญาณจากบอทมา 2 ชม\. —/);
     expect(ago(min(60 * 24 * 3), NOW)).toBe('3 วันที่แล้ว');
+  });
+});
+
+// THE BUG (HANDOFF §18f — "CONFIRMED บอท Discord tab"). enterDiscordBot()'s
+// 20 s background poll called load(), which on success called say('')
+// UNCONDITIONALLY — wiping a `set()` save error off #dbotMsg the instant the
+// next poll landed, often before anyone had read it. No jsdom here (this
+// repo's test setup has none), so this is pinned structurally: by function
+// body, not line number (see docs/mistakes/frontend-ui.md, "NEVER SLICE
+// SOURCE BY LINE NUMBER" — same technique as admin-order-modal.test.js).
+const SRC = readFileSync(new URL('./discord-bot-admin.js', import.meta.url), 'utf8');
+const CODE = SRC.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+function functionBody(src, name) {
+  const m = new RegExp(`(?:async )?function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`).exec(src);
+  if (!m) throw new Error(`function ${name} not found`);
+  let depth = 1;
+  let i = m.index + m[0].length;
+  const start = i;
+  for (; i < src.length && depth > 0; i++) {
+    if (src[i] === '{') depth += 1;
+    else if (src[i] === '}') depth -= 1;
+  }
+  return src.slice(start, i - 1);
+}
+
+describe('the 20s background poll does not clear an unrelated message', () => {
+  it('load() only clears #dbotMsg when NOT called silently', () => {
+    const body = functionBody(CODE, 'load');
+    expect(body).toMatch(/silent/);
+    // The success branch must gate say('') behind the silent flag — not call
+    // it unconditionally, which is the exact shape of the original bug.
+    expect(body).not.toMatch(/rpc\('get_discord_bot_panel'\);\s*say\(''\);/);
+  });
+  it('the background poll passes silent — not a plain load()', () => {
+    const timerBody = functionBody(CODE, 'enterDiscordBot');
+    expect(timerBody).toMatch(/load\(\s*\{\s*silent:\s*true\s*\}\s*\)/);
+  });
+  it('an explicit reload ("โหลดใหม่") is NOT silent — the user asked, so it may clear the message', () => {
+    expect(CODE).toMatch(/dbotRefresh'\)\.addEventListener\('click',\s*load\)/);
+  });
+});
+
+describe('the status card paints only when its content actually changed', () => {
+  it('paint() tracks the last rendered text/class before writing #dbotStatus again', () => {
+    expect(functionBody(CODE, 'paint')).toMatch(/last(S|_s)tatus/i);
   });
 });
