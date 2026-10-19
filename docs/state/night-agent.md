@@ -14,6 +14,105 @@ bringing it in is `docs/state/HANDOFF.md` §20.
 
 ---
 
+## Task 12 — HANDOFF: the owner applies, deploys and decides from this (2026-10-18)
+
+**What this run built: nothing new to apply — a documentation pass over
+`docs/state/HANDOFF.md` §22 and `STATE.md`, per task 12's own brief.** No
+migration (0229 and 0233 stay unused gaps, as tasks 8 and 11 already left
+them), no new proof, no code.
+
+**What it found and fixed, beyond just writing the checklist:**
+1. **Row 10 was stale.** It still read "QUEUED 2026-10-18" even though tasks
+   9 and 11 had already recorded 0231/0232 as built, proved (31/31,
+   22/22), and reviewed — task 11's own block explicitly flagged this gap
+   ("task 10 never got its own `/scrutinize` write-up or HANDOFF row-10
+   update... task 12 should close that") and this run does, with the real
+   migration numbers, proof names, and the apply command.
+2. **One real miscount, found by re-running rather than trusting the
+   recorded number** (the exact discipline `.claude/rules/mistakes.md`
+   class 7 asks for — "verify from the authority, not the `revoke` you just
+   wrote"): both task 9 and task 11 recorded `tools/shop0230-samo-year.sql`
+   as "31/31" on samo-dev. Running it live during this task returned **32**
+   PASS rows (confirmed twice, and cross-checked against the SQL file's own
+   32 distinct `step` strings — the SQL source has always had 32, so the
+   "31" was a hand-count error from the start, not drift). `stats0231-
+   retention` (31/31) and `passport0232-bridge-dept-editor-accounts`
+   (22/22) were independently re-counted the same way and both matched
+   what tasks 9–11 already recorded — only the shop proof's digit was wrong.
+   Corrected in `docs/state/HANDOFF.md` (the apply-checklist's own commands,
+   and a note pointing at rows 9/11 rather than silently rewriting their
+   prose) and in `STATE.md`'s task-9 line; task 9's and task 11's own
+   blocks in this file are left as their own historical account, uncorrected,
+   per this file's own rule that a block is "the agent's account," not a
+   second home for a number that has one now in HANDOFF/STATE.
+3. **Verified the migration apply ORDER actually matters, not just
+   convention**: read `supabase/migrations/0232_passport_team_term_bridge_
+   and_dept_editor_info.sql` directly — its `account_dashboard()` rewrite
+   queries `public.shop_orders` filtered on `samo_year_be`, a column only
+   `0230_shop_orders_get_a_samo_year.sql` creates. So 0232 MUST be applied
+   after 0230, not just "sometime in the 0229–0233 block" — this was not
+   previously stated anywhere as an explicit ordering constraint, only
+   implied by migration number. Written into the apply-in-order checklist
+   as step C's own comment.
+4. **Confirmed no GAS step belongs in this queue's checklist** — `git diff
+   origin/main..HEAD -- appscript/` is empty across all of tasks 8–12's
+   commits, so `npm run deploy:gas` is correctly absent from the checklist.
+
+**Added to `docs/state/HANDOFF.md` §22**: a new "Rows 8–12 — the owner's
+apply-in-order checklist" section (migrations 0230→0231→0232 with proof
+commands dev-then-prod for each; the VM systemd timer install for stats
+retention; the one-line confirmation no GAS/deploy:gas step is needed;
+a "what to click, at 390px too" browser-verification table per system; and
+every overturnable decision from tasks 8–11, one line each with the
+consequence of flipping it — e.g. ระบบบ้าน's derived-not-stored graduation,
+`shop_order_totals()`'s current-year rescoping with a null fallback, the
+systemd-timer-vs-pg_cron choice, `account_dashboard()`'s accurate-but-
+unscoped "ทุกปี" default). Corrected row 10 in place. Updated `STATE.md`
+with one line each for tasks 8, 10 and 12 (task 9 and 11 already had
+lines) — 249 lines, under the 260-line ceiling `state-handoff.test.js`
+enforces.
+
+**`/scrutinize` run on this task's own diff** (`git diff 2c2d2f9..HEAD --
+STATE.md docs/state/HANDOFF.md`): traced the 0230→0232 dependency claim to
+the actual SQL (confirmed above); re-ran all three proofs live against
+samo-dev rather than trusting any recorded count (found and fixed the
+shop0230 miscount above); confirmed every migration/tool/server file path
+named in the new checklist actually exists on disk; confirmed the new row
+10/row 12 text does not contradict `state-handoff.test.js`'s migration-
+high-water-mark or proof-count checks (`npm test`, full suite, green);
+confirmed HANDOFF.md names no commit sha (a dedicated guard — the first
+draft of row 10 named two, caught by the test, reworded to describe the
+commits without quoting their hex). No other finding — this is a docs-only
+task and the content it documents (tasks 8–11's actual code) was each
+task's own job to get right, already reviewed by task 11.
+
+**`npm test`**: 173 files / 2982 tests, green, both before and after this
+task's edits. **`npm run build`**: clean, both entries. **`git status`**:
+clean after this task's commit.
+
+**`npm run handoff:check` verdict — same known crash as every prior task
+this queue** (`ENOENT` reading
+`~/.claude/projects/-home-ubuntu-samo-agent/memory/MEMORY.md`; this
+session's real memory store is `~/samo-night/memory/` per this session's
+system preamble; also `origin/agent/2026-10-18` reported unknown since this
+agent cannot push). Not re-diagnosed — already documented by every earlier
+task this queue. **Substituted direct checks**: `npm test`, `npm run
+build`, `git status`, and the three migration proofs (`shop0230-samo-year`,
+`stats0231-retention`, `passport0232-bridge-dept-editor-accounts`) re-run
+live against samo-dev with `→ project: xibugtlsphcfuvstnxxh (samo-dev)`
+confirmed in each run's output.
+
+**Commands the owner runs next:** read `docs/state/HANDOFF.md` §22's new
+"Rows 8–12 — the owner's apply-in-order checklist" section top to bottom —
+it is written to be followed in order, not summarized again here. In short:
+review the branch, apply 0230→0231→0232 to samo-dev (already done, re-
+confirm if it's been a while) then production with a proof after each,
+install the optional stats-retention VM timer, deploy the bundle, click
+through the browser-verification table, then read the decisions list
+before overturning anything tasks 8–11 decided.
+
+---
+
 ## ▶ HANDOFF 2026-10-13T20:53:00Z (night agent, branch agent/2026-10-14)
 
 **1. Do first.** Open `docs/state/HANDOFF.md` §22, then `docs/YEAR-ROLLOVER.md`.

@@ -1988,9 +1988,9 @@ node tools/db-query.mjs tools/year0219-samo-year.sql          # expect PASS on p
 
 # Step A — 0230 (task 9, SAMO Shop gets a SAMO year). Depends on 0219.
 node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql --dev
-node tools/db-query.mjs tools/shop0230-samo-year.sql --dev     # expect 31/31
+node tools/db-query.mjs tools/shop0230-samo-year.sql --dev     # expect 32/32
 node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql
-node tools/db-query.mjs tools/shop0230-samo-year.sql           # expect 31/31 on production
+node tools/db-query.mjs tools/shop0230-samo-year.sql           # expect 32/32 on production
 
 # Step B — 0231 (task 10, stats retention rollups). No dependency on 0230.
 node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.sql --dev
@@ -2008,10 +2008,16 @@ node tools/db-query.mjs tools/passport0232-bridge-dept-editor-accounts.sql      
 ```
 
 Every one of these proofs has been RUN against samo-dev during this queue
-(most recently by task 11's review, re-run live rather than trusted off
-`STATE.md`) — the "expect" counts above are not a guess. None has ever run
-against production; that is the one thing only the owner can do (no
-production credential exists in this agent's environment).
+(most recently by task 12's own re-run, below) — the "expect" counts above
+are not a guess. None has ever run against production; that is the one thing
+only the owner can do (no production credential exists in this agent's
+environment). ⛔ **`shop0230-samo-year.sql` is actually 32 steps, not the
+31/31 tasks 9 and 11 recorded** (row 9 and row 11 below still say 31/31 —
+left as each task's own historical account, not rewritten; this is the
+correction) — counted directly off a fresh live run during this task, not
+off either row's prose. `stats0231-retention` (31/31) and
+`passport0232-bridge-dept-editor-accounts` (22/22) were independently
+re-counted the same way and matched what was already recorded.
 
 **2. Apps Script — nothing to do.** Tasks 8–12 touched no `appscript/*.gs`
 file (confirmed: `git diff origin/main..HEAD -- appscript/` is empty).
