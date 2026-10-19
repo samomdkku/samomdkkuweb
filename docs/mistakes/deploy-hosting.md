@@ -1239,3 +1239,46 @@ lh3 directly. An allowlist fails toward slow, never toward broken.
 
 **Rule.** A URL that depends on a server-side route only one host has must
 name that host; "this site's origin" is several sites.
+
+## The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
+
+**Symptom** (HANDOFF §18f, cold review, PLAUSIBLE — written on
+`agent/2026-10-20`, NOT installed on the VM): nothing in this repo appends a
+query string to a picture URL today, so this was never observed live — the
+review flagged it as a standing risk, not a reproduced incident.
+
+**Cause.** nginx's default `proxy_cache_key` is
+`$scheme$proxy_host$uri$is_args$args` — it includes the query string. The
+`/img/` location's `proxy_pass https://lh3.googleusercontent.com/d/$1=$2;`
+only ever uses the two regex captures from the PATH; the incoming request's
+query string never reaches the upstream fetch. So `/img/d/<id>=w600-rj` and
+`/img/d/<id>=w600-rj?n=1` would proxy to the IDENTICAL lh3 URL but get cached
+as two unrelated entries — a cold lh3 fetch (lh3 takes 0.5–2.6 s before its
+first byte) and a wasted cache slot for a picture already cached, the moment
+anything ever appends a query string (a pasted link's tracking suffix, a
+future cache-busting param).
+
+**Fix.** `proxy_cache_key "$1=$2";` — pinned to what actually varies the
+upstream content, so any query string collapses onto the same cache entry.
+`src/js/nginx-routes.test.js` pins it inside the real location block
+(brace-counted, not line-sliced — the location's OWN regex head contains
+`{20,100}`, which would confuse a naive "first brace after the marker").
+
+**Where it lives now.** `server/nginx-samo.conf`, the `/img/` location;
+`src/js/nginx-routes.test.js`. **Written only — the owner installs it:**
+`scp server/nginx-samo.conf samo-vm:/tmp/nginx-samo.conf && ssh samo-vm 'sudo
+cp /tmp/nginx-samo.conf /etc/nginx/sites-available/samo && sudo nginx -t &&
+sudo systemctl reload nginx'`.
+
+**Rule.** A reverse-proxy cache key should name exactly what the UPSTREAM
+fetch depends on — never inherit the default just because the location
+matched on more than that. A query string the server never reads can still
+cost a cache entry if the key includes it anyway.
+
+**Checked, not changed:** the `<link rel="preconnect" href="…lh3…">` in
+`index.html`, same finding's other half ("drop it if nothing on the first
+screen still loads from lh3"). `me-page.js`'s `paintAvatar` sets the
+signed-in user's home-page avatar (`homeUserPic`) to `user.picture` directly
+— the Google OAuth profile picture, almost always an `lh3.googleusercontent.com`
+URL — on every host, including production, independent of
+`PICTURE_CACHE_HOSTS`. The preconnect is still earning its keep; left in.

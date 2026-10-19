@@ -1207,6 +1207,84 @@ where only one of them was ever handed the full data.
 
 ---
 
+## addItem merging an existing cart line only capped the TOTAL at 99, never at real stock
+
+**Symptom** (HANDOFF §18f, cold review, CONFIRMED — fixed `agent/2026-10-20`,
+not deployed): a buyer adds 2 of a variant with 5 left, closes the popup,
+reopens it and adds 2 more — fine, 4 of 5 — then adds 2 more again:
+`state.js`'s `addItem` let the line reach 6, past the real 5. The entry above
+("the cart drawer's qty cap") fixed the DRAWER's own `+`/`-` for an existing
+line; this is the OTHER place a line's qty grows — the product popup's "Add"
+button, which calls `addItem` fresh each time, merging into whatever is
+already there.
+
+**Cause**: `addItem(item)` capped the merged total at a hardcoded `Math.min(99,
+…)` — the only number it had, because `state.js` is deliberately kept free of
+any dependency on the product catalogue or stock data (see its own
+cross-tab-sync header comment). It had no way to know what the real ceiling
+for THIS variant was, so it used the one it always had.
+
+**Fix**: `addItem(item, maxQty = 99)` — the CALLER passes the real cap.
+`products.js`'s add-to-cart handler passes `qtyCeilingFor(product,
+modalState.size, modalState.color)` (see `frontend-ui.md`'s popup entry for
+that function). `checkout.js`'s "rebuild the cart from a failed order" call
+passes none, keeping the 99 default — it is restoring a quantity that was
+already in the cart, not adding past a limit, so there is nothing to cap
+against. `src/js/shop/state.test.js`, mutation-checked.
+
+**Where it lives now**: `src/js/shop/state.js` (`addItem`), `src/js/shop/products.js`
+(the add-to-cart handler), `src/js/shop/checkout.js` (unchanged call site).
+
+**The general rule**: *a low-level state module that deliberately knows
+nothing about domain data cannot enforce a domain limit — the CALLER must
+pass it in, every time a new call site is added that merges into existing
+state.* The same class as the drawer bug above, one layer closer to the
+write: capping the DISPLAY of a value is not the same as capping the WRITE.
+
+---
+
+## csvGuard/csvUnguard did not round-trip a value that itself started with `'`
+
+**Symptom** (HANDOFF §18f, cold review, CONFIRMED — fixed `agent/2026-10-20`,
+not deployed): a real value typed by a student that happens to start with an
+apostrophe followed by a formula character — e.g. a bio of `'-not-a-number`
+or `'=looks-like-a-formula` — came back DIFFERENT after export → edit →
+re-import: the leading apostrophe silently disappeared.
+
+**Cause**: `csvGuard` prefixes a formula-looking value (`=`, `+`, `-`, `@`,
+tab, CR) with `'` so Excel/Sheets shows it as text, and `csvUnguard` strips
+that `'` back off on import. `csvUnguard` decided whether to strip by
+looking at what FOLLOWED the leading `'` — if it looked like a formula
+trigger, strip it; otherwise leave it. That heuristic cannot tell "I added
+this quote to escape a formula" from "the real value already started with a
+quote, and what happens to follow it looks like a formula too" — both
+produce the identical string `'<rest>`, and the second case is exactly a
+real value starting with `'`.
+
+**Fix**: `csvGuard` now ALSO escapes (doubles) a value that itself starts
+with `'`, and `csvUnguard` always strips exactly one leading `'` with no
+guessing — the transform is now its own inverse by construction, not by
+heuristic, the same idea as SQL's `''`. A 2000-iteration property test over
+randomly generated strings (`src/js/team/io.test.js`) backs the few curated
+examples that were there before; mutation-checked.
+
+**Where it lives now**: `src/js/utils.js` (`csvGuard`, `csvUnguard`),
+`src/js/team/io.test.js`.
+
+**The general rule**: *when an escape character can also be a literal part
+of the real data, the escaping scheme must handle the escape character
+occurring IN the data — not just the characters it exists to escape.* A
+guard built from "if it starts with X, guess what the original was" is
+unprovable without reading what follows; one that always escapes its own
+marker and always strips exactly one layer is provable by construction.
+Same test-writing lesson as `.claude/rules/mistakes.md` class 7's "never
+write a guard from the same list the code came from" — here the thing to
+avoid was writing *examples*, not a *property*: a handful of curated inputs
+passed for months while the actual failing shape (quote, then a formula
+character) was never one of them.
+
+---
+
 ## Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 
 **Symptom**: on a โครงการ's detail header, a sender-desk account (vpa/dev)

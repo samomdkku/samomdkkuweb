@@ -1789,9 +1789,9 @@ colour. The full design, with the measured facts it rests on, is
 
 ## 18f. Cold review of 2026-09-23's work — findings NOT yet fixed on main
 
-**Status: OWED 2026-09-23 — session ran out of budget mid-fix. Two independent reviewers read the day's diff cold; each finding below is theirs, re-read by me against the code (agree with all). Fixes for the BOT half are on branch `wip/discord-review-fixes` — 2 tests there still red (the loop tests' expectations, after the loop was restructured). Finish, get `npm test` green, merge, deploy.**
+**Status: PARTLY CLOSED 2026-10-20 (agent/2026-10-20, task 13) — WRITTEN AND TESTED on this branch, NOT merged to main, NOT deployed.** Two independent reviewers read the 2026-09-23 diff cold; each finding below was theirs, re-read against the code. `npm test` and `npm run build` are green on `agent/2026-10-20` with every CONFIRMED item fixed. See `docs/state/night-agent.md` "Task 13" for the full account.
 
-Discord bot (`server/discord-sync.mjs`) — fixed on the branch, not merged:
+Discord bot (`server/discord-sync.mjs`) — ~~fixed on `wip/discord-review-fixes`, not merged~~ → **cherry-picked onto `agent/2026-10-20` (`e5490a2`); its 2 red tests fixed to the restructured design, not reverted** (`docs/mistakes/integrations.md`):
 1. a pause does not stop a pass already running (write() now re-checks the switch every 3 s; `Paused` is not a failure);
 2. empty `discord_role_targets()` counted as success (posts "recovered", retries every 5 s, no heartbeat) → now a failure;
 3. web text (edit detail, editor name, pause reason) posted unescaped → `mdLine` (a ชื่อเล่น `<@id>` / `[x](url)` renders);
@@ -1799,20 +1799,22 @@ Discord bot (`server/discord-sync.mjs`) — fixed on the branch, not merged:
 5. `alerted` stuck across a pause → one `succeeded()` for every good round;
 6. failed nickname writes re-posted after every restart → posted only for a person a web edit named;
 7. "check now" compared two machines' clocks → compares the request value;
-9. missing settings row fails OPEN → now paused. (8, queue rows dropped on a failed write, left: the 15-min pass heals it.)
+9. missing settings row fails OPEN → now paused. (8, queue rows dropped on a failed write — **checked 2026-10-20, left on purpose**: the next 15-min full pass re-scans everyone regardless of the queue, so a row dropped after a held/failed write still heals itself; no code change.)
 
-Front end — NOT started:
-- **CONFIRMED** popup: with no colour picked, + goes to 99; picking a colour calls renderOOS but not renderQty, so qty 10 of 3-left gets added. Call `renderQty()` in the colour handler; cap + at 1 while `colorMissing()`.
-- **CONFIRMED** cart: `addItem` merges quantities with no stock check; the drawer only disables +, never lowers qty.
-- **CONFIRMED** บอท Discord tab: every 20 s poll `say('')` clears a save error; `#dbotStatus` (aria-live) re-announces unchanged text. Paint only on change.
-- **CONFIRMED** CSV: a real value `'=x` exports unchanged and imports as `=x` — make `csvGuard` also prefix values starting with `'`.
-- **PLAUSIBLE** news covers forced to JPEG (`-rj`) — a transparent PNG logo would go black; the no-alpha check was measured on shop pictures only.
-- **PLAUSIBLE** `image-resize.js`: Safari's JPEG-on-white fallback now applies to EVERY caller (dept pages, crop, banners, slips) — flattens a transparent PNG; the fallback also ignores the caller's quality.
-- **PLAUSIBLE** nginx `/img/`: default cache key includes the query string → `?n=1,2,…` are all cold lh3 fetches. Add `proxy_cache_key "$1=$2";` (install by hand, `nginx -t`).
-- minor: the lh3 `preconnect` in index.html is now unused; a stored lh3 URL with `?authuser=0` breaks through `/img/`.
+Front end:
+- ~~**CONFIRMED** popup: with no colour picked, + goes to 99…~~ **FIXED 2026-10-20** — `qtyCeilingFor`/`isColorMissing` (pure, exported) replace the inline cap; wired into both the `+` handler and the colour-click handler. `src/js/shop/products.test.js`. `docs/mistakes/frontend-ui.md`.
+- ~~**CONFIRMED** cart: `addItem` merges quantities with no stock check…~~ **FIXED 2026-10-20** — `addItem(item, maxQty)`; the popup passes `qtyCeilingFor(...)`. `src/js/shop/state.test.js`. `docs/mistakes/app-state.md`.
+- ~~**CONFIRMED** บอท Discord tab: every 20 s poll `say('')` clears a save error…~~ **FIXED 2026-10-20** — `load({ silent })`; `paint()` skips the DOM write when unchanged. Checked `accounts/admin.js`'s same-shaped `pulse()` too — not the same bug there (no mutating action to collide with); no change made. `src/js/discord-bot-admin.test.js`. `docs/mistakes/frontend-ui.md`.
+- ~~**CONFIRMED** CSV: a real value `'=x` exports unchanged and imports as `=x`…~~ **FIXED 2026-10-20** — `csvGuard` escapes a leading `'` too (doubling it); `csvUnguard` always strips exactly one, no guessing. 2000-case property test. `docs/mistakes/app-state.md`.
+- **PLAUSIBLE, still OWED 2026-10-20 — could not reproduce: no headless Chrome in this sandbox** (no Chrome/Chromium binary, no `puppeteer`/`playwright` dependency, and this sandbox's network tool calls are denied, so `npx playwright install` is not an option either). Both need a REAL browser's Canvas/WebP encoder, which jsdom does not have — these are unverified, not disproven:
+  - news covers forced to JPEG (`-rj`) — a transparent PNG logo would go black; the no-alpha check was measured on shop pictures only.
+  - `image-resize.js`: Safari's JPEG-on-white fallback now applies to EVERY caller (dept pages, crop, banners, slips) — flattens a transparent PNG; the fallback also ignores the caller's quality.
+  - **What would close this**: on a machine with Chrome (or `npx playwright install chromium`), load a transparent PNG File, stub `HTMLCanvasElement.prototype.toBlob` so the `image/webp` call returns `null` (simulating Safari), run it through `downscaleImage`, then decode the result and sample a pixel that was transparent in the source — confirms/refutes the "flattens to white, ignores caller quality" claim precisely.
+- ~~**PLAUSIBLE** nginx `/img/`: default cache key includes the query string…~~ **FIXED (written, NOT installed) 2026-10-20** — `proxy_cache_key "$1=$2";`. Owner installs by hand: `scp server/nginx-samo.conf samo-vm:/tmp/… && ssh samo-vm 'sudo cp … && sudo nginx -t && sudo systemctl reload nginx'`. `src/js/nginx-routes.test.js`. `docs/mistakes/deploy-hosting.md`.
+- minor: ~~the lh3 `preconnect` in index.html is now unused~~ **CHECKED 2026-10-20, NOT unused** — `me-page.js`'s `paintAvatar` sets the home page's signed-in avatar to `user.picture` (a Google OAuth URL, almost always `lh3.googleusercontent.com`) directly, on every host including production. Left in. The other half (`?authuser=0` breaking through `/img/`) is still untouched — out of this task's scope.
 
 Also still owed from §18e: the ธิเบธ → เซฟ link (owner) and granting `discord_bot`.
-Unreleased notes are staged in `PENDING` (the popup colour change, news covers, cart cap, admin dialogs, CSV).
+Unreleased notes are staged in `PENDING` (the popup colour change, news covers, cart cap, admin dialogs, CSV) — 2026-10-20 added entries for the 4 CONFIRMED front-end fixes actually landed this session.
 
 ## 18g. SAMO Shop admin — ยอดขาย, ต้องจัดการ, the slip queue, order ประวัติ (2026-10-15)
 
