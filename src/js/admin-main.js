@@ -29,6 +29,7 @@ import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './accou
 import { mountSigninModal } from './signin-modal.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { copyText } from './utils.js';
+import { askConfirm } from './confirm-modal.js';
 
 // Announcements / Creator
 import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement, toggleArchiveAnnouncement, setManageStatusFilter, getManageStatusFilter, getLoadedAnnouncements } from './announcements.js';
@@ -726,7 +727,12 @@ function wireAnnouncementManageFilter() {
     const targets = getLoadedAnnouncements().filter((p) =>
       p.status === 'approved' && p.createdAtIso && new Date(p.createdAtIso) < cutoff);
     if (!targets.length) { alert(`ไม่มีประกาศที่เผยแพร่อยู่ซึ่งสร้างก่อนปี พ.ศ. ${year}`); return; }
-    if (!confirm(`เก็บประกาศ ${targets.length} รายการที่สร้างก่อนปี พ.ศ. ${year} เข้าคลัง?`)) return;
+    const ok = await askConfirm({
+      title: `เก็บประกาศ ${targets.length} รายการที่สร้างก่อนปี พ.ศ. ${year} เข้าคลัง?`,
+      body: 'ประกาศที่เก็บเข้าคลังจะหายจากหน้าแรกทันที — เผยแพร่อีกครั้งได้ทีละรายการ',
+      yes: 'เก็บเข้าคลัง',
+    });
+    if (!ok) return;
     for (const p of targets) await toggleArchiveAnnouncement(p.id);
     const listEl = document.getElementById('announcementsOrderList');
     try {

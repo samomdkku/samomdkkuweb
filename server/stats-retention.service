@@ -1,0 +1,19 @@
+[Unit]
+Description=Weekly stats retention (prune_analytics / prune_claude_usage_samples / prune_notify_log)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/samo-projects/samomdkkuweb
+# SUPABASE_DB_URL — the project's Postgres SUPERUSER connection string.
+# chmod 600, root-owned, never in git (.claude/rules/security.md). The SAME
+# credential server/supabase-backup.sh uses — these prune functions are
+# `security definer` and revoked from anon/authenticated/public, so only a
+# direct psql connection (not a PostgREST/service_role call) can run them.
+EnvironmentFile=/etc/stats-retention.env
+ExecStart=/home/ubuntu/samo-projects/samomdkkuweb/server/stats-retention.sh
+# The script exits non-zero on any failed prune, so a bad run shows as a
+# FAILED unit rather than a silent partial success.
+# Check with: systemctl status stats-retention.service

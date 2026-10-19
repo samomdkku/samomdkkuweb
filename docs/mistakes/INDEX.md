@@ -378,7 +378,7 @@ Open when: deploy.sh, nginx, cache headers.
 - `install.sh` exited 3 on a successful install
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(76)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(77)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -458,6 +458,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A headless probe said the sales chart's tooltip was broken
 - A "no-write" browser check rejected a real slip on samo-dev
 - The night agent would have started inside a 100% Claude booking
+- A migration that changes a function's SIGNATURE rots the ACL string in an older proof
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -505,4 +506,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_443 entries across 10 files._
+_444 entries across 10 files._

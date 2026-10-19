@@ -26,8 +26,12 @@ do $$ begin
 end $$;
 grant select, insert on probe to authenticated;
 
+-- 0232 changed the signature to account_dashboard(integer default null) and
+-- dropped the old zero-arg overload — the OLD signature string here used to
+-- raise 42883 ("does not exist") instead of returning false, which is not a
+-- caught exception anywhere in this script and killed the whole proof.
 insert into probe select 'acl: anon cannot read the dashboard', 'false',
-  has_function_privilege('anon', 'public.account_dashboard()', 'execute')::text;
+  has_function_privilege('anon', 'public.account_dashboard(integer)', 'execute')::text;
 insert into probe select 'acl: anon cannot read the pulse', 'false',
   has_function_privilege('anon', 'public.account_dashboard_pulse()', 'execute')::text;
 

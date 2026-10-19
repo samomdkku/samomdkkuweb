@@ -62,6 +62,21 @@ insert into probe select '05. a dev/staff account exists (for grant ALLOW probes
   (select count(*)::text from admin_all);
 grant select on admin_all to authenticated;
 
+-- current_user_has_permission('claude') needs the 'claude' key itself (or
+-- 'master') IN THE ROW — `role = 'dev'` alone does not satisfy it (that
+-- function only reads permissions/managed_permissions, never `role`), so
+-- admin_all (picked by role) is the wrong subject for the claude-gated
+-- table. First draft of this proof used admin_all for both and failed §51
+-- the moment it ran against a dev account that held no 'claude' grant.
+create temporary table claude_holder on commit drop as
+select u.id, lower(btrim(u.email)) as email from public.users u
+ where 'claude' = any(coalesce(u.permissions, '{}')) or 'claude' = any(coalesce(u.managed_permissions, '{}'))
+    or 'master' = any(coalesce(u.permissions, '{}')) or 'master' = any(coalesce(u.managed_permissions, '{}'))
+ order by u.id limit 1;
+insert into probe select '05b. a claude-permission holder exists (for the claude_usage_weekly_rollup ALLOW probe)', '1',
+  (select count(*)::text from claude_holder);
+grant select on claude_holder to authenticated;
+
 create temporary table subj_none on commit drop as
 select u.id as uid from public.users u
  where u.role not in ('dev', 'vp_admin', 'pr_staff', 'shop_admin')
@@ -80,6 +95,10 @@ grant select on subj_none to authenticated;
 create or replace function pg_temp.as_admin() returns void language sql as $$
   select set_config('request.jwt.claims',
     (select json_build_object('sub', id, 'role', 'authenticated', 'email', email)::text from admin_all), true);
+$$;
+create or replace function pg_temp.as_claude_holder() returns void language sql as $$
+  select set_config('request.jwt.claims',
+    (select json_build_object('sub', id, 'role', 'authenticated', 'email', email)::text from claude_holder), true);
 $$;
 create or replace function pg_temp.as_none() returns void language sql as $$
   select set_config('request.jwt.claims',
@@ -109,7 +128,7 @@ delete from public.analytics_events where path = 'stats0231-live-path';
 insert into public.analytics_events (at, session_id, event, path, is_authed, app)
 select now() - interval '1 hour', 'sess-0231-live', 'pageview', 'stats0231-live-path', false, 'public';
 
-insert into probe select '10. BEFORE prune: the old day is NOT yet in the rollup (red first)', 'f',
+insert into probe select '10. BEFORE prune: the old day is NOT yet in the rollup (red first)', 'false',
   (exists (select 1 from public.analytics_daily_rollup where day = (current_date - 120)))::text;
 insert into probe select '11. BEFORE prune: 40 raw rows exist for the probe path', '40',
   (select count(*)::text from public.analytics_events where path = 'stats0231-probe-path');
@@ -205,7 +224,12 @@ select pg_temp.as_admin();
 set local role authenticated;
 insert into probe select '50. ALLOW: a dev/grant-holding account reads analytics_daily_rollup', 'true',
   (exists (select 1 from public.analytics_daily_rollup where day = (current_date - 120)))::text;
-insert into probe select '51. ALLOW: a dev account (current_user_has_permission(''claude'')) reads claude_usage_weekly_rollup', 'true',
+reset role;
+reset session authorization;
+
+select pg_temp.as_claude_holder();
+set local role authenticated;
+insert into probe select '51. ALLOW: a current_user_has_permission(''claude'') holder reads claude_usage_weekly_rollup', 'true',
   (exists (select 1 from public.claude_usage_weekly_rollup where week_start = (select wk from probe_week)))::text;
 reset role;
 reset session authorization;
@@ -219,14 +243,34 @@ insert into probe select '53. DENY: an ungranted account reads ZERO rows from cl
 reset role;
 reset session authorization;
 
-select pg_temp.as_anon();
-set local role anon;
-insert into probe select '54. DENY: anon reads ZERO rows from analytics_daily_rollup', '0',
-  (select count(*)::text from public.analytics_daily_rollup);
-insert into probe select '55. DENY: anon reads ZERO rows from claude_usage_weekly_rollup', '0',
-  (select count(*)::text from public.claude_usage_weekly_rollup);
-reset role;
-reset session authorization;
+-- anon gets NO grant at all here (unlike `authenticated` above) — this
+-- repo's own hardening rule (`.claude/rules/mistakes.md` class 7: "revoke …
+-- from anon too", 0226) means anon fails at the GRANT check before RLS is
+-- even evaluated, i.e. `permission denied for table`, not an empty result
+-- set. A probe that expected a plain 0-row SELECT here would itself be
+-- wrong about what "denied" looks like for a role with zero privilege —
+-- caught by actually running it (first draft of this proof asserted '0' and
+-- errored out the whole script instead of failing one row).
+create or replace function pg_temp.anon_read_denied(p_sql text) returns text as $$
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+  execute 'set local role anon';
+  execute p_sql;
+  execute 'reset role';
+  return 'ALLOWED';
+exception
+  when insufficient_privilege then
+    execute 'reset role';
+    return 'denied';
+  when others then
+    execute 'reset role';
+    return 'ERROR ' || left(sqlerrm, 60);
+end $$ language plpgsql;
+
+insert into probe select '54. DENY: anon has no grant at all on analytics_daily_rollup', 'denied',
+  pg_temp.anon_read_denied('select 1 from public.analytics_daily_rollup limit 1');
+insert into probe select '55. DENY: anon has no grant at all on claude_usage_weekly_rollup', 'denied',
+  pg_temp.anon_read_denied('select 1 from public.claude_usage_weekly_rollup limit 1');
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,

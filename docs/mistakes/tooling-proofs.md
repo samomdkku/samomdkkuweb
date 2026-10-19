@@ -3702,3 +3702,36 @@ shares, not just its timer. When the shared resource already has an arbiter
 that people obey, make the job obey THAT arbiter rather than a copy of its
 rule. And never grep a free-text REPORT for error words: recognise the error
 line by its shape, and test it against a report that uses those same words.
+
+---
+
+## A migration that changes a function's SIGNATURE rots the ACL string in an older proof
+
+**Symptom**: `tools/accounts0211-dashboard.mjs` (green on both dev and
+production for weeks) started throwing a bare, uncaught
+`ERROR: 42883: function "public.account_dashboard()" does not exist` on
+samo-dev — not a probe row turning red, the entire script dying before any
+assertion ran.
+
+**Cause**: migration 0232 dropped `account_dashboard()`'s old zero-argument
+overload and replaced it with `account_dashboard(p_samo_year_be integer
+default null)` (additive on purpose — every existing caller that invokes it
+with no arguments still resolves against the new signature's default). But
+`has_function_privilege('anon', 'public.account_dashboard()', 'execute')` names
+a function SIGNATURE as a literal string, and Postgres resolves that string
+eagerly: a signature that no longer exists raises `42883` instead of
+returning `false`. That line sat outside every `do $$ … exception …` block in
+the proof, so the raise killed the whole script — the SAME shape as class 7's
+"an untested constraint in a doc", just for a hardcoded signature string
+instead of prose: nothing reads `has_function_privilege`'s first argument as
+"this might not resolve any more."
+
+**Fix**: the signature string became `'public.account_dashboard(integer)'`.
+General form: any proof that calls `has_function_privilege` /
+`has_table_privilege` / similar ACL introspection with a literal
+signature must be re-checked whenever that function's signature changes —
+grep every `tools/*.sql`/`*.mjs` for the function's bare name (not just its
+call sites) before trusting a migration that "only adds a default parameter".
+
+**Where it lives now**: `tools/accounts0211-dashboard.mjs`,
+`supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql`.
