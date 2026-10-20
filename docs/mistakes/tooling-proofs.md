@@ -3801,3 +3801,27 @@ than failing the whole batch on the first one `git check-ignore` refuses.
 **Where it lives now**: `src/js/state-handoff.test.js` (`GIT_IGNORED`'s
 `git check-ignore --stdin` call, `r.status === 128` fallback),
 `docs/state/night-agent.md`.
+
+## Two night-agent proofs, green when written, red a day later — neither about its migration
+
+**Symptom (2026-10-20, owner-session review).** `passport0232` errored
+`duplicate key … users_pkey`; `shop0230` step 39 read year 2571 where it
+expected 2695. Both had been recorded green (22/22, 32/32) the day before.
+
+**Cause.** Two environment assumptions, both the "scenario needs geometry /
+an absence" shape. (1) passport0232 inserted `auth.users` then `public.users`
+by hand because samo-dev had no `on_auth_user_created` trigger; task 14's 0234
+added it to samo-dev, so the trigger made the row first — and PRODUCTION has
+always had that trigger, so the proof could never have run there. (2)
+shop0230 backdated its sentinel year to `now() - 2 days`; samo-dev had a real
+term (2571) started on 2026-10-18 17:41, so from 10-20 an order "placed a day
+ago" fell inside both terms.
+
+**Fix.** passport0232 UPSERTS its `public.users` rows; shop0230 runs its
+scenario over the last two minutes and closes the term `start_team_term` just
+ended at the same instant. Both green on samo-dev, then on production.
+
+**The general rule**: *a proof written on samo-dev must be read against
+PRODUCTION's shape before it is called portable — a trigger, a default or a
+row that exists only there turns a hand-written setup into a collision.* And
+geometry relative to `now()` must be smaller than anything real can occupy.

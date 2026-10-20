@@ -89,9 +89,14 @@ function whoSub(a) {
 }
 
 // ── load + live ─────────────────────────────────────────────────────────────
+let reloadWanted = false;
 async function load() {
-  if (loading) return;
+  // A load already running answers for the year it STARTED with; a year
+  // picked meanwhile must still be loaded, or its label sits over the old
+  // year's numbers until a pulse happens to differ.
+  if (loading) { reloadWanted = true; return; }
   loading = true;
+  reloadWanted = false;
   try {
     // The fingerprint FIRST: a change landing between the two reads is then
     // caught by the next tick instead of being adopted unseen.
@@ -124,6 +129,7 @@ async function load() {
   } finally {
     loading = false;
     paintLive();
+    if (reloadWanted) load();
   }
 }
 

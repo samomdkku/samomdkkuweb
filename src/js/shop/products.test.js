@@ -54,6 +54,10 @@ describe('qtyCeilingFor — the popup qty cap', () => {
   it('an untracked product is 99 once a colour IS chosen (no matrix to read)', () => {
     expect(qtyCeilingFor(untracked, 'F', 'red')).toBe(99);
   });
+  it('never above the cart line cap of 99, however much is left (cart.js maxQtyFor)', () => {
+    const big = { colors: [{ id: 'black' }], stock_matrix: { 'F-black': 150 } };
+    expect(qtyCeilingFor(big, 'F', 'black')).toBe(99);
+  });
   it('an unlimited preorder (empty grid) is 99 even with colours to pick', () => {
     expect(qtyCeilingFor(preorderUnlimited, 'F', null)).toBe(99);
   });

@@ -4589,3 +4589,24 @@ timer ticked" will eventually do the user-asked thing on the timer's
 schedule — split the signal, don't share it.* And: repainting identical text
 into a live region is not free — a screen reader sees the mutation, not a
 diff; skip the write when the computed content did not change.
+
+## ⌘-click on the home banner's ร้านค้า / ประกาศ and the /me link stopped opening a new tab
+
+**Symptom (found in review, 2026-10-20, before it shipped).** A modified click
+(⌘/Ctrl/Shift) on `/shop`, `/news` or the avatar link switched the current page
+instead of opening a new tab.
+
+**Cause.** The night agent's bug scan removed `a[href][data-dept-tool-tab]`
+from `departments.js`'s modified-click pass-through as dead, reasoning "a tab
+tool renders as a `<button>`" — true of `tool-card.js`, the ONE renderer it
+read. `tab-home.html` writes three real `<a href data-dept-tool-tab>` links by
+hand. Same shape as class 6: a rule checked against the writers you happened
+to be looking at.
+
+**Fix.** Selector restored; `src/js/departments-modified-click.test.js` reads
+EVERY `src/html/*.html` for `<a href>` carrying a dept-tool attribute and
+fails if the pass-through does not name it (red with the half removed).
+
+**The general rule**: *"nothing uses this" is a claim about every producer, so
+prove it by searching the OUTPUT (markup, rendered DOM), not the one renderer
+you know.* Hand-written HTML is a producer too.

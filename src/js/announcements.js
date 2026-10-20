@@ -238,6 +238,19 @@ export function filesToRetire(before, after, others = []) {
   return [...old].filter((id) => !keep.has(id));
 }
 
+/** Every OTHER announcement, ANY status — the `others` filesToRetire must
+ *  keep. Not globalAnnouncements: that holds one status (the public feed's
+ *  'approved', or the manage filter), and since archiving exists an archived
+ *  post still shows its pictures when it is restored — trashing them on an
+ *  approved post's behalf broke it. Writers can read every status
+ *  (announcements_read, 0093). null when the read fails: the caller then
+ *  retires NOTHING rather than trash a picture it could not check. */
+async function otherAnnouncementsAnyStatus(excludeId) {
+  const { data, error } = await dbRest('/announcements?select=id,thumbnail_url,content');
+  if (error || !Array.isArray(data)) return null;
+  return data.filter((p) => String(p.id) !== String(excludeId));
+}
+
 /** Trash them, best-effort. Always AFTER the row is written or gone. */
 function retireDriveFiles(ids) {
   for (const id of ids || []) {
@@ -363,13 +376,13 @@ export async function publishAnnouncement() {
     cancelEdit();
     setTimeout(async () => {
       alertBox.classList.add('d-none');
-      await loadAnnouncements();
-      // AFTER the reload, so `others` is the live list — a cover shared with a
-      // duplicated article must not be trashed on this one's behalf. Only runs
-      // for an EDIT: a brand-new article replaced nothing.
+      await loadAnnouncements(manageStatusFilter);
+      // AFTER the write, so `others` is the live set — a cover shared with a
+      // duplicated or ARCHIVED article must not be trashed on this one's
+      // behalf. Only runs for an EDIT: a brand-new article replaced nothing.
       if (beforeSnapshot) {
-        const others = globalAnnouncements.filter((p) => String(p.id) !== String(publishedId));
-        retireDriveFiles(filesToRetire(beforeSnapshot, { thumbnail, content: contentHtml }, others));
+        const others = await otherAnnouncementsAnyStatus(publishedId);
+        if (others) retireDriveFiles(filesToRetire(beforeSnapshot, { thumbnail, content: contentHtml }, others));
       }
       // Let the admin shell react (close the editor popup, refresh the
       // manage cards). No-op on the public site (no listener bound there).
@@ -443,10 +456,11 @@ export async function deleteAnnouncement(targetId) {
 
   // Reload list — safe on both public and admin (loadAnnouncements is
   // DOM-resilient).
-  await loadAnnouncements();
+  await loadAnnouncements(manageStatusFilter);
   // The article is gone, so everything it used is orphaned — except anything a
-  // surviving article also points at. `after` is null: nothing keeps these.
-  retireDriveFiles(filesToRetire(deletedRow, null, globalAnnouncements));
+  // surviving article (any status) also points at. `after` is null.
+  const others = await otherAnnouncementsAnyStatus(deletedRow?.id);
+  if (others) retireDriveFiles(filesToRetire(deletedRow, null, others));
   // Admin shell hook: close the editor popup (if open) + refresh manage cards.
   document.dispatchEvent(new CustomEvent('announcement:changed'));
   return true;
@@ -489,8 +503,9 @@ export async function saveAnnouncementOrder(orderedIds) {
       return false;
     }
   }
-  // Refresh local cache + any visible lists.
-  await loadAnnouncements();
+  // Refresh local cache + any visible lists — under the manage pane's filter,
+  // or the re-render paints approved cards under a เก็บเข้าคลัง select.
+  await loadAnnouncements(manageStatusFilter);
   return true;
 }
 
@@ -556,7 +571,7 @@ export async function toggleArchiveAnnouncement(targetId) {
   try {
     const { data, error } = await dbRest(
       `/announcements?id=eq.${encodeURIComponent(id)}`,
-      { method: 'PATCH', body: { status: willArchive ? 'archived' : 'approved' }, prefer: 'return=representation' },
+      { method: 'PATCH', body: archiveBody(willArchive), prefer: 'return=representation' },
     );
     if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
     if (!Array.isArray(data) || data.length === 0) {
@@ -568,6 +583,29 @@ export async function toggleArchiveAnnouncement(targetId) {
   }
   await loadAnnouncements(manageStatusFilter);
   return true;
+}
+
+/** An archived post is never the featured one: archiving clears `pinned`,
+ *  or restoring it later leaves two pinned posts (the pin toggle only unpins
+ *  rows in the loaded list). Skipped while the pinned column is missing. */
+function archiveBody(willArchive) {
+  if (!willArchive) return { status: 'approved' };
+  return window.__samoWarnedPinned ? { status: 'archived' } : { status: 'archived', pinned: false };
+}
+
+/** Archive several approved posts in ONE write. Returns how many the server
+ *  actually changed — RLS answers a refused row with fewer rows, not an
+ *  error, so the count is the success signal (delete-guard rule). */
+export async function archiveAnnouncements(ids) {
+  const list = (ids || []).map(String).filter(Boolean);
+  if (!list.length) return 0;
+  const inList = list.map((id) => encodeURIComponent(id)).join(',');
+  const { data, error } = await dbRest(
+    `/announcements?id=in.(${inList})&status=eq.approved`,
+    { method: 'PATCH', body: archiveBody(true), prefer: 'return=representation' },
+  );
+  if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
+  return Array.isArray(data) ? data.length : 0;
 }
 
 /** The manage pane's own status filter ('approved' | 'archived' | 'all') —

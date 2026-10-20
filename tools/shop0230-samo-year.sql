@@ -172,14 +172,24 @@ insert into probe select '30. sentinel term 2695 opens', 'ok', (select v from r 
 -- started_at directly (the same supported admin override every column in
 -- this design has) so the two handovers below land at genuinely different
 -- instants, which a real rollover days apart would have for free.
-update public.team_terms set started_at = now() - interval '2 days' where year = 2695;
+-- ⛔ MINUTES, NOT DAYS, and the term start_team_term just closed is closed at
+-- the SAME instant. This used to be `now() - 2 days`, which only worked while
+-- every real term on the project had started more than two days ago: samo-dev
+-- had 2571 started 2026-10-18 17:41, so on 10-20 an order "placed a day ago"
+-- sat inside BOTH 2571 and 2695 and step 39 read 2571 — red for a reason that
+-- had nothing to do with 0230 (a scenario needing geometry that runs out,
+-- docs/mistakes/tooling-proofs.md). Two minutes cannot collide with any real
+-- term, because real terms do not start inside this transaction.
+update public.team_terms set ended_at = now() - interval '2 minutes'
+ where year <> 2695 and ended_at = now();
+update public.team_terms set started_at = now() - interval '2 minutes' where year = 2695;
 select pg_temp.take_snap('t3_after_2695_opens');
 
 select pg_temp.as_admin();
 set local role authenticated;
 insert into r select 'ins_hist',
   pg_temp.try($q$insert into public.shop_orders (id, buyer_id, status, subtotal, fee, total, placed_at)
-               values ('SH-TEST0230C', (select uid from subj_buyer), 'paid', 100, 0, 100, now() - interval '1 day')$q$);
+               values ('SH-TEST0230C', (select uid from subj_buyer), 'paid', 100, 0, 100, now() - interval '1 minute')$q$);
 reset role;
 insert into probe select '31. an order placed while 2695 is current is stamped 2695 (the trigger reads the LIVE term, not placed_at)', '2695',
   (select samo_year_be::text from public.shop_orders where id = 'SH-TEST0230C');
@@ -193,7 +203,7 @@ select pg_temp.as_admin();
 set local role authenticated;
 insert into r select 'ins_unpaid',
   pg_temp.try($q$insert into public.shop_orders (id, buyer_id, status, subtotal, fee, total, placed_at)
-               values ('SH-TEST0230C2', (select uid from subj_buyer), 'review', 100, 0, 100, now() - interval '1 day')$q$);
+               values ('SH-TEST0230C2', (select uid from subj_buyer), 'review', 100, 0, 100, now() - interval '1 minute')$q$);
 reset role;
 insert into probe select '33. an UNPAID order placed while 2695 is current is also stamped 2695', '2695',
   (select samo_year_be::text from public.shop_orders where id = 'SH-TEST0230C2');

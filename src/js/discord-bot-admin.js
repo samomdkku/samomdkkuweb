@@ -153,9 +153,16 @@ function paint() {
  *  (first entry, "โหลดใหม่") still clears it: that IS user action on this
  *  message. A load that itself FAILS still reports — silence should never
  *  hide a NEW problem, only avoid erasing an old message with good news. */
+// Whether the message on screen was written by a LOAD failure. A silent poll
+// must not clear a save error (the admin has not read it yet), but it must
+// clear its OWN error once the panel loads again — or a green status card sits
+// under a stale red "could not load" until someone presses โหลดใหม่.
+let msgFromLoad = false;
 async function load({ silent = false } = {}) {
-  try { panel = await rpc('get_discord_bot_panel'); if (!silent) say(''); }
-  catch (e) { panel = null; say(e.message, 'error'); }
+  try {
+    panel = await rpc('get_discord_bot_panel');
+    if (!silent || msgFromLoad) { say(''); msgFromLoad = false; }
+  } catch (e) { panel = null; say(e.message, 'error'); msgFromLoad = true; }
   paint();
 }
 
@@ -163,6 +170,7 @@ async function set(patch, done) {
   busy = true; paint();
   try { panel = await rpc('set_discord_bot', patch); say(done, 'ok'); }
   catch (e) { say(`บันทึกไม่สำเร็จ: ${e.message}`, 'error'); }
+  msgFromLoad = false;
   busy = false; paint();
 }
 

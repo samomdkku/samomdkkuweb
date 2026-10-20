@@ -1577,3 +1577,26 @@ not always the implementation's bug — read what CHANGED and why before
 reverting either side. A test that hardcodes raw text through a channel that
 escapes it will drift the moment the escaping is added; unescape before
 matching, or match a property, not the literal bytes.
+
+## A Supabase blip mid-pass would have posted "Discord ปฏิเสธ" for every pending role change
+
+**Symptom (found in review, 2026-10-20, before it shipped).** With the
+mid-pass pause check from the 2026-09-23 cold review, a failed read of the
+bot's switch inside `write()` was caught by `tryWrite` as if Discord had
+refused that write — so every remaining change was reported to the role-bot
+channel as refused, though none was attempted. Also: a pause mid-pass dropped
+the report of what WAS written, and switching nicknames off did not stop a
+rename run in progress.
+
+**Cause.** One `catch` for two different failures: Discord saying no, and our
+own precondition (the switch) being unreadable.
+
+**Fix.** `stillOn()` throws `SettingsUnreadable`; it and `Paused` abort the
+PASS (`abortsPass`), go through the normal retry/backoff, and the partial
+report is posted before the pass rethrows. The nickname loop checks
+`NICKS === 'off'` each turn. Test: "a settings read failing MID-PASS…" in
+`discord-sync.test.js` (red with the old catch).
+
+**The general rule**: *a catch that records a failure AGAINST THE ITEM must
+only catch failures OF THE ITEM.* A precondition failing is the pass's
+problem, reported once.

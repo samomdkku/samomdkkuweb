@@ -146,11 +146,13 @@ export function initDepartments() {
     // A modified click on a real LINK (⌘/Ctrl = new tab, Shift = new window,
     // Alt = download) is the browser's to handle — the href is kept on these
     // anchors precisely so that works. Cancelling it opened nothing new and
-    // just switched the current page. A tab-kind tool renders as a <button>
-    // (tool-card.js), which has no href, so it has no modified-click case to
-    // pass through — only data-dept-tool-path ever appears on an <a href>.
+    // just switched the current page. ⛔ BOTH attributes appear on real links:
+    // tool-card.js renders tab tools as <button>, but tab-home.html's banner
+    // and /me links are <a href data-dept-tool-tab> — removing that half as
+    // "dead" (2026-10-19) broke ⌘-click on /shop, /news and /me.
+    // departments-modified-click.test.js reads the markup to keep it honest.
     const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0;
-    if (modified && e.target.closest('a[href][data-dept-tool-path]')) return;
+    if (modified && e.target.closest('a[href][data-dept-tool-tab], a[href][data-dept-tool-path]')) return;
     const tabBtn = e.target.closest('[data-dept-tool-tab]');
     if (tabBtn) {
       e.preventDefault();
