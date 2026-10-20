@@ -1476,8 +1476,8 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 ## 17. The night agent — PAUSED 2026-10-20 by the owner, mid task 17 (quality queue 13–23; history below is older)
 
 **2026-10-20 18:3x ICT — PAUSED. Status: VERIFIED 2026-10-20 — how: `pgrep -af "run-night|claude -p"` on the VM
-empty after the kill, `~/samo-night/STOPPED` written, `queue.mjs report` lists 17 as `interrupted (WIP 005e6ec)`.**
-The owner wanted the session for other work. Task 17's half-done work is committed as `005e6ec` on
+empty after the kill, `~/samo-night/STOPPED` written, `queue.mjs report` lists 17 as `interrupted`.**
+The owner wanted the session for other work. Task 17's half-done work is the WIP commit at the tip of
 `agent/2026-10-20` (the queue note says "โควตาหมด" — it was a pause; `NIGHT-TASKS.md.prev-pause` kept).
 13 needs-review · 14–16 done · 17 interrupted (resumes, never skipped) · 18–23 todo. To resume:
 `bash server/night-agent/install.sh --arm` (clears STOPPED, keeps the live queue); mind `Until` 2026-10-21 08:30 UTC.
