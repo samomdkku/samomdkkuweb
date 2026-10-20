@@ -144,3 +144,284 @@
   .sai-grid { grid-template-columns: repeat(auto-fill, minmax(4.4rem, 1fr)); gap: 0.35rem; }
   .sai-cell { padding: 0.35rem !important; font-size: 0.72rem; }
 }
+
+/* ── อาจารย์ → นักศึกษาในความดูแล (2026-10-20) ─────────────────────────────
+   Built for staff who have never used this site: one big search box, people as
+   cards, a tap opens their นักศึกษา. iOS inset-grouped lists, not a table — a
+   table asks the reader to know which column to look at; a card says it.
+   Every class here is emitted by renderAdvisors()/renderAdvisorDetail() in
+   src/js/house/index.js; a class with no rule is invisible in review. */
+
+.hadv-view { animation: hadv-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* The page arrives from the right, as a pushed screen does; the list returns
+   by fading. Spatial: you go "into" a person and come back "out". */
+#houseAdvisorDetail.hadv-view { animation-name: hadv-push; }
+@keyframes hadv-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hadv-push {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+.hadv-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 1rem;
+  background: var(--surface, var(--surface));
+  border: 1px solid var(--ink-200, var(--ink-200));
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: text;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.hadv-search:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 4px rgba(16, 89, 34, 0.12);
+}
+.hadv-search i { color: var(--ink-400, var(--ink-400)); font-size: 1.05rem; }
+.hadv-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink-900, var(--ink-900));
+  font-size: 1.05rem;      /* ≥16px: iOS zooms the page on focus below that */
+}
+.hadv-search-sm { padding: 0.45rem 0.8rem; margin: 0; border-radius: 10px; flex: 1 1 14rem; }
+.hadv-search-sm input { font-size: 1rem; }
+
+/* A list of pressable rows on one rounded surface, hairlines inset past the
+   avatar — the iOS "inset grouped" list. */
+.hadv-list, .hadv-rows {
+  background: var(--surface, var(--surface));
+  border: 1px solid var(--ink-200, var(--ink-200));
+  border-radius: 14px;
+  overflow: hidden;
+}
+.hadv-card, .hadv-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  position: relative;
+  transition: background-color 0.1s ease;
+}
+.hadv-row { padding: 0.6rem 1rem; }
+.hadv-card + .hadv-card::before, .hadv-row + .hadv-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 3.9rem;
+  right: 0;
+  border-top: 1px solid var(--ink-100, var(--ink-100));
+}
+.hadv-row + .hadv-row::before { left: 4.6rem; }
+/* Feedback on PRESS, not on release. */
+.hadv-card:hover, .hadv-row:hover { background: var(--ink-50, var(--ink-50)); }
+.hadv-card:active, .hadv-row:active { background: var(--ink-100, var(--ink-100)); }
+.hadv-card:focus-visible, .hadv-row:focus-visible, .hadv-back:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -2px;
+}
+
+.hadv-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--green-100, #dceede);
+  background: var(--green-100, color-mix(in srgb, #dceede var(--tint-mix), var(--surface)));
+  color: var(--brand-primary);
+  font-family: 'Prompt', var(--font-sans, sans-serif);
+  font-weight: 600;
+}
+.hadv-avatar-lg { width: 3.5rem; height: 3.5rem; font-size: 1.5rem; }
+
+.hadv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hadv-name { font-weight: 600; color: var(--ink-900, var(--ink-900)); line-height: 1.35; }
+.hadv-nick { font-weight: 400; color: var(--ink-500, var(--ink-500)); }
+/* Wraps rather than truncating: a tooltip does not exist on a phone, so a cut
+   ภาควิชา would be unrecoverable there (mistakes.md class 4). */
+.hadv-sub { font-size: 0.85rem; color: var(--ink-500, var(--ink-500)); line-height: 1.4; overflow-wrap: anywhere; }
+.hadv-chev { flex: 0 0 auto; color: var(--ink-300, var(--ink-300)); }
+
+.hadv-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--ink-500, var(--ink-500));
+  background: var(--surface, var(--surface));
+  border: 1px dashed var(--ink-200, var(--ink-200));
+  border-radius: 14px;
+}
+
+/* ── the person's page ── */
+.hadv-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.5rem -0.4rem;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--brand-primary);
+  font-weight: 500;
+}
+.hadv-back:hover { background: var(--green-50, #f1f8f2); background: var(--green-50, color-mix(in srgb, #f1f8f2 var(--tint-mix), var(--surface))); }
+.hadv-back:active { opacity: 0.6; }
+
+.hadv-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  background: var(--surface, var(--surface));
+  border: 1px solid var(--ink-200, var(--ink-200));
+  border-radius: 16px;
+}
+.hadv-title {
+  margin: 0;
+  font-family: 'Prompt', var(--font-sans, sans-serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--ink-900, var(--ink-900));
+}
+.hadv-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; margin-top: 0.45rem; }
+.hadv-stat { font-size: 0.9rem; color: var(--ink-600, var(--ink-600)); }
+.hadv-stat strong { font-size: 1.05rem; color: var(--ink-900, var(--ink-900)); }
+.hadv-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-left: auto; }
+
+/* House chip: a dot in the house's own colour + its name. Colour is never the
+   only signal — the name is always printed beside it. */
+.hadv-house {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.55rem 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--ink-700, var(--ink-700));
+  background: color-mix(in srgb, var(--hc, #105922) 12%, var(--surface, var(--surface)));
+}
+.hadv-house::before, .hadv-dot {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--hc, #105922);
+  flex: 0 0 auto;
+}
+.hadv-dot { width: 0.65rem; height: 0.65rem; margin: 0 0.3rem; }
+
+.hadv-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Segmented control: two choices, one sliding thumb. */
+.hadv-seg {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--ink-100, var(--ink-100));
+  flex: 0 0 auto;
+}
+.hadv-seg::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 8px;
+  background: var(--surface, var(--surface));
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.hadv-seg[data-active="year"]::before { transform: translateX(100%); }
+.hadv-seg button {
+  position: relative;
+  z-index: 1;
+  padding: 0.35rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-600, var(--ink-600));
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.hadv-seg button[aria-checked="true"] { color: var(--ink-900, var(--ink-900)); font-weight: 600; }
+
+.hadv-group { margin-bottom: 1.1rem; }
+.hadv-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem 0.4rem;
+}
+.hadv-group-title {
+  font-family: 'Prompt', var(--font-sans, sans-serif);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ink-900, var(--ink-900));
+}
+.hadv-group-count { margin-left: auto; font-size: 0.85rem; color: var(--ink-500, var(--ink-500)); }
+
+/* ชั้นปี as a fixed-width pill, so a สาย reads as a ladder ปี 1 → ปี 6. */
+.hadv-year {
+  flex: 0 0 auto;
+  min-width: 3.4rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+  background: var(--green-50, #f1f8f2);
+  background: var(--green-50, color-mix(in srgb, #f1f8f2 var(--tint-mix), var(--surface)));
+}
+.hadv-row-empty { padding: 0.85rem 1rem; font-size: 0.9rem; color: var(--ink-500, var(--ink-500)); }
+
+@media (max-width: 575.98px) {
+  .hadv-actions { margin-left: 0; width: 100%; }
+  .hadv-actions .btn { flex: 1; }
+  .hadv-seg { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hadv-view, #houseAdvisorDetail.hadv-view { animation: none; }
+  .hadv-seg::before, .hadv-search { transition: none; }
+}
+
+/* The ระบบบ้าน sub-nav on a phone: eight buttons squeezed into 390px broke
+   every label one syllable per line ("ยัง / นำ / เข้า / ไม่ / ได้") and still
+   overflowed the page by 9px. Below `sm` it SCROLLS sideways instead, labels on
+   one line — a row of tabs is something a phone user already knows to swipe. */
+@media (max-width: 575.98px) {
+  .house-subnav {
+    display: flex;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .house-subnav::-webkit-scrollbar { display: none; }
+  .house-subnav > .btn { flex: 0 0 auto; white-space: nowrap; }
+}

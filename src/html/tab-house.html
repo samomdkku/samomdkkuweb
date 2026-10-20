@@ -4,7 +4,7 @@
 
   <!-- Sub-nav -->
   <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-    <div class="btn-group btn-group-sm" role="group" aria-label="ส่วนของระบบบ้าน">
+    <div class="btn-group btn-group-sm house-subnav" role="group" aria-label="ส่วนของระบบบ้าน">
       <button type="button" class="btn btn-outline-secondary active" data-house-mode="overview">
         <i class="bi bi-grid-1x2"></i> ภาพรวม
       </button>
@@ -284,21 +284,53 @@
   </section>
 
   <!-- ---------- อาจารย์ ---------- -->
+  <!-- REQUESTED (owner, 2026-10-20): "อาจารย์ wants to select อาจารย์ and see
+       all นักศึกษา under him … make the UI simple — staff who never used this
+       web will use it." So this pane is a FINDER first and an editor second:
+       one big search box, the อาจารย์ as cards, and a tap opens that person's
+       นักศึกษา grouped by สาย or ชั้นปี. Who is "under" an อาจารย์ is the
+       sai_advisors join, never stored — src/js/house/advisor-roster.js. -->
   <section data-house-pane="advisors" class="d-none">
-    <div class="d-flex gap-2 mb-3">
-      <input type="search" class="form-control form-control-sm" id="houseAdvisorSearch"
-             placeholder="ค้นหาอาจารย์" style="max-width:320px" />
-      <button type="button" class="btn btn-sm btn-primary" id="houseAddAdvisor">
-        <i class="bi bi-plus-lg"></i> เพิ่มอาจารย์
-      </button>
+    <div id="houseAdvisorList" class="hadv-view">
+      <label class="hadv-search" for="houseAdvisorSearch">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" id="houseAdvisorSearch" autocomplete="off"
+               placeholder="พิมพ์ชื่ออาจารย์ เพื่อดูนักศึกษาในความดูแล"
+               aria-label="ค้นหาอาจารย์" />
+      </label>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="small text-muted" id="houseAdvisorCount"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="houseAddAdvisor">
+          <i class="bi bi-plus-lg"></i> เพิ่มอาจารย์
+        </button>
+      </div>
+      <div id="houseAdvisorRows" class="hadv-list"></div>
     </div>
-    <div class="table-responsive">
-      <table class="table table-sm table-hover align-middle">
-        <thead>
-          <tr><th>ชื่อ</th><th>อีเมล</th><th>ภาควิชา</th><th>สายที่ดูแล</th><th></th></tr>
-        </thead>
-        <tbody id="houseAdvisorRows"></tbody>
-      </table>
+
+    <div id="houseAdvisorDetail" class="hadv-view d-none">
+      <button type="button" class="hadv-back" id="hadvBack">
+        <i class="bi bi-chevron-left" aria-hidden="true"></i> อาจารย์ทั้งหมด
+      </button>
+      <div id="hadvHero"></div>
+      <div class="hadv-controls">
+        <div class="hadv-seg" role="radiogroup" aria-label="จัดกลุ่มนักศึกษา">
+          <button type="button" role="radio" data-hadv-by="sai" aria-checked="true">ตามสายรหัส</button>
+          <button type="button" role="radio" data-hadv-by="year" aria-checked="false">ตามชั้นปี</button>
+        </div>
+        <label class="hadv-search hadv-search-sm" for="hadvSearch">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input type="search" id="hadvSearch" autocomplete="off"
+                 placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส"
+                 aria-label="ค้นหานักศึกษาของอาจารย์ท่านนี้" />
+        </label>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" id="hadvShowGrad" />
+          <label class="form-check-label small" for="hadvShowGrad">
+            แสดงรุ่นที่จบแล้ว<span id="hadvGradCount" class="text-muted"></span>
+          </label>
+        </div>
+      </div>
+      <div id="hadvGroups"></div>
     </div>
   </section>
 

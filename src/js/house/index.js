@@ -53,6 +53,9 @@ import {
   computeSaiGrid, listGridCohorts, gridMaxAcrossCohorts, matchCohortInput, CELL as SAI_CELL,
 } from './sai-grid.js';
 import { FOLLOW_UP, followUpLabel } from './follow-up.js';
+import {
+  advisorSaiCodes, matchAdvisors, advisorRoster, yearText,
+} from './advisor-roster.js';
 import { diagnoseHelpRequest } from './help-diagnosis.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
@@ -109,6 +112,12 @@ let gapShowAll = false;
 let studentsView = 'list';    // 'list' | 'grid'
 let saiGridCohort = '';       // last-picked รุ่น; kept across renders/reloads
 let pendingImport = null;   // parsed + diffed, awaiting confirmation
+// อาจารย์ pane: which อาจารย์'s นักศึกษา are open (null = the finder list), and
+// how that page is grouped. Reset each time a person is opened — a new person
+// should not inherit the last one's search or switch.
+let advisorViewId = null;
+let advisorGroupBy = 'sai';  // 'sai' | 'year'
+let advisorShowGrad = false;
 
 function setStatus(msg, isError = false) {
   const el = $('houseStatus');
@@ -1193,26 +1202,207 @@ async function onSaiRemoveAdvisor(advisorId) {
 }
 
 // ---------- อาจารย์ ----------
+//
+// A FINDER FIRST (owner, 2026-10-20): staff who have never used this site type
+// an อาจารย์'s name, tap the card, and get that person's นักศึกษา grouped. The
+// list and the detail are two views of this one pane — `advisorViewId` says
+// which — and the grouping itself is ./advisor-roster.js (pure, tested).
+
+/** Initial for the avatar: the first letter of the NAME, past a title typed
+ *  into ชื่อจริง ("ผศ.นพ. สมชาย" → ส) and any leading Thai vowel (เ, ไ …).
+ *  Strips a prefix by pattern; never splits a name into parts (0135). */
+function nameInitial(a) {
+  const name = String(a?.full_name || '').trim().replace(/^(?:[^\s.]+\.)+\s*/, '');
+  const m = name.match(/[ก-ฮA-Za-z]/);
+  return m ? m[0].toUpperCase() : '?';
+}
+
+/** Students the roster counts by default — the ones still studying. */
+const activeStudents = () => students.filter((s) => !isGraduated(s));
+
 function renderAdvisors() {
   fillDatalist('houseDeptList',
     [...new Set(advisors.map((a) => a.dept).filter(Boolean))].sort());
-  const q = ($('houseAdvisorSearch')?.value || '').trim().toLowerCase();
-  const rows = advisors.filter((a) => !q
-    || [a.full_name, a.email, a.dept].some((v) => String(v || '').toLowerCase().includes(q)));
+  // An อาจารย์ deleted (or a reload that lost them) cannot stay open.
+  if (advisorViewId && !advisors.some((a) => a.id === advisorViewId)) advisorViewId = null;
+  $('houseAdvisorList')?.classList.toggle('d-none', !!advisorViewId);
+  $('houseAdvisorDetail')?.classList.toggle('d-none', !advisorViewId);
+  if (advisorViewId) { renderAdvisorDetail(); return; }
+
+  const query = ($('houseAdvisorSearch')?.value || '').trim();
+  const rows = query ? matchAdvisors(advisors, query) : advisors;
+  const active = activeStudents();
   const body = $('houseAdvisorRows');
   if (!body) return;
-  body.innerHTML = rows.length ? rows.map((a) => `
-    <tr data-advisor="${escHtml(a.id)}" role="button">
-      <td>${escHtml(a.full_name)}</td>
-      <td class="small">${a.email ? escHtml(a.email)
-    : '<span class="text-muted fst-italic">ยังไม่มีอีเมล</span>'}</td>
-      <td class="small">${a.dept ? escHtml(a.dept)
-    : '<span class="text-muted fst-italic">ยังไม่ระบุ</span>'}</td>
-      <td class="small">${escHtml((a.sai_advisors || []).map((l) => l.sai_code).sort().join(', ') || '—')}</td>
-      <td class="text-end"><i class="bi bi-pencil text-muted"></i></td>
-    </tr>`).join('')
-    : `<tr><td colspan="5" class="text-center text-muted py-4">
-         ยังไม่มีรายชื่ออาจารย์ — กด “เพิ่มอาจารย์” หรือรอไฟล์จากฝ่ายข้อมูล</td></tr>`;
+  const count = $('houseAdvisorCount');
+  if (count) {
+    count.textContent = advisors.length
+      ? (query ? `พบ ${rows.length} จาก ${advisors.length} ท่าน` : `อาจารย์ทั้งหมด ${advisors.length} ท่าน`)
+      : '';
+  }
+  body.innerHTML = rows.length ? rows.map((a) => {
+    const codes = advisorSaiCodes(a);
+    const n = active.filter((s) => codes.includes(s.sai_code)).length;
+    const meta = [
+      a.dept,
+      codes.length ? `ดูแล ${codes.length} สาย` : 'ยังไม่ได้กำหนดสาย',
+      codes.length ? `นักศึกษา ${n.toLocaleString('th-TH')} คน` : null,
+    ].filter(Boolean).map(escHtml).join(' · ');
+    return `
+      <button type="button" class="hadv-card" data-advisor="${escHtml(a.id)}">
+        <span class="hadv-avatar" aria-hidden="true">${escHtml(nameInitial(a))}</span>
+        <span class="hadv-main">
+          <span class="hadv-name">${escHtml(a.full_name)}</span>
+          <span class="hadv-sub">${meta}</span>
+        </span>
+        <i class="bi bi-chevron-right hadv-chev" aria-hidden="true"></i>
+      </button>`;
+  }).join('')
+    : `<div class="hadv-empty">${advisors.length
+      ? `ไม่พบอาจารย์ที่ตรงกับ “${escHtml(query)}” — ลองพิมพ์แค่บางส่วนของชื่อ`
+      : 'ยังไม่มีรายชื่ออาจารย์ — กด “เพิ่มอาจารย์” หรือรอไฟล์จากฝ่ายข้อมูล'}</div>`;
+}
+
+function openAdvisorDetail(id) {
+  advisorViewId = id;
+  advisorGroupBy = 'sai';
+  advisorShowGrad = false;
+  const search = $('hadvSearch');
+  if (search) search.value = '';
+  renderAdvisors();
+  // Arrive at the TOP of the person you picked, not wherever the list was.
+  // Only when the list had been scrolled past it — never yank a page that
+  // already shows the top.
+  const top = $('houseAdvisorDetail')?.getBoundingClientRect().top;
+  if (top !== undefined && top < 0) $('houseAdvisorDetail').scrollIntoView({ block: 'start' });
+  $('hadvBack')?.focus({ preventScroll: true });
+}
+
+function closeAdvisorDetail() {
+  const back = advisorViewId;
+  advisorViewId = null;
+  renderAdvisors();
+  // Return focus to the card you came from, so the list keeps its place.
+  document.querySelector(`[data-advisor="${CSS.escape(back || '')}"]`)?.focus();
+}
+
+/** One sub-line for a student row: what tells two people apart at a glance. */
+function studentSubline(s, withSai) {
+  return [
+    withSai ? `สาย ${s.sai_code}` : null,
+    s.student_id, s.major,
+  ].filter(Boolean).map(escHtml).join(' · ');
+}
+
+function houseColorOfSai(code) {
+  const h = saiHouse(code);
+  return safeColor(houseById(h)?.color, 'var(--brand-primary)');
+}
+
+function renderAdvisorDetail() {
+  const a = advisors.find((x) => x.id === advisorViewId);
+  if (!a) return;
+  const q = ($('hadvSearch')?.value || '').trim().toLowerCase();
+  const pool = students.filter((s) => {
+    if (!advisorShowGrad && isGraduated(s)) return false;
+    if (!q) return true;
+    return [s.full_name, s.nickname, s.student_id, s.kkumail]
+      .some((v) => String(v || '').toLowerCase().includes(q));
+  });
+  const roster = advisorRoster(a, pool, advisorGroupBy);
+  const all = advisorRoster(a, students, 'sai');
+  const gradN = all.groups.reduce((n, g) => n + g.students.filter((s) => isGraduated(s)).length, 0);
+  const activeN = all.total - gradN;
+
+  const houseIds = [...new Set(roster.codes.map(saiHouse))].filter((h) => h !== null && h !== undefined);
+  const hero = $('hadvHero');
+  if (hero) {
+    hero.innerHTML = `
+      <div class="hadv-hero">
+        <span class="hadv-avatar hadv-avatar-lg" aria-hidden="true">${escHtml(nameInitial(a))}</span>
+        <div class="hadv-main">
+          <h2 class="hadv-title">${escHtml(a.full_name)}</h2>
+          <div class="hadv-sub">${[a.dept, a.email].filter(Boolean).map(escHtml).join(' · ')
+    || 'ยังไม่ได้ระบุภาควิชาและอีเมล'}</div>
+          <div class="hadv-stats">
+            <span class="hadv-stat"><strong>${activeN.toLocaleString('th-TH')}</strong> นักศึกษา</span>
+            <span class="hadv-stat"><strong>${roster.codes.length}</strong> สาย</span>
+            ${houseIds.map((h) => `<span class="hadv-house" style="--hc:${escHtml(
+    safeColor(houseById(h)?.color, 'var(--brand-primary)'))}">${escHtml(houseName(h))}</span>`).join('')}
+          </div>
+        </div>
+        <div class="hadv-actions">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-hadv-act="csv"
+                  ${all.total ? '' : 'disabled'}>
+            <i class="bi bi-download"></i> ส่งออกรายชื่อ
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-hadv-act="edit">
+            <i class="bi bi-pencil"></i> แก้ไขข้อมูลอาจารย์
+          </button>
+        </div>
+      </div>`;
+  }
+
+  document.querySelectorAll('[data-hadv-by]').forEach((b) => {
+    b.setAttribute('aria-checked', String(b.dataset.hadvBy === advisorGroupBy));
+  });
+  const seg = document.querySelector('.hadv-seg');
+  if (seg) seg.dataset.active = advisorGroupBy;
+  const gradToggle = $('hadvShowGrad');
+  if (gradToggle) gradToggle.checked = advisorShowGrad;
+  const gradCount = $('hadvGradCount');
+  if (gradCount) gradCount.textContent = gradN ? ` (${gradN} คน)` : '';
+  // The switch only means something when somebody has graduated.
+  gradToggle?.closest('.form-check')?.classList.toggle('d-none', !gradN);
+
+  const host = $('hadvGroups');
+  if (!host) return;
+  if (!roster.codes.length) {
+    host.innerHTML = `<div class="hadv-empty">
+      อาจารย์ท่านนี้ยังไม่ได้ดูแลสายใด — กด “แก้ไขข้อมูลอาจารย์” เพื่อใส่สายที่ดูแล</div>`;
+    return;
+  }
+
+  const bySai = advisorGroupBy === 'sai';
+  const row = (s) => `
+    <button type="button" class="hadv-row" data-student="${escHtml(s.id)}">
+      ${bySai
+    ? `<span class="hadv-year">${escHtml(yearText(s))}</span>`
+    : `<span class="hadv-dot" style="--hc:${escHtml(houseColorOfSai(s.sai_code))}" aria-hidden="true"></span>`}
+      <span class="hadv-main">
+        <span class="hadv-name">${s.full_name ? escHtml(s.full_name)
+    : '<span class="text-muted fst-italic">ยังไม่มีชื่อ</span>'}${
+  s.nickname ? ` <span class="hadv-nick">(${escHtml(s.nickname)})</span>` : ''}</span>
+        <span class="hadv-sub">${studentSubline(s, !bySai)}</span>
+      </span>
+      <i class="bi bi-chevron-right hadv-chev" aria-hidden="true"></i>
+    </button>`;
+
+  const groups = bySai ? roster.groups : roster.groups.filter((g) => g.students.length);
+  host.innerHTML = groups.length ? groups.map((g) => {
+    const head = bySai
+      ? `<span class="hadv-group-title">สาย ${escHtml(g.key)}</span>
+         <span class="hadv-house" style="--hc:${escHtml(houseColorOfSai(g.key))}">${
+  escHtml(houseName(saiHouse(g.key)))}</span>`
+      : `<span class="hadv-group-title">${escHtml(g.label)}</span>`;
+    return `
+      <section class="hadv-group">
+        <header class="hadv-group-head">${head}
+          <span class="hadv-group-count">${g.students.length} คน</span></header>
+        <div class="hadv-rows">${g.students.length ? g.students.map(row).join('')
+    : `<div class="hadv-row-empty">${q ? 'ไม่มีใครในสายนี้ที่ตรงกับคำค้น'
+      : 'ยังไม่มีนักศึกษาในสายนี้'}</div>`}</div>
+      </section>`;
+  }).join('')
+    : `<div class="hadv-empty">ไม่พบนักศึกษาที่ตรงกับ “${escHtml(q)}”</div>`;
+}
+
+function exportAdvisorCsv() {
+  const a = advisors.find((x) => x.id === advisorViewId);
+  if (!a) return;
+  const rows = advisorRoster(a, students, 'sai').groups.flatMap((g) => g.students);
+  if (!rows.length) return;
+  downloadCsv(rows, `samo-house-${String(a.full_name).replace(/[\\/:*?"<>|]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
 // ---------- คำขอแก้ไข ----------
@@ -2711,14 +2901,18 @@ async function onDecide(id, approve) {
 // ============================================================
 function exportCsv() {
   if (!students.length) { alert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
-  const csv = buildStudentsCsv(students);
+  downloadCsv(students, `samo-house-${new Date().toISOString().slice(0, 10)}.csv`);
+}
+
+function downloadCsv(rows, filename) {
+  const csv = buildStudentsCsv(rows);
   // BOM: Excel opens a UTF-8 CSV as mojibake without it, and this file is full
   // of Thai names.
   const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `samo-house-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -2860,7 +3054,13 @@ function wire() {
   }
 
   document.querySelectorAll('[data-house-mode]').forEach((btn) => {
-    btn.addEventListener('click', () => { mode = btn.dataset.houseMode; render(); });
+    btn.addEventListener('click', () => {
+      // Tapping อาจารย์ again while a person is open goes back to the list —
+      // the same thing a tab bar does when you tap the tab you are already on.
+      if (btn.dataset.houseMode === 'advisors' && mode === 'advisors') advisorViewId = null;
+      mode = btn.dataset.houseMode;
+      render();
+    });
   });
   $('houseReload')?.addEventListener('click', () => reload());
   $('houseExportCsv')?.addEventListener('click', exportCsv);
@@ -3026,8 +3226,37 @@ function wire() {
   $('houseAdvisorSearch')?.addEventListener('input', renderAdvisors);
   $('houseAddAdvisor')?.addEventListener('click', () => openAdvisorModal(null));
   $('houseAdvisorRows')?.addEventListener('click', (e) => {
-    const tr = e.target.closest('[data-advisor]');
-    if (tr) openAdvisorModal(tr.dataset.advisor);
+    const card = e.target.closest('[data-advisor]');
+    if (card) openAdvisorDetail(card.dataset.advisor);
+  });
+  // Enter in the search box opens the person when exactly one matches —
+  // type a name, press Enter, done.
+  $('houseAdvisorSearch')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const hits = matchAdvisors(advisors, e.target.value);
+    if (hits.length === 1) { e.preventDefault(); openAdvisorDetail(hits[0].id); }
+  });
+  $('hadvBack')?.addEventListener('click', closeAdvisorDetail);
+  $('houseAdvisorDetail')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.querySelector('.modal.show')) closeAdvisorDetail();
+  });
+  document.querySelectorAll('[data-hadv-by]').forEach((b) => {
+    b.addEventListener('click', () => { advisorGroupBy = b.dataset.hadvBy; renderAdvisorDetail(); });
+  });
+  $('hadvSearch')?.addEventListener('input', renderAdvisorDetail);
+  $('hadvShowGrad')?.addEventListener('change', (e) => {
+    advisorShowGrad = !!e.target.checked;
+    renderAdvisorDetail();
+  });
+  // Delegated on containers that survive every paint — one listener each.
+  $('hadvHero')?.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-hadv-act]')?.dataset.hadvAct;
+    if (act === 'edit') openAdvisorModal(advisorViewId);
+    else if (act === 'csv') exportAdvisorCsv();
+  });
+  $('hadvGroups')?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-student]');
+    if (row) openStudentModal(row.dataset.student);
   });
   $('houseAdvisorForm')?.addEventListener('submit', onAdvisorSubmit);
   $('haDelete')?.addEventListener('click', onAdvisorDelete);
