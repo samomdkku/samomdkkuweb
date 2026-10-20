@@ -2371,3 +2371,151 @@ npm run deploy:gas -- --verify
 then deploy the frontend bundle (`server/deploy.sh`, per `skills/deploy-vm.md`),
 and read `~/samo-night/reports/2026-10-20-security.md` for everything this
 block and the public repo deliberately omit.
+
+## Task 16 — Static analysis: a lint that finds bugs, not style (2026-10-20)
+
+**RESUMED after a quota cut-off.** The WIP commit (`cf8e697`) had added
+`eslint.config.mjs` (flat config, correctness rules only — `no-undef`,
+`no-unused-vars` with `args: 'none'`, `no-unreachable`, `no-dupe-keys`,
+`no-self-assign`, `no-fallthrough`, `no-constant-condition`,
+`no-unsafe-finally`, `no-cond-assign`, `no-dupe-else-if`, `use-isnan`,
+`valid-typeof`, `no-unsafe-optional-chaining`, `require-atomic-updates: off`),
+`eslint` 10.13.0 pinned as a devDependency, and `npm run lint` in
+`package.json`. **What the WIP had NOT done**, checked point by point against
+the brief:
+
+- **Cover src/, passport/js/, functions/, server/*.mjs, tools/** — done in
+  the WIP's `files:` globs. No gap.
+- **Real browser/Bootstrap/Quill globals declared, never `/* global */`
+  sprinkled** — the WIP's `BROWSER_GLOBALS` list existed but was incomplete:
+  running it surfaced `QRCode` (passport's CDN vendor script,
+  `passport/html/admin.html`), `Path2D` (a real Web API) and `__BUILD_ID__`
+  (vite's build-time `define`, `vite.config.js`) as false `no-undef` hits.
+  Added to the list, each with a one-line reason, matching
+  `undefined-refs.test.js`'s existing convention for this exact problem.
+- **Add `npm run lint`, run it from `npm test` or CI so it stays green** —
+  the WIP added the script but never wired it anywhere; it was not run even
+  once before the cut-off (68 hits were sitting unaddressed). Wired as a
+  required step in `.github/workflows/build.yml`, right after `npm ci`, and
+  its stale "linting is deferred" header comment (written when none
+  existed) replaced.
+- **For every hit: real bug, or dead code grep proves nothing reaches?** —
+  not started by the WIP. Done this run, see below.
+- **No auto-fix sweep, no formatting rule** — held to. Nothing was run with
+  `--fix`; the 6 warnings fixed (stale `eslint-disable` comments for
+  `no-new-func`/`no-eval`/`no-nested-ternary`, rules this config never
+  enables) were removed by hand, one line each.
+
+**The 68 hits, triaged one by one (grep before touching anything, per the
+brief's own instruction):**
+
+- **1 real bug**, found BY the lint, not by looking for one:
+  `src/js/team/index.js`'s `pendingRender` was write-only — a remote
+  realtime change that lands while a user is mid-drag is supposed to defer
+  its re-render until the drag ends, but `onNodeDrop`/`onMemberDrop` both
+  reset the flag without ever reading it, so the deferred render was
+  dropped on the early-return (invalid-drop) path specifically. Every OTHER
+  path happened to call its own `render()` anyway (realtime writes land in
+  `nodesById`/`membersByNode` regardless of `dragging`), which is exactly
+  why nobody had reported it. Fixed by capturing the flag before resetting
+  it and rendering once more on the early-return path. Write-up:
+  `docs/mistakes/app-state.md`. **No automated regression test** — this
+  module is DOM/SortableJS-driven with no exported seams and this repo has
+  no jsdom dependency (the existing suite tests pure logic only); adding
+  jsdom is a bigger infra call than a lint pass should make unasked.
+  Verified by hand-tracing every call site of `pendingRender` instead —
+  flagged here rather than glossed over.
+- **2 rule-config fixes, not bugs, not deletions**: `ignoreRestSiblings:
+  true` (the pervasive `const { omit, ...rest } = x` idiom —
+  `shop/api.js`, `announcements.js`, `account-switch.js`,
+  `analytics-email.test.js`, `env-example.test.js`, `passport/js/admin-page.js`
+  — never reads the destructured name on purpose) and `caughtErrors: 'none'`
+  (the equally pervasive deliberate `catch (_) {}` / `catch (e) { /* ignore
+  */ }` swallow — `team/realtime.js`, `team/index.js`, `auth.js`,
+  `dashboard.js`, `utils.js`). Neither turns off a correctness check; both
+  stop flagging an idiom this codebase uses on purpose, dozens of times,
+  verified by reading several instances of each before changing the rule
+  rather than suppressing one at a time.
+- **~34 confirmed-dead removals**, each checked by grep before deletion —
+  listed in commit `ed39253`'s message rather than retyped here: unused
+  imports left from refactors (`pr-form.js`'s `db`, `claude/usage.js`'s
+  `pad`, `house/index.js`'s `followUpLabel`, three of `main.js`'s `pr-form.js`
+  imports, `projects/{index,inbox}.js`, `shop/products.js`, `team/{health,
+  terms}.js`, `tool-frame.test.js`'s `EMBED_SANDBOX`/`TOOLS`), write-only
+  locals (`accounts/admin.js`'s `samoYears`, `team/terms.js`'s `busy` and
+  `byId`, `house/gaps.js`'s `unplaced`), a fully superseded duplicate
+  (`apply-migration.mjs`'s local `loadEnvLocal`/`projectRefFromUrl` — the
+  file already uses `migrations-lib.mjs`'s `credentials()`), a redundant
+  restatement already pinned by `io.test.js` (`house-import.mjs`'s
+  `upsertCols`), a dead function (`admin-main.js`'s `showBoot()` —
+  `#adminBootGate` ships visible by default, nothing ever transitions back
+  to it), three one-off repair-script leftovers (`house0196`'s
+  `readFileSync`, `notify-exposure.mjs`'s `execFileSync`, `proj0181`'s
+  `buildDocFolderPath` + its now-false justifying comment), a regex scan's
+  unread match variable (`functions/notify.test.js`), and `shop/admin.js`'s
+  `sizes`/`colors`, computed and never read.
+- **1 normalized, not a runtime bug**: `passport/js/admin-page.js`'s
+  `window.cancelEdit = () => {}` called bare as `cancelEdit()` elsewhere in
+  the same file DOES resolve correctly (assigning to `window` creates a
+  real global a bare reference can reach, browser-only, module or not) —
+  but it was the one place in the repo relying on that instead of the
+  documented `window.fnName = fnName` convention (`passport/CLAUDE.md`:
+  "`window.fnName = ...` for inline `onclick` handlers") every other
+  window-bound handler uses. Rewritten to match, not suppressed.
+- **1 left dormant, not deleted**: `main.js`'s `applyLauncherRoleGating` is
+  a documented standing gate (`launcher.js`'s own comment: no registry
+  entry sets `roles` yet, and deleting a dormant gate was explicitly called
+  a separate decision from the refactor that emptied it). Given an
+  `eslint-disable-next-line` pointing at that comment, not removed.
+- **1 flagged for the owner, not acted on**: `projects/inbox.js`'s
+  `onSignCancelClick` read `btn.dataset.docId` and never used it, unlike its
+  two siblings (`onSignApproveClick`/`onSignRejectClick`), which both log a
+  doc-timeline entry via `docId` when a sign request is approved or
+  rejected. Removed the dead read (fixes the lint hit); whether "cancel"
+  should ALSO append a doc-timeline entry is a product decision this task
+  does not make for the owner — `src/js/projects/inbox.js:3627`.
+- **1 unused devDependency**, found while scrutinizing this task's own
+  diff, not by the lint itself: the WIP's commit had added `globals`
+  17.13.0 alongside `eslint`, but `eslint.config.mjs` never imports it (the
+  globals list is hand-rolled, unioned with Node's real `globalThis` —
+  same approach `undefined-refs.test.js` already used for this exact
+  problem). Removed; `npm install` regenerated the lockfile.
+
+**Counts**: 68 lint hits → 0. 1 real bug, fixed, written up. ~34 dead-code/
+unused-import removals, each grep-confirmed before deletion. 2 rule-config
+tunings (0 correctness rules turned off). 6 stale `eslint-disable` comments
+removed (warnings, not errors — unrelated rules this config never enables).
+1 unused devDependency removed.
+
+**Verification performed**: `npm run lint` exits 0. `npm test` — 175 files /
+3025 tests, green, both before AND after every edit batch. `npm run build`
+— both entries (public/admin + Passport) clean. `npm run check:context` —
+within budget (`.claude/rules/mistakes.md` at 29996/30000; did not touch its
+seven-classes text, only let `mistakes:index` regenerate the per-file count
+line). `git status` clean. A `/scrutinize`-style pass over
+`git diff cf8e697^..HEAD` (this task's full range) traced the `team/index.js`
+fix's diff against its unchanged neighbours, re-diffed every dead-code
+removal file-by-file to confirm nothing else referenced what was deleted
+(a stray reference would have shown up as a NEW `no-undef` hit, and it did
+not), and caught the unused `globals` devDependency above.
+
+**Could not verify**: no automated regression test for the `team/index.js`
+fix (see above — this repo has no jsdom). `npm run handoff:check` crashes
+in this sandbox exactly as documented by every prior task this queue
+(`fatal: ambiguous argument 'origin/agent/2026-10-20..HEAD'` — this branch
+has never been pushed, so the `origin/...` ref doesn't exist to diff
+against — followed by an `ENOENT` reading a memory-index path the script
+hardcodes under `~/.claude/projects/…`, which this sandbox never populated;
+this session's real memory store is `~/samo-night/memory/`, a different
+path entirely). Not re-diagnosed here either — `npm test` + `npm run build`
++ `git status`, all re-run fresh for this block, substitute for it.
+
+**Nothing to apply/deploy for this task** — no migration, no schema change,
+no production-facing behavior change beyond the one `team/index.js` fix
+(client-side only, ships on the next normal deploy). **Exact commands the
+owner runs next**: none required for this task specifically; the usual
+`server/deploy.sh` (`skills/deploy-vm.md`) carries this fix whenever the
+next deploy happens. If CI runs the required-checks on this branch, confirm
+the new `npm run lint` step in `.github/workflows/build.yml` goes green
+there too (it is local-verified green in this sandbox but was never seen by
+GitHub Actions, since this branch cannot push).
