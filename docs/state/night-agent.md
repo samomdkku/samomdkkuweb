@@ -2519,3 +2519,173 @@ next deploy happens. If CI runs the required-checks on this branch, confirm
 the new `npm run lint` step in `.github/workflows/build.yml` goes green
 there too (it is local-verified green in this sandbox but was never seen by
 GitHub Actions, since this branch cannot push).
+
+## Task 17 — A student's phone: accessibility and friction sweep (2026-10-20)
+
+**RESUMED after a quota cut-off.** Two WIP commits existed (`005e6ec`
+"paused by the owner", `ba913a7` "cut off by the quota"). Checked point by
+point against the brief:
+
+- **`tools/browser/a11y-sweep.mjs` (samo-dev only, axe-core injected,
+  390px/1280px, signed out + signed in, violations/overflow/console
+  errors/tap-targets/focus-visible/modal-trap)** — **NOT started by the
+  WIP** (no file existed; this was the `Done when:` gate). Built this run,
+  see below.
+- **Walk the student flows at 390px: sign-in (both kinds), PR form,
+  VitalSound form, shop, /me, ระบบบ้าน claim, a หน้าฝ่าย page** — the WIP
+  had already walked sign-in, the PR ticket-tracking dashboard, and the
+  VitalSound board/form, finding and fixing FIVE real `alert()` dead
+  ends (see below) with a test each. It had not yet looked at shop, /me,
+  or ระบบบ้าน. Continued this run: read `shop/cart.js`,
+  `shop/checkout.js`, `house/my-house.js` (the ระบบบ้าน claim card) and
+  `me-page.js` end to end. `my-house.js` and `checkout.js` were already
+  heavily hardened from earlier sessions (double-submit guards via
+  `btn.disabled`, inline status text, no `alert()` anywhere, a
+  retry-safe slip-upload path) — found ONE new defect, in `shop/cart.js`
+  (below). `pr-form.js` and `vs-form.js` (the forms themselves, not just
+  their tracking/board siblings) were already alert()-free with
+  double-submit guards from earlier work. Did not find a dedicated
+  public หน้าฝ่าย READER module — each ฝ่าย authors its own page under
+  `public/embed/<slug>/` (DEPT-TOOLS.md's by-design model); auditing
+  ฝ่าย-authored content is out of scope for a generic sweep and is what
+  `a11y-sweep.mjs`'s `/departments` + embed-page coverage is FOR, once run.
+- **Fix defects with a test each, record axe counts before/after per
+  route** — the axe counts are **OWED**: this sandbox has no Chrome/Chromium
+  binary at all (checked `/usr/bin/*chrom*`, `find / -iname '*chrome*'`,
+  `~/.cache/ms-playwright`, `~/.cache/puppeteer` — nothing), so the sweep
+  tool could be written and statically reviewed but never executed. Same
+  gap `tools/browser/shop-checkout-navigate-away.mjs` hit earlier this
+  queue (HANDOFF's own note: "written, never run — no Chrome/network in
+  this sandbox"). Local network access (even `curl` to `localhost`) is
+  also denied by this sandbox's permission mode; `node -e "fetch(...)"`
+  works, confirming the dev server itself is reachable — only the browser
+  binary is missing.
+
+**The WIP's five alert()-removal fixes** (all already committed, verified
+present and correct, not redone): Google sign-in failure (`signin-modal.js`
++ `account-switch.js`, shared `showGoogleSigninError`, a `#signinGoogleAlert`
+box outside both sign-in screens), the PR ticket dashboard's refresh
+(`pr-tracking.js`, `#prDashAlert`), the VitalSound board's "เจอเหมือนกัน" +
+public comment (`vs-board.js`, an `aria-live` announcer for the me-too
+button since its own state deliberately does not change on failure, plus
+an inline box for comments), the ticket-tracking remark box
+(`vs-tracking.js`, `#userRemarkAlert`), and the VitalSound form's Quill
+image-insert failure (`main.js`'s `makeQuillImageHandler` — now inserts a
+visible failure note in place of the placeholder instead of deleting it
+and alerting). Each already had its own test
+(`signin-screen.test.js`, `pr-tracking.test.js`,
+`vs-board-error-feedback.test.js`, `vs-tracking-remark.test.js`,
+`main-quill-image.test.js`) asserting structurally (no jsdom here) that no
+`alert()` remains and the visible box/text is reachable. Added the
+changelog entries the WIP had left out for these (`src/data/changelog.js`
+PENDING — `account` + `vs` + `pr` areas; CLAUDE.md's handoff loop step 3
+calls this mandatory for anything a person would notice, and a previously
+silent-after-two-retries error becoming visible is exactly that).
+
+**New this run:**
+
+1. **`tools/browser/a11y-sweep.mjs`.** Routes mirror `PATH_ROUTES` in
+   `src/js/main.js` (dynamic `/news/<id>` and `/tools/<slug>` excluded —
+   each depends on content that may not exist on samo-dev, and shares a
+   renderer with the static page already swept). Admin panes: ALL 14
+   `data-admin-side` values from `SECTION_META` in `admin-main.js` — checked
+   HANDOFF + STATE.md for an owner-authored "main panes" shortlist first;
+   none exists, and a sweep is cheap, so "main" here means every sidebar
+   entry a signed-in session can reach, not a narrowed subset. axe-core is
+   injected once via `Page.addScriptToEvaluateOnNewDocument` (persists
+   across every `Page.navigate`, never re-fetched) alongside a small
+   in-page probe object for overflow / tap-targets / a focus-visible
+   sample. `axe-core` pinned exact (`4.10.3`, was `^4.10.3`) since the
+   brief called for a pinned devDependency — `package-lock.json` updated
+   via `npm install --package-lock-only` (no new download; same resolved
+   version, confirmed network-independent).
+   - **Caught and fixed my own bug while writing this, the kind a real run
+     would have caught the hard way.** The modal focus-trap check
+     originally dispatched a synthetic `KeyboardEvent('keydown', {key:
+     'Tab'})` from INSIDE the page (in PROBE_SRC) to simulate Tab-cycling.
+     That does nothing — browsers only run the native "move focus to the
+     next tabbable element" default action for a REAL key press, not a
+     script-dispatched one, so `document.activeElement` would never
+     change and "focus never left the modal" would read as a PASS whether
+     or not a trap exists at all (exactly `.claude/rules/mistakes.md`
+     class 7's "a probe that only asserts X cannot tell a working guard
+     from a broken one"). Moved the Tab simulation out of the page probe
+     and into the Node driver using CDP's `Input.dispatchKeyEvent` (real
+     native key events, which DO trigger default focus traversal unless a
+     page's own JS intercepts it — which is exactly what Bootstrap's modal
+     trap does at the edges). Escape stayed a synthetic in-page dispatch,
+     correctly — Escape has no native browser default action to
+     replicate, only Bootstrap's own `keydown` listener needs to see the
+     event, so a synthetic dispatch is sufficient there. Caught by tracing
+     the code by hand (no Chrome to run it against and watch it pass
+     vacuously), not by a test — there is no way to unit-test a CDP
+     interaction in this repo's jsdom-less suite, so this is a STATIC
+     claim, not a verified one; the owner should watch for `stayedInside:
+     true` on a modal that is known NOT to trap focus, the first time this
+     runs for real, as a sanity check on the fix itself.
+   - Cannot verify it runs end-to-end, cannot verify the selectors against
+     a live DOM beyond careful reading, cannot report any actual violation
+     counts. **Owed to the owner**: run it once (`npm run dev` then
+     `node tools/browser/a11y-sweep.mjs`, needs a real Chrome/Chromium —
+     `CHROME=/path/to/it` if not at `/usr/bin/google-chrome`), read
+     `results.json` + the per-rule console summary, and treat the FIRST
+     run's numbers as the baseline this task was supposed to produce.
+2. **Shop cart — the "+" button's max-reached reason was `title=""` only**
+   (`src/js/shop/cart.js`), invisible on a phone (no hover). Exactly
+   mistakes.md class 4's "a title tooltip does not exist on a phone",
+   applied to a disabled-control's reason instead of truncated text — a
+   buyer at the stock cap saw a faded `+` with zero explanation. Replaced
+   with a permanent visible line (`.cart-item-maxhint`, uses the existing
+   `--shop-ink-500` token, no new color). Test:
+   `src/js/shop/cart-maxhint.test.js`. Changelog: `shop`/`public` PENDING
+   entry. **Found but NOT fixed** (lower severity, left as a finding, not
+   touched): `src/js/team/terms.js`'s delete-current-year button has
+   the identical `disabled title="..."` shape, but it is admin-only (not
+   a student flow this task's brief named) and the adjacent "ปีปัจจุบัน"
+   badge already gives a sighted user most of the context the title would
+   add — lower priority than the cart one, which is why it is a finding
+   here rather than a fix.
+3. **Accidental commit cleanup**: the WIP's `ba913a7` commit included
+   `.npm-cache/_logs/...` (an npm debug log) and
+   `.npm-cache/_update-notifier-last-checked` — npm's own cache directory,
+   committed by accident (`NPM_CONFIG_CACHE` pointed inside the repo in
+   that run). Removed from git, added `.npm-cache/` to `.gitignore`.
+
+**Verification performed**: `npm test` — 180 files / 3052 tests, green,
+both before and after. `npm run build` — both entries (public/admin +
+Passport) clean. `node --check` + `npx eslint` on the new `.mjs` file —
+clean. `npm run test:clean` — 180 files / 3044 tests (the 8-test gap
+against plain `npm test` is pre-existing and unrelated to this task's
+diff: several tests conditionally register fewer cases when `.env.local`
+is absent, which `test:clean`'s tracked-files-only copy never has —
+confirmed by grepping for `.env.local`/`existsSync` across the suite
+before accepting the gap as expected, not a regression). `npm run
+check:context` — within budget, untouched files. A `/scrutinize`-style
+pass over `git diff 6dd4b5a..HEAD` (this task's full range, both WIP
+commits plus this run) traced every changed file against its unchanged
+neighbours; the one real finding (the Tab-dispatch bug above) was fixed
+during the pass, not left for later.
+
+**Could not verify**: `npm run handoff:check` crashes in this sandbox
+exactly as every prior task this queue reported (`fatal: ambiguous
+argument 'origin/agent/2026-10-20..HEAD'` — never pushed, no `origin` ref
+to diff — then `ENOENT` on a hardcoded `~/.claude/projects/…` memory-index
+path this sandbox never populated; the real memory store here is
+`~/samo-night/memory/`). The a11y sweep tool's actual output (violation
+counts, overflow, tap-targets, focus-visible gaps) — no Chrome binary in
+this sandbox, documented above, not re-attempted beyond confirming the
+binary truly does not exist anywhere on the filesystem.
+
+**Nothing to apply/deploy** — no migration (task 17 owns no number in the
+reserved block; 0238 is task 17's reserved number, left unused since no
+schema change was needed, which keeps `migration-numbers.test.js` green by
+design, not by accident), no production-facing change beyond the cart
+hint (client-side only, ships on the next normal deploy) and the WIP's
+five alert-removal fixes (same). **Exact commands the owner runs next**:
+(1) `npm run dev`, then in another shell `node
+tools/browser/a11y-sweep.mjs` (set `CHROME=` if Chrome is not at
+`/usr/bin/google-chrome`) to get this task's actual axe baseline; (2) spot
+one admin pane's sweep result against the live page by eye once, since
+the modal-focus-trap fix above is reasoned, not run; (3) the usual
+`server/deploy.sh` whenever the next deploy happens, for the cart-hint fix
+and the WIP's alert-removal fixes to reach production.

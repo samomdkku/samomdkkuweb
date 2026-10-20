@@ -167,31 +167,21 @@ window.__a11y = {
     if (active && active.focus) active.focus({ preventScroll: true });
     return { checked: els.length, missing };
   },
-  // Opens a modal via its trigger, checks focus moved IN, Tab cannot escape
-  // it (dispatched 30 times, generous for any modal's control count), then
-  // closes it (Escape) and checks focus RETURNED to the trigger.
-  async modalFocusTrap(triggerSel, modalId) {
-    const trigger = document.querySelector(triggerSel);
-    if (!trigger) return { skipped: 'trigger not found' };
-    trigger.click();
-    await new Promise((r) => setTimeout(r, 700));
-    const modal = document.getElementById(modalId);
-    if (!modal || !modal.classList.contains('show')) return { skipped: 'modal did not open' };
-    const insideOnOpen = modal.contains(document.activeElement);
-    let stayedInside = true;
-    for (let i = 0; i < 30; i += 1) {
-      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
-      await new Promise((r) => setTimeout(r, 10));
-      if (!modal.contains(document.activeElement)) { stayedInside = false; break; }
-    }
-    modal.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    await new Promise((r) => setTimeout(r, 600));
-    const closed = !modal.classList.contains('show');
-    const focusReturned = document.activeElement === trigger;
-    return { insideOnOpen, stayedInside, closed, focusReturned };
-  },
 };
 `;
+// Modal focus-trap is DELIBERATELY NOT in PROBE_SRC above, unlike every other
+// check. A page-level `el.dispatchEvent(new KeyboardEvent('keydown', {key:
+// 'Tab'}))` is synthetic — the browser does not run its native "move focus to
+// the next tabbable element" default action for a script-dispatched event,
+// only for a REAL key press. Bootstrap's own focus trap only intercepts the
+// EDGE case (wrapping at the first/last element); every tab press in between
+// relies on the browser's native traversal. A synthetic dispatch would leave
+// `document.activeElement` unchanged on every iteration, and "focus never
+// left the modal" would read as a PASS whether or not a trap exists at all —
+// exactly mistakes.md's "a probe that only asserts X cannot tell a working
+// guard from a broken one". Real Tab presses need CDP's Input domain, which
+// only the driver (not in-page script) can call — see checkModalFocusTrap
+// below.
 
 mkdirSync(OUT, { recursive: true });
 const axeSrc = readFileSync(new URL('../../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8');
@@ -204,6 +194,47 @@ const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ?
 const send = (method, params = {}) => new Promise((res) => { const i = ++id; pend[i] = res; ws.send(JSON.stringify({ id: i, method, params })); });
 const ev = async (e) => (await send('Runtime.evaluate', { expression: `(async()=>{try{${e}}catch(err){return 'ERR '+err.message}})()`, awaitPromise: true, returnByValue: true })).result?.value;
 const shot = async (name) => { const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }); writeFileSync(join(OUT, name), Buffer.from(r.data, 'base64')); };
+// A REAL Tab key press via CDP's Input domain — not a page-level synthetic
+// DOM event (see the long comment above PROBE_SRC for why that would make
+// the trap check pass vacuously). windowsVirtualKeyCode 9 = Tab; Chrome needs
+// both rawKeyDown and keyUp for the native "move focus" default action to run.
+const pressTab = async () => {
+  await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', windowsVirtualKeyCode: 9, code: 'Tab', key: 'Tab' });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', windowsVirtualKeyCode: 9, code: 'Tab', key: 'Tab' });
+};
+
+// Opens a modal via its trigger, checks focus moved IN, that 30 REAL Tab
+// presses never move focus outside it (Escape has no native browser default
+// action to replicate, so a synthetic dispatch for THAT key is fine — only
+// Tab's native focus traversal needed the Input domain), then closes it and
+// checks focus RETURNED to the trigger.
+async function checkModalFocusTrap(triggerSel, modalId) {
+  const opened = JSON.parse(await ev(`
+    const t = document.querySelector(${JSON.stringify(triggerSel)});
+    if (!t) return JSON.stringify({ skipped: 'trigger not found' });
+    t.click();
+    await new Promise((r) => setTimeout(r, 700));
+    const m = document.getElementById(${JSON.stringify(modalId)});
+    if (!m || !m.classList.contains('show')) return JSON.stringify({ skipped: 'modal did not open' });
+    return JSON.stringify({ insideOnOpen: m.contains(document.activeElement) });
+  `) || '{}');
+  if (opened.skipped) return opened;
+  let stayedInside = true;
+  for (let i = 0; i < 30; i += 1) {
+    await pressTab();
+    await sleep(60);
+    const inside = await ev(`return document.getElementById(${JSON.stringify(modalId)})?.contains(document.activeElement) ?? false;`);
+    if (!inside) { stayedInside = false; break; }
+  }
+  await ev(`document.getElementById(${JSON.stringify(modalId)})?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); return 1;`);
+  await sleep(600);
+  const after = JSON.parse(await ev(`
+    const m = document.getElementById(${JSON.stringify(modalId)});
+    const t = document.querySelector(${JSON.stringify(triggerSel)});
+    return JSON.stringify({ closed: !m || !m.classList.contains('show'), focusReturned: document.activeElement === t });
+  `) || '{}');
+  return { insideOnOpen: opened.insideOnOpen, stayedInside, closed: after.closed, focusReturned: after.focusReturned };
+}
 
 // One page run: navigate, settle, run every check, collect console errors
 // since the LAST reset (done right before Page.navigate below).
@@ -326,7 +357,7 @@ try {
   // ── sign-in modal focus trap, signed out, desktop ────────────────────────
   await send('Emulation.setDeviceMetricsOverride', WIDTHS[1]);
   await send('Page.navigate', { url: `${DEV_URL}/` }); await sleep(4000);
-  const signinTrap = JSON.parse(await ev(`return JSON.stringify(await window.__a11y.modalFocusTrap('[data-bs-target="#signinModal"]', 'signinModal'));`) || '{}');
+  const signinTrap = await checkModalFocusTrap('[data-bs-target="#signinModal"]', 'signinModal');
   say('sign-in modal: focus trap + return', JSON.stringify(signinTrap),
     signinTrap.insideOnOpen && signinTrap.stayedInside && signinTrap.closed && signinTrap.focusReturned);
 
