@@ -1076,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // gate may allow an unknown section (it falls back to landing), but a
       // visible entry nobody gates is how a card shows to everyone.
       const which = el.dataset.adminSide;
-      const ok = Object.hasOwn(SIDE_FEATURE, which) && sideAllowed(SIDE_FEATURE[which], user);
+      const ok = Object.prototype.hasOwnProperty.call(SIDE_FEATURE, which) && sideAllowed(SIDE_FEATURE[which], user);
       el.classList.toggle('d-none', !ok);
     });
     paintYearChip(user);

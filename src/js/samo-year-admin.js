@@ -189,6 +189,9 @@ function samoHtml(st) {
   const err = t != null ? startTargetError(t, cy) : 'ใส่ปี SAMO ใหม่';
   const ro = !can.samo;
   const dis = (extra = false) => (ro || busy || extra ? 'disabled' : '');
+  // The SAME test doStart() applies — the list must not promise a Passport
+  // move the click will not make.
+  const ppWill = ppOrgWide && ppOn && !!passport && !passportAlreadyOn(passport.term, t);
 
   const s1 = !c ? 'later' : (st.published ? 'done' : 'now');
   const s1Body = !c
@@ -260,11 +263,11 @@ function samoHtml(st) {
         <h3 class="sy-h3">เมื่อเริ่มปีใหม่ อะไรเปลี่ยน</h3>
         <ul class="sy-effects">
           ${EFFECTS.map((e) => `
-            <li class="sy-effect${e.passport && !(ppOrgWide && ppOn) ? ' is-muted' : ''}">
+            <li class="sy-effect${e.passport && !ppWill ? ' is-muted' : ''}">
               <span class="sy-effect-icon"><i class="bi ${e.icon}"></i></span>
               <span class="sy-effect-body">
                 <span class="sy-effect-name">${escHtml(e.name)}</span>
-                <span class="sy-effect-line">${escHtml(e.line)}${e.passport && !(ppOrgWide && ppOn) ? ' (ครั้งนี้ไม่เปลี่ยน)' : ''}</span>
+                <span class="sy-effect-line">${escHtml(e.line)}${e.passport && !ppWill ? ' (ครั้งนี้ไม่เปลี่ยน)' : ''}</span>
               </span>
             </li>`).join('')}
         </ul>
