@@ -2205,3 +2205,169 @@ blocker or major finding. Verdict: ship.
 4. `CHROME=<path> node tools/browser/accounts-dashboard.mjs` (and the other 4
    updated harnesses) on a machine with Chrome, to actually exercise the
    browser signup path end-to-end.
+
+## Task 15 — Security sweep: whole-class guards + the three named open items (2026-10-20)
+
+**RESUMED after a quota cut-off.** The WIP commit (`1714867`) had already
+written and run (on samo-dev, proofs green): migration 0235 (anon-EXECUTE
+allow-list sweep, `tools/security0235-whole-class-sweeps.sql` 12/12),
+migration 0236 (username sign-in hardening, `tools/security0236-username-lookup-hardening.sql`
+8/8 + `tools/security0236-login-flow-probe.mjs` 7/7), the `src/js/auth.js`
+wiring to pass the password through the lookup RPC, both proofs registered
+in `tools/run-proofs.mjs`, and a first STATE.md edit. **What the WIP had NOT
+done**, verified by reading its diff against the brief point by point:
+
+- **Whole-class sweeps (§0–§4)**: done, all passing, including the required
+  planted controls. No gap.
+- **Item a (username sign-in hardening)**: migration + both proofs written
+  and green on samo-dev. No gap in the mechanism, but the WIP's own migration
+  header, `tools/security0235-whole-class-sweeps.sql`'s header, and STATE.md
+  all narrated the exact exploit mechanism (which functions, why each is
+  dangerous) in files tracked by a PUBLIC repo, for fixes applied to
+  samo-dev only — production is still unpatched. This is a live-exploit
+  writeup for a hole still open on the deployed system, which the brief's
+  own instruction for this item ("describe it in git only as 'username
+  sign-in hardening'... detail goes to the private report") explicitly
+  forbids. **Fixed this session**: reworded migration 0235's header, 0236's
+  header, `security0235-whole-class-sweeps.sql`'s header, and STATE.md's two
+  descriptions to name only the generic property being fixed, moving
+  mechanism/severity detail into `~/samo-night/reports/2026-10-20-security.md`
+  (written this session, did not exist before).
+- **Item b (Apps Script upload limits)**: NOT STARTED by the WIP — no changes
+  to `appscript/prform.gs` existed. **Built this session**: `UPLOAD_LIMITS`
+  (mimeType allow-list + byte cap, checked before any Drive call) for all
+  five handlers (`uploadPRFile`/`Shop`/`Team`/`Project`/`Archive`), each cap
+  matching or exceeding the already-shipped CLIENT-side check for that path.
+  12 new tests in `src/js/gas-drive-scope.test.js` (runs the real
+  `appscript/prform.gs` against a stub Drive), each class with a CONTROL.
+  Guest PR uploads unaffected (same `accept="image/*"`, same-or-higher cap).
+- **Item c (re-check the 2026-10-13 private reports)**: NOT STARTED by the
+  WIP. **Done this session**: read both `~/samo-night/reports/2026-10-13-security-{app,db}.md`
+  in full and traced each finding against current code. DB Finding 1
+  (passport RLS tracking gap) — CLOSED, confirmed via `HANDOFF.md` §19.1
+  (`pass-anon-probe.mjs` ran clean against production after 0214). DB
+  Finding 2 (username lookup) — now built, see item a. DB Findings 3–4 and
+  App Finding 2 (`samo_depts` WHO-not-WHAT) — Finding 3/4 by design/feature
+  gap (not touched, correctly carried); App Finding 2 CLOSED by migration
+  0215 (confirmed by reading the live `projects_samo_depts_guard` body — it
+  now validates VALUES too, not just WHO). App Finding 1 (nginx security
+  headers) — confirmed already written in `server/nginx-samo.conf`, still
+  needs a VM deploy to take effect (carried, owner-only). Full detail and
+  the carried/open items (HSTS, `notifyProjectEmail` content hardening,
+  legacy `admin`/`1234`, `pass-anon-probe.mjs` not registered in
+  `run-proofs.mjs`) are in the private report, not here.
+- **The private report file** (`~/samo-night/reports/2026-10-20-security.md`,
+  required by "Done when") did not exist before this session — written now,
+  with full mechanism/severity detail for items 1–2 above (safe here because
+  this file is outside both repos) plus the re-check of 2026-10-13's items.
+- **`state-handoff.test.js`'s live-proof-count check was RED** after the
+  WIP's STATE.md edit: its historical "70 GREEN of the 73 registered at the
+  time" phrasing was reworded (apparently to dodge the regex that compares a
+  claimed count against `run-proofs.mjs`'s actual registered total) in a way
+  that matched NEITHER accepted pattern, leaving STATE.md with ZERO
+  proof-count claims — and the test requires at least one. Fixed by adding
+  a current, accurate claim ("ALL 75 LIVE PROOFS are now registered") rather
+  than touching the historical sentence, which correctly excludes the 2
+  dev-only proofs this task added from a count about a PRODUCTION run that
+  predates them.
+
+**Decisions made, alternatives rejected:**
+
+- Upload size caps per handler: PR 35MB / Shop 10MB / Team 10MB / Projects
+  35MB / Archives 50MB. Each chosen to match-or-exceed the highest existing
+  CLIENT-side check on that path (pr-form.js 35MB; shop admin.js 8MB product
+  picks / 5MB banner+QR+slip-send; team photos downscaled ~3MB) so no real
+  browser user is newly blocked — only a caller that skips the browser
+  entirely. Projects/Archives have no client cap today (official documents,
+  unpredictable size); picked numbers that match existing precedent (PR's
+  35MB) rather than inventing new ones. **Rejected**: per-exact-extension
+  allow-list for Projects (too brittle — staff attach PDF/Office/image files
+  with no `accept=` restriction client-side today; a wildcard-plus-named-list
+  is more forgiving and fails LOUD, not silently, for a type it's missing).
+- Project mimeType allow-list: `image/*`, `application/pdf`, plain text, and
+  the Word/Excel/PowerPoint MIME types (both legacy `.doc`/`.xls`/`.ppt` and
+  modern `.docx`/`.xlsx`/`.pptx`). **Rejected**: leaving Projects unrestricted
+  (defeats the point) or restricting to PDF-only (official หนังสือ documents
+  are sometimes Office files before being converted/signed, per the e-sign
+  flow's own PDF-conversion step implying non-PDF inputs exist upstream).
+- Redacting the already-written exploit narrative from migrations/STATE.md/
+  the sweep proof's header, rather than leaving it: **this was not asked for
+  explicitly as a fix-the-WIP item**, but the brief's own instruction for
+  item (a) is specific and the WIP's drafts violated it in three files, not
+  just the one the brief named. Treated as part of finishing item (a)
+  correctly, not scope creep — fixing a brief violation the earlier run made
+  is still "finish what the brief asked for."
+- Did NOT touch `tools/pass-anon-probe.mjs` (register it in `run-proofs.mjs`,
+  fix its env-targeting) — flagged in the private report as a carried item.
+  It reads `.env.local` directly with no `env-lib.mjs`/`resolveTarget`
+  targeting and no `→ project:` announcement; wiring a real-network REST
+  probe into the standard proof runner without that safety announcement
+  risked exactly the "which database actually answered" confusion
+  `run-proofs.mjs`'s own header says it was built to stop. A probe whose job
+  is "safe to run against production" deserves a dedicated task, not a
+  rushed side-fix here.
+- Did NOT re-verify the ~500 lines of "Reviewed, no issues found" sections in
+  either 2026-10-13 report beyond spot-checking the two items with concrete
+  findings (DB #1, App #2) against live code. Re-auditing a clean 6-day-old
+  review end-to-end was out of this task's scope; nothing surfaced elsewhere
+  this session contradicts those sections.
+
+**What is NOT done / owed:**
+
+1. **Neither 0235 nor 0236 is on production.** Both are pure samo-dev
+   migrations. Owner: `node tools/apply-migration.mjs supabase/migrations/0235_anon_execute_is_an_allowlist_not_a_default.sql`
+   and `…/0236_username_signin_stops_disclosing_a_real_email.sql` (no
+   `--dev`), confirm with the matching `tools/security023{5,6}-*.sql` proofs
+   (no `--dev`). 0236 also needs the frontend bundle redeployed (`auth.js`
+   changed) and is the higher-priority of the two (live information
+   disclosure, not just a hardening sweep).
+2. **`npm run deploy:gas` not run** — the upload limits in
+   `appscript/prform.gs` are written, verified against a stub Drive, but
+   never executed by the real Apps Script runtime (no Google credential in
+   this sandbox). Owner should run `npm run deploy:gas -- --verify` after
+   deploying to confirm the live `/exec` serves the new code.
+3. **`server/nginx-samo.conf`'s security headers (from the 2026-10-13
+   report, confirmed still in the file) — deploy status on the VM is
+   unconfirmed.** Carried, not this task's job to deploy.
+4. Everything in the private report's "carried, not touched" section (HSTS,
+   `notifyProjectEmail` content hardening, legacy `admin`/`1234`,
+   `pass-anon-probe.mjs` registration) — owner's call, flagged not built.
+5. Full proof suite re-run on samo-dev after this task's changes: 70 of 73
+   DB proofs green (2 skipped, non-DB), same 3 red as task 14 left
+   (`house0146`, `team0196`, `year0219` — real data drift, documented
+   previously, NOT caused by this task); both new security proofs green.
+
+**Verification performed:** `npm test` (175 files / 3025 tests) and
+`npm run build` green. `npm run check:context` green (trimmed
+`.claude/rules/mistakes.md`'s new sentence to fit the 30000-byte budget —
+it was at 29998/30000 before this task touched it, so any addition needed
+an equal cut). `node tools/apply-migration.mjs … --dev` re-run for both
+migrations after the redaction edits (comment-only changes) to confirm the
+idempotent bodies still apply cleanly; both proofs re-ran green after.
+`npm run proofs -- --dev`: 70/73 green as above. A `/scrutinize`-style
+review of `git diff 1714867^..HEAD` traced `src/js/auth.js`'s
+password-forwarding change end to end (password stays in scope, travels
+once over the same HTTPS call that was already being made) and the GAS
+limit-checking order (limits checked before any Drive call, confirmed by
+the "creates no folder" tests) — no blocker found; one residual noted below.
+
+**Residual risk noted, not fixed:** the new mimeType allow-lists reject a
+file whose browser-reported `type` is empty or doesn't match (e.g. an
+unusual OS MIME association). This is a theoretical regression for a real
+image upload with no client-side `accept=` enforcement bypass — judged
+acceptable (fails LOUD with a named message, not silently; all current
+callers traced always populate a real image/PDF/Office mimeType) but worth
+knowing if a real user ever reports "my upload stopped working" after this
+ships.
+
+**Exact commands the owner runs next**, in priority order:
+```
+node tools/apply-migration.mjs supabase/migrations/0236_username_signin_stops_disclosing_a_real_email.sql
+node tools/db-query.mjs tools/security0236-username-lookup-hardening.sql
+node tools/apply-migration.mjs supabase/migrations/0235_anon_execute_is_an_allowlist_not_a_default.sql
+node tools/db-query.mjs tools/security0235-whole-class-sweeps.sql
+npm run deploy:gas -- --verify
+```
+then deploy the frontend bundle (`server/deploy.sh`, per `skills/deploy-vm.md`),
+and read `~/samo-night/reports/2026-10-20-security.md` for everything this
+block and the public repo deliberately omit.
