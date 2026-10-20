@@ -528,6 +528,13 @@ export async function signInWithPassword(rawUsername, rawPassword) {
   //   - otherwise → look it up via the username→email RPC, falling
   //     back to the synthetic `<username>@samomdkku.app` so pre-0026
   //     databases and brand-new accounts still work.
+  //
+  // The password travels in this same call (0236). The RPC only hands back
+  // a REAL (non-synthetic) email to a caller who already proves it with the
+  // correct password — the synthetic form is a no-op either way, since it's
+  // the exact string computed below. Passing the password here does not
+  // expose it anywhere new: it goes over the same HTTPS call this function
+  // was about to make to GoTrue one line later.
   let email;
   if (username.includes('@')) {
     email = username.toLowerCase();
@@ -536,7 +543,7 @@ export async function signInWithPassword(rawUsername, rawPassword) {
     try {
       const { data, error } = await dbRest('/rpc/lookup_email_by_username', {
         method: 'POST',
-        body: { p_username: username },
+        body: { p_username: username, p_password: password },
       });
       if (!error && typeof data === 'string' && data.includes('@')) {
         email = data;
@@ -1009,7 +1016,12 @@ export async function setUsernameAndPassword(rawUsername, rawPassword) {
   const settingUsername = !currentUser.username;
   if (settingUsername) {
     // Uniqueness pre-check. lookup_email_by_username returns the matching
-    // user's email; non-null means the username is already taken.
+    // user's email; non-null means the username is already taken. No
+    // password to offer here (we're not signing anyone in), so 0236's
+    // real-email branch stays refused — a taken username whose owner has a
+    // real (non-synthetic) address reads as "available" and falls through
+    // to the unique-constraint error at write time below instead. Same
+    // user-visible result, one extra round trip for that rarer case.
     try {
       const { data, error } = await dbRest('/rpc/lookup_email_by_username', {
         method: 'POST',
