@@ -1531,3 +1531,33 @@ that column to a literal, not just the read/filter sites — a write path that
 predates the new value has no reason to know it exists, even when a sibling
 change in the SAME feature deliberately made the new value reachable from
 that write's own entry point.
+
+## Archiving an announcement made its pictures deletable — an edit or delete elsewhere trashed them
+
+**Symptom (found in review, 2026-10-20, before it shipped).** Two announcements
+sharing a cover — one archived, one live. Editing or deleting the live one
+trashed the shared picture in Drive; restoring the archived one showed a
+broken image.
+
+**Cause.** `filesToRetire(before, after, others)` keeps every picture another
+article still uses, and `others` was `globalAnnouncements` — the list the
+last `loadAnnouncements()` filled, which is ONE status (the public feed's
+`approved`, or the manage pane's filter). Before the archive toggle (night
+agent, 2026-10-18) no archived rows existed, so "the approved list" and "every
+other article" were the same set. The new status created the input the keep
+list could not see (class 2: an unresolvable reference fails open — here, an
+unlisted reference reads "unused").
+
+**Fix.** `otherAnnouncementsAnyStatus()` reads every other row, every status
+(writers can: `announcements_read`, 0093), right before retiring; when that
+read fails it retires NOTHING. The same review also made every reload after
+publish / delete / reorder use the manage filter, archiving clear `pinned`,
+and the bulk archive one `PATCH id=in.(…)` with a row-count check.
+
+**Where it lives now**: `src/js/announcements.js` (`otherAnnouncementsAnyStatus`,
+`archiveBody`, `archiveAnnouncements`), `src/js/admin-main.js` (bulk archive).
+
+**The general rule**: *a keep-list built from a FILTERED cache is complete only
+while the filter excludes nothing. When a feature adds a state that hides rows
+from that filter, every "is anything else still using this?" check over the
+cache becomes a delete.* Read the keep-list from the table, not the view.

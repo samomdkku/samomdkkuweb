@@ -35,6 +35,8 @@ const API = (() => {
 const POLL_MS = Number(env.DISCORD_SYNC_POLL_MS) || 5000;
 const FULL_MS = Number(env.DISCORD_SYNC_FULL_MS) || 15 * 60 * 1000;
 const WRITE_GAP_MS = Number(env.DISCORD_SYNC_WRITE_GAP_MS ?? 350);
+// How stale the pause switch may be before a write re-reads it (tests set 0).
+const SETTINGS_TTL_MS = Number(env.DISCORD_SYNC_SETTINGS_TTL_MS ?? 3000);
 const BACKOFF_MS = Number(env.DISCORD_SYNC_BACKOFF_MS) || 5000;   // first retry waits 2× this
 const ALLOW_POWER = (env.DISCORD_SYNC_ALLOW_POWER || '').split(',').map((s) => s.trim()).filter(Boolean);
 const ONCE = process.argv.includes('--once');
@@ -51,9 +53,17 @@ let settingsReadAt = 0;
  *  nickname run is hundreds of writes, and "pause" must stop it within seconds,
  *  not at the end of the pass. Never counted as a failure. */
 class Paused extends Error {}
+/** The switch could not be READ mid-pass (a Supabase blip). Not a Discord
+ *  refusal: it aborts the PASS once, through the normal retry/backoff, instead
+ *  of being recorded as "Discord ปฏิเสธ" against every pending change. */
+class SettingsUnreadable extends Error {}
+const abortsPass = (e) => e instanceof Paused || e instanceof SettingsUnreadable;
 async function stillOn() {
   if (ONCE) return true;
-  if (Date.now() - settingsReadAt > 3000) await readSettings();
+  if (Date.now() - settingsReadAt > SETTINGS_TTL_MS) {
+    try { await readSettings(); }
+    catch (e) { throw new SettingsUnreadable(`could not re-read the bot switch mid-pass: ${e.message}`); }
+  }
   return settings.sync_enabled !== false;
 }
 async function readSettings() {
@@ -238,49 +248,64 @@ async function pass(queue, forceFull = false) {
   const failed = [];
   const tryWrite = async (item, path, init, sign) => {
     try { await write(path, init); log(`${sign} ${item.who}  ${name(item.role)}`); return true; }
-    catch (e) { if (e instanceof Paused) throw e; log(`FAILED ${sign} ${item.who} ${name(item.role)}: ${e.message}`); failed.push({ ...item, why: `Discord ปฏิเสธ (${e.message.slice(0, 80)})` }); return false; }
+    catch (e) { if (abortsPass(e)) throw e; log(`FAILED ${sign} ${item.who} ${name(item.role)}: ${e.message}`); failed.push({ ...item, why: `Discord ปฏิเสธ (${e.message.slice(0, 80)})` }); return false; }
   };
   const adds = []; const removes = [];
-  for (const a of g.adds) if (await tryWrite(a, `/guilds/${guildId}/members/${a.member}/roles/${a.role}`, { method: 'PUT' }, '+')) adds.push(a);
-  for (const r of g.removes) if (await tryWrite(r, `/guilds/${guildId}/members/${r.member}/roles/${r.role}`, { method: 'DELETE' }, '−')) removes.push(r);
+  // A pause (or an unreadable switch) mid-pass stops the WRITES, but what was
+  // already written is still reported below — the next pass's diff shows those
+  // changes as done, so a report dropped here was never posted anywhere.
+  let stopped = null;
+  const nicks = []; const nickHeld = [];
+  try {
+    for (const a of g.adds) if (await tryWrite(a, `/guilds/${guildId}/members/${a.member}/roles/${a.role}`, { method: 'PUT' }, '+')) adds.push(a);
+    for (const r of g.removes) if (await tryWrite(r, `/guilds/${guildId}/members/${r.member}/roles/${r.role}`, { method: 'DELETE' }, '−')) removes.push(r);
+
+    // 4. nicknames (0207) — the website's name, written after the keys.
+    if (NICKS !== 'off' && nickInputs) {
+      const plan = planNicknames({ members: everyone, inputs: nickInputs, roles, botTop, ownerId, academicYear, onlyDiscordIds: only });
+      if (academicYear == null) log('nicknames: no ปีการศึกษา — no name planned this pass');
+      // Posted only when a web EDIT named this person (a human is looking, and
+      // can fix the data); a full pass only logs. The owner / above-the-bot cases
+      // are structural and permanent — never posted: every deploy restarts this
+      // service, and "the owner cannot be renamed" after each one is noise.
+      const queuedPeople = new Set(queue.map((q) => q.person_id).filter(Boolean));
+      const named = new Set(nickInputs.filter((i) => queuedPeople.has(i.person_id)).map((i) => i.discord_user_id));
+      for (const k of plan.skipped) {
+        log(`NICK SKIP ${k.member}: ${k.why}`);
+        if (k.structural || !named.has(k.member)) continue;
+        if (!nickReported.has(`${k.member}:${k.why}`)) { nickReported.add(`${k.member}:${k.why}`); nickHeld.push(k); }
+      }
+      for (const r of plan.renames) {
+        // write() re-reads the panel every few seconds; nicknames switched OFF
+        // there must stop a run already in progress, not only the next pass.
+        if (NICKS === 'off') { log('nicknames switched off mid-pass — stopped renaming'); break; }
+        if (NICKS === 'plan') { log(`NICK PLAN ${r.member}: "${r.from ?? r.shown}" → "${r.to}"`); continue; }
+        try {
+          await write(`/guilds/${guildId}/members/${r.member}`, { method: 'PATCH', body: JSON.stringify({ nick: r.to }) });
+          nicks.push(r); log(`nick ${r.member}: "${r.from ?? r.shown}" → "${r.to}"`);
+        } catch (e) {
+          if (abortsPass(e)) throw e;
+          log(`FAILED nick ${r.member}: ${e.message}`);
+          const why = /HTTP 403/.test(e.message) ? 'Discord ไม่อนุญาตให้บอทเปลี่ยนชื่อคนนี้' : `เปลี่ยนชื่อไม่สำเร็จ (${e.message.slice(0, 60)})`;
+          // Posted only for a person a web edit named — the full pass repeats it
+          // after every restart (every deploy) otherwise. Always logged above.
+          if (named.has(r.member) && !nickReported.has(`${r.member}:${why}`)) { nickReported.add(`${r.member}:${why}`); nickHeld.push({ member: r.member, shown: r.from ?? r.shown, why }); }
+        }
+      }
+      if (NICKS === 'plan') log(`nick plan: ${plan.renames.length} to rename, ${plan.skipped.length} skipped`);
+    }
+  } catch (e) {
+    if (!abortsPass(e)) throw e;
+    stopped = e;
+  }
+  // After the writes (however they ended), so a refusal recorded before a
+  // pause is still held and reported.
   g.held.push(...failed);
   const newHeld = g.held.filter((h) => fresh(`held:${h.member}:${h.role}:${h.why}`));
   for (const h of g.held) log(`HELD ${h.who}: ${name(h.role)} — ${h.why}`);
 
-  // 4. nicknames (0207) — the website's name, written after the keys.
-  const nicks = []; const nickHeld = [];
-  if (NICKS !== 'off' && nickInputs) {
-    const plan = planNicknames({ members: everyone, inputs: nickInputs, roles, botTop, ownerId, academicYear, onlyDiscordIds: only });
-    if (academicYear == null) log('nicknames: no ปีการศึกษา — no name planned this pass');
-    // Posted only when a web EDIT named this person (a human is looking, and
-    // can fix the data); a full pass only logs. The owner / above-the-bot cases
-    // are structural and permanent — never posted: every deploy restarts this
-    // service, and "the owner cannot be renamed" after each one is noise.
-    const queuedPeople = new Set(queue.map((q) => q.person_id).filter(Boolean));
-    const named = new Set(nickInputs.filter((i) => queuedPeople.has(i.person_id)).map((i) => i.discord_user_id));
-    for (const k of plan.skipped) {
-      log(`NICK SKIP ${k.member}: ${k.why}`);
-      if (k.structural || !named.has(k.member)) continue;
-      if (!nickReported.has(`${k.member}:${k.why}`)) { nickReported.add(`${k.member}:${k.why}`); nickHeld.push(k); }
-    }
-    for (const r of plan.renames) {
-      if (NICKS === 'plan') { log(`NICK PLAN ${r.member}: "${r.from ?? r.shown}" → "${r.to}"`); continue; }
-      try {
-        await write(`/guilds/${guildId}/members/${r.member}`, { method: 'PATCH', body: JSON.stringify({ nick: r.to }) });
-        nicks.push(r); log(`nick ${r.member}: "${r.from ?? r.shown}" → "${r.to}"`);
-      } catch (e) {
-        if (e instanceof Paused) throw e;
-        log(`FAILED nick ${r.member}: ${e.message}`);
-        const why = /HTTP 403/.test(e.message) ? 'Discord ไม่อนุญาตให้บอทเปลี่ยนชื่อคนนี้' : `เปลี่ยนชื่อไม่สำเร็จ (${e.message.slice(0, 60)})`;
-        // Posted only for a person a web edit named — the full pass repeats it
-        // after every restart (every deploy) otherwise. Always logged above.
-        if (named.has(r.member) && !nickReported.has(`${r.member}:${why}`)) { nickReported.add(`${r.member}:${why}`); nickHeld.push({ member: r.member, shown: r.from ?? r.shown, why }); }
-      }
-    }
-    if (NICKS === 'plan') log(`nick plan: ${plan.renames.length} to rename, ${plan.skipped.length} skipped`);
-  }
-
   for (const m of formatReport({ queue, adds, removes, held: newHeld, renamed, nicks, nickHeld, full: !queue.length })) await post(m);
+  if (stopped) throw stopped;
   if (full || adds.length || removes.length || nicks.length) log(`${full ? 'full' : 'event'} pass: +${adds.length} −${removes.length} held ${g.held.length} nicks ${nicks.length}`);
   return `${full ? 'ตรวจทั้งหมด' : 'ตามการแก้ในเว็บ'}: ได้ role ${adds.length} · เอาออก ${removes.length} · รอคนตรวจ ${g.held.length} · ตั้งชื่อ ${nicks.length}`;
 }

@@ -33,7 +33,7 @@ const ask = async (sql) => JSON.parse(await runSql(sql, target));
 const [students, held, helpReqs, requests, houses, sais, advisors, conflicts, ay] = await Promise.all([
   ask(`select id::text, kkumail, student_id, first_name_th, last_name_th,
               nickname, nickname_imported, nickname_self, major, sai_code,
-              cohort_year, missing_since
+              cohort_year, year_offset, missing_since
          from public.students`),
   ask(`select id::text, student_id, first_name_th, last_name_th,
               nickname_imported as nickname, sai_code as sai, reason, file_note,

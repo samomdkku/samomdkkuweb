@@ -175,17 +175,23 @@ async function loadShopAdminYears() {
  *  sync and redraw whichever tab is on screen. No refetch: both tabs read
  *  from the already-loaded state.orders. */
 function setOrdersYear(y) {
-  state.ordersYear = y;
-  const v = String(y);
-  for (const id of ['shopAdminOrdersYearFilter', 'shopSalesYearFilter']) {
-    const sel = document.getElementById(id);
-    if (sel && sel.value !== v) sel.value = v;
-  }
+  syncOrdersYear(y);
   if (state.tab === 'orders') {
     repopulateOrderFacets();
     renderOrdersTable();
   } else if (state.tab === 'sales') {
     renderSales(yearFilteredOrders(), state.products);
+  }
+}
+
+/** Set the year both tabs read and move both <select>s to it, without
+ *  redrawing (the callers redraw once, after their own changes). */
+function syncOrdersYear(y) {
+  state.ordersYear = y;
+  const v = String(y);
+  for (const id of ['shopAdminOrdersYearFilter', 'shopSalesYearFilter']) {
+    const sel = document.getElementById(id);
+    if (sel && sel.value !== v) sel.value = v;
   }
 }
 
@@ -545,6 +551,10 @@ async function refreshCatalogConfig() {
 export async function openShopAdminOrder(orderId) {
   if (!orderId) return;
   ensureMounted();
+  // A deep link names ONE order, whatever its year — set before the year
+  // list loads (loadShopAdminYears keeps a non-null choice), or a past-year
+  // order opens over an empty table.
+  syncOrdersYear(ALL_YEARS);
   setTab('orders');
   // Narrow the orders table to this single row so the pane behind the
   // modal is obviously about THIS order. Search-filter is case-
@@ -625,7 +635,8 @@ function itemPassesExcept(o, it, exclude) {
  *  facets the same way the table does). */
 function ordersCountByStatus() {
   const m = new Map();
-  for (const o of (state.orders || [])) {
+  // The table is year-filtered (filterOrders), so a facet's "(N)" must be too.
+  for (const o of yearFilteredOrders()) {
     const items = (o.items || []);
     const qualifies = items.length
       ? items.some((it) => itemPassesExcept(o, it, 'status'))
@@ -640,7 +651,7 @@ function ordersCountByStatus() {
  *  active facets (excluding `exclude`). */
 function itemCountBy(keyFn, exclude) {
   const m = new Map();
-  for (const o of (state.orders || [])) {
+  for (const o of yearFilteredOrders()) {
     for (const it of (o.items || [])) {
       if (!itemPassesExcept(o, it, exclude)) continue;
       const k = keyFn(it);
@@ -1039,16 +1050,15 @@ function renderStats() {
   // orders the click shows. The slip queue is NOT scoped by source, so neither
   // is its tile.
   //
-  // Year (0230): "ยังไม่ส่งสลิป"/"สลิปไม่ถูกต้อง"/"มีปัญหา" land on the orders
-  // table and "รายรับสะสม" lands on ยอดขาย — both year-filtered by
-  // filterOrders()/yearFilteredOrders() — so their counts must read the SAME
-  // year-filtered set, or the tile shows a number the click can't produce
-  // (the "scoped is not full" mistake, applied to a filter added after this
-  // comment was written). The slip queue stays on ALL years on purpose: its
-  // destination (ตรวจสลิป) is never year-filtered — unresolved review work
-  // must not hide behind whichever year is picked.
+  // Year (0230): the OPEN-WORK tiles — ยังไม่ส่งสลิป, สลิปไม่ถูกต้อง, มีปัญหา —
+  // count EVERY year, and their click switches the table to ทุกปี
+  // (applyQuickFilter), so the number is still the number the click shows.
+  // Owner's rule for the year work (HANDOFF §22): an UNFINISHED past-year
+  // item is always shown — after a handover last year's unpaid orders still
+  // hold stock and still need chasing. Only รายรับสะสม (money already in, a
+  // per-year book) reads the picked year. The slip queue is all years too.
   const yearScoped = yearFilteredOrders();
-  const scoped = attentionCounts(yearScoped, Date.now(), { lineInScope: itemMatchesSource });
+  const scoped = attentionCounts(state.orders, Date.now(), { lineInScope: itemMatchesSource });
   const queue = attentionCounts(state.orders);
   // Only orders whose slip was CHECKED — the รายรับสะสม rule (isRevenueOrder),
   // the same number the shop's Discord message reports.
@@ -1126,6 +1136,9 @@ function applyQuickFilter(kind) {
   if (!off) {
     (q.statuses || []).forEach((x) => state.ordersStatuses.add(x));
     (q.itemStatuses || []).forEach((x) => state.ordersItemStatuses.add(x));
+    // The tile counted every year (repopulateOrderFacets), so the click shows
+    // every year — or a past year's unfinished orders hide behind the picker.
+    if (state.ordersYear !== ALL_YEARS) syncOrdersYear(ALL_YEARS);
   }
   repopulateOrderFacets();
   renderOrdersTable();

@@ -149,7 +149,7 @@ Open when: writing a migration.
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 - A weekly prune silently erased 20 of every ~24 days' worth of analytics
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(116)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(117)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -269,8 +269,9 @@ Open when: markup, modals, layout, touch, icons.
 - "⌘-click / Ctrl-click on a tool or the banner just switches the page instead of opening a new tab"
 - The shop popup's qty stayed at 99 through a colour pick with 3 left
 - บอท Discord's 20s background poll cleared a save error before anyone could read it
+- ⌘-click on the home banner's ร้านค้า / ประกาศ and the /me link stopped opening a new tab
 
-## `app-state.md` — Routing, read-state, caches & serialization *(36)*
+## `app-state.md` — Routing, read-state, caches & serialization *(37)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -310,8 +311,9 @@ Open when: URL state, per-user "seen", import/export.
 - SAMO Shop: a product added to the cart in one browser tab could vanish if another tab added one too
 - SAMO Shop admin: the "ต้องจัดการ" tile said one number, clicking it showed fewer rows
 - Editing an archived announcement silently republished it
+- Archiving an announcement made its pictures deletable
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(36)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(37)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -351,6 +353,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - "тест / сообщение 1…10" in vs-ดิจิทัล
 - "no webhook configured" after the webhook rotation
 - Apps Script's "is this file inside PR/?" matched any folder NAMED PR
+- A Supabase blip mid-pass would have posted "Discord ปฏิเสธ" for every pending role change
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(28)*
 
@@ -385,7 +388,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 - The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(78)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(80)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -465,8 +468,10 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A headless probe said the sales chart's tooltip was broken
 - A "no-write" browser check rejected a real slip on samo-dev
 - The night agent would have started inside a 100% Claude booking
+- The night agent said it stopped "for somebody's Claude booking"
 - A migration that changes a function's SIGNATURE rots the ACL string in an older proof
 - One backticked path outside the repo blinded `state-handoff.test.js`'s whole dead-pointer sweep
+- Two night-agent proofs, green when written, red a day later
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -514,4 +519,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_452 entries across 10 files._
+_457 entries across 10 files._

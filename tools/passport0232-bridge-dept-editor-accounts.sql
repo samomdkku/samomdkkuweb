@@ -84,8 +84,9 @@ delete from passport.samo_years where id in
 -- Four accounts, created fresh (not found): this grant shape already has
 -- holders in production, but a proof that searched for one would be green
 -- for as long as nobody happened to be named 'ไม่ทราบ' by accident. Minimal
--- auth.users row (samo-dev has no on_auth_user_created trigger to lean on,
--- per accounts0211's own finding / HANDOFF §19) + a public.users row with an
+-- auth.users row + a public.users row UPSERTED (production's
+-- on_auth_user_created trigger — and samo-dev's since 0234 — already made one;
+-- a plain insert errored with users_pkey there) with an
 -- EXACT, unique, synthetic display_name — nothing here is a real person.
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000023210', 'proof0232-editor@probe.invalid'),
@@ -95,13 +96,17 @@ insert into auth.users (id, email) values
 
 alter table public.users disable trigger users_self_update_guard;
 insert into public.users (id, display_name, role, managed_dept_pages) values
-  ('00000000-0000-4000-8000-000000023210', 'Proof0232 Editor Digital', 'user', array['digital']);
+  ('00000000-0000-4000-8000-000000023210', 'Proof0232 Editor Digital', 'user', array['digital'])
+  on conflict (id) do update set display_name = excluded.display_name, role = excluded.role, managed_dept_pages = excluded.managed_dept_pages;
 insert into public.users (id, display_name, role, managed_dept_pages) values
-  ('00000000-0000-4000-8000-000000023211', 'Proof0232 Editor Academic', 'user', array['academic']);
+  ('00000000-0000-4000-8000-000000023211', 'Proof0232 Editor Academic', 'user', array['academic'])
+  on conflict (id) do update set display_name = excluded.display_name, role = excluded.role, managed_dept_pages = excluded.managed_dept_pages;
 insert into public.users (id, display_name, role, permissions) values
-  ('00000000-0000-4000-8000-000000023212', 'Proof0232 Blanket', 'user', array['dept_pages']);
+  ('00000000-0000-4000-8000-000000023212', 'Proof0232 Blanket', 'user', array['dept_pages'])
+  on conflict (id) do update set display_name = excluded.display_name, role = excluded.role, permissions = excluded.permissions;
 insert into public.users (id, display_name, role) values
-  ('00000000-0000-4000-8000-000000023213', 'Proof0232 Ungranted', 'user');
+  ('00000000-0000-4000-8000-000000023213', 'Proof0232 Ungranted', 'user')
+  on conflict (id) do update set display_name = excluded.display_name, role = excluded.role;
 alter table public.users enable trigger users_self_update_guard;
 
 insert into probe select '20. four fresh subjects exist', '4',
@@ -134,7 +139,11 @@ begin
   execute 'set local role authenticated';
   select count(*), string_agg(editor_name, '|')
     into n, names
-    from public.dept_content_editor_info(p_dept);
+    from public.dept_content_editor_info(p_dept)
+   -- ONLY this proof's own rows: production's ฝ่ายดิจิทัล already has real
+   -- content, so counting every row asserted a property of the data, not of
+   -- the function (red on production 2026-10-20).
+   where id::text like '00000000-0000-4000-8000-0000000232%';
   execute 'reset role';
   return 'ok:' || n || ':' || coalesce(names, '');
 exception
@@ -179,7 +188,8 @@ insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000023230', 'proof0232-actor@probe.invalid');
 alter table public.users disable trigger users_self_update_guard;
 insert into public.users (id, display_name, role) values
-  ('00000000-0000-4000-8000-000000023230', 'Proof0232 Actor', 'user');
+  ('00000000-0000-4000-8000-000000023230', 'Proof0232 Actor', 'user')
+  on conflict (id) do update set display_name = excluded.display_name, role = excluded.role;
 alter table public.users enable trigger users_self_update_guard;
 
 insert into public.pr_tickets (id, department, content_name, status, submitter_id, samo_year_be) values

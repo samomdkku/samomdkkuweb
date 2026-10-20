@@ -81,6 +81,9 @@ export function serve(w) {
     const url = new URL(req.url, 'http://127.0.0.1');
     const p = url.pathname;
     requests.push(`${req.method} ${p}`);
+    // A Supabase blip that starts right after the first role write — the
+    // settings read the NEXT write makes then fails (discord-sync.test.js).
+    if (w.breakSettingsOnWrite && req.method === 'PUT' && /\/members\/[^/]+\/roles\//.test(p)) w.settingsBroken = true;
     const json = (body) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
 
     // ── Discord ──
@@ -155,6 +158,7 @@ export function serve(w) {
     if (p === '/rest/v1/rpc/get_academic_year') return json(w.academicYear ?? 2569);
     // 0208 — the admin panel's switches (read every loop) and the bot's status.
     if (p === '/rest/v1/discord_bot_settings') {
+      if (w.settingsBroken) { res.writeHead(503); return res.end('{"message":"blip"}'); }
       return json([{ sync_enabled: true, nicknames_enabled: true, silent: false, note: null, changed_by_label: null, full_pass_requested_at: null, ...(w.settings || {}) }]);
     }
     if (p === '/rest/v1/discord_bot_status') {

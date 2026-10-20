@@ -32,7 +32,7 @@ import { copyText } from './utils.js';
 import { askConfirm } from './confirm-modal.js';
 
 // Announcements / Creator
-import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement, toggleArchiveAnnouncement, setManageStatusFilter, getManageStatusFilter, getLoadedAnnouncements } from './announcements.js';
+import { initAnnouncements, loadAnnouncements, publishAnnouncement, cancelEdit, setCreatorMode, editAnnouncement, deleteEditingAnnouncement, renderAnnouncementOrderList, saveAnnouncementOrder, togglePinAnnouncement, toggleArchiveAnnouncement, archiveAnnouncements, setManageStatusFilter, getManageStatusFilter, getLoadedAnnouncements } from './announcements.js';
 
 // PR Staff
 import { fetchPRStaffTickets, filterPRStaffTickets, enterPRStaffDashboard, openPRStaffModal, submitPRStaffAction, deletePRStaffAction, openManageAgentsModal, addNewAgent, removeAgent, addPRStaffAssignee, removePRStaffAssignee, onPrStaffYearChange, togglePrPastYearOverride, exportPRStaffTicketsCsv } from './pr-staff.js';
@@ -709,8 +709,11 @@ function wireAnnouncementManageFilter() {
     renderAnnouncementOrderList(listEl);
   });
   bulkBtn?.addEventListener('click', async () => {
-    const year = Number(bulkYear?.value);
-    if (!Number.isFinite(year)) { alert('พิมพ์ปี พ.ศ. ก่อนกดเก็บเข้าคลัง'); return; }
+    const raw = String(bulkYear?.value || '').trim();
+    // Number('') is 0, which IS finite — so an empty box used to report "no
+    // announcements before พ.ศ. 0" instead of asking for a year.
+    if (!/^\d{4}$/.test(raw)) { alert('พิมพ์ปี พ.ศ. 4 หลักก่อนกดเก็บเข้าคลัง'); return; }
+    const year = Number(raw);
     // ค.ศ. boundary from the พ.ศ. year typed: everything CREATED before 1
     // มกราคม of that พ.ศ. year. Simple date arithmetic, no RPC — the design
     // doc's "a scheduled job at start_team_term time" was explicitly left as
@@ -723,24 +726,37 @@ function wireAnnouncementManageFilter() {
     // Fetch the approved set explicitly — the manage pane's CURRENT filter
     // may be showing เก็บเข้าคลัง/ทั้งหมด at the moment this button is
     // pressed, and only an approved post can be archived.
-    await loadAnnouncements('approved');
-    const targets = getLoadedAnnouncements().filter((p) =>
-      p.status === 'approved' && p.createdAtIso && new Date(p.createdAtIso) < cutoff);
-    if (!targets.length) { alert(`ไม่มีประกาศที่เผยแพร่อยู่ซึ่งสร้างก่อนปี พ.ศ. ${year}`); return; }
-    const ok = await askConfirm({
-      title: `เก็บประกาศ ${targets.length} รายการที่สร้างก่อนปี พ.ศ. ${year} เข้าคลัง?`,
-      body: 'ประกาศที่เก็บเข้าคลังจะหายจากหน้าแรกทันที — เผยแพร่อีกครั้งได้ทีละรายการ',
-      yes: 'เก็บเข้าคลัง',
-    });
-    if (!ok) return;
-    for (const p of targets) await toggleArchiveAnnouncement(p.id);
     const listEl = document.getElementById('announcementsOrderList');
+    // EVERY exit reloads under the manage pane's own filter and repaints —
+    // returning with the 'approved' set loaded while archived cards are on
+    // screen left a click on one of them finding nothing.
     try {
-      await loadAnnouncements(getManageStatusFilter());
+      await loadAnnouncements('approved');
+      const targets = getLoadedAnnouncements().filter((p) =>
+        p.status === 'approved' && p.createdAtIso && new Date(p.createdAtIso) < cutoff);
+      if (!targets.length) { alert(`ไม่มีประกาศที่เผยแพร่อยู่ซึ่งสร้างก่อนปี พ.ศ. ${year}`); return; }
+      const ok = await askConfirm({
+        title: `เก็บประกาศ ${targets.length} รายการที่สร้างก่อนปี พ.ศ. ${year} เข้าคลัง?`,
+        body: 'ประกาศที่เก็บเข้าคลังจะหายจากหน้าแรกทันที — เผยแพร่อีกครั้งได้ทีละรายการ',
+        yes: 'เก็บเข้าคลัง',
+      });
+      if (!ok) return;
+      // ONE write: toggling one by one reloaded under the manage filter after
+      // each, so under เก็บเข้าคลัง the rest dropped out and silently stayed.
+      const n = await archiveAnnouncements(targets.map((p) => p.id));
+      if (n !== targets.length) {
+        alert(`เก็บเข้าคลังได้ ${n} จาก ${targets.length} รายการ — บัญชีนี้อาจไม่มีสิทธิ์ “เขียนประกาศ” กับบางรายการ`);
+      }
     } catch (e) {
-      console.warn('[admin-main] bulk archive reload failed:', e?.message || e);
+      alert('เก็บเข้าคลังไม่สำเร็จ: ' + (e?.message || e));
+    } finally {
+      try {
+        await loadAnnouncements(getManageStatusFilter());
+      } catch (e) {
+        console.warn('[admin-main] bulk archive reload failed:', e?.message || e);
+      }
+      renderAnnouncementOrderList(listEl);
     }
-    renderAnnouncementOrderList(listEl);
   });
 }
 

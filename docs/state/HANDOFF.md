@@ -1473,7 +1473,74 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ---
 
-## 17. The night agent — RE-ARMED 2026-10-18 for tasks 8–12 (history below is older)
+## 17. The night agent — RE-ARMED 2026-10-20 for tasks 13–23, the quality queue (history below is older)
+
+**2026-10-20 — NEW QUEUE ARMED. Status: VERIFIED 2026-10-20 — how: `install.sh --arm`
+replaced the live queue (old one kept as `.prev`), the live gate printed `เหลือ 9 งาน ·
+คืนที่ 1 จาก 30`, no STOPPED file.**
+- Tasks 8–12 finished 2026-10-19 21:14 UTC (3 of 5 resumed after a quota cut; runner
+  report in the VM log). Their branch `agent/2026-10-18` is still UNREVIEWED and
+  unmerged — §22 is its checklist.
+- Owner (2026-10-20): spend the reset week on improving samoweb, all 7 sessions
+  (`Reserve sessions: 0`, `Revise passes: 6`, `Budget: 30 runs`, `Until`
+  2026-10-27 08:00 UTC). Tasks, in priority order: 13 the §18f/§23f leftovers ·
+  14 samo-dev auth triggers + the two red proofs · 15 security property guards +
+  the open privacy item + Apps Script upload limits · 16 ESLint (correctness
+  rules only) · 17 axe + 390px student-flow sweep · 18 phone load speed +
+  `check:bundle` · 19 split `src/js/shop/admin.js` and `src/js/team/index.js` (moves only) ·
+  20 tests for untested business rules · 21 Passport on a phone (a11y, flaky
+  network, speed) · 22 scrutinize · 23 HANDOFF §24. Tasks 20–21 were spliced into
+  the LIVE queue mid-run (owner: fill all 7 sessions); the running loop keeps its
+  start-time count, so the run that was live then stops after 21 and the next run
+  does 22–23.
+- `agent/2026-10-20` was created on the VM from `agent/2026-10-18`'s tip
+  so it STACKS: review and merge 10-18 first, then 10-20. Its own
+  work is `agent/2026-10-18..HEAD`. Migrations 0234–0241 are reserved.
+- OWED (owner): nothing until it finishes. If you want a session for yourself
+  this week, book it on the board.
+- **2026-10-20 07:30 ICT — owner used the free reset. Status: VERIFIED — how: a
+  fresh `samo-claude-usage` sample read `five_hour_pct 0`, `seven_day_pct 0`.**
+  The week's RESET TIME did not move (still 2026-10-21 08:59 UTC), so this is
+  ~32 h, ~6 windows, not a new 7-day week. Owner: stop at that reset — `Until`
+  is now 2026-10-21 08:30 UTC (live file + repo; `.prev` kept). Unfinished
+  tasks stay queued for a later `--arm`.
+- **Task 13 hit `Reached max turns (200)`** after 29 min with its four parts
+  committed but no `## Task 13` block, so it reads "not passed" (attempt 1 of
+  2) and re-runs. The VM drop-in `tonight.conf` now sets `TASK_MAX_TURNS=400`
+  (`.bak-20261020` kept) — the 200 default is from short tasks.
+- **OWED — the booking board does not see a manual reset. Status: VERIFIED
+  2026-10-20 00:31 UTC — how: `bookings.json` `right_now.session` read window
+  21:00–02:00 UTC, `booked_pct 100`, `free_pct 0`, while the same minute's
+  sample read 0% / 0%.** The 21:00–23:00 booking anchored that window, and a
+  sample at 0% (no window open) does not replace it, so the agent — an
+  unbooked user, by the owner's rule — waits until 02:00 UTC with the quota
+  empty. It cost ~1.5 h once; fix it in `get_claude_board()`'s window choice
+  only if resets become routine (prove it with the claude quota proofs).
+
+**2026-10-19 — RUNNING TO 100%. Status: VERIFIED 2026-10-19 — how: the live
+gate on the VM printed `สัปดาห์ 80% (หยุดที่ 100%)`, `allowance` returned
+`"stop":null`, and the journal shows the 19:27 ICT run resuming task 10.**
+- The owner asked for the week to be spent to 100%: a one-time free reset has to
+  be used before 22/10. Live `~/samo-night/NIGHT-TASKS.md` header: `Reserve
+  sessions: 0`, `Revise passes: 6`, `Budget: 20 runs`; `Until` unchanged
+  (2026-10-21 08:30 UTC, just before the weekly reset). The previous header is
+  kept beside it as `NIGHT-TASKS.md.<stamp>.prev`.
+- **OWED (owner):** use the free reset once the week reads 100%. After that the
+  agent continues on the next tick, with no action needed. To use it past
+  `Until`, edit that line on the VM.
+- **HYPOTHESIS until it runs:** revise-only runs once tasks 10–12 are terminal.
+  A finished queue with `Revise passes:` now keeps running REVISE.md passes
+  instead of writing STOPPED. Tested in `night-queue.test.js` and not yet seen
+  live. Check the journal for `รอบทบทวนหาบั๊ก`.
+- Reserve 0 is per queue. The next `--arm` with a header lacking the line
+  defaults back to 1.
+- ✅ **No longer a hypothesis:** a real `claude -p` stopped by the watcher left a
+  clean WIP commit (2026-10-19 18:23 ICT), and the next run resumed it. That
+  stop was mislabelled as a booking yield; fixed the same day
+  (`docs/mistakes/tooling-proofs.md`, "showed nobody booked").
+- Noise, not a fault: `deploy:owed` warns that 0224 no longer matches production.
+  The 2026-10-14 handover fix added a comment-only "superseded order" note after the migration was
+  applied, and 0227 carries the real fix. Leave it.
 
 **Status: VERIFIED 2026-10-18 — how: the live gate refused, the VM code diffs clean, rehearsals and tests green, each listed here:**
 - the live gate on the VM, reading the real board, refused with the 21:30–00:00
@@ -1789,9 +1856,9 @@ colour. The full design, with the measured facts it rests on, is
 
 ## 18f. Cold review of 2026-09-23's work — findings NOT yet fixed on main
 
-**Status: VERIFIED 2026-10-20 (agent/2026-10-20, task 13)** — how: `npm test` and `npm run build` are green on `agent/2026-10-20` with every CONFIRMED item fixed; WRITTEN AND TESTED on this branch only — NOT merged to main, NOT deployed. Two independent reviewers read the 2026-09-23 diff cold; each finding below was theirs, re-read against the code. See `docs/state/night-agent.md` "Task 13" for the full account.
+**Status: VERIFIED 2026-10-20 — how: night agent task 13 (unit tests, each fix red with it reverted), reviewed and merged to main by the owner session 2026-10-20; the nginx line is in the repo but is installed by hand (see below).** Two independent reviewers read the 2026-09-23 diff cold; each finding below was theirs, re-read against the code. `npm test` and `npm run build` are green on `agent/2026-10-20` with every CONFIRMED item fixed. See `docs/state/night-agent.md` "Task 13" for the full account.
 
-Discord bot (`server/discord-sync.mjs`) — ~~fixed on `wip/discord-review-fixes`, not merged~~ → **cherry-picked onto `agent/2026-10-20` (see its own commits); its 2 red tests fixed to the restructured design, not reverted** (`docs/mistakes/integrations.md`):
+Discord bot (`server/discord-sync.mjs`) — ~~fixed on `wip/discord-review-fixes`, not merged~~ → **cherry-picked onto `agent/2026-10-20` (the one commit on `wip/discord-review-fixes`); its 2 red tests fixed to the restructured design, not reverted** (`docs/mistakes/integrations.md`):
 1. a pause does not stop a pass already running (write() now re-checks the switch every 3 s; `Paused` is not a failure);
 2. empty `discord_role_targets()` counted as success (posts "recovered", retries every 5 s, no heartbeat) → now a failure;
 3. web text (edit detail, editor name, pause reason) posted unescaped → `mdLine` (a ชื่อเล่น `<@id>` / `[x](url)` renders);
@@ -1975,6 +2042,48 @@ push it as a preview branch, decide whether/when to apply each migration to
 production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 
 ### Rows 8–12 — the owner's apply-in-order checklist (2026-10-18 queue, written by task 12)
+
+**✅ DONE 2026-10-20 by the owner session — the checklist below is HISTORY.
+Status: VERIFIED 2026-10-20 — how: tasks 8–13 merged to `main` (task 14 is WIP
+and stayed on `agent/2026-10-20`); 0230 → 0231 → 0232 → 0233 applied to
+PRODUCTION in that order; proofs on production AND samo-dev: `shop0230` 32/32,
+`stats0231-retention` 31/31, `stats0233-no-split-day` 7/7, `passport0232` 22/22,
+`accounts0211-dashboard` 15/15 (prod); `npm test` + build green; bundle deployed
+(the sha: STATE.md).**
+
+Review of the merged work (two independent reviewers + the SQL read by hand)
+found and FIXED before deploy — each in `docs/mistakes/`:
+- an edit/delete could trash a picture an ARCHIVED announcement still used;
+  reloads painted the wrong list under the manage filter; bulk archive stopped
+  after one row under เก็บเข้าคลัง; archiving kept the pin;
+- ⌘-click on /shop, /news, /me regressed (the agent removed a "dead" selector);
+- shop facet counts ignored the year; the open-work tiles hid last year's
+  unpaid / problem orders behind the current-year default (now all years, and
+  the click switches to ทุกปี); a `?scan=` link to an old order opened empty;
+  the popup cap lost cart.js's 99 ceiling;
+- discord-sync posted "Discord ปฏิเสธ" for every change on a Supabase blip;
+- 4 of the agent's proofs were green on samo-dev and wrong on production.
+
+**Still OWED from this work — Status: OWED:**
+- ⛔ **Do NOT install `server/stats-retention.*` as written** — it uses the
+  Postgres superuser on the false premise that service_role cannot run the
+  prune functions (it can: `proacl` = `{postgres=X, service_role=X}`). Rebuild
+  on a narrow login role or the VM's existing service key, add `OnFailure=`.
+  Until then nothing prunes `analytics_events` (DB is 64 MB of 500 — not urgent).
+- `tools/browser/shop-checkout-navigate-away.mjs` has never run and is
+  unreliable as written (no fixture slip, a Linux Chrome path, a check that
+  matches any sign-in trigger). Fix before trusting it.
+- Discord sync: fixes #1–#5 and #9 of §18f have no behavioural test; only the
+  mid-pass settings blip does now.
+- `csvUnguard` strips any leading `'`: a value that REALLY began with `'`, in a
+  file exported BEFORE this deploy, loses it on re-import (rare).
+- Two-tab race: tab A's checkout `clearCart()` can drop an item tab B added
+  mid-checkout (PLAUSIBLE, not reproduced).
+- Null-year rule differs: the shop counts a null-year order under every year,
+  `account_dashboard(p_year)` drops it. Pick one if it ever matters.
+- Not seen in a browser: the announcements archive/bulk flow, the shop year
+  picker with real orders, the accounts year filter, หน้าฝ่าย "แก้ไขล่าสุดโดย".
+
 
 Everything below is **WRITTEN, proved on samo-dev, NOT on production.** Task 8
 shipped no migration (ระบบบ้าน graduation is derived in JS, nothing to apply).
@@ -2170,7 +2279,7 @@ one line each, with the consequence of flipping it:**
 | 8 | ระบบบ้าน + ข้อมูลของฉัน | none (deliberately — see below) | `gaps.test.js` (new describe block, 4 cases) | DONE on branch `agent/2026-10-18`, samo-dev/prod untouched (no schema change) | Review and deploy the bundle. No migration: graduation is `isGraduated()` in `study-year.js`, computed live from the existing ชั้นปี arithmetic — NOT the `students.graduated_at` column `docs/YEAR-ROLLOVER.md` originally proposed (rejected on build, see that doc's `## ระบบบ้าน` + `docs/state/night-agent.md`'s Task 8 block for why). ระบบบ้าน's นักศึกษา tab now hides a graduated รุ่น by default (switch to show it); `gaps.js`'s per-person worklists + scope denominator exclude graduated students; สายรหัส audit still includes them (สาย is never re-run). MD55+ and `/me`'s own house card need no code change — checked by grep, no hardcoded MD49–MD54 literal drives any branch |
 | 9 | SAMO Shop (orders per year + customer flow) | 0230 | `shop0230` 31/31 samo-dev | DONE on branch `agent/2026-10-18`, samo-dev ONLY — NOT production | Review, then apply 0219 to production FIRST if not already (task 2's row), then `node tools/apply-migration.mjs supabase/migrations/0230_shop_orders_get_a_samo_year.sql`, then `node tools/db-query.mjs tools/shop0230-samo-year.sql` to prove it there too. Ships `shop_orders.samo_year_be` (stamped at insert, backfilled from `placed_at`) + `shop_order_totals()` (0206) rescoped to the current year (falls back to counting everything if `current_samo_year()` is ever null) + the shared `samo-year.js` picker on the admin orders table AND the ยอดขาย tab, current year by default, one predicate (`orderMatchesYearFilter`, `src/js/shop/data.js`). Products stay un-scoped (design). **Separately, fixed a real bug found while tracing the customer checkout flow** (the owner's "navigate away mid-purchase" worry): `src/js/shop/state.js`'s cart loaded into memory once per browser TAB and persisted the whole array on every write, so two tabs open on the shop could silently clobber each other's added item with no error — fixed with a `storage`-event listener, test in `src/js/shop/state.test.js`, write-up in `docs/mistakes/app-state.md`. The rest of that worry (navigating via `/me`/the home banner/the shop tab) checked out fine by code trace — this app is a client-side router, nothing on that path calls `location.reload()`. **Resumed after a quota cut-off (same day): `/scrutinize` on the task's own diff found the year picker had broken the "ต้องจัดการ" tiles' own invariant** — their counts read every year while the views they open into (orders table, ยอดขาย) were year-filtered, so a past-year pending order could inflate a tile with no way to reach it. Fixed: `renderStats()`'s `scoped`/`revenue` now read `yearFilteredOrders()`; the slip-review count stays all-years on purpose (its destination is never year-filtered). Write-up: `docs/mistakes/app-state.md`. **OWED**: a live-browser run of the full flow (`tools/browser/shop-checkout-navigate-away.mjs`, WRITTEN, NEVER RUN — no Chrome/network in the night agent's sandbox) and an admin UI control to correct a mis-filed order's `samo_year_be` (`docs/YEAR-ROLLOVER.md` § SAMO Shop) |
 | 10 | Passport + หน้าฝ่าย + Announcements + Stats retention + Accounts | 0231 (stats retention), 0232 (passport bridge + หน้าฝ่าย editor info + accounts year filter) | `stats0231-retention` 31/31 samo-dev · `passport0232-bridge-dept-editor-accounts` 22/22 samo-dev — both RE-RUN live during task 11's review, not just read off `STATE.md` | DONE on branch `agent/2026-10-18`, samo-dev ONLY — NOT production (built across two WIP commits, both "cut off by the quota" per their own messages — `git log --oneline` on this branch; never got its own `/scrutinize` pass or this row's update until task 12) | Apply 0230 FIRST if not already (row 9 — `account_dashboard()`'s rewrite reads `shop_orders.samo_year_be`), then `node tools/apply-migration.mjs supabase/migrations/0231_stats_retention_rollups.sql`, proof `tools/stats0231-retention.sql`; then `node tools/apply-migration.mjs supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql`, proof `tools/passport0232-bridge-dept-editor-accounts.sql`. Install the VM timer (`server/stats-retention.*`, see the checklist above — pg_cron is NOT installed on this project, so nothing prunes `analytics_events`/`claude_usage_samples` until either the timer or pg_cron exists). Deploy the bundle for the หน้าฝ่าย "แก้ไขล่าสุดโดย" line, the announcements เก็บเข้าคลัง/เผยแพร่อีกครั้อง toggle (no migration needed, reuses the `status` column), and the accounts กิจกรรม-by-year picker. Full detail + every decision: the apply-in-order checklist above |
-| 11 | Scrutinize + bug scan (tasks 8–10 + the owner's work since 2026-10-14) | none (0233 left unused — no SQL needed) | `stats0231-retention` 31/31 + `passport0232-bridge-dept-editor-accounts` 22/22 + `shop0230-samo-year` 31/31, all RE-RUN live on samo-dev during this review (not just read off STATE.md) | DONE on branch `agent/2026-10-18` — review-only, no schema touched | Full report: `docs/state/agent-notes/2026-10-18-review.md`. Found + fixed one real bug (editing an archived ประกาศ silently republished it — `nextAnnouncementStatus()` in `announcements.js`, test + write-up in `docs/mistakes/app-state.md`) and one cosmetic dead-selector cleanup in the owner's `departments.js`. Everything else checked (0231/0232's RLS, tasks 8–9's own prior scrutinize fixes, the owner's shop-admin math + home banner + `terms.js` handover order, login cache for both sign-in kinds, cross-tab account switching, the shop customer flow) came back clean. 0 security findings. Task 10's own write-up/row-update gap (noted here) is closed by row 10 above, done by task 12 |
+| 11 | Scrutinize + bug scan (tasks 8–10 + the owner's work since 2026-10-14) | none (0233 left unused — no SQL needed) | `stats0231-retention` 31/31 + `passport0232-bridge-dept-editor-accounts` 22/22 + `shop0230-samo-year` 31/31, all RE-RUN live on samo-dev during this review (not just read off STATE.md) | DONE on branch `agent/2026-10-18` — review-only, no schema touched | Full report: the 2026-10-18 review note (kept on the VM checkout under agent-notes, not in git). Found + fixed one real bug (editing an archived ประกาศ silently republished it — `nextAnnouncementStatus()` in `announcements.js`, test + write-up in `docs/mistakes/app-state.md`) and one cosmetic dead-selector cleanup in the owner's `departments.js`. Everything else checked (0231/0232's RLS, tasks 8–9's own prior scrutinize fixes, the owner's shop-admin math + home banner + `terms.js` handover order, login cache for both sign-in kinds, cross-tab account switching, the shop customer flow) came back clean. 0 security findings. Task 10's own write-up/row-update gap (noted here) is closed by row 10 above, done by task 12 |
 | 12 | Handoff checklist for rows 8–11 | — (no SQL — pure docs) | Re-ran `shop0230-samo-year`/`stats0231-retention`/`passport0232-bridge-dept-editor-accounts` live on samo-dev rather than trusting the recorded counts — found and fixed a real miscount (`shop0230` is 32/32, not the 31/31 tasks 9+11 recorded; see `docs/state/night-agent.md` Task 12) | DONE on branch `agent/2026-10-18` — docs only, no schema touched | Read the apply-in-order checklist above top to bottom: migrations 0230→0231→0232 on samo-dev then production (with proofs each step — note the corrected 32/32 for shop0230), no GAS step, install the optional stats-retention VM timer, deploy the bundle, click through the browser-verification table, then read the per-decision list before overturning anything. `npm test` and `npm run build` both green on this commit |
 
 ⛔ **Every later task must update its OWN row above** (migration/proof

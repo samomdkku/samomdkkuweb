@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# ⛔ DO NOT INSTALL AS WRITTEN (owner-session review, 2026-10-20). The reason
+# given below for using the Postgres SUPERUSER is FALSE: pg_proc.proacl on
+# production reads {postgres=X, service_role=X} for these functions — the
+# revokes never touched service_role, so a PostgREST call with the service
+# key CAN run them. The superuser is the widest credential this project has;
+# a weekly prune needs EXECUTE on three functions. Before installing, switch
+# to a dedicated login role granted only those, or to /rest/v1/rpc/prune_*
+# with the key the VM already holds (and pin that use in
+# .claude/rules/security.md + its test), and add an OnFailure= alert.
+# HANDOFF §22 carries this as OWED.
+#
 # Weekly retention run: prune_analytics(), prune_claude_usage_samples() and
 # prune_notify_log() — three functions that already existed (0065, 0231, 0055)
 # but were never SCHEDULED (docs/YEAR-ROLLOVER.md § Stats). pg_cron is NOT

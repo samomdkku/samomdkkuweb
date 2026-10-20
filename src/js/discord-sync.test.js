@@ -442,6 +442,17 @@ describe('no message names a person by mention', () => {
 // ── The admin panel's switches (0208) ──────────────────────────────────────
 describe('the admin panel controls the service', () => {
   const posts = () => (w.posted || []).map((m) => m.content);
+  it('a settings read failing MID-PASS stops the pass once — never "Discord ปฏิเสธ" per change — and still reports what it wrote', async () => {
+    w.breakSettingsOnWrite = true;
+    // Ends on the EVENT: the failure reaching the panel's status row.
+    const out = await loop(15000, { DISCORD_SYNC_SETTINGS_TTL_MS: '0' },
+      () => (w.statusWrites || []).some((s) => /re-read the bot switch/.test(s.last_error || '')));
+    const writes = stub.requests.filter((x) => /^PUT \/api\/.*\/members\/[^/]+\/roles\//.test(x));
+    expect(writes.length, out).toBe(1);                       // stopped after the first
+    expect(posts().some((c) => /ปฏิเสธ/.test(c)), posts().join('\n')).toBe(false);
+    expect(posts().length, out).toBeGreaterThan(0);           // the partial report went out
+    expect(out).toMatch(/could not re-read the bot switch/);
+  }, 20000);
   it('paused: --once writes nothing at all', async () => {
     w.settings = { sync_enabled: false, note: 'จัดทีมใหม่' };
     const r = await once();

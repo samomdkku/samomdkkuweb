@@ -3703,6 +3703,33 @@ that people obey, make the job obey THAT arbiter rather than a copy of its
 rule. And never grep a free-text REPORT for error words: recognise the error
 line by its shape, and test it against a report that uses those same words.
 
+## The night agent said it stopped "for somebody's Claude booking" — the booking board showed nobody booked
+
+**Symptom** (2026-10-19, owner): the Discord report read "หยุดให้คนที่จอง Claude"
+and "ใช้ครบส่วนที่ไม่มีใครจองแล้ว (52%) — ที่เหลือเป็นของคนที่จองไว้", but the
+Claude booking tab was empty. "is it a bug, why it detect someone book".
+**Cause**: the line was not a booking. Every booking on the board had ended at
+17:00 ICT. Task 10 started at 18:02 with the week at ~77%. The owner's reserve
+is one session plus 6% (142 of 700), which left about 10% for the agent in that
+window, so `allowanceAtStart` set `stop: 34`. That part was correct. But
+`watchGate` had ONE message for every stop, written when the only line it drew
+was a booking's share. The week reserve went through the same `bandAt()`
+min() later, and the stop kept the booking wording. The runner then acted on
+that wording: `.yield`, `CUT_BY=board`, handoff skipped "for the booker", night
+not counted against `Budget`, task note "เพื่อให้คนที่จอง Claude ไว้ใช้".
+**Fix**: the allowance now records whose share its line protects. It says
+`for: 'booking'` only when a booking is still ahead, and `'reserve'` otherwise.
+A reserve stop exits `watch` with 7, not 3. The runner writes `.reserve` and
+handles it like the between-task reserve refusal: WIP is kept, the task is cut
+`reserve`, the handoff runs and the night counts. An old CLI test asserted exit
+3 for a board with NO bookings. It had encoded the mislabel, and it now expects
+7. Mutation: always `'booking'` turns two tests red.
+**Where it lives now**: `server/night-agent/queue.mjs` (`bookingAhead`,
+`allowanceAtStart`, `watchGate`), `run-night.sh` (`CUT_BY=reserve`),
+`src/js/night-queue.test.js` ("2026-10-19").
+**Rule**: when a min() gains a second operand, every message, exit code and
+side-effect keyed on the result still names the FIRST one. Carry WHICH operand
+won out of the min(), and give each reason its own branch.
 ---
 
 ## A migration that changes a function's SIGNATURE rots the ACL string in an older proof
@@ -3774,3 +3801,40 @@ than failing the whole batch on the first one `git check-ignore` refuses.
 **Where it lives now**: `src/js/state-handoff.test.js` (`GIT_IGNORED`'s
 `git check-ignore --stdin` call, `r.status === 128` fallback),
 `docs/state/night-agent.md`.
+
+## Two night-agent proofs, green when written, red a day later — neither about its migration
+
+**Symptom (2026-10-20, owner-session review).** `passport0232` errored
+`duplicate key … users_pkey`; `shop0230` step 39 read year 2571 where it
+expected 2695. Both had been recorded green (22/22, 32/32) the day before.
+
+**Cause.** Two environment assumptions, both the "scenario needs geometry /
+an absence" shape. (1) passport0232 inserted `auth.users` then `public.users`
+by hand because samo-dev had no `on_auth_user_created` trigger; task 14's 0234
+added it to samo-dev, so the trigger made the row first — and PRODUCTION has
+always had that trigger, so the proof could never have run there. (2)
+shop0230 backdated its sentinel year to `now() - 2 days`; samo-dev had a real
+term (2571) started on 2026-10-18 17:41, so from 10-20 an order "placed a day
+ago" fell inside both terms.
+
+**Fix.** passport0232 UPSERTS its `public.users` rows; shop0230 runs its
+scenario over the last two minutes and closes the term `start_team_term` just
+ended at the same instant.
+
+**Then production found three more, all the same shape.** `stats0231` chose its
+admin by `role = 'dev'` (production has none — the queue's own preamble warned)
+and aborted; it now picks by `current_user_has_any_grant`'s predicate.
+`passport0232` counted every ฝ่ายดิจิทัล row (production has real ones); it now
+counts only its own probe rows. `shop0230` step 37 asserted totals "drop back
+to baseline", true only where the current year had no orders — it now asserts
+the property (totals = exactly the 2696-or-null rows). All green on samo-dev
+AND production after.
+
+**Rule for an agent that only has samo-dev**: its proofs are DRAFTS until they
+have run on production once — each of these four was green where it was
+written and wrong about the place it exists to protect.
+
+**The general rule**: *a proof written on samo-dev must be read against
+PRODUCTION's shape before it is called portable — a trigger, a default or a
+row that exists only there turns a hand-written setup into a collision.* And
+geometry relative to `now()` must be smaller than anything real can occupy.

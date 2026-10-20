@@ -388,8 +388,11 @@ async function paintLastEdit(root) {
   if (!el) return;
   el.textContent = '';
   if (!state.rows.length) return;
+  const dept = state.dept;
   const { data, error } = await dbRest('/rpc/dept_content_editor_info',
-    { method: 'POST', body: { p_dept: state.dept } });
+    { method: 'POST', body: { p_dept: dept } });
+  // A ฝ่าย switched while this was in flight: the answer is the OLD ฝ่าย's.
+  if (dept !== state.dept) return;
   if (error || !Array.isArray(data) || !data.length) return;
   const latest = data.reduce((a, b) => (new Date(b.updated_at) > new Date(a.updated_at) ? b : a));
   if (!latest?.updated_at) return;

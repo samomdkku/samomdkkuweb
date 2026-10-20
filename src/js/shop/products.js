@@ -874,7 +874,9 @@ export function qtyCeilingFor(p, size, color) {
   if (!p || isUnlimitedBuying(p)) return 99;
   if (isColorMissing(p, color)) return 1;
   const avail = availableForVariant(p, size, color);
-  return avail != null ? Math.max(1, avail) : 99;
+  // Same 99 ceiling as cart.js maxQtyFor — addItem caps the cart line with
+  // THIS, so without it a variant with 150 left entered the cart at 150.
+  return avail != null ? Math.max(1, Math.min(99, avail)) : 99;
 }
 
 /** The add button's label AND whether it can be pressed — ONE function, called

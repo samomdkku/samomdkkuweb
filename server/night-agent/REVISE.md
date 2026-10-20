@@ -1,8 +1,22 @@
 # Revision pass — the queue finished and the window is still open
 
-Earlier tasks tonight already ran. Read `git log --oneline main..HEAD` and the
+Earlier tasks already ran. Read `git log --oneline main..HEAD` and the
 files those commits touched, then spend this pass making that work BETTER — not
 starting something new, and not rewriting what already works.
+
+⛔ **READ `docs/state/agent-notes/revisions.md` FIRST.** A queue with
+`Revise passes:` keeps running these passes run after run until the quota is
+gone, so earlier passes have already reviewed some of this branch. Pick a part
+of the diff NO earlier entry covers — commits, files, or a system — and never
+re-report a finding already listed there. When every part has been covered,
+go deeper on the riskiest one (RLS, definer functions, migrations, anything
+that deletes) rather than skimming again.
+
+**Bug scanning comes first** (items 1 and 2). A bug you FIX is written up in
+the matching `docs/mistakes/*.md` and pinned by a test. A bug you find but
+cannot fix in one pass goes in the notes with the file and line. ⛔ `docs/` is
+PUBLISHED: an open security hole is named there only as "security issue in
+<file>, see the branch", never with how to exploit it.
 
 Pick the highest-value item you can finish in this one pass:
 
@@ -18,7 +32,8 @@ Pick the highest-value item you can finish in this one pass:
 4. **A gap in the documentation** tonight's work created.
 5. **The release notes.** `src/data/changelog.js` holds a `PENDING` array of
    entries written as work shipped. Read it, read `docs/VERSIONING.md`, and write
-   `docs/state/agent-notes/2026-09-16-release-notes-draft.md`: how the pending
+   `docs/state/agent-notes/release-notes-draft.md` (only if it
+   is missing or older than the newest `PENDING` entry): how the pending
    entries would group into a release, which version number the policy implies
    (MAJOR = the portal's scope changed · MINOR = a new system inside it · PATCH =
    fixes), and a plain-Thai draft a student could read. ⛔ PLAN ONLY — do NOT run
@@ -32,6 +47,7 @@ worse than an idle window, because a human has to read it.
 Run `npm test` and `npm run build` before finishing. If either fails and you
 cannot fix it in this pass, REVERT your change and say so.
 
-Append one short paragraph to `docs/state/agent-notes/2026-09-16-revisions.md`
-saying what you changed and why. If you found nothing worth changing, write that
+Append one short paragraph to `docs/state/agent-notes/revisions.md`, headed
+with the pass and what part of the diff it covered, saying what you changed and
+why. If you found nothing worth changing, write that
 instead — one honest line beats an invented improvement.
