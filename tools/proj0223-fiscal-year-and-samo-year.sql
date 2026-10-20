@@ -54,8 +54,13 @@ insert into probe select '04. drive_layout check constraint admits only flat|yea
   (select (pg_get_constraintdef(oid) ilike '%''flat''%' and pg_get_constraintdef(oid) ilike '%''year''%')::text
      from pg_constraint where conname = 'projects_drive_layout_check');
 
-insert into probe select '05. every EXISTING row (created before 0223) is flat, not year', '0',
-  (select count(*)::text from public.projects where drive_layout <> 'flat');
+-- Bounded by DATE, as the label always said: 0223 was applied 2026-10-14 and
+-- the bundle that asks for the year folder shipped the same day, so a project
+-- created since is 'year' BY DESIGN. Counting every row went red on production
+-- 2026-10-20 the moment real people created โครงการ with the new bundle.
+insert into probe select '05. every row created BEFORE 0223 (2026-10-14) is flat, not year', '0',
+  (select count(*)::text from public.projects
+    where drive_layout <> 'flat' and created_at < '2026-10-14T00:00:00Z');
 
 -- ── principal: a sender (vp_admin/dev) who can also call start_team_term ──
 create temporary table admin_all on commit drop as
@@ -130,13 +135,19 @@ insert into probe select '30. sentinel term 2699 opens', 'ok', (select v from r 
 -- now() is frozen for this transaction's lifetime — backdate 2699's
 -- started_at directly (same technique as pr0220 §C) so the two sentinel
 -- terms do not collapse onto one instant.
-update public.team_terms set started_at = now() - interval '2 days' where year = 2699;
+-- MINUTES, not days, and the term start_team_term just closed is closed at
+-- the same instant: `now() - 2 days` collided with any REAL term started in
+-- the last two days (samo-dev's 2571, 2026-10-18) — shop0230's write-up in
+-- docs/mistakes/tooling-proofs.md.
+update public.team_terms set ended_at = now() - interval '2 minutes'
+ where year <> 2699 and ended_at = now();
+update public.team_terms set started_at = now() - interval '2 minutes' where year = 2699;
 
 select pg_temp.as_admin();
 set local role authenticated;
 insert into r select 'ins_hist',
   pg_temp.try($q$insert into public.projects (id, name, status, created_at) values
-              ('PRJ-TEST0223C', 'proof 0223 — historical', 'open', now() - interval '1 day')$q$);
+              ('PRJ-TEST0223C', 'proof 0223 — historical', 'open', now() - interval '1 minute')$q$);
 reset role;
 insert into probe select '31. a โครงการ created while 2699 is current is stamped 2699', '2699',
   (select samo_year_be::text from public.projects where id = 'PRJ-TEST0223C');

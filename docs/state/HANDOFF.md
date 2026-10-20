@@ -1319,7 +1319,7 @@ node tools/db-query.mjs tools/team019{5,6,7,8}-*.sql # the proofs
 ## 16b. Five live proofs RED on production (found 2026-09-21) — none from shop 0199
 
 **Status: VERIFIED 2026-09-21 — how:** `npm run proofs` against production: 43/48 green, 5 not; house0194 then FIXED by 0200 — 4 remain OWED.
-**Re-run 2026-10-13 evening: 60/62 green** — only dept0177 and team0135 (A5, unchanged) remain. **Re-run 2026-10-13 morning:** 53/57 green, the SAME 4 red (the +1 is `accounts0211-dashboard`). **Re-run 2026-10-12:** 52/56 green — the SAME 4 red (house0188, house0191, dept0177, team0135). Two new reds that day (pr0149, shop0206) were proof subjects moved by samomdkkudev's role change and are fixed (`docs/mistakes/tooling-proofs.md`).
+**Re-run 2026-10-20 (after 0230–0233): 70/73** — dept0177 + team0135 as below (the night agent's task 14 rewrote both on `agent/2026-10-20`; not merged yet), plus proj0176 B2, a no-op write fixed the same day. **Re-run 2026-10-13 evening: 60/62 green** — only dept0177 and team0135 (A5, unchanged) remain. **Re-run 2026-10-13 morning:** 53/57 green, the SAME 4 red (the +1 is `accounts0211-dashboard`). **Re-run 2026-10-12:** 52/56 green — the SAME 4 red (house0188, house0191, dept0177, team0135). Two new reds that day (pr0149, shop0206) were proof subjects moved by samomdkkudev's role change and are fixed (`docs/mistakes/tooling-proofs.md`).
 None of the five reads a shop table; 0199 touches only shop tables and
 functions, and `shop0199-pricing` + `shop0150` are green. They drifted after
 the last all-green run (09-14/09-19). Two are REAL data drift, the rest look

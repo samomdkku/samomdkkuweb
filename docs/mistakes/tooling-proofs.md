@@ -3827,8 +3827,11 @@ and aborted; it now picks by `current_user_has_any_grant`'s predicate.
 `passport0232` counted every ฝ่ายดิจิทัล row (production has real ones); it now
 counts only its own probe rows. `shop0230` step 37 asserted totals "drop back
 to baseline", true only where the current year had no orders — it now asserts
-the property (totals = exactly the 2696-or-null rows). All green on samo-dev
-AND production after.
+the property (totals = exactly the 2696-or-null rows). The `now() - 2 days`
+term backdate had been COPIED into `pr0220`, `vs0221` and `proj0223` (red on
+samo-dev for the same reason), and `proj0223` step 05 counted every โครงการ
+"created before 0223" without a date — red the moment people used the new
+bundle. All fixed the same way; all green on samo-dev AND production after.
 
 **Rule for an agent that only has samo-dev**: its proofs are DRAFTS until they
 have run on production once — each of these four was green where it was

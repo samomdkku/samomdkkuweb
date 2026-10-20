@@ -178,9 +178,13 @@ insert into probe select 'A6. a plain vpa seat is unaffected (the reporter''s se
 insert into probe select 'B1. a prof-only account still may not ซ่อนจากเว็บ', 'guard',
   pg_temp.wr((select uid from subj_prof),
     format('update public.project_documents set is_public = not is_public where id = %L', (select id from tgt)));
+-- The value must CHANGE, as in A2: a literal 'completed' was a no-op the day
+-- the newest หนังสือ was completed (2026-10-20), so the guard was never
+-- consulted and B2 read 'allow' — red, but for a reason that said nothing.
 insert into probe select 'B2. a prof-only account still may not move the status', 'guard',
   pg_temp.wr((select uid from subj_prof),
-    format('update public.project_documents set status = %L where id = %L', 'completed', (select id from tgt)));
+    format('update public.project_documents set status = case when status = %L then %L else %L end where id = %L',
+           'completed', 'sent', 'completed', (select id from tgt)));
 insert into probe select 'B3. a prof-only account still may not rewrite the title', 'guard',
   pg_temp.wr((select uid from subj_prof),
     format('update public.project_documents set title = title || %L where id = %L', 'x', (select id from tgt)));
