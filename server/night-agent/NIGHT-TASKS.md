@@ -1,6 +1,6 @@
 # NIGHT-TASKS — 2026-10-20: the quality queue, tasks 13–23 (one full week)
 Budget: 30 runs
-Until: 2026-10-27T08:00:00Z
+Until: 2026-10-21T08:30:00Z
 Reserve sessions: 0
 Revise passes: 6
 Branch: agent/2026-10-20

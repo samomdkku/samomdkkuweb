@@ -1498,6 +1498,24 @@ replaced the live queue (old one kept as `.prev`), the live gate printed `เห
   work is `agent/2026-10-18..HEAD`. Migrations 0234–0241 are reserved.
 - OWED (owner): nothing until it finishes. If you want a session for yourself
   this week, book it on the board.
+- **2026-10-20 07:30 ICT — owner used the free reset. Status: VERIFIED — how: a
+  fresh `samo-claude-usage` sample read `five_hour_pct 0`, `seven_day_pct 0`.**
+  The week's RESET TIME did not move (still 2026-10-21 08:59 UTC), so this is
+  ~32 h, ~6 windows, not a new 7-day week. Owner: stop at that reset — `Until`
+  is now 2026-10-21 08:30 UTC (live file + repo; `.prev` kept). Unfinished
+  tasks stay queued for a later `--arm`.
+- **Task 13 hit `Reached max turns (200)`** after 29 min with its four parts
+  committed but no `## Task 13` block, so it reads "not passed" (attempt 1 of
+  2) and re-runs. The VM drop-in `tonight.conf` now sets `TASK_MAX_TURNS=400`
+  (`.bak-20261020` kept) — the 200 default is from short tasks.
+- **OWED — the booking board does not see a manual reset. Status: VERIFIED
+  2026-10-20 00:31 UTC — how: `bookings.json` `right_now.session` read window
+  21:00–02:00 UTC, `booked_pct 100`, `free_pct 0`, while the same minute's
+  sample read 0% / 0%.** The 21:00–23:00 booking anchored that window, and a
+  sample at 0% (no window open) does not replace it, so the agent — an
+  unbooked user, by the owner's rule — waits until 02:00 UTC with the quota
+  empty. It cost ~1.5 h once; fix it in `get_claude_board()`'s window choice
+  only if resets become routine (prove it with the claude quota proofs).
 
 **2026-10-19 — RUNNING TO 100%. Status: VERIFIED 2026-10-19 — how: the live
 gate on the VM printed `สัปดาห์ 80% (หยุดที่ 100%)`, `allowance` returned

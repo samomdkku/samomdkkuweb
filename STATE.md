@@ -203,8 +203,8 @@ Tasks 8–12 DONE (2026-10-19) on `agent/2026-10-18` — 0229–0233 on samo-dev
 UNREVIEWED, HANDOFF §22. New queue on `agent/2026-10-20`, STACKED on that tip:
 13 review leftovers · 14 dev fidelity + red proofs · 15 security guards · 16 lint ·
 17 a11y/390px · 18 speed · 19 split · 20 tests · 21 Passport phone · 22 review · 23 §24.
-Header: `Reserve sessions: 0`, `Revise passes: 6`, `Budget: 30 runs`, `Until`
-2026-10-27 08:00 UTC; bookings still win. Migrations 0234–0241 reserved.
+Owner reset the week 2026-10-20 07:30 ICT; `Until` 2026-10-21 08:30 UTC (owner:
+stop at the natural reset), `Reserve sessions: 0`, `Budget: 30`; bookings still win. Migrations 0234–0241 reserved.
 samo-dev only; it cannot push or deploy. ⛔ Merge 10-18 first, then 10-20.
 What is owed and NOT verified: HANDOFF §17 · design: `server/night-agent/NIGHT-TASKS.md`.
 
