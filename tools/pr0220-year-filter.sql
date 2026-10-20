@@ -145,13 +145,19 @@ insert into probe select '30. sentinel term 2693 opens', 'ok', (select v from r 
 -- date is itself a real, supported action — the override shape every column
 -- in this design doc has) manufactures the two distinct instants a real
 -- handover, days apart, would have for free.
-update public.team_terms set started_at = now() - interval '2 days' where year = 2693;
+-- MINUTES, not days, and the term start_team_term just closed is closed at
+-- the same instant: `now() - 2 days` collided with any REAL term started in
+-- the last two days (samo-dev's 2571, 2026-10-18) — shop0230's write-up in
+-- docs/mistakes/tooling-proofs.md.
+update public.team_terms set ended_at = now() - interval '2 minutes'
+ where year <> 2693 and ended_at = now();
+update public.team_terms set started_at = now() - interval '2 minutes' where year = 2693;
 
 select pg_temp.as_admin();
 set local role authenticated;
 insert into r select 'ins_hist',
   pg_temp.try($q$insert into public.pr_tickets (id, department, content_name, status, "timestamp")
-               values ('PR-TEST0220C', 'ฝ่ายดิจิทัลและสื่อสารองค์กร', 'proof 0220 — historical', 'รอ PR รับเรื่อง', now() - interval '1 day')$q$);
+               values ('PR-TEST0220C', 'ฝ่ายดิจิทัลและสื่อสารองค์กร', 'proof 0220 — historical', 'รอ PR รับเรื่อง', now() - interval '1 minute')$q$);
 reset role;
 insert into probe select '31. a ticket submitted while 2693 is current is stamped 2693 (the trigger reads the LIVE term, not the ticket''s own timestamp)', '2693',
   (select samo_year_be::text from public.pr_tickets where id = 'PR-TEST0220C');

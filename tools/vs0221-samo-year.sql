@@ -152,13 +152,19 @@ insert into probe select '30. sentinel term 2697 opens', 'ok', (select v from r 
 -- now() is frozen for the lifetime of this transaction — backdate 2697's
 -- started_at directly so it predates 2698's open by a real interval (see
 -- pr0220-year-filter.sql §C for why this is necessary inside one transaction).
-update public.team_terms set started_at = now() - interval '2 days' where year = 2697;
+-- MINUTES, not days, and the term start_team_term just closed is closed at
+-- the same instant: `now() - 2 days` collided with any REAL term started in
+-- the last two days (samo-dev's 2571, 2026-10-18) — shop0230's write-up in
+-- docs/mistakes/tooling-proofs.md.
+update public.team_terms set ended_at = now() - interval '2 minutes'
+ where year <> 2697 and ended_at = now();
+update public.team_terms set started_at = now() - interval '2 minutes' where year = 2697;
 
 select pg_temp.as_((select id from p_dev), (select email from p_dev));
 set local role authenticated;
 insert into r select 'ins_hist',
   pg_temp.try($q$insert into public.vs_tickets (id, problem, target_dept, status, "timestamp")
-               values ('VS-TEST0221C', 'proof 0221 — historical', 'SE', 'รอ SE รับเรื่อง', now() - interval '1 day')$q$);
+               values ('VS-TEST0221C', 'proof 0221 — historical', 'SE', 'รอ SE รับเรื่อง', now() - interval '1 minute')$q$);
 reset role;
 insert into probe select '31. a ticket filed while 2697 is current is stamped 2697 (the trigger reads the LIVE term, not its own timestamp)', '2697',
   (select samo_year_be::text from public.vs_tickets where id = 'VS-TEST0221C');
