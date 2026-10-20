@@ -54,7 +54,7 @@ import { duplicateMessage } from '../duplicate-message.js';
 // that silently reverted, and one person seeing ปี 5 / จบแล้ว / ปี 5 on three
 // screens. This pane now computes, and offers no box that writes a year.
 import { studyYearLabel, yearBasis } from '../study-year.js';
-import { userCanAccess, getUser } from '../auth.js';
+import { userCanAccess } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
@@ -1002,10 +1002,15 @@ function attachSortables(tree) {
 }
 
 async function onNodeDrop(evt) {
-  dragging = false; pendingRender = false;
+  dragging = false;
+  // scheduleRemoteRender() defers a remote re-render until "the drag ends",
+  // not until "the drag ends AND this drop turns out to be a no-op" — every
+  // path below MUST render once, or a remote change that landed mid-drag
+  // never paints until some unrelated later remote event happens to arrive.
+  const hadPendingRender = pendingRender; pendingRender = false;
   const id = evt.item.dataset.nodeId;
   const newParentId = evt.to.dataset.parentId || null;
-  if (!id) return;
+  if (!id) { if (hadPendingRender) render(); return; }
   if (newParentId && isAncestor(id, newParentId)) { render(); return; }
   const siblingIds = [...evt.to.children].filter((c) => c.dataset.nodeId).map((c) => c.dataset.nodeId);
   const node = nodesById.get(id);
@@ -1028,10 +1033,13 @@ async function onNodeDrop(evt) {
 }
 
 async function onMemberDrop(evt) {
-  dragging = false; pendingRender = false;
+  dragging = false;
+  // See the matching comment in onNodeDrop: a deferred remote render must
+  // still happen even when this particular drop is a no-op.
+  const hadPendingRender = pendingRender; pendingRender = false;
   const id = evt.item.dataset.memberId;
   const newNodeId = evt.to.dataset.nodeId;
-  if (!id || !newNodeId) return;
+  if (!id || !newNodeId) { if (hadPendingRender) render(); return; }
   const memberIds = [...evt.to.children].filter((c) => c.dataset.memberId).map((c) => c.dataset.memberId);
   const m = findMember(id);
   const updates = [];
