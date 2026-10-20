@@ -54,9 +54,12 @@ insert into probe select '04. prune_claude_usage_samples(integer default 8) exis
     where proname = 'prune_claude_usage_samples' and pronamespace = 'public'::regnamespace);
 
 -- ── principals ───────────────────────────────────────────────────────────
+-- Chosen by the GATE'S OWN predicate (current_user_has_any_grant, 0093), not
+-- `role = 'dev'`: production has ZERO dev accounts, so that subject only ever
+-- existed on samo-dev and this proof aborted on production (2026-10-20).
 create temporary table admin_all on commit drop as
 select u.id, lower(btrim(u.email)) as email from public.users u
- where u.role = 'dev'
+ where coalesce(u.permissions, '{}') <> '{}' or coalesce(u.managed_permissions, '{}') <> '{}'
  order by u.id limit 1;
 insert into probe select '05. a dev/staff account exists (for grant ALLOW probes)', '1',
   (select count(*)::text from admin_all);

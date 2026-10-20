@@ -2043,6 +2043,48 @@ production per `docs/YEAR-ROLLOVER.md`'s `## Year-end runbook`.
 
 ### Rows 8–12 — the owner's apply-in-order checklist (2026-10-18 queue, written by task 12)
 
+**✅ DONE 2026-10-20 by the owner session — the checklist below is HISTORY.
+Status: VERIFIED 2026-10-20 — how: tasks 8–13 merged to `main` (task 14 is WIP
+and stayed on `agent/2026-10-20`); 0230 → 0231 → 0232 → 0233 applied to
+PRODUCTION in that order; proofs on production AND samo-dev: `shop0230` 32/32,
+`stats0231-retention` 31/31, `stats0233-no-split-day` 7/7, `passport0232` 22/22,
+`accounts0211-dashboard` 15/15 (prod); `npm test` + build green; bundle deployed
+(the sha: STATE.md).**
+
+Review of the merged work (two independent reviewers + the SQL read by hand)
+found and FIXED before deploy — each in `docs/mistakes/`:
+- an edit/delete could trash a picture an ARCHIVED announcement still used;
+  reloads painted the wrong list under the manage filter; bulk archive stopped
+  after one row under เก็บเข้าคลัง; archiving kept the pin;
+- ⌘-click on /shop, /news, /me regressed (the agent removed a "dead" selector);
+- shop facet counts ignored the year; the open-work tiles hid last year's
+  unpaid / problem orders behind the current-year default (now all years, and
+  the click switches to ทุกปี); a `?scan=` link to an old order opened empty;
+  the popup cap lost cart.js's 99 ceiling;
+- discord-sync posted "Discord ปฏิเสธ" for every change on a Supabase blip;
+- 4 of the agent's proofs were green on samo-dev and wrong on production.
+
+**Still OWED from this work — Status: OWED:**
+- ⛔ **Do NOT install `server/stats-retention.*` as written** — it uses the
+  Postgres superuser on the false premise that service_role cannot run the
+  prune functions (it can: `proacl` = `{postgres=X, service_role=X}`). Rebuild
+  on a narrow login role or the VM's existing service key, add `OnFailure=`.
+  Until then nothing prunes `analytics_events` (DB is 64 MB of 500 — not urgent).
+- `tools/browser/shop-checkout-navigate-away.mjs` has never run and is
+  unreliable as written (no fixture slip, a Linux Chrome path, a check that
+  matches any sign-in trigger). Fix before trusting it.
+- Discord sync: fixes #1–#5 and #9 of §18f have no behavioural test; only the
+  mid-pass settings blip does now.
+- `csvUnguard` strips any leading `'`: a value that REALLY began with `'`, in a
+  file exported BEFORE this deploy, loses it on re-import (rare).
+- Two-tab race: tab A's checkout `clearCart()` can drop an item tab B added
+  mid-checkout (PLAUSIBLE, not reproduced).
+- Null-year rule differs: the shop counts a null-year order under every year,
+  `account_dashboard(p_year)` drops it. Pick one if it ever matters.
+- Not seen in a browser: the announcements archive/bulk flow, the shop year
+  picker with real orders, the accounts year filter, หน้าฝ่าย "แก้ไขล่าสุดโดย".
+
+
 Everything below is **WRITTEN, proved on samo-dev, NOT on production.** Task 8
 shipped no migration (ระบบบ้าน graduation is derived in JS, nothing to apply).
 Tasks 9–10 together reserved 0229–0233; 0229 was unused on purpose (ระบบบ้าน

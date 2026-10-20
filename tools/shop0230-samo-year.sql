@@ -217,12 +217,24 @@ insert into probe select '35. current_samo_year() now answers 2696', '2696', (se
 insert into probe select '36. the still-UNPAID order (review) did NOT move to 2696 — it stays "ค้างจากปีก่อน"', '2695',
   (select samo_year_be::text from public.shop_orders where id = 'SH-TEST0230C2');
 select pg_temp.take_snap('t5_after_2696_opens');
-insert into probe select '37. …and the switch to 2696 made orders_total/revenue DROP BACK exactly to baseline — none of A/B/C/C2 (all pre-2696) leak into the new year', 'ok',
-  (case when pg_temp.delta('t0_before_anything', 't5_after_2696_opens', 'orders_total') = 0
-         and pg_temp.delta('t0_before_anything', 't5_after_2696_opens', 'revenue') = 0
-        then 'ok' else 'FAIL: '
-          || pg_temp.delta('t0_before_anything', 't5_after_2696_opens', 'orders_total')::text || ' / '
-          || pg_temp.delta('t0_before_anything', 't5_after_2696_opens', 'revenue')::text end);
+-- ⛔ A PROPERTY, NOT "back to baseline". The baseline held the project's REAL
+-- current-year orders, which correctly leave the scope when 2696 opens — so on
+-- production (49 real paid orders in 2569) "delta = 0" was red while the
+-- function was right; it only passed on samo-dev, whose current year had no
+-- orders. What 0230 promises: at the switch, the totals are EXACTLY the rows
+-- stamped 2696 or null — nothing from 2695 (A/B/C/C2) or any earlier year.
+insert into probe select '37. …at the switch to 2696, orders_total/revenue are exactly the 2696-or-null rows — none of A/B/C/C2 (all pre-2696) nor any earlier real year leaks in', 'ok',
+  (select case when (s.totals->>'orders_total')::numeric = x.ot and (s.totals->>'revenue')::numeric = x.rv
+               and x.leak = 0
+          then 'ok' else 'FAIL: ' || (s.totals->>'orders_total') || ' vs ' || x.ot || ' / '
+                        || (s.totals->>'revenue') || ' vs ' || x.rv || ' / leaked ' || x.leak end
+     from snap s,
+          (select coalesce(sum(total) filter (where status <> 'cancel'), 0) as ot,
+                  coalesce(sum(total) filter (where status not in ('pending', 'review', 'slip_mismatch', 'cancel')), 0) as rv,
+                  count(*) filter (where id like 'SH-TEST0230%' and samo_year_be = 2696) as leak
+             from public.shop_orders
+            where samo_year_be is null or samo_year_be = 2696) x
+    where s.label = 't5_after_2696_opens');
 
 -- Simulate "never backfilled" (what every one of the 50 real rows looked
 -- like before this migration's own backfill ran), then run the EXACT

@@ -139,7 +139,11 @@ begin
   execute 'set local role authenticated';
   select count(*), string_agg(editor_name, '|')
     into n, names
-    from public.dept_content_editor_info(p_dept);
+    from public.dept_content_editor_info(p_dept)
+   -- ONLY this proof's own rows: production's ฝ่ายดิจิทัล already has real
+   -- content, so counting every row asserted a property of the data, not of
+   -- the function (red on production 2026-10-20).
+   where id::text like '00000000-0000-4000-8000-0000000232%';
   execute 'reset role';
   return 'ok:' || n || ':' || coalesce(names, '');
 exception

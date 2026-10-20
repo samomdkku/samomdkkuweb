@@ -17,15 +17,14 @@ the tasks that did not run are the least valuable ones — keep the order.
 
 ⛔ **WHAT IS DIFFERENT FROM THE 2026-10-18 QUEUE. Read this first.**
 
-- **This branch STACKS on `agent/2026-10-18`, which is NOT merged.** That
-  branch (tasks 8–12: 0229–0233, the SAMO-year work for ระบบบ้าน, Shop,
-  Passport, stats) is applied to samo-dev ONLY and waits for the owner's review
-  (`docs/state/HANDOFF.md` §22). `agent/2026-10-20` was created from its tip, so
-  YOUR work is `git log --oneline agent/2026-10-18..HEAD` — never
-  `origin/main..HEAD`, which also lists the 19 commits you did not write. Never
-  rewrite, rebase or revert a 2026-10-18 commit; if you find a bug in one, fix
-  it in a NEW commit and say so in your task block (the owner merges the two
-  branches in order).
+- **UPDATED 2026-10-20 (owner session): tasks 8–13 are REVIEWED, MERGED to
+  `main` and ON PRODUCTION** — 0230–0233 applied to production, bundle
+  deployed. The review fixed 12 defects in that work (HANDOFF §22, "DONE
+  2026-10-20"; `git log origin/main` — read those commits before touching the
+  same files, and do not undo them). `origin/main` was then MERGED INTO this
+  branch, so YOUR work is now `git log --oneline origin/main..HEAD` (task 14's
+  WIP and anything after). Task 13 is DONE on main: if its `## Task 13` block
+  is missing, write only that block, do not redo the work. Never rebase.
 - **Migration numbers RESERVED, new block** (0229–0233 belong to the 2026-10-18
   branch): task 14 → 0234, task 15 → 0235–0237, task 17 → 0238, task 20 →
   0239, task 21 → 0240, task 22 → 0241. A task that needs no migration leaves its number unused (a gap is fine;
@@ -54,7 +53,7 @@ the tasks that did not run are the least valuable ones — keep the order.
   N/N; NOT on production" wherever it matters.
 - **You cannot push, deploy, run Apps Script, reload nginx or touch
   production.** Commit on this branch. Every run CONTINUES `agent/2026-10-20`:
-  read `git log --oneline agent/2026-10-18..HEAD` and the TOP of
+  read `git log --oneline origin/main..HEAD` and the TOP of
   `docs/state/night-agent.md` first — an earlier task of THIS queue decided
   things you must build on. Never reset, rebase or force anything.
   `server/*.conf`, `appscript/*.gs` and systemd units may be EDITED (with
@@ -390,7 +389,7 @@ property: every passport table has row security. Record before/after numbers.
 ## 22. SCRUTINIZE + BUG SCAN — this whole branch
 Done when: test -s docs/state/agent-notes/2026-10-20-review.md && grep -q '^## Verdict' docs/state/agent-notes/2026-10-20-review.md && npm test --silent && npm run --silent build
 
-Run `scrutinize` over `git diff agent/2026-10-18..HEAD` (tasks 13–21), one
+Run `scrutinize` over `git diff origin/main..HEAD` (tasks 14–21), one
 task at a time, as a hostile reviewer who must sign off production: does each
 change do what its block claims? Was anything asserted that was never run? Is
 any guard green against the bug it exists for (reintroduce, watch it go red,
@@ -408,7 +407,7 @@ Done when: grep -q "^## Task 23 " docs/state/night-agent.md && grep -q "Night ag
 Add `docs/state/HANDOFF.md` §24, headed `## 24. Night agent 2026-10-20 — the
 quality queue`, with a `Status:` line, as the owner's exact checklist:
 
-1. **Merge order**: `agent/2026-10-18` first (§22), then this branch.
+1. **Merge**: this branch into `main` (tasks 8–13 are already there).
 2. Per migration in order (0234 → 0241, skipping unused numbers): apply to
    samo-dev, run its proof, apply to production, run again.
 3. Every step only the owner can do: Apps Script redeploy (task 15), nginx

@@ -2017,3 +2017,25 @@ status`, and the three migration proofs re-run live against samo-dev with
    close that, not skip it because this task's review covered the code.
 4. Nothing from this task needs applying — no schema change, and the two
    fixes are already committed on this branch.
+
+## Task 13 — review leftovers (2026-10-20)
+
+**Written by the OWNER SESSION, not the agent.** The agent's run committed all
+four parts (`13 (1/4)` … `13 (3/4)` and the sweep-up commit) but hit
+`Reached max turns (200)` before writing this block, so the runner scored it
+"not passed". The work was reviewed, merged to `main` and deployed on
+2026-10-20; this block closes the task so the next run does not redo it.
+
+What it did: cherry-picked `wip/discord-review-fixes` and fixed its two red
+tests to the restructured loop; the popup qty / colour cap; the cart's
+`addItem` stock cap; the บอท Discord poll no longer clearing a save error;
+`csvGuard`/`csvUnguard` round-trip every input; the nginx `/img/` cache key.
+
+What the review changed on top (all on `main`): the popup cap regained cart.js's
+99 ceiling; a poll's own load error now clears; a settings read failing
+mid-pass aborts the pass once instead of reporting every change as refused
+(test red with the old catch); a pause still posts what was written; nicknames
+off stops a rename run. **Not applied**: the nginx line is in the repo only —
+install by hand (`sudo nginx -t && sudo systemctl reload nginx` after copying
+the `location` change), then check `X-Img-Cache: HIT` with and without `?x=1`.
+Remaining gaps: HANDOFF §22 "Still OWED".

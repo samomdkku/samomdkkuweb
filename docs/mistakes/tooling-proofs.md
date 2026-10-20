@@ -3819,7 +3819,20 @@ ago" fell inside both terms.
 
 **Fix.** passport0232 UPSERTS its `public.users` rows; shop0230 runs its
 scenario over the last two minutes and closes the term `start_team_term` just
-ended at the same instant. Both green on samo-dev, then on production.
+ended at the same instant.
+
+**Then production found three more, all the same shape.** `stats0231` chose its
+admin by `role = 'dev'` (production has none — the queue's own preamble warned)
+and aborted; it now picks by `current_user_has_any_grant`'s predicate.
+`passport0232` counted every ฝ่ายดิจิทัล row (production has real ones); it now
+counts only its own probe rows. `shop0230` step 37 asserted totals "drop back
+to baseline", true only where the current year had no orders — it now asserts
+the property (totals = exactly the 2696-or-null rows). All green on samo-dev
+AND production after.
+
+**Rule for an agent that only has samo-dev**: its proofs are DRAFTS until they
+have run on production once — each of these four was green where it was
+written and wrong about the place it exists to protect.
 
 **The general rule**: *a proof written on samo-dev must be read against
 PRODUCTION's shape before it is called portable — a trigger, a default or a
