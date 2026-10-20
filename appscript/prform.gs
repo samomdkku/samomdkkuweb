@@ -98,6 +98,98 @@ function isSamoYearSegment_(s) {
   return n >= 2500 && n <= 2700;
 }
 
+// ============================================================
+// Upload limits — WHAT may be uploaded and HOW BIG, per top folder.
+//
+// NIGHT-AGENT WORK (task 15, 2026-10-20, agent/2026-10-20). Owner-approved
+// per HANDOFF's "Apps Script upload handler for shop files needs
+// server-side limits beyond the existing top-folder allow-list (what it
+// accepts, and exactly where it may write)" — generalised to every upload
+// handler, not only Shop, since all five share the same shape (no auth,
+// caller-supplied mimeType, caller-supplied bytes).
+//
+// WHERE it may write was already enforced (the folderPath allow-lists
+// above/below). This is the other two-thirds: WHAT (mimeType) and HOW BIG.
+// Every number here matches or exceeds the ALREADY-SHIPPED client-side
+// check for that upload path (pr-form.js 35MB, shop admin.js 8MB product
+// picks / 5MB banner+QR, shop/uploads.js SLIP_MAX_SEND_BYTES 5MB, team
+// portraits downscaled to ~3MB) — this is a BACKSTOP against a caller that
+// skips the browser entirely (curl, a scraped /exec URL), not a new
+// restriction on a real user who was already under the client's number.
+//
+// Projects/Archives have no client-side size cap today (official documents:
+// signed PDFs, scans, office files of unpredictable size) — picked 35MB to
+// match PR's number rather than invent a new one, and a broad-but-bounded
+// mimeType list for Projects since staff attach PDF/Office/image files with
+// no `accept=` restriction client-side. A real attachment type this list is
+// missing will fail LOUD (`message` names the mimeType), not silently drop
+// the file — add a line here when that happens.
+// ============================================================
+var UPLOAD_LIMITS = {
+  PR:      { mime: ['image/*'], maxBytes: 35 * 1024 * 1024 },
+  SHOP:    { mime: ['image/*'], maxBytes: 10 * 1024 * 1024 },
+  TEAM:    { mime: ['image/*'], maxBytes: 10 * 1024 * 1024 },
+  PROJECT: {
+    mime: [
+      'image/*', 'application/pdf', 'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ],
+    maxBytes: 35 * 1024 * 1024,
+  },
+  ARCHIVE: { mime: ['application/json', 'text/csv'], maxBytes: 50 * 1024 * 1024 },
+};
+
+/** Decoded byte size of a base64 string, without actually decoding it (the
+ *  point — a caller claiming a huge file should be rejected before this
+ *  script spends memory materialising the bytes). */
+function estimateDecodedBytes_(base64) {
+  var s = String(base64 || '');
+  if (!s.length) return 0;
+  var padding = 0;
+  if (s.charAt(s.length - 1) === '=') padding++;
+  if (s.charAt(s.length - 2) === '=') padding++;
+  return Math.floor(s.length * 3 / 4) - padding;
+}
+
+/** `allowList` entries ending in `*` match by prefix (`'image/*'` matches
+ *  `'image/png'`); other entries match the mimeType exactly. */
+function mimeAllowed_(mimeType, allowList) {
+  var m = String(mimeType || '').toLowerCase();
+  for (var i = 0; i < allowList.length; i++) {
+    var a = allowList[i];
+    if (a.charAt(a.length - 1) === '*') {
+      if (m.indexOf(a.slice(0, -1)) === 0) return true;
+    } else if (m === a) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Checked BEFORE any Drive call: a caller-supplied mimeType not on the
+ *  allow-list, or a payload over the size cap, is refused with no folder
+ *  created and no file written. Returns null when the upload may proceed,
+ *  else a user-facing refusal message. */
+function checkUploadLimits_(data, limits) {
+  var mimeType = String((data && data.mimeType) || '');
+  if (!mimeAllowed_(mimeType, limits.mime)) {
+    return 'mimeType "' + mimeType + '" is not allowed here';
+  }
+  var base64Data = String((data && data.fileData) || '').split(',')[1] || '';
+  var bytes = estimateDecodedBytes_(base64Data);
+  if (bytes <= 0) return 'file is empty';
+  if (bytes > limits.maxBytes) {
+    return 'file is ' + Math.ceil(bytes / 1024 / 1024) + 'MB, over the ' +
+      Math.floor(limits.maxBytes / 1024 / 1024) + 'MB limit here';
+  }
+  return null;
+}
+
 /** Does `path` STOP at a SAMO-year container (`Projects/2569`)? Such a folder
  *  holds every year-layout โครงการ of that year, so the public folder handlers
  *  treat it like the `Projects` root itself: never trashed, never shared —
@@ -465,6 +557,8 @@ function doPost(e) {
 
 function handleUploadPRFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.PR);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     var folder;
     if (path) {
@@ -595,6 +689,8 @@ function handleDeletePRFile(data) {
 
 function handleUploadShopFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.SHOP);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
@@ -630,6 +726,8 @@ function handleUploadShopFile(data) {
 
 function handleUploadTeamFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.TEAM);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
@@ -682,6 +780,12 @@ function handleUploadArchiveFile(data) {
     var mime = String(data.mimeType || '');
     if (mime !== 'application/json' && mime !== 'text/csv') {
       return createResponse({ success: false, message: 'mimeType must be application/json or text/csv' });
+    }
+    var base64Data0 = String(data.fileData || '').split(',')[1] || '';
+    var bytes0 = estimateDecodedBytes_(base64Data0);
+    if (bytes0 > UPLOAD_LIMITS.ARCHIVE.maxBytes) {
+      return createResponse({ success: false, message: 'file is ' + Math.ceil(bytes0 / 1024 / 1024) + 'MB, over the ' +
+        Math.floor(UPLOAD_LIMITS.ARCHIVE.maxBytes / 1024 / 1024) + 'MB limit here' });
     }
 
     var folder = getOrCreateFolderPath_(path);
@@ -1006,6 +1110,8 @@ function walkProjectsPathByCode_(path) {
 
 function handleUploadProjectFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.PROJECT);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });

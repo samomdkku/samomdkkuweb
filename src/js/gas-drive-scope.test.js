@@ -28,14 +28,16 @@ let seq = 0;
 function iter(list) { let i = 0; return { hasNext: () => i < list.length, next: () => list[i++] }; }
 
 class FakeFile {
-  constructor(name, parent) {
+  constructor(name, parent, mimeType = 'application/octet-stream', bytes = 1) {
     this.id = `file${++seq}xxxxxxxxxxxxxxxxxxxxxx`; this.name = name; this.parents = [parent];
-    this.sharing = null; parent.files.push(this);
+    this.sharing = null; this.mimeType = mimeType; this.bytes = bytes; parent.files.push(this);
   }
   getId() { return this.id; }
   getName() { return this.name; }
   getUrl() { return `https://drive.google.com/file/d/${this.id}/view`; }
   getParents() { return iter(this.parents); }
+  getSize() { return this.bytes; }
+  getMimeType() { return this.mimeType; }
   moveTo(folder) {
     for (const p of this.parents) p.files = p.files.filter((f) => f !== this);
     this.parents = [folder]; folder.files.push(this);
@@ -56,7 +58,7 @@ class FakeFolder {
   getFolders() { return iter([...this.folders]); }
   getFoldersByName(n) { return iter(this.folders.filter((f) => f.name === n)); }
   createFolder(n) { return new FakeFolder(n, this); }
-  createFile(blob) { return new FakeFile(blob.name, this); }
+  createFile(blob) { return new FakeFile(blob.name, this, blob.mimeType, blob.bytes ? blob.bytes.length : 1); }
   moveTo(dest) { this.parent.folders = this.parent.folders.filter((f) => f !== this); this.parent = dest; dest.folders.push(this); }
   setSharing(access, perm) { this.sharing = `${access}/${perm}`; }
   setTrashed(v) { this.trashed = v; }
@@ -187,6 +189,95 @@ describe('uploadPRFile / uploadArchiveFile — exactly <top>/<year>', () => {
     for (const [folderPath, mimeType] of [['Archives/2569/x', 'text/csv'], ['Archives/2569', 'image/png'], ['Archives/12', 'text/csv'], ['PR/2569', 'text/csv']]) {
       expect(d.call('handleUploadArchiveFile', { folderPath, fileData: DATA_URL, mimeType, fileName: 'a' }).success, `${folderPath} ${mimeType}`).toBe(false);
     }
+  });
+});
+
+// ============================================================
+// Upload limits (0235's HANDOFF item, task 15) — WHAT may be uploaded and
+// HOW BIG, checked BEFORE any Drive call so a refusal creates no folder.
+// Every handler here is UNAUTHENTICATED (Execute as: Me + Anyone), so the
+// mimeType/size allow-list is the only thing standing between a caller who
+// skips the browser (curl against the public /exec URL) and an arbitrarily
+// large or arbitrarily typed write into the owner's Drive.
+// ============================================================
+/** A base64 string whose DECODED length is ~approxBytes, without needing a
+ *  real codec — `estimateDecodedBytes_` only reads the STRING length. */
+function hugeDataUrl(mimeType, approxBytes) {
+  const b64Len = Math.ceil(approxBytes / 3) * 4;
+  return `data:${mimeType};base64,${'A'.repeat(b64Len)}`;
+}
+
+describe('upload limits — mimeType allow-list, checked before any folder is touched', () => {
+  let d;
+  beforeEach(() => { d = load(); });
+
+  it('uploadPRFile refuses a non-image mimeType; creates no PR folder at all', () => {
+    const r = d.call('handleUploadPRFile', { fileData: DATA_URL, mimeType: 'application/zip', fileName: 'a.zip' });
+    expect(r.success).toBe(false);
+    expect(d.app.child('PR')).toBeUndefined();
+  });
+
+  it('uploadShopFile refuses a non-image mimeType', () => {
+    const r = d.call('handleUploadShopFile', { folderPath: 'Shop/Slips/2026-05', fileData: DATA_URL, mimeType: 'text/html', fileName: 'a.html' });
+    expect(r.success).toBe(false);
+  });
+
+  it('uploadTeamFile refuses a non-image mimeType', () => {
+    const r = d.call('handleUploadTeamFile', { folderPath: 'Team/2569/ฝ่าย', fileData: DATA_URL, mimeType: 'application/octet-stream', fileName: 'a.bin' });
+    expect(r.success).toBe(false);
+  });
+
+  it('uploadProjectFile accepts a PDF (signed document) and an image, refuses a .zip', () => {
+    expect(d.call('handleUploadProjectFile', { folderPath: 'Projects/doc', fileData: DATA_URL, mimeType: 'application/pdf', fileName: 'a.pdf' }).success).toBe(true);
+    expect(d.call('handleUploadProjectFile', { folderPath: 'Projects/doc', fileData: DATA_URL, mimeType: 'image/jpeg', fileName: 'b.jpg' }).success).toBe(true);
+    expect(d.call('handleUploadProjectFile', { folderPath: 'Projects/doc', fileData: DATA_URL, mimeType: 'application/zip', fileName: 'c.zip' }).success).toBe(false);
+  });
+
+  it('CONTROL — an allowed mimeType with a tiny file still succeeds (the guard above is not blind)', () => {
+    expect(d.call('handleUploadPRFile', { fileData: DATA_URL, mimeType: 'image/png', fileName: 'ok.png' }).success).toBe(true);
+    expect(d.call('handleUploadShopFile', { folderPath: 'Shop/Slips/2026-05', fileData: DATA_URL, mimeType: 'image/png', fileName: 'ok.png' }).success).toBe(true);
+    expect(d.call('handleUploadTeamFile', { folderPath: 'Team/2569/ฝ่าย', fileData: DATA_URL, mimeType: 'image/webp', fileName: 'ok.webp' }).success).toBe(true);
+  });
+});
+
+describe('upload limits — size cap, checked before any folder is touched', () => {
+  let d;
+  beforeEach(() => { d = load(); });
+
+  it('uploadPRFile: 36MB image refused, 10MB image (under the 35MB cap) accepted', () => {
+    const big = d.call('handleUploadPRFile', { fileData: hugeDataUrl('image/png', 36 * 1024 * 1024), mimeType: 'image/png', fileName: 'big.png' });
+    expect(big.success, big.message).toBe(false);
+    expect(d.app.child('PR')).toBeUndefined();
+    const ok = d.call('handleUploadPRFile', { fileData: hugeDataUrl('image/png', 10 * 1024 * 1024), mimeType: 'image/png', fileName: 'ok.png' });
+    expect(ok.success, ok.message).toBe(true);
+  });
+
+  it('uploadShopFile: 11MB refused (over the 10MB shop cap)', () => {
+    const r = d.call('handleUploadShopFile', { folderPath: 'Shop/Slips/2026-05', fileData: hugeDataUrl('image/png', 11 * 1024 * 1024), mimeType: 'image/png', fileName: 'big.png' });
+    expect(r.success, r.message).toBe(false);
+  });
+
+  it('uploadTeamFile: 11MB refused (over the 10MB team cap)', () => {
+    const r = d.call('handleUploadTeamFile', { folderPath: 'Team/2569/ฝ่าย', fileData: hugeDataUrl('image/png', 11 * 1024 * 1024), mimeType: 'image/png', fileName: 'big.png' });
+    expect(r.success, r.message).toBe(false);
+  });
+
+  it('uploadProjectFile: 36MB PDF refused (over the 35MB projects cap)', () => {
+    const r = d.call('handleUploadProjectFile', { folderPath: 'Projects/doc', fileData: hugeDataUrl('application/pdf', 36 * 1024 * 1024), mimeType: 'application/pdf', fileName: 'big.pdf' });
+    expect(r.success, r.message).toBe(false);
+  });
+
+  it('uploadArchiveFile: 51MB csv refused (over the 50MB archive cap), 1MB accepted', () => {
+    const big = d.call('handleUploadArchiveFile', { folderPath: 'Archives/2569', fileData: hugeDataUrl('text/csv', 51 * 1024 * 1024), mimeType: 'text/csv', fileName: 'big.csv' });
+    expect(big.success, big.message).toBe(false);
+    const ok = d.call('handleUploadArchiveFile', { folderPath: 'Archives/2569', fileData: hugeDataUrl('text/csv', 1 * 1024 * 1024), mimeType: 'text/csv', fileName: 'ok.csv' });
+    expect(ok.success, ok.message).toBe(true);
+  });
+
+  it('an empty fileData is refused, not written as a 0-byte file', () => {
+    const r = d.call('handleUploadPRFile', { fileData: 'data:image/png;base64,', mimeType: 'image/png', fileName: 'empty.png' });
+    expect(r.success).toBe(false);
+    expect(d.app.child('PR')).toBeUndefined();
   });
 });
 
