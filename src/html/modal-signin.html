@@ -84,6 +84,14 @@
                  under 360px. Re-measure if you edit this string. -->
             <span>สร้างบัญชีและเข้าสู่ระบบด้วย Google</span>
           </button>
+          <!-- Sits outside both panels — the Google button above is visible on
+               either screen, so its error needs to be too. Was a native
+               alert(), which goes silent for the rest of the page once Chrome's
+               "prevent this page from creating additional dialogs" is ticked
+               (reachable by retrying a failed Google sign-in a couple of
+               times). Also shown by account-switch.js's saved-account picker,
+               which has no modal open at the moment Google fails. -->
+          <div id="signinGoogleAlert" class="alert alert-danger signin-alert d-none" role="alert"></div>
 
           <div class="signin-divider"><span>หรือ</span></div>
 

@@ -100,8 +100,20 @@ function makeQuillImageHandler(quillRef) {
         quill.insertEmbed(range.index, 'image', url, 'user');
         quill.setSelection(range.index + 1);
       } catch (err) {
+        // Was: delete the placeholder, then alert(). Two compounding problems
+        // on a form students fill from their phone. (1) alert() goes SILENT
+        // for the rest of the page once Chrome's "prevent this page from
+        // creating additional dialogs" is ticked — reachable by retrying a
+        // failed image a couple of times on a bad connection. (2) deleting the
+        // placeholder FIRST means that once the dialog is silenced, the typed
+        // report just loses a sentence with NOTHING left behind — worse than
+        // the other silent-alert() bugs in this app, which at least kept the
+        // surrounding text. The failure note replaces the placeholder in the
+        // editor itself instead, so it is always visible and never vanishes.
+        const msg = `แทรกรูปไม่สำเร็จ: ${err.message || err}`;
         quill.deleteText(range.index, placeholderLength);
-        alert('อัปโหลดรูปไม่สำเร็จ: ' + (err.message || err));
+        quill.insertText(range.index, msg, { italic: true, color: '#b42318' });
+        quill.setSelection(range.index + msg.length);
       }
     };
   };
