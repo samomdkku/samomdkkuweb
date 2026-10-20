@@ -1,7 +1,11 @@
 -- 0235 — anon EXECUTE is an allow-list, not whatever CREATE FUNCTION defaulted to
 --
 -- NIGHT-AGENT WORK (task 15, 2026-10-20, agent/2026-10-20). Applied to
--- samo-dev ONLY — not production.
+-- samo-dev ONLY — NOT production, so production's current grants are
+-- UNCHANGED until this branch is reviewed and deployed. Full severity/
+-- exploitability detail for the 4 named functions below is deliberately
+-- kept OUT of this public repo until then — see
+-- `~/samo-night/reports/2026-10-20-security.md` (outside the repo).
 --
 -- SYMPTOM. `create function` grants EXECUTE to PUBLIC unless the migration
 -- explicitly revokes it — the exact function-level twin of the 0188
@@ -22,24 +26,16 @@
 --    repo does not want a "harmless by an engine detail nobody chose" line
 --    in its own allow-list, and a future trigger function should not have
 --    to argue it is safe by the same accident.
--- 2. **Four REAL internal helpers with no trigger protection and no caller
---    outside this schema's own triggers**: `resolve_person_id` (writes a
---    NEW `public.people` row with CALLER-SUPPLIED name/kkumail/student_id —
---    "the one person registry" every other system trusts — if invoked
---    directly, anon could seed it with fabricated identities with zero
---    auth), `effective_team_dept_pages_for_email` / `node_effective_dept_pages`
---    (an anon-suppliable-email → หน้าฝ่ายgrant oracle, same class as the
---    0147 "who holds master" leak, lower stakes but the same shape), and
---    `vs_thread_remarks` (an internal merge step `get_vs_ticket_by_id` already
---    calls with the SAME visibility filtering applied — direct access adds no
---    new disclosure, but it has no business being its own entry point).
---    Every one of these is called ONLY from inside another SECURITY DEFINER
---    function OWNED BY `postgres` (triggers, or `get_vs_ticket_by_id`/
---    `sync_my_team_permissions`) — ownership grants implicit EXECUTE
---    regardless of ACL, so revoking PUBLIC here breaks no caller. Confirmed
---    live: every caller's owner is `postgres`, same as the revoked function
---    (`tools/security0235-whole-class-sweeps.sql` §2 proves the real callers
---    still work after this migration).
+-- 2. **Four internal helpers with no legitimate caller outside this
+--    schema's own trigger/RPC bodies** (named in the REVOKE statements
+--    below — not re-described here; each one's actual risk if called
+--    directly is in the private report, not this file). Every one of
+--    these is called ONLY from inside another SECURITY DEFINER function
+--    OWNED BY `postgres` — ownership grants implicit EXECUTE regardless of
+--    ACL, so revoking PUBLIC here breaks no caller. Confirmed live: every
+--    caller's owner is `postgres`, same as the revoked function
+--    (`tools/security0235-whole-class-sweeps.sql` §2 proves the real
+--    callers still work after this migration).
 --
 -- WHY THIS IS THE DYNAMIC SHAPE (a scan, not a hand-typed DROP list): the
 -- trigger-function property ("zero-arg, returns trigger, anon can execute

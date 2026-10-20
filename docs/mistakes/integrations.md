@@ -1600,3 +1600,50 @@ report is posted before the pass rethrows. The nickname loop checks
 **The general rule**: *a catch that records a failure AGAINST THE ITEM must
 only catch failures OF THE ITEM.* A precondition failing is the pass's
 problem, reported once.
+
+## Every Drive upload handler in prform.gs trusted the caller's claimed mimeType and size — none of them had ever been asked to prove it
+
+**Symptom**: owner-named follow-up ("the Apps Script upload handler for shop
+files needs server-side limits beyond the existing top-folder allow-list"),
+generalised on inspection (night task 15, 2026-10-20): the gap was not Shop's
+alone.
+
+**Cause**. `handleUploadPRFile`/`Shop`/`Team`/`Project`/`Archive` each
+allow-list WHERE a file may land (the folderPath checks, already present and
+correct) but never checked WHAT it was or HOW BIG. `doPost` runs
+"Execute as: Me + Anyone" (`gas-is-an-unauthenticated-api.md`) — every one of
+these five handlers is reachable by anyone who has the public `/exec` URL
+(shipped in the bundle), with no login, no CSRF token, and no field this
+project's own browser code is forced to agree with. The *browser* paths
+already cap size client-side (pr-form.js 35MB, shop admin.js 5–8MB, team
+photos downscaled) and most already use `accept="image/*"` — but a caller
+that skips the browser (curl against the `/exec` URL directly) was never
+asked to honour either number, and could write an arbitrarily large or
+arbitrarily typed file into the owner's Drive under any of PR/Shop/Team/
+Projects/Archives.
+
+**Fix**: `UPLOAD_LIMITS` in `appscript/prform.gs` — one `{mime, maxBytes}`
+pair per handler, checked via `checkUploadLimits_()` BEFORE any Drive call
+(so a refusal creates no folder either), with each cap matching or exceeding
+the already-shipped CLIENT check for that path so no real user is newly
+blocked. Size is estimated from the base64 STRING length (no decode needed)
+so a huge claimed payload is refused before memory is spent materialising
+it. Covered by 12 tests in `src/js/gas-drive-scope.test.js` (runs the real
+`prform.gs` against a stub Drive, per the file's own header: "a source-text
+test can see a check's SHAPE, not whether it holds" — class 7), including a
+CONTROL per handler proving the guard isn't blind to an allowed upload.
+
+**Where it lives now**: `appscript/prform.gs` (`UPLOAD_LIMITS`,
+`checkUploadLimits_`, `mimeAllowed_`, `estimateDecodedBytes_`),
+`src/js/gas-drive-scope.test.js`. **Fixed on `agent/2026-10-20`, NOT
+deployed** — needs `npm run deploy:gas` (owner-approved per CLAUDE.md), same
+as every other prform.gs change; guest PR uploads are unaffected (same
+accept list, same or higher size cap as today).
+
+**The general rule**: an unauthenticated handler that checks WHERE a write
+may land but not WHAT or HOW BIG has only locked one of the three doors. The
+other two are easy to miss exactly because the legitimate caller (the
+browser) already enforces them on its own side — so the server-side gap is
+invisible to every normal use and visible only to a caller that skips the
+browser, which is the one caller an unauthenticated endpoint cannot assume
+away.

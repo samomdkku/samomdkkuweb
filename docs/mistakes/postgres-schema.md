@@ -1661,3 +1661,54 @@ authoritative), and that is the one to read.
 **Where it lives now**: `supabase/migrations/0233_prune_analytics_never_splits_a_day.sql`, `tools/stats0233-no-split-day.sql` (registered in `tools/run-proofs.mjs`).
 
 **The general rule**: when a scheduled job's cutoff is computed from `now()` and the job repeats on a fixed calendar cadence (weekly, nightly), the cutoff lands on a different time-of-day every run unless something explicitly aligns it to the data's own grain (day, week, …). A write path with "insert, then `on conflict do update`" is only safe for a bucket that is captured **atomically** — once a bucket can be written from a partial view of its data, the second write silently replaces instead of completing it. When one function in a migration aligns its cutoff to its own grain and a neighboring function in the same migration does not, that asymmetry is worth re-reading on its own; a proof that only ever uses a sentinel day/week far from any real boundary (as 0231's own did) will never exercise this, so it is a case worth constructing on purpose, not one a generic proof stumbles into.
+
+## 118 functions were anon-executable, and nobody had ever swept for it — the function-level twin of the table default-ACL lesson
+
+**Symptom**: no incident report — found by a whole-class security sweep (night
+task 15, 2026-10-20), not a bug report. `has_function_privilege('anon', …,
+'EXECUTE')` over every function in `public`/`passport` returned 118 rows.
+
+**Cause**: `create function` grants EXECUTE to PUBLIC unless the migration
+explicitly revokes it, same as 0188/0226 already found for `pg_default_acl`
+on TABLEs and on one individually-named function — except nobody had ever
+asked the question at the SCHEMA level, so it had never been swept, only
+patched one function at a time as each was separately noticed. Most of the
+118 are correctly anon-executable by design (public RPCs; `current_user_*`/
+`prof_can_see_*` policy helpers RLS itself must be able to call when anon
+touches a table those policies gate). Two shapes had no reason to be
+anon-executable at all: 51 trigger functions (harmless in practice — Postgres
+refuses to invoke a function of pseudo-type `trigger` outside trigger
+context — but "safe by an engine accident nobody chose" is not a line this
+repo wants to have to argue for), and four internal helpers with no
+legitimate caller outside this schema's own trigger/RPC bodies (named in
+migration 0235's REVOKE statements; what each one actually exposed if called
+directly is in the private security report, not this public file — the fix
+is written but NOT YET on production).
+
+**Fix**: `0235_anon_execute_is_an_allowlist_not_a_default.sql` revokes EXECUTE
+from `public`, `anon` AND `authenticated` explicitly (Supabase's default ACL
+grants to `anon`/`authenticated` directly, not only via PUBLIC — revoking
+PUBLIC alone leaves both standing) for every zero-arg trigger function by
+SHAPE (a scan, not a hand-typed list, so a future trigger function left
+ungranted-by-convention is caught automatically) plus the four named helpers.
+`tools/security0235-whole-class-sweeps.sql` §2 turns the allow-list into a
+standing proof: every anon-executable function in `public`/`passport` must
+match a reasoned one-line entry, with a planted CONTROL (a throwaway
+anon-executable function) proving the sweep isn't just vacuously green.
+Companion §0/§1/§3/§4 prove the same "is every X on an allow-list, with a
+control" shape for row security, `search_path` pinning, permissive
+true-check write policies, and anon-write-without-RLS (0188) — all passed
+clean, meaning the earlier one-off fixes for those classes had in fact held.
+
+**Where it lives now**: `supabase/migrations/0235_anon_execute_is_an_allowlist_not_a_default.sql`,
+`tools/security0235-whole-class-sweeps.sql` (registered in
+`tools/run-proofs.mjs`). Applied to samo-dev only — not yet on production.
+
+**The general rule**: a default-ACL sweep is only as complete as the OBJECT
+TYPE it checks. 0188 and 0226 each closed the gap for one table and one
+function, found by someone noticing that particular object — but "default
+grants are explicit, not inherited from PUBLIC" is a property of the whole
+ACL system, not of the object someone happened to be looking at. Write the
+sweep as a PROPERTY over every object of a type ("every function anon can
+execute is on this list"), not a fix for the one object that got reported,
+or the 117th function nobody checked is the next incident.

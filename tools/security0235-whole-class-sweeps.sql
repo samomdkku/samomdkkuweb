@@ -20,12 +20,12 @@
 --     into a proof instead of a one-off fix.
 --
 -- WRITTEN AGAINST A LIVE FINDING, not a hypothetical: before migration 0235,
--- §2a failed for real — 51 trigger functions and 4 internal helpers
--- (`resolve_person_id` chief among them — it INSERTs into `public.people`,
--- the one person registry, from caller-supplied text with no permission
--- check at all) were anon-executable with no business being direct RPCs.
--- Run this file before AND after 0235 to see that red become green for the
--- right reason, not a relaxed assertion.
+-- §2a failed for real — 51 trigger functions and 4 internal helpers were
+-- anon-executable with no business being direct RPCs (named in 0235's own
+-- REVOKE statements; risk detail is in the private security report, not
+-- here — production has not deployed the revoke yet). Run this file before
+-- AND after 0235 to see that red become green for the right reason, not a
+-- relaxed assertion.
 --
 --   node tools/db-query.mjs tools/security0235-whole-class-sweeps.sql
 --   node tools/db-query.mjs tools/security0235-whole-class-sweeps.sql --dev

@@ -37,7 +37,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 - "when i click ตั้งเป็นปีปัจจุบัน it got DELETE requires a WHERE clause"
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(36)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(37)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -77,6 +77,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - A signed-in caller with no `users` row passed every ระบบบ้าน admin RPC
 - A function "authenticated ONLY" answered the anon key
 - "ลบปีปัจจุบันไม่ได้" was a disabled BUTTON
+- Username sign-in hardening — a SECURITY DEFINER lookup released more than the caller could already derive
 
 ## `authz-grants.md` — The permission / seat / scope channel *(23)*
 
@@ -106,7 +107,7 @@ Open when: adding an access channel, a scope, or a seat.
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(38)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(39)*
 
 Open when: writing a migration.
 
@@ -148,6 +149,7 @@ Open when: writing a migration.
 - Reopening the genesis `team_terms` row would have erased its own history
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 - A weekly prune silently erased 20 of every ~24 days' worth of analytics
+- 118 functions were anon-executable, and nobody had ever swept for it
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(117)*
 
@@ -313,7 +315,7 @@ Open when: URL state, per-user "seen", import/export.
 - Editing an archived announcement silently republished it
 - Archiving an announcement made its pictures deletable
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(37)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(38)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -354,6 +356,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - "no webhook configured" after the webhook rotation
 - Apps Script's "is this file inside PR/?" matched any folder NAMED PR
 - A Supabase blip mid-pass would have posted "Discord ปฏิเสธ" for every pending role change
+- Every Drive upload handler in prform.gs trusted the caller's claimed mimeType and size
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(28)*
 
@@ -520,4 +523,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_458 entries across 10 files._
+_461 entries across 10 files._

@@ -114,7 +114,7 @@ code not yet written.
    eleven, so `passport.continents` sat anon-writable (0182). **A `create table`
    INHERITS TOO**: `pg_default_acl` on `public` grants anon `arwdDxtm` to every
    new table, so 0188's was born anon-writable beside 8 that each revoke it —
-   per object in 8 files, carried to the 9th by none. The table NOTHING
+   per object, to none — same ACL hits FUNCTIONS. The table NOTHING
    READS is the one whose missing protection nothing can reveal. After any merge
    or restore ask `pg_class.relrowsecurity` per table, and assert the PROPERTY
    ("no table lacks RLS"), never the list. ⚠️ Its neighbours were deny-all ON
@@ -396,12 +396,12 @@ a class — tighten this paragraph first.
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
 - `supabase-client.md` *(20)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
-- `authz-rls.md` *(36)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
+- `authz-rls.md` *(37)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(23)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
-- `postgres-schema.md` *(38)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
+- `postgres-schema.md` *(39)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(117)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(37)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
-- `integrations.md` *(37)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
+- `integrations.md` *(38)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(81)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(41)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.

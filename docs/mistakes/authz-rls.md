@@ -1606,3 +1606,44 @@ real use). Paired DENY + ALLOW proof, 7/7 dev + production.
 **Rule.** When a table gains READERS in other systems, re-ask who may DELETE
 its rows — the policy was written for the old, smaller meaning.
 
+## Username sign-in hardening — a SECURITY DEFINER lookup released more than the caller could already derive
+
+**Symptom.** Found by a security sweep (night task 15, 2026-10-20), not an
+incident report. Full severity/exploitability detail for this one is
+deliberately kept OUT of this public file — see
+`~/samo-night/reports/2026-10-20-security.md` (outside the repo) — because
+the fix (migration 0236) is written but **NOT YET on production**, so
+narrating the mechanism here would be a live-exploit writeup for a hole that
+is still open on the deployed system.
+
+**Cause, at the shape level only.** `lookup_email_by_username` is the
+SECURITY DEFINER RPC username sign-in calls to resolve an email for GoTrue.
+For the common case its answer is something any caller could already
+compute themselves from the username alone — a true no-op. For one other
+account shape, its answer was new information the caller could not already
+derive, with no proof of ownership required first.
+
+**Fix.** The RPC now distinguishes the two cases: the derivable answer is
+returned unconditionally (unchanged behaviour); the non-derivable one is
+released only to a caller who also supplies that exact account's correct
+password in the same call, verified with the same bcrypt scheme GoTrue
+itself uses — i.e., no new information reaches anyone who couldn't already
+pass GoTrue's own sign-in one call later. An unknown username and a wrong
+password answer identically, so this adds no new "does this username exist"
+oracle either.
+
+**Where it lives now.** `supabase/migrations/0236_username_signin_stops_disclosing_a_real_email.sql`
+(its own header carries the same disclosure limit as this entry, by design),
+`tools/security0236-username-lookup-hardening.sql` + the real-anon-key
+over-HTTPS twin `tools/security0236-login-flow-probe.mjs` — proofs green on
+samo-dev. Applied to samo-dev only; owner must deploy before this entry can
+be expanded with the mechanism it currently omits.
+
+**Rule.** A lookup RPC that returns different information depending on how
+an account originated is implicitly granting the SPECIAL case the same
+trust as the common one. Ask, for every SECURITY DEFINER function anon can
+call: is there an input for which the answer contains something the caller
+could not already have computed without it? If yes, that branch needs its
+own proof of authorization, not a shared gate with the branch that needed
+none.
+
