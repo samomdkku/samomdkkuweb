@@ -99,8 +99,7 @@ try {
   const uid = await ev(`const a = await import('/src/js/auth.js'); await a.registerWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)});
     await a.signOut().catch(()=>{}); await a.signInWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)}); await new Promise(r=>setTimeout(r,1500)); return a.getUser()?.id || 'no user';`);
   say('throwaway account', uid, /^[0-9a-f-]{36}$/.test(uid || ''));
-  await sql(`insert into public.users (id, username, email, role, method, permissions) values (${lit(uid)}, ${lit(USER)}, ${lit(`${USER}@samomdkku.app`)}, 'user', 'password', array['master'])
-             on conflict (id) do update set permissions = excluded.permissions;`);
+  await sql(`update public.users set permissions = array['master'] where id = ${lit(uid)};`);
   await send('Page.navigate', { url: `${DEV_URL}/` }); await sleep(4000);
   await ev(`const a = await import('/src/js/auth.js'); await a.signOut().catch(()=>{}); await a.signInWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)}); await new Promise(r=>setTimeout(r,2000)); return 1;`);
 

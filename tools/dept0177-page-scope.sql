@@ -212,10 +212,38 @@ insert into probe select '60. a user cannot grant themselves a ฝ่าย', 'E
     $q$update public.users set managed_dept_pages = array['admin'] where id = auth.uid()$q$)
     like 'ERROR users_self_update_guard%' then 'ERROR-guard' else 'NOT REFUSED' end;
 
--- ── §G the seeded content actually arrived ──────────────────────────────────
-insert into probe select '70. the hardcoded ฝ่ายบริหารองค์กร cards were moved in', '4',
-  (select count(*)::text from public.dept_content where dept = 'admin' and kind = 'card'
-    and href like 'https://%');
+-- ── §G the seeded content actually arrived, and the property SURVIVES a new
+--    card being added beside it ────────────────────────────────────────────
+-- ⚠️ WAS A SHAPE, NOT A PROPERTY (class 7 — production went red for this).
+-- The first version counted every admin card (`count(*) where dept='admin'
+-- and kind='card'` = 4) — but 0177 exists precisely so a ฝ่าย can ADD its own
+-- cards through the self-service editor §A already proves works, and
+-- ฝ่ายบริหารองค์กร did: production grew a 5th card and the hardcoded count
+-- went red for the GOOD reason this migration shipped. The property that
+-- actually matters is narrower and does not move when a card is added: these
+-- four SPECIFIC seeded rows — identified by the href the seed migration
+-- (0177 §5) itself uses as its idempotency key — are still present.
+create temporary table seeded_hrefs (href text) on commit drop;
+insert into seeded_hrefs values
+  ('https://canva.link/vjavei9c6thy5wl'),
+  ('https://canva.link/hlmz649y2e7se85'),
+  ('https://canva.link/1ej1lt111zjy079'),
+  ('https://docs.google.com/forms/d/e/1FAIpQLSc2J4O7sUcUYjNpPeFhbRZMreIBaAAVggUS7U0oFMX7KF_fxQ/viewform?pli=1');
+
+insert into probe select '70. every seeded ฝ่ายบริหารองค์กร card is still present', '4',
+  (select count(*)::text from public.dept_content d join seeded_hrefs h on h.href = d.href
+    where d.dept = 'admin' and d.kind = 'card');
+
+-- Reintroduce the exact event that broke the old count — an admin-scoped
+-- editor adding a 5th card through the same path §A proved — and show the
+-- new assertion does not move.
+insert into probe select '71. an editor with admin-page access adds a 5th card', 'allow',
+  pg_temp.wr((select uid from subj where n=2),
+    $q$insert into public.dept_content (dept, kind, title, href)
+       values ('admin', 'card', 'card someone added later', 'https://example.invalid/a-fifth-admin-card')$q$);
+insert into probe select '72. …and the four seeded cards still count as 4, unmoved', '4',
+  (select count(*)::text from public.dept_content d join seeded_hrefs h on h.href = d.href
+    where d.dept = 'admin' and d.kind = 'card');
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,

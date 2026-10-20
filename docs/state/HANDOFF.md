@@ -1789,9 +1789,9 @@ colour. The full design, with the measured facts it rests on, is
 
 ## 18f. Cold review of 2026-09-23's work — findings NOT yet fixed on main
 
-**Status: PARTLY CLOSED 2026-10-20 (agent/2026-10-20, task 13) — WRITTEN AND TESTED on this branch, NOT merged to main, NOT deployed.** Two independent reviewers read the 2026-09-23 diff cold; each finding below was theirs, re-read against the code. `npm test` and `npm run build` are green on `agent/2026-10-20` with every CONFIRMED item fixed. See `docs/state/night-agent.md` "Task 13" for the full account.
+**Status: VERIFIED 2026-10-20 (agent/2026-10-20, task 13)** — how: `npm test` and `npm run build` are green on `agent/2026-10-20` with every CONFIRMED item fixed; WRITTEN AND TESTED on this branch only — NOT merged to main, NOT deployed. Two independent reviewers read the 2026-09-23 diff cold; each finding below was theirs, re-read against the code. See `docs/state/night-agent.md` "Task 13" for the full account.
 
-Discord bot (`server/discord-sync.mjs`) — ~~fixed on `wip/discord-review-fixes`, not merged~~ → **cherry-picked onto `agent/2026-10-20` (`e5490a2`); its 2 red tests fixed to the restructured design, not reverted** (`docs/mistakes/integrations.md`):
+Discord bot (`server/discord-sync.mjs`) — ~~fixed on `wip/discord-review-fixes`, not merged~~ → **cherry-picked onto `agent/2026-10-20` (see its own commits); its 2 red tests fixed to the restructured design, not reverted** (`docs/mistakes/integrations.md`):
 1. a pause does not stop a pass already running (write() now re-checks the switch every 3 s; `Paused` is not a failure);
 2. empty `discord_role_targets()` counted as success (posts "recovered", retries every 5 s, no heartbeat) → now a failure;
 3. web text (edit detail, editor name, pause reason) posted unescaped → `mdLine` (a ชื่อเล่น `<@id>` / `[x](url)` renders);
@@ -1804,7 +1804,7 @@ Discord bot (`server/discord-sync.mjs`) — ~~fixed on `wip/discord-review-fixes
 Front end:
 - ~~**CONFIRMED** popup: with no colour picked, + goes to 99…~~ **FIXED 2026-10-20** — `qtyCeilingFor`/`isColorMissing` (pure, exported) replace the inline cap; wired into both the `+` handler and the colour-click handler. `src/js/shop/products.test.js`. `docs/mistakes/frontend-ui.md`.
 - ~~**CONFIRMED** cart: `addItem` merges quantities with no stock check…~~ **FIXED 2026-10-20** — `addItem(item, maxQty)`; the popup passes `qtyCeilingFor(...)`. `src/js/shop/state.test.js`. `docs/mistakes/app-state.md`.
-- ~~**CONFIRMED** บอท Discord tab: every 20 s poll `say('')` clears a save error…~~ **FIXED 2026-10-20** — `load({ silent })`; `paint()` skips the DOM write when unchanged. Checked `accounts/admin.js`'s same-shaped `pulse()` too — not the same bug there (no mutating action to collide with); no change made. `src/js/discord-bot-admin.test.js`. `docs/mistakes/frontend-ui.md`.
+- ~~**CONFIRMED** บอท Discord tab: every 20 s poll `say('')` clears a save error…~~ **FIXED 2026-10-20** — `load({ silent })`; `paint()` skips the DOM write when unchanged. Checked `src/js/accounts/admin.js`'s same-shaped `pulse()` too — not the same bug there (no mutating action to collide with); no change made. `src/js/discord-bot-admin.test.js`. `docs/mistakes/frontend-ui.md`.
 - ~~**CONFIRMED** CSV: a real value `'=x` exports unchanged and imports as `=x`…~~ **FIXED 2026-10-20** — `csvGuard` escapes a leading `'` too (doubling it); `csvUnguard` always strips exactly one, no guessing. 2000-case property test. `docs/mistakes/app-state.md`.
 - **PLAUSIBLE, still OWED 2026-10-20 — could not reproduce: no headless Chrome in this sandbox** (no Chrome/Chromium binary, no `puppeteer`/`playwright` dependency, and this sandbox's network tool calls are denied, so `npx playwright install` is not an option either). Both need a REAL browser's Canvas/WebP encoder, which jsdom does not have — these are unverified, not disproven:
   - news covers forced to JPEG (`-rj`) — a transparent PNG logo would go black; the no-alpha check was measured on shop pictures only.
