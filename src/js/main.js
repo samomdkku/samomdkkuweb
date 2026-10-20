@@ -25,7 +25,7 @@ import { mountSigninModal } from './signin-modal.js';
 import { initProfileModal, openProfileModal } from './profile.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
-import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
+import { initPrForm, togglePrMode, toggleProjectFormatCopost, toggleOtherPlatformReason } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
 import { initVsForm, initVsConsent, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
@@ -578,6 +578,10 @@ function applyLauncherFilters() {
 // Apply role-gated launcher visibility: each tool with data-roles="…" shows
 // only when the current role is in the whitelist. Section visibility tracks
 // "any visible tool inside" so an empty section disappears.
+// Dormant on purpose (see launcher.js's note): no registry entry sets `roles`
+// today, so this has no caller yet. Left in place rather than deleted — a
+// future `roles` entry must call this after launcher.js renders the grid.
+// eslint-disable-next-line no-unused-vars
 function applyLauncherRoleGating(role) {
   // Show the staff chip + section if the user has any data-roles tool they qualify for.
   let staffVisible = false;

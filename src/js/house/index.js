@@ -52,7 +52,7 @@ import { computeCensus } from './census.js';
 import {
   computeSaiGrid, listGridCohorts, gridMaxAcrossCohorts, matchCohortInput, CELL as SAI_CELL,
 } from './sai-grid.js';
-import { FOLLOW_UP, followUpLabel } from './follow-up.js';
+import { FOLLOW_UP } from './follow-up.js';
 import { diagnoseHelpRequest } from './help-diagnosis.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,

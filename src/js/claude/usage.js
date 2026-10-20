@@ -20,7 +20,7 @@
 import { escHtml } from '../utils.js';
 // One set of formatters and one ฝ่าย-colour rule, shared with the calendar.
 import {
-  pad, hhmm, THAI_DOW, dayStamp, durLabel, pctText, personName, personColor,
+  hhmm, THAI_DOW, dayStamp, durLabel, pctText, personName, personColor,
 } from './fmt.js';
 
 const MIN_MS = 60000;

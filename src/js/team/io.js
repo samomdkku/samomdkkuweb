@@ -199,7 +199,6 @@ export function buildMembersCsv(rows) {
       // read on the screen rather than a stored column that no longer exists.
       // It is EXPORT-ONLY: parseMembersCsv ignores the column on the way back
       // in, because writing a ชั้นปี is what let two systems disagree.
-      // eslint-disable-next-line no-nested-ternary
       c === 'year' ? (studyYearLabel(r) || '')
         : c === 'confirmed' ? (r.confirmed ? 'true' : 'false') : r[c],
     )).join(','));

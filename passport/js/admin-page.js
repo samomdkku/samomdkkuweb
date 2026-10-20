@@ -832,13 +832,14 @@ window.editActivity = async (id) => {
     document.getElementById('edit-section').style.display = 'block';
 };
 
-window.cancelEdit = () => {
+function cancelEdit() {
     editingActivityId = null;
     discardPendingUpload('edit-badge-url'); // drop an uploaded-but-unsaved badge
     document.getElementById('edit-section').style.display = 'none';
     document.getElementById('event-creation').style.display = 'block';
     document.getElementById('manage-section').style.display = 'block';
-};
+}
+window.cancelEdit = cancelEdit;
 
 window.deleteActivity = async (id) => {
     const { data: scopeRow } = await adminDb

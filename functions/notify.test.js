@@ -617,8 +617,7 @@ describe('every silence spelling a frontend sender uses is honoured', () => {
   function sendNotifyCalls(src) {
     const calls = [];
     const re = /\bsendNotify\s*\(/g;
-    let m;
-    while ((m = re.exec(src))) {
+    while (re.exec(src)) {
       let depth = 1;
       let i = re.lastIndex;
       for (; i < src.length && depth > 0; i += 1) {

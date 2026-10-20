@@ -796,7 +796,9 @@ const BOOT_GATE   = () => document.getElementById('adminBootGate');
 const AUTH_GATE   = () => document.getElementById('adminAuthGate');
 const APP_ROOT    = () => document.getElementById('adminAppRoot');
 
-function showBoot()    { BOOT_GATE()?.classList.remove('d-none'); AUTH_GATE()?.classList.add('d-none'); APP_ROOT()?.classList.add('d-none'); }
+// No showBoot(): #adminBootGate ships visible (no d-none) in admin/index.html
+// and nothing ever needs to go BACK to it, so the transition only ever runs
+// forward, to showAuthGate() or showApp().
 function showAuthGate(){ BOOT_GATE()?.classList.add('d-none');   AUTH_GATE()?.classList.remove('d-none'); APP_ROOT()?.classList.add('d-none'); }
 function showApp()     { BOOT_GATE()?.classList.add('d-none');   AUTH_GATE()?.classList.add('d-none');   APP_ROOT()?.classList.remove('d-none'); }
 

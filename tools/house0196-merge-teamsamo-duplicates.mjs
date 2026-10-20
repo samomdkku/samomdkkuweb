@@ -42,7 +42,7 @@
 //   node tools/house0196-merge-teamsamo-duplicates.mjs            # DRY RUN
 //   node tools/house0196-merge-teamsamo-duplicates.mjs --commit   # do it
 // ============================================================
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const COMMIT = process.argv.includes('--commit');

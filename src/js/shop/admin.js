@@ -4096,8 +4096,6 @@ const STOCK_TABLES = {
 
 function stockCardHtml(p, reservedMaps = {}) {
   const edit = getStockEditState(p);
-  const sizes = (p.sizes && p.sizes.length) ? p.sizes : ['F'];
-  const colors = (p.colors && p.colors.length) ? p.colors : [{ id: 'default', label: 'มาตรฐาน', hex: '#ccc' }];
   const active = p.is_presale ? 'preorder_stock_matrix' : 'stock_matrix';
   const total = totalStock(edit.matrices[active]);
   const statusMeta = STOCK_STATUS_META[edit.status] || STOCK_STATUS_META.available;

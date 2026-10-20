@@ -25,11 +25,9 @@ import {
   listFiles,
   createFile,
   deleteFile,
-  listMyDocViews,
   upsertMyDocView,
   bulkUpsertMyDocViews,
   appendSignTimeline,
-  updateSignRequest,
   deleteSignRequest,
   getMyProjectPrefs,
   saveMyProjectDefaultFY,
@@ -47,7 +45,7 @@ import {
   buildProjectFolderPath,
   projectDriveYear,
 } from './data.js';
-import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo, getProjectFileData } from './uploads.js';
+import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo } from './uploads.js';
 import { notifyUniStaff, notifyVpAdmin, notifyProf } from './notify.js';
 // esign.js (with pdf.js + pdf-lib, ~1.4 MB) is lazy-loaded on demand so
 // the heavy PDF libs never ship in the main bundle / public mirror.
@@ -3628,7 +3626,6 @@ async function onSignRejectClick(btn) {
 
 async function onSignCancelClick(btn) {
   const reqId = btn.dataset.signReq;
-  const docId = btn.dataset.docId;
   const ok = await openProjectConfirm({
     title: 'ยกเลิกคำขอลงนาม?',
     body: 'คำขอลงนามนี้จะถูกยกเลิกและอาจารย์จะไม่เห็นอีก',

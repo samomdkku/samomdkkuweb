@@ -1,6 +1,9 @@
 # CI: build + unit tests on every PR + push to main / refactor branches.
 #
 # What runs:
+# - npm run lint  — ESLint, CORRECTNESS rules only (no-undef, no-unused-vars,
+#                  no-unreachable, ...). No style/formatting rule is enabled;
+#                  see eslint.config.mjs's header for why each rule is on.
 # - npm test     — Vitest suite for pure helpers (escHtml, safeUrl,
 #                  convertDriveUrl, formatThaiDate, decodeJwtResponse).
 #                  Cheap (~150 ms) and catches regressions in the
@@ -11,8 +14,8 @@
 # on PRs and is what GitHub's required-status-check rule on `main`
 # protects against.
 #
-# Linting / formatting are deferred until a real style disagreement
-# exists between contributors.
+# Formatting/style rules are still deferred until a real disagreement exists
+# between contributors — only lint's correctness rules are required here.
 
 name: build
 
@@ -44,6 +47,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
+      - run: npm run lint
       # We don't need real env vars at build time; Vite's import.meta.env
       # access doesn't fail if vars are missing — db.js only logs a warning.
       - run: npm test

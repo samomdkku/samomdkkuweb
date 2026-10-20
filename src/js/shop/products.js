@@ -10,7 +10,7 @@ import { escHtml, safeUrl } from '../utils.js';
 import {
   SHOP_SOURCES, SHOP_SORT,
   findSource, thb, fmtDate, batchDateEntries,
-  STOCK_STATUS_META, stockKey, totalStock,
+  STOCK_STATUS_META,
   unitPriceFor, priceRange, isUnlimitedBuying, hasStockNumbers,
   availableForVariant, availableTotal,
   getShopTypes, findPickupLocation,

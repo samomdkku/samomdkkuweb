@@ -23,12 +23,12 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  EMBED_SANDBOX, renderToolFrame, embedSrc, embedSlugFromPath,
+  renderToolFrame, embedSrc, embedSlugFromPath,
   clampHeight, HEIGHT_MESSAGE, MIN_HEIGHT_PX, MAX_HEIGHT_PX,
 } from './tool-frame.js';
 import { checkEmbedFolder, filesOutsideToolLane } from './embed-checks.js';
 import { readEmbedFolder } from '../../tools/embed-fs.mjs';
-import { TOOLS, embedTools, toolPath } from '../data/tools.js';
+import { embedTools, toolPath } from '../data/tools.js';
 import { renderToolCard } from './tool-card.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;

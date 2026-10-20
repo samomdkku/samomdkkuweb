@@ -251,7 +251,7 @@ export function computeGaps(d = {}, now = new Date()) {
   const gone = active.filter((s) => s.missing_since);
 
   const occupants = [...students, ...held];
-  const { saiShared, saiGaps, acrossCohorts, unplaced } = auditSai(occupants, held,
+  const { saiShared, saiGaps, acrossCohorts } = auditSai(occupants, held,
     (d.held || []).filter(isAnsweredEmpty));
 
   // A สาย nobody is on AND no held row names. Held rows count: their สาย was
