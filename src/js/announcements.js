@@ -113,8 +113,26 @@ function readCreatorForm() {
 
 /** Returns the article id the reader is currently viewing, or null.
  *  Used by main.js to pass the id over to /admin/#creator/{id}. */
+/** The in-memory list loadAnnouncements() last populated — for admin-main.js's
+ *  bulk-archive-by-year action, which needs to filter it (0232). */
+export function getLoadedAnnouncements() {
+  return globalAnnouncements;
+}
+
 export function getViewingAnnouncementId() {
   return viewingAnnouncementId;
+}
+
+/** Which `status` a save should write. A NEW post is always 'approved' —
+ *  there is no form control to create something pre-archived. An EDIT must
+ *  preserve whatever the row already had: before 0232 every row was
+ *  'approved' by construction, so hardcoding it was harmless; since an
+ *  archived post can now be reopened in the editor (the #creator/{id}
+ *  deep link and the manage-card pencil both resolve archived rows), saving
+ *  an edit must not silently republish it. */
+export function nextAnnouncementStatus(beforeRow, isEditing) {
+  if (!isEditing) return 'approved';
+  return beforeRow?.status === 'archived' ? 'archived' : 'approved';
 }
 
 /** Load a specific article into the creator form. If no id is given,
@@ -274,7 +292,7 @@ export async function publishAnnouncement() {
     department: dept,
     content: contentHtml,
     thumbnail_url: thumbnail,
-    status: 'approved',
+    status: nextAnnouncementStatus(beforeRow, isEditing),
   };
   // Only include excerpt if we know the column exists. The loader's
   // graceful fallback sets __samoWarnedExcerpt when the SELECT 400s on
@@ -516,8 +534,53 @@ export async function togglePinAnnouncement(targetId) {
     alert('ปักหมุดไม่สำเร็จ: ' + (e.message || e));
     return false;
   }
-  await loadAnnouncements();
+  await loadAnnouncements(manageStatusFilter);
   return true;
+}
+
+/**
+ * เก็บเข้าคลัง / เผยแพร่อีกครั้ง — flips `status` between 'approved' and
+ * 'archived'. No new RPC, no new column: `announcements_write` RLS
+ * (0014/0089) already lets a `creator` grantee UPDATE any column on any row,
+ * and `status` already has the CHECK constraint allowing 'archived'
+ * (0001) — the public feed already filters `status=eq.approved` (verified,
+ * docs/YEAR-ROLLOVER.md § Announcements), so flipping a row to 'archived'
+ * is enough on its own to pull it off the public site. This function only
+ * exists to make the flip reachable from the admin manage card.
+ */
+export async function toggleArchiveAnnouncement(targetId) {
+  const id = String(targetId);
+  const target = globalAnnouncements.find((p) => p.id === id);
+  if (!target) return false;
+  const willArchive = target.status !== 'archived';
+  try {
+    const { data, error } = await dbRest(
+      `/announcements?id=eq.${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: { status: willArchive ? 'archived' : 'approved' }, prefer: 'return=representation' },
+    );
+    if (error) throw new Error(`${error.status || ''} ${error.message || 'unknown'}`.trim());
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('ไม่พบประกาศนี้ หรือบัญชีของคุณไม่มีสิทธิ์ “เขียนประกาศ”');
+    }
+  } catch (e) {
+    alert((willArchive ? 'เก็บเข้าคลัง' : 'เผยแพร่อีกครั้ง') + 'ไม่สำเร็จ: ' + (e.message || e));
+    return false;
+  }
+  await loadAnnouncements(manageStatusFilter);
+  return true;
+}
+
+/** The manage pane's own status filter ('approved' | 'archived' | 'all') —
+ *  kept here (not in admin-main.js) because loadAnnouncements() needs it on
+ *  every reload a toggle/pin/publish triggers, not just the first paint. The
+ *  PUBLIC archive page never calls this setter, so it always gets the
+ *  default 'approved' loadAnnouncements() already had. */
+let manageStatusFilter = 'approved';
+export function setManageStatusFilter(status) {
+  manageStatusFilter = status;
+}
+export function getManageStatusFilter() {
+  return manageStatusFilter;
 }
 
 /** Render the admin manage view — each announcement as an editorial card
@@ -529,7 +592,10 @@ export async function togglePinAnnouncement(targetId) {
 export function renderAnnouncementOrderList(rootEl) {
   if (!rootEl) return;
   if (globalAnnouncements.length === 0) {
-    rootEl.innerHTML = '<p class="text-muted small text-center py-4 mb-0 order-grid-empty">ยังไม่มีประกาศที่เผยแพร่</p>';
+    const msg = manageStatusFilter === 'archived' ? 'ยังไม่มีประกาศที่เก็บเข้าคลัง'
+      : manageStatusFilter === 'all' ? 'ยังไม่มีประกาศ'
+      : 'ยังไม่มีประกาศที่เผยแพร่';
+    rootEl.innerHTML = `<p class="text-muted small text-center py-4 mb-0 order-grid-empty">${escHtml(msg)}</p>`;
     return;
   }
   rootEl.innerHTML = globalAnnouncements.map(renderOrderCard).join('');
@@ -537,8 +603,9 @@ export function renderAnnouncementOrderList(rootEl) {
 
 function renderOrderCard(post) {
   const cover = pickCover(post);
+  const archived = post.status === 'archived';
   return `
-    <div class="news-card order-card${post.pinned ? ' is-pinned' : ''}" data-id="${escHtml(post.id)}"
+    <div class="news-card order-card${post.pinned ? ' is-pinned' : ''}${archived ? ' is-archived' : ''}" data-id="${escHtml(post.id)}"
       onclick="editAnnouncementById('${escHtml(post.id)}')" title="คลิกเพื่อแก้ไขประกาศนี้">
       <div class="news-card-media">
         <img src="${escHtml(cover)}" alt="" loading="lazy">
@@ -546,6 +613,7 @@ function renderOrderCard(post) {
           onclick="event.stopPropagation();">
           <i class="bi bi-grip-vertical"></i>
         </span>
+        ${archived ? '' : `
         <button type="button"
           class="order-card-pin${post.pinned ? ' is-pinned' : ''}"
           title="${post.pinned ? 'เลิกปักหมุด' : 'ปักหมุดเป็นโพสต์เด่นบนหน้าแรก'}"
@@ -553,14 +621,18 @@ function renderOrderCard(post) {
           onclick="event.stopPropagation(); togglePinAnnouncement('${escHtml(post.id)}');">
           <i class="bi ${post.pinned ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i>
           <span>${post.pinned ? 'ปักหมุดอยู่' : 'ปักหมุด'}</span>
-        </button>
+        </button>`}
       </div>
       <div class="news-card-body">
-        <span class="news-eyebrow">${escHtml(post.department || 'ประกาศ')}</span>
+        <span class="news-eyebrow">${escHtml(post.department || 'ประกาศ')}${archived ? ' · <span class="order-card-archived-tag">เก็บเข้าคลัง</span>' : ''}</span>
         <h4 class="news-card-title">${escHtml(post.title)}</h4>
         <div class="news-meta">
           <time>${escHtml(formatEditorialDate(post))}</time>
           <span class="order-card-edit"><i class="bi bi-pencil"></i> แก้ไข</span>
+          <button type="button" class="order-card-archive-btn"
+            onclick="event.stopPropagation(); toggleArchiveAnnouncement('${escHtml(post.id)}');">
+            ${archived ? '<i class="bi bi-box-arrow-up"></i> เผยแพร่อีกครั้ง' : '<i class="bi bi-archive"></i> เก็บเข้าคลัง'}
+          </button>
         </div>
       </div>
     </div>
@@ -571,7 +643,16 @@ function renderOrderCard(post) {
 // Load Announcements from Server
 // --------------------------------------------------
 
-export async function loadAnnouncements() {
+/**
+ * @param {'approved'|'archived'|'all'} statusFilter  'approved' (default) is
+ *   what the PUBLIC archive page and every pre-0232 caller always meant —
+ *   never change that default. The admin manage pane (admin-main.js) is the
+ *   only caller that ever passes 'archived' or 'all', via manageStatusFilter
+ *   above, so an admin reviewing กิจกรรม-by-year can find and restore an
+ *   archived post — before 0232 there was no way to see one again once
+ *   archived, since this function always filtered to approved-only.
+ */
+export async function loadAnnouncements(statusFilter = 'approved') {
   // These elements only exist on the public site's archive page —
   // admin calls this function purely to populate globalAnnouncements
   // (so editAnnouncement(id) can find the row). Guard all DOM writes
@@ -584,6 +665,10 @@ export async function loadAnnouncements() {
       '<div class="col-12 text-center text-muted py-5"><div class="spinner-border text-pink-custom mb-3" role="status"></div><p>กำลังดึงข้อมูลประกาศล่าสุด...</p></div>';
   }
   if (emptyState) emptyState.classList.add('d-none');
+
+  // 'all' omits the status predicate entirely (PostgREST: no `status=` param
+  // means no filter); 'approved'/'archived' are exact matches.
+  const statusQuery = statusFilter === 'all' ? '' : `&status=eq.${statusFilter}`;
 
   try {
     // Try fetching with `excerpt` (post-migration-0008 column). If the
@@ -599,11 +684,11 @@ export async function loadAnnouncements() {
     // baseSelect deliberately EXCLUDES `pinned` so the excerpt/display_order
     // fallbacks below never re-request a column we already know is missing.
     // Only the first query appends `pinned`; if it 400s we retry off baseSelect.
-    const baseSelect = 'id,title,content,department,thumbnail_url,created_at,display_order';
+    const baseSelect = 'id,title,content,department,thumbnail_url,created_at,display_order,status';
     const pinnedCol = window.__samoWarnedPinned ? '' : ',pinned';
     const orderBy = 'display_order.desc.nullslast,created_at.desc';
     let { data, error } = await dbRest(
-      `/announcements?select=${baseSelect}${pinnedCol},excerpt&status=eq.approved&order=${orderBy}`
+      `/announcements?select=${baseSelect}${pinnedCol},excerpt${statusQuery}&order=${orderBy}`
     );
     if (error && error.status === 400 && /pinned/i.test(error.message || '')) {
       if (!window.__samoWarnedPinned) {
@@ -611,7 +696,7 @@ export async function loadAnnouncements() {
         console.warn('[announcements] pinned column missing — apply migration 0054_announcement_pinned.sql to enable the home featured pin.');
       }
       ({ data, error } = await dbRest(
-        `/announcements?select=${baseSelect},excerpt&status=eq.approved&order=${orderBy}`
+        `/announcements?select=${baseSelect},excerpt${statusQuery}&order=${orderBy}`
       ));
     }
     // Cascade graceful fallbacks: try `excerpt` first (0008 column).
@@ -624,7 +709,7 @@ export async function loadAnnouncements() {
         console.warn('[announcements] excerpt column missing — apply migration 0008_announcements_excerpt.sql.');
       }
       ({ data, error } = await dbRest(
-        `/announcements?select=${baseSelect}&status=eq.approved&order=${orderBy}`
+        `/announcements?select=${baseSelect}${statusQuery}&order=${orderBy}`
       ));
     }
     if (error && error.status === 400 && /display_order/i.test(error.message || '')) {
@@ -632,13 +717,13 @@ export async function loadAnnouncements() {
         window.__samoWarnedOrder = true;
         console.warn('[announcements] display_order column missing — apply migration 0017_announcement_order.sql to enable drag-reorder.');
       }
-      const minimalSelect = 'id,title,content,department,thumbnail_url,created_at';
+      const minimalSelect = 'id,title,content,department,thumbnail_url,created_at,status';
       ({ data, error } = await dbRest(
-        `/announcements?select=${minimalSelect},excerpt&status=eq.approved&order=created_at.desc`
+        `/announcements?select=${minimalSelect},excerpt${statusQuery}&order=created_at.desc`
       ));
       if (error && error.status === 400 && /excerpt/i.test(error.message || '')) {
         ({ data, error } = await dbRest(
-          `/announcements?select=${minimalSelect}&status=eq.approved&order=created_at.desc`
+          `/announcements?select=${minimalSelect}${statusQuery}&order=created_at.desc`
         ));
       }
     }
@@ -659,6 +744,8 @@ export async function loadAnnouncements() {
       thumbnail: row.thumbnail_url || '',
       displayOrder: row.display_order ?? null,
       pinned: row.pinned === true,
+      status: row.status || 'approved',
+      createdAtIso: row.created_at || null,
     }));
 
     if (container) container.innerHTML = '';

@@ -157,6 +157,29 @@ export function studyYearLabel(rec, now = new Date()) {
 }
 
 /**
+ * The same "จบแล้ว" test as `studyYearLabel`, as a boolean a caller can FILTER
+ * on — e.g. the ระบบบ้าน roster default-hiding a graduated รุ่น.
+ *
+ * DELIBERATELY NOT A STORED COLUMN. The design this answers
+ * (`docs/YEAR-ROLLOVER.md` § ระบบบ้าน) first proposed `students.graduated_at`,
+ * set once by a yearly job. Rejected: a stored flag is exactly the "fill once,
+ * never correct" shape `.claude/rules/mistakes.md` class 6 warns about — it
+ * would need its OWN re-derivation whenever `year_offset` changes (a ลาพัก
+ * correction un-graduating someone, or the reverse) or whenever an admin moves
+ * ปีการศึกษา back by mistake (edge case in the same doc). `studyYear` already
+ * recomputes live from `academicYear()` with no clock and no maintenance —
+ * this is that same computation with nothing new to keep in step, so the
+ * rollover needs no code change and no migration next year either.
+ *
+ * @returns {boolean} false for a row with no resolvable ปีที่เข้า — "cannot
+ *   place" is not the same claim as "graduated".
+ */
+export function isGraduated(rec, now = new Date()) {
+  const n = studyYear(rec, now);
+  return n !== null && n > 6;
+}
+
+/**
  * The record to COMPUTE FROM while a รหัสนักศึกษา is being edited.
  *
  * ⚠️ THIS IS 0128 WEARING A CLIENT-SIDE COSTUME, AND EVERY FORM THAT SHOWS A

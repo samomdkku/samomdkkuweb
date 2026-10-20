@@ -3,8 +3,28 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   sanitizeOrderCode, genOrderId, STAGES_META, ISSUE_STATUSES,
-  rollupOrderStage, itemStageRank,
+  rollupOrderStage, itemStageRank, orderMatchesYearFilter,
 } from './data.js';
+import { ALL_YEARS } from '../samo-year.js';
+
+describe('orderMatchesYearFilter', () => {
+  it('"ทุกปี" (ALL_YEARS) and no filter chosen yet (null) match every order', () => {
+    expect(orderMatchesYearFilter({ samo_year_be: 2568 }, ALL_YEARS)).toBe(true);
+    expect(orderMatchesYearFilter({ samo_year_be: 2568 }, null)).toBe(true);
+  });
+
+  it('a null/unresolved samo_year_be matches any specific year filter (unresolvable ≠ hidden)', () => {
+    expect(orderMatchesYearFilter({ samo_year_be: null }, 2569)).toBe(true);
+    expect(orderMatchesYearFilter({}, 2569)).toBe(true);
+  });
+
+  it('matches only its own year, with string/number coercion', () => {
+    expect(orderMatchesYearFilter({ samo_year_be: 2569 }, 2569)).toBe(true);
+    expect(orderMatchesYearFilter({ samo_year_be: 2568 }, 2569)).toBe(false);
+    expect(orderMatchesYearFilter({ samo_year_be: '2569' }, 2569)).toBe(true);
+    expect(orderMatchesYearFilter({ samo_year_be: 2569 }, '2569')).toBe(true);
+  });
+});
 
 describe('sanitizeOrderCode', () => {
   it('uppercases + strips non-alnum + caps at 5', () => {

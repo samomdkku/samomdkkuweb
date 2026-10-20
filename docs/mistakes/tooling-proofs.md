@@ -3730,3 +3730,74 @@ handles it like the between-task reserve refusal: WIP is kept, the task is cut
 **Rule**: when a min() gains a second operand, every message, exit code and
 side-effect keyed on the result still names the FIRST one. Carry WHICH operand
 won out of the min(), and give each reason its own branch.
+---
+
+## A migration that changes a function's SIGNATURE rots the ACL string in an older proof
+
+**Symptom**: `tools/accounts0211-dashboard.mjs` (green on both dev and
+production for weeks) started throwing a bare, uncaught
+`ERROR: 42883: function "public.account_dashboard()" does not exist` on
+samo-dev — not a probe row turning red, the entire script dying before any
+assertion ran.
+
+**Cause**: migration 0232 dropped `account_dashboard()`'s old zero-argument
+overload and replaced it with `account_dashboard(p_samo_year_be integer
+default null)` (additive on purpose — every existing caller that invokes it
+with no arguments still resolves against the new signature's default). But
+`has_function_privilege('anon', 'public.account_dashboard()', 'execute')` names
+a function SIGNATURE as a literal string, and Postgres resolves that string
+eagerly: a signature that no longer exists raises `42883` instead of
+returning `false`. That line sat outside every `do $$ … exception …` block in
+the proof, so the raise killed the whole script — the SAME shape as class 7's
+"an untested constraint in a doc", just for a hardcoded signature string
+instead of prose: nothing reads `has_function_privilege`'s first argument as
+"this might not resolve any more."
+
+**Fix**: the signature string became `'public.account_dashboard(integer)'`.
+General form: any proof that calls `has_function_privilege` /
+`has_table_privilege` / similar ACL introspection with a literal
+signature must be re-checked whenever that function's signature changes —
+grep every `tools/*.sql`/`*.mjs` for the function's bare name (not just its
+call sites) before trusting a migration that "only adds a default parameter".
+
+**Where it lives now**: `tools/accounts0211-dashboard.mjs`,
+`supabase/migrations/0232_passport_team_term_bridge_and_dept_editor_info.sql`.
+
+---
+
+## One backticked path outside the repo blinded `state-handoff.test.js`'s whole dead-pointer sweep — not just itself
+
+**Symptom**: writing `` `/home/ubuntu/.claude/projects/.../MEMORY.md` `` in a
+new `docs/state/night-agent.md` paragraph (describing why
+`npm run handoff:check` crashes) made THREE paths fail "the split files name
+no file that is not there either" — the new path, correctly, AND two
+unrelated, already-exempted `externaldata/...` paths in
+`docs/state/phuriphatma.md` that had been green for weeks and that this edit
+never touched.
+
+**Cause**: the test batches every backticked path from every `docs/state/*.md`
+file into ONE `git check-ignore --stdin` call so a gitignored path (like
+`externaldata/`, present on a laptop, absent on CI) is correctly treated as
+"not a repo file worth checking" rather than "missing". `git check-ignore`
+refuses outright — exit 128, `fatal: … is outside repository` — the moment
+ANY path in that batch is absolute and outside the working tree. The test
+catches exactly that exit code and falls back to an EMPTY ignored-set for the
+WHOLE batch, meaning every other document's legitimately-gitignored
+exemption stops being recognised as ignored in the same run. One careless
+absolute path in prose silenced every other file's cooperation with this
+guard, not just its own sentence — the same shape as class 7's "a guard whose
+instrument can be defeated by the very thing it is meant to tolerate," here a
+batch-wide fallback triggered by a single bad element.
+
+**Fix**: reworded the sentence to describe the hardcoded memory-index path in
+prose instead of a backticked absolute path (`~/.claude/projects/…` stays
+outside backticks). General rule: never backtick a full absolute filesystem
+path (anything starting `/home/`, `/etc/`, `/root/`, …) in a `docs/state/*.md`
+note — describe it, or wrap only the relative tail. If a future note
+genuinely needs one, the sweep should check each path's ignore status
+independently (or filter `/`-rooted absolute paths before the batch) rather
+than failing the whole batch on the first one `git check-ignore` refuses.
+
+**Where it lives now**: `src/js/state-handoff.test.js` (`GIT_IGNORED`'s
+`git check-ignore --stdin` call, `r.status === 128` fallback),
+`docs/state/night-agent.md`.

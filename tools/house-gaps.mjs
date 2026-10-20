@@ -18,7 +18,7 @@
 // ============================================================
 import { writeFileSync } from 'node:fs';
 import { computeGaps, TONE } from '../src/js/house/gaps.js';
-import { cohortLabel } from '../src/js/house/fields.js';
+import { cohortLabel, setAcademicYear } from '../src/js/house/fields.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
 const outIdx = process.argv.indexOf('--out');
@@ -30,7 +30,7 @@ const ask = async (sql) => JSON.parse(await runSql(sql, target));
 // column missing here reads as "nobody has one", which is a silent wrong answer
 // rather than an error — so this list is short on purpose and every field in it
 // is one the function actually asks for.
-const [students, held, helpReqs, requests, houses, sais, advisors, conflicts] = await Promise.all([
+const [students, held, helpReqs, requests, houses, sais, advisors, conflicts, ay] = await Promise.all([
   ask(`select id::text, kkumail, student_id, first_name_th, last_name_th,
               nickname, nickname_imported, nickname_self, major, sai_code,
               cohort_year, missing_since
@@ -45,7 +45,15 @@ const [students, held, helpReqs, requests, houses, sais, advisors, conflicts] = 
   ask(`select code from public.sais`),
   ask(`select id::text, full_name from public.advisors`),
   ask(`select count(*)::int as n from public.identity_conflicts where status = 'open'`),
+  ask('select public.get_academic_year() as year'),
 ]);
+
+// Same ปีการศึกษา the admin pane reads (academic_year_status()), so a
+// graduated รุ่น (isGraduated(), inside computeGaps) is the SAME population
+// here as on screen. Unprimed, this would fall back to the clock — which
+// agrees with the admin's own override only until the next สิงหาคม it was
+// not re-set, exactly the drift 0141 built the override to avoid.
+setAcademicYear(ay[0]?.year);
 
 const { groups, actionable } = computeGaps({
   students, held, helpReqs, requests, houses, sais, advisors,

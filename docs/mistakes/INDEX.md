@@ -106,7 +106,7 @@ Open when: adding an access channel, a scope, or a seat.
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(37)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(38)*
 
 Open when: writing a migration.
 
@@ -147,8 +147,9 @@ Open when: writing a migration.
 - house0188 case 53 red for three weeks
 - Reopening the genesis `team_terms` row would have erased its own history
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
+- A weekly prune silently erased 20 of every ~24 days' worth of analytics
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(114)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(116)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -266,8 +267,10 @@ Open when: markup, modals, layout, touch, icons.
 - "the admin page tells staff a student fixes it on the home page"
 - "the tool row stops short of the screen edge, and a long name runs into the next icon" (phone)
 - "⌘-click / Ctrl-click on a tool or the banner just switches the page instead of opening a new tab"
+- The shop popup's qty stayed at 99 through a colour pick with 3 left
+- บอท Discord's 20s background poll cleared a save error before anyone could read it
 
-## `app-state.md` — Routing, read-state, caches & serialization *(31)*
+## `app-state.md` — Routing, read-state, caches & serialization *(36)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -299,9 +302,14 @@ Open when: URL state, per-user "seen", import/export.
 - A student's ชื่อเล่น could run as a formula in an admin's spreadsheet
 - Switching to หน้าฝ่าย a second time snapped the ฝ่าย picker back and could wipe an unsaved edit
 - The cart drawer's qty cap never knew about anyone else's reservations
+- addItem merging an existing cart line only capped the TOTAL at 99, never at real stock
+- csvGuard/csvUnguard did not round-trip a value that itself started with `'`
 - Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 - "The public หนังสือโครงการ mirror never refreshed after its first load"
 - "Import the answers the ฝ่าย filled in"
+- SAMO Shop: a product added to the cart in one browser tab could vanish if another tab added one too
+- SAMO Shop admin: the "ต้องจัดการ" tile said one number, clicking it showed fewer rows
+- Editing an archived announcement silently republished it
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(36)*
 
@@ -344,7 +352,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - "no webhook configured" after the webhook rotation
 - Apps Script's "is this file inside PR/?" matched any folder NAMED PR
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(27)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(28)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -375,8 +383,9 @@ Open when: deploy.sh, nginx, cache headers.
 - A missing nginx `location` does not 404
 - `install.sh` exited 3 on a successful install
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
+- The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(77)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(79)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -457,6 +466,8 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A "no-write" browser check rejected a real slip on samo-dev
 - The night agent would have started inside a 100% Claude booking
 - The night agent said it stopped "for somebody's Claude booking"
+- A migration that changes a function's SIGNATURE rots the ACL string in an older proof
+- One backticked path outside the repo blinded `state-handoff.test.js`'s whole dead-pointer sweep
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -504,4 +515,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_442 entries across 10 files._
+_453 entries across 10 files._

@@ -4517,3 +4517,75 @@ the page switched to `pills-shop`.
 it — the click handler must also stand aside for a modified click.* Assert the
 behaviour (the event is not cancelled), not the attribute: the href guard was
 green the whole time.
+
+## The shop popup's qty stayed at 99 through a colour pick with 3 left
+
+**Symptom** (HANDOFF §18f, cold review, CONFIRMED — fixed `agent/2026-10-20`,
+not deployed): with no colour chosen yet, the product popup's `+` raised qty
+to 99 (no colour means `availableForVariant` has nothing to look up, so it
+reads as untracked); picking a colour that only has 3 left did not touch
+qty — `renderColorOptions`'s click handler called `renderOOS()` but never
+`renderQty()`. The add button, disabled only while a colour pick was
+outstanding, became pressable the instant one was chosen, with 99 still
+sitting in the box.
+
+**Cause**: `renderQty()`'s own clamp only ran from the size handler and on
+open — nothing re-ran it when the colour changed, the one event that turns
+"stock unknown" into "stock known".
+
+**Fix**: extracted the qty ceiling into a pure, exported `qtyCeilingFor(p,
+size, color)` (mirrors `cart.js`'s `maxQtyFor` — same reason: no jsdom in
+this repo's test setup, so the render path needs a pure core to unit-test at
+all) — 1 while `isColorMissing` holds (a colour pick is outstanding, so the
+real cap isn't known), the matrix's number once it is, 99 for an unlimited
+preorder or a product with no stock matrix. Wired into BOTH the `+` handler
+and `renderColorOptions`'s click handler, so picking a colour re-clamps a qty
+raised before it was known. `src/js/shop/products.test.js`, mutation-checked
+(9/9 go red reverting the file).
+
+**Where it lives now**: `src/js/shop/products.js` (`qtyCeilingFor`,
+`isColorMissing`, `renderQty`, `renderColorOptions`).
+
+**The general rule**: *a value's cap can change meaning (not just its
+number) when more information arrives — "no colour yet" is not "unlimited
+stock", it is "stock unknown", and those two must not share a ceiling.*
+Same class as this file's other "two passes over one control" entries: every
+event that can make a cap tighter must re-run the clamp, not just the event
+the original author was thinking of.
+
+## บอท Discord's 20s background poll cleared a save error before anyone could read it
+
+**Symptom** (HANDOFF §18f, cold review, CONFIRMED — fixed `agent/2026-10-20`,
+not deployed): an admin's `set()` action (flip a switch) fails and shows
+`#dbotMsg` in red; within 20 seconds the page's own background poll succeeds
+and the message is gone — nobody READ it, the poll just happened to land
+first. Separately, `#dbotStatus` (`aria-live="polite"`) is repainted every
+poll tick even when the bot's health text is byte-identical to last time,
+risking a screen reader re-announcing nothing new every 20 seconds.
+
+**Cause**: `load()` was the single function behind BOTH the poll and every
+user-triggered reload (first entry, "โหลดใหม่"), and on success it called
+`say('')` unconditionally — correct for "the user asked to reload, clear the
+old message," wrong for "a timer happened to tick." `paint()` always wrote
+`host.innerHTML`/`className` regardless of whether the computed text changed.
+
+**Fix**: `load({ silent = false })` — the poll passes `{ silent: true }` and
+skips `say('')` on success (a load that itself FAILS still reports: silence
+avoids erasing good news, never a NEW problem); the explicit reload and first
+entry call `load()` with no argument, so they still clear it — that IS user
+action on the message. `paint()` now remembers the last class/innerHTML it
+wrote and skips the DOM mutation when nothing changed. Both structurally
+pinned (no jsdom here) in `src/js/discord-bot-admin.test.js`, mutation-checked.
+Checked `accounts/admin.js`'s `pulse()` for the identical code shape (same
+task, explicit ask) — it has no separate mutating action whose error message
+a poll tick could wipe, and clearing a transient poll error once the NEXT
+poll succeeds is correct self-healing, not this bug. No change made there.
+
+**Where it lives now**: `src/js/discord-bot-admin.js` (`load`, `paint`,
+`enterDiscordBot`).
+
+**The general rule**: *one function serving both "the user asked" and "a
+timer ticked" will eventually do the user-asked thing on the timer's
+schedule — split the signal, don't share it.* And: repainting identical text
+into a live region is not free — a screen reader sees the mutation, not a
+diff; skip the write when the computed content did not change.

@@ -38,14 +38,14 @@ import { arabicDigits } from '../utils.js';
 import {
   COHORT_EPOCH, COHORT_PREFIX, ACADEMIC_YEAR_ROLLOVER_MONTH,
   setAcademicYear, academicYear, cohortFromStudentId, cohortLabel,
-  studyYear, studyYearLabel, offsetForPickedYear,
+  studyYear, studyYearLabel, isGraduated, offsetForPickedYear,
 } from '../study-year.js';
 
 export { normalizeStudentId, majorKey };
 export {
   COHORT_EPOCH, COHORT_PREFIX, ACADEMIC_YEAR_ROLLOVER_MONTH,
   setAcademicYear, academicYear, cohortFromStudentId, cohortLabel,
-  studyYear, studyYearLabel, offsetForPickedYear,
+  studyYear, studyYearLabel, isGraduated, offsetForPickedYear,
 };
 
 /** Canonical สายรหัส shape and the example shown to a human. */

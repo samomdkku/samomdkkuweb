@@ -82,3 +82,47 @@ describe('the nginx config a reinstall would install still has every route', () 
     expect(body).not.toMatch(/location\s+\/discord\/\s*\{/);
   });
 });
+
+// PLAUSIBLE, HANDOFF §18f: nginx's DEFAULT proxy_cache_key includes the query
+// string ($is_args$args). The /img/ location's upstream fetch to lh3 only
+// ever uses the two regex captures ($1=$2) — the incoming request's query
+// string never reaches proxy_pass at all — so a request that happens to
+// carry one (nothing in THIS repo appends one today; a future caller, a
+// browser retry param, or a pasted link's tracking suffix could) would still
+// buy its own cold lh3 fetch and its own cache slot for content identical to
+// one already cached. Pin the key to what actually varies the content.
+describe('the /img/ picture cache keys on the Drive id + size, not the query string', () => {
+  /** The body of the location block whose `location` line CONTAINS `marker`
+   *  (the regex location's own pattern has far more between its head and its
+   *  opening brace than a fixed-width match can skip over, so this locates
+   *  the brace by scanning forward, then counts braces from there —
+   *  structural, not a line range: docs/mistakes/frontend-ui.md, "NEVER
+   *  SLICE SOURCE BY LINE NUMBER"). */
+  function locationBody(conf, marker) {
+    const body = conf.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+    const at = body.indexOf(marker);
+    if (at < 0) throw new Error(`marker ${marker} not found`);
+    // The location HEAD is itself a regex that may contain its own braces
+    // (`{20,100}`); the block's real opener is the `{` that closes the head
+    // line, always preceded by the closing quote of the location pattern.
+    const brace = body.indexOf('" {', at);
+    if (brace < 0) throw new Error(`no closing '" {' after ${marker}`);
+    let depth = 1;
+    let i = brace + '" {'.length;   // past the quote, space, and the opening brace itself
+    const start = i;
+    for (; i < body.length && depth > 0; i++) {
+      if (body[i] === '{') depth += 1;
+      else if (body[i] === '}') depth -= 1;
+    }
+    return body.slice(start, i - 1);
+  }
+  const IMG_BLOCK = locationBody(CONF, 'location ~ "^/img/');
+
+  it('pins proxy_cache_key to the two regex captures lh3 is actually fetched with', () => {
+    expect(IMG_BLOCK).toMatch(/proxy_cache_key\s+"\$1=\$2"\s*;/);
+  });
+  it('the control: the extractor finds a real block, not an empty match', () => {
+    expect(IMG_BLOCK).toMatch(/proxy_cache\s+img\s*;/);
+    expect(IMG_BLOCK.length).toBeGreaterThan(200);
+  });
+});

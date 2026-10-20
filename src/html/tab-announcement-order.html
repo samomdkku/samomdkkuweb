@@ -16,6 +16,30 @@
             </div>
           </div>
 
+          <!-- Status filter + archive-by-year (0232, docs/YEAR-ROLLOVER.md
+               § Announcements). Before this, an archived post had no screen
+               at all — เก็บเข้าคลัง always meant "gone from here too". -->
+          <div class="d-flex flex-wrap align-items-end gap-2 mb-3 announcements-manage-tools">
+            <div>
+              <label class="form-label small mb-1" for="announcementStatusFilter">แสดง</label>
+              <select class="form-select form-select-sm" id="announcementStatusFilter">
+                <option value="approved">เผยแพร่อยู่</option>
+                <option value="archived">เก็บเข้าคลัง</option>
+                <option value="all">ทั้งหมด</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label small mb-1" for="announcementBulkArchiveYear">เก็บประกาศที่สร้างก่อนปี พ.ศ.</label>
+              <div class="d-flex gap-2">
+                <input type="number" class="form-control form-control-sm" style="width: 6.5rem;"
+                       id="announcementBulkArchiveYear" placeholder="เช่น 2569">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="announcementBulkArchive">
+                  <i class="bi bi-archive"></i> เก็บเข้าคลังทั้งหมด
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="news-grid news-grid--archive announcements-order-grid" id="announcementsOrderList">
             <p class="text-muted small text-center py-4 mb-0">กำลังโหลด…</p>
           </div>

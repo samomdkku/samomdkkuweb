@@ -85,6 +85,31 @@
 
 .order-card.sortable-ghost .news-card-media { background: var(--green-50); }
 
+/* Archived card (0232) — dimmed, same "ยังไม่แสดง" visual language หน้าฝ่าย's
+   draft rows use, so "not on the public page right now" looks consistent
+   across admin screens. */
+.order-card.is-archived { opacity: 0.6; }
+.order-card.is-archived .news-card-title { color: var(--ink-600); }
+
+.order-card-archived-tag {
+  color: var(--ink-600);
+  font-weight: 600;
+}
+
+.order-card-archive-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--ink-600);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.order-card-archive-btn:hover { color: var(--brand-primary); text-decoration: underline; }
+
+.announcements-manage-tools .form-label { margin-bottom: 0.2rem; }
+
 /* --- ANNOUNCEMENT EDITOR POPUP OVERLAY --- */
 
 /* The creator pane normally renders inline (เขียนประกาศ page). When opened

@@ -116,14 +116,24 @@ function say(text, tone = 'muted') {
   el.textContent = text;
 }
 
+// The last text/class painted into #dbotStatus — an aria-live=polite region,
+// which a screen reader can re-announce on ANY mutation inside it, even one
+// that replaces identical text with identical text. The 20 s background poll
+// (enterDiscordBot) repaints this every tick whether the bot's state moved or
+// not; skip the DOM write when it did not (HANDOFF §18f).
+let lastStatusHtml = null; let lastStatusClass = null;
 function paint() {
   const host = $('dbotStatus');
   if (!host) return;
   const h = botHealth(panel);
   const icon = h.tone === 'ok' ? 'bi-check-circle-fill' : h.tone === 'paused' ? 'bi-pause-circle-fill' : 'bi-exclamation-triangle-fill';
-  host.className = `dbot-status dbot-card mb-3 is-${h.tone}`;
-  host.innerHTML = `<i class="bi ${icon} dbot-status-icon" aria-hidden="true"></i><div>${
+  const className = `dbot-status dbot-card mb-3 is-${h.tone}`;
+  const html = `<i class="bi ${icon} dbot-status-icon" aria-hidden="true"></i><div>${
     h.lines.map((l, i) => `<div class="${i ? 'dbot-status-sub' : 'dbot-status-main'}">${escHtml(l)}</div>`).join('')}</div>`;
+  if (className !== lastStatusClass || html !== lastStatusHtml) {
+    host.className = className; host.innerHTML = html;
+    lastStatusClass = className; lastStatusHtml = html;
+  }
   if (!panel) return;
   // One pass sets every control from the panel — the switches never keep a
   // state the server refused.
@@ -134,8 +144,17 @@ function paint() {
   $('dbotFullPass').disabled = busy || !panel.sync_enabled;
 }
 
-async function load() {
-  try { panel = await rpc('get_discord_bot_panel'); say(''); }
+/** `silent`: the background poll uses this — it refreshes panel.* so the
+ *  status card (and a pending "ปิดอยู่" confirmation) catch up on their own,
+ *  but a load succeeding is NOT news about whatever #dbotMsg is currently
+ *  showing. Without this, every 20 s tick called say('') unconditionally and
+ *  wiped a `set()` save error the instant the next poll landed (HANDOFF
+ *  §18f) — before the person reading it had a chance to. An explicit load
+ *  (first entry, "โหลดใหม่") still clears it: that IS user action on this
+ *  message. A load that itself FAILS still reports — silence should never
+ *  hide a NEW problem, only avoid erasing an old message with good news. */
+async function load({ silent = false } = {}) {
+  try { panel = await rpc('get_discord_bot_panel'); if (!silent) say(''); }
   catch (e) { panel = null; say(e.message, 'error'); }
   paint();
 }
@@ -196,6 +215,6 @@ export function enterDiscordBot() {
   timer = setInterval(() => {
     const pane = document.querySelector('[data-admin-pane="discordbot"]');
     if (!pane || pane.classList.contains('d-none')) { clearInterval(timer); timer = null; return; }
-    if (!busy && !document.hidden) load();   // a background tab skips a tick, it does not stop
+    if (!busy && !document.hidden) load({ silent: true });   // a background tab skips a tick, it does not stop
   }, 20000);
 }

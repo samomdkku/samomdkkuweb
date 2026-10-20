@@ -7,6 +7,7 @@
 
 import { safeUrl, csvGuard } from '../utils.js';
 import { imageBase, pictureAt } from '../uploads.js';
+import { ALL_YEARS } from '../samo-year.js';
 
 export const SHOP_SOURCES = [
   { id: 'all',      label: 'ทั้งหมด',            en: 'All' },
@@ -137,6 +138,20 @@ export const NOT_YET_REVENUE_STATUSES = ['pending', 'review', 'slip_mismatch', '
  *  ONE predicate behind รายรับสะสม (orders tab) and ยอดขาย (sales tab). */
 export function isRevenueOrder(order) {
   return !!order && !NOT_YET_REVENUE_STATUSES.includes(order.status || 'pending');
+}
+
+/** Does this order belong under the SAMO-year filter the admin picked
+ *  (0230)? ONE predicate shared by the orders table (admin.js) and the
+ *  ยอดขาย tab (admin-sales.js) — the two places this repo's own class-6
+ *  lesson says drift if each grows its own copy. "ทุกปี" always matches; an
+ *  order the one-time backfill could not resolve (samo_year_be null) always
+ *  matches too — same "an unresolvable reference must not be hidden by a
+ *  filter it cannot answer" rule pr-year.js's ticketMatchesYearFilter uses. */
+export function orderMatchesYearFilter(order, yearFilter) {
+  if (yearFilter == null || yearFilter === ALL_YEARS) return true;
+  const y = order?.samo_year_be;
+  if (y == null) return true;
+  return Number(y) === Number(yearFilter);
 }
 
 /** A line's stage as the admin sees it: before payment the whole-order status

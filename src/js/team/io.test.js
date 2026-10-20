@@ -233,7 +233,7 @@ describe('a spreadsheet formula cannot ride out in an export', () => {
     for (const n of ['-1', '+5', '12.5', 'อั้ม', '', null]) expect(csvGuard(n)).toBe(n == null ? '' : n);
   });
   it('round-trips: export → parse gives back EXACTLY what was typed', () => {
-    const tricky = ['=HYPERLINK("http://x","ok")', '-อั้ม', '@me', 'ปกติ', '-1', "'quoted"];
+    const tricky = ['=HYPERLINK("http://x","ok")', '-อั้ม', '@me', 'ปกติ', '-1', "'quoted", "'-not-a-number", "'=looks-like-a-formula"];
     const csv = buildMembersCsv(tricky.map((t) => ({ full_name: t, nickname: t })));
     const back = parseCsv(csv).slice(1);
     const header = parseCsv(csv)[0];
@@ -242,9 +242,30 @@ describe('a spreadsheet formula cannot ride out in an export', () => {
     // …and in the file itself, nothing starts with a formula character.
     for (const r of parseCsv(csv.replace(/'/g, '\u0000'))) for (const c of r) expect(/^[=+@]/.test(c)).toBe(false);
   });
-  it('csvUnguard leaves everything else alone', () => {
-    expect(csvUnguard("'hello")).toBe("'hello");
-    expect(csvUnguard("'-1")).toBe("'-1");
+  it('csvUnguard leaves a value with no leading quote alone', () => {
     expect(csvUnguard('=x')).toBe('=x');
+    expect(csvUnguard('hello')).toBe('hello');
+  });
+
+  // Property: for ANY string, guard then unguard must give back exactly what
+  // went in — not just the handful of examples above. A fixed seed keeps a
+  // failure reproducible instead of flaky.
+  it('round-trips every generated string, not just the chosen examples', () => {
+    let seed = 20261020;
+    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const alphabet = [..."=+-@\t\r'\"0123456789., \nอั้มกขคABCxyz"];
+    const randomString = () => {
+      const len = Math.floor(rand() * 12);
+      let out = '';
+      for (let i = 0; i < len; i++) out += alphabet[Math.floor(rand() * alphabet.length)];
+      return out;
+    };
+    for (let i = 0; i < 2000; i++) {
+      const v = randomString();
+      expect(csvUnguard(csvGuard(v))).toBe(v);
+    }
+    // null/undefined both guard and unguard to '' — the no-value case.
+    expect(csvUnguard(csvGuard(null))).toBe('');
+    expect(csvUnguard(csvGuard(undefined))).toBe('');
   });
 });

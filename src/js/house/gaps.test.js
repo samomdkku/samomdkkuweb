@@ -7,10 +7,19 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import { computeGaps, TONE } from './gaps.js';
+import { setAcademicYear } from '../study-year.js';
+
+// Pinned ONCE, module-wide — not inside a `now` argument — because every
+// fixture below is written against "ชั้นปี as of ปีการศึกษา 2569" (the same era
+// help-diagnosis.test.js uses). Without this, computeGaps's new graduated-รุ่น
+// filter would read the REAL clock, and MD49 (cohort 2564) graduates out of
+// `active` on its own the moment the clock's fallback ปีการศึกษา passes 2569 —
+// silently failing every fixture below a few years from now rather than today.
+setAcademicYear(2569);
 
 // MD49 = 2564 (COHORT_EPOCH 2515). Written through the cohort_year the app
 // actually stores rather than a label, because that is what the rows carry.
-const YEAR = { MD49: 2564, MD50: 2565, MD51: 2566 };
+const YEAR = { MD49: 2564, MD50: 2565, MD51: 2566, MD44: 2559 };
 const student = (sai, cohort, extra = {}) => ({
   id: `s${sai}${cohort}`, kkumail: `x${sai}.${cohort}@kkumail.com`,
   student_id: `${cohort - 1900}30700${sai}-1`,
@@ -217,6 +226,59 @@ describe('who owns each group', () => {
       expect(grp.why.length).toBeGreaterThan(20);
       expect(grp.count).toBeGreaterThan(0);
     }
+  });
+});
+
+// ============================================================
+// A GRADUATED รุ่น IS NOT CHASED FOR A MISSING FIELD (task 8, 2026-10-18).
+//
+// Nobody runs a yearly job to decide this — `isGraduated` recomputes live from
+// study-year.js, so MD44 reads as graduated this year and every year after
+// with no code touched. The สายรหัส audit is the deliberate EXCEPTION: a
+// graduated person's สาย is a historical fact, never re-run, so it must still
+// show up there.
+// ============================================================
+describe('a graduated รุ่น drops out of the per-person worklists', () => {
+  it('no_sai / no_name / no_nick / gone exclude a graduated student', () => {
+    const grad = student(1, YEAR.MD44, {
+      sai_code: null, first_name_th: '', nickname: null, missing_since: '2026-09-01T00:00:00Z',
+    });
+    const g = byKey(computeGaps({ students: [grad] }));
+    expect(g.no_sai).toBeUndefined();
+    expect(g.no_name).toBeUndefined();
+    expect(g.no_nick).toBeUndefined();
+    expect(g.gone).toBeUndefined();
+  });
+
+  it('CONTROL — the identical gaps on an active รุ่น still count', () => {
+    const active = student(1, YEAR.MD49, {
+      sai_code: null, first_name_th: '', nickname: null, missing_since: '2026-09-01T00:00:00Z',
+    });
+    const g = byKey(computeGaps({ students: [active] }));
+    expect(g.no_sai.count).toBe(1);
+    expect(g.no_name.count).toBe(1);
+    expect(g.no_nick.count).toBe(1);
+    expect(g.gone.count).toBe(1);
+  });
+
+  it('a graduated person still occupies their สาย in the สายรหัส audit', () => {
+    // one graduated รุ่น, one สาย short of a healthy 1..n run — the gap must
+    // still be reported, because สาย/บ้าน is never re-run at graduation.
+    const g = byKey(computeGaps({ students: full(3, YEAR.MD44).slice(1) }));
+    expect(g.sai_gap.rows[0].name).toBe('MD44');
+  });
+
+  it('the active-roster scope denominator excludes graduated students', () => {
+    const g = byKey(computeGaps({
+      students: [
+        student(1, YEAR.MD44, { sai_code: null }),
+        student(1, YEAR.MD49, { sai_code: null }),
+      ],
+    }));
+    // Both rows are missing สาย, but only the active one counts — and the
+    // scope text names a population of 1, not 2.
+    expect(g.no_sai.count).toBe(1);
+    expect(g.no_sai.scope).toContain('1 คน');
   });
 });
 

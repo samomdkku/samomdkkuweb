@@ -21,7 +21,7 @@
 // each decide separately what counts as a gap is the drift this repo pays for
 // most, and the two would disagree the first time either was edited.
 // ==============================================
-import { cohortLabel, houseOf } from './fields.js';
+import { cohortLabel, houseOf, isGraduated } from './fields.js';
 import { isAnsweredEmpty, followUpLabel } from './follow-up.js';
 
 /** What an admin can do about a group — this is what the pane sorts and colours on. */
@@ -212,6 +212,8 @@ export function auditSai(occupants = [], held = [], answered = []) {
  * @param {number}   d.conflicts  open identity conflicts (a COUNT — the rows
  *                                live behind the ตรวจสอบข้อมูล filter, which is
  *                                already the screen for them)
+ * @param {Date} [now] injectable so a graduated-รุ่น scenario is testable;
+ *   defaults to the real clock, same convention as study-year.js.
  * @returns {{groups: object[], actionable: number}}
  */
 /** Thai names for the columns 0200's `registry_mismatches()` reports. */
@@ -221,7 +223,7 @@ export const REGISTRY_FIELD_LABEL = {
   photo_url: 'รูป', photo_focus: 'ตำแหน่งครอปรูป', bio: 'แนะนำตัว', kkumail: 'อีเมล',
 };
 
-export function computeGaps(d = {}) {
+export function computeGaps(d = {}, now = new Date()) {
   const students = d.students || [];
   const held = (d.held || []).filter((h) => !h.resolved_at);
   const helpReqs = (d.helpReqs || []).filter((h) => !h.resolved_at);
@@ -236,11 +238,17 @@ export function computeGaps(d = {}) {
   // the split matters and is not cosmetic. See splitHeld() above.
   const { heldAdmin, heldSelf } = splitHeld(held);
 
-  const noSai = students.filter((s) => !s.sai_code);
-  const noName = students.filter((s) => !s.first_name_th || !s.last_name_th);
-  const noSid = students.filter((s) => !s.student_id);
-  const noNick = students.filter((s) => !(s.nickname || s.nickname_self || s.nickname_imported));
-  const gone = students.filter((s) => s.missing_since);
+  // A graduated รุ่น is not asked to fix a missing ชื่อเล่น or chased for a
+  // file that will never name them again — `gone`/`no_*` below are about who
+  // is still here. The สายรหัส audit further down deliberately does NOT use
+  // this: a graduated person's สาย is a permanent fact, never re-run
+  // (`docs/YEAR-ROLLOVER.md` § ระบบบ้าน), so it stays in `occupants`.
+  const active = students.filter((s) => !isGraduated(s, now));
+  const noSai = active.filter((s) => !s.sai_code);
+  const noName = active.filter((s) => !s.first_name_th || !s.last_name_th);
+  const noSid = active.filter((s) => !s.student_id);
+  const noNick = active.filter((s) => !(s.nickname || s.nickname_self || s.nickname_imported));
+  const gone = active.filter((s) => s.missing_since);
 
   const occupants = [...students, ...held];
   const { saiShared, saiGaps, acrossCohorts, unplaced } = auditSai(occupants, held,
@@ -269,7 +277,10 @@ export function computeGaps(d = {}) {
   // that neither is inside นักศึกษาทั้งหมด. A count with no stated denominator
   // invites exactly that reading. Every person-group now carries its own.
   const SCOPE_HELD = `จาก ${held.length} คนที่ยังนำเข้าไม่ได้`;
-  const SCOPE_STUDENTS = `จากนักศึกษา ${students.length} คนที่นำเข้าแล้ว`;
+  // Out of the ACTIVE roster, not every row ever imported — a graduated รุ่น
+  // is excluded from the numerator above, so the denominator must match it or
+  // the percentage silently compares two different populations.
+  const SCOPE_STUDENTS = `จากนักศึกษาที่ยังเรียนอยู่ ${active.length} คน`;
 
   const groups = [
     {

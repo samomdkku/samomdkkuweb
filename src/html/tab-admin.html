@@ -195,6 +195,8 @@
                    trigger button shows a count badge when the facet is
                    active. "Clear all" wipes every facet at once. -->
               <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                <select class="form-select form-select-sm" style="max-width:160px;"
+                        id="shopAdminOrdersYearFilter" aria-label="ปี SAMO"></select>
                 <div class="dropdown">
                   <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
                           type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
@@ -337,6 +339,8 @@
               <!-- Filters scope everything below them. Static markup so a
                    re-render never steals focus from a chip. -->
               <div class="sales-filters" id="shopSalesFilters">
+                <select class="form-select form-select-sm" style="max-width:160px;"
+                        id="shopSalesYearFilter" aria-label="ปี SAMO"></select>
                 <div class="sales-seg-ctl" role="group" aria-label="ช่วงเวลา">
                   <button type="button" data-sales-period="7d">7 วัน</button>
                   <button type="button" data-sales-period="30d">30 วัน</button>

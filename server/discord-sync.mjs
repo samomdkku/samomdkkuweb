@@ -25,7 +25,7 @@
 //   node server/discord-sync.mjs --once   # one full pass, then exit (tests, ops)
 //   node server/discord-sync.mjs --once --nick-plan   # print the nickname plan, write NO name
 // ============================================================
-import { diffMembers, gate, expectedRoleName, planProvision, formatReport, planNicknames } from './discord-sync-core.mjs';
+import { diffMembers, gate, expectedRoleName, planProvision, formatReport, planNicknames, mdLine } from './discord-sync-core.mjs';
 
 const env = process.env;
 const API = (() => {
@@ -46,9 +46,22 @@ const NICKS_CEILING = process.argv.includes('--nick-plan') ? 'plan'
 let NICKS = NICKS_CEILING;
 // The admin panel's switches (discord_bot_settings, 0208), re-read every loop.
 let settings = { sync_enabled: true, nicknames_enabled: true, silent: false };
+let settingsReadAt = 0;
+/** Thrown by write() when the admin panel pauses the bot MID-PASS: a first
+ *  nickname run is hundreds of writes, and "pause" must stop it within seconds,
+ *  not at the end of the pass. Never counted as a failure. */
+class Paused extends Error {}
+async function stillOn() {
+  if (ONCE) return true;
+  if (Date.now() - settingsReadAt > 3000) await readSettings();
+  return settings.sync_enabled !== false;
+}
 async function readSettings() {
   const [row] = await pg('discord_bot_settings?select=sync_enabled,nicknames_enabled,silent,note,changed_by_label,full_pass_requested_at');
-  if (row) settings = row;
+  // No row is not "on" (mistakes class 2 — absent is not a state): the switch
+  // cannot be read, so the bot does not write.
+  settings = row || { ...settings, sync_enabled: false, note: 'ไม่พบแถวตั้งค่าของบอท (discord_bot_settings) — หยุดไว้ก่อน', changed_by_label: null };
+  settingsReadAt = Date.now();
   NICKS = settings.nicknames_enabled === false ? 'off' : NICKS_CEILING;
   return settings;
 }
@@ -92,7 +105,10 @@ async function dc(path, init = {}) {
   }
   throw new Error(`gave up after repeated 429 on ${path}`);
 }
-const write = async (path, init) => { const out = await dc(path, init); await sleep(WRITE_GAP_MS); return out; };
+const write = async (path, init) => {
+  if (!(await stillOn())) throw new Paused('paused in the admin panel');
+  const out = await dc(path, init); await sleep(WRITE_GAP_MS); return out;
+};
 
 // ── Postgres (service role; the paths it may use are pinned by a test) ─────
 async function pg(path, init = {}) {
@@ -165,7 +181,7 @@ async function pass(queue, forceFull = false) {
   ]);
   // ⛔ An empty target set is "nobody linked" OR "this credential sees nothing";
   // to a diff those are the same input as "remove everything". Never act on it.
-  if (!targets.length) { await alert('empty', 'discord_role_targets() returned NO rows — nothing applied.'); return null; }
+  if (!targets.length) { log('discord_role_targets() returned NO rows — nothing applied'); return null; }
   const bot = await dc(`/guilds/${guildId}/members/${botId}`);
   const botTop = Math.max(...bot.roles.map((r) => roles.find((x) => x.id === r)?.position ?? 0));
 
@@ -222,7 +238,7 @@ async function pass(queue, forceFull = false) {
   const failed = [];
   const tryWrite = async (item, path, init, sign) => {
     try { await write(path, init); log(`${sign} ${item.who}  ${name(item.role)}`); return true; }
-    catch (e) { log(`FAILED ${sign} ${item.who} ${name(item.role)}: ${e.message}`); failed.push({ ...item, why: `Discord ปฏิเสธ (${e.message.slice(0, 80)})` }); return false; }
+    catch (e) { if (e instanceof Paused) throw e; log(`FAILED ${sign} ${item.who} ${name(item.role)}: ${e.message}`); failed.push({ ...item, why: `Discord ปฏิเสธ (${e.message.slice(0, 80)})` }); return false; }
   };
   const adds = []; const removes = [];
   for (const a of g.adds) if (await tryWrite(a, `/guilds/${guildId}/members/${a.member}/roles/${a.role}`, { method: 'PUT' }, '+')) adds.push(a);
@@ -253,9 +269,12 @@ async function pass(queue, forceFull = false) {
         await write(`/guilds/${guildId}/members/${r.member}`, { method: 'PATCH', body: JSON.stringify({ nick: r.to }) });
         nicks.push(r); log(`nick ${r.member}: "${r.from ?? r.shown}" → "${r.to}"`);
       } catch (e) {
+        if (e instanceof Paused) throw e;
         log(`FAILED nick ${r.member}: ${e.message}`);
         const why = /HTTP 403/.test(e.message) ? 'Discord ไม่อนุญาตให้บอทเปลี่ยนชื่อคนนี้' : `เปลี่ยนชื่อไม่สำเร็จ (${e.message.slice(0, 60)})`;
-        if (!nickReported.has(`${r.member}:${why}`)) { nickReported.add(`${r.member}:${why}`); nickHeld.push({ member: r.member, shown: r.from ?? r.shown, why }); }
+        // Posted only for a person a web edit named — the full pass repeats it
+        // after every restart (every deploy) otherwise. Always logged above.
+        if (named.has(r.member) && !nickReported.has(`${r.member}:${why}`)) { nickReported.add(`${r.member}:${why}`); nickHeld.push({ member: r.member, shown: r.from ?? r.shown, why }); }
       }
     }
     if (NICKS === 'plan') log(`nick plan: ${plan.renames.length} to rename, ${plan.skipped.length} skipped`);
@@ -266,7 +285,7 @@ async function pass(queue, forceFull = false) {
   return `${full ? 'ตรวจทั้งหมด' : 'ตามการแก้ในเว็บ'}: ได้ role ${adds.length} · เอาออก ${removes.length} · รอคนตรวจ ${g.held.length} · ตั้งชื่อ ${nicks.length}`;
 }
 
-async function main() {
+async function boot() {
   const me = await dc('/users/@me'); botId = me.id;
   if (!guildId) {
     const gs = await dc('/users/@me/guilds');
@@ -274,71 +293,100 @@ async function main() {
     guildId = gs[0].id;
   }
   ownerId = (await dc(`/guilds/${guildId}`)).owner_id || null;
-  log(`discord-sync up as ${me.username}; poll ${POLL_MS} ms, full pass every ${Math.round(FULL_MS / 60000)} min; power keys allowed: ${ALLOW_POWER.join(', ') || '(none)'}; nicknames: ${NICKS}`);
-  await readSettings();
+  log(`discord-sync up as ${me.username}; poll ${POLL_MS} ms, full pass every ${Math.round(FULL_MS / 60000)} min; power keys allowed: ${ALLOW_POWER.join(', ') || '(none)'}; nicknames ceiling: ${NICKS_CEILING}`);
+}
+
+async function main() {
   if (ONCE) {
+    await boot();
+    await readSettings();
     if (!settings.sync_enabled) { log(`paused in the admin panel — nothing done (${settings.note || ''})`); return; }
-    await pass([], true); return;
+    if (await pass([], true) == null) throw new Error('discord_role_targets() returned NO rows — nothing applied');
+    return;
   }
-  const [st0] = await pg('discord_bot_status?select=state');
-  // Announce a pause/resume once per CHANGE, not per restart: every deploy
-  // restarts this service (the owner saw one line repeated per deploy).
-  let paused = st0?.state === 'paused';
-  await status({ running_since: new Date().toISOString(), state: settings.sync_enabled ? 'running' : 'paused', nicknames: NICKS });
 
   // A blip is not news. The loop already retries; the channel hears about a
   // failure only once it has PERSISTED (FAILS_BEFORE_ALERT in a row, ~1 min),
   // and hears that it has recovered — a warning nobody withdraws reads as a
   // standing outage (2026-09-23: one "fetch failed" that healed in 100 s).
+  // START-UP is inside the loop too: Discord or Supabase down during a deploy
+  // restart used to crash-loop under systemd with no alert at all.
   const FAILS_BEFORE_ALERT = 3;
+  let booted = false; let paused = false;
   let lastFull = 0; let backoff = 0; let fails = 0; let alerted = false; let lastBeat = 0;
+  // "Check everything now" is answered by COMPARING THE REQUEST, not two
+  // machines' clocks (the database's now() vs this VM's Date.now()).
+  let handledRequest = null;
+  // One place a round counts as a success — paused rounds included, so a
+  // failure that heals while paused is still withdrawn.
+  const succeeded = async () => {
+    backoff = 0;
+    if (alerted) { alerted = false; await post(`**✅ Discord sync** — กลับมาทำงานปกติแล้ว (ล้มเหลวติดกัน ${fails} ครั้งก่อนหน้านี้)`); }
+    fails = 0;
+  };
   for (;;) {
     try {
+      if (!booted) {
+        await boot();
+        await readSettings();
+        const [st0] = await pg('discord_bot_status?select=state');
+        // Announce a pause/resume once per CHANGE, not per restart: every
+        // deploy restarts this service (the owner saw one line per deploy).
+        paused = st0?.state === 'paused';
+        handledRequest = settings.full_pass_requested_at || null;   // a start-up pass is full anyway
+        await status({ running_since: new Date().toISOString(), state: settings.sync_enabled ? 'running' : 'paused', nicknames: NICKS });
+        booted = true;
+      }
       await readSettings();
       if (!settings.sync_enabled) {
         if (!paused) {
           paused = true;
-          await post(`**⏸ บอท Discord ถูกปิด**${settings.changed_by_label ? ` โดย ${settings.changed_by_label}` : ''} — ${settings.note || ''}\nระหว่างนี้ role และชื่อใน Discord จะไม่เปลี่ยนตามเว็บ`);
+          await post(`**⏸ บอท Discord ถูกปิด**${settings.changed_by_label ? ` โดย ${mdLine(settings.changed_by_label)}` : ''} — ${mdLine(settings.note || '')}\nระหว่างนี้ role และชื่อใน Discord จะไม่เปลี่ยนตามเว็บ`);
           await status({ state: 'paused' });
         }
         // Still seen while paused, so the panel can tell "paused" from "dead".
         if (Date.now() - lastBeat >= FULL_MS) { lastBeat = Date.now(); await status({ state: 'paused', last_seen_at: new Date().toISOString() }); }
-        backoff = 0; fails = 0;
+        await succeeded();
         await sleep(POLL_MS);
         continue;
       }
       if (paused) {
         paused = false; lastFull = 0;   // catch up on everything missed
-        await post(`**▶️ บอท Discord กลับมาทำงานแล้ว**${settings.changed_by_label ? ` โดย ${settings.changed_by_label}` : ''} — กำลังตรวจทุกคนให้ตรงกับเว็บ`);
+        await post(`**▶️ บอท Discord กลับมาทำงานแล้ว**${settings.changed_by_label ? ` โดย ${mdLine(settings.changed_by_label)}` : ''} — กำลังตรวจทุกคนให้ตรงกับเว็บ`);
       }
       const queue = await pg('discord_sync_queue?select=id,kind,person_id,node_id,actor_name,detail&order=id&limit=1000');
-      const asked = settings.full_pass_requested_at && Date.parse(settings.full_pass_requested_at) > lastFull;
+      const request = settings.full_pass_requested_at || null;
+      const asked = !!request && request !== handledRequest;
       const due = Date.now() - lastFull >= FULL_MS || asked;
       if (queue.length || due) {
         const started = Date.now();
         const summary = await pass(queue, due);
-        const ok = summary != null;
-        if (due && ok) lastFull = started;
-        if (ok) { lastBeat = Date.now(); await status({ state: 'running', last_seen_at: new Date().toISOString(), last_pass_at: new Date().toISOString(), last_summary: summary, nicknames: NICKS }); }
-        // Delete only what this pass SAW, and only after it succeeded — a row
-        // queued mid-pass has a higher id and waits for the next one.
+        // Nothing applied is not a success: no recovery message, no heartbeat
+        // (the panel shows it), and the backoff — not a retry every 5 s.
+        if (summary == null) throw new Error('discord_role_targets() returned NO rows — nothing applied');
+        if (due) { lastFull = started; handledRequest = request; }
+        lastBeat = Date.now();
+        await status({ state: 'running', last_seen_at: new Date().toISOString(), last_pass_at: new Date().toISOString(), last_summary: summary, nicknames: NICKS });
         // By id, not `id <= max`: ids are not committed in order, so a row
         // that took a LOWER id but committed after this read would be deleted
-        // unprocessed by a range.
-        if (queue.length && ok) await pg(`discord_sync_queue?id=in.(${queue.map((q) => Number(q.id)).join(',')})`, { method: 'DELETE' });
+        // unprocessed by a range. Only after the pass succeeded.
+        if (queue.length) await pg(`discord_sync_queue?id=in.(${queue.map((q) => Number(q.id)).join(',')})`, { method: 'DELETE' });
       }
-      backoff = 0;
-      if (alerted) { alerted = false; await post(`**✅ Discord sync** — กลับมาทำงานปกติแล้ว (ล้มเหลวติดกัน ${fails} ครั้งก่อนหน้านี้)`); }
-      fails = 0;
+      await succeeded();
     } catch (e) {
+      if (e instanceof Paused) {   // not a failure: the next round announces the pause
+        log('paused mid-pass — stopped writing');
+        await sleep(POLL_MS);
+        continue;
+      }
       fails += 1;
       backoff = Math.min((backoff || BACKOFF_MS) * 2, 5 * 60 * 1000);
       log(`error #${fails} — retrying in ${Math.round(backoff / 1000)}s: ${e.message}`);
       await status({ last_error: e.message.slice(0, 500), last_error_at: new Date().toISOString() });
       if (fails >= FAILS_BEFORE_ALERT && !alerted) {
         alerted = true;
-        lastAlert.delete(`err`);
-        await alert('err', `ล้มเหลวติดกัน ${fails} ครั้ง — ยังลองใหม่อยู่ทุก ${Math.round(backoff / 1000)} วินาที: ${e.message}`);
+        lastAlert.delete('err');
+        await alert('err', `ล้มเหลวติดกัน ${fails} ครั้ง — ยังลองใหม่อยู่ทุก ${Math.round(backoff / 1000)} วินาที: ${mdLine(e.message)}`);
       }
       await sleep(backoff);
     }

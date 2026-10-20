@@ -4,6 +4,20 @@
 // Each cart line: { productId, size, color, fit, qty, price }.
 // Subscribers fire on every mutation so the FAB count, cart drawer, and
 // checkout summary all stay in sync without a framework.
+//
+// CROSS-TAB: `cart` is loaded into memory ONCE per tab (module-load time)
+// and every mutation here persists the WHOLE array, overwriting whatever is
+// in localStorage right now — not a merge. Two tabs open on the shop (a
+// product link opened in a new tab, a long-press "open in new tab", a
+// second device-emulator window) each hold their OWN stale in-memory copy;
+// whichever tab calls addItem/updateQty/removeItem NEXT persists ITS copy
+// over the other tab's, silently dropping anything the other tab added that
+// this tab never saw. The `storage` listener below is the fix: it fires in
+// every OTHER tab (never the one that wrote) the instant localStorage
+// changes, so this tab's in-memory copy is refreshed before its next
+// mutation can clobber it. Guarded for `window` because this module is also
+// imported under Node's test runner, which has no DOM (mistakes.md:
+// "this repo's tests run without jsdom").
 // ==============================================
 
 const STORAGE_KEY = 'samoshop.cart.v1';
@@ -27,6 +41,19 @@ function persist() {
   catch (e) { console.warn('[shop/state] persist failed:', e); }
 }
 
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('storage', (e) => {
+    // `key === null` is the browser's own signal for `localStorage.clear()`
+    // (MDN: "If this is null, it has been cleared") — nothing in this app
+    // calls clear() today, but treating it as "ignore" would mean a future
+    // clear() in one tab leaves every OTHER tab's stale cart to persist
+    // itself right back on its next write, silently undoing the clear.
+    if (e.key !== STORAGE_KEY && e.key !== null) return;
+    cart = load();
+    notify();
+  });
+}
+
 function notify() {
   for (const cb of subscribers) {
     try { cb(cart); } catch (e) { console.error('[shop/state] subscriber error', e); }
@@ -46,8 +73,17 @@ export function cartSubtotal() {
 /**
  * Add an item; if the same product/size/color/fit is already in the cart,
  * bump qty instead of duplicating the line.
+ *
+ * `maxQty` is the real cap for THIS variant (the product popup passes
+ * products.js's qtyCeilingFor — what the cart drawer's own +/- already
+ * enforces via cart.js's maxQtyFor). Without it, merging into an existing
+ * line only checked the hardcoded 99, so re-adding a low-stock item already
+ * in the cart could push the line past what is actually available
+ * (HANDOFF §18f). Default 99 keeps checkout.js's "rebuild the cart from a
+ * failed order" call working unchanged — it is restoring a quantity that
+ * was already in the cart, not adding past a limit.
  */
-export function addItem(item) {
+export function addItem(item, maxQty = 99) {
   const i = cart.findIndex(
     (it) => it.productId === item.productId
         && it.size === item.size
@@ -55,9 +91,9 @@ export function addItem(item) {
         && it.fit === item.fit,
   );
   if (i >= 0) {
-    cart[i] = { ...cart[i], qty: Math.min(99, cart[i].qty + (item.qty || 1)) };
+    cart[i] = { ...cart[i], qty: Math.min(maxQty, cart[i].qty + (item.qty || 1)) };
   } else {
-    cart.push({ ...item, qty: Math.max(1, Math.min(99, item.qty || 1)) });
+    cart.push({ ...item, qty: Math.max(1, Math.min(maxQty, item.qty || 1)) });
   }
   persist();
   notify();

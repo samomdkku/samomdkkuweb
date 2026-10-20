@@ -1207,6 +1207,84 @@ where only one of them was ever handed the full data.
 
 ---
 
+## addItem merging an existing cart line only capped the TOTAL at 99, never at real stock
+
+**Symptom** (HANDOFF §18f, cold review, CONFIRMED — fixed `agent/2026-10-20`,
+not deployed): a buyer adds 2 of a variant with 5 left, closes the popup,
+reopens it and adds 2 more — fine, 4 of 5 — then adds 2 more again:
+`state.js`'s `addItem` let the line reach 6, past the real 5. The entry above
+("the cart drawer's qty cap") fixed the DRAWER's own `+`/`-` for an existing
+line; this is the OTHER place a line's qty grows — the product popup's "Add"
+button, which calls `addItem` fresh each time, merging into whatever is
+already there.
+
+**Cause**: `addItem(item)` capped the merged total at a hardcoded `Math.min(99,
+…)` — the only number it had, because `state.js` is deliberately kept free of
+any dependency on the product catalogue or stock data (see its own
+cross-tab-sync header comment). It had no way to know what the real ceiling
+for THIS variant was, so it used the one it always had.
+
+**Fix**: `addItem(item, maxQty = 99)` — the CALLER passes the real cap.
+`products.js`'s add-to-cart handler passes `qtyCeilingFor(product,
+modalState.size, modalState.color)` (see `frontend-ui.md`'s popup entry for
+that function). `checkout.js`'s "rebuild the cart from a failed order" call
+passes none, keeping the 99 default — it is restoring a quantity that was
+already in the cart, not adding past a limit, so there is nothing to cap
+against. `src/js/shop/state.test.js`, mutation-checked.
+
+**Where it lives now**: `src/js/shop/state.js` (`addItem`), `src/js/shop/products.js`
+(the add-to-cart handler), `src/js/shop/checkout.js` (unchanged call site).
+
+**The general rule**: *a low-level state module that deliberately knows
+nothing about domain data cannot enforce a domain limit — the CALLER must
+pass it in, every time a new call site is added that merges into existing
+state.* The same class as the drawer bug above, one layer closer to the
+write: capping the DISPLAY of a value is not the same as capping the WRITE.
+
+---
+
+## csvGuard/csvUnguard did not round-trip a value that itself started with `'`
+
+**Symptom** (HANDOFF §18f, cold review, CONFIRMED — fixed `agent/2026-10-20`,
+not deployed): a real value typed by a student that happens to start with an
+apostrophe followed by a formula character — e.g. a bio of `'-not-a-number`
+or `'=looks-like-a-formula` — came back DIFFERENT after export → edit →
+re-import: the leading apostrophe silently disappeared.
+
+**Cause**: `csvGuard` prefixes a formula-looking value (`=`, `+`, `-`, `@`,
+tab, CR) with `'` so Excel/Sheets shows it as text, and `csvUnguard` strips
+that `'` back off on import. `csvUnguard` decided whether to strip by
+looking at what FOLLOWED the leading `'` — if it looked like a formula
+trigger, strip it; otherwise leave it. That heuristic cannot tell "I added
+this quote to escape a formula" from "the real value already started with a
+quote, and what happens to follow it looks like a formula too" — both
+produce the identical string `'<rest>`, and the second case is exactly a
+real value starting with `'`.
+
+**Fix**: `csvGuard` now ALSO escapes (doubles) a value that itself starts
+with `'`, and `csvUnguard` always strips exactly one leading `'` with no
+guessing — the transform is now its own inverse by construction, not by
+heuristic, the same idea as SQL's `''`. A 2000-iteration property test over
+randomly generated strings (`src/js/team/io.test.js`) backs the few curated
+examples that were there before; mutation-checked.
+
+**Where it lives now**: `src/js/utils.js` (`csvGuard`, `csvUnguard`),
+`src/js/team/io.test.js`.
+
+**The general rule**: *when an escape character can also be a literal part
+of the real data, the escaping scheme must handle the escape character
+occurring IN the data — not just the characters it exists to escape.* A
+guard built from "if it starts with X, guess what the original was" is
+unprovable without reading what follows; one that always escapes its own
+marker and always strips exactly one layer is provable by construction.
+Same test-writing lesson as `.claude/rules/mistakes.md` class 7's "never
+write a guard from the same list the code came from" — here the thing to
+avoid was writing *examples*, not a *property*: a handful of curated inputs
+passed for months while the actual failing shape (quote, then a formula
+character) was never one of them.
+
+---
+
 ## Two ฝ่ายสโม tag chips clicked quickly could silently drop one of them
 
 **Symptom**: on a โครงการ's detail header, a sender-desk account (vpa/dev)
@@ -1324,3 +1402,132 @@ check what the human could get wrong, not only what our sheet could — the
 address itself, a pasted-twice row, a column they moved. And a rule written in a
 handoff note ("put the kkumail on the person FIRST") is not in the tool until it
 is an assertion the transaction fails on.
+
+## SAMO Shop: a product added to the cart in one browser tab could vanish if another tab added one too
+
+**Symptom (owner's worry, 2026-10-18 night-agent task 9):** "login ด้วย
+username password แล้วซื้อแบบนี้ กดออกไปหน้านี้แล้วมีปัญหา" — sign in, add to
+cart, navigate away, come back, something is wrong. Every IN-APP navigation
+(the shop tab, `/me`, the home banner's shop slide) is client-side-routed —
+`pushState` + Bootstrap `Tab.show()`, never `location.reload()` — so the
+cart's own module state survives all of those for free; that part of the
+worry turned out not to be a bug.
+
+**Cause:** `shop/state.js` loads `cart` into memory ONCE, at module-load
+time, from `localStorage`, and every mutation (`addItem`/`updateQty`/
+`removeItem`) persists the WHOLE in-memory array back — not a merge. Each
+browser TAB gets its own module instance with its own copy. Open a product
+link in a second tab (or duplicate the tab, or open the shop in two windows)
+and add something in each: tab A's `addItem` reads its own stale `cart`
+(unaware of anything tab B wrote), computes `[...stale, X]`, and persists it
+— overwriting whatever tab B had already saved. Whichever tab writes LAST
+wins outright; the other tab's item is gone from `localStorage` with no
+error, no toast, nothing — the customer finds out only when the order total
+at checkout is short a product.
+
+**Fix:** `state.js` now listens for the browser's own `storage` event, which
+fires in every OTHER tab (never the one that wrote) the instant
+`localStorage` changes. On a hit for this cart's key, it reloads `cart` from
+storage and notifies subscribers — so the NEXT mutation in that tab starts
+from the freshest array instead of a stale one, and nothing another tab
+wrote is still in storage can get silently clobbered. Verified red-then-green:
+reverting the listener reproduces exactly this loss in
+`src/js/shop/state.test.js` (two module instances sharing one fake
+`localStorage`, one tab's registered listener invoked by hand since there is
+no real DOM in this repo's test runner).
+
+**Where it lives now:** `src/js/shop/state.js` (the `storage` listener,
+guarded for `typeof window === 'undefined'` since the module is also
+imported under Node's jsdom-less test runner); `src/js/shop/state.test.js`.
+A live-browser walk of the rest of the flow (prefill, the no-email notice,
+a slip picked and typed fields surviving a navigate-away-and-back mid
+checkout) is written at `tools/browser/shop-checkout-navigate-away.mjs` but
+**NOT RUN** — this sandbox has no Chrome/Chromium binary and no network to
+install one; it is the next thing to run on a machine that has one.
+
+**The general rule**: `localStorage` is shared STATE, not a message —
+writing the whole value back is "last write wins" across every tab that has
+the page open, the same shape class 6 already names for two database writers
+of one fact. A module that owns a piece of `localStorage` and lets more than
+one tab write it needs the `storage` event as its own module-scope cache's
+invalidation signal, same as an account switch needs one for an in-memory
+cache (see this file's "Module-scope caches…" entry above).
+
+## SAMO Shop admin: the "ต้องจัดการ" tile said one number, clicking it showed fewer rows
+
+**Symptom (found by `/scrutinize` on night-agent task 9's own diff, 0230, not
+reported by a person):** the admin orders tab's own comment claims "The counts
+and the filter a tile applies are the same predicate" — but after 0230 added
+a SAMO-year picker defaulting to the current year, the "ยังไม่ส่งสลิป" /
+"สลิปไม่ถูกต้อง" / "มีปัญหา" tiles and the "รายรับสะสม" tile counted across
+**every** year while the view each one opens into (the orders table, the
+ยอดขาย tab) was year-filtered. A pending/review order left over from a
+previous team ("ค้างจากปีก่อน" — exactly the case 0230 exists to handle)
+inflated a tile's count with no way to reach it: clicking the tile opened a
+table that silently excluded it, with nothing telling the admin why the
+numbers didn't match.
+
+**Cause:** `renderStats()` (`src/js/shop/admin.js`) computed `scoped`
+(`attentionCounts`) and `revenue` from `state.orders` — unfiltered — while
+`renderOrdersTable()`'s `filterOrders()` and the ยอดขาย tab's
+`yearFilteredOrders()` both gate on `state.ordersYear`. The year filter was
+added as one more fact `filterOrders` checks, but the tile counts were never
+updated to read the same filtered set — a scope added on one side of a
+count/destination pair and not the other (class 3/6: the tile's own comment
+documented the invariant it then broke).
+
+**Fix:** `scoped` and `revenue` now read `yearFilteredOrders()` instead of
+`state.orders`. `queue` (the slip-review count, whose destination — the
+ตรวจสลิป tab — is deliberately never year-filtered, since unresolved review
+work must not hide behind whichever year happens to be picked) is left
+reading `state.orders`, unchanged on purpose. Added direct unit coverage for
+the shared predicate itself, `orderMatchesYearFilter` (`src/js/shop/
+data.test.js`), which had none before — its PR mirror `ticketMatchesYearFilter`
+did.
+
+**Where it lives now:** `src/js/shop/admin.js` (`renderStats`),
+`src/js/shop/data.test.js`.
+
+**The general rule**: when a new filter is added to a view, grep every COUNT
+that promises to equal what a click on it reveals, not just the view's own
+render path — a count and its destination are two call sites for one
+invariant, and a comment stating the invariant is not a guard against a
+change made somewhere else.
+
+---
+
+## Editing an archived announcement silently republished it
+
+**Symptom (found reviewing night-agent task 10's own diff, 0232, before any
+person hit it):** 0232 added เก็บเข้าคลัง/เผยแพร่อีกครั้ง (archive/restore) for
+ประกาศ, including explicit support for reopening an archived post in the
+editor — `admin-main.js`'s `enterCreator()` and `tryCreatorDeepLink()` both
+call `loadAnnouncements('all')` specifically so a `#creator/{id}` deep link or
+the manage card's pencil can resolve an archived row. But saving that edit —
+even a typo fix with no intent to republish — flipped the post straight back
+onto the public site.
+
+**Cause:** `publishAnnouncement()` (`src/js/announcements.js`) built its
+PATCH/POST body with a hardcoded `status: 'approved'`, written back when
+archiving didn't exist and every row WAS 'approved' by construction. 0232
+added a second status value reachable through the editor without updating
+the one place that writes `status` on save — a flow the code's own comments
+show was anticipated (reopening an archived post was deliberately wired) but
+not carried all the way to the write path (class 6: a value correct until a
+sibling feature changes the population it is drawn from).
+
+**Fix:** extracted the decision into a pure, tested function,
+`nextAnnouncementStatus(beforeRow, isEditing)` — a new post is always
+'approved' (no UI offers "create pre-archived"); an edit preserves whatever
+the row already had. `publishAnnouncement()` now calls it instead of
+hardcoding the literal.
+
+**Where it lives now:** `src/js/announcements.js` (`nextAnnouncementStatus`,
+used in `publishAnnouncement`), `src/js/announcement-status.test.js`.
+
+**The general rule**: adding a new value to an enum-like column (here,
+`status` gaining 'archived') means re-auditing every WRITE site that sets
+that column to a literal, not just the read/filter sites — a write path that
+predates the new value has no reason to know it exists, even when a sibling
+change in the SAME feature deliberately made the new value reachable from
+that write's own entry point.

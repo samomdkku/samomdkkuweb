@@ -259,6 +259,9 @@ describe('RATCHET — ชั้นปี stays derived', () => {
     // qualifier '(ตอนที่แจ้ง)', which vs-requester.test.js asserts — so this
     // exemption cannot quietly decay into a bare year read as current.
     ['vs-requester.js', 'a ชั้นปี the reporter STATED, labelled as a snapshot'],
+    // 'กิจกรรม (ปี 2569)' — a SAMO/พ.ศ. team-term year filter label (0232),
+    // never a person's ชั้นปี.
+    [join('accounts', 'admin.js'), 'the บัญชีผู้ใช้ "กิจกรรม" year filter — a SAMO year, not anyone\'s ชั้นปี'],
   ]);
 
   it('every ชั้นปี on screen comes from studyYearLabel()', () => {

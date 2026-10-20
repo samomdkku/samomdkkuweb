@@ -1,0 +1,17 @@
+[Unit]
+Description=Run stats retention weekly
+
+[Timer]
+# ⚠️ OnCalendar, deliberately — NOT OnBootSec+OnUnitActiveSec.
+# .claude/rules/mistakes.md class 7: a timer whose only triggers are monotonic
+# comes back from a `disable` still reporting `enabled`/`active` with
+# NextElapseUSecMonotonic=infinity — i.e. it looks scheduled and never fires.
+# A wall-clock trigger always shows a real NEXT in `systemctl list-timers`.
+# Weekly (Sunday 04:40) — offset from supabase-backup.timer's nightly 04:00
+# so the two do not compete for the same connection window.
+OnCalendar=Sun *-*-* 04:40:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

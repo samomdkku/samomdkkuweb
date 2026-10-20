@@ -1541,3 +1541,39 @@ refused only the literal `Projects` root, so one anonymous call with
 `endsAtYearContainer_` refuses both; `gas-drive-scope.test.js` shows it red
 without. **When a change adds a level to a tree, every guard written as
 "not the root" must learn the new level.**
+
+---
+
+**Symptom.** Cold review of `server/discord-sync.mjs` (2026-09-23) found 9
+real bugs, fixed on `wip/discord-review-fixes` (`e5490a2`) and never merged —
+2 of `src/js/discord-sync.test.js`'s tests stayed red against the fix, so the
+branch sat. Cherry-picked onto `agent/2026-10-20` (2026-10-20, HANDOFF §18f).
+
+**Cause.** Both red tests had the OLD behaviour baked into their expectation,
+not a bug in the fix: (1) "Discord refusing ONE rename does not stop the
+others" expected a failed nickname write to be POSTED on a `--once` full
+pass — but fix #6 (`named.has(r.member)`) deliberately posts a failed rename
+only when a web EDIT named that person, same rule the existing "the periodic
+full pass only LOGS it" test already pins for an unbuildable name — a full
+pass (always `queue=[]`) can never satisfy that, by design: posting it there
+would repeat on every restart (every deploy). (2) "one blip is retried
+quietly…" matched the raw error text in an alert, but fix #3 now runs every
+alert through `mdLine` (markdown-escapes `_ : -` etc.), so `discord_sync_queue`
+comes back `discord\_sync\_queue` — a real escaping change, not a bug.
+
+**Fix.** Rewrote both tests' expectations to match the restructured design:
+(1) asserts the failure is LOGGED (`FAILED nick U1: Discord HTTP 403`) and
+NOT posted; (2) unescapes the alert text (`.replace(/\\(.)/g, '$1')`, the
+same trick `discord-sync.test.js`'s mention-escaping test already uses)
+before matching. Both still mutation-checked: reverting the corresponding
+fix in `discord-sync.mjs` turns the test red again.
+
+**Where it lives now.** `server/discord-sync.mjs`, `discord-sync-core.mjs`;
+`src/js/discord-sync.test.js`. **Fixed on `agent/2026-10-20`, NOT deployed**
+— `git log --oneline agent/2026-10-18..HEAD`.
+
+**Rule.** A red test against a deliberately restructured implementation is
+not always the implementation's bug — read what CHANGED and why before
+reverting either side. A test that hardcodes raw text through a channel that
+escapes it will drift the moment the escaping is added; unescape before
+matching, or match a property, not the literal bytes.

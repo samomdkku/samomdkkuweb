@@ -23,6 +23,7 @@ import { escHtml, copyText, csvGuard } from '../utils.js';
 import { ago } from '../discord-bot-admin.js';
 import { PERM_LABEL } from '../team-vocab.js';
 import { cohortLabel, studyYearLabel } from '../study-year.js';
+import { fetchSamoYears, samoYearOptionsHtml, ALL_YEARS } from '../samo-year.js';
 import {
   SIGNIN, DOMAINS, SYSTEMS, RECENCY, SEVERITY, SORTS, FILTERS, HEADER_SORTS, DEFAULT_SORT,
   signinOf, domainOf, systemsOf, grantsOf, summarize, runChecks,
@@ -51,14 +52,18 @@ let timer = null;
 let ticker = null;
 let loading = false;
 let failed = false;
+// 'กิจกรรม' filter (0232's p_samo_year_be) — ALL_YEARS = unscoped, the
+// original 0211 behaviour. Not loaded yet = null; fetched once in wire().
+let samoYears = null;
+let acctYearValue = ALL_YEARS;
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH');
 const pct = (n, of) => (of ? `${Math.round((n / of) * 100)}%` : '–');
 const thDate = (iso) => (iso ? new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '–');
 const thDateTime = (iso) => (iso ? new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–');
 
-async function rpc(name) {
-  const { data: d, error } = await dbRest(`/rpc/${name}`, { method: 'POST', body: {}, timeout: 30000 });
+async function rpc(name, body = {}) {
+  const { data: d, error } = await dbRest(`/rpc/${name}`, { method: 'POST', body, timeout: 30000 });
   if (error) throw new Error(error.status === 403 || /42501|ไม่มีสิทธิ์/.test(`${error.code} ${error.message}`)
     ? 'บัญชีนี้ไม่มีสิทธิ์ดูบัญชีผู้ใช้ทั้งหมด (ต้องมีสิทธิ์ Master ในทีม SAMO)'
     : (error.message || `HTTP ${error.status}`));
@@ -91,7 +96,9 @@ async function load() {
     // The fingerprint FIRST: a change landing between the two reads is then
     // caught by the next tick instead of being adopted unseen.
     const p = await rpc('account_dashboard_pulse');
-    const d = await rpc('account_dashboard');
+    const d = await rpc('account_dashboard', {
+      p_samo_year_be: acctYearValue === ALL_YEARS ? null : acctYearValue,
+    });
     pulseV = p.v;
     checkedAt = Date.now();
     const before = byId;
@@ -469,6 +476,12 @@ function openDetail(id) {
     ['สิทธิ์', g.length ? g.map((k) => `<span class="acct-perm${manual.has(k) ? ' is-manual' : ''}" title="${manual.has(k) ? 'ใส่ตรงในฐานข้อมูล ไม่ได้มาจากทีม SAMO' : 'มาจากทีม SAMO'}">${escHtml(PERM_LABEL[k] || k)}</span>`).join('') : '<span class="text-muted">ไม่มี</span>'],
     ['Discord', a.d ? 'เชื่อมแล้ว' : 'ยังไม่เชื่อม'],
   ]));
+  parts.push(`<div class="acct-detail-h">กิจกรรม ${acctYearValue === ALL_YEARS ? '(ทุกปี)' : `(ปี ${escHtml(String(acctYearValue))})`}</div>` + dl([
+    ['PR', fmt(a.act?.pr || 0)],
+    ['VitalSound', fmt(a.act?.vs || 0)],
+    ['SAMO Shop', fmt(a.act?.shop || 0)],
+    ['หนังสือโครงการ', fmt(a.act?.proj || 0)],
+  ]));
   parts.push('<div class="acct-detail-h">SAMO Passport</div>' + (a.pp ? dl([
     ['ระยะสะสม', `${fmt(a.pp.km)} กม.`],
     ['สแกน', `${fmt(a.pp.sc)} ครั้ง`],
@@ -509,6 +522,20 @@ function wire() {
   if (wired) return;
   wired = true;
   const root = document.querySelector('.acct');
+  // 'กิจกรรม' year filter (0232) — same shared picker every other system
+  // uses, never a hand-rolled one (class 6). Fetched once; failure just
+  // leaves the picker on "ทุกปี" (the dashboard's original, unscoped shape).
+  fetchSamoYears().then((years) => {
+    samoYears = years;
+    const sel = $('acctYear');
+    if (!sel) return;
+    sel.innerHTML = `<option value="${ALL_YEARS}">ทุกปี</option>` + samoYearOptionsHtml(years, null);
+    sel.value = acctYearValue;
+  }).catch((e) => console.warn('[accounts] fetchSamoYears failed:', e?.message || e));
+  $('acctYear')?.addEventListener('change', (e) => {
+    acctYearValue = e.target.value === ALL_YEARS ? ALL_YEARS : Number(e.target.value);
+    load();
+  });
   $('acctSort').innerHTML = Object.entries(SORTS).map(([k, s]) => `<option value="${k}">เรียง: ${escHtml(s.label)}</option>`).join('');
   $('acctSort').value = sortKey;
   $('acctSort').addEventListener('change', (e) => { sortKey = e.target.value; if (data) paintList(); });
