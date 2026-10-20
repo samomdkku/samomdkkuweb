@@ -240,7 +240,7 @@ export async function patchMemberPositions(updates) {
 
 export async function fetchTerms() {
   const { data, error } = await dbRest('/team_terms?select=*&order=year.desc');
-  if (error) throw new Error(error.message || 'โหลดปีการศึกษาไม่สำเร็จ');
+  if (error) throw new Error(error.message || 'โหลดปี SAMO ไม่สำเร็จ');
   return data || [];
 }
 
@@ -250,8 +250,8 @@ export async function createTerm(year, label = null) {
     body: { year, label },
     prefer: 'return=representation',
   });
-  if (error) throw new Error(error.message || 'เพิ่มปีการศึกษาไม่สำเร็จ');
-  if (!Array.isArray(data) || !data.length) throw new Error('เพิ่มปีการศึกษาไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  if (error) throw new Error(error.message || 'เพิ่มปี SAMO ไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('เพิ่มปี SAMO ไม่สำเร็จ (สิทธิ์ไม่พอ)');
   return data[0];
 }
 
@@ -274,7 +274,7 @@ export async function deleteTerm(year) {
   });
   if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('ลบไม่สำเร็จ — ไม่พบปีการศึกษานี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+    throw new Error('ลบไม่สำเร็จ — ไม่พบปีนี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
   }
 }
 
@@ -288,12 +288,41 @@ export async function deleteTerm(year) {
  * `ended_at` so every other system's `samo_year_be` trigger can tell which
  * year a historical row actually belongs to (docs/YEAR-ROLLOVER.md).
  */
-export async function setCurrentTerm(year) {
-  const { data, error } = await dbRest('/rpc/start_team_term', {
-    method: 'POST', body: { p_year: year },
+/** Start `year` as the ปี SAMO (start_samo_year, 0242). With `passport`
+ *  ({ name, season }) the next Passport วาระสโม opens in the SAME transaction —
+ *  both move or neither does. Omit it to move the ปี SAMO alone. */
+export async function startSamoYear(year, passport = null) {
+  const { data, error } = await dbRest('/rpc/start_samo_year', {
+    method: 'POST',
+    body: {
+      p_year: year,
+      p_passport_name: passport?.name || null,
+      p_season_name: passport?.season || null,
+    },
   });
-  if (error) throw new Error(error.message || 'ตั้งปีปัจจุบันไม่สำเร็จ');
+  if (error) throw new Error(error.message || 'เริ่มปี SAMO ไม่สำเร็จ');
   return data;
+}
+
+/** Passport's open วาระสโม and its open season — the newest open row of each,
+ *  the same rule passport.stamp_scan and passport/js/samo.js use. Both tables
+ *  are world-readable (samo_years_read / samo_seasons_read = true). */
+export async function fetchPassportTerm() {
+  const h = { 'Accept-Profile': 'passport' };
+  const [y, s] = await Promise.all([
+    dbRest('/samo_years?select=id,name,started_at,team_term_year&ended_at=is.null&order=started_at.desc&limit=1', { headers: h }),
+    dbRest('/samo_seasons?select=id,name,samo_year_id,started_at&ended_at=is.null&order=started_at.desc&limit=1', { headers: h }),
+  ]);
+  if (y.error) throw new Error(y.error.message || 'อ่านวาระสโมของ Passport ไม่สำเร็จ');
+  return { term: (y.data || [])[0] || null, season: (s.data || [])[0] || null };
+}
+
+/** May this account open a Passport วาระ? Asked of the database's own answer
+ *  (passport_admin_context, the test start_samo_year makes), not re-derived. */
+export async function fetchPassportOrgWide() {
+  const { data, error } = await dbRest('/rpc/passport_admin_context', { method: 'POST', body: {} });
+  if (error) return false;
+  return !!data?.all_departments;
 }
 
 /** Freeze the live tree into `year`'s archive. Re-runnable; replaces wholesale. */
@@ -359,7 +388,7 @@ export async function updateArchiveNode(id, patch) {
  */
 export async function fetchTermStatus() {
   const { data, error } = await dbRest('/rpc/team_term_status', { method: 'POST', body: {} });
-  if (error) throw new Error(error.message || 'อ่านสถานะปีการศึกษาไม่สำเร็จ');
+  if (error) throw new Error(error.message || 'อ่านสถานะปี SAMO ไม่สำเร็จ');
   return data || { terms: [] };
 }
 

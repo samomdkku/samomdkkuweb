@@ -1,9 +1,12 @@
 // ==============================================
-// TEAM TERMS — the ปีการศึกษา pane of the ทีม SAMO admin (mode 'years').
+// TEAM TERMS — the ทีมแต่ละปี pane of the ทีม SAMO admin (mode 'years').
 //
 // Two jobs:
-//   1. Manage the year registry: which ปีการศึกษา the LIVE tree represents, and
-//      which past years have been published to the public page.
+//   1. The year ARCHIVE: which years have been published to the public page,
+//      re-publishing the current one, adding or deleting a year. WHICH year is
+//      current is NOT set here any more — that is the ปี SAMO admin page
+//      (samo-year-admin.js, /admin/#years), because every system files new work
+//      under it and it deserved more than one outline button in this list.
 //   2. Edit a published year. The snapshot is frozen in the sense that editing
 //      the live tree does not change it — but it is NOT read-only: a misspelled
 //      name or a missing photo in ปี 2567 is fixed here, without disturbing the
@@ -27,8 +30,9 @@ import { escHtml } from '../utils.js';
 import { askConfirm } from '../confirm-modal.js';
 import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
+import { askPublishTerm } from './term-dialogs.js';
 import {
-  fetchTerms, createTerm, updateTerm, deleteTerm, setCurrentTerm, publishTerm,
+  fetchTerms, createTerm, updateTerm, deleteTerm, publishTerm,
   fetchTermStatus,
   fetchArchive, updateArchiveMember, deleteArchiveMember, updateArchiveNode,
   deleteTeamPhotoIfUnused,
@@ -88,16 +92,14 @@ function termRow(t) {
             ? `<button type="button" class="btn btn-sm btn-primary" data-term-publish="${t.year}">
                  <i class="bi bi-camera"></i> ${published ? 'เผยแพร่ซ้ำ' : 'เผยแพร่ปีนี้'}
                </button>`
-            : `<button type="button" class="btn btn-sm btn-outline-secondary" data-term-current="${t.year}">
-                 ตั้งเป็นปีปัจจุบัน
-               </button>`}
+            : ''}
           ${published
             ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-term-edit="${t.year}">
                  <i class="bi bi-pencil"></i> ${openYear === t.year ? 'ปิด' : 'แก้ไขรายชื่อ/รูป'}
                </button>`
             : ''}
           <button type="button" class="btn btn-sm btn-outline-danger" data-term-delete="${t.year}"
-            ${t.is_current ? 'disabled title="ลบปีปัจจุบันไม่ได้ — ตั้งปีอื่นเป็นปีปัจจุบันก่อน"' : ''}>
+            ${t.is_current ? 'disabled title="ลบปีปัจจุบันไม่ได้ — เริ่มปีอื่นที่หน้า ปี SAMO ก่อน"' : ''}>
             <i class="bi bi-trash"></i>
           </button>
         </div>
@@ -203,9 +205,14 @@ function renderTerms() {
         ผังที่แก้ไขในแท็บ “จัดการทีม” คือ <strong>ปีปัจจุบัน</strong> เสมอ
         กด “เผยแพร่ปีนี้” เพื่อบันทึกภาพนิ่งของผังไว้เป็นประวัติ — ปีที่เผยแพร่แล้ว
         หน้าสาธารณะจะแสดงภาพนิ่งนั้น และกลับมาแก้ไขชื่อ/รูปได้ที่นี่
-        <br><strong>ส่งต่อให้ทีมใหม่:</strong> ① กด “เผยแพร่ปีนี้” ของปีปัจจุบัน
-        ② แก้ผังในแท็บ “จัดการทีม” เป็นทีมใหม่ (หน้าสาธารณะยังแสดงทีมเดิมระหว่างนี้
-        แต่สิทธิ์ของแต่ละคนเปลี่ยนตามผังทันที) ③ กด “ตั้งเป็นปีปัจจุบัน” ให้ปีใหม่
+      </p>
+      <p class="team-terms-note team-terms-note--go">
+        <i class="bi bi-calendar2-range"></i>
+        <span>
+          <strong>ส่งต่อให้ทีมใหม่ และเปลี่ยนปีปัจจุบัน</strong> ทำที่หน้า
+          <button type="button" class="team-terms-golink" data-term-goto-year>ปี SAMO</button>
+          — มีขั้นตอนตามลำดับ และบอกว่าแต่ละระบบจะเปลี่ยนอะไร
+        </span>
       </p>
       <p class="team-terms-note">
         <i class="bi bi-info-circle"></i>
@@ -220,9 +227,9 @@ function renderTerms() {
       </p>
       <div class="team-terms-add">
         <input type="number" class="form-control form-control-sm" id="teamTermNewYear"
-          value="${nextYear}" min="2500" max="2700" aria-label="ปีการศึกษาใหม่" />
+          value="${nextYear}" min="2500" max="2700" aria-label="ปี SAMO ที่จะเพิ่ม" />
         <button type="button" class="btn btn-sm btn-outline-primary" id="teamTermAdd">
-          <i class="bi bi-plus-lg"></i> เพิ่มปีการศึกษา
+          <i class="bi bi-plus-lg"></i> เพิ่มปี
         </button>
       </div>
       <div class="team-terms-status" id="teamTermsStatus"></div>
@@ -271,22 +278,9 @@ async function reloadTerms() {
 async function doPublish(year) {
   const t = terms.find((x) => x.year === year);
   const again = !!t?.published_at;
-  if (!await askConfirm({
-    title: again ? `เผยแพร่ปี ${year} ซ้ำ?` : `เผยแพร่ผังปัจจุบันเป็นภาพนิ่งของปี ${year}?`,
-    // A re-publish DELETES the year's archive and rebuilds it from the live
-    // tree (publish_team_term). During a handover (publish → edit → switch,
-    // skills/year-rollover.md) the live tree is already the NEXT team, so a
-    // re-publish here would file the new team as this year's history — and
-    // the stale badge above invites exactly that click. Say so at the click.
-    body: again
-      ? `รายชื่อและรูปที่แก้ไขไว้ในประวัติปี ${year} จะถูกแทนที่ด้วยผังสดตอนนี้ทั้งหมด — `
-        + `ถ้ากำลังแก้ผังสดเป็นทีมของปีถัดไป อย่ากด: ประวัติปี ${year} จะกลายเป็นทีมใหม่`
-      : 'หลังจากนี้หน้าสาธารณะจะแสดงภาพนิ่งนี้ (ไม่ใช่ผังสด) '
-        + 'แก้ชื่อ/รูปของปีนี้ได้ที่ปุ่ม “แก้ไขรายชื่อ/รูป” และเห็นผลทันที '
-        + 'ถ้าแก้ผังสดในภายหลัง ต้องกดเผยแพร่ซ้ำ',
-    yes: 'เผยแพร่',
-    danger: again,
-  })) return;
+  // The wording is shared with the ปี SAMO page (term-dialogs.js) — it is
+  // what stops a re-publish mid-handover filing the next team as this year.
+  if (!await askPublishTerm(year, again)) return;
   await guard(async () => {
     statusLine('กำลังบันทึกภาพนิ่งของผัง…');
     const res = await publishTerm(year);
@@ -295,31 +289,6 @@ async function doPublish(year) {
     statusLine(`เผยแพร่ปี ${year} แล้ว — ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน`
       + (kept ? ` · คงรูปที่แก้ไว้ในประวัติ ${kept} รูป` : ''), 'ok');
   });
-}
-
-async function doSetCurrent(year) {
-  const out = currentTerm();
-  const outgoing = out?.year;
-  // Mirrors start_team_term (0224): it snapshots the outgoing year ONLY when
-  // that year has never been published — an existing archive is kept as is.
-  // The recommended order is publish → edit → switch (pane lead): a PUBLISHED
-  // current year shows its archive publicly (get_public_team_chart, 0153), so
-  // the public page keeps the outgoing team while the tree is being edited;
-  // switching first would label the half-edited live tree as the new year.
-  const willSnapshot = outgoing && !out?.published_at;
-  if (!await askConfirm({
-    title: `ตั้งปี ${year} เป็นปีปัจจุบัน?`,
-    body: (willSnapshot
-        ? `ปี ${outgoing} ยังไม่เคยเผยแพร่ ระบบจะบันทึกผังสดตอนนี้เป็นประวัติของปี ${outgoing} ก่อนเปลี่ยน `
-          + `— ถ้าแก้ผังเป็นทีมใหม่ไปแล้ว ประวัติของปี ${outgoing} จะเป็นทีมใหม่ ให้ยกเลิกแล้วกด “เผยแพร่ปีนี้” ก่อนเริ่มแก้ผังในครั้งต่อไป `
-        : (outgoing ? `ประวัติของปี ${outgoing} ที่เผยแพร่ไว้แล้วจะคงเดิม ไม่ถูกบันทึกทับ ` : ''))
-      + `จากนั้นปี ${year} จะเป็นปีปัจจุบัน: หน้าสาธารณะแสดงผังสด (แท็บ “จัดการทีม”) เป็นทีมปี ${year} `
-      + `งาน PR / VitalSound / หนังสือโครงการที่ส่งเข้ามาใหม่จะนับเป็นปี ${year} — `
-      + 'สิทธิ์การใช้งานยังผูกกับผังสดเหมือนเดิม ไม่มีการเปลี่ยนแปลง',
-    yes: 'ตั้งเป็นปีปัจจุบัน',
-    danger: false,
-  })) return;
-  await guard(async () => { await setCurrentTerm(year); await reloadTerms(); }, `ตั้งปี ${year} เป็นปีปัจจุบันแล้ว`);
 }
 
 async function doDeleteTerm(year) {
@@ -426,15 +395,14 @@ export function initTerms(hostEl, { onChange } = {}) {
     const t = e.target;
     const pub = t.closest?.('[data-term-publish]');
     if (pub) return void doPublish(Number(pub.dataset.termPublish));
-    const cur = t.closest?.('[data-term-current]');
-    if (cur) return void doSetCurrent(Number(cur.dataset.termCurrent));
+    if (t.closest?.('[data-term-goto-year]')) return void window.openAdminSection?.('years');
     const del = t.closest?.('[data-term-delete]');
     if (del) return void doDeleteTerm(Number(del.dataset.termDelete));
     const edit = t.closest?.('[data-term-edit]');
     if (edit) return void toggleEdit(Number(edit.dataset.termEdit));
     if (t.id === 'teamTermAdd') {
       const y = Number($('teamTermNewYear')?.value);
-      if (!Number.isFinite(y) || y < 2500 || y > 2700) return statusLine('ปีการศึกษาไม่ถูกต้อง', 'error');
+      if (!Number.isFinite(y) || y < 2500 || y > 2700) return statusLine('ปี SAMO ไม่ถูกต้อง', 'error');
       return void guard(async () => { await createTerm(y); await reloadTerms(); }, `เพิ่มปี ${y} แล้ว`);
     }
     const amDel = t.closest?.('[data-am-delete]');
@@ -476,7 +444,7 @@ export function initTerms(hostEl, { onChange } = {}) {
  *  fetch lands — say so rather than showing a blank panel. */
 export async function enterTerms() {
   if (host && !host.querySelector('.team-terms')) {
-    host.innerHTML = '<div class="team-terms"><div class="team-terms-loading">กำลังโหลดปีการศึกษา…</div></div>';
+    host.innerHTML = '<div class="team-terms"><div class="team-terms-loading">กำลังโหลดทีมแต่ละปี…</div></div>';
   }
   statusLine('');
   await guard(reloadTerms);

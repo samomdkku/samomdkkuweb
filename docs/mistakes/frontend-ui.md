@@ -4610,3 +4610,28 @@ fails if the pass-through does not name it (red with the half removed).
 **The general rule**: *"nothing uses this" is a claim about every producer, so
 prove it by searching the OUTPUT (markup, rendered DOM), not the one renderer
 you know.* Hand-written HTML is a producer too.
+
+## "ปีการศึกษาที่ใช้คำนวณชั้นปี 2,569" — a year printed with a thousands comma
+
+**Symptom (owner, 2026-10-20, pasting from ระบบบ้าน → การตรวจสอบข้อมูล).**
+"ปีการศึกษาที่ใช้คำนวณชั้นปี **2,569**" — the year read as an amount of money.
+The button beside it said "เลื่อนเป็น 2,570", and the "ถึงกำหนดเลื่อนแล้ว"
+badge "ปฏิทินอยู่ที่ 2,569".
+
+**Cause.** All three went through `Number.prototype.toLocaleString('th-TH')`,
+which groups thousands. The same template formats COUNTS with it on the line
+above ("ยืนยันแล้ว 1,234 จาก 1,667 คน"), correctly — and a year is a number
+that looks like a count to every formatter. Nothing in the code distinguishes
+the two; only the reader does.
+
+**Fix.** The years print with `String(year)`; the control itself moved to the
+new ปี admin page (`samo-year-admin.js`, every year in one place), whose
+`yr()` helper is the only way it prints one. `samo-year-handover.test.js`
+greps every `src/js` and `passport/js` module for an identifier ENDING in
+year (`year`, `clock_year`, `samoYearBe`) followed by `.toLocaleString(` —
+red on the three shipped lines, green on a count and on `yearKm` (a distance,
+correctly grouped).
+
+**The general rule**: *a year, an id and a phone number are numbers nobody
+does arithmetic on — never route them through a locale number formatter.
+`toLocaleString` is for quantities.*

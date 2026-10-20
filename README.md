@@ -93,6 +93,13 @@ triggered over ssh (needs the KKU VPN).
   (the raw report is never shown); signed-in @kkumail students hit "เจอเหมือนกัน"
   (me-too aggregation) and add pseudonymous comments. Confidential categories
   never appear on the board.
+- **ปี — every year the portal keeps, on one admin page** (`/admin/#years`). The
+  ปี SAMO that PR, VitalSound, หนังสือโครงการ and SAMO Shop file new work under,
+  in display type with what a switch changes; the team handover as three
+  ordered steps whose state is read from the database; starting a ปี SAMO opens
+  the next Passport วาระสโม in the same transaction; ปีการศึกษา (ชั้นปี) moved by
+  its own button; ปีงบ shown. The current ปี SAMO sits in the top bar of every
+  admin page.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
   sits in. TWO views over the one dataset: **แผนผัง**, a page of ฝ่าย panels that

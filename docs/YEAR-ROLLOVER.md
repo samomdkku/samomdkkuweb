@@ -600,6 +600,13 @@ never been rolled over since 2026-06-17), `passport.samo_seasons` (1, "Q2"),
 dated windows) is DEAD CODE** — confirmed by grep: nothing in `passport/js/*`
 reads from it; only `samo_years`/`samo_seasons` (db/0006) are live.
 
+> **Changed 2026-10-20 (owner): "Move it in the same click".** Starting a ปี
+> SAMO on the ปี admin page now opens the next Passport วาระสโม in the same
+> transaction (`start_samo_year`, 0242) for an org-wide Passport admin. The
+> TABLES stay separate exactly as decided below — only the moment of the
+> switch is shared, and ฝ่าย กิจกรรม can still open a วาระ by hand from Passport
+> admin (a วาระ already bridged to the new year is not duplicated).
+
 Decision: Passport keeps its OWN `samo_years`/`samo_seasons` tables —
 **do NOT fold them into `team_terms`.** Passport lives in an isolated
 Postgres schema specifically because it is a separate product surface with

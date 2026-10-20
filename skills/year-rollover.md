@@ -57,11 +57,23 @@ not touch.
 
 ## Running it
 
-In จัดการทีม (admin → ทีม SAMO → ปีการศึกษา pane), the "ตั้งเป็นปีปัจจุบัน"
-button on any listed term calls `setCurrentTerm(year)`
-(`src/js/team/terms.js:300` → `src/js/team/api.js`), which is the RPC below —
-there is no separate CLI path, by design, so the UI is always exercised and
-never drifts from it.
+**Admin → ปี SAMO** (`/admin/#years`, `src/js/samo-year-admin.js`, since
+2026-10-20). The page reads the handover's state from the database and shows
+the three steps in order — ① บันทึกทีมปี… (publish) ② ไปที่ ทีม SAMO → จัดการทีม
+(edit) ③ เริ่มปี SAMO … (switch). Step 3 calls `start_samo_year(p_year,
+p_passport_name, p_season_name)` (0242), which CALLS `start_team_term` below and,
+when a Passport name is given, opens that Passport วาระสโม + its first season
+in the SAME transaction (create-then-end, `docs/INVARIANTS.md`). The Passport
+half needs the org-wide Passport grant (`passport_admin_context()
+->'all_departments'`, every `master` has it); without it the page says Passport
+will not move and starts the ปี SAMO alone. ทีม SAMO → ทีมแต่ละปี no longer
+offers the switch (re-publish, names/photos and delete stay there). Going BACK a
+year is under "ปีอื่น ๆ" and never touches Passport.
+
+ปีการศึกษา (ชั้นปี) is a DIFFERENT value moved on the same page by its own
+button (`set_academic_year`, 0141, `house` grant) — the faculty's promotion day
+is not the team's handover day (owner, 2026-10-20). Browser check of the whole
+page: `node tools/browser/year-page.mjs` (samo-dev, writes nothing).
 
 ```sql
 select public.start_team_term(2570);  -- the incoming year, พ.ศ.

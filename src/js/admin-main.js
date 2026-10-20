@@ -47,7 +47,8 @@ import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
 import { initProjects, enterProjectsWorkspace } from './projects/index.js';
 
 // SAMO Team (org tree)
-import { initTeam, enterTeamWorkspace } from './team/index.js';
+import { initTeam, enterTeamWorkspace, showTeamMode } from './team/index.js';
+import { fetchCurrentSamoYear, SAMO_YEAR_CHANGED } from './samo-year.js';
 // The ONE ตำแหน่งของฉัน card — same component the public /me page renders.
 import { loadMySeat, renderMySeat } from './my-seat.js';
 import { initAnalytics, trackTab } from './analytics.js';
@@ -368,6 +369,7 @@ const SECTION_META = {
   projects: { pane: 'projects', title: 'หนังสือโครงการ',   sub: 'ส่ง / รับ / ติดตามหนังสือโครงการ' },
   creator:  { pane: 'creator',  title: 'เขียนประกาศ',       sub: 'สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ' },
   order:    { pane: 'order',    title: 'ลำดับการแสดงประกาศ', sub: 'จัดเรียงลำดับ ปักหมุดโพสต์เด่น และแก้ไขประกาศ' },
+  years:    { pane: 'years',     title: 'ปี SAMO',           sub: 'ปีที่ทุกระบบนับงานใหม่ การส่งต่อให้ทีมใหม่ และปีการศึกษา' },
   team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
   house:    { pane: 'house',    title: 'ระบบบ้าน',           sub: 'บ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษา' },
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
@@ -422,6 +424,35 @@ async function paintAdminMySeat() {
 }
 
 /**
+ * The current ปี SAMO in the top bar, on every admin page.
+ *
+ * The value every system stamps new work with used to be visible only inside
+ * ทีม SAMO → ปีการศึกษา; an admin filing a PR or reading the shop's ยอดขาย had
+ * no way to see which year it was going under. A button into /admin/#years for
+ * an account that may open that page, a plain label (disabled) for the rest.
+ * Re-painted on SAMO_YEAR_CHANGED, so a switch on the ปี page shows here at
+ * once.
+ */
+let yearChipWired = false;
+async function paintYearChip(user) {
+  const chip = document.getElementById('adminYearChip');
+  const val = document.getElementById('adminYearChipValue');
+  if (!chip || !val) return;
+  const canOpen = sideAllowed(SIDE_FEATURE.years, user);
+  chip.disabled = !canOpen;
+  chip.classList.toggle('is-link', canOpen);
+  if (!yearChipWired) {
+    yearChipWired = true;
+    chip.addEventListener('click', () => showAdminSide('years'));
+    window.addEventListener(SAMO_YEAR_CHANGED, () => paintYearChip(authGetUser()));
+  }
+  const y = await fetchCurrentSamoYear();
+  val.textContent = y == null ? '' : String(y);
+  chip.setAttribute('aria-label', y == null ? 'ปี SAMO' : `ปี SAMO ปัจจุบัน ${y}${canOpen ? ' — เปิดหน้าปี SAMO' : ''}`);
+  chip.classList.toggle('d-none', y == null);
+}
+
+/**
  * May the signed-in account open this section?
  *
  * The sidebar hides what you cannot use, and the click delegate skips a hidden
@@ -437,9 +468,17 @@ async function paintAdminMySeat() {
  * silent place to maintain the section list.
  */
 function canOpenSection(which) {
-  const feature = SIDE_FEATURE[which];
+  return sideAllowed(SIDE_FEATURE[which], authGetUser());
+}
+
+/** A SIDE_FEATURE value: null = always, a key, or a LIST of keys any one of
+ *  which opens it (ปี SAMO: team_edit OR house). One reader, used by both the
+ *  route gate above and the sidebar/landing visibility loop, so a list cannot
+ *  be honoured by one and read as a single key by the other. */
+function sideAllowed(feature, user) {
   if (feature == null) return true;
-  return userCanAccess(feature, authGetUser());
+  if (Array.isArray(feature)) return feature.some((f) => userCanAccess(f, user));
+  return userCanAccess(feature, user);
 }
 
 function showAdminSide(which) {
@@ -494,6 +533,13 @@ function showAdminSide(which) {
   // Announcement order/pin list — its own section.
   if (which === 'order') {
     enterAnnouncementOrder();
+  }
+
+  // ปี SAMO: dynamic import — nothing of it in the entry bundle. The user is
+  // passed because the page renders read-only halves from the same gates.
+  if (which === 'years') {
+    import('./samo-year-admin.js').then((m) => m.enterSamoYear(authGetUser()))
+      .catch((e) => console.warn('[admin] ปี SAMO page failed to load:', e?.message || e));
   }
 
   // SAMO Team: lazy-load the org tree on first entry; idempotent thereafter.
@@ -786,6 +832,12 @@ async function tryCreatorDeepLink(hash) {
 
 // Public function — sidebar buttons and legacy onclicks call these.
 window.openAdminSection = (which) => showAdminSide(which);
+// ทีม SAMO at a given mode ('team' | 'years' …) — the ปี SAMO page links into
+// จัดการทีม and ทีมแต่ละปี. Through showAdminSide, so the route gate applies.
+window.openTeamMode = (m) => {
+  showAdminSide('team');
+  if (document.querySelector('#adminSideNav [data-admin-side="team"].is-active')) showTeamMode(m);
+};
 window.showAdminLanding = () => showAdminSide('landing');
 
 // ==============================================
@@ -822,6 +874,10 @@ const SIDE_FEATURE = {
   projects: 'projects',
   creator:  'creator',
   order:    'creator',   // same gate as เขียนประกาศ — announcement management
+  // ปี SAMO — either half opens the page: team_edit is start_team_term's own
+  // gate (0224), house is set_academic_year's (0141). Each half renders
+  // read-only for an account holding only the other (samo-year-admin.js).
+  years:    ['team_edit', 'house'],
   team:     'team',
   house:    'house',
   claude:   'claude',    // จองโควตา Claude (0154)
@@ -1016,11 +1072,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // attributes are honoured too — kept for backward compatibility,
     // but new gates should use data-admin-side which userCanAccess() owns.
     document.querySelectorAll('[data-admin-side]').forEach((el) => {
+      // An element whose key is NOT in SIDE_FEATURE stays hidden — the route
+      // gate may allow an unknown section (it falls back to landing), but a
+      // visible entry nobody gates is how a card shows to everyone.
       const which = el.dataset.adminSide;
-      const feature = SIDE_FEATURE[which];
-      const ok = feature === null ? true : userCanAccess(feature, user);
+      const ok = Object.hasOwn(SIDE_FEATURE, which) && sideAllowed(SIDE_FEATURE[which], user);
       el.classList.toggle('d-none', !ok);
     });
+    paintYearChip(user);
     // Landing cards: each col carries data-admin-side too (or fall back
     // to the legacy data-role-only).
     document.querySelectorAll('[data-role-only]').forEach((el) => {

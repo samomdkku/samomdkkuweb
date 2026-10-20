@@ -448,6 +448,12 @@
           </button>
 
           <div class="workspace-side-section">องค์กร</div>
+          <!-- ปี SAMO — the year every system files new work under. Its own
+               item, not a mode inside ทีม SAMO: switching it changes PR,
+               VitalSound, หนังสือโครงการ, SAMO Shop and the public team page. -->
+          <button type="button" class="workspace-side-item d-none" data-admin-side="years">
+            <i class="bi bi-calendar2-range"></i><span>ปี SAMO</span>
+          </button>
           <button type="button" class="workspace-side-item d-none" data-admin-side="team">
             <i class="bi bi-diagram-3"></i><span>ทีม SAMO</span>
           </button>
@@ -531,6 +537,16 @@
             <p id="adminTopSub">เลือกระบบที่ต้องการจัดการจากเมนูซ้าย</p>
           </div>
           <div class="workspace-top-actions">
+            <!-- The current ปี SAMO, on every admin page — the value every
+                 system stamps new work with should never be a thing you have
+                 to go looking for. Filled by admin-main.js paintYearChip();
+                 a button only for an account that may change it. -->
+            <button type="button" class="workspace-year-chip d-none" id="adminYearChip" disabled
+              aria-label="ปี SAMO ปัจจุบัน">
+              <i class="bi bi-calendar2-range" aria-hidden="true"></i>
+              <span class="workspace-year-chip-k">ปี SAMO</span>
+              <span class="workspace-year-chip-v" id="adminYearChipValue"></span>
+            </button>
             <!-- Project notifications bell — only visible for vp_admin /
                  uni_staff / dev. Mirrors public navbar wiring (same id). -->
             <button type="button" class="nav-projects-bell d-none" id="navProjectsBell"
@@ -644,13 +660,24 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="years">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--brand-orange);"
+                  onclick="openAdminSection('years')">
+                  <span class="admin-card-icon"><i class="bi bi-calendar2-range"></i></span>
+                  <div class="admin-card-body">
+                    <h5>ปี SAMO</h5>
+                    <p>ปีที่ทุกระบบนับงานใหม่ และการส่งต่อให้ทีมใหม่</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
               <div class="col-md-6 col-lg-4 d-none" data-admin-side="team">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--brand-primary);"
                   onclick="openAdminSection('team')">
                   <span class="admin-card-icon"><i class="bi bi-diagram-3"></i></span>
                   <div class="admin-card-body">
                     <h5>ทีม SAMO</h5>
-                    <p>ผังตำแหน่ง สมาชิก สิทธิ์การใช้งาน และปีการศึกษา</p>
+                    <p>ผังตำแหน่ง สมาชิก สิทธิ์การใช้งาน และประวัติทีมแต่ละปี</p>
                   </div>
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
@@ -770,6 +797,10 @@
 
           <section data-admin-pane="order" class="d-none an-tab">
             <include src="./src/html/tab-announcement-order.html" />
+          </section>
+
+          <section data-admin-pane="years" class="d-none">
+            <div id="samoYearHost"></div>
           </section>
 
           <section data-admin-pane="team" class="d-none team-tab">

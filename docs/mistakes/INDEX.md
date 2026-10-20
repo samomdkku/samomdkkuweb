@@ -149,7 +149,7 @@ Open when: writing a migration.
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 - A weekly prune silently erased 20 of every ~24 days' worth of analytics
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(117)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(118)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -270,6 +270,7 @@ Open when: markup, modals, layout, touch, icons.
 - The shop popup's qty stayed at 99 through a colour pick with 3 left
 - บอท Discord's 20s background poll cleared a save error before anyone could read it
 - ⌘-click on the home banner's ร้านค้า / ประกาศ and the /me link stopped opening a new tab
+- "ปีการศึกษาที่ใช้คำนวณชั้นปี 2,569" — a year printed with a thousands comma
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(37)*
 
@@ -519,4 +520,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_457 entries across 10 files._
+_458 entries across 10 files._

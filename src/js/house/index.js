@@ -37,7 +37,7 @@ import {
   markMissing, ensureSais, fetchMajors, recordUnresolved,
   fetchUnresolved, promoteUnresolved, dismissUnresolved, setFollowUp, reopenUnresolved,
   fetchHelpRequests, resolveHelpRequest,
-  fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear, fetchDeleteImpact,
+  fetchAcademicYearStatus, fetchDeleteImpact,
   fetchIdentityCheckSummary, fetchIdentityCheckList, searchPeople,
   fetchRegistryMismatches, repairRegistryMismatches,
 } from './api.js';
@@ -1828,17 +1828,19 @@ async function renderCheckStatus() {
         <hr class="my-3" />
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span class="small text-muted">ปีการศึกษาที่ใช้คำนวณชั้นปี</span>
-          <strong>${year ? year.toLocaleString('th-TH') : '—'}</strong>
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="houseYearBump"
-            ${year ? '' : 'disabled'}>เลื่อนเป็น ${year ? (year + 1).toLocaleString('th-TH') : ''}</button>
+          <!-- A YEAR, never toLocaleString(): th-TH groups thousands and printed
+               "2,569" (owner, 2026-10-20). -->
+          <strong>${year ? String(year) : '—'}</strong>
           ${behind ? `<span class="badge bg-warning-subtle text-warning-emphasis border">
-            ถึงกำหนดเลื่อนแล้ว (ปฏิทินอยู่ที่ ${Number(ay.clock_year).toLocaleString('th-TH')})</span>` : ''}
+            ถึงกำหนดเลื่อนแล้ว (ปฏิทินอยู่ที่ ${String(Number(ay.clock_year))})</span>` : ''}
           ${aboutToGraduate ? `<span class="badge bg-info-subtle text-info-emphasis border">
-            ${aboutToGraduate.toLocaleString('th-TH')} คนอยู่ปี 6 ตอนนี้ — จะกลายเป็น “จบแล้ว” ถ้าเลื่อน</span>` : ''}
+            ${aboutToGraduate.toLocaleString('th-TH')} คนอยู่ปี 6 ตอนนี้ — จะกลายเป็น “จบแล้ว” เมื่อเลื่อนปีการศึกษา</span>` : ''}
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="houseYearGo">
+            <i class="bi bi-calendar2-range"></i> เลื่อนปีการศึกษาที่หน้า ปี SAMO</button>
         </div>
         <p class="small text-muted mb-0 mt-1">
-          ระบบ<strong>ไม่เลื่อนชั้นปีให้เอง</strong> — กดปุ่มนี้ปีละครั้งเมื่อขึ้นปีการศึกษาใหม่
-          แล้วทุกคนจะเลื่อนพร้อมกัน ใครที่ลาพักหรือเรียนซ้ำและเคยเลือกชั้นปีที่ถูกไว้แล้ว
+          ระบบ<strong>ไม่เลื่อนชั้นปีให้เอง</strong> — ปีการศึกษาเลื่อนปีละครั้งที่หน้า ปี SAMO
+          (ที่เดียวกับปีอื่นทุกปีในระบบ) แล้วทุกคนจะเลื่อนพร้อมกัน ใครที่ลาพักหรือเรียนซ้ำและเคยเลือกชั้นปีที่ถูกไว้แล้ว
           ระบบจำส่วนต่างไว้ให้ ไม่ต้องไล่แก้รายคน คนที่จบแล้วจะหายไปจากรายชื่อเริ่มต้นในแท็บ
           “นักศึกษา” โดยอัตโนมัติ (มีสวิตช์ให้ดูย้อนได้)
         </p>
@@ -1866,30 +1868,9 @@ async function renderCheckStatus() {
   }
   renderCheckList();
 
-  $('houseYearBump')?.addEventListener('click', async () => {
-    const btn = $('houseYearBump');
-    // The RPC takes the TARGET year, not "+1", so a double click is idempotent
-    // rather than advancing 1,800 people twice (0141 §4).
-    const ok = await askConfirm({
-      title: `เลื่อนปีการศึกษาเป็น ${year + 1}?`,
-      body: 'ชั้นปีของนักศึกษาทุกคนจะเลื่อนขึ้น 1 ปีพร้อมกัน '
-        + 'คนที่เคยเลือกชั้นปีเองไว้จะเลื่อนตามส่วนต่างที่บันทึกไว้ '
-        + 'ถ้ากดผิด กดกลับเป็นปีเดิมได้',
-      yes: 'เลื่อนเลย',
-      danger: false,
-    });
-    if (!ok) return;
-    if (btn) btn.disabled = true;
-    try {
-      await saveAcademicYear(year + 1);
-      await primeAcademicYear();
-      renderCheckStatus();
-      render();
-    } catch (err) {
-      alert(err?.message || 'เปลี่ยนปีการศึกษาไม่สำเร็จ');
-      if (btn) btn.disabled = false;
-    }
-  });
+  // The control itself lives on the ปี SAMO page (samo-year-admin.js) — every
+  // year the portal keeps, in one place. This pane only says what it computes with.
+  $('houseYearGo')?.addEventListener('click', () => window.openAdminSection?.('years'));
 }
 
 // ---------- the per-row preview ----------

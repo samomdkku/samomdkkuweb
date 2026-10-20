@@ -42,5 +42,7 @@
 @import './css/claude.css';
 @import './css/discord-bot.css';
 @import './css/accounts.css';
+/* ปี — every year the portal keeps (/admin/#year) + the top-bar year chip. */
+@import './css/samo-year-admin.css';
 /* Dark mode — token values only; LAST, so it wins (2026-10-13). */
 @import './css/theme.css';

@@ -57,6 +57,7 @@ import { studyYearLabel, yearBasis } from '../study-year.js';
 import { userCanAccess, getUser } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
 import { initTerms, enterTerms, primeTerms } from './terms.js';
+import { SAMO_YEAR_CHANGED } from '../samo-year.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
 import {
   buildExportJson, buildMembersCsv, parseMembersCsv, splitPath, PATH_SEP,
@@ -379,6 +380,9 @@ function isAncestor(maybeAncestor, nodeId) {
 export function initTeam() {
   if (initialized) return;
   initialized = true;
+  // The ปี SAMO page (samo-year-admin.js) moves the current year; the cached
+  // one here names the Drive folder a portrait uploads into, so follow it.
+  window.addEventListener(SAMO_YEAR_CHANGED, () => { primeTerms(); });
   // EACH WIRE-UP IS INDEPENDENT. They used to be ten bare calls in a row, so a
   // throw in any one of them silently skipped every later one — and
   // wireTreeDelegation() is in that list, which means one bad line in an
@@ -1210,6 +1214,13 @@ function switchMode(m) {
   render();
   if (mode === 'years') enterTerms();
   if (mode === 'health') enterHealth();
+}
+
+/** Open a mode from OUTSIDE this tab — the ปี SAMO page links to จัดการทีม
+ *  and ทีมแต่ละปี. The same single path the mode buttons take. */
+export function showTeamMode(m) {
+  if (m === mode) { if (mode === 'years') enterTerms(); return; }
+  switchMode(m);
 }
 
 // ข้อมูลของฉัน is no longer a mode here. The shared ตำแหน่งของฉัน card moved to

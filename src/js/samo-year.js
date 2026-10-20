@@ -95,3 +95,19 @@ export function wireSamoYearPicker(selectEl, years, current, onChange) {
     if (Number.isFinite(y)) onChange?.(y);
   });
 }
+
+/** Fired on `window` after the current ปี SAMO changes (the ปี admin page),
+ *  so the admin top-bar chip and ทีม SAMO's cached current year — it names the
+ *  Drive photo folder — follow without a reload. ONE home for the name. */
+export const SAMO_YEAR_CHANGED = 'samo-year-changed';
+
+/** current_samo_year() (0219) — the value every system stamps new work with.
+ *  Granted to anon, so any signed-in page may ask. Null on any failure. */
+export async function fetchCurrentSamoYear() {
+  try {
+    const { data, error } = await dbRest('/rpc/current_samo_year', { method: 'POST', body: {} });
+    return !error && data != null ? Number(data) : null;
+  } catch {
+    return null;
+  }
+}

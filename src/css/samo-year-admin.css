@@ -1,0 +1,251 @@
+/* ==============================================
+ * ปี — the admin page for every year the portal keeps (/admin/#year).
+ * src/js/samo-year-admin.js renders it into #samoYearHost.
+ *
+ * Hierarchy, in order of what an admin must not miss: the CURRENT ปี SAMO in
+ * display type (the value every system stamps new work with), the other years
+ * as quiet tiles beside it, then the handover as three ordered steps whose
+ * state is read from the database. Colours are tokens only (theme.test.js).
+ * ============================================== */
+
+.sy { max-width: 880px; display: grid; gap: 1rem; padding-bottom: 2rem; }
+.sy-loading { padding: 2rem 0; color: var(--ink-500); }
+
+/* ── shared surfaces ── */
+.sy-card,
+.sy-hero {
+  background: var(--surface);
+  border: 1px solid rgb(var(--ink-900-rgb) / .07);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.sy-card { padding: 1.25rem 1.25rem 1.1rem; }
+.sy-card-head { margin-bottom: .9rem; }
+.sy-h { font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; margin: 0; color: var(--ink-900); }
+.sy-h-sub { font-size: .85rem; font-weight: 500; color: var(--ink-500); margin-left: .35rem; letter-spacing: 0; }
+.sy-h3 { font-size: .95rem; font-weight: 700; margin: 0 0 .6rem; color: var(--ink-800); }
+.sy-sub { margin: .3rem 0 0; font-size: .875rem; color: var(--ink-500); line-height: 1.5; }
+.sy-ro { margin: .5rem 0 0; font-size: .8125rem; color: var(--ink-600); display: flex; gap: .4rem; align-items: center; }
+.sy-error { display: flex; align-items: center; gap: .5rem; color: var(--ink-700); }
+
+.sy-link {
+  background: none; border: 0; padding: 0; font: inherit;
+  color: var(--brand-primary); font-weight: 600; text-decoration: underline;
+  text-underline-offset: 2px; cursor: pointer;
+}
+
+/* ── hero: the current ปี SAMO + the other years ── */
+.sy-hero {
+  padding: 1.4rem 1.4rem 1.25rem;
+  display: grid; gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--brand-orange) 9%, var(--surface)) 0%, var(--surface) 55%);
+}
+.sy-hero-kicker {
+  font-size: .78rem; font-weight: 700; letter-spacing: .04em;
+  color: var(--brand-orange);
+}
+.sy-hero-year {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: clamp(3rem, 9vw, 4.75rem); font-weight: 700;
+  line-height: 1; letter-spacing: -.035em;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+  margin: .2rem 0 .55rem;
+}
+.sy-hero-lead { margin: 0 0 .7rem; font-size: .9rem; line-height: 1.55; color: var(--ink-600); max-width: 36rem; }
+.sy-hero-meta { display: flex; flex-wrap: wrap; gap: .4rem .9rem; font-size: .8125rem; color: var(--ink-500); }
+.sy-hero-meta span { display: inline-flex; align-items: center; gap: .3rem; }
+.sy-hero-meta .is-ok { color: var(--brand-primary); font-weight: 600; }
+.sy-hero-meta .is-todo { color: var(--ink-600); }
+
+.sy-tiles { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.sy-tile {
+  display: grid; gap: .1rem;
+  padding: .65rem .8rem;
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-rgb) / .78);
+  border: 1px solid rgb(var(--ink-900-rgb) / .07);
+}
+.sy-tile.is-warn {
+  border-color: color-mix(in srgb, var(--brand-orange) 45%, var(--surface));
+  background: color-mix(in srgb, var(--brand-orange) 6%, var(--surface));
+}
+.sy-tile-k { font-size: .75rem; font-weight: 600; color: var(--ink-500); display: flex; gap: .35rem; align-items: center; }
+.sy-tile-v {
+  font-size: 1.15rem; font-weight: 700; color: var(--ink-900);
+  letter-spacing: -.01em; font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.sy-tile-s { font-size: .75rem; color: var(--ink-500); line-height: 1.45; }
+.sy-tile.is-warn .sy-tile-s { color: var(--ink-700); }
+
+/* ── status line (aria-live) ── */
+.sy-status { font-size: .875rem; min-height: 0; }
+.sy-status:empty { display: none; }
+.sy-status.is-ok,
+.sy-status.is-error {
+  padding: .6rem .85rem; border-radius: var(--radius-md); font-weight: 600;
+}
+.sy-status.is-ok { color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 8%, var(--surface)); }
+.sy-status.is-error { color: var(--ink-900); background: color-mix(in srgb, var(--brand-orange) 12%, var(--surface)); }
+
+/* ── the three steps ── */
+.sy-steps { list-style: none; margin: 0 0 1.1rem; padding: 0; counter-reset: none; }
+.sy-step { position: relative; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .85rem; padding-bottom: 1.15rem; }
+.sy-step:last-child { padding-bottom: 0; }
+/* The rail between dots: it is ONE path, so it reads as an order. */
+.sy-step:not(:last-child)::before {
+  content: ''; position: absolute; left: calc(1rem - 1px); top: 2.1rem; bottom: .15rem;
+  width: 2px; border-radius: 2px; background: rgb(var(--ink-900-rgb) / .09);
+}
+.sy-step.is-done:not(:last-child)::before { background: color-mix(in srgb, var(--brand-primary) 45%, var(--surface)); }
+.sy-step-dot {
+  width: 2rem; height: 2rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 700; font-size: .9rem; font-variant-numeric: tabular-nums;
+  color: var(--ink-500);
+  background: var(--surface);
+  border: 2px solid rgb(var(--ink-900-rgb) / .14);
+}
+.sy-step.is-now .sy-step-dot { color: var(--brand-primary); border-color: var(--brand-primary); }
+.sy-step.is-done .sy-step-dot { color: var(--surface); background: var(--brand-primary); border-color: var(--brand-primary); }
+.sy-step-title { font-size: 1rem; font-weight: 700; margin: .3rem 0 .25rem; color: var(--ink-900); line-height: 1.35; }
+.sy-step.is-later .sy-step-title { color: var(--ink-700); }
+.sy-step-text { margin: 0 0 .6rem; font-size: .875rem; line-height: 1.55; color: var(--ink-600); }
+.sy-step-note { margin-top: .5rem; font-size: .8125rem; color: var(--brand-primary); font-weight: 600; display: flex; gap: .35rem; align-items: center; }
+.sy-warn {
+  display: flex; gap: .4rem; align-items: flex-start;
+  margin-top: .45rem; padding: .5rem .65rem; border-radius: var(--radius-sm);
+  font-size: .8125rem; color: var(--ink-800);
+  background: color-mix(in srgb, var(--brand-orange) 10%, var(--surface));
+}
+.sy-warn i { color: var(--brand-orange); margin-top: .1rem; }
+
+/* Buttons: feedback on PRESS, not release; transform only (compositor). */
+.sy-btn { border-radius: var(--radius-pill); font-weight: 600; padding-inline: 1rem; transition: transform var(--t-fast) var(--ease), box-shadow var(--t-base) var(--ease); }
+.sy-btn:active:not(:disabled) { transform: scale(.97); }
+.sy-btn-go {
+  color: var(--surface); background: var(--brand-primary); border-color: var(--brand-primary);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--brand-primary) 28%, transparent);
+  padding: .6rem 1.2rem; font-size: 1rem;
+}
+.sy-btn-go:hover:not(:disabled), .sy-btn-go:focus-visible { color: var(--surface); background: var(--brand-accent); border-color: var(--brand-accent); }
+.sy-btn-go:disabled { box-shadow: none; opacity: .5; }
+/* The step that is due, not the act that commits: brand-tinted, so the solid
+   green เริ่มปี SAMO stays the one strong button on the page. */
+.sy-btn-soft {
+  color: var(--brand-primary); font-weight: 700;
+  background: color-mix(in srgb, var(--brand-primary) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 30%, var(--surface));
+}
+.sy-btn-soft:hover:not(:disabled), .sy-btn-soft:focus-visible {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--brand-primary) 45%, var(--surface));
+}
+.sy-btn-quiet { color: var(--ink-500); text-decoration: none; }
+.sy-btn-quiet:hover { color: var(--ink-800); }
+
+/* Step 3: the year, Passport, the button — in that reading order. */
+.sy-start { display: grid; gap: .75rem; justify-items: start; }
+.sy-field { display: grid; gap: .25rem; font-size: .8125rem; font-weight: 600; color: var(--ink-600); }
+.sy-field--year input {
+  width: 9rem; font-size: 1.35rem; font-weight: 700; letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.sy-field--short input { width: 7rem; }
+.sy-start-err { font-size: .8125rem; color: var(--ink-700); min-height: 1.1em; }
+.sy-start-err:empty { display: none; }
+
+.sy-pp {
+  width: 100%; margin: 0; padding: .75rem .85rem;
+  border: 1px solid rgb(var(--ink-900-rgb) / .08); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ink-50) 70%, var(--surface));
+  font-size: .875rem;
+}
+.sy-pp.is-off { display: flex; gap: .45rem; align-items: flex-start; color: var(--ink-600); }
+.sy-pp-toggle { display: flex; gap: .6rem; align-items: flex-start; cursor: pointer; margin: 0; }
+.sy-pp-toggle .form-check-input { margin-top: .2rem; flex: none; }
+.sy-pp-toggle .form-check-input:checked { background-color: var(--brand-primary); border-color: var(--brand-primary); }
+.sy-pp-sub { display: block; font-size: .8125rem; color: var(--ink-500); margin-top: .1rem; }
+.sy-pp-fields { display: flex; flex-wrap: wrap; gap: .6rem; margin: .7rem 0 0 1.6rem; }
+.sy-pp-fields .sy-field:first-child input { width: min(16rem, 100%); }
+
+/* ── what changes ── */
+.sy-effects-wrap { border-top: 1px solid rgb(var(--ink-900-rgb) / .07); padding-top: 1rem; }
+.sy-effects { list-style: none; margin: 0 0 .8rem; padding: 0; display: grid; gap: .55rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.sy-effect { display: flex; gap: .6rem; align-items: flex-start; }
+.sy-effect-icon {
+  flex: none; width: 2rem; height: 2rem; border-radius: var(--radius-sm);
+  display: grid; place-items: center;
+  color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 9%, var(--surface));
+}
+.sy-effect-body { display: grid; gap: .05rem; }
+.sy-effect-name { font-size: .875rem; font-weight: 700; color: var(--ink-900); }
+.sy-effect-line { font-size: .8125rem; line-height: 1.5; color: var(--ink-600); }
+.sy-effect.is-muted { opacity: .55; }
+.sy-same { font-size: .8125rem; line-height: 1.6; color: var(--ink-600); }
+.sy-same-title { font-weight: 700; color: var(--ink-800); margin-right: .35rem; display: inline-flex; gap: .3rem; align-items: center; }
+
+/* ── ปีอื่น ๆ — one level deeper on purpose ── */
+.sy-more { margin-top: 1rem; border-top: 1px solid rgb(var(--ink-900-rgb) / .07); padding-top: .75rem; }
+.sy-more-sum { cursor: pointer; font-weight: 700; font-size: .9rem; color: var(--ink-800); }
+.sy-more-hint { font-weight: 500; color: var(--ink-500); margin-left: .35rem; font-size: .8125rem; }
+.sy-years { list-style: none; margin: .65rem 0 .5rem; padding: 0; display: grid; gap: .4rem; }
+.sy-year { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; padding: .5rem 0; }
+.sy-year + .sy-year { border-top: 1px solid rgb(var(--ink-900-rgb) / .05); }
+.sy-year-num { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 3.5rem; }
+.sy-year-meta { font-size: .8125rem; color: var(--ink-500); flex: 1 1 12rem; }
+.sy-more-foot { font-size: .8125rem; color: var(--ink-500); margin: 0; }
+
+/* ── ปีการศึกษา ── */
+.sy-acad { display: grid; gap: .75rem; }
+.sy-acad-now { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.sy-acad-v { font-size: 2.25rem; font-weight: 700; letter-spacing: -.025em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink-900); }
+.sy-badge { display: inline-flex; gap: .3rem; align-items: center; font-size: .78rem; font-weight: 600; padding: .25rem .6rem; border-radius: var(--radius-pill); }
+.sy-badge.is-warn { color: var(--ink-900); background: color-mix(in srgb, var(--brand-orange) 14%, var(--surface)); }
+.sy-acad-what { margin: 0; padding-left: 1.1rem; font-size: .875rem; line-height: 1.6; color: var(--ink-600); }
+.sy-acad-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+
+/* ── the top-bar chip, on every admin page ── */
+.workspace-year-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  height: 2.1rem; padding: 0 .75rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--brand-orange) 40%, var(--surface));
+  background: color-mix(in srgb, var(--brand-orange) 7%, var(--surface));
+  color: var(--ink-800); font-size: .8125rem; line-height: 1;
+  transition: transform var(--t-fast) var(--ease), background var(--t-base) var(--ease);
+}
+.workspace-year-chip i { color: var(--brand-orange); }
+.workspace-year-chip-k { font-weight: 600; color: var(--ink-600); }
+.workspace-year-chip-v { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-900); }
+.workspace-year-chip:disabled { opacity: 1; cursor: default; }
+.workspace-year-chip.is-link { cursor: pointer; }
+.workspace-year-chip.is-link:hover { background: color-mix(in srgb, var(--brand-orange) 13%, var(--surface)); }
+.workspace-year-chip.is-link:active { transform: scale(.97); }
+.workspace-year-chip.is-link:focus-visible { outline: 2px solid var(--brand-orange); outline-offset: 2px; }
+
+/* Ownership in ทีม SAMO → ทีมแต่ละปี: the line that sends you here. */
+.team-terms-note--go { align-items: center; }
+.team-terms-golink {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 700;
+  color: var(--brand-primary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+
+/* ── phones: one column, the year still the biggest thing on screen ── */
+@media (max-width: 767.98px) {
+  .sy-hero { grid-template-columns: minmax(0, 1fr); padding: 1.1rem 1rem; }
+  .sy-card { padding: 1rem; }
+  .sy-tiles { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+  .sy-pp-fields { margin-left: 0; }
+  .workspace-year-chip-k { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sy-btn, .workspace-year-chip { transition: none; }
+  .sy-btn:active:not(:disabled), .workspace-year-chip.is-link:active { transform: none; }
+}

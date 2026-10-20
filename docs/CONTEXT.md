@@ -863,6 +863,16 @@ with them, and a `setof` return auto-exposes each column added later (cf.
 `vs_tickets.tags` in 0079). `team_members` has no public policy today; anon reads
 0 rows from it, and that must stay true.
 
+**Every year in one admin page (2026-10-20, 0242).** `/admin/#years`
+(`src/js/samo-year-admin.js`, gate `SIDE_FEATURE.years = ['team_edit','house']`)
+holds the ปี SAMO handover (`team_terms` below), ปีการศึกษา (`set_academic_year`,
+0141), Passport's วาระสโม and ปีงบ (read-only, the calendar). Starting a ปี SAMO
+goes through `start_samo_year()` — `start_team_term()` plus, for an org-wide
+Passport admin, the next `passport.samo_years` row + its first season in one
+transaction. Despite this section's old name, `team_terms` is the ปี SAMO (a term
+of office), NOT the ปีการศึกษา that ชั้นปี uses; the ทีม SAMO tab is now called
+ทีมแต่ละปี.
+
 **ปีการศึกษา + the archive (migration 0104).** The live tree is ALWAYS the current
 term and carries no year column — deliberately, because `team_nodes`/`team_members`
 feed the permission engine and a year-scoped row that still resolves is a live
