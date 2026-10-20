@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# npm's own cache dir, when NPM_CONFIG_CACHE points inside the repo — debug
+# logs with no reason to ever be tracked (committed by accident 2026-10-20).
+.npm-cache/
 pr_code.gs
 vssound_code.gs
 test_gas.py

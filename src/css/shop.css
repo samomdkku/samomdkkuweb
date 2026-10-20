@@ -753,6 +753,9 @@
 .shop-tab .cart-qty-mini span { padding: 0 .45rem; font-weight: 600; font-size: .8rem; min-width: 28px; text-align: center; }
 /* + at the stock that is left (cart.js maxFor) — visibly off, not just inert. */
 .shop-tab .cart-qty-mini button:disabled { opacity: .3; cursor: not-allowed; }
+/* The reason the + above is disabled — a permanent line, not a hover title
+   (title="" does not exist on a phone; see cart.js). */
+.shop-tab .cart-item-maxhint { font-size: .72rem; color: var(--shop-ink-500); margin-top: .2rem; }
 .shop-tab .cart-item-price { font-weight: 700; color: var(--shop-ink-900); font-size: .95rem; }
 
 .shop-tab .cart-total-row { display: flex; justify-content: space-between; padding: .25rem 0; font-size: .9rem; color: var(--shop-ink-500); }

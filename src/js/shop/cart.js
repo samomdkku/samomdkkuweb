@@ -129,6 +129,12 @@ function render() {
 
   const maxFor = (p, it) => maxQtyFor(p, it, reservedMatrix);
 
+  // The "+" button's reason for going disabled used to live ONLY in a
+  // title="" tooltip — invisible on a phone, which has no hover (task 17's
+  // friction sweep; same failure shape as mistakes.md class 4's "a title
+  // tooltip does not exist on a phone"). A buyer on their phone just saw a
+  // faded + with no explanation. Now a permanent line under the row carries
+  // it on every device, not just the ones that can hover.
   list.innerHTML = cart.map((it, idx) => {
     const p = productMap[it.productId];
     const max = maxFor(p, it);
@@ -151,12 +157,15 @@ function render() {
             <div class="cart-qty-mini">
               <button type="button" data-cart-qty="-1" data-idx="${idx}">−</button>
               <span>${it.qty}</span>
-              <button type="button" data-cart-qty="+1" data-idx="${idx}" ${it.qty >= max ? 'disabled title="ครบจำนวนที่เหลือแล้ว"' : ''}>+</button>
+              <button type="button" data-cart-qty="+1" data-idx="${idx}" ${it.qty >= max ? 'disabled' : ''}>+</button>
             </div>
             <button type="button" class="cart-item-remove" data-cart-remove="${idx}">
               <i class="bi bi-trash3"></i> ลบ
             </button>
           </div>
+          ${it.qty >= max
+    ? '<div class="cart-item-maxhint">ครบจำนวนที่เหลือแล้ว</div>'
+    : ''}
         </div>
         <div class="cart-item-price">฿${thb(it.price * it.qty)}</div>
       </div>`;
