@@ -1504,6 +1504,15 @@ replaced the live queue (old one kept as `.prev`), the live gate printed `เห
   ~32 h, ~6 windows, not a new 7-day week. Owner: stop at that reset — `Until`
   is now 2026-10-21 08:30 UTC (live file + repo; `.prev` kept). Unfinished
   tasks stay queued for a later `--arm`.
+- **2026-10-20 12:47 ICT — RUNNING task 15. Status: VERIFIED — how: the VM journal
+  printed `[3/11] 15. Security sweep … ทำต่อจากรอบที่ถูกตัด (WIP 1714867)`.** Task 14
+  done 09:23 ICT; task 15 was cut by the 5-hour limit at 09:51 ICT and every tick
+  until 12:27 ICT logged `not now: รอบ 5 ชั่วโมงนี้ใช้ไป 100%` — silent by design, so
+  it LOOKS dead. Ask the VM, not Discord: `journalctl -u samo-night-agent.service
+  -n 30 -o cat`, and `cd ~/samo-night && node queue.mjs gate NIGHT-TASKS.md
+  usage.json bookings.json` (rc 0 = the next tick runs). Task 13's
+  `[needs-review]` is EXPECTED — the owner session wrote its block and merged it
+  (§18f "VERIFIED 2026-10-20"); there is nothing to review.
 - **Task 13 hit `Reached max turns (200)`** after 29 min with its four parts
   committed but no `## Task 13` block, so it reads "not passed" (attempt 1 of
   2) and re-runs. The VM drop-in `tonight.conf` now sets `TASK_MAX_TURNS=400`
