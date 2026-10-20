@@ -29,9 +29,14 @@ const BROWSER_GLOBALS = [
   'IDBKeyRange', 'indexedDB', 'caches', 'devicePixelRatio',
   'HTMLCanvasElement', 'HTMLImageElement', 'HTMLInputElement',
   'HTMLTextAreaElement', 'Range', 'getSelection', 'visualViewport',
-  'beforeunload', 'createImageBitmap',
-  // Vendor globals from <script> tags in index.html — not imports.
-  'bootstrap', 'Quill',
+  'beforeunload', 'createImageBitmap', 'Path2D',
+  // Vendor globals from <script> tags in index.html / passport/html/*.html —
+  // not imports.
+  'bootstrap', 'Quill', 'QRCode',
+  // vite's `define` substitutes this at build time (vite.config.js); in dev
+  // it is simply absent, which src/js/build-check.js itself feature-detects
+  // with `typeof __BUILD_ID__ === 'string'`.
+  '__BUILD_ID__',
 ];
 
 const globals = Object.fromEntries(
@@ -44,7 +49,17 @@ const globals = Object.fromEntries(
 // (several of its rules are stylistic, e.g. no-empty, no-extra-semi).
 const correctnessRules = {
   'no-undef': 'error',
-  'no-unused-vars': ['error', { args: 'none' }],
+  'no-unused-vars': ['error', {
+    args: 'none',
+    // `catch (_) {}` / `catch (e) { /* ignore */ }` is a deliberate,
+    // pervasive idiom here (team/realtime.js, auth.js, …) — swallowing one
+    // specific failure on purpose, not a correctness smell.
+    caughtErrors: 'none',
+    // `const { omitMe, ...rest } = obj` to drop a key before sending it on
+    // (shop/api.js, announcements.js, …) legitimately never reads the
+    // destructured name — that IS the point of the pattern.
+    ignoreRestSiblings: true,
+  }],
   'no-unreachable': 'error',
   'no-dupe-keys': 'error',
   'no-self-assign': 'error',
