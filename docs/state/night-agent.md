@@ -2039,3 +2039,169 @@ off stops a rename run. **Not applied**: the nginx line is in the repo only —
 install by hand (`sudo nginx -t && sudo systemctl reload nginx` after copying
 the `location` change), then check `X-Img-Cache: HIT` with and without `?x=1`.
 Remaining gaps: HANDOFF §22 "Still OWED".
+
+## Task 14 — Make the proofs trustworthy: samo-dev fidelity and the two red proofs (2026-10-20)
+
+**RESUMED after a quota cut-off.** A prior run of this task committed
+`f156ed8` ("agent: WIP 14...") and was cut off before writing this block.
+Read that commit (`git show --stat f156ed8`) and verified each point of the
+brief by hand rather than redoing the work.
+
+**Point 1 — samo-dev gets production's five `auth.users` triggers.**
+
+- The WIP commit already wrote `supabase/migrations/0234_dev_gets_the_auth_triggers_too.sql`
+  and already stripped the hand-written `insert into public.users` workaround
+  out of the 5 browser harnesses that had one (`tools/browser/accounts-dashboard.mjs`,
+  `house-sai-grid.mjs`, `projects-ui.mjs`, `shop-admin-strip.mjs`,
+  `shop-admin-tour.mjs`), replacing each with a bare `update … set permissions`.
+  I grepped the whole `tools/` tree afterward for `insert into public.users`
+  and found none left; `me-page.mjs` and `shop-checkout-navigate-away.mjs`
+  also call `registerWithPassword` but never had the hand-written insert, so
+  they needed no change.
+- **What I verified that the WIP had not yet run**: `node tools/migrate-status.mjs --dev`
+  showed `PENDING: 0` — 0234 was already applied to samo-dev. Queried
+  `pg_trigger` directly: all 5 triggers (`on_auth_user_created`,
+  `…_passport_link`, `…_email_change`, `…_password_sync_insert/_update`) exist
+  on samo-dev's `auth.users`. Ran `tools/accounts0211-dashboard.mjs --dev`:
+  **15/15** (was 12/15 per HANDOFF §19 item 1) — its own two trigger checks
+  (`a Google sign-up is born google` / `a username sign-up is born password`)
+  insert directly into `auth.users` and read `public.users` back with **no
+  hand-written insert of their own**, which is the same thing the task brief
+  asked a browser signup to demonstrate, done at the SQL layer instead.
+- **Checked the no-op-on-production claim by hand, not by trusting the
+  migration's comment**: grepped every migration that ever defined each of
+  the four functions (`handle_new_auth_user`: 0001, 0042, **0211**;
+  `handle_auth_user_email_change`: **0026**; `handle_auth_user_password_sync`:
+  **0027**; `passport_link_user_by_email`: 0060, 0061, 0063, **0175**) and
+  diffed 0234's copy against the newest one — all four function bodies and
+  all five `create trigger` statements are character-for-character identical
+  (modulo comments, which `pg_get_functiondef` and Postgres both ignore). The
+  migration really is inert on production.
+- **Could NOT drive this through a real browser** — no Chrome/Chromium binary
+  exists in this sandbox (`which google-chrome chromium …` all empty, no
+  `puppeteer`/`playwright` dependency), the same gap task 12 already
+  documented. Substituted the SQL-level proof above, which exercises the same
+  trigger path (`auth.users` insert → `public.users` row with no app code
+  writing it) without needing a browser. **Not independently verified**: the
+  five browser harnesses whose hand-written insert was removed were never
+  actually re-run end-to-end in this sandbox; they are correct by inspection
+  (the trigger fires synchronously inside the `auth.users` insert transaction
+  that `registerWithPassword`'s HTTP call waits on, so the row exists before
+  the harness's next line runs) but the owner should run one once Chrome is
+  available, e.g. `CHROME=/path/to/chrome node tools/browser/accounts-dashboard.mjs`.
+  No throwaway account was created or needed deleting — the SQL proof rolls
+  back its own `auth.users` inserts.
+
+**Point 2 — the two red proofs, rewritten to assert the PROPERTY.**
+
+Both rewrites were already in the WIP commit; I only verified them:
+
+- `tools/dept0177-page-scope.sql` §70–72: **25/25 on samo-dev.** §G used to
+  count every `dept_content` row for `dept='admin', kind='card'` (a SHAPE) and
+  expect the seed's original 4 — wrong the moment ฝ่ายบริหารองค์กร added its
+  own 5th card through the self-service editor §A already proves works
+  (exactly what happened on production). Now it tracks the 4 seeded rows by
+  the `href` the seed migration itself keys on, then reintroduces that exact
+  event (§71: an editor with blanket dept-page access adds a 5th card) and
+  checks the count still reads 4 (§72) — proven to survive the bug it used to
+  die on.
+- `tools/team0135-name-split.mjs` A5–A7: **16/16 on samo-dev.** Used to search
+  for a coincidental student+login+team_members triple; none exists on
+  samo-dev (or, per the proof's own new comment, reliably on production
+  either), so it went quietly dark. Now it manufactures the subject:
+  `update_my_identity`/`get_my_team_seat` resolve "self" purely through
+  `public.users.email → students.kkumail`/`team_members.kkumail` (0145 §5/§6,
+  no role branch), so a borrowed login's email is pointed at a real
+  dual-placement person's kkumail for the life of the rolled-back
+  transaction. Rollback means no other session can ever observe the borrowed
+  account's changed email (Postgres MVCC — uncommitted writes are invisible
+  outside the transaction), so there is no real collision risk even though
+  the account is "borrowed" rather than created fresh.
+- Wrote both up in `docs/mistakes/tooling-proofs.md` ("dept0177 / team0135:
+  two proofs red on production, both a SHAPE not a PROPERTY") and reran
+  `npm run mistakes:index`. **Neither has been re-run against production** —
+  this agent holds no production credential; both are proofs run on samo-dev
+  only, per the proof-fidelity rule the same file already states ("a proof
+  written on samo-dev must be read against production's shape before it is
+  called portable").
+
+**Full `npm run proofs:dev` — 68 of 71 database proofs green** (2 SKIP are
+`repo-protection.mjs`/`notify-exposure.mjs`, which ask GitHub/Cloudflare, not
+a database — expected). **3 red, none caused by this task's own change** (all
+three are real data drift on samo-dev from other tasks' real writes since
+2026-10-14; not relaxed, reported as found):
+
+- `house0146-crest-refcount.sql` step 5 (CONTROL): got 4, want 2. The control
+  hand-sums `team_members + people + students` rows sharing one photo_url for
+  a deterministically-picked subject, but `photo_reference_count()` itself
+  counts across more tables (the comment on the probe already says a person
+  with two ตำแหน่ง legitimately counts 4) — the picked subject on samo-dev
+  today has two placements sharing one photo, so the function's true answer
+  (4) is right and the control's partial hand-sum (2) is stale. Not touched;
+  rewriting this control's hand-sum is outside this task's scope (only
+  dept0177/team0135 were in the brief) and risks exactly the "fix a proof by
+  relaxing it" trap the brief warns against without a careful re-derivation.
+- `team0196-position-not-inherited.sql` step 00: expected 2 unplaced,
+  unlinked `people` rows to exist as test subjects, got 0 — every person in
+  samo-dev's `public.people` now has either a `discord_links` row or a
+  `team_members.person_id`, so the subject pool the proof's setup needs is
+  empty and every later step cascades to FAIL/null. Data drift, not a code
+  bug in `0196`'s guard itself.
+- `year0219-samo-year.sql` steps 32/45/47/48: §G assumes whichever
+  `team_terms` row is `is_current` when the proof STARTS is the untouched
+  genesis row (`started_at` still `NULL` because the column predates it), and
+  that closing it turns that `NULL` into a permanent `-infinity`. On samo-dev
+  today the real genesis row (year 2569) was already closed correctly
+  (`started_at = -infinity`, confirmed by hand:
+  `select year, started_at, is_current from public.team_terms`), but a REAL
+  handover since then (2569→2570→2571, from other tasks' real
+  `start_team_term` calls) means the row that is `is_current` when this proof
+  runs today is 2571, which already has a real timestamp, not `NULL`. §G's
+  close-then-check-for-`-infinity` is therefore checking the wrong row's
+  history, not a broken function. Confirmed the underlying function is fine
+  by reading the real table directly; the proof's own one-time assumption
+  ("the term that was current when 0219 first ran") is what has drifted.
+
+None of these three were fixed — fixing them is a proof-design exercise (same
+shape as dept0177/team0135, but outside what task 14's brief named) that
+would need its own careful re-derivation to avoid "fix by relaxing," which the
+brief explicitly forbids doing casually. Left for a future task to pick up by
+name if the owner wants the proof suite fully green; reporting them here
+satisfies this task's "record every red, do not hide it" instruction.
+
+**`npm test`**: 175 files / 3014 tests, all green. **`npm run build`**: clean,
+both entries (public/admin + Passport). **`git status`**: clean after this
+task's commit.
+
+**Scrutinize pass** (self-review of `f156ed8`, by hand — traced the migration
+against the newest prior definition of each of its 4 functions and all 5
+trigger statements character-for-character, checked the DROP-then-CREATE
+trigger pattern is the same idempotent shape this codebase's own historical
+migrations already use, and checked the `team0135` carrier-identity-borrow
+cannot leak outside the rolled-back transaction under Postgres MVCC). No
+blocker or major finding. Verdict: ship.
+
+**What is NOT done / owed:**
+1. The 5 updated browser harnesses were never run end-to-end against a real
+   browser in this sandbox (no Chrome available) — correct by inspection, not
+   by execution. Run one once Chrome/Chromium is reachable.
+2. `dept0177`/`team0135`'s new proofs have not been re-run against
+   production — this agent has no production credential. They are DRAFTS
+   until that happens (same status every samo-dev-only proof in this queue
+   carries).
+3. `house0146`/`team0196`/`year0219` are red on samo-dev from real data
+   drift, reported above, not fixed — would need their own task.
+
+**Commands the owner runs next:**
+1. `node tools/apply-migration.mjs supabase/migrations/0234_dev_gets_the_auth_triggers_too.sql`
+   against PRODUCTION once this branch is reviewed — it is written to be an
+   inert no-op there (verified above), the point is to stop samo-dev from
+   drifting further from production's trigger set.
+2. `node tools/accounts0211-dashboard.mjs` (no `--dev`) against production to
+   confirm 15/15 there too (expected, since the triggers already exist).
+3. Re-run `node tools/dept0177-page-scope.sql` and
+   `node tools/team0135-name-split.mjs` against production once reviewed, to
+   close out their DRAFT status.
+4. `CHROME=<path> node tools/browser/accounts-dashboard.mjs` (and the other 4
+   updated harnesses) on a machine with Chrome, to actually exercise the
+   browser signup path end-to-end.

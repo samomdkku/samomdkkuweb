@@ -388,7 +388,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 - The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(80)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(81)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -472,6 +472,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A migration that changes a function's SIGNATURE rots the ACL string in an older proof
 - One backticked path outside the repo blinded `state-handoff.test.js`'s whole dead-pointer sweep
 - Two night-agent proofs, green when written, red a day later
+- dept0177 / team0135: two proofs red on production, both a SHAPE not a PROPERTY
 
 ## `passport.md` — The Passport app's own write-ups *(41)*
 
@@ -519,4 +520,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 
-_457 entries across 10 files._
+_458 entries across 10 files._
