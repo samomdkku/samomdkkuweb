@@ -2363,3 +2363,29 @@ before trusting either numbering scheme.
 **b. Who may move Passport — Status: DECIDED (no new access channel).** The Passport half asks `passport_admin_context()->'all_departments'`, Passport's own org-wide test. A `team_edit` holder without it starts the ปี SAMO alone and the page says so. Every `master` holds both. Do not widen this to `team_edit` alone without the owner: it would let a VP reset the Passport leaderboard.
 
 **c. `tools/browser/accounts-dashboard.mjs` probably breaks on samo-dev now — Status: HYPOTHESIS.** samo-dev gained the `auth.users` triggers (night agent 0234, dev only), so the users row exists before the harness grants `master`, and `users_self_update_guard` refuses that write — exactly what `year-page.mjs` hit first (fixed there by disabling the guard around the fixture write). Run it before trusting it; same fix if red.
+
+## 26. ระบบบ้าน อาจารย์ — imported 2026-10-21; the data a person still owes
+
+**Status: VERIFIED 2026-10-21 — how: `tools/house-advisor-import.mjs` committed on production and a
+re-run changed nothing (125 อาจารย์ · 275 สาย links · 113 phones); `house0243-advisor-phones` 20/20 on
+production; the audit below was a read-only query on production the same hour.** No names here on
+purpose (docs/ is public) — open ระบบบ้าน → สายรหัส / อาจารย์ for who they are.
+
+**OWED — ฝ่ายข้อมูล / the owner (data, not code):**
+1. **สาย 163** has students and no อาจารย์. The sheet's line 45 (บ้าน 3) read `063/136/263`; `136`
+   was REFUSED as another บ้าน's สาย. It is almost certainly `163` — add it to that อาจารย์ by hand.
+2. **สาย 194** has students and no อาจารย์. Line 64 listed `094` twice; the second is almost
+   certainly `194`.
+3. **สาย 026 / 126 / 226** (บ้าน 6) have students and no อาจารย์ — a whole trio, so most likely an
+   อาจารย์ missing from the sheet.
+4. **สาย 280–305** have students and no อาจารย์ — newer codes than the sheet (it stops at 282).
+5. **One อาจารย์ is in two บ้าน** — the same name on two lines in different blocks, merged into one
+   อาจารย์ holding both lines' สาย. Confirm it is one person in two บ้าน, not two people.
+6. **12 อาจารย์ have no phone**, **all 125 have no email** (students see the email if set) and no photo.
+
+**DECIDED, overturnable:** phones are readable by house admins AND every `master` holder (48 on
+2026-10-21) — `master` answers yes to every permission (0111). Restricting to house-only is a
+predicate change in a new migration + the proof's subjects.
+
+**NOT VERIFIED:** the อาจารย์ page (phone line, editor field, ทั้งบ้าน switch, อาจารย์ร่วมบ้าน) was
+never seen rendered signed in as an admin — only the served HTML/JS was grepped. Look once at 390px.
