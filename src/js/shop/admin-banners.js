@@ -8,7 +8,7 @@ import { bannerLinkTarget } from './data.js';
 import {
   listShopBanners, createShopBanner, updateShopBanner, deleteShopBanner, reorderShopBanners,
 } from './api.js';
-import { uploadShopFile, deleteShopFile } from './uploads.js';
+import { uploadShopFile } from './uploads.js';
 import { convertDriveUrl } from '../uploads.js';
 import { askConfirm } from '../confirm-modal.js';
 import { showShopToast } from './products.js';

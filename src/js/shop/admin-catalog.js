@@ -9,9 +9,9 @@ import { slugify, setPromptpayQrs } from './data.js';
 import { askConfirm } from '../confirm-modal.js';
 import {
   getSettings, saveSettings,
-  listProductTypes, upsertProductType, deleteProductType,
+  upsertProductType, deleteProductType,
   listPromptpayQrs, upsertPromptpayQr, deletePromptpayQr, setDefaultQr,
-  listPickupLocations, upsertPickupLocation, deletePickupLocation,
+  upsertPickupLocation, deletePickupLocation,
 } from './api.js';
 import { uploadShopFile, deleteShopFile } from './uploads.js';
 import { showShopToast } from './products.js';
