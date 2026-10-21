@@ -66,6 +66,17 @@ describe('main.js loads Quill lazily, not at module scope', () => {
     expect(topLevelInitVsForm).toEqual([]);
     expect(src).toMatch(/initVsForm\(vsQuill\);/); // still called, just inside the .then()
   });
+
+  it('guards vitalSoundForm submit against the window before Quill has loaded', () => {
+    // vitalSoundForm has no `action` — before this file made Quill lazy,
+    // initVsForm() ran at module load (before a user could see the form),
+    // so a submit always had a listener calling preventDefault(). Now
+    // there is a real gap (tab shown → Quill script fetched) where the
+    // button is visible but initVsForm hasn't run yet; without a guard a
+    // submit in that window falls through to the browser's default GET,
+    // reloading the page and discarding whatever the user typed.
+    expect(src).toMatch(/getElementById\('vitalSoundForm'\)\?\.addEventListener\('submit',[\s\S]{0,80}if \(!vsQuillRef\) e\.preventDefault\(\);[\s\S]{0,40}\}, true\)/);
+  });
 });
 
 describe('index.html no longer blocks on Quill in <head>', () => {

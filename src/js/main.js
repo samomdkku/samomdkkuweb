@@ -159,6 +159,20 @@ function setupVsQuill() {
 }
 document.getElementById('pills-vitalsound-tab')?.addEventListener('shown.bs.tab', setupVsQuill);
 
+// Safety net for the gap BETWEEN the tab appearing and Quill finishing its
+// (now lazy) load: `vitalSoundForm` has no `action`, so a submit with no
+// listener attached yet falls through to the browser's default behaviour —
+// a GET to the current URL, i.e. a full-page reload that throws the typed
+// report away. Before this file made Quill lazy, `initVsForm` ran at module
+// load, before a user could possibly see the form; now there is a real
+// window (a slow connection makes it longer, not shorter) where the submit
+// button is visible but unwired. Capture phase so it runs before (and can
+// block) any later listener; becomes a no-op once vsQuillRef is set, i.e.
+// once initVsForm's own listener is the one actually handling the submit.
+document.getElementById('vitalSoundForm')?.addEventListener('submit', (e) => {
+  if (!vsQuillRef) e.preventDefault();
+}, true);
+
 // ==============================================
 // INITIALIZE MODULES
 // ==============================================
