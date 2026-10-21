@@ -17,6 +17,7 @@ initModalStack();  // stacked modals (crop over member editor, picker over membe
 initTheme();       // light / dark / device — the head script already applied it; this wires the switch
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
+import { loadQuill } from './load-quill.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, authReady, signOut as samoSignOut, getUser as authGetUser, userCanAccess, holdsMaster } from './auth.js';
@@ -69,12 +70,9 @@ import { copyText } from './utils.js';
 try { window.__samoBooted = true; } catch { /* nothing to tell */ }
 
 // ==============================================
-// QUILL SETUP
+// QUILL SETUP — lazy. Loaded only when the VitalSound tab is first shown
+// (see setupVsQuill below), not on every page view — see load-quill.js.
 // ==============================================
-
-const Size = Quill.import('attributors/style/size');
-Size.whitelist = ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'];
-Quill.register(Size, true);
 
 // Custom image handler: when the user clicks the image icon in the toolbar,
 // open a file picker, upload the image to Drive, then insert the returned URL
@@ -120,27 +118,52 @@ function makeQuillImageHandler(quillRef) {
 }
 
 let vsQuillRef = null;
+let vsQuillLoadStarted = false;
 
 // The public app only initialises Quill for the VS form. The creator
 // (announcement-writing) Quill lives in the admin app (admin-main.js)
 // since /admin/ is where staff publish.
-const vsQuill = new Quill('#vsQuillEditor', {
-  theme: 'snow',
-  placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
-  modules: {
-    toolbar: {
-      container: QUILL_TOOLBAR,
-      handlers: { image: makeQuillImageHandler(() => vsQuillRef) },
-    },
-  },
-});
-vsQuillRef = vsQuill;
+//
+// Triggered by `shown.bs.tab` on the VitalSound tab button rather than run
+// at module load — that event fires both on a real click AND on the
+// boot-time route to /vssound (applyPathRoute → window.activateTab →
+// bootstrap.Tab.show()), so a visitor who lands directly on /vssound still
+// gets the editor, just not before every OTHER page has paid for it. No
+// `{ once: true }` on the listener itself — `vsQuillLoadStarted` is the
+// idempotency guard, and it is reset on failure so re-opening the tab after
+// a dropped connection retries instead of leaving a dead editor forever.
+function setupVsQuill() {
+  if (vsQuillLoadStarted) return;
+  vsQuillLoadStarted = true;
+  loadQuill().then((Quill) => {
+    const Size = Quill.import('attributors/style/size');
+    Size.whitelist = ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'];
+    Quill.register(Size, true);
+    const vsQuill = new Quill('#vsQuillEditor', {
+      theme: 'snow',
+      placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
+      modules: {
+        toolbar: {
+          container: QUILL_TOOLBAR,
+          handlers: { image: makeQuillImageHandler(() => vsQuillRef) },
+        },
+      },
+    });
+    vsQuillRef = vsQuill;
+    initVsForm(vsQuill);
+  }).catch((err) => {
+    vsQuillLoadStarted = false; // let the next tab-open retry
+    const el = document.getElementById('vsQuillEditor');
+    if (el) el.textContent = err.message || 'โหลดตัวแก้ไขข้อความไม่สำเร็จ';
+  });
+}
+document.getElementById('pills-vitalsound-tab')?.addEventListener('shown.bs.tab', setupVsQuill);
 
 // ==============================================
 // INITIALIZE MODULES
 // ==============================================
 
-initVsForm(vsQuill);
+// initVsForm(vsQuill) now runs inside setupVsQuill, once Quill has loaded.
 // PDPA consent gate for the Vital Sound report form. Wires the popup's
 // ยินยอม / ไม่ยินยอม buttons; the popup is triggered on every send attempt
 // from inside vs-form.js (handleVsFormSubmit), not on tab view.

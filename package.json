@@ -57,6 +57,7 @@
     "cf:pin-dev": "node tools/cloudflare-pin-dev.mjs",
     "check:embeds": "node tools/check-embeds.mjs",
     "check:tool-boundary": "node tools/check-tool-boundary.mjs",
+    "check:bundle": "node tools/check-bundle.mjs",
     "test:clean": "node tools/test-clean.mjs",
     "handoff:check": "node tools/handoff-check.mjs",
     "lint": "eslint src passport/js functions server tools"
