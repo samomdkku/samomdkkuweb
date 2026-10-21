@@ -18,10 +18,14 @@ const REGISTRY = {
   // products.js — the card, the announcement art and banners: COVERS on purpose.
   // The popup reads pictures through gallery.js → productImages().
   'products.js': { image_url: 10, images: 0 },
-  // admin.js — batch/banner/QR images (their own column), product table and
-  // stock thumbnails (cover), and the save payload (dropped before the write).
-  // The in-use check reads productImages() — asserted below, not assumed.
-  'admin.js':    { image_url: 27, images: 1 },
+  // The shop admin's picture-owning tabs, split out of admin.js (task 19).
+  // The in-use check (admin-image-cleanup.js) reads productImages() —
+  // asserted below, not assumed.
+  'admin-batches.js':       { image_url: 13, images: 0 },
+  'admin-products.js':      { image_url: 6, images: 1 },
+  'admin-stock.js':         { image_url: 2, images: 0 },
+  'admin-banners.js':       { image_url: 3, images: 0 },
+  'admin-image-cleanup.js': { image_url: 3, images: 0 },
 };
 
 const dir = 'src/js/shop';
@@ -46,7 +50,7 @@ describe('readers of a product\'s pictures', () => {
   });
 
   it('the picture in-use check reads every picture of every product', () => {
-    const s = src['admin.js'];
+    const s = src['admin-image-cleanup.js'];
     const body = s.slice(s.indexOf('async function trashImageIfUnused'));
     expect(body.slice(0, 1500)).toMatch(/productImages\(/);
   });

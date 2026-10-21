@@ -78,9 +78,26 @@ const AUDIT = [
     cleanup: /deleteTeamPhotoIfUnused/, where: 'house/index.js',
   },
   {
-    file: 'shop/admin.js',
-    what: 'product image, PromptPay QR, banner',
-    cleanup: /deleteShopFile/, where: 'shop/admin.js',
+    file: 'shop/admin-batches.js',
+    what: 'batch (pickup-round announcement) picture',
+    cleanup: /deleteShopFile/, where: 'shop/admin-batches.js',
+  },
+  {
+    file: 'shop/admin-products.js',
+    what: 'product picture',
+    cleanup: /deleteShopFile/, where: 'shop/admin-products.js',
+  },
+  {
+    file: 'shop/admin-catalog.js',
+    what: 'PromptPay QR picture',
+    cleanup: /deleteShopFile/, where: 'shop/admin-catalog.js',
+  },
+  {
+    file: 'shop/admin-banners.js',
+    what: 'banner picture',
+    // Banner upload has no immediate failure-path delete of its own; the
+    // replaced/removed picture is trashed by the shared cleanup helper.
+    cleanup: /deleteShopFile/, where: 'shop/admin-image-cleanup.js',
   },
   {
     file: 'shop/checkout.js',
