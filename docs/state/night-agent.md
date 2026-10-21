@@ -2689,3 +2689,206 @@ one admin pane's sweep result against the live page by eye once, since
 the modal-focus-trap fix above is reasoned, not run; (3) the usual
 `server/deploy.sh` whenever the next deploy happens, for the cart-hint fix
 and the WIP's alert-removal fixes to reach production.
+
+## Task 18 — Speed on a phone (2026-10-20)
+
+**Could not do the brief's literal "measure first": no browser in this
+sandbox.** Same gap Task 17 hit, re-confirmed rather than assumed: no
+`google-chrome`/`chromium` binary anywhere on the filesystem; `sudo`/`apt-get
+install` both refused (no root); `npx puppeteer browsers install chrome` and
+`npm install --no-save sharp` both failed with `EROFS` on `~/.npm/_cacache`
+(the home-dir npm cache is read-only here); `pip`/`python3 -m pip` don't exist
+either. So there is **no LCP, no time-to-`window.__samoBooted`, and no
+"three runs, median"** — every number below is a BYTE COUNT read from the
+real `dist/` build output (deterministic given the same source: rebuilding
+during this task reproduced the same sizes to the byte across half a dozen
+rebuilds, only the content-hash in the filename changed), not a browser
+measurement. **Owed to the owner**: run the actual Lighthouse/CDP pass once
+Chrome exists somewhere reachable — command at the bottom.
+
+**What I measured instead, and what it found.** Read every `<script
+type="module">` / `<link rel="modulepreload">` / local `<link
+rel="stylesheet">` out of `dist/index.html` and `dist/admin/index.html` —
+that set is exactly what a browser fetches before the entry module finishes
+evaluating, excluding third-party CDN tags (those are outside this build's
+control). Two real, fixable costs turned up:
+
+1. **`shop/qr.js` bundled two unrelated things of very different weight.**
+   Its own header comment already described it as two surfaces — (a)
+   `showOrderQrModal`, the lightweight `qrcode` encoder every shop customer's
+   order view can show, and (b) `openScannerModal`, the `Html5Qrcode`
+   camera-scanning engine (≈338 KB) only admin's pickup scanner uses, already
+   correctly behind `await import('./qr.js')` in `admin.js`. But
+   `shop/orders.js` imported `showOrderQrModal` with a **static** import —
+   and a static import pulls the WHOLE module, Html5Qrcode included — into
+   the shared chunk the public entry's `<link rel="modulepreload">` fetches
+   on literally every page, for a feature only reachable from `/admin/`.
+   **Fix**: split into `qr.js` (scanner, unchanged import site) +
+   `qr-order.js` (new, `qrcode` only). `orders.js` now imports from the
+   light file; nothing else referenced the heavy one's customer half (swept
+   with grep before changing anything).
+2. **Quill shipped as a render-blocking `<script src="cdn.quilljs.com/…">`
+   in `index.html`'s `<head>`, on every route, for an editor only the
+   VitalSound REPORT tab uses.** CLAUDE.md already says "Quill, d3-org-chart,
+   GrapesJS — DYNAMIC IMPORT ONLY, never an entry bundle"; d3-org-chart and
+   GrapesJS followed it (both behind `import()`), Quill did not — it isn't
+   an npm dependency here (CDN-only), so there was no `import()` boundary to
+   put it behind. **Fix**: `src/js/load-quill.js` injects the `<script>`/
+   `<link>` tags on first need (cached promise, retries on failure);
+   `main.js`'s `setupVsQuill()` is wired to the VitalSound tab button's
+   `shown.bs.tab` event, which — traced, not assumed — fires both on a real
+   click AND on the boot-time route to `/vssound` (the SAME mechanism the
+   pre-existing global `shown.bs.tab` listener a few lines above already
+   relies on for scroll-reset on direct-linked tabs, so this was already a
+   load-bearing assumption in this file, not a new one).
+
+**A real bug my own `/scrutinize` pass caught, fixed the same session.**
+`vitalSoundForm` has no `action` attribute. Before Quill was lazy,
+`initVsForm()` (which wires the submit listener and its `preventDefault()`)
+ran at module load — before a user could possibly see the form. Making
+Quill lazy opened a real window, between the tab appearing and Quill's CDN
+fetch resolving, where the submit BUTTON is visible but no listener is
+attached yet — a submit in that window would have fallen through to the
+browser's default behaviour (a GET to the current URL — a full-page reload,
+discarding whatever the user had typed), and the window is LONGER on exactly
+the slow connections this task is about. Fixed with a capture-phase `submit`
+guard on the form that `preventDefault()`s while `vsQuillRef` is still null,
+and is a no-op once it isn't. Test in `load-quill.test.js`.
+
+**Measured, before → after** (exact bytes from `dist/`, not console
+rounding, except the "before" row — captured once, at the very start, before
+any fix, from vite's own build log, which prints to 0.01 kB / ≈10 B
+precision):
+
+| What | Before | After | Change |
+|---|---|---|---|
+| Public entry's eager shared chunk (`core-*.js`, fetched via `modulepreload` on EVERY public page, before `main.js` finishes evaluating) | 1,038,650 B raw / 290,620 B gzip | 698,590 B raw / 188,260 B gzip | −340,060 B raw (−32.8%) / −102,360 B gzip (−35.2%) |
+| Public entry total first-load JS+CSS (entry script + that chunk + its stylesheet) | 1,723,860 B raw / 425,540 B gzip | 1,384,890 B raw / 323,540 B gzip | −338,970 B raw (−19.7%) / −102,000 B gzip (−24.0%) |
+| Render-blocking third-party requests in `<head>` on every PUBLIC page | Bootstrap CSS, Google Fonts, Bootstrap Icons, **Quill CSS + Quill JS** | Bootstrap CSS, Google Fonts, Bootstrap Icons (Quill now fetched only once the VitalSound tab is opened) | 2 fewer blocking requests on every route except `/vssound` |
+| LCP / time to `window.__samoBooted`, throttled Fast 4G + 4× CPU, 390 px | **NOT MEASURED** — no Chrome in this sandbox | **NOT MEASURED**, same reason | owed |
+
+Admin's entry (`admin/index.html`) was measured too but NOT changed —
+672,861 B JS + 325,189 B CSS + the same shared `core-*.js` chunk, both
+before and after (nothing in admin's own import graph changed). Admin still
+blocks on Quill, Cropper.js AND Sortable.js in `<head>` — see "rejected /
+deferred" below for why this task left that alone.
+
+**New guard: `npm run check:bundle` (`tools/check-bundle.mjs`).** Reads
+`dist/` after a build and fails if either entry's first-load JS+CSS exceeds
+a budget set ~15% above today's AFTER-fix size (public 1,600,000 B, admin
+1,950,000 B raw — a ceiling to catch a regression, not a target to chase),
+or if GrapesJS's or d3-org-chart's own chunk is ever referenced by an
+entry's `<script type="module">` or `<link rel="modulepreload">` (checked by
+filename prefix against Vite's own deterministic chunk-naming hook, NOT by
+grepping chunk content for the library's name — tried that first, and it is
+unreliable: our own glue code legitimately references these libraries by
+name, e.g. `org-graph.js`'s `const [{ OrgChart }] = await
+import('d3-org-chart')` already puts the string `OrgChart` in the public
+entry chunk in a CORRECT build, which would have been a permanent false
+positive). Also fails if `dist/index.html`'s `<head>` still carries a real
+`<script>`/`<link>` tag naming `quilljs` (scoped to the public entry only —
+see below). **Proved red**: temporarily added `import grapesjs from
+'grapesjs'` to `main.js`, rebuilt — the public entry gained a
+`grapes-*.js` `modulepreload` (+1.1 MB) and the check failed on both the
+named-library check and the byte budget; reverted, confirmed green again.
+Registered as `npm run check:bundle`, run as part of this task's own
+`Done when:` gate.
+
+**Decisions, and what I rejected:**
+- **Split `qr.js` into two files, rather than just making `orders.js`'s
+  import dynamic.** A dynamic `await import('./qr.js')` from `orders.js`
+  would have kept Html5Qrcode OUT of the eager chunk too, with a one-line
+  diff — but every customer who ever opens their own order's QR would then
+  download the WHOLE merged chunk, camera-scanner code included, just to
+  render a static SVG. Splitting means the customer path's own static
+  import stays genuinely light (`qrcode` only, no `Html5Qrcode`) and the
+  scanner chunk is only ever paid for by the admin flow that already
+  dynamically imports it. More files, but the actually-correct shape — the
+  header comment in the original `qr.js` already described it as two
+  surfaces; the file just hadn't been split along that line.
+- **Did NOT lazy-load admin's Quill, Cropper.js or Sortable.js.** Same
+  class of cost, smaller audience (staff, not every student), and higher
+  risk: `admin-main.js`'s `announcements.js` `fillCreatorFormForEdit()`
+  (reached via the `#creator/{id}` deep link from the public reader's "edit"
+  button, and from the manage-list pencil) sets `creatorQuill.root.innerHTML
+  = post.content` SYNCHRONOUSLY, assuming the editor already exists — it is
+  not gated behind any tab-shown event the way the public VS form is.
+  Making it lazy correctly would mean either awaiting Quill before that
+  function can run (touches a deep-link code path used by staff publishing
+  real announcements) or accepting a null-pointer risk on a workflow this
+  task's budget did not leave room to test carefully. Left as a named,
+  deferred finding — `admin-main.js` lines ~62-111, `announcements.js`
+  `fillCreatorFormForEdit`.
+- **Did not touch `welcome-banner.jpg`.** Measured: `public/welcome-banner.jpg`
+  is a 2000×666 px, 297 KB JPEG, marked `fetchpriority="high"` as the FIRST
+  slide of the home page's hero carousel — i.e. it is very likely the LCP
+  element on `/`, the single most common route, served at full desktop
+  resolution to a 390 px phone with no `srcset`. This is a real, sizeable,
+  fixable cost (a correctly-sized/compressed version would likely be
+  4-6× smaller) that this task found but **could not fix**: no image tool
+  exists in this sandbox (checked `convert`/`magick`/`cwebp`/`pngquant`/
+  `jpegoptim`/`gm`; no `PIL` for python3; `sharp` via `npm install --no-save`
+  failed on the same read-only npm-cache `EROFS` as the Chrome install
+  attempt) and hand-writing a JPEG encoder to do this safely was judged not
+  worth the risk of shipping a corrupted asset. **Recommended next step,
+  for whoever has a real image tool**: re-export at ≤1200 px wide (covers
+  every realistic viewport without upscaling), or add a build-time
+  responsive-image step (e.g. `sharp` at build time generating a `srcset`)
+  if this kind of asset recurs.
+- **nginx caching (`server/nginx-samo.conf`) — checked, not changed.**
+  `/assets/` is already `Cache-Control: public, max-age=31536000,
+  immutable` (hashed filenames), gzip already covers JS/CSS/SVG/fonts, HTML
+  is correctly `no-cache`. Nothing to fix here — "no change" is the honest
+  finding (memory `keep-what-works-show-evidence`).
+- **Did not restructure the 341 KB public CSS file.** Real weight, but
+  splitting one global stylesheet per-route is a materially bigger,
+  riskier change (every tab currently assumes the whole stylesheet is
+  present) than this task's "fix the top few, not everything" scope
+  justifies without a live before/after to actually confirm the split
+  helps more than it costs in extra requests. Left as a lower-priority
+  candidate for a future, dedicated pass — not attempted.
+
+**Verification performed.** `npm run build` (both entries + Passport) —
+clean, deterministic byte counts across repeated rebuilds. `npm run
+check:bundle` — green, and separately proved red (grapesjs experiment
+above) and reverted. `npx eslint` over every touched file — clean. `npm
+test` — 182 files / 3068 tests, green (before this task: 182/3056 — net new
+tests are `load-quill.test.js` + `shop/qr-order.test.js`, both source-text
+guards since this repo runs no jsdom). `npm run test:clean` — 182/3060
+(the 8-test gap against plain `npm test` is the same pre-existing,
+documented `.env.local`-conditional-test gap Task 17 already found and
+ruled out as unrelated — re-confirmed, not re-diagnosed). `npm run
+check:context` — unchanged, within budget. A `/scrutinize` pass over this
+task's full diff (`git diff 1586b43..HEAD`) found and fixed the
+submit-before-Quill-loads gap above — the one real correctness risk this
+task's changes introduced; everything else traced clean (import/export
+graph after the `qr.js` split checked against every OTHER caller in the
+repo via grep before touching anything, not just the two files edited).
+
+**Could not verify.** `npm run handoff:check` — same crash every task this
+queue has hit (`fatal: ambiguous argument 'origin/agent/2026-10-20..HEAD'`,
+then `ENOENT` on a hardcoded memory-index path this sandbox never
+populated); substituted the direct checks above. Live LCP/boot-time/
+request-waterfall numbers — no Chrome in this sandbox, see the top of this
+block. Whether the modulepreload-graph check in `check-bundle.mjs` would
+also catch a GrapesJS/d3-org-chart leak that arrives via a DIFFERENT chunk
+name than today's (e.g. after a dependency upgrade changes how Rollup
+splits it) — only tested against today's actual chunk names.
+
+**Nothing to apply/deploy on samo-dev — no migration** (0239+ stays
+reserved for later tasks per `NIGHT-TASKS.md`; this task's fixes are pure
+frontend/build, no schema touched). **Nothing on production either** — this
+is all client-side, ships on whatever the next normal `server/deploy.sh`
+deploy is, same as every other unreleased commit on this branch. **Exact
+commands the owner runs next**: (1) once a machine with a real Chrome is
+available, run the actual measurement this task's brief asked for —
+`npm run dev`, then drive it with `tools/browser/*.mjs`'s pattern (390 px,
+throttled, cold cache) against `vite preview` of a production build, for
+`/`, `/me`, `/shop`, a หน้าฝ่าย page, and `/admin/`, and treat THOSE numbers
+as the real baseline (this task's byte counts are a floor, not a
+substitute); (2) `npm run build && npm run check:bundle` before any future
+deploy, same as `npm test` — it is cheap and catches exactly the class of
+regression this task found twice; (3) the usual `server/deploy.sh` to ship
+these two fixes; (4) if anyone revisits admin's Quill/Cropper/Sortable or
+`welcome-banner.jpg`, read the "rejected / deferred" bullets above first —
+both have a specific, named reason they were left alone, not an oversight.
