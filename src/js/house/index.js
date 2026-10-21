@@ -55,6 +55,7 @@ import {
 import { FOLLOW_UP, followUpLabel } from './follow-up.js';
 import {
   advisorSaiCodes, matchAdvisors, advisorRoster, yearText,
+  advisorHouses, houseMates, houseRoster,
 } from './advisor-roster.js';
 import { diagnoseHelpRequest } from './help-diagnosis.js';
 import { advisorPhone, normalizePhone, formatPhone } from './advisor-import.js';
@@ -118,6 +119,7 @@ let pendingImport = null;   // parsed + diffed, awaiting confirmation
 // should not inherit the last one's search or switch.
 let advisorViewId = null;
 let advisorGroupBy = 'sai';  // 'sai' | 'year'
+let advisorScope = 'mine';   // 'mine' (the สาย they look after) | 'house' (their whole บ้าน)
 let advisorShowGrad = false;
 
 function setStatus(msg, isError = false) {
@@ -1267,6 +1269,7 @@ function renderAdvisors() {
 function openAdvisorDetail(id) {
   advisorViewId = id;
   advisorGroupBy = 'sai';
+  advisorScope = 'mine';
   advisorShowGrad = false;
   const search = $('hadvSearch');
   if (search) search.value = '';
@@ -1300,6 +1303,37 @@ function houseColorOfSai(code) {
   return safeColor(houseById(h)?.color, 'var(--brand-primary)');
 }
 
+/** Who looks after a สาย, on its group head in the ทั้งบ้าน view — with the
+ *  page's own อาจารย์ said as such, so their สาย stand out in the list. */
+function saiOwnersHtml(code, mineCodes, bySaiMap) {
+  if (mineCodes.includes(code)) return '<span class="hadv-owner hadv-owner-me">สายที่ดูแล</span>';
+  const names = (bySaiMap.get(code) || []).map((x) => x.full_name).filter(Boolean);
+  return `<span class="hadv-owner">${names.length ? escHtml(names.join(', ')) : 'ยังไม่มีอาจารย์'}</span>`;
+}
+
+/** อาจารย์ร่วมบ้าน: the other อาจารย์ in this อาจารย์'s บ้าน, each a tap away. */
+function renderHouseMates(a, houseIds) {
+  const host = $('hadvMates');
+  if (!host) return;
+  const mates = houseMates(a, advisors, saiHouse);
+  if (!houseIds.length) { host.innerHTML = ''; return; }
+  host.innerHTML = `
+    <section class="hadv-group hadv-mates">
+      <header class="hadv-group-head">
+        <span class="hadv-group-title">อาจารย์ร่วมบ้าน</span>
+        ${houseIds.map((h) => `<span class="hadv-house" style="--hc:${escHtml(
+    safeColor(houseById(h)?.color, 'var(--brand-primary)'))}">${escHtml(houseName(h))}</span>`).join('')}
+        <span class="hadv-group-count">${mates.length} ท่าน</span>
+      </header>
+      ${mates.length ? `<div class="hadv-mate-list">${mates.map((m) => `
+        <button type="button" class="hadv-mate" data-mate="${escHtml(m.advisor.id)}">
+          <span class="hadv-name">${escHtml(m.advisor.full_name)}</span>
+          <span class="hadv-sub">สาย ${m.codes.map(escHtml).join(', ')}</span>
+        </button>`).join('')}</div>`
+    : '<div class="hadv-row-empty">ยังไม่มีอาจารย์ท่านอื่นในบ้านนี้</div>'}
+    </section>`;
+}
+
 function renderAdvisorDetail() {
   const a = advisors.find((x) => x.id === advisorViewId);
   if (!a) return;
@@ -1310,12 +1344,19 @@ function renderAdvisorDetail() {
     return [s.full_name, s.nickname, s.student_id, s.kkumail]
       .some((v) => String(v || '').toLowerCase().includes(q));
   });
-  const roster = advisorRoster(a, pool, advisorGroupBy);
-  const all = advisorRoster(a, students, 'sai');
+  const inHouse = advisorScope === 'house';
+  const scoped = (list, by) => (inHouse
+    ? houseRoster(a, advisors, list, saiHouse, by, undefined, students)
+    : advisorRoster(a, list, by));
+  const roster = scoped(pool, advisorGroupBy);
+  const all = scoped(students, 'sai');
   const gradN = all.groups.reduce((n, g) => n + g.students.filter((s) => isGraduated(s)).length, 0);
-  const activeN = all.total - gradN;
+  const notGrad = (r) => r.groups.reduce((n, g) => n + g.students.filter((s) => !isGraduated(s)).length, 0);
+  const mineN = notGrad(advisorRoster(a, students, 'sai'));
+  const houseN = notGrad(houseRoster(a, advisors, students, saiHouse, 'sai', undefined, students));
+  const mineCodes = advisorSaiCodes(a);
 
-  const houseIds = [...new Set(roster.codes.map(saiHouse))].filter((h) => h !== null && h !== undefined);
+  const houseIds = advisorHouses(a, saiHouse);
   const hero = $('hadvHero');
   if (hero) {
     hero.innerHTML = `
@@ -1328,8 +1369,8 @@ function renderAdvisorDetail() {
           ${advisorPhone(a) ? `<div class="hadv-sub"><a href="tel:${escHtml(advisorPhone(a))}">
             <i class="bi bi-telephone" aria-hidden="true"></i> ${escHtml(formatPhone(advisorPhone(a)))}</a></div>` : ''}
           <div class="hadv-stats">
-            <span class="hadv-stat"><strong>${activeN.toLocaleString('th-TH')}</strong> นักศึกษา</span>
-            <span class="hadv-stat"><strong>${roster.codes.length}</strong> สาย</span>
+            <span class="hadv-stat"><strong>${mineN.toLocaleString('th-TH')}</strong> นักศึกษา</span>
+            <span class="hadv-stat"><strong>${mineCodes.length}</strong> สาย</span>
             ${houseIds.map((h) => `<span class="hadv-house" style="--hc:${escHtml(
     safeColor(houseById(h)?.color, 'var(--brand-primary)'))}">${escHtml(houseName(h))}</span>`).join('')}
           </div>
@@ -1346,11 +1387,23 @@ function renderAdvisorDetail() {
       </div>`;
   }
 
+  renderHouseMates(a, houseIds);
   document.querySelectorAll('[data-hadv-by]').forEach((b) => {
     b.setAttribute('aria-checked', String(b.dataset.hadvBy === advisorGroupBy));
   });
-  const seg = document.querySelector('.hadv-seg');
+  const seg = $('hadvBySeg');
   if (seg) seg.dataset.active = advisorGroupBy;
+  document.querySelectorAll('[data-hadv-scope]').forEach((b) => {
+    b.setAttribute('aria-checked', String(b.dataset.hadvScope === advisorScope));
+  });
+  const scopeSeg = $('hadvScopeSeg');
+  if (scopeSeg) scopeSeg.dataset.active = advisorScope;
+  const mineCount = $('hadvMineCount');
+  if (mineCount) mineCount.textContent = ` (${mineN.toLocaleString('th-TH')})`;
+  const houseCount = $('hadvHouseCount');
+  if (houseCount) houseCount.textContent = ` (${houseN.toLocaleString('th-TH')})`;
+  // ทั้งบ้าน means nothing for an อาจารย์ with no สาย yet.
+  scopeSeg?.classList.toggle('d-none', !houseIds.length);
   const gradToggle = $('hadvShowGrad');
   if (gradToggle) gradToggle.checked = advisorShowGrad;
   const gradCount = $('hadvGradCount');
@@ -1381,12 +1434,14 @@ function renderAdvisorDetail() {
       <i class="bi bi-chevron-right hadv-chev" aria-hidden="true"></i>
     </button>`;
 
-  const groups = bySai ? roster.groups : roster.groups.filter((g) => g.students.length);
+  // ทั้งบ้าน is ~30 สาย: while searching, only the ones with a match.
+  const groups = bySai && !(inHouse && q) ? roster.groups : roster.groups.filter((g) => g.students.length);
+  const bySaiMap = inHouse ? advisorsBySai() : null;
   host.innerHTML = groups.length ? groups.map((g) => {
     const head = bySai
       ? `<span class="hadv-group-title">สาย ${escHtml(g.key)}</span>
          <span class="hadv-house" style="--hc:${escHtml(houseColorOfSai(g.key))}">${
-  escHtml(houseName(saiHouse(g.key)))}</span>`
+  escHtml(houseName(saiHouse(g.key)))}</span>${inHouse ? saiOwnersHtml(g.key, mineCodes, bySaiMap) : ''}`
       : `<span class="hadv-group-title">${escHtml(g.label)}</span>`;
     return `
       <section class="hadv-group">
@@ -1403,9 +1458,12 @@ function renderAdvisorDetail() {
 function exportAdvisorCsv() {
   const a = advisors.find((x) => x.id === advisorViewId);
   if (!a) return;
-  const rows = advisorRoster(a, students, 'sai').groups.flatMap((g) => g.students);
+  const inHouse = advisorScope === 'house';
+  const rows = (inHouse ? houseRoster(a, advisors, students, saiHouse, 'sai', undefined, students)
+    : advisorRoster(a, students, 'sai')).groups.flatMap((g) => g.students);
   if (!rows.length) return;
-  downloadCsv(rows, `samo-house-${String(a.full_name).replace(/[\\/:*?"<>|]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`);
+  const who = String(a.full_name).replace(/[\\/:*?"<>|]+/g, '-');
+  downloadCsv(rows, `samo-house-${who}${inHouse ? '-ทั้งบ้าน' : ''}-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
 // ---------- คำขอแก้ไข ----------
@@ -3250,6 +3308,13 @@ function wire() {
   });
   document.querySelectorAll('[data-hadv-by]').forEach((b) => {
     b.addEventListener('click', () => { advisorGroupBy = b.dataset.hadvBy; renderAdvisorDetail(); });
+  });
+  document.querySelectorAll('[data-hadv-scope]').forEach((b) => {
+    b.addEventListener('click', () => { advisorScope = b.dataset.hadvScope; renderAdvisorDetail(); });
+  });
+  $('hadvMates')?.addEventListener('click', (e) => {
+    const id = e.target.closest('[data-mate]')?.dataset.mate;
+    if (id) openAdvisorDetail(id);
   });
   $('hadvSearch')?.addEventListener('input', renderAdvisorDetail);
   $('hadvShowGrad')?.addEventListener('change', (e) => {

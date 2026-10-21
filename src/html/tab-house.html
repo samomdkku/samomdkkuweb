@@ -312,8 +312,13 @@
         <i class="bi bi-chevron-left" aria-hidden="true"></i> อาจารย์ทั้งหมด
       </button>
       <div id="hadvHero"></div>
+      <div id="hadvMates"></div>
       <div class="hadv-controls">
-        <div class="hadv-seg" role="radiogroup" aria-label="จัดกลุ่มนักศึกษา">
+        <div class="hadv-seg" id="hadvScopeSeg" role="radiogroup" aria-label="นักศึกษาที่แสดง">
+          <button type="button" role="radio" data-hadv-scope="mine" aria-checked="true">สายที่ดูแล<span id="hadvMineCount"></span></button>
+          <button type="button" role="radio" data-hadv-scope="house" aria-checked="false">ทั้งบ้าน<span id="hadvHouseCount"></span></button>
+        </div>
+        <div class="hadv-seg" id="hadvBySeg" role="radiogroup" aria-label="จัดกลุ่มนักศึกษา">
           <button type="button" role="radio" data-hadv-by="sai" aria-checked="true">ตามสายรหัส</button>
           <button type="button" role="radio" data-hadv-by="year" aria-checked="false">ตามชั้นปี</button>
         </div>

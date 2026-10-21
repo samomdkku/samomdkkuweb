@@ -356,7 +356,8 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.hadv-seg[data-active="year"]::before { transform: translateX(100%); }
+.hadv-seg[data-active="year"]::before,
+.hadv-seg[data-active="house"]::before { transform: translateX(100%); }
 .hadv-seg button {
   position: relative;
   z-index: 1;
@@ -398,6 +399,35 @@
   background: var(--green-50, color-mix(in srgb, #f1f8f2 var(--tint-mix), var(--surface)));
 }
 .hadv-row-empty { padding: 0.85rem 1rem; font-size: 0.9rem; color: var(--ink-500, var(--ink-500)); }
+
+/* อาจารย์ร่วมบ้าน: the other อาจารย์ of this บ้าน, each a tap to their page. */
+.hadv-mate-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.45rem;
+}
+.hadv-mate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  background: var(--surface, var(--surface));
+  border: 1px solid var(--ink-200, var(--ink-200));
+  border-radius: 12px;
+  color: inherit;
+}
+.hadv-mate:hover { border-color: var(--ink-300, var(--ink-300)); }
+.hadv-mate:active { opacity: 0.7; }
+.hadv-mate .hadv-name, .hadv-mate .hadv-sub { max-width: 100%; overflow-wrap: anywhere; }
+
+/* In the ทั้งบ้าน view, a สาย head says whose สาย it is. Wraps, never
+   truncates: a phone has no tooltip to recover a cut name from. */
+.hadv-group-head { flex-wrap: wrap; }
+.hadv-owner { font-size: 0.8rem; color: var(--ink-600, var(--ink-600)); overflow-wrap: anywhere; }
+.hadv-owner-me { font-weight: 600; color: var(--brand-primary); }
 
 @media (max-width: 575.98px) {
   .hadv-actions { margin-left: 0; width: 100%; }

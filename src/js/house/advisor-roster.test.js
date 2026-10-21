@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   advisorSaiCodes, matchAdvisors, advisorRoster, yearKey, yearText,
-  YEAR_GRAD, YEAR_UNKNOWN,
+  YEAR_GRAD, YEAR_UNKNOWN, advisorHouses, houseMates, houseRoster,
 } from './advisor-roster.js';
 
 // 2026-10-20 is in ปีการศึกษา 2569 (rollover is August), so cohort 2569 = ปี 1.
@@ -90,5 +90,81 @@ describe('advisorRoster', () => {
 
   it('advisorSaiCodes dedupes and sorts', () => {
     expect(advisorSaiCodes(adv('d', 'x', ['300', '100', '300']))).toEqual(['100', '300']);
+  });
+});
+
+// ── the whole บ้าน (2026-10-21) ─────────────────────────────────────────────
+
+// The caller's rule. Deliberately NOT the last digit for สาย 999, so a test
+// that passes because the module re-derived the บ้าน itself would fail here.
+const HOUSE = (code) => (code === '999' ? 1 : Number(String(code).slice(-1)));
+
+describe('advisorHouses', () => {
+  it('is the บ้าน of every สาย the อาจารย์ looks after, from the caller', () => {
+    expect(advisorHouses(adv('a', 'ก', ['013', '113', '213']), HOUSE)).toEqual([3]);
+    expect(advisorHouses(adv('a', 'ก', ['013', '999']), HOUSE)).toEqual([1, 3]);
+  });
+  it('an อาจารย์ with no สาย has no บ้าน', () => {
+    expect(advisorHouses(adv('a', 'ก', []), HOUSE)).toEqual([]);
+  });
+});
+
+describe('houseMates — อาจารย์ร่วมบ้าน', () => {
+  const me = adv('me', 'ฉัน', ['013', '113']);
+  const all = [
+    me,
+    adv('b', 'ข', ['023', '123']),     // บ้าน 3
+    adv('c', 'ค', ['014']),            // บ้าน 4 — not a mate
+    adv('d', 'ง', ['003', '004']),     // one สาย in บ้าน 3, one in บ้าน 4
+    adv('e', 'จ', ['113']),            // shares my own สาย
+  ];
+  const mates = houseMates(me, all, HOUSE);
+
+  it('lists every OTHER อาจารย์ with a สาย in my บ้าน, never me', () => {
+    expect(mates.map((m) => m.advisor.id).sort()).toEqual(['b', 'd', 'e']);
+  });
+  it('shows only the สาย they hold in MY บ้าน', () => {
+    expect(mates.find((m) => m.advisor.id === 'd').codes).toEqual(['003']);
+  });
+  it('is ordered by their first สาย in the บ้าน', () => {
+    expect(mates.map((m) => m.advisor.id)).toEqual(['d', 'b', 'e']);
+  });
+  it('an อาจารย์ with no สาย has no housemates', () => {
+    expect(houseMates(adv('z', 'ซ', []), all, HOUSE)).toEqual([]);
+  });
+});
+
+describe('houseRoster — every นักศึกษา in the บ้าน', () => {
+  const me = adv('me', 'ฉัน', ['013']);
+  const others = [adv('b', 'ข', ['023']), adv('c', 'ค', ['033'])];
+  const people = [
+    st('s1', '013', 2569), st('s2', '023', 2568), st('s3', '043', 2567),
+    st('s4', '014', 2569),          // บ้าน 4
+    st('s5', null, 2569),           // no สาย
+  ];
+
+  it('holds everyone whose สาย is in my บ้าน, and nobody else', () => {
+    const r = houseRoster(me, [me, ...others], people, HOUSE, 'sai', NOW);
+    expect(r.total).toBe(3);
+    expect(r.groups.flatMap((g) => g.students.map((s) => s.id)).sort()).toEqual(['s1', 's2', 's3']);
+  });
+  it('lists a สาย that has an อาจารย์ but nobody yet, and not the empty unassigned ones', () => {
+    const r = houseRoster(me, [me, ...others], people, HOUSE, 'sai', NOW);
+    expect(r.codes).toEqual(['013', '023', '033', '043']);
+    expect(r.groups.find((g) => g.key === '033').students).toEqual([]);
+  });
+  it('searching narrows the people, never the สาย list', () => {
+    const r = houseRoster(me, [me, ...others], people.filter((s) => s.id === 's1'), HOUSE, 'sai', NOW, people);
+    expect(r.codes).toEqual(['013', '023', '033', '043']);
+    expect(r.total).toBe(1);
+  });
+  it('groups by ชั้นปี the same way the อาจารย์ view does', () => {
+    const r = houseRoster(me, [me, ...others], people, HOUSE, 'year', NOW);
+    expect(r.groups.map((g) => g.key)).toEqual([1, 2, 3]);
+  });
+  it('is a superset of my own สาย view', () => {
+    const mine = advisorRoster(me, people, 'sai', NOW).groups.flatMap((g) => g.students);
+    const house = houseRoster(me, [me, ...others], people, HOUSE, 'sai', NOW).groups.flatMap((g) => g.students);
+    for (const s of mine) expect(house).toContain(s);
   });
 });

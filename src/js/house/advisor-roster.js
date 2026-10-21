@@ -10,6 +10,10 @@
 // student: a second copy would drift the first time a สาย changed hands
 // (mistakes.md class 6).
 //
+// ALSO (owner, 2026-10-21): the same page shows the whole บ้าน — every นักศึกษา
+// in it, and the อาจารย์ร่วมบ้าน — with the บ้าน read from the caller's
+// `houseOfSai` (the database column), never decided here.
+//
 // PURE. No DOM, no Supabase — index.js renders what this returns, and
 // advisor-roster.test.js pins the grouping.
 // ==============================================
@@ -86,7 +90,62 @@ function byYearThenId(now) {
  *             groups:{ key:string|number, students:object[] }[] }}
  */
 export function advisorRoster(advisor, students, by = 'sai', now = new Date()) {
-  const codes = advisorSaiCodes(advisor);
+  return rosterOf(advisorSaiCodes(advisor), students, by, now);
+}
+
+/**
+ * The บ้าน an อาจารย์ belongs to: the บ้าน of every สาย they look after.
+ * Usually one; an อาจารย์ across two บ้าน belongs to both.
+ *
+ * `houseOfSai` is the CALLER's: index.js passes `saiHouse`, which reads the
+ * database's generated `sais.house_id`. This module never decides a house
+ * itself (fields.js — the column is the authority).
+ */
+export function advisorHouses(advisor, houseOfSai) {
+  return [...new Set(advisorSaiCodes(advisor).map(houseOfSai))]
+    .filter((h) => h !== null && h !== undefined)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * อาจารย์ร่วมบ้าน: every OTHER อาจารย์ with a สาย in this อาจารย์'s บ้าน, each
+ * with the สาย they hold THERE (a สาย of theirs in another บ้าน is not why they
+ * are listed). Ordered by their first such สาย, the order the บ้าน is read in.
+ */
+export function houseMates(advisor, advisors, houseOfSai) {
+  const houses = advisorHouses(advisor, houseOfSai);
+  if (!houses.length) return [];
+  return (advisors || [])
+    .filter((o) => o && o.id !== advisor?.id)
+    .map((o) => ({
+      advisor: o,
+      codes: advisorSaiCodes(o).filter((c) => houses.includes(houseOfSai(c))),
+    }))
+    .filter((m) => m.codes.length)
+    .sort((x, y) => x.codes[0].localeCompare(y.codes[0])
+      || String(x.advisor.full_name || '').localeCompare(String(y.advisor.full_name || ''), 'th'));
+}
+
+/**
+ * Every นักศึกษา in this อาจารย์'s บ้าน, grouped like advisorRoster.
+ *
+ * The สาย listed are the บ้าน's สาย that HAVE someone — a นักศึกษา (from
+ * `allStudents`, never the filtered `students`, so searching does not make a
+ * สาย vanish) or an อาจารย์. A บ้าน has ~30 สาย codes and listing the empty,
+ * unassigned ones would bury the people.
+ */
+export function houseRoster(advisor, advisors, students, houseOfSai, by = 'sai',
+  now = new Date(), allStudents = students) {
+  const houses = advisorHouses(advisor, houseOfSai);
+  const inHouse = (c) => Boolean(c) && houses.includes(houseOfSai(c));
+  const codes = [...new Set([
+    ...(allStudents || []).map((s) => s.sai_code),
+    ...(advisors || []).flatMap(advisorSaiCodes),
+  ])].filter(inHouse).sort();
+  return { ...rosterOf(codes, students, by, now), houses };
+}
+
+function rosterOf(codes, students, by, now) {
   const mine = (students || []).filter((s) => codes.includes(s.sai_code));
   const sorted = [...mine].sort(byYearThenId(now));
 
