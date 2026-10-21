@@ -1473,9 +1473,18 @@ The owner said so explicitly. Do not "improve" the sheet by requesting them.
 
 ---
 
-## 17. The night agent — PAUSED 2026-10-20 by the owner, mid task 17 (quality queue 13–23; history below is older)
+## 17. The night agent — PAUSED 2026-10-21 by the owner, mid task 20 (quality queue 13–23; history below is older)
 
-**2026-10-20 18:3x ICT — PAUSED. Status: VERIFIED 2026-10-20 — how: `pgrep -af "run-night|claude -p"` on the VM
+**2026-10-21 13:54 ICT — PAUSED AGAIN. Status: VERIFIED 2026-10-21 — how: `pgrep -af "run-night|claude -p"` on
+the VM empty after the kill, `~/samo-night/STOPPED` written, `queue.mjs report` lists 20 as `interrupted`.**
+It had resumed by itself and finished 17, 18 and 19, then started 20 at 13:47 ICT. Task 20 was ~7 minutes
+in: only the coverage package (`@vitest/coverage-v8` + a coverage script) was added, committed as WIP at the tip of `agent/2026-10-20`;
+the queue note says "เจ้าของสั่งหยุดชั่วคราว" (corrected by hand: `queue.mjs` has no pause reason, so `cut`
+writes "โควตาหมด"). 13 needs-review · 14–19 done · 20 interrupted (resumes, never skipped) · 21–23 todo.
+⚠️ `Until` is 2026-10-21 08:30 UTC (15:30 ICT): an `--arm` after that runs NOTHING until the live queue's
+`Until:` is moved (`sed -i` on `~/samo-night/NIGHT-TASKS.md`, keep a `.prev`). Stop command: `skills/night-agent.md`.
+
+**2026-10-20 18:3x ICT — PAUSED (superseded above). Status: VERIFIED 2026-10-20 — how: `pgrep -af "run-night|claude -p"` on the VM
 empty after the kill, `~/samo-night/STOPPED` written, `queue.mjs report` lists 17 as `interrupted`.**
 The owner wanted the session for other work. Task 17's half-done work is the WIP commit at the tip of
 `agent/2026-10-20` (the queue note says "โควตาหมด" — it was a pause; `NIGHT-TASKS.md.prev-pause` kept).
@@ -1583,7 +1592,7 @@ and mechanics: `skills/night-agent.md`, top section.
    `git log --oneline origin/main..vm/agent/2026-10-18` and `docs/state/night-agent.md` (its
    `## Task N` blocks). ⛔ Nothing it wrote is on production. Apply its migrations only
    after review, in order, proof before and after (§22 rows 8–12).
-4. To take the window back NOW: `ssh samo-vm 'pkill -f run-night.sh; pkill -f "claude -p"; touch ~/samo-night/STOPPED'`
+4. To take the window back NOW: the stop command in `skills/night-agent.md`
    (runner FIRST); `bash server/night-agent/install.sh --arm` resumes.
 
 **Known limits, not bugs:**

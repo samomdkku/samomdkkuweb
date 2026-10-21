@@ -233,8 +233,12 @@ server/night-agent/install.sh --arm` clears it. Its checkout commits as it
 goes, so check `git status` in `~/samo-agent` afterwards.
 
 ```bash
-ssh samo-vm 'pkill -f run-night.sh; pkill -f "claude -p"; touch ~/samo-night/STOPPED'
+ssh samo-vm 'touch ~/samo-night/STOPPED; pkill -f "run-nigh[t].sh"; sleep 1; pkill -f "claud[e] -p"'
 ```
+
+The `[t]` / `[e]` brackets are load-bearing: a bare `pkill -f run-night.sh` also
+matches the remote shell running this very command, kills it (ssh exits 255),
+and nothing after it runs — so `touch STOPPED` goes FIRST (2026-10-21).
 
 ⛔ **`enable` is not `schedule`.** Read `NextElapseUSecRealtime`, never
 `is-enabled` — a timer can report enabled with no next elapse.
