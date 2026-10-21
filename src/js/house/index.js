@@ -31,7 +31,7 @@ import { deleteTeamPhotoIfUnused, photoToRetire } from '../team/api.js';
 import {
   fetchHouses, updateHouse, fetchSais,
   fetchAdvisors, createAdvisor, updateAdvisor, deleteAdvisor, setAdvisorSais,
-  addSaiAdvisor, removeSaiAdvisor,
+  setAdvisorPhone, addSaiAdvisor, removeSaiAdvisor,
   fetchStudents, createStudent, updateStudent, deleteStudent, upsertStudents,
   createImportBatch, finishImportBatch, fetchRequests, decideRequest,
   markMissing, ensureSais, fetchMajors, recordUnresolved,
@@ -57,6 +57,7 @@ import {
   advisorSaiCodes, matchAdvisors, advisorRoster, yearText,
 } from './advisor-roster.js';
 import { diagnoseHelpRequest } from './help-diagnosis.js';
+import { advisorPhone, normalizePhone, formatPhone } from './advisor-import.js';
 import {
   normalizeSai, houseOf, houseLabel, normalizeStudentId, HOUSE_COUNT,
   cohortLabel, saiProblem, safeColor,
@@ -1324,6 +1325,8 @@ function renderAdvisorDetail() {
           <h2 class="hadv-title">${escHtml(a.full_name)}</h2>
           <div class="hadv-sub">${[a.dept, a.email].filter(Boolean).map(escHtml).join(' · ')
     || 'ยังไม่ได้ระบุภาควิชาและอีเมล'}</div>
+          ${advisorPhone(a) ? `<div class="hadv-sub"><a href="tel:${escHtml(advisorPhone(a))}">
+            <i class="bi bi-telephone" aria-hidden="true"></i> ${escHtml(formatPhone(advisorPhone(a)))}</a></div>` : ''}
           <div class="hadv-stats">
             <span class="hadv-stat"><strong>${activeN.toLocaleString('th-TH')}</strong> นักศึกษา</span>
             <span class="hadv-stat"><strong>${roster.codes.length}</strong> สาย</span>
@@ -2786,6 +2789,7 @@ function openAdvisorModal(id) {
   $('haLast').value = a?.last_name_th || '';
   $('haEmail').value = a?.email || '';
   $('haDept').value = a?.dept || '';
+  $('haPhone').value = formatPhone(advisorPhone(a));
   $('haSais').value = (a?.sai_advisors || []).map((l) => l.sai_code).sort().join(', ');
   $('haDelete').classList.toggle('d-none', !a);
   modalInstance('houseAdvisorModal')?.show();
@@ -2801,6 +2805,8 @@ async function onAdvisorSubmit(e) {
     if (!sais.some((s) => s.code === n.value)) { alert(`ไม่พบสาย ${n.value} ในระบบ`); return; }
     if (!codes.includes(n.value)) codes.push(n.value);
   }
+  const phone = normalizePhone($('haPhone').value);
+  if (!phone.ok) { alert('เบอร์โทรศัพท์ต้องเป็นเลข 9–10 หลัก ขึ้นต้นด้วย 0'); return; }
   const payload = {
     first_name_th: $('haFirst').value.trim(),
     last_name_th: $('haLast').value.trim() || null,
@@ -2810,6 +2816,8 @@ async function onAdvisorSubmit(e) {
   try {
     const row = id ? await updateAdvisor(id, payload) : await createAdvisor(payload);
     await setAdvisorSais(row.id, codes);
+    const before = advisorPhone(advisors.find((x) => x.id === row.id));
+    if (phone.value !== before) await setAdvisorPhone(row.id, phone.value);
     modalInstance('houseAdvisorModal')?.hide();
     await reload();
   } catch (err) {

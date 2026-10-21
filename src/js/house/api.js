@@ -87,7 +87,9 @@ export async function ensureSais(codes) {
 // ---- advisors ----
 export async function fetchAdvisors() {
   const { data, error } = await dbRest(
-    '/advisors?select=*,sai_advisors(sai_code,role,position)&order=full_name.asc');
+    // advisor_phones (0243) is house-admin only; for anyone else the embed is
+    // simply empty, exactly as the advisors rows themselves are.
+    '/advisors?select=*,sai_advisors(sai_code,role,position),advisor_phones(phone)&order=full_name.asc');
   if (error) fail(error, 'โหลดรายชื่ออาจารย์ไม่สำเร็จ');
   return data || [];
 }
@@ -121,6 +123,29 @@ export async function deleteAdvisor(id) {
   if (error) fail(error, 'ลบอาจารย์ไม่สำเร็จ');
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('ลบอาจารย์ไม่สำเร็จ — ไม่พบรายการ หรือคุณไม่มีสิทธิ์ลบ');
+  }
+}
+
+/** Set or clear an อาจารย์'s phone (digits only — normalizePhone first). */
+export async function setAdvisorPhone(advisorId, phone) {
+  const id = encodeURIComponent(advisorId);
+  if (!phone) {
+    // delete-guard:allow-empty — clearing the phone of an อาจารย์ who never had
+    // one deletes zero rows, and that is the success case, not a refusal.
+    const { error } = await dbRest(`/advisor_phones?advisor_id=eq.${id}`, {
+      method: 'DELETE', prefer: 'return=representation',
+    });
+    if (error) fail(error, 'ลบเบอร์โทรศัพท์ไม่สำเร็จ');
+    return;
+  }
+  const { data, error } = await dbRest('/advisor_phones?on_conflict=advisor_id', {
+    method: 'POST',
+    body: { advisor_id: advisorId, phone, updated_at: new Date().toISOString() },
+    prefer: 'resolution=merge-duplicates,return=representation',
+  });
+  if (error) fail(error, 'บันทึกเบอร์โทรศัพท์ไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('บันทึกเบอร์โทรศัพท์ไม่สำเร็จ (สิทธิ์ไม่พอ)');
   }
 }
 

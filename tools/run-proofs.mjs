@@ -50,6 +50,7 @@ const PROOFS = [
   ['house0193-file-evidence.sql', 'what the file said survives the cleaning, and never becomes an identity'],
   ['house0194-import-fills-registry.sql', 'an import fills a hole in the registry and never writes over it'],
   ['house0217-follow-up.sql', 'what ฝ่ายข้อมูล found out is kept, closes only what it should, and survives the next import'],
+  ['house0243-advisor-phones.sql', "an อาจารย์'s phone reaches house admins and nobody else, by any path"],
   ['authz0218-null-role.sql', 'a signed-in caller with no users row is refused by EVERY role-gated function'],
   ['house0200-three-copies.sql', 'the main card, ทีม SAMO and ระบบบ้าน agree, a new connection takes the card, and an admin can see and repair a mismatch'],
   ['team0145-one-chan-pi.sql', 'ชั้นปี survives a registry touch'],

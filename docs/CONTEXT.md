@@ -1264,6 +1264,7 @@ nothing may compute or repair one.
 | `houses` | Exactly 10, seeded 0–9. **UPDATE-only** — INSERT/DELETE revoked from `authenticated`, because the set is fixed by the rule. |
 | `sais` | DERIVED from the import (0121), never seeded; `code` 3 digits. `house_id` is a **GENERATED STORED** column `(right(code,1))::smallint` — the single implementation of the house rule. Never write it. |
 | `advisors` / `sai_advisors` | อาจารย์ as a person + a many-to-many link, so one advisor across several สาย de-duplicates in "อาจารย์ทั้งหมดในบ้าน". |
+| `advisor_phones` | An อาจารย์'s เบอร์โทรศัพท์ (0243), digits only. **SENSITIVE: house admins only** (the `advisors_admin_all` predicate, so `master` too); anon holds no grant; no definer function names it, so it never reaches a student. A table of its own so that widening `advisors` widens nothing here. Readers are ratcheted by `advisor-phones-readers.test.js`; proof `house0243-advisor-phones`. Filled from ฝ่ายข้อมูล's sheet by `tools/house-advisor-import.mjs` (refuses a sheet inside the repo). |
 | `students` | ~1,800. Import-owned columns and self-owned columns are disjoint; `nickname` is a generated `coalesce(nickname_self, nickname_imported)`. |
 | `student_change_requests` | The correction queue. Partial unique index allows one OPEN request per field per student. |
 | `student_import_batches` | Audit of each import. |
