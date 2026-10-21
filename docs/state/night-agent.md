@@ -2892,3 +2892,124 @@ regression this task found twice; (3) the usual `server/deploy.sh` to ship
 these two fixes; (4) if anyone revisits admin's Quill/Cropper/Sortable or
 `welcome-banner.jpg`, read the "rejected / deferred" bullets above first —
 both have a specific, named reason they were left alone, not an oversight.
+
+## Task 19 — Maintainability: split the two largest modules (2026-10-20)
+
+**Did one of the two, and said why the other one is a different shape of
+problem, not a smaller version of the same one.**
+
+**`src/js/shop/admin.js` (5,110 lines → a ~580-line shell + 9 tab modules),
+DONE.** Split along the seams the file already named in its own `// ====`
+banner comments: `admin-orders.js` (orders list + facets + the create panel +
+CSV export + the order detail modal — 1,716 lines; the verify queue is a
+separate pane but shares `modalOrder`/`openOrderModal` tightly enough that
+splitting it further would just move the coupling, not remove it),
+`admin-verify.js` (217), `admin-preorder.js` (288), `admin-batches.js` (330),
+`admin-products.js` (890 — plus the colour-picker helpers that had been
+stranded at EOF, now beside the editor that uses them), `admin-stock.js`
+(469), `admin-catalog.js` (513 — QR settings + the product-type/pickup/QR
+managers), `admin-banners.js` (223). One cross-cutting helper
+(`trashImageIfUnused`, called by Batches, Products AND Banners) got its own
+`admin-image-cleanup.js` (45 lines) rather than making two tabs import from a
+third tab's file for no reason related to what either tab does.
+
+**Verified it is a pure move, not by eye.** Every new file's body, with the
+`export ` keyword stripped back out (the ONE kind of edit made —
+cross-module calls need it, same-file calls didn't before), diffs
+byte-identical against the matching line range of the original file —
+checked with a script, not a read-through (`git diff --color-moved` agrees,
+but the script is the real proof: it can't be fooled by a reformatted line
+that happens to move to the same place). No window-bound function exists in
+this module (checked: everything is wired via `addEventListener`, nothing
+via `onclick=""`), so there was nothing to avoid renaming. No new
+abstraction beyond the one shared-helper file above.
+
+**What broke on the first `npm test`, and why that's expected, not a
+regression.** Four existing tests hardcoded `'shop/admin.js'` as the one
+file to scan: `read-file.test.js`'s picked-file registry (n:6 "held" calls),
+`upload-cleanup.test.js`'s Drive-upload audit, `src/js/shop/css-rules.test.js`'s
+CSS-class-per-entry sweep, and `pictures-readers.test.js`'s
+`image_url`/`images` reader registry. Each got its single row replaced with
+one row per new file, with the SAME total count, re-derived by actually
+running the count against the new files (not retyped from the old row) —
+and in two cases this is now MORE accurate than before: the old single-row
+registry called all 6 of admin.js's picked-file sites "held" (copies the
+bytes before a later save) because that was the only kind the one file as a
+whole exhibited anywhere; split apart, the QR and banner pickers turned out
+to be `'immediate'` (upload inside the pick handler, nothing held) while
+only the batch and product pickers are genuinely `'held'` — a distinction
+the old test COULD NOT express with one row. `admin-order-modal.test.js`
+(pins that the delete-button listener is wired once in `ensureMounted`, not
+re-wired every `openOrderModal` repaint — the my-house.js re-render-trap
+shape) now reads `admin.js` + `admin-orders.js` concatenated, since
+`ensureMounted` and `openOrderModal` are no longer in one file. `eslint`'s
+`no-unused-vars` (wired into CI by task 16) then caught 3 leftover dead
+imports from the split that the test suite doesn't check for — fixed,
+`npm run lint` clean.
+
+**`src/js/team/index.js` (4,419 lines), NOT split — a different shape of
+problem.** `admin.js` had ONE piece of cross-tab state, a `const state = {}`
+object that is mutated in place and never reassigned — exactly what an ES
+`export`/`import` can share safely between files regardless of which one
+loads first. `team/index.js` has SEVENTEEN module-scope `let`s
+(`mode`, `childrenByParent`, `searchQ`, `selectionMode`, `pendingPlan`,
+`sortables`, `rtStarted`, `dragging`, `pendingRender`, `renderTimer`,
+`healthFlags`, `healthNodeCounts`, `memberPhotoFocus`, `majors`, `loading`,
+`loaded`, `initialized`, `currentTermYear`), and at least two of them
+(`mode`, `childrenByParent`) are REASSIGNED — `childrenByParent = new Map()`
+twice, `mode = 'perms'`/`'health'`/etc. in `switchMode` — not just mutated.
+A `let` reassigned by its owning module can be READ as a live binding from
+another module, but never REASSIGNED from outside it; every function that
+would move to a `perms.js` or a `team.js` closures directly over several of
+these (not as parameters), so a safe split needs either (a) turning all
+seventeen into getter/setter pairs — a real new abstraction the brief rules
+out — or (b) leaving the state in `index.js` and passing a dozen-plus values
+into every extracted function as parameters, which is a signature rewrite,
+not a move. Checked this against the actual code (not assumed): also found
+that the "team" and "perms" modes are not even cleanly separable by
+function — `inheritedPermsFor`/`nodeEffectivePerms`/`nodeEffectiveVsDepts`/
+etc. (lines 191–366) compute inherited permissions read by BOTH the tree's
+own node badges (team mode) and the permission grid (perms mode), and
+`wireMemberModal` (team: editing a member's info) sits between
+`wireMemberPermModal`/`fillMemberPermPane`/`openMemberPermModal` (perms, for
+that same member) in the file's own order — the two modes are interleaved at
+the function level, not just coupled through shared state. A one-night
+mechanical split here risks a genuinely subtle cross-module state bug that
+the test suite has no structural coverage to catch (no jsdom in this repo's
+test setup, and no Chrome in this sandbox to drive the real page either —
+see below), for a module that is read by every session touching ทีม SAMO.
+Leaving it whole and documenting exactly why is safer than a half-verified
+split.
+
+**Could not drive the real page.** `tools/browser/shop-admin-tour.mjs` and
+`shop-admin-strip.mjs` both need Chrome + `npm run dev` on samo-dev — no
+`google-chrome`/`chromium` binary exists anywhere on this sandbox's
+filesystem (same gap tasks 17 and 18 hit and documented; `sudo`/`apt-get`
+refused, no root). Did not attempt to install one again. **Owed to the
+owner**: `node tools/browser/shop-admin-tour.mjs` against samo-dev once run
+from a machine with Chrome, to see the split tabs render exactly as before
+at 1280 and 390 — `npm test`, `npm run build`, `npm run check:bundle` and
+`npm run lint` are all green, and the chunk the shop admin bundles into is
+unchanged (it was already behind the admin entry's lazy `import()`, same as
+before: `admin-xMFQ5cPB.js` 672,861 B vs the pre-split build's
+`admin-duAa3rwZ.js` 672,950 B — the ~90-byte difference is header-comment
+and import-line text, not a behaviour change), but neither of those is a
+substitute for actually looking at the rendered page.
+
+**What I rejected.** Splitting `admin-orders.js` further (it's the largest
+new file at 1,716 lines) — the order list, its facets, the inline "create
+order" panel, and the order detail MODAL are one feature from the admin's
+point of view (click a row → see/edit everything about that order), and the
+modal's `modalOrder`/`modalEditItems` state is read by Stock
+(`onStockProductionStatusChange`) and written by nothing outside this file,
+so splitting it would mean inventing a boundary the UI itself doesn't have,
+for a count that's still a 66% reduction from the original 5,110-line file.
+
+**Commands for the next session**: `npm test && npm run build && npm run
+lint` (all green already; re-run after any further edit here);
+`git diff --color-moved=zebra c21457c^..c21457c -- src/js/shop/` to see the
+move for yourself; `node tools/browser/shop-admin-tour.mjs` once Chrome is
+reachable, to actually look at every shop-admin tab (orders, verify,
+preorder, batches, products, stock, banners, qr, catalog) at 1280 and 390 —
+this is the shop admin's split, NOT ทีม SAMO's team/perms/years/health,
+which this task left untouched for the reasons above.
