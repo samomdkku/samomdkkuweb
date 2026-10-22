@@ -34,7 +34,7 @@ import {
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
 import {
-  overviewModel, overviewHtml, tileMeta, shortUnitName, layoutOverview,
+  overviewModel, overviewHtml, tileMeta, shortUnitName,
 } from './org-overview.js';
 import { openOrgSheet, onOrgSheetClick, onOrgSheetScroll } from './org-sheet.js';
 
@@ -142,8 +142,8 @@ let sheetRender = false;
 // view — onto a different picture. A new key costs nothing and moves nobody.
 //
 // FOUR SINCE 2026-10-22: ภาพรวม (`'overview'`, org-overview.js) — every ฝ่าย as
-// a tile listing each ฝ่ายย่อย with its head, one screen on a computer (a phone
-// scrolls ~1.5 screens), each tile opening a sheet. Asked for beside the other three, not instead of one, so it is a new
+// a tile listing each ฝ่ายย่อย with its head, in one aligned grid on every
+// device (5 / 3 / 2 columns), each tile opening a sheet. Asked for beside the other three, not instead of one, so it is a new
 // key and the default does not move.
 const VIEWS = ['overview', 'lines', 'chart', 'all'];
 // `Object.create(null)`, and it is the same fix af36088 made to the four
@@ -738,7 +738,6 @@ function render() {
 
   if (nothing) {
     destroyOrgGraph();
-    layoutOverview(null);   // drop the last grid's resize observer too
     body.innerHTML = `<p class="org-status">${
       filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
     }</p>`;
@@ -779,9 +778,6 @@ function render() {
       : `<div class="orgc-tree">${panels}</div>`}`;
 
   if (view === 'all') paintGraph(roots, filter);
-  // Tiles are placed by measuring them, so after they are in the document.
-  // Called with no grid (any other view) it just drops the old observer.
-  layoutOverview(view === 'overview' ? body : null);
 }
 
 // ── rendering ภาพรวม ─────────────────────────────────────────────────────────

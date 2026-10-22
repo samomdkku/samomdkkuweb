@@ -4682,6 +4682,14 @@ the shorter, with a test that brute-forces every split to prove the DP optimal.
 measure each candidate at every width, or compute the exact answer when the
 input is this small.*
 
+**Later the same day the masonry was REMOVED** for one aligned grid on every
+device: the owner asked for a layout that stays "consistent whatever ฝ่าย or
+member get add later", and a packing that depends on the data cannot promise
+that — one ฝ่าย deleted in the admin re-sorted the whole map. The lesson above
+stands for anyone who does need a masonry; the design lesson is that *a layout
+whose order depends on the content's heights is unstable by construction —
+choose it only when fitting matters more than things staying put.*
+
 **The general rule**: *a layout keyword's meaning depends on whether the
 container's size is known yet — `1fr` in an intrinsic pass, a multicol under a
 fixed height, an `auto` track around a multicol. Measure the boxes at the

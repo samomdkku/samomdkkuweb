@@ -22,7 +22,7 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import {
-  overviewModel, overviewHtml, tileMeta, shortUnitName, callName, rowOrder, columnOrder,
+  overviewModel, overviewHtml, tileMeta, shortUnitName, callName, WIDE_SUBS,
 } from './org-overview.js';
 import { sortSiblings } from './org-rung.js';
 
@@ -192,39 +192,35 @@ describe('the tile says what a tap does — no hint sentence needed', () => {
   });
 });
 
-describe('placing the tiles', () => {
-  const tallest = (h, a, k) => {
-    const t = Array(k).fill(0);
-    h.forEach((x, i) => { t[a[i]] += x; });
-    return Math.max(...t);
+describe('a ฝ่าย added later lands at the END and nothing else moves', () => {
+  // The owner's ask: "consistent whatever ฝ่าย or member or something get add
+  // later". A packed layout re-sorted the map when one ฝ่าย was removed; the
+  // grid is in the ฝ่าย order, so the markup order IS the reading order.
+  const order = (html) => [...html.matchAll(/class="orgo-tile[^"]*" data-org-open="([^"]+)"/g)].map((m) => m[1]);
+  const render = (nodes) => overviewHtml(overviewModel(fixture(nodes, MEMBERS)),
+    { filter: null, hitsOf: () => 0, hl: (t) => t });
+
+  it('tiles follow the ฝ่าย order', () => {
+    expect(order(render(NODES))).toEqual(['digital', 'hosp']);
+  });
+
+  it('adding a ฝ่าย appends it; the tiles before it keep their places', () => {
+    const before = order(render(NODES));
+    const after = order(render([...NODES, div('newdept', null, 3, 'ฝ่ายใหม่'), seat('nh', 'newdept', 0)]));
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after[after.length - 1]).toBe('newdept');
+  });
+});
+
+describe('a ฝ่าย with many ฝ่ายย่อย is a WIDE tile — decided by content, not by name', () => {
+  const build = (n) => {
+    const nodes = [div('office', null, 0), seat('p', 'office', 0),
+      div('big', null, 1), seat('bighead', 'big', 0), ...NODES_SUBS(n)];
+    return overviewHtml(overviewModel(fixture(nodes, [person('p', 'P'), person('bighead', 'H')])),
+      { filter: null, hitsOf: () => 0, hl: (t) => t });
   };
-
-  it('ROWS: the first row reads left to right, then each tile takes the shortest column', () => {
-    expect(rowOrder([100, 100, 100, 50, 100], 3)).toEqual([0, 1, 2, 0, 1]);
-  });
-
-  it('COLUMNS: contiguous runs in order, and the tallest column as short as it can be', () => {
-    const h = [223, 200, 223, 200, 200, 200, 223, 200, 200, 339, 143, 118];
-    const a = columnOrder(h, 5);
-    // contiguous and in order: never steps back to an earlier column
-    for (let i = 1; i < a.length; i++) expect(a[i] - a[i - 1]).toBeGreaterThanOrEqual(0);
-    // optimal: brute force over every contiguous 5-way split agrees
-    let best = Infinity;
-    const n = h.length;
-    const rec = (start, cols, worst) => {
-      if (cols === 1) { best = Math.min(best, Math.max(worst, h.slice(start).reduce((x, y) => x + y, 0))); return; }
-      let run = 0;
-      for (let end = start + 1; end <= n - cols + 1; end++) {
-        run += h[end - 1];
-        rec(end, cols - 1, Math.max(worst, run));
-      }
-    };
-    rec(0, 5, 0);
-    expect(tallest(h, a, 5)).toBe(best);
-  });
-
-  it('fewer tiles than columns: each gets its own, nothing out of range', () => {
-    expect(columnOrder([10, 20], 5)).toEqual([0, 1]);
-    expect(rowOrder([10, 20], 5)).toEqual([0, 1]);
+  it(`more than ${WIDE_SUBS} ฝ่ายย่อย → wide; ${WIDE_SUBS} or fewer → not`, () => {
+    expect(build(WIDE_SUBS + 1)).toContain('orgo-cell is-wide');
+    expect(build(WIDE_SUBS)).not.toContain('is-wide');
   });
 });

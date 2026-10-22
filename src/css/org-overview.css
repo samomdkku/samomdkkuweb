@@ -8,10 +8,9 @@
  *      sticky navbar and the view switch above it (`--orgo-chrome`). A MIN, not
  *      a height: an archive year with thirty root ฝ่าย would rather scroll than
  *      clip.
- *   2. THE TILES ARE A MASONRY OF COLUMNS, each as tall as its own rows — every
- *      ฝ่ายย่อย is listed with its head, so the tiles differ, and columns are
- *      what lets a nine-row tile sit beside a three-row one without stretching
- *      it (the measured numbers are at `.orgo-grid`).
+ *   2. THE TILES ARE ONE ALIGNED GRID — the same design on every device,
+ *      in the ฝ่าย order, stable when a ฝ่าย is added (`.orgo-grid` says why
+ *      it replaced a masonry, and what that costs).
  *   3. SHORT SCREENS TIGHTEN, THEY DO NOT DROP PEOPLE — spacing, the seat title
  *      and the count line give way first (media queries at the end).
  *
@@ -98,24 +97,24 @@
   background: var(--org-spine, var(--ink-200));
 }
 
-/* ── the grid of ฝ่าย: a MASONRY of columns ───────────────────────────────
-   Every ฝ่ายย่อย is a row on its tile (org-overview.js `subsHtml`), so tiles
-   differ in height: ฝ่ายเวชนิทัศน์ has nine rows, most have three or four.
+/* ── the grid of ฝ่าย: ONE ALIGNED GRID, every device ─────────────────────
+   Five columns on a computer, three on an iPad, two on a phone — the same
+   design with a different count. Tiles run in the ฝ่าย order, left to right;
+   each row is as tall as its tallest tile, every tile in it stretches to
+   match, and the "N คน ›" lines sit on one baseline.
 
-   A ROW-ALIGNED grid makes every tile in a row as tall as the tallest one, so
-   the nine-row tile set the height of three others: 788px of tiles against
-   602px of screen at 1440×900, measured. Stacked in COLUMNS each tile is only
-   as tall as itself and the columns balance: total ÷ 4 ≈ 590px. Same people,
-   same rows, and it fits — the layout gave way instead of a person.
+   THIS REPLACED A MASONRY, on the owner's ask: "i want it to look good all,
+   consistent whatever ฝ่าย or member or something get add later". The
+   masonry (a script packing tiles into the shortest column) fitted one screen
+   by staggering the tiles, and that was the problem: it was a DIFFERENT design
+   from the phone's, and the packing depended on the data — removing one ฝ่าย
+   (ผู้จัดทำเว็บสโม, 2026-10-23) re-sorted the whole map, and the script even
+   switched between reading across and reading down. In this grid a new ฝ่าย
+   appears at the end and nothing else moves.
 
-   PLACED BY SCRIPT, CSS columns as the fallback. CSS columns fill top to
-   bottom in order and cannot move a tile to even them out, so the tallest
-   column set the page: 630px where 540 was possible at 1440 wide (measured),
-   and the eye had to read down each column. `layoutOverview` (org-overview.js)
-   puts each tile, in the ฝ่าย's own order, into whichever column is shortest
-   — balanced, and reading left to right like any grid. It reads the column
-   COUNT from `--orgo-cols` here, so the breakpoints have one home. Tab order
-   stays the DOM's, which is the ฝ่าย order. */
+   The cost, paid on purpose: a row is as tall as its tallest tile, so the row
+   holding ฝ่ายเวชนิทัศน์'s nine ฝ่ายย่อย leaves room in its neighbours, and a
+   laptop may scroll. Predictable beats packed. */
 .orgo-grid {
   --orgo-cols: 4;
   justify-self: stretch;
@@ -123,38 +122,29 @@
   margin: 0;
   padding: 0.9rem 0 0;
   border-top: 1px solid var(--org-spine, var(--ink-200));
-  columns: var(--orgo-cols);
-  column-gap: 0.65rem;
-  /* Content-height, never stretched: a multi-column box given a FIXED height
-     overflows into extra columns off to the side — measured as a sideways
-     scroll at 1024 and 820 wide before this line. */
-  align-self: start;
+  display: grid;
+  grid-template-columns: repeat(var(--orgo-cols), minmax(0, 1fr));
+  /* DENSE: a wide tile that does not fit at the end of a row moves down, and
+     the next small tile fills the hole it left — the way the iOS home screen
+     flows widgets. The order shifts by at most that one tile. */
+  grid-auto-flow: row dense;
+  gap: 0.65rem;
+}
+/* the medium widget: two columns wide, its ฝ่ายย่อย in two columns inside
+   (`WIDE_SUBS` in org-overview.js decides which tiles) */
+.orgo-cell.is-wide { grid-column: span 2; }
+.orgo-cell.is-wide .orgo-subs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.1rem;
 }
 @media (max-width: 991.98px) {
   .orgo-grid { --orgo-cols: 3; }
 }
-/* a landscape iPad (992–1199 wide): the same breakout and FIVE columns. Four
-   left the tallest column 59px past a 1024×768 screen (measured) — it was the
-   column count, not the width: full width alone changed nothing. */
-@media (min-width: 992px) and (max-width: 1199.98px) {
-  .orgo-grid {
-    --orgo-cols: 5;
-    justify-self: center;
-    width: calc(100vw - 2.5rem);
-    max-width: none;
-  }
-}
-/* the script has placed the tiles: positioned boxes in a relative grid */
-.orgo-grid.is-laid { columns: auto; position: relative; }
-.orgo-grid.is-laid > .orgo-cell { position: absolute; margin: 0; }
-/* WIDE SCREENS USE THEIR WIDTH. The page is capped at 1080px, so a 1440 screen
-   had 180px of nothing either side while the tiles ran off the bottom. Here
-   the grid alone widens to 1280px and takes a FIFTH column: tiles stay the
-   width they were (~250px, so nothing wraps more) and every column is a fifth
-   shorter. Measured, this is what keeps the action line on every tile AND the
-   map on one screen at 1280–1920 wide.
-   Breaks out by `vw`, safely: the width stays 4rem inside the viewport, more
-   than any classic scrollbar, and it is centred on the column it sits in. */
+/* WIDE SCREENS USE THEIR WIDTH. The page is capped at 1080px; the grid alone
+   widens to 1280px and takes a FIFTH column, so a row holds more ฝ่าย and there
+   are fewer rows. Breaks out by `vw`, safely: it stays 4rem inside the
+   viewport, more than any classic scrollbar, centred on its column. */
 @media (min-width: 1200px) {
   .orgo-grid {
     --orgo-cols: 5;
@@ -163,26 +153,24 @@
     max-width: none;
   }
 }
+/* a landscape iPad (992–1199 wide): the same breakout, five columns */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .orgo-grid {
+    --orgo-cols: 5;
+    justify-self: center;
+    width: calc(100vw - 2.5rem);
+    max-width: none;
+  }
+}
 
 .orgo-cell {
-  /* INLINE-BLOCK, not flex or block: an inline-block box is never split across
-     columns in any engine, where `break-inside: avoid` on a flex item has been
-     ignored by WebKit. The two `break-inside` spellings stay as belt and
-     braces. Measured only in Chrome — this is the defensive form. */
-  display: inline-block;
-  width: 100%;
-  vertical-align: top;
+  display: flex;          /* the tile stretches to its row's height */
   min-width: 0;
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  margin-bottom: 0.65rem;
-  /* OPACITY ONLY. A transform animating inside a multi-column box is where
-     WebKit has painted children in the wrong column mid-animation. */
   animation: orgoFade 0.4s ease both;
   animation-delay: calc(var(--i, 0) * 22ms);
 }
 @keyframes orgoFade { from { opacity: 0; } to { opacity: 1; } }
-.orgo-cell > .orgo-tile { height: auto; }
+.orgo-cell > .orgo-tile { flex: 1 1 auto; }
 
 .orgo-tile {
   position: relative;
@@ -373,8 +361,7 @@
   .orgo-apex { padding-block: 0.45rem; }
   .orgo-apex .orgo-face { width: 2.3rem; }
   .orgo-stem { height: 0.6rem; }
-  .orgo-grid { column-gap: 0.5rem; padding-top: 0.7rem; }
-  .orgo-cell { margin-bottom: 0.5rem; }
+  .orgo-grid { gap: 0.5rem; padding-top: 0.7rem; }
   .orgo-tile { gap: 0.35rem; padding: 0.55rem 0.65rem 0.5rem; }
   .orgo-subs { padding-top: 0.35rem; gap: 0.05rem; }
   .orgo-sub { height: 1.25rem; font-size: 0.7rem; }
@@ -389,8 +376,7 @@
    tiles, so the spacing gives a little more */
 @media (min-width: 600px) and (max-width: 1199.98px) and (max-height: 880px) {
   .orgo-tile { padding: 0.5rem 0.6rem 0.45rem; gap: 0.3rem; }
-  .orgo-grid { column-gap: 0.45rem; padding-top: 0.6rem; }
-  .orgo-cell { margin-bottom: 0.45rem; }
+  .orgo-grid { gap: 0.45rem; padding-top: 0.6rem; }
   .orgo-stem { height: 0.6rem; }
 }
 
@@ -401,28 +387,10 @@
    the view, so on a phone it is the screen that gives: all 41 heads at a
    readable size are ~1.5 phone screens, and a vertical scroll is the phone's
    own gesture (what this view exists to avoid is PANNING a canvas, not
-   scrolling a page). Same masonry as desktop, two columns. */
+   scrolling a page). The same aligned grid as every device, two columns. */
 @media (max-width: 599.98px) {
   .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
-  /* AN ALIGNED GRID ON PHONES, NOT A MASONRY. Asked, looking at it on a phone:
-     "is this unalignment intentional". On a computer it is — the masonry is
-     what fits a nine-row tile beside three-row ones on ONE screen. A phone
-     scrolls anyway, so the masonry bought ~140px and cost two things: tiles
-     that look misplaced, and an order that ran down the left column and then
-     the right (the column split won there), so ฝ่าย 2 sat under ฝ่าย 1. Here
-     each pair shares a row, read left to right, and the "N คน ›" lines sit on
-     one baseline. `--orgo-layout` tells layoutOverview to stand aside. */
-  .orgo-grid {
-    --orgo-cols: 2;
-    --orgo-layout: grid;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.45rem;
-    columns: auto;
-    padding-top: 0.6rem;
-  }
-  .orgo-grid > .orgo-cell { display: flex; width: auto; margin: 0; }
-  .orgo-grid > .orgo-cell > .orgo-tile { flex: 1 1 auto; }
+  .orgo-grid { --orgo-cols: 2; gap: 0.45rem; padding-top: 0.6rem; }
   /* EDGE TO EDGE, less an 8px gutter. REQUESTED: "it got margin at leftmost,
      rightmost can you make it take full width" — the tiles sat inside BOTH the
      Bootstrap .container padding and .org-page's, ~28px a side on a 390px
@@ -442,7 +410,6 @@
   }
   /* the stem still hangs from the middle of the apex */
   .orgo-stem { justify-self: center; }
-  .orgo-cell { margin-bottom: 0.45rem; }
   .orgo-apex { padding: 0.55rem 0.75rem 0.55rem 0.65rem; }
   .orgo-apex .orgo-face { width: 2.5rem; }
   .orgo-apex .orgo-lead-name { font-size: 0.88rem; }
