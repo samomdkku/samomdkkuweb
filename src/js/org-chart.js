@@ -854,9 +854,13 @@ function openOverviewSheet(btn) {
 // the category bars people already know (App Store, YouTube) all do it:
 //   • the section you are in is the SELECTED chip, filled green — the same
 //     "selected" the ภาพรวม button above wears;
-//   • a tap selects on the press, glides there, and the section's header
-//     flashes once on arrival, so the eye lands on it even when it cannot
-//     reach the top;
+//   • a tap selects on the press and glides there. Arrival is confirmed by
+//     WHERE the header lands: every section that can reach the top pins in
+//     the same place, which needs no further signal. Only a section that
+//     CANNOT reach the top (the last few — the list ends first) gets a soft
+//     glow, because only then does the eye not know where to look. Asked
+//     "does flashing good?": the first version flashed on every jump at 30%
+//     — feedback where none was needed, and a blink rather than a glow;
 //   • the row slides to keep the selected chip in view, and fades at an edge
 //     that has more chips past it.
 
@@ -909,16 +913,21 @@ function spyJump(body) {
   setJumpActive(row, id);
 }
 
-function arriveFlash(section) {
+/** The glow, ONLY when the section stopped short of where headers pin. */
+function arriveGlow(section, body) {
   const title = section.querySelector(':scope > .orgc-unit-title');
   if (!title || !smoothOk()) return;
+  const row = body.querySelector('.orgs-jump');
+  const pinAt = body.getBoundingClientRect().top + (row ? row.offsetHeight : 0);
+  if (Math.abs(section.getBoundingClientRect().top - pinAt) < 6) return;
   title.classList.remove('is-arrived');
   void title.offsetWidth;   // restart the animation if it is still running
   title.classList.add('is-arrived');
-  setTimeout(() => title.classList.remove('is-arrived'), 1300);
+  setTimeout(() => title.classList.remove('is-arrived'), 1000);
 }
 
-/** A jump chip: select it NOW, glide to its section, flash the header there. */
+/** A jump chip: select it NOW, glide to its section; glow it only if it could
+ *  not reach the top. */
 function onSheetClick(e) {
   const chip = e.target.closest('[data-sheet-jump]');
   if (!chip) return;
@@ -932,7 +941,7 @@ function onSheetClick(e) {
     if (arrived) return;
     arrived = true;
     jumpLock = 0;
-    arriveFlash(section);
+    arriveGlow(section, body);
   };
   // `scrollend` where the browser has it; the timer covers the rest, and the
   // case where the section is already in place and nothing scrolls at all.

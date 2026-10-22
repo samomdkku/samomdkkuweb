@@ -669,15 +669,21 @@ html.orgs-lock { overflow: hidden; }
 .orgs-jump.more-left::before,
 .orgs-jump.more-right::after { opacity: 1; }
 
-/* Arrival: the header you jumped to flashes once — the confirmation of WHERE
-   the tap took you, which matters most for the last sections, which cannot
-   scroll to the top. */
+/* Arrival glow — only for a section that could NOT reach the top (JS decides),
+   where the eye needs telling where the list stopped. A GLOW, not a blink: it
+   rises over 0.2s and fades over the rest, so it reads as light settling on
+   the header rather than something switching on and off. Nothing at all under
+   reduced motion; the selected chip still says where you are. */
 @keyframes orgsArrive {
-  0%, 25% { background: color-mix(in srgb, var(--org-tint) 30%, var(--surface)); }
+  0%   { background: color-mix(in srgb, var(--org-tint) 6%, var(--surface)); }
+  20%  { background: color-mix(in srgb, var(--org-tint) 18%, var(--surface)); }
   100% { background: color-mix(in srgb, var(--org-tint) 6%, var(--surface)); }
 }
 .orgs-body .orgc-unit[data-depth="1"] > .orgc-unit-title.is-arrived {
-  animation: orgsArrive 1.2s ease-out;
+  animation: orgsArrive 0.9s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .orgs-body .orgc-unit[data-depth="1"] > .orgc-unit-title.is-arrived { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .orgs-jump { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
