@@ -2401,6 +2401,16 @@ under `set local session_replication_role = replica`. Re-run green after the cha
 `house-advisor-page`, `house-sai-grid`, `accounts-dashboard`. `shop-admin-strip` has the same edit and
 was NOT re-run.
 
+**OWED — a kkumail edit in the ระบบบ้าน pane moves only HALF the identity (found 2026-10-22).**
+The pane PATCHes `students.kkumail`; nothing carries it to `people.kkumail` (`student_mirror_up`
+does not name it; `_registry_sync_person` deliberately never fills kkumail from a placement), and
+`_registry_mismatches` does not compare the student's kkumail, so the split is invisible. Sign-in
+matches the student row, so the student still gets in — but the registry keeps the old address,
+and the next import or ทีม SAMO lookup by kkumail can create a SECOND person. 0 splits on production
+when measured. Fix = an admin RPC that changes both in one transaction (or the up-mirror carrying
+kkumail, guarded) + a mismatch check on the student copy; a design call because kkumail is the
+identity key.
+
 ### 26b. MD51 แบบสอบถาม (kkumail answers) — imported 2026-10-22
 
 **Status: VERIFIED 2026-10-22 — how: `tools/house-kkumail-import.mjs --apply` on production, re-run
@@ -2411,11 +2421,13 @@ spelled like the system's name — accepted by hand), the rest below. Line, phon
 columns were NOT imported: ระบบบ้าน has no field for them and they were not asked for.
 
 **OWED — a person decides (names: the form, by line number):**
-1. **Two students whose stored kkumail differs from what they typed** (form lines 38, 141). Neither
-   address has ever signed in, so the database cannot tell which is real; one stored address looks
-   like a transcription typo. Fix in ระบบบ้าน → นักศึกษา if the student confirms.
-2. **One student stored with a `68…` รหัส who answered the MD51 form with `66…`** (line 179). The
-   stored one passes the check digit, the typed one does not — but the stored one makes her ปี 1.
+1. **Two students whose stored kkumail differed from what they typed** (form lines 38, 141).
+   Line 141 — DECIDED by the owner 2026-10-22: the typed address was right; changed on BOTH the
+   `people` row and the `students` row in one transaction (see the gap below). Line 38 — still
+   OPEN: neither address has ever signed in; ask the student.
+2. **Line 179 — no change, on evidence.** The typed `66…` number is another MD51 student's, the
+   stored `68…` one passes the check digit, and the answer came two months after the rest of the
+   form — an MD53 student who filled in the MD51 form. Left as stored.
 3. **One held seat whose answer is a kkumail that does not look like the name** (line 226) — รหัส and
    name match the held row exactly. Confirm the address, then กรอกอีเมล on that held row.
 4. **Three people who are in neither list** (lines 162, 254, 278): one typed a รหัส that fails the
