@@ -358,6 +358,25 @@
 @media (max-width: 599.98px) {
   .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
   .orgo-grid { columns: 2; column-gap: 0.45rem; padding-top: 0.6rem; }
+  /* EDGE TO EDGE, less an 8px gutter. REQUESTED: "it got margin at leftmost,
+     rightmost can you make it take full width" — the tiles sat inside BOTH the
+     Bootstrap .container padding and .org-page's, ~28px a side on a 390px
+     screen, which is two tiles' worth of rows narrower than it had to be.
+     Sized from the VIEWPORT, not by undoing those paddings: subtracting them
+     would couple this rule to two other stylesheets (one of them a CDN), and
+     the day either changed the grid would overflow. `100vw` is exact here
+     because phone scrollbars are overlays — the page-wide-scrollbar trap
+     `100vw` sets on a desktop (docs/mistakes/frontend-ui.md) cannot occur
+     inside this max-width. The parent is centred on the viewport, so
+     `50% - 50vw` lands the left edge at the screen's. */
+  .orgo-grid,
+  .orgo-apex {
+    justify-self: start;
+    width: calc(100vw - 1rem);
+    margin-left: calc(50% - 50vw + 0.5rem);
+  }
+  /* the stem still hangs from the middle of the apex */
+  .orgo-stem { justify-self: center; }
   .orgo-cell { margin-bottom: 0.45rem; }
   .orgo-hint { font-size: 0.74rem; margin-bottom: 0.45rem; }
   .orgo-apex { padding: 0.55rem 0.75rem 0.55rem 0.65rem; }
