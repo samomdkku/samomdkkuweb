@@ -181,15 +181,22 @@ export function overviewHtml(model, { filter, hitsOf, hl }) {
   // กดที่ฝ่ายเพื่อดูทุกตำแหน่งและทุกคนในฝ่ายนั้น not just by the text". There was a
   // sentence above the map saying so, and the tiles' only tap cue — a chevron
   // in the count line — was hidden on most screens to save height. Now every
-  // tile ENDS with an action: verb, count, chevron ("ดูทุกคน · 40 คน ›"), the
-  // App Store's "See All ›" shape, and it is the one line never dropped. The
-  // sentence is gone; the tiles say it.
+  // tile ENDS with a disclosure — "40 คน ›", right-aligned — the one line never
+  // dropped. The sentence is gone; the tiles say it.
+  //
+  // NO VERB on screen. The first version read "ดูทุกคน · 40 คน ›"; asked "does
+  // it need to say ดูทุกคน", no: a trailing value + chevron is the platform's
+  // own "tap to go in" (iOS Settings: "Storage 12 GB ›"), and one verb printed
+  // twelve times is noise after the first. The verb stays for a SCREEN READER,
+  // which gets no chevron to read.
   const ctaOf = (c) => {
     if (filter) {
       const n = hitsOf(c.node);
       return n ? `<span class="orgo-hit">พบ ${n} คน</span>` : 'ไม่พบ';
     }
-    return c.people ? `ดูทุกคน · ${c.people} คน` : 'ยังไม่มีสมาชิก';
+    return c.people
+      ? `<span class="orgo-sr">ดูทุกคน </span>${c.people} คน`
+      : 'ยังไม่มีสมาชิก';
   };
   const dim = (c) => (filter && !filter.keepNodes.has(c.node.id) ? ' is-dim' : '');
   const tint = (c) => (c.tint ? ` style="--org-tint:${escHtml(c.tint)}"` : '');

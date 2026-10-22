@@ -180,13 +180,13 @@ describe('shortUnitName / callName', () => {
 });
 
 describe('the tile says what a tap does — no hint sentence needed', () => {
-  it('every tile ENDS with the action: ดูทุกคน, the count, a chevron', () => {
+  it('every tile ENDS with the disclosure: the count and a chevron — the verb for screen readers only', () => {
     const html = overviewHtml(overviewModel(fixture(NODES, MEMBERS)),
       { filter: null, hitsOf: () => 0, hl: (t) => t });
     const tiles = html.split('class="orgo-cell"').slice(1);
     expect(tiles.length).toBe(2);
     for (const t of tiles) {
-      expect(t).toMatch(/class="orgo-cta">(ดูทุกคน · \d+ คน|ยังไม่มีสมาชิก)<i class="bi bi-chevron-right/);
+      expect(t).toMatch(/class="orgo-cta">(<span class="orgo-sr">ดูทุกคน <\/span>\d+ คน|ยังไม่มีสมาชิก)<i class="bi bi-chevron-right/);
     }
     expect(html).not.toContain('orgo-hint');
   });

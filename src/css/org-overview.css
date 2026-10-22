@@ -312,16 +312,16 @@
   color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
 }
 
-/* THE ACTION LINE — what a tap does, on every tile, never hidden: "ดูทุกคน ·
-   40 คน ›". Tinted like a link, weighted like a button label; with the press
-   scale and the hover lift it is the whole affordance (org-overview.js says
-   why it replaced a hint sentence). */
+/* THE DISCLOSURE LINE — on every tile, never hidden: "40 คน ›", right-aligned
+   where iOS puts a row's detail value. Tinted like a link; with the press scale
+   and the hover lift it is the whole affordance (org-overview.js says why it
+   replaced a hint sentence, and why it carries no verb). */
 .orgo-cta {
   margin-top: auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
+  justify-content: flex-end;
+  gap: 0.2rem;
   padding-top: 0.15rem;
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: 0.74rem;
@@ -330,6 +330,11 @@
   white-space: nowrap;
 }
 .orgo-cta .orgo-chev { color: inherit; }
+/* read aloud, not shown */
+.orgo-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 .orgo-chev {
   font-size: 0.75rem;
   color: var(--ink-400);
