@@ -24,6 +24,7 @@
 @import './css/workspace.css';
 @import './css/org-chart.css';
 @import './css/org-graph.css';
+@import './css/org-overview.css';
 /* ตำแหน่งของฉันในทีม SAMO — the home card AND the โปรไฟล์ modal section.
    modal-profile.html is included by BOTH entries, so both must load this. */
 @import './css/my-seat.css';

@@ -125,8 +125,10 @@ describe('ผังสายงาน: every class it renders is styled', () => 
 
 // ── §C. The key mapping ─────────────────────────────────────────────────────
 describe('the view keys: a restore must not move anybody', () => {
-  it('offers three views, and `chart` still means the PANEL view', () => {
-    expect(JS).toContain("const VIEWS = ['lines', 'chart', 'all']");
+  it('offers four views, and `chart` still means the PANEL view', () => {
+    // ภาพรวม (2026-10-22) arrived as a NEW key, `overview`, for the same reason
+    // `lines` did: no existing key changes meaning, so no saved preference moves.
+    expect(JS).toContain("const VIEWS = ['overview', 'lines', 'chart', 'all']");
     // The restored connector tree historically owned `'chart'`. Giving it back
     // would silently send every reader whose saved preference is `'chart'` —
     // today the panel view — to a different picture. This is the assertion that

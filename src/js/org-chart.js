@@ -1,8 +1,10 @@
 // org-chart.js — the public ทีม SAMO page.
 //
-// TWO surfaces over one dataset — every ตำแหน่ง and person, searchable:
-//   • แผนผัง  — the PAGE. ฝ่าย panels that reflow at any width (this file).
-//   • ผังรวม  — the CANVAS. One d3 chart over the whole org (org-graph.js).
+// FOUR surfaces over one dataset — every ตำแหน่ง and person, searchable:
+//   • ภาพรวม   — ONE SCREEN. A tile per ฝ่าย, opens into a sheet (org-overview.js).
+//   • ผังสายงาน — the connector tree (this file).
+//   • แผนผัง   — the PAGE. ฝ่าย panels that reflow at any width (this file).
+//   • ผังรวม   — the CANVAS. One d3 chart over the whole org (org-graph.js).
 // The full note on which is which, and why the other two were removed, is at
 // the `VIEWS` constant below.
 //
@@ -31,6 +33,8 @@ import {
 } from './org-rung.js';
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
+import { overviewModel, overviewHtml, tileMeta } from './org-overview.js';
+import { openOrgSheet, onOrgSheetClick } from './org-sheet.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
 // free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
@@ -77,6 +81,12 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
+// True only while a ฝ่าย is being rendered into ภาพรวม's sheet. The sheet is
+// ONE ฝ่าย the reader asked for by tapping it, so everything in it opens —
+// a second round of disclosures inside a detail view is a tap that should not
+// exist. The page's own `expanded` set is untouched.
+let openAll = false;
+
 // TWO surfaces over one dataset, answering two different questions:
 //
 //   • แผนผัง  — THE PAGE. Every ฝ่าย is a panel; inside it, its ตำแหน่ง are laid
@@ -119,7 +129,12 @@ let expanded = new Set();
 // `'lines'`. It historically owned `'chart'`, and giving it back would silently
 // move every reader whose saved preference is `'chart'` — currently the panel
 // view — onto a different picture. A new key costs nothing and moves nobody.
-const VIEWS = ['lines', 'chart', 'all'];
+//
+// FOUR SINCE 2026-10-22: ภาพรวม (`'overview'`, org-overview.js) — the whole
+// organisation on ONE screen with no scrolling, each ฝ่าย a tile that opens a
+// sheet. Asked for beside the other three, not instead of one, so it is a new
+// key and the default does not move.
+const VIEWS = ['overview', 'lines', 'chart', 'all'];
 // `Object.create(null)`, and it is the same fix af36088 made to the four
 // vocabulary maps in team/index.js one day earlier: the key here comes from
 // localStorage, which a reader can set to anything, and the read below is
@@ -487,7 +502,7 @@ function unitBlock(node, depth, filter) {
   // A search result is always fully open — a disclosure the user has to expand
   // to find what they just searched for is the same as no result.
   const collapsible = !filter && !!inner && collapsibleIds.has(node.id);
-  const open = !collapsible || expanded.has(node.id);
+  const open = !collapsible || openAll || expanded.has(node.id);
   const bodyId = `org-n-${node.id}`;
   const hTag = `h${Math.min(depth + 3, 6)}`;
 
@@ -656,6 +671,12 @@ function linesHtml(roots, filter) {
   }).join('');
 }
 
+/** ขยาย/ย่อทั้งหมด drives the page's own disclosures, which only แผนผัง and
+ *  ผังสายงาน draw. ผังรวม has its แสดงถึง rung and ภาพรวม opens a sheet. */
+function usesExpandAll() {
+  return view === 'chart' || view === 'lines';
+}
+
 /** The ขยาย/ย่อทั้งหมด control. Hidden while searching (results are already
  *  fully open, so it would do nothing) and when nothing on the page collapses. */
 function renderExpandAll(searching) {
@@ -683,7 +704,7 @@ function render() {
   // its own แสดงถึง control, because "expanded" there is a d3 layout state
   // rather than a `hidden` attribute. Hide it rather than leave a button that
   // silently does nothing in one of the two views.
-  renderExpandAll(!!filter || GRAPH_VIEWS.includes(view));
+  renderExpandAll(!!filter || !usesExpandAll());
 
   const cnt = $('orgCount');
   if (cnt) {
@@ -697,7 +718,8 @@ function render() {
   // whether the filter kept anything.
   const panels = view === 'chart'
     ? roots.map((n) => unitBlock(n, 0, filter)).join('')
-    : view === 'lines' ? linesHtml(roots, filter) : '';
+    : view === 'lines' ? linesHtml(roots, filter)
+      : view === 'overview' ? overviewPanels(roots, filter) : '';
   // ผังรวม builds its own DOM inside the canvas, so "did anything survive the
   // filter" is answered by the ROOT LIST there and by the MARKUP in the two
   // views that emit some — the same distinction the panel-only version made.
@@ -720,6 +742,10 @@ function render() {
     <div class="org-tree-head">
       <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
       <div class="org-view-switch" role="group" aria-label="รูปแบบการแสดงผล">
+        <button type="button" class="org-view-btn${view === 'overview' ? ' is-on' : ''}"
+          data-org-view="overview" aria-pressed="${view === 'overview'}">
+          <i class="bi bi-grid" aria-hidden="true"></i> ภาพรวม
+        </button>
         <button type="button" class="org-view-btn${view === 'lines' ? ' is-on' : ''}"
           data-org-view="lines" aria-pressed="${view === 'lines'}">
           <i class="bi bi-diagram-2" aria-hidden="true"></i> ผังสายงาน
@@ -736,11 +762,63 @@ function render() {
     </div>
     ${view === 'all'
     ? graphShellHtml(filter)
-    : view === 'lines'
+    : view === 'lines' || view === 'overview'
       ? panels
       : `<div class="orgc-tree">${panels}</div>`}`;
 
   if (view === 'all') paintGraph(roots, filter);
+}
+
+// ── rendering ภาพรวม ─────────────────────────────────────────────────────────
+//
+// The tiles are org-overview.js's; what lives here is what needs this file's
+// indexes — the search hit counts and the sheet's body, which is แผนผัง's own
+// `unitBlock`, so a ฝ่าย reads the same in the sheet as on the page.
+
+function overviewModelNow(roots) {
+  return overviewModel({ roots, byParent, byNode, subStats });
+}
+
+/** People under `node` (itself included) that the search kept. */
+function hitsOf(node, filter) {
+  let n = (byNode.get(node.id) || []).filter((m) => filter.keepMembers.has(m)).length;
+  for (const c of byParent.get(node.id) || []) n += hitsOf(c, filter);
+  return n;
+}
+
+function overviewPanels(roots, filter) {
+  // A search that matched nothing anywhere is the page's empty state, not a
+  // map with every tile dimmed.
+  if (filter && !filter.keepNodes.size) return '';
+  return overviewHtml(overviewModelNow(roots), {
+    filter,
+    hitsOf: (node) => hitsOf(node, filter),
+    hl: (text) => highlight(text, filter?.q),
+  });
+}
+
+/** Tapped a tile: the ฝ่าย, whole, in a sheet. While searching, the sheet shows
+ *  the same filtered branch the page would — what you searched for is what you
+ *  open into. */
+function openOverviewSheet(btn) {
+  const node = nodeById.get(btn.dataset.orgOpen);
+  if (!node) return;
+  const filter = computeFilter(query);
+  openAll = true;
+  let html;
+  try {
+    html = unitBlock(node, 0, filter);
+  } finally {
+    openAll = false;
+  }
+  const card = overviewModelNow([node]).apex;
+  openOrgSheet({
+    title: node.name || '',
+    meta: filter ? `พบ ${hitsOf(node, filter)} คน` : tileMeta(card),
+    tint: tintColor(node, !node.parent_id),
+    html: `<div class="orgc-tree">${html || '<p class="org-status">ไม่มีข้อมูลในฝ่ายนี้</p>'}</div>`,
+    from: btn,
+  });
 }
 
 /** ผังรวม's own toolbar + the host the chart mounts into. The depth control is
@@ -945,7 +1023,20 @@ function toggleNode(btn) {
   panel.hidden = !willOpen;
   const id = panel.id.replace(/^org-n-/, '');
   if (willOpen) expanded.add(id); else expanded.delete(id);
-  renderExpandAll(false);
+  // Not a bare `false`: ภาพรวม's sheet toggles too, and that view has no use
+  // for the page-wide button — showing it there would be a control that
+  // changes a view nobody is looking at.
+  renderExpandAll(!!query || !usesExpandAll());
+}
+
+function revealOverview() {
+  const head = $('orgBody')?.querySelector('.org-tree-head');
+  const stage = $('orgBody')?.querySelector('.orgo');
+  if (!head || !stage) return;
+  const bottom = stage.getBoundingClientRect().bottom;
+  if (bottom <= window.innerHeight && head.getBoundingClientRect().top >= 0) return;
+  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  head.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
 }
 
 export function initOrgChart() {
@@ -980,9 +1071,19 @@ export function initOrgChart() {
     search.focus();
   });
 
+  // ภาพรวม's sheet: its ฝ่าย disclosures use the page's own toggle, which
+  // resolves the panel from aria-controls and so works in either document spot.
+  onOrgSheetClick((e) => {
+    const btn = e.target.closest('.orgc-unit-btn');
+    if (btn && btn.tagName === 'BUTTON') toggleNode(btn);
+  });
+
   // Delegated: every station is re-rendered on each paint, and #orgBody itself
   // is the one element that survives.
   $('orgBody')?.addEventListener('click', (e) => {
+    const ob = e.target.closest('[data-org-open]');
+    if (ob) { openOverviewSheet(ob); return; }
+
     // Both views' disclosure rows. One handler, because toggleNode resolves the
     // panel from aria-controls rather than from either view's class names.
     const btn = e.target.closest('.orgc-unit-btn, .org-station-btn');
@@ -1023,7 +1124,7 @@ export function initOrgChart() {
       return;
     }
 
-    // ผังสายงาน ⇄ แผนผัง ⇄ ผังรวม.
+    // ภาพรวม ⇄ ผังสายงาน ⇄ แผนผัง ⇄ ผังรวม.
     const vb = e.target.closest('[data-org-view]');
     if (!vb) return;
     const next = VIEWS.includes(vb.dataset.orgView) ? vb.dataset.orgView : 'chart';
@@ -1034,6 +1135,10 @@ export function initOrgChart() {
     view = next;
     try { localStorage.setItem('samo.org.view', view); } catch { /* private mode */ }
     render();
+    // ภาพรวม is sized to the screen, so it is only "no scrolling" once the
+    // reader is AT it. Bring its heading to the top when it was chosen — never
+    // on page load, which would hijack a scroll nobody asked for.
+    if (view === 'overview') revealOverview();
   });
 
   $('orgExpandAll')?.addEventListener('click', () => {

@@ -1,0 +1,506 @@
+/* org-overview.css — ภาพรวม, the one-screen view of the ทีม SAMO page, and the
+ * sheet it opens (org-overview.js, org-sheet.js).
+ *
+ * THE WHOLE JOB: the organisation fits the screen. Three mechanisms, each one
+ * load-bearing:
+ *
+ *   1. THE STAGE IS ONE VIEWPORT TALL — `min-height` from 100dvh less the
+ *      sticky navbar and the view switch above it (`--orgo-chrome`). A MIN, not
+ *      a height: an archive year with thirty root ฝ่าย would rather scroll than
+ *      clip.
+ *   2. THE GRID SHARES THAT HEIGHT — `grid-auto-rows: minmax(<floor>, 1fr)`, so
+ *      however many rows the tiles wrap into, they split the stage between them.
+ *   3. EACH TILE IS A SIZE CONTAINER, so what it shows is decided by the room
+ *      it got, not by the viewport: the sub-ฝ่าย list appears only in a tile
+ *      tall enough to hold it. A phone and a short laptop both get a tile that
+ *      fits, from the same markup.
+ *
+ * Themed by tokens (theme.css) like the rest of the page.
+ */
+
+/* scrollIntoView lands the view switch below the sticky navbar, not under it. */
+.org-tree-head { scroll-margin-top: 92px; }
+
+.orgo {
+  /* navbar (sticky, 12px + bar + 12px) + the view-switch row + breathing room */
+  --orgo-chrome: 10.75rem;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  justify-items: center;
+  margin-top: 0.75rem;
+  min-height: max(30rem, calc(100vh - var(--orgo-chrome)));
+  min-height: max(30rem, calc(100dvh - var(--orgo-chrome)));
+}
+
+.orgo-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--ink-500);
+  text-align: center;
+}
+
+/* ── shared press feedback ─────────────────────────────────────────────── */
+/* On the PRESS, instantly — not on release. */
+.orgo-apex,
+.orgo-tile {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease-out, border-color 0.18s ease, box-shadow 0.18s ease,
+    opacity 0.2s ease;
+}
+.orgo-apex:active,
+.orgo-tile:active { transform: scale(0.97); }
+.orgo-apex:focus-visible,
+.orgo-tile:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+/* ── the apex: who SAMO reports to ─────────────────────────────────────── */
+.orgo-apex {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "lead chev" "meta chev";
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  width: min(100%, 27rem);
+  padding: 0.7rem 0.9rem 0.7rem 0.8rem;
+  font: inherit;
+  text-align: start;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--org-tint) 30%, var(--ink-200));
+  border-radius: 1rem;
+  box-shadow: inset 0 3px 0 var(--org-tint), var(--shadow-md);
+  cursor: pointer;
+}
+.orgo-apex > .orgo-lead { grid-area: lead; }
+.orgo-apex > .orgo-chev { grid-area: chev; }
+.orgo-apex-meta {
+  grid-area: meta;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.72rem;
+  color: var(--ink-500);
+}
+.orgo-apex .orgo-face { width: 3.25rem; }
+.orgo-apex .orgo-lead-name { font-size: 0.95rem; }
+.orgo-apex .orgo-lead-role {
+  order: -1;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--org-tint) 75%, var(--ink-800));
+}
+@media (hover: hover) {
+  .orgo-apex:hover { box-shadow: inset 0 3px 0 var(--org-tint), var(--shadow-lg); }
+}
+
+/* The line from the apex down to the row of ฝ่าย — the one connector this view
+   keeps, because "everything below hangs off this person" is the whole claim. */
+.orgo-stem {
+  width: 1px;
+  height: 0.9rem;
+  background: var(--org-spine, var(--ink-200));
+}
+
+/* ── the grid of ฝ่าย ──────────────────────────────────────────────────── */
+.orgo-grid {
+  justify-self: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 0.9rem 0 0;
+  border-top: 1px solid var(--org-spine, var(--ink-200));
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(6.5rem, 1fr);
+  gap: 0.65rem;
+}
+@media (max-width: 991.98px) {
+  .orgo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 599.98px) {
+  .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
+  .orgo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(5rem, 1fr);
+    gap: 0.45rem;
+    padding-top: 0.6rem;
+  }
+  .orgo-hint { font-size: 0.74rem; margin-bottom: 0.45rem; }
+  .orgo-apex { padding: 0.55rem 0.75rem 0.55rem 0.65rem; }
+  .orgo-apex .orgo-face { width: 2.6rem; }
+  .orgo-apex .orgo-lead-name { font-size: 0.88rem; }
+}
+/* A short phone (an SE, a 360×740 Android): the floor that still holds a
+   two-line ฝ่าย name and its head's name, and the apex down to one row. */
+@media (max-width: 599.98px) and (max-height: 800px) {
+  .orgo-grid { grid-auto-rows: minmax(4.25rem, 1fr); gap: 0.4rem; }
+  .orgo-apex { grid-template-areas: "lead chev"; }
+  .orgo-apex-meta { display: none; }
+  .orgo-apex .orgo-face { width: 2.2rem; }
+}
+
+.orgo-cell {
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  animation: orgcRise 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+
+.orgo-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.7rem 0.75rem 0.6rem;
+  overflow: hidden;
+  font: inherit;
+  text-align: start;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: 0.9rem;
+  box-shadow: inset 0 3px 0 var(--org-tint), var(--shadow-xs);
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .orgo-tile:hover {
+    border-color: color-mix(in srgb, var(--org-tint) 38%, var(--ink-200));
+    box-shadow: inset 0 3px 0 var(--org-tint), 0 12px 26px -18px rgb(15 23 42 / 45%);
+  }
+}
+
+.orgo-tile-name {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  color: var(--ink-900);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  flex: 0 0 auto;
+}
+
+/* the head of the ฝ่าย: face, name, seat */
+.orgo-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.orgo-face {
+  flex: 0 0 auto;
+  width: 2.75rem;
+}
+.orgo-face .org-face-initials { font-size: 0.8rem; }
+.orgo-lead-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.05rem;
+}
+.orgo-lead-name,
+.orgo-lead-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orgo-lead-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-800);
+}
+.orgo-lead-nick,
+.orgo-lead-more {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 400;
+  color: var(--ink-500);
+}
+.orgo-lead-role {
+  font-size: 0.7rem;
+  color: var(--ink-500);
+}
+
+/* the sub-ฝ่าย, by name — shown only where there is room (container query
+   below); the sheet always has them. */
+.orgo-units {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-height: 0;
+  overflow: hidden;
+  align-content: flex-start;
+}
+.orgo-unit {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--org-tint) 62%, var(--ink-800));
+  background: color-mix(in srgb, var(--org-tint) 8%, var(--surface));
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orgo-unit.is-more {
+  flex: 0 0 auto;
+  color: var(--ink-500);
+  background: var(--ink-100);
+}
+/* A ฝ่าย with no head seat has nothing else to show — its sub-ฝ่าย ARE the
+   tile, at every size. */
+.orgo-units.is-primary { display: flex; }
+
+.orgo-meta {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.72rem;
+  color: var(--ink-500);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.orgo-chev {
+  font-size: 0.75rem;
+  color: var(--ink-400);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+@media (hover: hover) {
+  .orgo-tile:hover .orgo-chev,
+  .orgo-apex:hover .orgo-chev { transform: translateX(2px); color: var(--org-tint); }
+}
+.orgo-hit { color: color-mix(in srgb, var(--brand-orange) 80%, var(--ink-900)); font-weight: 600; }
+.orgo-apex mark,
+.orgo-tile mark {
+  background: color-mix(in srgb, var(--brand-orange) 26%, transparent);
+  color: inherit; padding: 0 0.1em; border-radius: 2px;
+}
+
+/* Searching: a tile with no hit stays on the map, quieter. */
+.orgo-tile.is-dim,
+.orgo-apex.is-dim { opacity: 0.38; }
+
+/* ── what a tile shows, by the room it got ─────────────────────────────── */
+@container (min-height: 10.5rem) {
+  .orgo-units { display: flex; }
+  .orgo-tile-name { font-size: 0.95rem; }
+}
+@container (min-height: 12.5rem) {
+  .orgo-face { width: 3.25rem; }
+  .orgo-lead-name { font-size: 0.84rem; }
+}
+/* Short tiles (a phone): the face moves BESIDE the text, so the ฝ่าย name keeps
+   two lines — on a 170px tile it is the one thing that must be readable. The
+   counts go; the sheet has them. `display: contents` lifts the face and its
+   text into the tile's own grid without a second markup shape. */
+@container (max-height: 6.25rem) {
+  .orgo-tile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    align-content: start;
+    gap: 0.15rem 0.5rem;
+    padding: 0.45rem 0.55rem 0.4rem 0.5rem;
+  }
+  /* 1.4, not tighter: a clamped line clips Thai marks above and below it. */
+  .orgo-tile-name { grid-column: 2; grid-row: 1; font-size: 0.78rem; line-height: 1.4; }
+  .orgo-tile .orgo-lead { display: contents; }
+  .orgo-tile .orgo-face { grid-column: 1; grid-row: 1 / span 3; width: 2.1rem; align-self: start; }
+  .orgo-tile .orgo-lead-text { grid-column: 2; grid-row: 2; }
+  .orgo-tile .orgo-lead-role,
+  .orgo-tile .orgo-lead-more,
+  .orgo-tile .orgo-meta { display: none; }
+  .orgo-tile .orgo-lead-name { font-size: 0.68rem; line-height: 1.35; color: var(--ink-500); }
+  .orgo-tile:not(:has(.orgo-lead)) > * { grid-column: 1 / -1; }
+  .orgo-units.is-primary { grid-row: 2; }
+  .orgo-units.is-primary .orgo-unit:nth-child(n+2):not(.is-more) { display: none; }
+}
+@container (max-height: 7.75rem) and (min-height: 6.26rem) {
+  .orgo-tile { gap: 0.35rem; padding: 0.6rem 0.65rem 0.5rem; }
+  .orgo-tile-name { font-size: 0.82rem; }
+  .orgo-face { width: 2.1rem; }
+  .orgo-lead-role { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orgo-cell { animation: none; }
+  .orgo-apex, .orgo-tile, .orgo-chev { transition: opacity 0.2s ease; }
+  .orgo-apex:active, .orgo-tile:active { transform: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The sheet (org-sheet.js). Appended to <body>, so nothing here may depend on
+   sitting inside .org-page.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+html.orgs-lock { overflow: hidden; }
+
+.orgs {
+  --org-spine: var(--ink-200);
+  position: fixed;
+  inset: 0;
+  z-index: 1080;            /* over the sticky navbar, under Bootstrap modals */
+  display: grid;
+}
+.orgs-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(15 23 42 / 0.4);
+  opacity: 0;
+  transition: opacity 0.32s ease;
+}
+.orgs.is-open .orgs-scrim { opacity: 1; }
+
+.orgs-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-xl);
+  outline: none;
+  will-change: transform;
+  /* The closing duration is set inline after a flick (org-sheet.js); the
+     ORDER here — transform, then opacity — is what that inline list assumes. */
+  transition: transform 0.48s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.22s ease;
+}
+
+/* wider: a card that grows out of the tile */
+.orgs[data-mode="card"] .orgs-panel {
+  place-self: center;
+  width: min(60rem, calc(100vw - 2.5rem));
+  max-height: min(88vh, 56rem);
+  max-height: min(88dvh, 56rem);
+  border-radius: 1.25rem;
+  transform-origin: center;
+}
+.orgs[data-mode="card"]:not(.is-open) .orgs-panel {
+  /* closing: let it travel most of the way home before it fades */
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease 0.16s;
+}
+
+/* phone: a bottom sheet */
+.orgs[data-mode="sheet"] .orgs-panel {
+  align-self: end;
+  width: 100%;
+  max-height: 92vh;
+  max-height: 92dvh;
+  border-radius: 1.1rem 1.1rem 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.orgs-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--ink-200);
+  box-shadow: inset 0 3px 0 var(--org-tint);
+  flex: 0 0 auto;
+}
+.orgs[data-mode="sheet"] .orgs-head {
+  padding-top: 1.35rem;
+  touch-action: none;       /* this is the drag handle; nothing in it scrolls */
+  cursor: grab;
+  box-shadow: none;
+}
+.orgs-grip { display: none; }
+.orgs[data-mode="sheet"] .orgs-grip {
+  display: block;
+  position: absolute;
+  top: 0.5rem; left: 50%;
+  width: 2.25rem; height: 0.3rem;
+  margin-left: -1.125rem;
+  border-radius: 999px;
+  background: var(--ink-300, var(--ink-200));
+}
+.orgs-heading { min-width: 0; }
+.orgs-title {
+  margin: 0;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.1rem, 3.2vw, 1.4rem);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+.orgs-title::before {
+  content: '';
+  display: inline-block;
+  width: 0.6rem; height: 0.6rem;
+  margin-right: 0.5rem;
+  vertical-align: 0.12em;
+  border-radius: 50%;
+  background: var(--org-tint);
+}
+.orgs-meta {
+  margin: 0.2rem 0 0;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--ink-500);
+}
+.orgs-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem; height: 2.1rem;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink-600);
+  background: var(--ink-100);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.orgs-close:hover { background: var(--ink-200); color: var(--ink-900); }
+.orgs-close:active { transform: scale(0.94); }
+.orgs-close:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+.orgs-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.4rem 0.35rem 1.25rem;
+}
+/* แผนผัง's panel, minus the chrome the sheet already provides: the title is
+   the sheet's own, and a card inside a card is one border too many. */
+.orgs-body .orgc-tree { margin-top: 0; }
+.orgs-body .orgc-tree > .orgc-unit {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  animation: none;
+  overflow: visible;
+}
+.orgs-body .orgc-tree > .orgc-unit > .orgc-unit-title { display: none; }
+.orgs-body .orgc-tree > .orgc-unit > .orgc-unit-body { padding-top: 0.6rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orgs-panel,
+  .orgs[data-mode="card"]:not(.is-open) .orgs-panel { transition: opacity 0.2s ease; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .orgs-scrim { background: rgb(15 23 42 / 0.6); }
+}
+
+/* the view switch now has four segments: on a phone they share the width
+   evenly instead of running off the edge */
+@media (max-width: 575.98px) {
+  .org-view-switch { display: flex; width: 100%; }
+  .org-view-btn { flex: 1 1 0; padding-inline: 0.35rem; font-size: 0.78rem; }
+  .org-view-btn > i { display: none; }
+}
