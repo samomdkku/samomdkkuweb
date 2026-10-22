@@ -4635,3 +4635,41 @@ correctly grouped).
 **The general rule**: *a year, an id and a phone number are numbers nobody
 does arithmetic on — never route them through a locale number formatter.
 `toLocaleString` is for quantities.*
+
+## ภาพรวม ran off the side at 1024 and 820 wide, and every row was as tall as the tallest — three CSS layout traps in one masonry
+
+**Symptom (found while building ภาพรวม, 2026-10-22, before it shipped).** Three
+in a row, each measured with a headless browser, none visible in a review of the
+CSS:
+
+1. With every ฝ่ายย่อย head listed, the tiles overflowed 1440×900 by 64px —
+   although only ONE tile (ฝ่ายเวชนิทัศน์, nine rows) was tall.
+2. Switched to a masonry (`columns: 4`), the page scrolled SIDEWAYS at 1024 and
+   820 wide.
+3. With that fixed, the grid itself still measured 61px wider than the page at
+   820.
+
+**Cause.**
+1. `grid-auto-rows: minmax(min-content, 1fr)`. In the intrinsic sizing pass a
+   flexible track is sized so every `1fr` equals the LARGEST item's
+   contribution — so every row became nine ฝ่ายย่อย tall. `fr` means "share
+   the free space" only once the container's size is known.
+2. A multi-column box with a DEFINITE height (it was a stretched grid item)
+   does not grow taller — it overflows into extra columns to the side.
+3. A multi-column box reports `column-count × its widest unbreakable content`
+   as its min-content width, and the parent's `auto` track grew to fit it.
+
+**Fix** (`src/css/org-overview.css`): rows `auto` (content-sized, still
+stretched by `align-content`); the multicol `align-self: start` so its height is
+its content; the parent track `minmax(0, 1fr)`. Cells are `inline-block` with
+an opacity-only entrance, the long-standing WebKit-safe form for multicol
+children.
+
+**Where it lives now**: the `.orgo-grid` and `.orgo` comments; the driver that
+measured it (stage bottom, lowest tile, `scrollWidth`, per-element right edge at
+nine viewports) is the thing to re-run after any change there.
+
+**The general rule**: *a layout keyword's meaning depends on whether the
+container's size is known yet — `1fr` in an intrinsic pass, a multicol under a
+fixed height, an `auto` track around a multicol. Measure the boxes at the
+widths people use; a stylesheet that reads correctly is not evidence.*

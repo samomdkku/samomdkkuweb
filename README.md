@@ -102,7 +102,10 @@ triggered over ssh (needs the KKU VPN).
   admin page.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
-  sits in. TWO views over the one dataset: **แผนผัง**, a page of ฝ่าย panels that
+  sits in. FOUR views over the one dataset: **ภาพรวม**, the whole organisation
+  at a glance (one screen on a computer) — a tile per ฝ่าย with its อุปนายก and
+  EVERY ฝ่ายย่อย with its head, never "+N", opening into a sheet that lists who
+  heads what; **ผังสายงาน**, the connector tree; **แผนผัง**, a page of ฝ่าย panels that
   reflow at any width (each ฝ่าย opens with the ตำแหน่ง it holds, grouped by
   ระดับ, and its sub-ฝ่าย as cards you tap to open), and **ผังรวม**, the whole
   organisation as one real top-down chart on a zoom/pan canvas drawn by

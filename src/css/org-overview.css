@@ -135,13 +135,24 @@
 }
 
 .orgo-cell {
+  /* INLINE-BLOCK, not flex or block: an inline-block box is never split across
+     columns in any engine, where `break-inside: avoid` on a flex item has been
+     ignored by WebKit. The two `break-inside` spellings stay as belt and
+     braces. Measured only in Chrome — this is the defensive form. */
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
   min-width: 0;
-  display: flex;
   break-inside: avoid;
+  -webkit-column-break-inside: avoid;
   margin-bottom: 0.65rem;
-  animation: orgcRise 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  /* OPACITY ONLY. A transform animating inside a multi-column box is where
+     WebKit has painted children in the wrong column mid-animation. */
+  animation: orgoFade 0.4s ease both;
   animation-delay: calc(var(--i, 0) * 22ms);
 }
+@keyframes orgoFade { from { opacity: 0; } to { opacity: 1; } }
+.orgo-cell > .orgo-tile { height: auto; }
 
 .orgo-tile {
   position: relative;
@@ -550,7 +561,7 @@ html.orgs-lock { overflow: hidden; }
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.4rem 0.35rem 1.25rem;
+  padding: 0.6rem 0.35rem 1.25rem;
 }
 /* แผนผัง's panel, minus the chrome the sheet already provides: the title is
    the sheet's own, and a card inside a card is one border too many. */
@@ -564,6 +575,48 @@ html.orgs-lock { overflow: hidden; }
 }
 .orgs-body .orgc-tree > .orgc-unit > .orgc-unit-title { display: none; }
 .orgs-body .orgc-tree > .orgc-unit > .orgc-unit-body { padding-top: 0.6rem; }
+
+/* หัวหน้าฝ่ายย่อย | ทุกคน — the sheet's segmented control. STICKY at the top of
+   the scrolling body, so switching to ทุกคน halfway down a 92-person ฝ่าย does
+   not need a scroll back up. Same pill language as the page's view switch. */
+.orgs-modes {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 0.2rem;
+  margin: 0 0.6rem 0.5rem;
+  padding: 0.2rem;
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  background: rgb(var(--surface-rgb) / 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+.orgs-mode {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+.orgs-mode[aria-checked="true"] { background: var(--brand-primary); color: #fff; }
+.orgs-mode:active { transform: scale(0.97); }
+.orgs-mode:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+@media (prefers-reduced-transparency: reduce) {
+  .orgs-modes { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
 
 /* The sheet opens with its ฝ่ายย่อย CLOSED, each row carrying its head — the
    same rule as the tile, one level down: scan who runs what, tap to open. Once

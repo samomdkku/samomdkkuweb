@@ -39,6 +39,7 @@ let state = 'closed';    // closed | open | closing
 let closeTimer = 0;
 let drag = null;
 let bodyClick = null;
+let openedAt = 0;        // performance.now() at the last open — see the scrim guard
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const isPhone = () => window.matchMedia?.('(max-width: 767.98px)').matches;
@@ -85,6 +86,12 @@ function ensure() {
   grip = root.querySelector('.orgs-head');
 
   root.addEventListener('click', (e) => {
+    // A DOUBLE-TAP on a tile: the first tap opens the sheet, and the scrim is
+    // now on top of where the finger is, so the second tap landed on it and
+    // closed what had just opened — a flash, read as "it does not work". A
+    // scrim tap inside the double-tap window is that second tap, not a request
+    // to leave. The ✕ button is never guarded.
+    if (e.target.closest('.orgs-scrim') && performance.now() - openedAt < 400) return;
     if (e.target.closest('[data-orgs-close]')) { closeOrgSheet(); return; }
     if (bodyClick && bodyEl.contains(e.target)) bodyClick(e);
   });
@@ -193,6 +200,7 @@ export function openOrgSheet({ title, meta, tint, html, from }) {
   panel.style.opacity = '';
   scrim.style.opacity = '';
   state = 'open';
+  openedAt = performance.now();
   panel.focus({ preventScroll: true });
 }
 

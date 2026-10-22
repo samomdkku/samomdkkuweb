@@ -149,7 +149,7 @@ describe('overviewHtml', () => {
 });
 
 describe('every ฝ่ายย่อย head is on the tile — nobody behind a "+N"', () => {
-  it('nine ฝ่ายย่อย, nine chips, and no และอีก', () => {
+  it('nine ฝ่ายย่อย, nine rows, and no และอีก', () => {
     const nodes = [div('office', null, 0), seat('p', 'office', 0),
       div('big', null, 1), seat('bighead', 'big', 0), ...NODES_SUBS(9)];
     const members = [person('p', 'P'), person('bighead', 'H'),

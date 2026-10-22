@@ -5,7 +5,9 @@
 // all answer "show me everything" and pay for it in length or panning — 298
 // ตำแหน่ง and 448 people do not fit on a screen at any density a person can
 // read. This one answers a smaller question on purpose: WHAT IS SAMO MADE OF,
-// AND WHO RUNS EACH PART. That fits.
+// AND WHO RUNS EACH PART. On a computer or tablet that fits one screen; on a
+// phone it is ~1.5 screens of vertical scroll, because the owner chose seeing
+// every ฝ่ายย่อย head over fitting (org-overview.css, the phone block).
 //
 //   • the apex     the first root ฝ่าย (สำนักนายกฯ), drawn as its head seat —
 //                  นายกสโมสร — because that is who the organisation reports to.
@@ -31,10 +33,9 @@
 // what makes it fair. `headOf` is that rule's ONE home — the tile's อุปนายก,
 // every ฝ่ายย่อย row and the sheet's collapsed rows all ask it.
 //
-// FITTING THE SCREEN IS CSS's JOB, not this file's (org-overview.css): the stage
-// is one viewport tall and each tile is a size container, so a tile shows its
-// sub-ฝ่าย list only when it has the room. This module emits the same markup
-// at every width.
+// FITTING THE SCREEN IS CSS's JOB, not this file's (org-overview.css): a masonry
+// of columns, and on short screens spacing and secondary lines give way —
+// never a person. This module emits the same markup at every width.
 import { escHtml } from './utils.js';
 import { faceHtml, TREE_SHAPE } from './org-face.js';
 import { orderChildren } from './org-rung.js';

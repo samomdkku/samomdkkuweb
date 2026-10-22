@@ -2468,3 +2468,11 @@ ABSENCE"):
   otherwise EMPTY; production now has real events that day (expected 24, got 764).
 - **dept0177**, **team0135**: known since 2026-10-14; rewritten on the night agent's unmerged
   `agent/2026-10-20` branch (task 14).
+
+## 28. ภาพรวม — the one-screen org overview (2026-10-22)
+
+**Status: VERIFIED 2026-10-22 — how: headless Chrome on the dev server at 1920×1080, 1536×864, 1440×900, 1366×768, 1280×800, 1024×768, 820×1180 (fits one screen, nothing clipped, no sideways scroll), 390×844 and 360×740 (edge to edge, ~1.5 screens by design); the sheet driven end to end (modes, one-tap ฝ่ายย่อย, remembered mode, double-tap guard); `org-overview.test.js` red with a "+N" cap reintroduced; deployed and the served bundle grepped.** Spec and the owner's rules: `src/js/org-overview.js` header — every ฝ่ายย่อย head shown, never "และอีก N".
+
+**a. Should ภาพรวม be the DEFAULT view? — Status: OWED (owner decision).** It is not: `'chart'` (แผนผัง) still is, and a saved preference moves nobody. Offered once, not answered. One line in `org-chart.js` (`let view = 'chart'`).
+
+**b. Never seen in Safari or on a real iPhone — Status: HYPOTHESIS that it works.** Every measurement above is Chrome. The masonry uses the WebKit-safe form (inline-block cells, opacity-only entrance) but that is a precaution, not a result. The sheet's drag-to-dismiss was driven with MOUSE events, not touch. Check on an iPhone: tiles not split across columns, the sheet drags down and closes, and the page behind does not scroll while it is open.

@@ -1,7 +1,7 @@
 // org-chart.js — the public ทีม SAMO page.
 //
 // FOUR surfaces over one dataset — every ตำแหน่ง and person, searchable:
-//   • ภาพรวม   — ONE SCREEN. A tile per ฝ่าย, opens into a sheet (org-overview.js).
+//   • ภาพรวม   — AT A GLANCE. A tile per ฝ่าย, opens into a sheet (org-overview.js).
 //   • ผังสายงาน — the connector tree (this file).
 //   • แผนผัง   — the PAGE. ฝ่าย panels that reflow at any width (this file).
 //   • ผังรวม   — the CANVAS. One d3 chart over the whole org (org-graph.js).
@@ -83,13 +83,29 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
-// True only while a ฝ่าย is being rendered into ภาพรวม's sheet. There the ฝ่าย
-// itself is open and its ฝ่ายย่อย start CLOSED, each title carrying its head
-// (`headOf`, the rule the tiles use): a list of who runs what, one tap from the
-// people. ฝ่ายกิจการภายนอก is 92 people — opened whole, the third ฝ่ายย่อย's
-// head was forty cards down. The page's own `expanded` default is not used, so
-// a sheet always opens the same way.
+// True only while a ฝ่าย is being rendered into ภาพรวม's sheet.
+//
+// The sheet has TWO MODES, a segmented control at its top, remembered per
+// reader (`samo.org.sheet`):
+//
+//   หัวหน้าฝ่ายย่อย  the ฝ่ายย่อย CLOSED, each title carrying its head (`headOf`,
+//                   the rule the tiles use) — who runs what, at a glance.
+//                   ฝ่ายกิจการภายนอก is 92 people; opened whole, its third
+//                   ฝ่ายย่อย's head was forty cards down.
+//   ทุกคน           everything open, one tap.
+//
+// ONLY the first level (data-depth 1, a ฝ่ายย่อย of the ฝ่าย) ever closes.
+// REPORTED with the first version, where every level started closed: "there
+// should also be a way to see all of it without having to expand many time" —
+// ฝ่าย PR opened onto two more closed ฝ่าย inside it. One tap per ฝ่ายย่อย, and
+// ทุกคน for none.
+//
+// The sheet's disclosures are its OWN state: toggling one never writes the
+// page's `expanded` set, which would have reopened ฝ่าย in แผนผัง that the
+// reader never touched there.
 let sheetRender = false;
+let sheetAll = false;
+try { sheetAll = localStorage.getItem('samo.org.sheet') === 'all'; } catch { /* private mode */ }
 
 // TWO surfaces over one dataset, answering two different questions:
 //
@@ -134,9 +150,9 @@ let sheetRender = false;
 // move every reader whose saved preference is `'chart'` — currently the panel
 // view — onto a different picture. A new key costs nothing and moves nobody.
 //
-// FOUR SINCE 2026-10-22: ภาพรวม (`'overview'`, org-overview.js) — the whole
-// organisation on ONE screen with no scrolling, each ฝ่าย a tile that opens a
-// sheet. Asked for beside the other three, not instead of one, so it is a new
+// FOUR SINCE 2026-10-22: ภาพรวม (`'overview'`, org-overview.js) — every ฝ่าย as
+// a tile listing each ฝ่ายย่อย with its head, one screen on a computer (a phone
+// scrolls ~1.5 screens), each tile opening a sheet. Asked for beside the other three, not instead of one, so it is a new
 // key and the default does not move.
 const VIEWS = ['overview', 'lines', 'chart', 'all'];
 // `Object.create(null)`, and it is the same fix af36088 made to the four
@@ -519,13 +535,13 @@ function unitBlock(node, depth, filter) {
   // A search result is always fully open — a disclosure the user has to expand
   // to find what they just searched for is the same as no result.
   const collapsible = !filter && !!inner && collapsibleIds.has(node.id);
-  const open = !collapsible || (sheetRender ? depth === 0 : expanded.has(node.id));
+  const open = !collapsible || (sheetRender ? (sheetAll || depth !== 1) : expanded.has(node.id));
   const bodyId = `org-n-${node.id}`;
   const hTag = `h${Math.min(depth + 3, 6)}`;
 
   const headInner = `
         <span class="orgc-unit-name">${highlight(node.name || '', filter?.q)}</span>
-        ${sheetRender && collapsible && depth > 0 ? sheetHeadHtml(node) : ''}
+        ${sheetRender && collapsible && depth === 1 ? sheetHeadHtml(node) : ''}
         ${meta ? `<span class="orgc-unit-meta">${escHtml(meta)}</span>` : ''}
         ${collapsible ? '<i class="bi bi-chevron-down orgc-unit-chev" aria-hidden="true"></i>' : ''}`;
 
@@ -830,13 +846,50 @@ function openOverviewSheet(btn) {
     sheetRender = false;
   }
   const card = overviewModelNow([node]).apex;
+  // The modes only mean something when there is a ฝ่ายย่อย to close — and a
+  // search is already fully open.
+  const closable = card.units.some((u) => collapsibleIds.has(u.id));
+  const modes = !filter && closable ? `
+    <div class="orgs-modes" role="radiogroup" aria-label="แสดง">
+      <button type="button" class="orgs-mode" role="radio" data-sheet-mode="heads"
+        aria-checked="${!sheetAll}">หัวหน้าฝ่ายย่อย</button>
+      <button type="button" class="orgs-mode" role="radio" data-sheet-mode="all"
+        aria-checked="${sheetAll}">ทุกคน · ${card.people} คน</button>
+    </div>` : '';
   openOrgSheet({
     title: node.name || '',
     meta: filter ? `พบ ${hitsOf(node, filter)} คน` : tileMeta(card),
     tint: tintColor(node, !node.parent_id),
-    html: `<div class="orgc-tree">${html || '<p class="org-status">ไม่มีข้อมูลในฝ่ายนี้</p>'}</div>`,
+    html: `${modes}<div class="orgc-tree">${html || '<p class="org-status">ไม่มีข้อมูลในฝ่ายนี้</p>'}</div>`,
     from: btn,
   });
+}
+
+/** Open or close one disclosure INSIDE THE SHEET — DOM only. */
+function setSheetDisclosure(btn, open) {
+  const panel = document.getElementById(btn.getAttribute('aria-controls') || '');
+  if (!panel) return;
+  btn.setAttribute('aria-expanded', String(open));
+  panel.hidden = !open;
+}
+
+function onSheetClick(e) {
+  const mb = e.target.closest('[data-sheet-mode]');
+  if (mb) {
+    sheetAll = mb.dataset.sheetMode === 'all';
+    try { localStorage.setItem('samo.org.sheet', sheetAll ? 'all' : 'heads'); } catch { /* private mode */ }
+    const sheet = mb.closest('.orgs-body');
+    sheet.querySelectorAll('[data-sheet-mode]').forEach((b) => {
+      b.setAttribute('aria-checked', String(b === mb));
+    });
+    sheet.querySelectorAll('.orgc-unit[data-depth="1"] > .orgc-unit-title > button.orgc-unit-btn')
+      .forEach((b) => setSheetDisclosure(b, sheetAll));
+    return;
+  }
+  const btn = e.target.closest('.orgc-unit-btn');
+  if (btn && btn.tagName === 'BUTTON') {
+    setSheetDisclosure(btn, btn.getAttribute('aria-expanded') !== 'true');
+  }
 }
 
 /** ผังรวม's own toolbar + the host the chart mounts into. The depth control is
@@ -1041,9 +1094,6 @@ function toggleNode(btn) {
   panel.hidden = !willOpen;
   const id = panel.id.replace(/^org-n-/, '');
   if (willOpen) expanded.add(id); else expanded.delete(id);
-  // Not a bare `false`: ภาพรวม's sheet toggles too, and that view has no use
-  // for the page-wide button — showing it there would be a control that
-  // changes a view nobody is looking at.
   renderExpandAll(!!query || !usesExpandAll());
 }
 
@@ -1089,12 +1139,8 @@ export function initOrgChart() {
     search.focus();
   });
 
-  // ภาพรวม's sheet: its ฝ่าย disclosures use the page's own toggle, which
-  // resolves the panel from aria-controls and so works in either document spot.
-  onOrgSheetClick((e) => {
-    const btn = e.target.closest('.orgc-unit-btn');
-    if (btn && btn.tagName === 'BUTTON') toggleNode(btn);
-  });
+  // ภาพรวม's sheet: its modes and disclosures, which are the sheet's own state.
+  onOrgSheetClick(onSheetClick);
 
   // Delegated: every station is re-rendered on each paint, and #orgBody itself
   // is the one element that survives.
@@ -1153,7 +1199,7 @@ export function initOrgChart() {
     view = next;
     try { localStorage.setItem('samo.org.view', view); } catch { /* private mode */ }
     render();
-    // ภาพรวม is sized to the screen, so it is only "no scrolling" once the
+    // ภาพรวม is sized to the screen (on a computer), so it only fits once the
     // reader is AT it. Bring its heading to the top when it was chosen — never
     // on page load, which would hijack a scroll nobody asked for.
     if (view === 'overview') revealOverview();
