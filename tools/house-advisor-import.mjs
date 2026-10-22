@@ -172,8 +172,11 @@ union all select 'sheet phones not stored after the run', (select count(*)::text
 union all select 'สาย with links NOT from the sheet (kept)', (select count(distinct s.sai_code)::text
        from public.sai_advisors s join public.advisors a on a.id = s.advisor_id
        where not exists (select 1 from _in i where i.full_name = a.full_name))
-union all select 'สาย (001–999 in use) with no อาจารย์', (select count(*)::text from public.sais x
-       where not exists (select 1 from public.sai_advisors s where s.sai_code = x.code));
+union all select 'สาย with someone on it and no อาจารย์', (select count(*)::text from public.sais x
+       where not exists (select 1 from public.sai_advisors s where s.sai_code = x.code)
+         and (exists (select 1 from public.students t where t.sai_code = x.code)
+              or exists (select 1 from public.student_import_unresolved h
+                          where h.sai_code = x.code and h.resolved_at is null)));
 
 ${COMMIT ? 'commit;' : 'rollback;'}
 `;

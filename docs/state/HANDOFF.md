@@ -2416,6 +2416,12 @@ that is CORRECT.** ข้อมูลไม่ครบ keeps listing both under
 ต้องมีคนทำ) because nothing in the system can mark a shared สาย as confirmed. Do not chase it; a
 "confirmed" marker would be a small feature if the owner wants the line gone.
 
+**FIXED 2026-10-22 — answered rows are not sent back to ฝ่ายข้อมูล.** `house-year-sheets.mjs
+--gaps-only` (the generator of the `MDxx-ข้อมูลไม่ครบ` sheets) now leaves out an open held row answered
+ติดต่อไม่ได้ / คาดว่าลาออก unless it has a problem of its own — the same rule as the ข้อมูลไม่ครบ page
+(`isAnsweredOpen`, one home). Dry run on production: MD52 7 → 1. The สาย 256 pairs still appear (no
+confirm marker — see above).
+
 ### 26b. MD51 แบบสอบถาม (kkumail answers) — imported 2026-10-22
 
 **Status: VERIFIED 2026-10-22 — how: `tools/house-kkumail-import.mjs --apply` on production, re-run

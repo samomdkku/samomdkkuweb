@@ -39,7 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { splitHeld, groupOccupantsByCohort, groupBySaiNumber, auditSai } from '../src/js/house/gaps.js';
 import { cohortLabel, houseOf } from '../src/js/house/fields.js';
 import { FIELDS, has } from '../src/js/house/census.js';
-import { isAnsweredEmpty, followUpLabel } from '../src/js/house/follow-up.js';
+import { isAnsweredEmpty, isAnsweredOpen, followUpLabel } from '../src/js/house/follow-up.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -141,6 +141,9 @@ function toRow(r, status, { includeKkumail, problems = [] }) {
     // What the ฝ่าย already told us (0217), so a re-sent sheet does not ask the
     // same question as if it had never been answered.
     note: [followUpLabel(r.follow_up), r.note].filter(Boolean).join(' · '),
+    // Asked and answered (ติดต่อไม่ได้ / คาดว่าลาออก): the seat stays open, but
+    // there is nothing left to ask — hasIssue() leaves it off --gaps-only.
+    answered: isAnsweredOpen(r),
   };
 }
 
@@ -259,6 +262,9 @@ export function buildYearSheets(d = {}) {
  * handover exists for.
  */
 export function hasIssue(row) {
+  // Owner, 2026-10-22: "i already got answer from them". A row the ฝ่าย
+  // answered is not sent back to them — unless it ALSO has a problem of its own.
+  if (row.answered && row.problems.length === 0) return false;
   return row.missing.length > 0 || row.problems.length > 0 || row.status !== STATUS.normal;
 }
 

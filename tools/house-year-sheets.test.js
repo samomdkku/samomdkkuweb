@@ -5,7 +5,7 @@
 // ==============================================
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY, buildSaiIssues, SAI_HEADER, FILL_MARK } from './house-year-sheets.mjs';
+import { buildYearSheets, toCsv, HEADER, priorityOf, PRIORITY, buildSaiIssues, SAI_HEADER, FILL_MARK, hasIssue } from './house-year-sheets.mjs';
 
 const SOURCE = readFileSync(new URL('./house-year-sheets.mjs', import.meta.url), 'utf8');
 
@@ -310,5 +310,24 @@ describe('CSV shape', () => {
     const { sheets } = buildYearSheets({ students: [s], held: [] });
     const csv = toCsv(sheets.get('MD50'));
     expect(csv).toContain('"ใจดี, มีสุข ""เก่ง"""');
+  });
+});
+
+// REPORTED (owner, 2026-10-22): "why some people that already have info like
+// ติดต่อไม่ได้ still on the sheet, i already got answer from them". The
+// --gaps-only sheet is the one sent to ฝ่ายข้อมูล; an answered row is not a
+// question any more. Its seat stays open in the system (0217) — it just is not
+// asked again.
+describe('--gaps-only leaves out what ฝ่ายข้อมูล already answered', () => {
+  const rowsOf = (held) => [...buildYearSheets({ students: [], held: [held] }).sheets.values()].flat();
+  it('an open held row answered ติดต่อไม่ได้ / คาดว่าลาออก is not an issue', () => {
+    for (const follow_up of ['unreachable', 'maybe_left']) {
+      const [row] = rowsOf(heldRow({ id: `a-${follow_up}`, student_id: null, follow_up }));
+      expect(hasIssue(row), follow_up).toBe(false);
+    }
+  });
+  it('control: the same row with no answer still is', () => {
+    const [row] = rowsOf(heldRow({ id: 'q', student_id: null }));
+    expect(hasIssue(row)).toBe(true);
   });
 });
