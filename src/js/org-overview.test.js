@@ -22,7 +22,7 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import {
-  overviewModel, overviewHtml, tileMeta, shortUnitName, callName,
+  overviewModel, overviewHtml, tileMeta, shortUnitName, callName, rowOrder, columnOrder,
 } from './org-overview.js';
 import { sortSiblings } from './org-rung.js';
 
@@ -176,5 +176,55 @@ describe('shortUnitName / callName', () => {
   it('a person is called by ชื่อเล่น, else their first name', () => {
     expect(callName({ name: 'ภูริพัฒณ์ มหาพรหมรักษ์', nickname: 'เอิง' })).toBe('เอิง');
     expect(callName({ name: 'ภูริพัฒณ์ มหาพรหมรักษ์', nickname: '' })).toBe('ภูริพัฒณ์');
+  });
+});
+
+describe('the tile says what a tap does — no hint sentence needed', () => {
+  it('every tile ENDS with the action: ดูทุกคน, the count, a chevron', () => {
+    const html = overviewHtml(overviewModel(fixture(NODES, MEMBERS)),
+      { filter: null, hitsOf: () => 0, hl: (t) => t });
+    const tiles = html.split('class="orgo-cell"').slice(1);
+    expect(tiles.length).toBe(2);
+    for (const t of tiles) {
+      expect(t).toMatch(/class="orgo-cta">(ดูทุกคน · \d+ คน|ยังไม่มีสมาชิก)<i class="bi bi-chevron-right/);
+    }
+    expect(html).not.toContain('orgo-hint');
+  });
+});
+
+describe('placing the tiles', () => {
+  const tallest = (h, a, k) => {
+    const t = Array(k).fill(0);
+    h.forEach((x, i) => { t[a[i]] += x; });
+    return Math.max(...t);
+  };
+
+  it('ROWS: the first row reads left to right, then each tile takes the shortest column', () => {
+    expect(rowOrder([100, 100, 100, 50, 100], 3)).toEqual([0, 1, 2, 0, 1]);
+  });
+
+  it('COLUMNS: contiguous runs in order, and the tallest column as short as it can be', () => {
+    const h = [223, 200, 223, 200, 200, 200, 223, 200, 200, 339, 143, 118];
+    const a = columnOrder(h, 5);
+    // contiguous and in order: never steps back to an earlier column
+    for (let i = 1; i < a.length; i++) expect(a[i] - a[i - 1]).toBeGreaterThanOrEqual(0);
+    // optimal: brute force over every contiguous 5-way split agrees
+    let best = Infinity;
+    const n = h.length;
+    const rec = (start, cols, worst) => {
+      if (cols === 1) { best = Math.min(best, Math.max(worst, h.slice(start).reduce((x, y) => x + y, 0))); return; }
+      let run = 0;
+      for (let end = start + 1; end <= n - cols + 1; end++) {
+        run += h[end - 1];
+        rec(end, cols - 1, Math.max(worst, run));
+      }
+    };
+    rec(0, 5, 0);
+    expect(tallest(h, a, 5)).toBe(best);
+  });
+
+  it('fewer tiles than columns: each gets its own, nothing out of range', () => {
+    expect(columnOrder([10, 20], 5)).toEqual([0, 1]);
+    expect(rowOrder([10, 20], 5)).toEqual([0, 1]);
   });
 });

@@ -34,7 +34,7 @@ import {
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
 import {
-  overviewModel, overviewHtml, tileMeta, shortUnitName,
+  overviewModel, overviewHtml, tileMeta, shortUnitName, layoutOverview,
 } from './org-overview.js';
 import { openOrgSheet, onOrgSheetClick, onOrgSheetScroll } from './org-sheet.js';
 
@@ -738,6 +738,7 @@ function render() {
 
   if (nothing) {
     destroyOrgGraph();
+    layoutOverview(null);   // drop the last grid's resize observer too
     body.innerHTML = `<p class="org-status">${
       filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
     }</p>`;
@@ -778,6 +779,9 @@ function render() {
       : `<div class="orgc-tree">${panels}</div>`}`;
 
   if (view === 'all') paintGraph(roots, filter);
+  // Tiles are placed by measuring them, so after they are in the document.
+  // Called with no grid (any other view) it just drops the old observer.
+  layoutOverview(view === 'overview' ? body : null);
 }
 
 // ── rendering ภาพรวม ─────────────────────────────────────────────────────────

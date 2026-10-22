@@ -177,6 +177,20 @@ export function overviewHtml(model, { filter, hitsOf, hl }) {
     const n = hitsOf(c.node);
     return n ? `<span class="orgo-hit">พบ ${n} คน</span>` : 'ไม่พบ';
   };
+  // THE TILE SAYS WHAT A TAP DOES. Owner: "a good design should make user know
+  // กดที่ฝ่ายเพื่อดูทุกตำแหน่งและทุกคนในฝ่ายนั้น not just by the text". There was a
+  // sentence above the map saying so, and the tiles' only tap cue — a chevron
+  // in the count line — was hidden on most screens to save height. Now every
+  // tile ENDS with an action: verb, count, chevron ("ดูทุกคน · 40 คน ›"), the
+  // App Store's "See All ›" shape, and it is the one line never dropped. The
+  // sentence is gone; the tiles say it.
+  const ctaOf = (c) => {
+    if (filter) {
+      const n = hitsOf(c.node);
+      return n ? `<span class="orgo-hit">พบ ${n} คน</span>` : 'ไม่พบ';
+    }
+    return c.people ? `ดูทุกคน · ${c.people} คน` : 'ยังไม่มีสมาชิก';
+  };
   const dim = (c) => (filter && !filter.keepNodes.has(c.node.id) ? ' is-dim' : '');
   const tint = (c) => (c.tint ? ` style="--org-tint:${escHtml(c.tint)}"` : '');
 
@@ -195,15 +209,150 @@ export function overviewHtml(model, { filter, hitsOf, hl }) {
           <span class="orgo-tile-name">${hl(c.node.name || '')}</span>
           ${leadHtml(c, hl)}
           ${subsHtml(c, hl)}
-          <span class="orgo-meta">${metaOf(c)}<i class="bi bi-chevron-right orgo-chev" aria-hidden="true"></i></span>
+          <span class="orgo-cta">${ctaOf(c)}<i class="bi bi-chevron-right orgo-chev" aria-hidden="true"></i></span>
         </button>
       </li>`;
 
   return `
     <div class="orgo" data-view="overview">
-      <p class="orgo-hint">กดที่ฝ่ายเพื่อดูทุกตำแหน่งและทุกคนในฝ่ายนั้น</p>
       ${apexHtml}
       ${tiles.length ? `<span class="orgo-stem" aria-hidden="true"></span>
       <ul class="orgo-grid" aria-label="ฝ่ายทั้งหมด">${tiles.map(tileHtml).join('')}</ul>` : ''}
     </div>`;
+}
+
+// ── placing the tiles ────────────────────────────────────────────────────────
+//
+// The one DOM function in this file. CSS columns (the fallback,
+// org-overview.css) fill top to bottom and cannot rebalance — at 1440 wide
+// their tallest column was 630px where ~540 was possible, which was the map
+// fitting the screen or not. So the script places the tiles, choosing between
+// TWO orders and taking whichever leaves the shorter tallest column:
+//
+//   ROWS     each tile, in the ฝ่าย order, into the shortest column so far
+//            (Pinterest) — reads left to right like any grid. Preferred.
+//   COLUMNS  the ฝ่าย order run down the columns, split where it makes the
+//            tallest column as short as it can possibly be (the "linear
+//            partition", solved exactly — twelve tiles is a tiny problem).
+//
+// Neither always wins, measured: ROWS was 77px WORSE than CSS at 1024 wide
+// (the nine-row tile arrived late, onto an already tall column) and much
+// better at 1440. ROWS is kept unless COLUMNS saves more than one gap.
+//
+// The column COUNT comes from CSS (`--orgo-cols`), so breakpoints have one
+// home; the gap is the grid's own `column-gap`, used for both axes.
+
+/** Each tile → its column, row order. Exported for the test. */
+export function rowOrder(heights, cols) {
+  const tops = Array(cols).fill(0);
+  return heights.map((h) => {
+    let col = 0;
+    for (let k = 1; k < cols; k++) if (tops[k] < tops[col] - 0.5) col = k;
+    tops[col] += h;
+    return col;
+  });
+}
+
+/** Each tile → its column, contiguous runs down the columns, the split that
+ *  minimises the tallest column (exact DP). Exported for the test. */
+export function columnOrder(heights, cols) {
+  const n = heights.length;
+  const k = Math.min(cols, n);
+  const pre = [0];
+  for (const h of heights) pre.push(pre[pre.length - 1] + h);
+  const sum = (i, j) => pre[j] - pre[i];   // tiles i..j-1
+  // best[c][j]: the tallest column when the first j tiles fill c columns
+  const best = Array.from({ length: k + 1 }, () => Array(n + 1).fill(Infinity));
+  const cut = Array.from({ length: k + 1 }, () => Array(n + 1).fill(0));
+  best[0][0] = 0;
+  for (let c = 1; c <= k; c++) {
+    for (let j = 1; j <= n; j++) {
+      for (let i = c - 1; i < j; i++) {
+        const v = Math.max(best[c - 1][i], sum(i, j));
+        if (v < best[c][j]) { best[c][j] = v; cut[c][j] = i; }
+      }
+    }
+  }
+  const out = Array(n).fill(0);
+  let j = n;
+  for (let c = k; c >= 1; c--) {
+    const i = cut[c][j];
+    for (let t = i; t < j; t++) out[t] = c - 1;
+    j = i;
+  }
+  return out;
+}
+
+const tallestOf = (heights, assign, cols) => {
+  const t = Array(cols).fill(0);
+  heights.forEach((h, i) => { t[assign[i]] += h; });
+  return Math.max(...t);
+};
+
+let layoutObserver = null;
+
+function placeTiles(grid) {
+  const cells = [...grid.children];
+  if (!cells.length) return;
+  const cs = getComputedStyle(grid);
+  const cols = Math.max(1, parseInt(cs.getPropertyValue('--orgo-cols'), 10) || 4);
+  const gap = parseFloat(cs.columnGap) || 0;
+  const pl = parseFloat(cs.paddingLeft) || 0;
+  const pt = parseFloat(cs.paddingTop) || 0;
+  const inner = grid.clientWidth - pl - (parseFloat(cs.paddingRight) || 0);
+  const w = (inner - gap * (cols - 1)) / cols;
+  if (!(w > 0)) return;
+
+  grid.classList.add('is-laid');
+  for (const c of cells) c.style.width = `${w}px`;
+  const heights = cells.map((c) => c.offsetHeight);   // one reflow, then reads
+
+  const withGap = heights.map((h) => h + gap);
+  const rows = rowOrder(withGap, cols);
+  const columns = columnOrder(withGap, cols);
+  const assign = tallestOf(withGap, columns, cols) < tallestOf(withGap, rows, cols) - gap
+    ? columns : rows;
+
+  const tops = Array(cols).fill(pt);
+  cells.forEach((c, i) => {
+    const col = assign[i];
+    c.style.left = `${pl + col * (w + gap)}px`;
+    c.style.top = `${tops[col]}px`;
+    tops[col] += withGap[i];
+  });
+  // Positioned children do not size their parent; say how tall it is. The box
+  // is border-box (the app's reset), so border and bottom padding count.
+  const tallest = Math.max(...tops) - gap;
+  grid.style.height = `${tallest + (parseFloat(cs.borderTopWidth) || 0)
+    + (parseFloat(cs.paddingBottom) || 0)}px`;
+}
+
+/**
+ * Lay out the ภาพรวม grid inside `host`, and keep it laid out: on a width
+ * change (rotation, a window resize, the page's own scrollbar appearing) and
+ * once the web fonts arrive, since Thai glyph metrics change line heights.
+ * Call after every paint; the previous observer is dropped first.
+ */
+export function layoutOverview(host) {
+  layoutObserver?.disconnect();
+  layoutObserver = null;
+  const grid = host?.querySelector('.orgo-grid');
+  if (!grid) return;
+  placeTiles(grid);
+  let lastWidth = grid.clientWidth;
+  let frame = 0;
+  if (typeof ResizeObserver === 'function') {
+    layoutObserver = new ResizeObserver(() => {
+      // Only a WIDTH change re-places; this function sets the height itself,
+      // and reacting to that would loop.
+      if (grid.clientWidth === lastWidth || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        lastWidth = grid.clientWidth;
+        placeTiles(grid);
+      });
+    });
+    layoutObserver.observe(grid);
+  }
+  document.fonts?.ready?.then(() => { if (grid.isConnected) placeTiles(grid); });
 }

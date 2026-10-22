@@ -4669,6 +4669,19 @@ children.
 measured it (stage bottom, lowest tile, `scrollWidth`, per-element right edge at
 nine viewports) is the thing to re-run after any change there.
 
+**Addendum (2026-10-23) — CSS columns cannot rebalance, and the obvious fix
+can lose to them.** Adding an action line to every tile pushed the masonry off
+the screen again. CSS columns fill top to bottom in order and never move a tile
+back, so the tallest column was 630px where 540 was possible (1440 wide). The
+Pinterest fix — each tile into the shortest column — was BETTER at 1440 and
+77px WORSE at 1024 (the nine-row tile arrived late, onto an already tall
+column). Shipped: `layoutOverview` computes both that and the exact
+order-preserving split (a linear-partition DP — twelve tiles is tiny) and takes
+the shorter, with a test that brute-forces every split to prove the DP optimal.
+*A heuristic that wins on the screen you tried can lose on the next one —
+measure each candidate at every width, or compute the exact answer when the
+input is this small.*
+
 **The general rule**: *a layout keyword's meaning depends on whether the
 container's size is known yet — `1fr` in an intrinsic pass, a multicol under a
 fixed height, an `auto` track around a multicol. Measure the boxes at the

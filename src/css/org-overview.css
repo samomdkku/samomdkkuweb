@@ -36,13 +36,6 @@
   min-height: max(30rem, calc(100dvh - var(--orgo-chrome)));
 }
 
-.orgo-hint {
-  margin: 0 0 0.6rem;
-  font-size: 0.8rem;
-  color: var(--ink-500);
-  text-align: center;
-}
-
 /* ── shared press feedback ─────────────────────────────────────────────── */
 /* On the PRESS, instantly — not on release. */
 .orgo-apex,
@@ -115,15 +108,22 @@
    as tall as itself and the columns balance: total ÷ 4 ≈ 590px. Same people,
    same rows, and it fits — the layout gave way instead of a person.
 
-   Reading order runs down each column; tab order is the DOM, which is the
-   same order, so keyboard and eye agree. */
+   PLACED BY SCRIPT, CSS columns as the fallback. CSS columns fill top to
+   bottom in order and cannot move a tile to even them out, so the tallest
+   column set the page: 630px where 540 was possible at 1440 wide (measured),
+   and the eye had to read down each column. `layoutOverview` (org-overview.js)
+   puts each tile, in the ฝ่าย's own order, into whichever column is shortest
+   — balanced, and reading left to right like any grid. It reads the column
+   COUNT from `--orgo-cols` here, so the breakpoints have one home. Tab order
+   stays the DOM's, which is the ฝ่าย order. */
 .orgo-grid {
+  --orgo-cols: 4;
   justify-self: stretch;
   list-style: none;
   margin: 0;
   padding: 0.9rem 0 0;
   border-top: 1px solid var(--org-spine, var(--ink-200));
-  columns: 4;
+  columns: var(--orgo-cols);
   column-gap: 0.65rem;
   /* Content-height, never stretched: a multi-column box given a FIXED height
      overflows into extra columns off to the side — measured as a sideways
@@ -131,7 +131,37 @@
   align-self: start;
 }
 @media (max-width: 991.98px) {
-  .orgo-grid { columns: 3; }
+  .orgo-grid { --orgo-cols: 3; }
+}
+/* a landscape iPad (992–1199 wide): the same breakout and FIVE columns. Four
+   left the tallest column 59px past a 1024×768 screen (measured) — it was the
+   column count, not the width: full width alone changed nothing. */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .orgo-grid {
+    --orgo-cols: 5;
+    justify-self: center;
+    width: calc(100vw - 2.5rem);
+    max-width: none;
+  }
+}
+/* the script has placed the tiles: positioned boxes in a relative grid */
+.orgo-grid.is-laid { columns: auto; position: relative; }
+.orgo-grid.is-laid > .orgo-cell { position: absolute; margin: 0; }
+/* WIDE SCREENS USE THEIR WIDTH. The page is capped at 1080px, so a 1440 screen
+   had 180px of nothing either side while the tiles ran off the bottom. Here
+   the grid alone widens to 1280px and takes a FIFTH column: tiles stay the
+   width they were (~250px, so nothing wraps more) and every column is a fifth
+   shorter. Measured, this is what keeps the action line on every tile AND the
+   map on one screen at 1280–1920 wide.
+   Breaks out by `vw`, safely: the width stays 4rem inside the viewport, more
+   than any classic scrollbar, and it is centred on the column it sits in. */
+@media (min-width: 1200px) {
+  .orgo-grid {
+    --orgo-cols: 5;
+    justify-self: center;
+    width: min(1280px, calc(100vw - 4rem));
+    max-width: none;
+  }
 }
 
 .orgo-cell {
@@ -282,17 +312,24 @@
   color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
 }
 
-.orgo-meta {
+/* THE ACTION LINE — what a tap does, on every tile, never hidden: "ดูทุกคน ·
+   40 คน ›". Tinted like a link, weighted like a button label; with the press
+   scale and the hover lift it is the whole affordance (org-overview.js says
+   why it replaced a hint sentence). */
+.orgo-cta {
   margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
+  padding-top: 0.15rem;
   font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.72rem;
-  color: var(--ink-500);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--org-tint) 72%, var(--ink-900));
   white-space: nowrap;
 }
+.orgo-cta .orgo-chev { color: inherit; }
 .orgo-chev {
   font-size: 0.75rem;
   color: var(--ink-400);
@@ -313,13 +350,10 @@
 .orgo-tile.is-dim,
 .orgo-apex.is-dim { opacity: 0.38; }
 
-/* The count line is the first thing to go: a tile with rows already shows
-   who is in it, and the sheet's header carries the count. */
-/* …and on any three-column screen, where the same rows stack into one fewer
-   column (an iPad held upright: 54px past the screen without this). */
+/* Shorter screens, and any three-column one (an iPad held upright: the same
+   rows stack into one fewer column), tighten first. */
 @media (min-width: 600px) and (max-height: 980px),
   (min-width: 600px) and (max-width: 991.98px) {
-  .orgo-tile:has(.orgo-subs) .orgo-meta { display: none; }
   /* on a ฝ่าย tile the seat title mostly repeats the ฝ่าย name right above it;
      the apex keeps its title — นายกสโมสร is the one thing that card says */
   .orgo-tile .orgo-lead-role { display: none; }
@@ -331,8 +365,6 @@
 /* ── a short laptop (768–880px tall): the same tile, tighter ─────────────
    Every row still shows; what gives is the hint, spacing and type size. */
 @media (min-width: 600px) and (max-height: 880px) {
-  /* the chevrons and the press feedback already say "tap me" */
-  .orgo-hint { display: none; }
   .orgo-apex { padding-block: 0.45rem; }
   .orgo-apex .orgo-face { width: 2.3rem; }
   .orgo-stem { height: 0.6rem; }
@@ -351,7 +383,6 @@
 /* narrow AND short (a 1024×768 iPad on its side): four columns of ~225px
    tiles, so the spacing gives a little more */
 @media (min-width: 600px) and (max-width: 1199.98px) and (max-height: 880px) {
-  .orgo-hint { display: none; }
   .orgo-tile { padding: 0.5rem 0.6rem 0.45rem; gap: 0.3rem; }
   .orgo-grid { column-gap: 0.45rem; padding-top: 0.6rem; }
   .orgo-cell { margin-bottom: 0.45rem; }
@@ -368,7 +399,7 @@
    scrolling a page). Same masonry as desktop, two columns. */
 @media (max-width: 599.98px) {
   .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
-  .orgo-grid { columns: 2; column-gap: 0.45rem; padding-top: 0.6rem; }
+  .orgo-grid { --orgo-cols: 2; column-gap: 0.45rem; padding-top: 0.6rem; }
   /* EDGE TO EDGE, less an 8px gutter. REQUESTED: "it got margin at leftmost,
      rightmost can you make it take full width" — the tiles sat inside BOTH the
      Bootstrap .container padding and .org-page's, ~28px a side on a 390px
@@ -389,7 +420,6 @@
   /* the stem still hangs from the middle of the apex */
   .orgo-stem { justify-self: center; }
   .orgo-cell { margin-bottom: 0.45rem; }
-  .orgo-hint { font-size: 0.74rem; margin-bottom: 0.45rem; }
   .orgo-apex { padding: 0.55rem 0.75rem 0.55rem 0.65rem; }
   .orgo-apex .orgo-face { width: 2.5rem; }
   .orgo-apex .orgo-lead-name { font-size: 0.88rem; }
@@ -401,15 +431,13 @@
   .orgo-tile .orgo-face { width: 1.85rem; }
   .orgo-tile .orgo-lead-role,
   .orgo-tile .orgo-lead-nick,
-  .orgo-tile .orgo-lead-more,
-  .orgo-tile .orgo-meta { display: none; }
+  .orgo-tile .orgo-lead-more { display: none; }
+  .orgo-cta { font-size: 0.7rem; }
   .orgo-tile .orgo-lead-name { font-size: 0.7rem; white-space: normal; line-height: 1.35; }
   .orgo-subs { padding-top: 0.35rem; gap: 0.05rem; }
   .orgo-sub { height: 1.25rem; gap: 0.3rem; font-size: 0.66rem; }
   .orgo-sub-face { width: 1rem; }
   .orgo-sub-who { font-size: 0.66rem; }
-  /* no head of its own and no ฝ่ายย่อย: the count is all there is to say */
-  .orgo-tile:not(:has(.orgo-lead)):not(:has(.orgo-subs)) .orgo-meta { display: flex; }
 }
 /* A short phone (an SE, a 360×740 Android): the apex down to one row. */
 @media (max-width: 599.98px) and (max-height: 800px) {
