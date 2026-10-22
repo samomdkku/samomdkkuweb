@@ -3841,3 +3841,29 @@ written and wrong about the place it exists to protect.
 PRODUCTION's shape before it is called portable — a trigger, a default or a
 row that exists only there turns a hand-written setup into a collision.* And
 geometry relative to `now()` must be smaller than anything real can occupy.
+
+## `npm run proofs` checked nothing for two days — one proof committed without a PROOFS entry
+
+**Symptom.** A bug scan on 2026-10-22 ran `npm run proofs` and got two lines —
+`✗ tools/ holds year0242-start-samo-year.sql with no entry in PROOFS` — and no
+proof results at all. STATE.md meanwhile claimed a green count from an earlier
+run.
+
+**Cause.** `year0242-start-samo-year.sql` (2026-10-20) was proved by running it
+alone with `db-query.mjs` (23/23) and committed without a line in
+`tools/run-proofs.mjs`. The runner's own guard refuses to start when `tools/`
+holds an unregistered `.sql` — correctly — but that guard only fires when
+somebody RUNS the proofs, which nothing does on commit. So the one check that
+would have caught it was the thing it disabled, for every proof.
+
+**Fix.** Registered. `src/js/proofs-registered.test.js` runs the same
+both-directions comparison inside `npm test`, with a control that the parse
+found the list (red first on exactly this file). The first full run it allowed
+found seven stale proofs — HANDOFF §27.
+
+**Where it lives now.** `src/js/proofs-registered.test.js`; the runner keeps its
+own guard.
+
+**The general rule**: *a guard that only runs when someone invokes the tool it
+guards protects nothing between invocations — copy the check to where commits
+are checked.*

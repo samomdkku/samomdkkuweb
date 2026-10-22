@@ -100,6 +100,7 @@ const PROOFS = [
   ['proj0212-samo-depts.mjs', 'ฝ่ายสโม tags on a โครงการ: only the vpa desk (or master) sets them, an unknown value is refused, and anon reads them only on a public โครงการ'],
   ['dept0213-team-samo-grant.mjs', 'a หน้าฝ่าย grant set in ทีม SAMO on a newly added ฝ่าย lets its people edit that page and not another\'s'],
   ['year0219-samo-year.sql', 'a SAMO-year handover closes the outgoing term and opens the incoming one atomically, a stranger cannot call it, and a backfill timestamp resolves to the term that was actually live'],
+  ['year0242-start-samo-year.sql', 'starting a ปี SAMO also opens the next Passport วาระ in the same act, and only for a caller allowed both'],
   ['pr0220-year-filter.sql', 'a PR ticket is stamped with the SAMO year at insert, an explicit year survives the trigger, the backfill resolves from history across a real handover (not "now"), and the year is a filter — never an access boundary'],
   ['team0224-handover.sql', 'the handover RPC requires team_edit, not the bare "team" view grant every ทีม SAMO posting gets for free (0219\'s bug); it auto-archives the outgoing term with no separate publish call; Discord role sync stays decoupled from team_terms'],
   ['team0228-delete-guard.sql', 'a SAMO year that is current, was ever in office, or has PR/VS/โครงการ rows filed under it cannot be deleted (the UI disabled only the button); a year seeded ahead and never used still can'],

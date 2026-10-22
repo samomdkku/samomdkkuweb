@@ -2446,3 +2446,25 @@ columns were NOT imported: ระบบบ้าน has no field for them and th
 4. **Three people who are in neither list** (lines 162, 254, 278): one typed a รหัส that fails the
    check digit, one is from another รุ่น (`63…`). The form has no สาย, so they cannot be placed in a
    บ้าน — ฝ่ายข้อมูล has to say which สาย.
+
+## 27. Live proofs — 7 stale on production (2026-10-22)
+
+**Status: VERIFIED 2026-10-22 — how: full `npm run proofs` against production, 68 of 75 green; each
+red re-run alone and its failing rows read.** First full run possible since year0242 (2026-10-20) was
+committed without a PROOFS entry: the runner refuses to start on an unregistered .sql, so every full
+run printed one ✗ line and checked nothing. Fixed: registered, and `src/js/proofs-registered.test.js`
+now fails `npm test` on it (red first).
+
+**None of these is a broken FEATURE; each is a proof whose setup or assumption went stale.** OWED —
+each must CREATE what it needs instead of finding it (mistakes.md class 7, "a scenario can need an
+ABSENCE"):
+- **proj0181** errors in setup: it writes a user's tree-managed columns as the superuser, and
+  `users_self_update_guard` refuses a caller with no staff JWT (the same wall the samo-dev browser
+  scripts hit; they now use `set local session_replication_role = replica` for that one statement).
+- **proj0165** (6) and **proj0176** (7): both look for a REAL account holding only the อาจารย์ desk;
+  production has none since the seats changed, so the subject is missing and every case after it
+  fails (S2 "someone holds the prof seat" = 0; 01 "a prof-only subject exists" = false).
+- **stats0231** (2) and **stats0233** (3): they plant events on a day ~89 days back and assume it is
+  otherwise EMPTY; production now has real events that day (expected 24, got 764).
+- **dept0177**, **team0135**: known since 2026-10-14; rewritten on the night agent's unmerged
+  `agent/2026-10-20` branch (task 14).

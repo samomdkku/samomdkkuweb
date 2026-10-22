@@ -1561,3 +1561,31 @@ and the bulk archive one `PATCH id=in.(…)` with a row-count check.
 while the filter excludes nothing. When a feature adds a state that hides rows
 from that filter, every "is anything else still using this?" check over the
 cache becomes a delete.* Read the keep-list from the table, not the view.
+
+## "I already got the answer from them" — answered held rows still listed as work, in TWO places
+
+**Symptom (owner, 2026-10-22).** "why some people that already have info like
+ติดต่อไม่ได้ still on the sheet, i already got answer from them". Six MD52 held
+rows answered ติดต่อไม่ได้ / คาดว่าลาออก on 2026-10-13 were still counted under
+⛔ ต้องมีคนทำ on ข้อมูลไม่ครบ, and `house-year-sheets.mjs --gaps-only` would
+have sent them back to ฝ่ายข้อมูล on the next sheet.
+
+**Cause.** 0217 deliberately keeps those rows OPEN (the person may still turn
+up), and every reader classified a held row by "is it open?" — so "open" was
+read as "still a question". The answer only travelled as a hint next to the name.
+
+**Fix.** One predicate, `isAnsweredOpen` in `src/js/house/follow-up.js`: an open
+row the ฝ่าย answered. `computeGaps` moves those rows to a new tone, ตอบแล้ว
+ไม่ต้องทำอะไร (production ต้องมีคนทำ 12 → 6); `hasIssue()` in the sheet
+generator leaves them out unless they have a problem of their own (MD52 7 → 1).
+The tone order had been hand-written in three places; it is `TONE_ORDER` now,
+pinned by a test.
+
+**Where it lives now.** `follow-up.js` (`isAnsweredOpen`), `gaps.js`
+(`held_answered`, `TONE_ORDER`), `tools/house-year-sheets.mjs` (`hasIssue`);
+`tools/browser/house-sai-grid.mjs` drives the page.
+
+**The general rule**: *"still open" and "still a question" are different
+states — when a row is kept open on purpose, every list that asks "what needs
+doing" must say why it is open, or it re-asks a question already answered.*
+Fixing the page is half: grep for the other readers of the same population.
