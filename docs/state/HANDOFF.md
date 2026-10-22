@@ -2387,5 +2387,37 @@ purpose (docs/ is public) — open ระบบบ้าน → สายรห�
 2026-10-21) — `master` answers yes to every permission (0111). Restricting to house-only is a
 predicate change in a new migration + the proof's subjects.
 
-**NOT VERIFIED:** the อาจารย์ page (phone line, editor field, ทั้งบ้าน switch, อาจารย์ร่วมบ้าน) was
-never seen rendered signed in as an admin — only the served HTML/JS was grepped. Look once at 390px.
+**VERIFIED 2026-10-22 — how: `tools/browser/house-advisor-page.mjs` 16/16 on samo-dev, signed in as a
+master:** the tel: link, สายที่ดูแล vs ทั้งบ้าน, each สาย head naming its อาจารย์, อาจารย์ร่วมบ้าน
+(never themself, a tap opens that page), the editor reading / changing / clearing the phone (read back
+from the DATABASE), no sideways scroll at 390px, no console errors. Planted rows are synthetic and
+deleted in its finally.
+
+**samo-dev browser scripts were all broken at the grant step (found 2026-10-22).** samo-dev now creates
+the `users` row at sign-up, so each script's `insert … on conflict do update set permissions` became an
+UPDATE that `users_self_update_guard` refuses (no staff JWT — the superuser included).
+`house-sai-grid`, `accounts-dashboard`, `shop-admin-strip` and the new one now do that one statement
+under `set local session_replication_role = replica`. Re-run green after the change:
+`house-advisor-page`, `house-sai-grid`, `accounts-dashboard`. `shop-admin-strip` has the same edit and
+was NOT re-run.
+
+### 26b. MD51 แบบสอบถาม (kkumail answers) — imported 2026-10-22
+
+**Status: VERIFIED 2026-10-22 — how: `tools/house-kkumail-import.mjs --apply` on production, re-run
+imports 0; held seats 106 → 30; all 76 promoted rows have a สาย and a `people` row.** The form had 279
+answers: 197 were already students with the same address, 76 took their held seat (one with a
+one-letter name typo in the form, matched on an exact รหัส with a valid check digit and an address
+spelled like the system's name — accepted by hand), the rest below. Line, phone and other-contact
+columns were NOT imported: ระบบบ้าน has no field for them and they were not asked for.
+
+**OWED — a person decides (names: the form, by line number):**
+1. **Two students whose stored kkumail differs from what they typed** (form lines 38, 141). Neither
+   address has ever signed in, so the database cannot tell which is real; one stored address looks
+   like a transcription typo. Fix in ระบบบ้าน → นักศึกษา if the student confirms.
+2. **One student stored with a `68…` รหัส who answered the MD51 form with `66…`** (line 179). The
+   stored one passes the check digit, the typed one does not — but the stored one makes her ปี 1.
+3. **One held seat whose answer is a kkumail that does not look like the name** (line 226) — รหัส and
+   name match the held row exactly. Confirm the address, then กรอกอีเมล on that held row.
+4. **Three people who are in neither list** (lines 162, 254, 278): one typed a รหัส that fails the
+   check digit, one is from another รุ่น (`63…`). The form has no สาย, so they cannot be placed in a
+   บ้าน — ฝ่ายข้อมูล has to say which สาย.

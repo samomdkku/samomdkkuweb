@@ -19,6 +19,8 @@ describe('normalizePhone — one number, however it was typed', () => {
   it('+66 and 66 are the same number with the 0 put back', () => {
     expect(normalizePhone('+66 81 234 5678').value).toBe('0812345678');
     expect(normalizePhone('66812345678').value).toBe('0812345678');
+    expect(normalizePhone('+66 43 123 456').value).toBe('043123456');   // landline
+    expect(normalizePhone('6643123456').value).toBe('043123456');
   });
   it('a 9-digit landline is a number too', () => {
     expect(normalizePhone('043-123456')).toEqual({ value: '043123456', ok: true });

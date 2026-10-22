@@ -62,7 +62,9 @@ export function normalizePhone(raw) {
   if (!s) return { value: null, ok: true };
   let d = s.replace(/[^\d+]/g, '');
   if (d.startsWith('+66')) d = '0' + d.slice(3);
-  else if (d.startsWith('66') && d.length === 11) d = '0' + d.slice(2);
+  // Without the +, 66 is a country code only when what follows is a whole
+  // national number (8 or 9 digits) — a local number never starts 66.
+  else if (d.startsWith('66') && (d.length === 10 || d.length === 11)) d = '0' + d.slice(2);
   d = d.replace(/\D/g, '');
   if (!/^0\d{8,9}$/.test(d)) return { value: s, ok: false };
   return { value: d, ok: true };
