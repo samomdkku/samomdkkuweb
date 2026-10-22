@@ -1,19 +1,19 @@
 /* org-overview.css — ภาพรวม, the one-screen view of the ทีม SAMO page, and the
  * sheet it opens (org-overview.js, org-sheet.js).
  *
- * THE WHOLE JOB: the organisation fits the screen. Three mechanisms, each one
- * load-bearing:
+ * THE WHOLE JOB: the organisation fits the screen, and NOBODY is left off it
+ * to make that true. Three mechanisms:
  *
  *   1. THE STAGE IS ONE VIEWPORT TALL — `min-height` from 100dvh less the
  *      sticky navbar and the view switch above it (`--orgo-chrome`). A MIN, not
  *      a height: an archive year with thirty root ฝ่าย would rather scroll than
  *      clip.
- *   2. THE GRID SHARES THAT HEIGHT — `grid-auto-rows: minmax(<floor>, 1fr)`, so
- *      however many rows the tiles wrap into, they split the stage between them.
- *   3. EACH TILE IS A SIZE CONTAINER, so what it shows is decided by the room
- *      it got, not by the viewport: the sub-ฝ่าย list appears only in a tile
- *      tall enough to hold it. A phone and a short laptop both get a tile that
- *      fits, from the same markup.
+ *   2. THE TILES ARE A MASONRY OF COLUMNS, each as tall as its own rows — every
+ *      ฝ่ายย่อย is listed with its head, so the tiles differ, and columns are
+ *      what lets a nine-row tile sit beside a three-row one without stretching
+ *      it (the measured numbers are at `.orgo-grid`).
+ *   3. SHORT SCREENS TIGHTEN, THEY DO NOT DROP PEOPLE — spacing, the seat title
+ *      and the count line give way first (media queries at the end).
  *
  * Themed by tokens (theme.css) like the rest of the page.
  */
@@ -26,6 +26,10 @@
   --orgo-chrome: 10.75rem;
   display: grid;
   grid-template-rows: auto auto auto 1fr;
+  /* minmax(0, …): a multi-column box reports its columns × the widest
+     unbreakable thing as its minimum width, and an `auto` track grew to that —
+     61px past the page at 820 wide, measured. */
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   margin-top: 0.75rem;
   min-height: max(30rem, calc(100vh - var(--orgo-chrome)));
@@ -57,11 +61,11 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "lead chev" "meta chev";
+  grid-template-areas: "lead chev";
   align-items: center;
-  gap: 0.35rem 0.75rem;
+  gap: 0.75rem;
   width: min(100%, 27rem);
-  padding: 0.7rem 0.9rem 0.7rem 0.8rem;
+  padding: 0.6rem 0.9rem 0.6rem 0.7rem;
   font: inherit;
   text-align: start;
   color: inherit;
@@ -73,13 +77,14 @@
 }
 .orgo-apex > .orgo-lead { grid-area: lead; }
 .orgo-apex > .orgo-chev { grid-area: chev; }
+/* Inside the lead's text column, as its third line — the apex is one row, so
+   the ฝ่าย grid below gets the height instead. */
 .orgo-apex-meta {
-  grid-area: meta;
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: 0.72rem;
   color: var(--ink-500);
 }
-.orgo-apex .orgo-face { width: 3.25rem; }
+.orgo-apex .orgo-face { width: 2.9rem; }
 .orgo-apex .orgo-lead-name { font-size: 0.95rem; }
 .orgo-apex .orgo-lead-role {
   order: -1;
@@ -100,47 +105,40 @@
   background: var(--org-spine, var(--ink-200));
 }
 
-/* ── the grid of ฝ่าย ──────────────────────────────────────────────────── */
+/* ── the grid of ฝ่าย: a MASONRY of columns ───────────────────────────────
+   Every ฝ่ายย่อย is a row on its tile (org-overview.js `subsHtml`), so tiles
+   differ in height: ฝ่ายเวชนิทัศน์ has nine rows, most have three or four.
+
+   A ROW-ALIGNED grid makes every tile in a row as tall as the tallest one, so
+   the nine-row tile set the height of three others: 788px of tiles against
+   602px of screen at 1440×900, measured. Stacked in COLUMNS each tile is only
+   as tall as itself and the columns balance: total ÷ 4 ≈ 590px. Same people,
+   same rows, and it fits — the layout gave way instead of a person.
+
+   Reading order runs down each column; tab order is the DOM, which is the
+   same order, so keyboard and eye agree. */
 .orgo-grid {
   justify-self: stretch;
   list-style: none;
   margin: 0;
   padding: 0.9rem 0 0;
   border-top: 1px solid var(--org-spine, var(--ink-200));
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: minmax(6.5rem, 1fr);
-  gap: 0.65rem;
+  columns: 4;
+  column-gap: 0.65rem;
+  /* Content-height, never stretched: a multi-column box given a FIXED height
+     overflows into extra columns off to the side — measured as a sideways
+     scroll at 1024 and 820 wide before this line. */
+  align-self: start;
 }
 @media (max-width: 991.98px) {
-  .orgo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 599.98px) {
-  .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
-  .orgo-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: minmax(5rem, 1fr);
-    gap: 0.45rem;
-    padding-top: 0.6rem;
-  }
-  .orgo-hint { font-size: 0.74rem; margin-bottom: 0.45rem; }
-  .orgo-apex { padding: 0.55rem 0.75rem 0.55rem 0.65rem; }
-  .orgo-apex .orgo-face { width: 2.6rem; }
-  .orgo-apex .orgo-lead-name { font-size: 0.88rem; }
-}
-/* A short phone (an SE, a 360×740 Android): the floor that still holds a
-   two-line ฝ่าย name and its head's name, and the apex down to one row. */
-@media (max-width: 599.98px) and (max-height: 800px) {
-  .orgo-grid { grid-auto-rows: minmax(4.25rem, 1fr); gap: 0.4rem; }
-  .orgo-apex { grid-template-areas: "lead chev"; }
-  .orgo-apex-meta { display: none; }
-  .orgo-apex .orgo-face { width: 2.2rem; }
+  .orgo-grid { columns: 3; }
 }
 
 .orgo-cell {
   min-width: 0;
-  min-height: 0;
-  container-type: size;
+  display: flex;
+  break-inside: avoid;
+  margin-bottom: 0.65rem;
   animation: orgcRise 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   animation-delay: calc(var(--i, 0) * 22ms);
 }
@@ -151,9 +149,7 @@
   flex-direction: column;
   gap: 0.45rem;
   width: 100%;
-  height: 100%;
   padding: 0.7rem 0.75rem 0.6rem;
-  overflow: hidden;
   font: inherit;
   text-align: start;
   color: inherit;
@@ -173,17 +169,11 @@
 .orgo-tile-name {
   font-family: 'Prompt', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 0.9rem;
-  line-height: 1.3;
+  font-size: 0.92rem;
+  line-height: 1.35;
   letter-spacing: -0.005em;
   color: var(--ink-900);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
   overflow-wrap: anywhere;
-  flex: 0 0 auto;
 }
 
 /* the head of the ฝ่าย: face, name, seat */
@@ -192,11 +182,10 @@
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-  flex: 0 0 auto;
 }
 .orgo-face {
   flex: 0 0 auto;
-  width: 2.75rem;
+  width: 2.3rem;
 }
 .orgo-face .org-face-initials { font-size: 0.8rem; }
 .orgo-lead-text {
@@ -227,36 +216,60 @@
   color: var(--ink-500);
 }
 
-/* the sub-ฝ่าย, by name — shown only where there is room (container query
-   below); the sheet always has them. */
-.orgo-units {
-  display: none;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  min-height: 0;
-  overflow: hidden;
-  align-content: flex-start;
+/* ── every ฝ่ายย่อย, with its head ─────────────────────────────────────────
+   One row each: a small face, the ฝ่ายย่อย, the ชื่อเล่น of its head. Every row
+   identical in size and weight — the rule that lets a หัวหน้าฝ่ายย่อย be SEEN
+   without anyone being singled out — and one step below the อุปนายก above
+   them: a 20px face and a ชื่อเล่น against a portrait and a full name. Rank
+   stays in the layout. */
+.orgo-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid color-mix(in srgb, var(--org-tint) 14%, var(--ink-100));
 }
-.orgo-unit {
-  font-size: 0.68rem;
-  line-height: 1.3;
-  padding: 0.12rem 0.45rem;
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--org-tint) 62%, var(--ink-800));
-  background: color-mix(in srgb, var(--org-tint) 8%, var(--surface));
-  max-width: 100%;
+.orgo-tile:not(:has(.orgo-lead)) .orgo-subs { border-top: 0; padding-top: 0; }
+.orgo-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  height: 1.4rem;
+  font-size: 0.72rem;
+}
+/* Round, like a contact: at 20px a 3:4 portrait reads as a sliver, a circle
+   reads as a person. The same file the sheet loads, so opening the ฝ่าย costs
+   no new download. */
+.orgo-sub-face {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.orgo-sub-face .org-face-img { object-position: 50% 22%; }
+.orgo-sub-face .org-face-initials { font-size: 0.48rem; }
+.orgo-sub-face.is-empty {
+  background: var(--ink-100);
+  box-shadow: inset 0 0 0 1px var(--ink-200);
+}
+/* The LABEL gives way, the PERSON does not: the ฝ่ายย่อย name shrinks and
+   ellipsises, the ชื่อเล่น never does. */
+.orgo-sub-name {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ink-700);
 }
-.orgo-unit.is-more {
+.orgo-sub-who {
   flex: 0 0 auto;
-  color: var(--ink-500);
-  background: var(--ink-100);
+  white-space: nowrap;
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
 }
-/* A ฝ่าย with no head seat has nothing else to show — its sub-ฝ่าย ARE the
-   tile, at every size. */
-.orgo-units.is-primary { display: flex; }
 
 .orgo-meta {
   margin-top: auto;
@@ -268,7 +281,6 @@
   font-size: 0.72rem;
   color: var(--ink-500);
   white-space: nowrap;
-  flex: 0 0 auto;
 }
 .orgo-chev {
   font-size: 0.75rem;
@@ -290,46 +302,110 @@
 .orgo-tile.is-dim,
 .orgo-apex.is-dim { opacity: 0.38; }
 
-/* ── what a tile shows, by the room it got ─────────────────────────────── */
-@container (min-height: 10.5rem) {
-  .orgo-units { display: flex; }
-  .orgo-tile-name { font-size: 0.95rem; }
+/* The count line is the first thing to go: a tile with rows already shows
+   who is in it, and the sheet's header carries the count. */
+/* …and on any three-column screen, where the same rows stack into one fewer
+   column (an iPad held upright: 54px past the screen without this). */
+@media (min-width: 600px) and (max-height: 980px),
+  (min-width: 600px) and (max-width: 991.98px) {
+  .orgo-tile:has(.orgo-subs) .orgo-meta { display: none; }
+  /* on a ฝ่าย tile the seat title mostly repeats the ฝ่าย name right above it;
+     the apex keeps its title — นายกสโมสร is the one thing that card says */
+  .orgo-tile .orgo-lead-role { display: none; }
+  .orgo-face { width: 2rem; }
+  .orgo-sub { height: 1.3rem; }
+  .orgo-tile { gap: 0.4rem; }
 }
-@container (min-height: 12.5rem) {
-  .orgo-face { width: 3.25rem; }
-  .orgo-lead-name { font-size: 0.84rem; }
+
+/* ── a short laptop (768–880px tall): the same tile, tighter ─────────────
+   Every row still shows; what gives is the hint, spacing and type size. */
+@media (min-width: 600px) and (max-height: 880px) {
+  /* the chevrons and the press feedback already say "tap me" */
+  .orgo-hint { display: none; }
+  .orgo-apex { padding-block: 0.45rem; }
+  .orgo-apex .orgo-face { width: 2.3rem; }
+  .orgo-stem { height: 0.6rem; }
+  .orgo-grid { column-gap: 0.5rem; padding-top: 0.7rem; }
+  .orgo-cell { margin-bottom: 0.5rem; }
+  .orgo-tile { gap: 0.35rem; padding: 0.55rem 0.65rem 0.5rem; }
+  .orgo-subs { padding-top: 0.35rem; gap: 0.05rem; }
+  .orgo-sub { height: 1.25rem; font-size: 0.7rem; }
+  .orgo-face { width: 1.85rem; }
+  .orgo-tile-name { font-size: 0.88rem; line-height: 1.3; }
 }
-/* Short tiles (a phone): the face moves BESIDE the text, so the ฝ่าย name keeps
-   two lines — on a 170px tile it is the one thing that must be readable. The
-   counts go; the sheet has them. `display: contents` lifts the face and its
-   text into the tile's own grid without a second markup shape. */
-@container (max-height: 6.25rem) {
+/* the shortest laptops (1366×768): the apex's count line too — its sheet says it */
+@media (min-width: 600px) and (max-height: 800px) {
+  .orgo-apex .orgo-apex-meta { display: none; }
+}
+/* narrow AND short (a 1024×768 iPad on its side): four columns of ~225px
+   tiles, so the spacing gives a little more */
+@media (min-width: 600px) and (max-width: 1199.98px) and (max-height: 880px) {
+  .orgo-hint { display: none; }
+  .orgo-tile { padding: 0.5rem 0.6rem 0.45rem; gap: 0.3rem; }
+  .orgo-grid { column-gap: 0.45rem; padding-top: 0.6rem; }
+  .orgo-cell { margin-bottom: 0.45rem; }
+  .orgo-stem { height: 0.6rem; }
+}
+
+/* ── phones: the face beside the text ────────────────────────────────────
+   Two columns of tiles 170px wide. The ฝ่าย name is the one thing that must be
+   readable, so it keeps two lines and the face moves BESIDE it. No rows here
+   — for ANYONE: forty-one faces across twelve 170px tiles would be noise — the
+   sheet opens every ฝ่าย as a list of its ฝ่ายย่อย, each with its head.
+   `display: contents` lifts the face and its text into the tile's grid
+   without a second markup shape. */
+@media (max-width: 599.98px) {
+  .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
+  /* every phone tile is the same shape (no rows), so a plain grid, stretched */
+  .orgo-grid {
+    display: grid;
+    columns: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    align-self: stretch;     /* a grid, not columns: stretching is safe here */
+    align-content: stretch;
+    gap: 0.45rem;
+    padding-top: 0.6rem;
+  }
+  .orgo-cell { margin-bottom: 0; }
+  .orgo-hint { font-size: 0.74rem; margin-bottom: 0.45rem; }
+  .orgo-apex { padding: 0.55rem 0.75rem 0.55rem 0.65rem; }
+  .orgo-apex .orgo-face { width: 2.5rem; }
+  .orgo-apex .orgo-lead-name { font-size: 0.88rem; }
+
   .orgo-tile {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-rows: auto auto 1fr;
     align-content: start;
     gap: 0.15rem 0.5rem;
-    padding: 0.45rem 0.55rem 0.4rem 0.5rem;
+    padding: 0.5rem 0.55rem 0.45rem 0.5rem;
   }
   /* 1.4, not tighter: a clamped line clips Thai marks above and below it. */
-  .orgo-tile-name { grid-column: 2; grid-row: 1; font-size: 0.78rem; line-height: 1.4; }
+  .orgo-tile-name {
+    grid-column: 2; grid-row: 1;
+    font-size: 0.78rem; line-height: 1.4;
+    display: -webkit-box; -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  }
   .orgo-tile .orgo-lead { display: contents; }
   .orgo-tile .orgo-face { grid-column: 1; grid-row: 1 / span 3; width: 2.1rem; align-self: start; }
   .orgo-tile .orgo-lead-text { grid-column: 2; grid-row: 2; }
   .orgo-tile .orgo-lead-role,
   .orgo-tile .orgo-lead-more,
-  .orgo-tile .orgo-meta { display: none; }
+  .orgo-tile .orgo-subs { display: none; }
   .orgo-tile .orgo-lead-name { font-size: 0.68rem; line-height: 1.35; color: var(--ink-500); }
+  .orgo-tile .orgo-meta { display: none; }
+  /* no head of its own: no face column, and the count says what is inside */
   .orgo-tile:not(:has(.orgo-lead)) > * { grid-column: 1 / -1; }
-  .orgo-units.is-primary { grid-row: 2; }
-  .orgo-units.is-primary .orgo-unit:nth-child(n+2):not(.is-more) { display: none; }
+  .orgo-tile:not(:has(.orgo-lead)) .orgo-meta { display: flex; grid-row: 2; margin-top: 0; font-size: 0.68rem; }
 }
-@container (max-height: 7.75rem) and (min-height: 6.26rem) {
-  .orgo-tile { gap: 0.35rem; padding: 0.6rem 0.65rem 0.5rem; }
-  .orgo-tile-name { font-size: 0.82rem; }
-  .orgo-face { width: 2.1rem; }
-  .orgo-lead-role { display: none; }
+/* A short phone (an SE, a 360×740 Android): the apex down to one row. */
+@media (max-width: 599.98px) and (max-height: 800px) {
+  .orgo-grid { gap: 0.4rem; padding-top: 0.5rem; }
+  .orgo-stem { height: 0.6rem; }
+  .orgo-apex-meta { display: none; }
+  .orgo-apex .orgo-face { width: 2.2rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -488,6 +564,40 @@ html.orgs-lock { overflow: hidden; }
 }
 .orgs-body .orgc-tree > .orgc-unit > .orgc-unit-title { display: none; }
 .orgs-body .orgc-tree > .orgc-unit > .orgc-unit-body { padding-top: 0.6rem; }
+
+/* The sheet opens with its ฝ่ายย่อย CLOSED, each row carrying its head — the
+   same rule as the tile, one level down: scan who runs what, tap to open. Once
+   a row is open its head is the first card inside it, so the line in the title
+   goes (no person drawn twice on one surface). */
+.orgs-body .orgc-unit .orgc-unit > .orgc-unit-title > .orgc-unit-btn {
+  grid-template-areas:
+    "name chev"
+    "head chev"
+    "meta chev";
+}
+.orgc-unit-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--ink-700);
+}
+.orgc-unit-head .orgo-sub-face { width: 1.5rem; }
+.orgc-unit-head-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orgc-unit-head-nick {
+  font-family: 'Prompt', system-ui, sans-serif;
+  color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
+  font-weight: 500;
+}
+.orgc-unit-head-role { color: var(--ink-500); }
+.orgc-unit-btn[aria-expanded="true"] > .orgc-unit-head { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .orgs-panel,

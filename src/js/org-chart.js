@@ -33,7 +33,9 @@ import {
 } from './org-rung.js';
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
-import { overviewModel, overviewHtml, tileMeta } from './org-overview.js';
+import {
+  overviewModel, overviewHtml, tileMeta, headOf, callName,
+} from './org-overview.js';
 import { openOrgSheet, onOrgSheetClick } from './org-sheet.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
@@ -81,11 +83,13 @@ let query = '';
 // each frozen archive).
 let expanded = new Set();
 
-// True only while a ฝ่าย is being rendered into ภาพรวม's sheet. The sheet is
-// ONE ฝ่าย the reader asked for by tapping it, so everything in it opens —
-// a second round of disclosures inside a detail view is a tap that should not
-// exist. The page's own `expanded` set is untouched.
-let openAll = false;
+// True only while a ฝ่าย is being rendered into ภาพรวม's sheet. There the ฝ่าย
+// itself is open and its ฝ่ายย่อย start CLOSED, each title carrying its head
+// (`headOf`, the rule the tiles use): a list of who runs what, one tap from the
+// people. ฝ่ายกิจการภายนอก is 92 people — opened whole, the third ฝ่ายย่อย's
+// head was forty cards down. The page's own `expanded` default is not used, so
+// a sheet always opens the same way.
+let sheetRender = false;
 
 // TWO surfaces over one dataset, answering two different questions:
 //
@@ -485,6 +489,19 @@ function seatBlock(node, depth, filter, tier = 1, lead = true) {
     </article>`;
 }
 
+/** A closed ฝ่ายย่อย's head, in its title row — sheet only. */
+function sheetHeadHtml(node) {
+  const { seat, holders } = headOf(node, byParent, byNode);
+  const m = holders[0];
+  if (!seat || !m) return '';
+  return `<span class="orgc-unit-head">
+          <span class="org-face orgo-sub-face">${faceHtml(m, TREE_SHAPE)}</span>
+          <span class="orgc-unit-head-text">${escHtml(m.name || '')}${
+  m.nickname ? ` <span class="orgc-unit-head-nick">${escHtml(callName(m))}</span>` : ''
+} <span class="orgc-unit-head-role">· ${escHtml(seat.name || '')}</span></span>
+        </span>`;
+}
+
 function unitBlock(node, depth, filter) {
   if (filter && !filter.keepNodes.has(node.id)) return '';
   const people = visiblePeople(node, filter);
@@ -502,12 +519,13 @@ function unitBlock(node, depth, filter) {
   // A search result is always fully open — a disclosure the user has to expand
   // to find what they just searched for is the same as no result.
   const collapsible = !filter && !!inner && collapsibleIds.has(node.id);
-  const open = !collapsible || openAll || expanded.has(node.id);
+  const open = !collapsible || (sheetRender ? depth === 0 : expanded.has(node.id));
   const bodyId = `org-n-${node.id}`;
   const hTag = `h${Math.min(depth + 3, 6)}`;
 
   const headInner = `
         <span class="orgc-unit-name">${highlight(node.name || '', filter?.q)}</span>
+        ${sheetRender && collapsible && depth > 0 ? sheetHeadHtml(node) : ''}
         ${meta ? `<span class="orgc-unit-meta">${escHtml(meta)}</span>` : ''}
         ${collapsible ? '<i class="bi bi-chevron-down orgc-unit-chev" aria-hidden="true"></i>' : ''}`;
 
@@ -804,12 +822,12 @@ function openOverviewSheet(btn) {
   const node = nodeById.get(btn.dataset.orgOpen);
   if (!node) return;
   const filter = computeFilter(query);
-  openAll = true;
+  sheetRender = true;
   let html;
   try {
     html = unitBlock(node, 0, filter);
   } finally {
-    openAll = false;
+    sheetRender = false;
   }
   const card = overviewModelNow([node]).apex;
   openOrgSheet({

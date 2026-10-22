@@ -20,6 +20,17 @@
 // `position` 0 is the head (org-rung.js `chartParentage`). No list of Thai
 // names decides it, so renaming สำนักนายกฯ changes nothing here.
 //
+// EVERY ฝ่ายย่อย SHOWS ITS HEAD, by one rule. REQUESTED by the หัวหน้าฝ่าย IT:
+// the overview showed only อุปนายก, so the heads of the ฝ่ายย่อย — who carry
+// most of the actual work — were invisible until a tap. The ask came with its
+// own constraint: "if i standout too much that it doesnt makesense i might get
+// sideeye". So nobody is singled out. Each tile lists its ฝ่ายย่อย, and EVERY
+// row carries that ฝ่ายย่อย's head — the same size, the same weight, one step
+// below the อุปนายก above them (a small face and a ชื่อเล่น, against a portrait
+// and a full name). Rank stays in the layout, exactly as on แผนผัง; the rule is
+// what makes it fair. `headOf` is that rule's ONE home — the tile's อุปนายก,
+// every ฝ่ายย่อย row and the sheet's collapsed rows all ask it.
+//
 // FITTING THE SCREEN IS CSS's JOB, not this file's (org-overview.css): the stage
 // is one viewport tall and each tile is a size container, so a tile shows its
 // sub-ฝ่าย list only when it has the room. This module emits the same markup
@@ -45,16 +56,23 @@ import { tintColor } from './dept-tint.js';
  * tiles, so an archive year stored under a single top box still reads as a map
  * rather than as one tile.
  */
+export function headOf(node, byParent, byNode) {
+  const { rungs, units } = orderChildren(byParent.get(node.id) || [], isDivision(node.kind));
+  const seat = rungs.length ? rungs[0][1][0] : null;
+  return { seat, holders: seat ? (byNode.get(seat.id) || []) : [], units };
+}
+
 export function overviewModel({ roots, byParent, byNode, subStats }) {
   const card = (node, isRoot) => {
-    const { rungs, units } = orderChildren(byParent.get(node.id) || [], isDivision(node.kind));
-    const seat = rungs.length ? rungs[0][1][0] : null;
+    const { seat, holders, units } = headOf(node, byParent, byNode);
     return {
       node,
       tint: tintColor(node, isRoot),
       seat,
-      holders: seat ? (byNode.get(seat.id) || []) : [],
+      holders,
       units,
+      // Each ฝ่ายย่อย with ITS head — the same question asked one level down.
+      subs: units.map((u) => ({ node: u, ...headOf(u, byParent, byNode) })),
       people: subStats.get(node.id)?.people || 0,
     };
   };
@@ -67,6 +85,24 @@ export function overviewModel({ roots, byParent, byNode, subStats }) {
   return { apex: card(first, true), tiles: rest.map((n) => card(n, true)) };
 }
 
+/**
+ * A ฝ่ายย่อย's name as a row has room for it: "ฝ่าย IT (Information
+ * Technology)" → "IT". The leading ฝ่าย says nothing inside a list headed
+ * ฝ่ายย่อย, and the parenthesis is a translation. Display only — the sheet and
+ * every other view show the stored name.
+ */
+export function shortUnitName(name) {
+  const bare = String(name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const cut = bare.replace(/^ฝ่าย\s*/, '');
+  return cut || bare;
+}
+
+/** What a row calls a person: the ชื่อเล่น everyone uses, else the first name. */
+export function callName(m) {
+  if (!m) return '';
+  return (m.nickname || '').trim() || String(m.name || '').trim().split(/\s+/)[0] || '';
+}
+
 /** "4 ฝ่ายย่อย · 42 คน" — what is inside, in the words a visitor uses. */
 export function tileMeta({ units, people }) {
   const bits = [];
@@ -75,7 +111,7 @@ export function tileMeta({ units, people }) {
   return bits.join(' · ');
 }
 
-function leadHtml(c, hl) {
+function leadHtml(c, hl, extra = '') {
   const m = c.holders[0];
   if (!c.seat) return '';
   const more = c.holders.length > 1 ? ` <span class="orgo-lead-more">+${c.holders.length - 1}</span>` : '';
@@ -87,23 +123,41 @@ function leadHtml(c, hl) {
         <span class="org-face orgo-face">${m ? faceHtml(m, TREE_SHAPE) : '<span class="org-face-initials" aria-hidden="true">—</span>'}</span>
         <span class="orgo-lead-text">
           <span class="orgo-lead-name">${who}</span>
-          <span class="orgo-lead-role">${hl(c.seat.name || '')}</span>
+          <span class="orgo-lead-role">${hl(c.seat.name || '')}</span>${extra}
         </span>
       </span>`;
 }
 
-/** A few sub-ฝ่าย by name and a "+N" for the rest. A FIXED count rather than
- *  as-many-as-fit: CSS clips a wrapping row mid-line and cannot say how much
- *  it hid, which read as a broken tile. The sheet lists them all. */
-const UNIT_CHIPS = 2;
-function unitsHtml(c, hl) {
-  if (!c.units.length) return '';
-  const cap = c.seat ? UNIT_CHIPS : UNIT_CHIPS + 1;
-  const shown = c.units.length > cap + 1 ? c.units.slice(0, cap) : c.units;
-  const rest = c.units.length - shown.length;
-  return `<span class="orgo-units${c.seat ? '' : ' is-primary'}">${
-    shown.map((u) => `<span class="orgo-unit">${hl(u.name || '')}</span>`).join('')
-  }${rest ? `<span class="orgo-unit is-more">+${rest}</span>` : ''}</span>`;
+/**
+ * Every ฝ่ายย่อย, one row each — its name and the ชื่อเล่น of its head — ALL
+ * of them.
+ *
+ * ALL, and that is the owner's rule, not a layout default: an earlier version
+ * showed three and "และอีก N ฝ่ายย่อย", and the answer was "people would be
+ * น้อยใจ". A list that names some heads and counts the rest ranks them, by
+ * nothing but the order an admin happened to type. So every row is here, and
+ * the TILE is as tall as its rows (the grid is a masonry of columns;
+ * org-overview.css says why that fits and a row-aligned grid did not).
+ *
+ * WHEN THE TEXT IS LONG, the ฝ่ายย่อย's name gives way and the PERSON's does
+ * not: the name is shortened (`shortUnitName`) and then ellipsised, the ชื่อเล่น
+ * never shrinks. Cutting "แพรหวาน" to "แพรห…" cut a person; cutting
+ * "กิจกรรมมหาวิทยาลัยและจิตอาสา" cuts a label whose full form is one tap away
+ * in the sheet. A ฝ่ายย่อย with nobody in its head seat still gets its row.
+ */
+function subFace(m) {
+  return m
+    ? `<span class="org-face orgo-sub-face">${faceHtml(m, TREE_SHAPE)}</span>`
+    : '<span class="orgo-sub-face is-empty" aria-hidden="true"></span>';
+}
+function subsHtml(c, hl) {
+  if (!c.subs.length) return '';
+  return `<span class="orgo-subs">${c.subs.map((s) => {
+    const m = s.holders[0];
+    return `<span class="orgo-sub">${subFace(m)}<span class="orgo-sub-name">${
+      hl(shortUnitName(s.node.name))}</span>${
+      m ? `<span class="orgo-sub-who">${hl(callName(m))}</span>` : ''}</span>`;
+  }).join('')}</span>`;
 }
 
 /**
@@ -128,8 +182,8 @@ export function overviewHtml(model, { filter, hitsOf, hl }) {
   const apexHtml = `
     <button type="button" class="orgo-apex${dim(apex)}" data-org-open="${escHtml(apex.node.id)}"
       aria-haspopup="dialog"${tint(apex)}>
-      ${leadHtml(apex, hl) || `<span class="orgo-tile-name">${hl(apex.node.name || '')}</span>`}
-      <span class="orgo-apex-meta">${hl(apex.node.name || '')} · ${metaOf(apex)}</span>
+      ${leadHtml(apex, hl, `<span class="orgo-apex-meta">${hl(apex.node.name || '')} · ${metaOf(apex)}</span>`)
+        || `<span class="orgo-tile-name">${hl(apex.node.name || '')}</span>`}
       <i class="bi bi-chevron-right orgo-chev" aria-hidden="true"></i>
     </button>`;
 
@@ -139,7 +193,7 @@ export function overviewHtml(model, { filter, hitsOf, hl }) {
           aria-haspopup="dialog"${tint(c)}>
           <span class="orgo-tile-name">${hl(c.node.name || '')}</span>
           ${leadHtml(c, hl)}
-          ${unitsHtml(c, hl)}
+          ${subsHtml(c, hl)}
           <span class="orgo-meta">${metaOf(c)}<i class="bi bi-chevron-right orgo-chev" aria-hidden="true"></i></span>
         </button>
       </li>`;

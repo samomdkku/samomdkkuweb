@@ -12,13 +12,18 @@
 //     put a stranger's face on a hospital group.
 //   • the apex is the first ROOT, by position — the same "position 0 is the
 //     head" rule the other three views use, so no Thai name list decides it.
+//   • EVERY ฝ่ายย่อย head is on the tile. The owner turned down "three, then
+//     และอีก N ฝ่ายย่อย": "people would be น้อยใจ". So the assertion is the
+//     PROPERTY — each sub-ฝ่าย with a holder has a chip — not a count.
 //
 // TO CHECK THIS GUARD ACTUALLY GUARDS: in overviewModel, replace
 // `rungs[0][1][0]` with `(byParent.get(node.id) || [])[0]` and watch the
 // ระดับ assertion fail. Then put it back.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { overviewModel, overviewHtml, tileMeta } from './org-overview.js';
+import {
+  overviewModel, overviewHtml, tileMeta, shortUnitName, callName,
+} from './org-overview.js';
 import { sortSiblings } from './org-rung.js';
 
 function fixture(nodes, members) {
@@ -48,6 +53,11 @@ function fixture(nodes, members) {
 const div = (id, parent, position, name = id) => ({ id, parent_id: parent, position, kind: 'division', name, tier: null });
 const seat = (id, parent, position, tier = null, name = id) => ({ id, parent_id: parent, position, kind: 'role', name, tier });
 const person = (node_id, name) => ({ node_id, name, nickname: '', photo_url: '' });
+
+const NODES_SUBS = (n) => Array.from({ length: n }, (_, i) => [
+  div(`sub${i}`, 'big', i, `ฝ่ายย่อย${i}`),
+  seat(`sub${i}h`, `sub${i}`, 0),
+]).flat();
 
 const NODES = [
   div('office', null, 0, 'สำนักนายกฯ'),
@@ -135,5 +145,36 @@ describe('overviewHtml', () => {
     expect(html).toMatch(/orgo-tile is-dim" data-org-open="hosp"/);
     expect(html).not.toMatch(/orgo-tile is-dim" data-org-open="digital"/);
     expect(html).toContain('พบ 1 คน');
+  });
+});
+
+describe('every ฝ่ายย่อย head is on the tile — nobody behind a "+N"', () => {
+  it('nine ฝ่ายย่อย, nine chips, and no และอีก', () => {
+    const nodes = [div('office', null, 0), seat('p', 'office', 0),
+      div('big', null, 1), seat('bighead', 'big', 0), ...NODES_SUBS(9)];
+    const members = [person('p', 'P'), person('bighead', 'H'),
+      ...Array.from({ length: 9 }, (_, i) => ({ ...person(`sub${i}h`, `คน${i}`), nickname: `nick${i}` }))];
+    const html = overviewHtml(overviewModel(fixture(nodes, members)),
+      { filter: null, hitsOf: () => 0, hl: (t) => t });
+    for (let i = 0; i < 9; i++) expect(html).toContain(`>nick${i}<`);
+    expect(html).not.toMatch(/และอีก|\+\d/);
+  });
+
+  it('the digital tile names PR, ComArt and IT heads alike', () => {
+    const model = overviewModel(fixture(NODES, MEMBERS));
+    expect(model.tiles[0].subs.map((x) => x.holders[0]?.name)).toEqual(['dev1']);
+  });
+});
+
+describe('shortUnitName / callName', () => {
+  it('drops the leading ฝ่าย and a trailing translation, never to nothing', () => {
+    expect(shortUnitName('ฝ่าย IT (Information Technology)')).toBe('IT');
+    expect(shortUnitName('ฝ่ายวิชาการ')).toBe('วิชาการ');
+    expect(shortUnitName('รพ. ขอนแก่น')).toBe('รพ. ขอนแก่น');
+    expect(shortUnitName('ฝ่าย')).toBe('ฝ่าย');
+  });
+  it('a person is called by ชื่อเล่น, else their first name', () => {
+    expect(callName({ name: 'ภูริพัฒณ์ มหาพรหมรักษ์', nickname: 'เอิง' })).toBe('เอิง');
+    expect(callName({ name: 'ภูริพัฒณ์ มหาพรหมรักษ์', nickname: '' })).toBe('ภูริพัฒณ์');
   });
 });
