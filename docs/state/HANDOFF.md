@@ -2411,6 +2411,11 @@ when measured. Fix = an admin RPC that changes both in one transaction (or the u
 kkumail, guarded) + a mismatch check on the student copy; a design call because kkumail is the
 identity key.
 
+**DECIDED 2026-10-22 (owner) — MD53 and MD54 each have TWO people on สาย 256 and nobody on 141, and
+that is CORRECT.** ข้อมูลไม่ครบ keeps listing both under 👀 น่าจะผิดที่ไฟล์ (a watch item, not counted as
+ต้องมีคนทำ) because nothing in the system can mark a shared สาย as confirmed. Do not chase it; a
+"confirmed" marker would be a small feature if the owner wants the line gone.
+
 ### 26b. MD51 แบบสอบถาม (kkumail answers) — imported 2026-10-22
 
 **Status: VERIFIED 2026-10-22 — how: `tools/house-kkumail-import.mjs --apply` on production, re-run
