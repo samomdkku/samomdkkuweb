@@ -610,20 +610,75 @@ html.orgs-lock { overflow: hidden; }
 .orgs-jump::-webkit-scrollbar { display: none; }
 .orgs-jump-chip {
   flex: 0 0 auto;
-  padding: 0.25rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--org-tint) 25%, var(--ink-200));
+  padding: 0.25rem 0.8rem;
+  border: 1px solid var(--ink-200);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--org-tint) 7%, var(--surface));
+  background: var(--surface);
   font: inherit;
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: 0.76rem;
   font-weight: 500;
-  color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
+  color: var(--ink-700);
   white-space: nowrap;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+    transform 0.1s ease-out;
 }
-.orgs-jump-chip:active { transform: scale(0.96); }
+@media (hover: hover) {
+  .orgs-jump-chip:not(.is-on):hover { border-color: var(--ink-300, var(--ink-200)); background: var(--ink-50); }
+}
+/* on the PRESS, instantly */
+.orgs-jump-chip:active { transform: scale(0.95); background: var(--ink-100); }
+/* SELECTED = the section you are in. Filled green: the same "selected" the
+   ภาพรวม button wears above, so the row reads as navigation, not as tags. */
+.orgs-jump-chip.is-on {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
 .orgs-jump-chip:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+/* "there is more this way": a fade over whichever edge has chips past it.
+   Sticky pseudo-elements inside the scroller, so the fade stays at the edge
+   while the chips slide under it; negative margins keep them out of the flow. */
+.orgs-jump::before,
+.orgs-jump::after {
+  content: '';
+  position: sticky;
+  z-index: 1;
+  flex: 0 0 1.75rem;
+  align-self: stretch;
+  margin-block: -0.5rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.orgs-jump::before {
+  left: -0.75rem;
+  margin-right: -1.75rem;
+  margin-left: -0.75rem;
+  background: linear-gradient(to right, rgb(var(--surface-rgb)), rgb(var(--surface-rgb) / 0));
+}
+.orgs-jump::after {
+  right: -0.75rem;
+  margin-left: -1.75rem;
+  margin-right: -0.75rem;
+  background: linear-gradient(to left, rgb(var(--surface-rgb)), rgb(var(--surface-rgb) / 0));
+}
+.orgs-jump.more-left::before,
+.orgs-jump.more-right::after { opacity: 1; }
+
+/* Arrival: the header you jumped to flashes once — the confirmation of WHERE
+   the tap took you, which matters most for the last sections, which cannot
+   scroll to the top. */
+@keyframes orgsArrive {
+  0%, 25% { background: color-mix(in srgb, var(--org-tint) 30%, var(--surface)); }
+  100% { background: color-mix(in srgb, var(--org-tint) 6%, var(--surface)); }
+}
+.orgs-body .orgc-unit[data-depth="1"] > .orgc-unit-title.is-arrived {
+  animation: orgsArrive 1.2s ease-out;
+}
 @media (prefers-reduced-transparency: reduce) {
   .orgs-jump { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }

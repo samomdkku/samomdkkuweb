@@ -39,6 +39,7 @@ let state = 'closed';    // closed | open | closing
 let closeTimer = 0;
 let drag = null;
 let bodyClick = null;
+let bodyScroll = null;
 let openedAt = 0;        // performance.now() at the last open — see the scrim guard
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -84,6 +85,8 @@ function ensure() {
   titleEl = root.querySelector('.orgs-title');
   metaEl = root.querySelector('.orgs-meta');
   grip = root.querySelector('.orgs-head');
+
+  bodyEl.addEventListener('scroll', () => { if (bodyScroll) bodyScroll(bodyEl); }, { passive: true });
 
   root.addEventListener('click', (e) => {
     // A DOUBLE-TAP on a tile: the first tap opens the sheet, and the scrim is
@@ -245,6 +248,10 @@ export function isOrgSheetOpen() { return state === 'open'; }
 /** One delegated listener for the body — org-chart.js uses it for the ฝ่าย
  *  disclosures inside, which the sheet itself knows nothing about. */
 export function onOrgSheetClick(fn) { bodyClick = fn; }
+
+/** One scroll listener for the body, (bodyEl) → void — org-chart.js uses it so
+ *  the jump row follows the reader. */
+export function onOrgSheetScroll(fn) { bodyScroll = fn; }
 
 // ── drag to dismiss (bottom-sheet shape only) ──────────────────────────────
 //

@@ -36,7 +36,7 @@ import { tintColor } from './dept-tint.js';
 import {
   overviewModel, overviewHtml, tileMeta, shortUnitName,
 } from './org-overview.js';
-import { openOrgSheet, onOrgSheetClick } from './org-sheet.js';
+import { openOrgSheet, onOrgSheetClick, onOrgSheetScroll } from './org-sheet.js';
 
 // One entry per year, so switching back to a year already viewed is instant and
 // free. The dataset is ~280 nodes / ~400 people — small enough to just keep.
@@ -839,18 +839,117 @@ function openOverviewSheet(btn) {
     html: `${jump}<div class="orgc-tree">${html || '<p class="org-status">ไม่มีข้อมูลในฝ่ายนี้</p>'}</div>`,
     from: btn,
   });
+  initJumpRow();
 }
 
-/** A jump chip: scroll the sheet to that ฝ่ายย่อย's section. Its header is
- *  sticky and `scroll-margin-top` clears the jump row, so the section lands
- *  with its name visible. */
+// ── the jump row FOLLOWS the reader ─────────────────────────────────────────
+//
+// ASKED: "will the user understand the jump row that its clickable, feedback
+// for user". As first shipped, no: light pills read as TAGS, the row never
+// changed as you scrolled, and tapping one of the last sections looked like it
+// did nothing — they cannot reach the top, so the list stopped with the target
+// 476px down (measured) and nothing said "you are here".
+//
+// What makes a strip of chips read as navigation is that it MOVES WITH YOU —
+// the category bars people already know (App Store, YouTube) all do it:
+//   • the section you are in is the SELECTED chip, filled green — the same
+//     "selected" the ภาพรวม button above wears;
+//   • a tap selects on the press, glides there, and the section's header
+//     flashes once on arrival, so the eye lands on it even when it cannot
+//     reach the top;
+//   • the row slides to keep the selected chip in view, and fades at an edge
+//     that has more chips past it.
+
+const smoothOk = () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+// While a tap's glide is in flight the scroll position passes through other
+// sections; reacting to it would flick the selection through them.
+let jumpLock = 0;
+
+function sectionOf(id) {
+  return document.getElementById(`org-n-${id}`)?.closest('.orgc-unit') || null;
+}
+
+function setJumpActive(row, id) {
+  let active = null;
+  for (const c of row.querySelectorAll('[data-sheet-jump]')) {
+    const on = c.dataset.sheetJump === id;
+    c.classList.toggle('is-on', on);
+    if (on) { c.setAttribute('aria-current', 'location'); active = c; } else c.removeAttribute('aria-current');
+  }
+  if (!active) return;
+  const l = active.offsetLeft;
+  const r = l + active.offsetWidth;
+  if (l < row.scrollLeft || r > row.scrollLeft + row.clientWidth) {
+    row.scrollTo({ left: l - (row.clientWidth - active.offsetWidth) / 2, behavior: smoothOk() ? 'smooth' : 'auto' });
+  }
+}
+
+function updateJumpEdges(row) {
+  row.classList.toggle('more-left', row.scrollLeft > 2);
+  row.classList.toggle('more-right', row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+}
+
+/** Which section the reader is in: the last one whose top has passed under the
+ *  pinned headers. At the very bottom, the last section — it is being read even
+ *  though it never reached the top. */
+function spyJump(body) {
+  const row = body.querySelector('.orgs-jump');
+  if (!row || performance.now() < jumpLock) return;
+  const chips = [...row.querySelectorAll('[data-sheet-jump]')];
+  if (!chips.length) return;
+  const line = body.getBoundingClientRect().top + row.offsetHeight + 8;
+  let id = chips[0].dataset.sheetJump;
+  for (const c of chips) {
+    const sec = sectionOf(c.dataset.sheetJump);
+    if (sec && sec.getBoundingClientRect().top <= line) id = c.dataset.sheetJump;
+  }
+  if (body.scrollTop > 0 && body.scrollTop + body.clientHeight >= body.scrollHeight - 2) {
+    id = chips[chips.length - 1].dataset.sheetJump;
+  }
+  setJumpActive(row, id);
+}
+
+function arriveFlash(section) {
+  const title = section.querySelector(':scope > .orgc-unit-title');
+  if (!title || !smoothOk()) return;
+  title.classList.remove('is-arrived');
+  void title.offsetWidth;   // restart the animation if it is still running
+  title.classList.add('is-arrived');
+  setTimeout(() => title.classList.remove('is-arrived'), 1300);
+}
+
+/** A jump chip: select it NOW, glide to its section, flash the header there. */
 function onSheetClick(e) {
   const chip = e.target.closest('[data-sheet-jump]');
   if (!chip) return;
-  const section = document.getElementById(`org-n-${chip.dataset.sheetJump}`)?.closest('.orgc-unit');
-  if (!section) return;
-  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  section.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+  const section = sectionOf(chip.dataset.sheetJump);
+  const body = chip.closest('.orgs-body');
+  if (!section || !body) return;
+  setJumpActive(chip.parentElement, chip.dataset.sheetJump);
+  jumpLock = performance.now() + 1200;
+  let arrived = false;
+  const arrive = () => {
+    if (arrived) return;
+    arrived = true;
+    jumpLock = 0;
+    arriveFlash(section);
+  };
+  // `scrollend` where the browser has it; the timer covers the rest, and the
+  // case where the section is already in place and nothing scrolls at all.
+  body.addEventListener('scrollend', arrive, { once: true });
+  setTimeout(arrive, smoothOk() ? 700 : 0);
+  section.scrollIntoView({ block: 'start', behavior: smoothOk() ? 'smooth' : 'auto' });
+}
+
+/** After the sheet opens: first chip selected, edge fades set, and the row
+ *  keeps its fades honest as it is swiped. */
+function initJumpRow() {
+  const body = document.querySelector('.orgs-body');
+  const row = body?.querySelector('.orgs-jump');
+  if (!row) return;
+  spyJump(body);
+  updateJumpEdges(row);
+  row.addEventListener('scroll', () => updateJumpEdges(row), { passive: true });
 }
 
 /** ผังรวม's own toolbar + the host the chart mounts into. The depth control is
@@ -1100,8 +1199,13 @@ export function initOrgChart() {
     search.focus();
   });
 
-  // ภาพรวม's sheet: the jump row.
+  // ภาพรวม's sheet: the jump row — tapped, and following the scroll.
   onOrgSheetClick(onSheetClick);
+  let spyFrame = 0;
+  onOrgSheetScroll((body) => {
+    if (spyFrame) return;
+    spyFrame = requestAnimationFrame(() => { spyFrame = 0; spyJump(body); });
+  });
 
   // Delegated: every station is re-rendered on each paint, and #orgBody itself
   // is the one element that survives.

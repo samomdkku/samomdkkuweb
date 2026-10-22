@@ -2471,7 +2471,7 @@ ABSENCE"):
 
 ## 28. ภาพรวม — the one-screen org overview (2026-10-22)
 
-**Status: VERIFIED 2026-10-22 — how: headless Chrome on the dev server at 1920×1080, 1536×864, 1440×900, 1366×768, 1280×800, 1024×768, 820×1180 (fits one screen, nothing clipped, no sideways scroll), 390×844 and 360×740 (edge to edge, ~1.5 screens by design); the sheet driven end to end (everything open, no disclosures; jump row lands on its section; section headers pin at 43px under a jump row flush at 0; double-tap guard); `org-overview.test.js` red with a "+N" cap reintroduced; deployed and the served bundle grepped.** Spec and the owner's rules: `src/js/org-overview.js` header — every ฝ่ายย่อย head shown, never "และอีก N".
+**Status: VERIFIED 2026-10-22 — how: headless Chrome on the dev server at 1920×1080, 1536×864, 1440×900, 1366×768, 1280×800, 1024×768, 820×1180 (fits one screen, nothing clipped, no sideways scroll), 390×844 and 360×740 (edge to edge, ~1.5 screens by design); the sheet driven end to end (everything open, no disclosures; jump row lands on its section; section headers pin at 43px under a jump row flush at 0; the selected chip follows the scroll, a tap selects within 30ms and flashes the arrived header — also for the last sections, which cannot reach the top; double-tap guard); `org-overview.test.js` red with a "+N" cap reintroduced; deployed and the served bundle grepped.** Spec and the owner's rules: `src/js/org-overview.js` header — every ฝ่ายย่อย head shown, never "และอีก N".
 
 **a. Should ภาพรวม be the DEFAULT view? — Status: OWED (owner decision).** It is not: `'chart'` (แผนผัง) still is, and a saved preference moves nobody. Offered once, not answered. One line in `org-chart.js` (`let view = 'chart'`).
 
