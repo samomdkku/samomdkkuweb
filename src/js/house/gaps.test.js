@@ -6,7 +6,7 @@
 // already gone wrong once — what does NOT count.
 // ==============================================
 import { describe, it, expect } from 'vitest';
-import { computeGaps, TONE } from './gaps.js';
+import { computeGaps, TONE, TONE_ORDER } from './gaps.js';
 import { setAcademicYear } from '../study-year.js';
 
 // Pinned ONCE, module-wide — not inside a `now` argument — because every
@@ -144,6 +144,31 @@ describe('who owns each group', () => {
     expect(g.held_admin.count).toBe(1);
     expect(g.held_self.tone).toBe(TONE.tell);
     expect(g.held_self.count).toBe(1);
+  });
+
+  // REPORTED (owner, 2026-10-22): "why some people that already have info like
+  // ติดต่อไม่ได้ still on the sheet, i already got answer from them". Asked and
+  // answered is not a job: the seat stays OPEN (0217 — they may still turn
+  // up), but nobody has anything left to ask.
+  it('a held row ฝ่ายข้อมูล already ANSWERED (still open) is not “ต้องมีคนทำ”', () => {
+    const r = computeGaps({
+      held: [
+        heldRow(1, { id: 'ask', student_id: null }),
+        heldRow(2, { id: 'gone', student_id: null, follow_up: 'unreachable' }),
+        heldRow(3, { id: 'left?', student_id: null, follow_up: 'maybe_left' }),
+      ],
+    });
+    const g = byKey(r);
+    expect(g.held_admin.count).toBe(1);
+    expect(g.held_answered.count).toBe(2);
+    expect(g.held_answered.tone).toBe(TONE.done);
+    expect(g.held_answered.rows.map((x) => x.hint).join(' ')).toContain('ติดต่อไม่ได้');
+    expect(r.actionable).toBe(1);
+  });
+
+  it('every tone has a place in the order the pane and the tool print in', () => {
+    expect([...TONE_ORDER].sort()).toEqual(Object.values(TONE).sort());
+    expect(TONE_ORDER[0]).toBe(TONE.act);
   });
 
   // ⛔ THE BADGE. Counting the people who can fix themselves makes it read

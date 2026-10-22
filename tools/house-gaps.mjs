@@ -17,7 +17,7 @@
 //   npm run house:gaps -- --out <file.md>      # the `--` is NOT optional
 // ============================================================
 import { writeFileSync } from 'node:fs';
-import { computeGaps, TONE } from '../src/js/house/gaps.js';
+import { computeGaps, TONE, TONE_ORDER } from '../src/js/house/gaps.js';
 import { cohortLabel, setAcademicYear } from '../src/js/house/fields.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
@@ -65,6 +65,7 @@ const TONE_TH = {
   [TONE.watch]: '👀 น่าจะผิดที่ไฟล์',
   [TONE.tell]: '📣 เจ้าตัวทำเองได้',
   [TONE.setup]: '⚙️  ยังตั้งค่าไม่เสร็จ',
+  [TONE.done]: '✅ ตอบแล้ว ไม่ต้องทำอะไร',
 };
 
 if (!groups.length) {
@@ -72,7 +73,7 @@ if (!groups.length) {
   process.exit(0);
 }
 
-for (const tone of [TONE.act, TONE.watch, TONE.tell, TONE.setup]) {
+for (const tone of TONE_ORDER) {
   const inTone = groups.filter((g) => g.tone === tone);
   if (!inTone.length) continue;
   console.log(`\n── ${TONE_TH[tone]} ──────────────────────────────────`);
@@ -101,7 +102,7 @@ const md = ['# ใครในระบบบ้านที่ข้อมู�
   `สร้างโดย \`tools/house-gaps.mjs\` เมื่อ ${new Date().toISOString()}`, '',
   'เรียงตาม **ใครแก้ได้** ไม่ใช่ตามจำนวน', ''];
 
-for (const tone of [TONE.act, TONE.watch, TONE.tell, TONE.setup]) {
+for (const tone of TONE_ORDER) {
   const inTone = groups.filter((g) => g.tone === tone);
   if (!inTone.length) continue;
   md.push(`## ${TONE_TH[tone]}`, '');

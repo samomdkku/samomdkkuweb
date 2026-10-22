@@ -22,7 +22,7 @@
 // most, and the two would disagree the first time either was edited.
 // ==============================================
 import { cohortLabel, houseOf, isGraduated } from './fields.js';
-import { isAnsweredEmpty, followUpLabel } from './follow-up.js';
+import { isAnsweredEmpty, isAnsweredOpen, followUpLabel } from './follow-up.js';
 
 /** What an admin can do about a group — this is what the pane sorts and colours on. */
 export const TONE = {
@@ -30,7 +30,13 @@ export const TONE = {
   tell: 'tell',    // the person can, once they know
   watch: 'watch',  // probably a bad file, not a bad person
   setup: 'setup',  // the system itself is unfinished
+  done: 'done',    // asked and answered — nothing left to do, kept for the record
 };
+
+/** The order every reader prints the tones in: the pane and tools/house-gaps.mjs.
+ *  One list, so a new tone cannot be shown by one and silently dropped by the
+ *  other (gaps.test.js pins that it names every TONE). */
+export const TONE_ORDER = [TONE.act, TONE.watch, TONE.tell, TONE.setup, TONE.done];
 
 // `students` calls it `sai_code`; a held row comes back from list_unresolved_rows
 // as `sai`. One accessor, so an audit cannot silently read zero of one of them.
@@ -237,6 +243,11 @@ export function computeGaps(d = {}, now = new Date()) {
   // Missing either field makes a held row an admin's, permanently, which is why
   // the split matters and is not cosmetic. See splitHeld() above.
   const { heldAdmin, heldSelf } = splitHeld(held);
+  // splitHeld answers WHO CAN CLAIM (the census counts on it, unchanged). Of the
+  // rows only an admin can place, the ones the ฝ่าย already answered are not a
+  // job: owner, 2026-10-22 — "i already got answer from them".
+  const heldAsk = heldAdmin.filter((h) => !isAnsweredOpen(h));
+  const heldAnswered = heldAdmin.filter(isAnsweredOpen);
 
   // A graduated รุ่น is not asked to fix a missing ชื่อเล่น or chased for a
   // file that will never name them again — `gone`/`no_*` below are about who
@@ -287,16 +298,31 @@ export function computeGaps(d = {}, now = new Date()) {
       unit: 'คน',
       key: 'held_admin',
       tone: TONE.act,
-      title: 'ไม่มีรหัสนักศึกษาในไฟล์',
+      title: 'ไม่มีรหัสนักศึกษา — ยังไม่มีคำตอบ',
       scope: SCOPE_HELD,
       why: 'ยืนยันตัวตนเองไม่ได้ เพราะไม่มีอะไรให้จับคู่ ต้องมีคนที่รู้จักเขาเติมอีเมลให้ หรือส่งกลับไปถามฝ่ายข้อมูล',
       goto: 'held',
-      count: heldAdmin.length,
-      rows: heldAdmin.map((h) => ({
+      count: heldAsk.length,
+      rows: heldAsk.map((h) => ({
         name: name(h) || '(ไม่มีชื่อในไฟล์)',
         detail: `สาย ${h.sai || '—'}`,
         hint: [followUpLabel(h.follow_up), h.note, h.file_note].filter(Boolean).join(' · ')
           || (h.reason === 'empty_row' ? 'แถวว่าง มีแต่สายรหัส' : ''),
+      })),
+    },
+    {
+      unit: 'คน',
+      key: 'held_answered',
+      tone: TONE.done,
+      title: 'ฝ่ายข้อมูลตอบแล้ว — ยังเปิดที่ไว้',
+      scope: SCOPE_HELD,
+      why: 'ถามไปแล้ว และได้คำตอบว่าติดต่อไม่ได้ / คาดว่าลาออก ไม่ต้องถามซ้ำ — ระบบยังเปิดที่นั่งไว้ ถ้าเจ้าตัวโผล่มาก็ยังเข้าบ้านของตัวเองได้',
+      goto: 'held',
+      count: heldAnswered.length,
+      rows: heldAnswered.map((h) => ({
+        name: name(h) || '(ไม่มีชื่อในไฟล์)',
+        detail: `สาย ${h.sai || '—'}`,
+        hint: [followUpLabel(h.follow_up), h.note].filter(Boolean).join(' · '),
       })),
     },
     {

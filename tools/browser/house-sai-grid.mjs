@@ -153,6 +153,19 @@ try {
     t.notes.some((n) => n.includes('ติดต่อไม่ได้')) && t.notes.some((n) => n.includes('probe')) && t.noteVisible);
   await shot('grid-desktop.png');
 
+  // ข้อมูลไม่ครบ (owner, 2026-10-22): the planted row the ฝ่าย answered
+  // "ติดต่อไม่ได้" sits under ตอบแล้ว, the unanswered one under ต้องมีคนทำ.
+  const gaps = JSON.parse(await ev(`document.querySelector('[data-house-mode="gaps"]').click(); await new Promise(r=>setTimeout(r,1500));
+    const cards = [...document.querySelectorAll('#houseGapGroups .card, [data-house-pane="gaps"] .card')];
+    const namesIn = (title) => { const c = cards.find(k => k.querySelector('strong')?.textContent.trim().startsWith(title));
+      return c ? [...c.querySelectorAll('.house-gap-rows li .fw-medium')].map(n => n.textContent.trim()) : null; };
+    return JSON.stringify({ answered: namesIn('ฝ่ายข้อมูลตอบแล้ว'), ask: namesIn('ไม่มีรหัสนักศึกษา'),
+      heads: [...document.querySelectorAll('[data-house-pane="gaps"] h6')].map(h => h.textContent.trim()) });`));
+  say('ข้อมูลไม่ครบ: the answered row is under ตอบแล้ว, not ต้องมีคนทำ', JSON.stringify(gaps),
+    (gaps.answered || []).includes('ทดสอบ probe') && !(gaps.ask || []).includes('ทดสอบ probe')
+      && (gaps.ask || []).includes('ทดสอบ probe2') && gaps.heads.some((h) => h.includes('ตอบแล้ว')));
+  await shot('gaps-desktop.png');
+
   // ยังนำเข้าไม่ได้: record ลาออก on the planted row through the pane's own
   // controls and the in-page confirm, read the DATABASE, then reopen it.
   const pick = async (act, setup) => ev(`${setup}

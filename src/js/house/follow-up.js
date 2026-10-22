@@ -27,6 +27,9 @@ export const CLOSING = new Set(Object.keys(FOLLOW_UP).filter((k) => FOLLOW_UP[k]
 
 export const followUpLabel = (k) => FOLLOW_UP[k]?.label || '';
 
+/** An OPEN held row the ฝ่าย already answered (ติดต่อไม่ได้ / คาดว่าลาออก):
+ *  nothing left to ask, but the seat stays theirs if they turn up. */
+export const isAnsweredOpen = (h) => !h?.resolved_at && FOLLOW_UP[h?.follow_up]?.closes === false;
 /** A closed held row whose answer explains why its สาย has nobody on it. */
 export const isAnsweredEmpty = (h) => !!h?.resolved_at && CLOSING.has(h.follow_up);
 

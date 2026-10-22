@@ -47,7 +47,7 @@ import {
   buildPreviewRows, PREVIEW_COLUMNS, PREVIEW_COLUMN_LABEL,
   CSV_COLUMN_LABEL,
 } from './io.js';
-import { computeGaps, TONE } from './gaps.js';
+import { computeGaps, TONE, TONE_ORDER } from './gaps.js';
 import { computeCensus } from './census.js';
 import {
   computeSaiGrid, listGridCohorts, gridMaxAcrossCohorts, matchCohortInput, CELL as SAI_CELL,
@@ -366,6 +366,7 @@ const GAP_TONE = {
   [TONE.watch]: { label: 'น่าจะผิดที่ไฟล์', cls: 'warning', icon: 'binoculars' },
   [TONE.tell]: { label: 'เจ้าตัวทำเองได้', cls: 'info', icon: 'megaphone' },
   [TONE.setup]: { label: 'ยังตั้งค่าไม่เสร็จ', cls: 'secondary', icon: 'gear' },
+  [TONE.done]: { label: 'ตอบแล้ว ไม่ต้องทำอะไร', cls: 'success', icon: 'check2-circle' },
 };
 
 const GAP_GOTO = {
@@ -398,8 +399,7 @@ function renderGaps() {
 
   // Grouped by tone so the ORDER is the answer: what you must do, what the file
   // probably got wrong, what will resolve itself, what is still unset.
-  const order = [TONE.act, TONE.watch, TONE.tell, TONE.setup];
-  host.innerHTML = order.map((tone) => {
+  host.innerHTML = TONE_ORDER.map((tone) => {
     const inTone = groups.filter((g) => g.tone === tone);
     if (!inTone.length) return '';
     const t = GAP_TONE[tone];
@@ -1907,7 +1907,7 @@ function renderCensus() {
           ${censusRow({ label: 'นำเข้าแล้ว — มีสายรหัส มีบ้าน', n: c.students, depth: 1, note: 'คือ “นักศึกษาทั้งหมด”' })}
           ${censusRow({ label: 'ยังนำเข้าไม่ได้ — ยังไม่มีบัญชีในระบบ', n: c.held, depth: 1, note: 'แท็บ “ยังนำเข้าไม่ได้”' })}
           ${censusRow({ label: 'เจ้าตัวยืนยันเองได้ เมื่อเข้าสู่ระบบ', n: c.heldSelf, depth: 2, muted: true })}
-          ${censusRow({ label: 'ต้องมีคนทำให้ — ไม่มีรหัสนักศึกษาในไฟล์', n: c.heldAdmin, depth: 2, note: 'คือ “ข้อมูลไม่ครบ”' })}
+          ${censusRow({ label: 'เจ้าตัวยืนยันเองไม่ได้ — ไม่มีรหัสนักศึกษา', n: c.heldAdmin, depth: 2, note: 'ใน “ข้อมูลไม่ครบ”: ที่ยังต้องถาม + ที่ฝ่ายข้อมูลตอบแล้ว' })}
         </div>
 
         <div class="mb-3">

@@ -2423,13 +2423,15 @@ columns were NOT imported: ระบบบ้าน has no field for them and th
 **OWED — a person decides (names: the form, by line number):**
 1. **Two students whose stored kkumail differed from what they typed** (form lines 38, 141).
    Line 141 — DECIDED by the owner 2026-10-22: the typed address was right; changed on BOTH the
-   `people` row and the `students` row in one transaction (see the gap below). Line 38 — still
-   OPEN: neither address has ever signed in; ask the student.
+   `people` row and the `students` row in one transaction (see the gap below). Line 38 — DECIDED by the owner
+   2026-10-22: keep the stored address; no change.
 2. **Line 179 — no change, on evidence.** The typed `66…` number is another MD51 student's, the
    stored `68…` one passes the check digit, and the answer came two months after the rest of the
-   form — an MD53 student who filled in the MD51 form. Left as stored.
+   form — an MD53 student who filled in the MD51 form. Left as stored; owner confirmed 2026-10-22.
 3. **One held seat whose answer is a kkumail that does not look like the name** (line 226) — รหัส and
-   name match the held row exactly. Confirm the address, then กรอกอีเมล on that held row.
+   name match the held row exactly. FLAGGED in the system 2026-10-22 (owner): a note on that held row,
+   through `set_unresolved_follow_up`, says not to use the address until the student confirms it.
+   The seat stays open and self-claimable.
 4. **Three people who are in neither list** (lines 162, 254, 278): one typed a รหัส that fails the
    check digit, one is from another รุ่น (`63…`). The form has no สาย, so they cannot be placed in a
    บ้าน — ฝ่ายข้อมูล has to say which สาย.
