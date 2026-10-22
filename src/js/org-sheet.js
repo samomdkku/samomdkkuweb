@@ -139,28 +139,42 @@ function lockScroll(on) {
   }
 }
 
-/** The transform that puts the panel exactly over `origin` — the card mode's
- *  start and end state. Uniform scale (text distorted on one axis reads as a
- *  glitch); the panel is still transparent at that size, so only its motion
- *  shows. Null when there is nothing on screen to grow from. */
-function originTransform() {
-  if (!origin?.isConnected) return null;
+/**
+ * Card mode's start and end state: a SLIGHT scale toward the tile it came from,
+ * never a shrink INTO it.
+ *
+ * REPORTED: "i don't like the animation after open the ฝ่าย then close, it
+ * shows picture not smooth on the box". The first version mapped the whole
+ * panel onto the tile's rectangle — scale ~0.25 — and faded it only at the end,
+ * so on close a miniature of the sheet, dozens of portraits squeezed to a few
+ * pixels, slid down onto the tile and sat over it. Scaled that far the photos
+ * resample badly, and a tiny copy of a page reads as a glitch, not as motion.
+ *
+ * Now it is what iOS popovers and context menus do: scale 0.94 with the
+ * transform-origin AT the tile, and the fade carries the rest. The direction
+ * still says "it came from here, it goes back there"; the content never gets
+ * small enough to look broken.
+ */
+const CARD_SCALE = 0.94;
+
+function aimAtOrigin() {
+  if (!origin?.isConnected) { panel.style.transformOrigin = ''; return; }
   const r = origin.getBoundingClientRect();
-  if (!r.width || r.bottom < 0 || r.top > window.innerHeight) return null;
+  if (!r.width || r.bottom < 0 || r.top > window.innerHeight) { panel.style.transformOrigin = ''; return; }
   const prev = panel.style.transform;
   panel.style.transform = 'none';
   const p = panel.getBoundingClientRect();
   panel.style.transform = prev;
-  const s = Math.max(0.15, Math.min(1, r.width / p.width));
-  const dx = (r.left + r.width / 2) - (p.left + p.width / 2);
-  const dy = (r.top + r.height / 2) - (p.top + p.height / 2);
-  return `translate(${dx}px, ${dy}px) scale(${s})`;
+  const x = r.left + r.width / 2 - p.left;
+  const y = r.top + r.height / 2 - p.top;
+  panel.style.transformOrigin = `${x}px ${y}px`;
 }
 
 function hiddenTransform() {
   if (reduced()) return 'none';
   if (root.dataset.mode === 'sheet') return 'translateY(100%)';
-  return originTransform() || 'translateY(12px) scale(0.96)';
+  aimAtOrigin();
+  return `scale(${CARD_SCALE})`;
 }
 
 /**
@@ -237,6 +251,7 @@ function finish() {
   panel.style.transform = '';
   panel.style.opacity = '';
   panel.style.transitionDuration = '';
+  panel.style.transformOrigin = '';
   scrim.style.opacity = '';
   lockScroll(false);
   if (origin?.isConnected) origin.focus({ preventScroll: true });

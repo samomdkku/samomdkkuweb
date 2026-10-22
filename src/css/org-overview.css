@@ -465,6 +465,10 @@ html.orgs-lock { overflow: hidden; }
   transition: opacity 0.32s ease;
 }
 .orgs.is-open .orgs-scrim { opacity: 1; }
+/* Once it starts closing it is gone as far as the pointer is concerned: the
+   panel is invisible within ~0.2s but stays in the tree until the timer ends,
+   and a tap on the next tile in that window used to land on the fading scrim. */
+.orgs:not(.is-open) { pointer-events: none; }
 
 .orgs-panel {
   position: relative;
@@ -488,11 +492,15 @@ html.orgs-lock { overflow: hidden; }
   max-height: min(88vh, 56rem);
   max-height: min(88dvh, 56rem);
   border-radius: 1.25rem;
-  transform-origin: center;
+  /* the origin is set at the tile by org-sheet.js (`aimAtOrigin`) */
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease-out;
 }
+/* Closing: quick and quiet — a small settle toward the tile while it fades,
+   all of it at once. (It used to shrink the whole sheet into the tile and
+   fade only at the end; on the way a miniature of the page, photos squeezed
+   to a few pixels, sat over the tile.) */
 .orgs[data-mode="card"]:not(.is-open) .orgs-panel {
-  /* closing: let it travel most of the way home before it fades */
-  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease 0.16s;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 1, 1), opacity 0.16s ease-in;
 }
 
 /* phone: a bottom sheet */
