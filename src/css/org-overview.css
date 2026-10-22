@@ -404,7 +404,25 @@
    scrolling a page). Same masonry as desktop, two columns. */
 @media (max-width: 599.98px) {
   .orgo { --orgo-chrome: 11.5rem; margin-top: 0.5rem; }
-  .orgo-grid { --orgo-cols: 2; column-gap: 0.45rem; padding-top: 0.6rem; }
+  /* AN ALIGNED GRID ON PHONES, NOT A MASONRY. Asked, looking at it on a phone:
+     "is this unalignment intentional". On a computer it is — the masonry is
+     what fits a nine-row tile beside three-row ones on ONE screen. A phone
+     scrolls anyway, so the masonry bought ~140px and cost two things: tiles
+     that look misplaced, and an order that ran down the left column and then
+     the right (the column split won there), so ฝ่าย 2 sat under ฝ่าย 1. Here
+     each pair shares a row, read left to right, and the "N คน ›" lines sit on
+     one baseline. `--orgo-layout` tells layoutOverview to stand aside. */
+  .orgo-grid {
+    --orgo-cols: 2;
+    --orgo-layout: grid;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    columns: auto;
+    padding-top: 0.6rem;
+  }
+  .orgo-grid > .orgo-cell { display: flex; width: auto; margin: 0; }
+  .orgo-grid > .orgo-cell > .orgo-tile { flex: 1 1 auto; }
   /* EDGE TO EDGE, less an 8px gutter. REQUESTED: "it got margin at leftmost,
      rightmost can you make it take full width" — the tiles sat inside BOTH the
      Bootstrap .container padding and .org-page's, ~28px a side on a 390px

@@ -298,10 +298,20 @@ const tallestOf = (heights, assign, cols) => {
 
 let layoutObserver = null;
 
+/** Undo a placement — for a width where CSS lays the tiles out itself. */
+function unplace(grid) {
+  grid.classList.remove('is-laid');
+  grid.style.height = '';
+  for (const c of grid.children) { c.style.left = ''; c.style.top = ''; c.style.width = ''; }
+}
+
 function placeTiles(grid) {
   const cells = [...grid.children];
   if (!cells.length) return;
   const cs = getComputedStyle(grid);
+  // PHONES ARE AN ALIGNED GRID, not a masonry (org-overview.css, the phone
+  // block says why). CSS declares which: `--orgo-layout: grid`.
+  if (cs.getPropertyValue('--orgo-layout').trim() === 'grid') { unplace(grid); return; }
   const cols = Math.max(1, parseInt(cs.getPropertyValue('--orgo-cols'), 10) || 4);
   const gap = parseFloat(cs.columnGap) || 0;
   const pl = parseFloat(cs.paddingLeft) || 0;
