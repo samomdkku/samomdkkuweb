@@ -149,14 +149,19 @@ function leadHtml(c, hl, extra = '') {
  * in the sheet. A ฝ่ายย่อย with nobody in its head seat still gets its row.
  */
 /**
- * More ฝ่ายย่อย than this and the tile is WIDE: two grid columns, its rows in
- * two columns inside — the iOS widget sizes, small and medium in one grid. In an
- * aligned grid a row is as tall as its tallest tile, and ฝ่ายเวชนิทัศน์'s nine
- * rows left ~200px of nothing in each of four neighbours (measured, 1440 wide).
- * Wide, nine rows are five, level with a four-row tile. A rule about CONTENT,
- * not about which ฝ่าย, so it holds when the next ฝ่าย grows.
+ * More ฝ่ายย่อย than this and the tile is TALL: two grid rows. In an aligned
+ * grid a row is as tall as its tallest tile, and ฝ่ายเวชนิทัศน์'s nine rows left
+ * ~200px of nothing in each of four neighbours (measured, 1440 wide). A rule
+ * about CONTENT, not about which ฝ่าย, so it holds when the next ฝ่าย grows.
+ *
+ * TALL, NOT WIDE. A two-COLUMN tile was tried first, with a dense flow to fill
+ * the hole it left when it did not fit at a row's end — and the filling moved a
+ * LATER ฝ่าย in front of it: "it order ฝ่ายรังสีเทคนิค ฝ่ายรพ.ร่วมผลิต
+ * ฝ่ายเวชนิทัศน์ seems weird". A tall tile always fits the next slot, so the
+ * grid never has to reorder anything: the ฝ่าย order is the reading order, on
+ * every device, with no holes.
  */
-export const WIDE_SUBS = 5;
+export const TALL_SUBS = 5;
 
 function subFace(m) {
   return m
@@ -222,7 +227,7 @@ export function overviewHtml(model, { filter, hitsOf, hl }) {
     </button>`;
 
   const tileHtml = (c, i) => `
-      <li class="orgo-cell${c.subs.length > WIDE_SUBS ? ' is-wide' : ''}" style="--i:${i}">
+      <li class="orgo-cell${c.subs.length > TALL_SUBS ? ' is-tall' : ''}" style="--i:${i}">
         <button type="button" class="orgo-tile${dim(c)}" data-org-open="${escHtml(c.node.id)}"
           aria-haspopup="dialog"${tint(c)}>
           <span class="orgo-tile-name">${hl(c.node.name || '')}</span>

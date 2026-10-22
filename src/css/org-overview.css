@@ -124,20 +124,15 @@
   border-top: 1px solid var(--org-spine, var(--ink-200));
   display: grid;
   grid-template-columns: repeat(var(--orgo-cols), minmax(0, 1fr));
-  /* DENSE: a wide tile that does not fit at the end of a row moves down, and
-     the next small tile fills the hole it left — the way the iOS home screen
-     flows widgets. The order shifts by at most that one tile. */
-  grid-auto-flow: row dense;
+  /* NOT `dense`: dense filling moved a later ฝ่าย in front of an earlier one
+     (org-overview.js, `TALL_SUBS`, has the report). Plain row flow keeps the
+     ฝ่าย order as the reading order. */
+  grid-auto-flow: row;
   gap: 0.65rem;
 }
-/* the medium widget: two columns wide, its ฝ่ายย่อย in two columns inside
-   (`WIDE_SUBS` in org-overview.js decides which tiles) */
-.orgo-cell.is-wide { grid-column: span 2; }
-.orgo-cell.is-wide .orgo-subs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 1.1rem;
-}
+/* a ฝ่าย with many ฝ่ายย่อย: two rows tall, so its row is not stretched for
+   everyone else (`TALL_SUBS` in org-overview.js decides which tiles) */
+.orgo-cell.is-tall { grid-row: span 2; }
 @media (max-width: 991.98px) {
   .orgo-grid { --orgo-cols: 3; }
 }

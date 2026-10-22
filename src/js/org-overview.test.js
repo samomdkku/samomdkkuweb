@@ -22,7 +22,7 @@
 // ==============================================
 import { describe, it, expect } from 'vitest';
 import {
-  overviewModel, overviewHtml, tileMeta, shortUnitName, callName, WIDE_SUBS,
+  overviewModel, overviewHtml, tileMeta, shortUnitName, callName, TALL_SUBS,
 } from './org-overview.js';
 import { sortSiblings } from './org-rung.js';
 
@@ -212,15 +212,15 @@ describe('a ฝ่าย added later lands at the END and nothing else moves', (
   });
 });
 
-describe('a ฝ่าย with many ฝ่ายย่อย is a WIDE tile — decided by content, not by name', () => {
+describe('a ฝ่าย with many ฝ่ายย่อย is a TALL tile — decided by content, not by name', () => {
   const build = (n) => {
     const nodes = [div('office', null, 0), seat('p', 'office', 0),
       div('big', null, 1), seat('bighead', 'big', 0), ...NODES_SUBS(n)];
     return overviewHtml(overviewModel(fixture(nodes, [person('p', 'P'), person('bighead', 'H')])),
       { filter: null, hitsOf: () => 0, hl: (t) => t });
   };
-  it(`more than ${WIDE_SUBS} ฝ่ายย่อย → wide; ${WIDE_SUBS} or fewer → not`, () => {
-    expect(build(WIDE_SUBS + 1)).toContain('orgo-cell is-wide');
-    expect(build(WIDE_SUBS)).not.toContain('is-wide');
+  it(`more than ${TALL_SUBS} ฝ่ายย่อย → tall; ${TALL_SUBS} or fewer → not`, () => {
+    expect(build(TALL_SUBS + 1)).toContain('orgo-cell is-tall');
+    expect(build(TALL_SUBS)).not.toContain('is-tall');
   });
 });
