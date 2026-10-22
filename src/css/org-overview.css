@@ -561,7 +561,7 @@ html.orgs-lock { overflow: hidden; }
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.6rem 0.35rem 1.25rem;
+  padding: var(--orgs-pad-top, 0.6rem) 0.35rem 1.25rem;
 }
 /* แผนผัง's panel, minus the chrome the sheet already provides: the title is
    the sheet's own, and a card inside a card is one border too many. */
@@ -576,81 +576,71 @@ html.orgs-lock { overflow: hidden; }
 .orgs-body .orgc-tree > .orgc-unit > .orgc-unit-title { display: none; }
 .orgs-body .orgc-tree > .orgc-unit > .orgc-unit-body { padding-top: 0.6rem; }
 
-/* หัวหน้าฝ่ายย่อย | ทุกคน — the sheet's segmented control. STICKY at the top of
-   the scrolling body, so switching to ทุกคน halfway down a 92-person ฝ่าย does
-   not need a scroll back up. Same pill language as the page's view switch. */
-.orgs-modes {
+/* ── the sheet: one list, sections that pin, a row to jump ───────────────
+   Everything open, like Contacts. Two things keep a 92-person ฝ่าย navigable
+   without a single disclosure:
+
+   THE JUMP ROW — a ฝ่ายย่อย name per chip, sticky at the top; tap to scroll
+   there. It scrolls sideways itself when the names outrun the width (ฝ่าย
+   เวชนิทัศน์ has nine), which is the one sideways scroll this page allows: a
+   strip of chips, never the page.
+
+   STICKY SECTION HEADERS — each ฝ่ายย่อย's title pins under the jump row while
+   you are inside it, so you always know whose people you are looking at. */
+.orgs-body { --orgs-jump-h: 2.7rem; --orgs-pad-top: 0.6rem; }
+.orgs-jump {
   position: sticky;
-  top: 0;
-  z-index: 2;
+  /* sticky offsets count from the scroller's PADDING edge: `top: 0` left a
+     10px strip above the row with content showing through (measured) */
+  top: calc(-1 * var(--orgs-pad-top));
+  z-index: 3;
   display: flex;
-  gap: 0.2rem;
-  margin: 0 0.6rem 0.5rem;
-  padding: 0.2rem;
-  border: 1px solid var(--ink-200);
-  border-radius: 999px;
+  gap: 0.35rem;
+  margin: calc(-1 * var(--orgs-pad-top)) -0.35rem 0.4rem;   /* full width of the scroller */
+  padding: 0.5rem 0.75rem;
+  height: var(--orgs-jump-h);
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
   background: rgb(var(--surface-rgb) / 0.92);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--ink-100);
 }
-.orgs-mode {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0.4rem 0.6rem;
-  border: 0;
+.orgs-jump::-webkit-scrollbar { display: none; }
+.orgs-jump-chip {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--org-tint) 25%, var(--ink-200));
   border-radius: 999px;
-  background: transparent;
+  background: color-mix(in srgb, var(--org-tint) 7%, var(--surface));
   font: inherit;
   font-family: 'Prompt', system-ui, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 500;
-  color: var(--ink-600);
+  color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
-  transition: background-color 0.18s ease, color 0.18s ease;
 }
-.orgs-mode[aria-checked="true"] { background: var(--brand-primary); color: #fff; }
-.orgs-mode:active { transform: scale(0.97); }
-.orgs-mode:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.orgs-jump-chip:active { transform: scale(0.96); }
+.orgs-jump-chip:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 @media (prefers-reduced-transparency: reduce) {
-  .orgs-modes { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .orgs-jump { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 
-/* The sheet opens with its ฝ่ายย่อย CLOSED, each row carrying its head — the
-   same rule as the tile, one level down: scan who runs what, tap to open. Once
-   a row is open its head is the first card inside it, so the line in the title
-   goes (no person drawn twice on one surface). */
-.orgs-body .orgc-unit .orgc-unit > .orgc-unit-title > .orgc-unit-btn {
-  grid-template-areas:
-    "name chev"
-    "head chev"
-    "meta chev";
+/* the ฝ่ายย่อย sections: the header pins below the jump row */
+.orgs-body .orgc-unit[data-depth="1"] { scroll-margin-top: calc(var(--orgs-jump-h) + 0.25rem); }
+.orgs-body .orgc-unit[data-depth="1"] > .orgc-unit-title {
+  position: sticky;
+  top: calc(var(--orgs-jump-h) - var(--orgs-pad-top));
+  z-index: 2;
+  border-radius: inherit;
+  /* opaque: people scroll UNDER it */
+  background: color-mix(in srgb, var(--org-tint) 6%, var(--surface));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--org-tint) 14%, var(--ink-100));
 }
-.orgc-unit-head {
-  grid-area: head;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-  font-size: 0.78rem;
-  color: var(--ink-700);
-}
-.orgc-unit-head .orgo-sub-face { width: 1.5rem; }
-.orgc-unit-head-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.orgc-unit-head-nick {
-  font-family: 'Prompt', system-ui, sans-serif;
-  color: color-mix(in srgb, var(--org-tint) 70%, var(--ink-800));
-  font-weight: 500;
-}
-.orgc-unit-head-role { color: var(--ink-500); }
-.orgc-unit-btn[aria-expanded="true"] > .orgc-unit-head { display: none; }
+/* no jump row (one ฝ่ายย่อย, or searching): pin to the very top */
+.orgs-body:not(:has(.orgs-jump)) { --orgs-jump-h: 0px; }
 
 @media (prefers-reduced-motion: reduce) {
   .orgs-panel,
