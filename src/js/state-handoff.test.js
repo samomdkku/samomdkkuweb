@@ -47,6 +47,11 @@ function namedPaths(md) {
   const out = new Set();
   for (const m of md.matchAll(/`([^`\n]+)`/g)) {
     const t = m[1].trim();
+    // A leading "/" is a SERVED URL (`/passport/html/admin.html` in a deploy
+    // line), not a repo path — and handed to git it is FATAL: check-ignore
+    // exits 128 on it and the whole ignored set came back empty, so every
+    // gitignored pointer in docs/state/ read as missing (2026-10-23).
+    if (t.startsWith('/')) continue;
     if (t.includes('/') && /^[\w./-]+\.(md|js|sql|mjs|sh|conf|html|css|json|gs|py)$/.test(t)) out.add(t);
   }
   return [...out].sort();
@@ -114,7 +119,14 @@ const GIT_IGNORED = (() => {
   // Exit 128 is "not a git repository" — every path is then UNKNOWN, not
   // ignored, and the sweeps fall back to asking the filesystem. Saying
   // "ignored" here instead would silence them entirely outside a checkout.
-  if (r.status === 128 || r.error) return new Set();
+  if (r.status === 128 && /not a git repository/i.test(r.stderr || '')) return new Set();
+  // Any OTHER failure must be loud. A fatal here used to read as "nothing is
+  // ignored", which silently turned the ignore-aware sweeps below back into
+  // filesystem sweeps — green on a laptop that has the ignored files, red on
+  // a clean checkout, and blaming the wrong file either way.
+  if (r.error || r.status === 128) {
+    throw new Error(`git check-ignore failed (${r.status}): ${(r.stderr || r.error?.message || '').trim()}`);
+  }
   return new Set((r.stdout || '').split('\n').map((x) => x.trim()).filter(Boolean));
 })();
 

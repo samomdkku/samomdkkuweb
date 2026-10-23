@@ -3899,3 +3899,29 @@ like "the page navigated away". Use string tests in page-side code.
 **The general rule**: when a page "looks signed out", ask whether its MODULES
 loaded before asking whether its SESSION exists — and check the content TYPE of
 what the dev server answered, not only the status.
+
+---
+
+## `test:clean` (and CI) red on a September session note nobody touched — one served URL in STATE.md made `git check-ignore` fatal, which switched the ignore check OFF
+
+**Symptom** (2026-10-23): after a STATE.md deploy line, `state-handoff.test.js`
+"the split files name no file that is not there" failed on a clean checkout,
+naming two gitignored `externaldata/…` files referenced by
+`docs/state/phuriphatma.md` since September. `npm test` on the laptop passed.
+
+**Cause**: the sweep asks `git check-ignore --stdin` once for every backticked
+path in the watched docs. The new deploy line named the SERVED URL
+`/passport/html/admin.html`; git answers a leading-`/` path with `fatal: Invalid
+path` and exit 128 — and the test read every 128 as "not a git repository",
+returning an EMPTY ignored set. With nothing ignored, the sweep fell back to the
+filesystem: green where the gitignored files exist (the laptop), red where they
+do not (CI, `test:clean`), and it blamed a file that had not changed.
+
+**Fix**: a leading `/` is a URL, not a repo path (skipped by `namedPaths`); and
+only "not a git repository" may fall back — any other check-ignore failure
+throws, naming git. Reintroducing the URL now fails as `git check-ignore failed
+(128): fatal: Invalid path '/passport'`.
+
+**The general rule**: a guard's instrument that treats ITS OWN error as a
+legitimate answer is a guard that can be switched off by any input — make every
+unexpected instrument failure red, and say what failed.

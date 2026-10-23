@@ -392,7 +392,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 - The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(82)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(83)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -478,6 +478,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Two night-agent proofs, green when written, red a day later
 - `npm run proofs` checked nothing for two days
 - Passport's admin page showed its sign-in card to a signed-in master under `npm run dev`
+- `test:clean` (and CI) red on a September session note nobody touched
 
 ## `passport.md` — The Passport app's own write-ups *(45)*
 
@@ -529,4 +530,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_467 entries across 10 files._
+_468 entries across 10 files._
