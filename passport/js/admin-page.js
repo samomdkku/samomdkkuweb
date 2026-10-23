@@ -11,7 +11,7 @@ import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigur
 import { getCurrentContext, getSeasonStatus, thaiDate, thaiDayBefore, quarterChoiceLabel, TH_MONTH_NAMES } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
-import { loadDepartments, applyCatalog, deptChoices, subChoices, deptName, subName } from './depts.js';
+import { loadDepartments, applyCatalog, deptChoices, subChoices } from './depts.js';
 import {
     getAdminScope, scopeCoversActivity, allowedDeptIds, allowedSubIdsForDept, scopeLabel,
     LEGACY_PASSWORD_LOGIN, LEGACY_LOGIN_CONFIGURED, getLegacyScope, legacyLogin, clearLegacySession,

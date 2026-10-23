@@ -14,6 +14,8 @@
 --   §D  Q1 and the auto switch now move the ปี SAMO for every system: a
 --       Passport-only org-wide admin may edit Q2–Q4 but not Q1 or auto; with
 --       ทีม SAMO edit rights too, they may.
+--   §E  (0249) pressing เริ่มปี SAMO on Q1 day, before anything applied the
+--       switch, succeeds instead of rolling the switch back.
 -- Uses the real ปี 2569–2571 rows inside a transaction that ROLLS BACK.
 --   node tools/db-query.mjs tools/year0248-one-year-system.sql
 -- ============================================================
@@ -96,6 +98,7 @@ update passport.season_schedule s
  where s.id;
 create temporary table want on commit drop as
   select (passport.schedule_at(now()) ->> 'be')::int be, (passport.schedule_at(now()) ->> 'quarter')::int q;
+grant select on want to authenticated, anon;
 insert into probe select '20. CONTROL: today IS a Q1 by the constructed schedule', '1', (select q::text from want);
 insert into public.team_terms (year) select be from want on conflict (year) do nothing;
 insert into public.team_terms (year) select be - 1 from want on conflict (year) do nothing;
@@ -162,6 +165,27 @@ insert into probe select '32. …nor switch the automatic change off', 'true',
 insert into probe select '33. …but may still move Q3 (Passport''s own quarters)', 'ok', (select v from r where k = 'pp_q3');
 insert into probe select '34. with ทีม SAMO edit rights too, Q1 may move', 'ok,5',
   (select (select v from r where k = 'pb_q1') || ',' || q1_day from passport.season_schedule);
+
+-- ── §E (0249) pressing เริ่มปี SAMO on Q1 day, before anything else applied it ──
+update passport.season_schedule s
+   set q1_month = x.m, q1_day = least(x.d, 28), q1_time = '00:00',
+       q2_month = x.m % 12 + 1, q2_day = 1, q2_time = '00:00',
+       q3_month = (x.m + 1) % 12 + 1, q3_day = 1, q3_time = '00:00',
+       q4_month = (x.m + 2) % 12 + 1, q4_day = 1, q4_time = '00:00',
+       last_applied_boundary = now() - interval '400 days'
+  from (select extract(month from now() at time zone 'Asia/Bangkok')::int m,
+               extract(day   from now() at time zone 'Asia/Bangkok')::int d) x
+ where s.id;
+update public.team_terms set is_current = false where is_current;
+update public.team_terms set is_current = true, started_at = null, ended_at = null where year = (select be - 1 from want);
+update public.team_terms set started_at = null, ended_at = null where year = (select be from want);
+select pg_temp.as_((select id from pb));
+set local role authenticated;
+insert into r select 'press', pg_temp.try(format('select public.start_samo_year(%s, %L, %L)',
+  (select be from want), 'proof-0249', 'Q1'));
+reset role;
+insert into probe select '40. pressing เริ่มปี SAMO on Q1 day succeeds — the automatic switch did it', 'ok,true',
+  (select (select v from r where k = 'press') || ',' || (public.current_samo_year() = (select be from want))::text);
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
