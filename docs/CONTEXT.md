@@ -784,6 +784,12 @@ tokens `d:<department_id>` / `s:<sub_department_id>` (a sub binding REPLACES the
 dept token — it is strictly narrower). Scoped is not full, same rule as `vs_dept`:
 choosing a specific scope drops the blanket `passport` permission, because
 `current_user_has_permission('passport')` would be an unconditional branch.
+**Passport's ฝ่าย list (0247)** is `passport.departments` / `sub_departments`,
+managed by org-wide Passport admins in Passport admin → จัดการรายชื่อฝ่าย
+(`passport.department_catalog` / `save_department` / `save_sub_department` /
+`delete_department`), each row linked to a ทีม SAMO node; ids are permanent
+(they are what `d:N` / `s:N` grants store), a used row is hidden, not deleted.
+Every page reads it through `list_passport_departments()` → `passport/js/depts.js`.
 The passport app reads **`public.passport_admin_context()`** — one definer call
 returning `{is_admin, all_departments, departments[], sub_departments[]}` with ids
 already resolved — and must not invent its own admin table. The picker's reference

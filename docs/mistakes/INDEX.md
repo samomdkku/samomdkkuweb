@@ -479,7 +479,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run proofs` checked nothing for two days
 - Passport's admin page showed its sign-in card to a signed-in master under `npm run dev`
 
-## `passport.md` — The Passport app's own write-ups *(42)*
+## `passport.md` — The Passport app's own write-ups *(44)*
 
 Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
@@ -525,5 +525,7 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
 - Nobody pressed "New Season" on 1 ก.ย.
+- Passport's ฝ่าย list existed FOUR times
+- An activity's quarter could be changed by a console write, leaving its points behind
 
-_464 entries across 10 files._
+_466 entries across 10 files._

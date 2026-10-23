@@ -740,6 +740,12 @@ set.
   automatic step never undoes an admin, it next acts at the next boundary.
 - Only an org-wide Passport admin moves a quarter — RPC AND table (the season
   policies were `is_admin()`, which a ฝ่าย-scoped admin also holds).
+- **Moving an ACTIVITY to another quarter moves its points** (0246, owner
+  2026-10-23): to the open quarter — any admin; back to a CLOSED quarter —
+  org-wide only, and its QR stops; to a quarter NOT STARTED — refused once
+  anyone has scanned. In the trigger, so a console write meets it too. An
+  activity filed for a later quarter does not scan early (owner agreed: the QR
+  tells the student the date).
 
 **Decided by the ฝ่าย, 2026-09-04** — *"ถ้าเกิน quater ก็คือสแกนไม่ได้ๆๆ"*. Before
 this, a poster from a finished event kept working for ever and its scans landed
@@ -866,3 +872,21 @@ short list would DELETE something fails closed instead (`discord-sync.mjs`).
 Guards: `row-cap.test.js` (a stub with a real cap) and `tools/row-cap-probe.mjs`
 (production, raw cut as the control). Why: the frozen Passport leaderboard,
 `docs/mistakes/supabase-client.md`.
+
+## Passport's ฝ่าย list has ONE home: passport.departments / sub_departments
+
+Since 0247 the list is DATA, managed by org-wide Passport admins (Passport admin
+→ จัดการรายชื่อฝ่าย) and picked from ทีม SAMO — the universal list the owner
+named ("a universal lists of ฝ่าย that every system can pull … This'd be the
+teamsamo"). Every page reads it through `passport/js/depts.js`; never type a
+ฝ่าย name or `<option>` into Passport code (`passport-depts.test.js`).
+- **An id is permanent.** It is stamped on activities and scans and is what a
+  ทีม SAMO Passport grant stores (`d:6`, `s:4`). Never renumber, never reuse —
+  a new row takes max + 1. A used row is HIDDEN (`active = false`), not deleted:
+  gone from pickers for new work, still named on old work.
+- The label is Passport's own; renaming never edits the org chart, and
+  restructuring the chart never renames a ฝ่าย filed on a thousand scans.
+- ⚠️ **PR and VitalSound are NEXT, not done** (owner: "for now do for
+  samopassport first"). VitalSound ROUTES Discord webhooks by its ฝ่าย, so its
+  version must keep the routing key stable — HANDOFF §30.
+

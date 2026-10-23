@@ -7,6 +7,7 @@ import { ROUTES } from './routes.js';
 import { getCurrentContext } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
+import { loadDepartments } from './depts.js';
 
 // ─── State ───────────────────────────────────────────────
 let currentUserId = null;
@@ -1139,6 +1140,7 @@ let lbPageNames = null;
 
 async function ensureLbPageData() {
     if (lbPageScans) return true;
+    await loadDepartments();   // the ฝ่าย filter's names (cached; init usually has them already)
     // Names come from passport.leaderboard_names() rather than a `profiles` read.
     // profiles carries every student's EMAIL, and a table read hands over whole
     // rows — so selecting `id, full_name` from it only looked narrow: the policy
@@ -1511,6 +1513,7 @@ async function init() {
             { data: allActivities, error: actError },
             { data: allCerts },
             samoCtx,
+            ,
             { data: samoSeasonRows },
             { data: samoYearRows },
         ] = await Promise.all([
@@ -1518,6 +1521,8 @@ async function init() {
             supabase.from('activities').select('*').order('created_at', { ascending: true }),
             supabase.from('certificates').select('*').order('created_at', { ascending: true }),
             getCurrentContext().catch(() => ({ year: null, season: null })),
+            // ฝ่าย names (0247) — filled into DEPARTMENTS before anything below renders one
+            loadDepartments(),
             supabase.from('samo_seasons').select('id, name'),
             supabase.from('samo_years').select('id, name'),
         ]);

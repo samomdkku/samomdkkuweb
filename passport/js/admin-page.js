@@ -11,6 +11,7 @@ import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigur
 import { getCurrentContext, getSeasonStatus, thaiDate, thaiDayBefore, quarterChoiceLabel, TH_MONTH_NAMES } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
+import { loadDepartments, applyCatalog, deptChoices, subChoices, deptName, subName } from './depts.js';
 import {
     getAdminScope, scopeCoversActivity, allowedDeptIds, allowedSubIdsForDept, scopeLabel,
     LEGACY_PASSWORD_LOGIN, LEGACY_LOGIN_CONFIGURED, getLegacyScope, legacyLogin, clearLegacySession,
@@ -44,10 +45,8 @@ function discardPendingUpload(inputId) {
 const CERT_SAMPLE_NAME = 'ชื่อ นามสกุล';
 
 // --- CONFIG ---
-const SUB_DEPT_OPTIONS = {
-    '3': [{ value: '1', label: 'โครงการ' }, { value: '2', label: 'ชุมนุม' }],
-    '5': [{ value: '3', label: 'จิตอาสา' }, { value: '4', label: '7 คณะ' }]
-};
+// The ฝ่าย / ฝ่ายย่อย lists come from the database (0247, js/depts.js) — they
+// were typed here and into four <select>s in admin.html until 2026-10-23.
 
 // --- STATE ---
 let currentActivityId = null;
@@ -455,12 +454,18 @@ function setupSubDepartmentToggle(deptSelectId, subDeptSelectId) {
 
     deptEl.addEventListener('change', () => {
         const selectedValue = deptEl.value;
-        const options = SUB_DEPT_OPTIONS[selectedValue];
+        // A FILTER offers hidden ฝ่ายย่อย too (old activities carry them); a form
+        // offers only active ones, plus the value this activity already has.
+        const isFilter = subDeptSelectId.startsWith('filter');
+        const options = selectedValue
+            ? subChoices(selectedValue, { includeHidden: isFilter, keep: subEl.dataset.keep || null })
+                .map((x) => ({ value: String(x.id), label: escapeHtml(x.name) + (x.active === false ? ' (ซ่อน)' : '') }))
+            : [];
 
         // ล้างค่าเดิมและเพิ่มค่าเริ่มต้น
         subEl.innerHTML = '<option value="">เลือกประเภทย่อย</option>';
 
-        if (options) {
+        if (options.length) {
             options.forEach(opt => {
                 subEl.innerHTML += `<option value="${opt.value}">${opt.label}</option>`;
             });
@@ -600,6 +605,9 @@ async function showAdminPanel() {
     document.getElementById('admin-login-section').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     document.getElementById('admin-logout').style.display = 'inline-block';
+    // The ฝ่าย list FIRST: applyScopeToUi narrows the selects it fills.
+    await loadDepartments(adminDb);
+    fillAllDeptSelects();
     applyScopeToUi();
     await loadSamoData().catch(() => {}); // for the วาระสโม/Season activity filters
     populateActivitySamoFilters();
@@ -632,11 +640,37 @@ function applyScopeToUi() {
             restrictDeptSelect(id, allowed));
     }
 
-    // Seasons and the destructive data wipe are org-wide operations — a
-    // department-scoped admin must not start a new วาระ or clean everyone's data.
+    // Seasons, the ฝ่าย list and the destructive data wipe are org-wide
+    // operations — a department-scoped admin must not start a new วาระ, rename
+    // everyone's ฝ่าย or clean everyone's data.
     if (!isAllDepts()) {
-        document.querySelectorAll('[onclick^="openSeasons"]').forEach((el) => el.remove());
+        document.querySelectorAll('[onclick^="openSeasons"], [onclick^="openDepts"]').forEach((el) => el.remove());
     }
+}
+
+// ── the ฝ่าย <select>s, from the catalog (0247) ─────────────────────────────
+// Keeps the select's first option (its placeholder) and replaces the rest. A
+// FORM offers active ฝ่าย plus `keep`; a FILTER offers every ฝ่าย, hidden ones
+// marked. A scoped admin only ever sees what they own — the same narrowing
+// restrictDeptSelect() applies at boot, re-applied on every refill.
+function fillDeptSelect(id, { includeHidden = false, keep = null } = {}) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const allowed = allowedDeptIds(adminScope);
+    const first = sel.querySelector('option[value=""]');
+    const rows = deptChoices({ includeHidden, keep })
+        .filter((d) => !allowed || allowed.includes(Number(d.id)));
+    const placeholder = first && !(allowed && rows.length === 1) ? first.outerHTML : '';
+    sel.innerHTML = placeholder + rows.map((d) =>
+        `<option value="${d.id}">${escapeHtml(d.name)}${d.active === false ? ' (ซ่อน)' : ''}</option>`).join('');
+}
+
+function fillAllDeptSelects() {
+    fillDeptSelect('act-department');
+    fillDeptSelect('edit-department');
+    fillDeptSelect('filter-department', { includeHidden: true });
+    const lb = document.getElementById('lb-department');
+    if (lb) lb.innerHTML = '';   // populateLbDepartments rebuilds it on open
 }
 
 // Keep only `allowed` departments in a <select>, and drop the "any department"
@@ -834,9 +868,32 @@ function renderQuarterPickers() {
     }
 }
 
-// What a refused write says to a person, for the three 0245 refusals.
+/** The quarters an EDIT may move this activity to, within its own วาระ. */
+function editQuarterOptions(act, scanCount) {
+    const out = [];
+    const curQ = seasonStatus?.season?.samo_year_id === act.samo_year_id ? seasonStatus.season.quarter : null;
+    for (let q = 1; q <= 4; q += 1) {
+        const s = samoSeasons.find((x) => x.samo_year_id === act.samo_year_id && x.quarter === q);
+        if (q === act.quarter) {
+            out.push({ q, label: `Q${q} — ตอนนี้กิจกรรมนี้นับเข้า Quarter นี้${s?.ended_at ? ' (ปิดแล้ว)' : (!s ? ' (ยังไม่เปิด)' : '')}` });
+        } else if (s && !s.ended_at) {
+            out.push({ q, label: `Q${q} · เปิดอยู่` });
+        } else if (s && s.ended_at) {
+            if (isAllDepts()) out.push({ q, closed: true, label: `Q${q} · ปิดแล้ว — QR จะสแกนไม่ได้` });
+        } else if (!scanCount && curQ != null && q > curQ) {
+            out.push({ q, label: `Q${q} · ยังไม่เปิด — สแกนได้เมื่อ Q${q} เริ่ม` });
+        }
+    }
+    return out;
+}
+
+// What a refused write says to a person, for the 0245/0246 refusals.
 function quarterError(msg) {
     const m = String(msg || '');
+    const notOpen = m.match(/QUARTER_NOT_OPEN_HAS_SCANS:Q(\d)/);
+    if (notOpen) return `ย้ายไป Q${notOpen[1]} ไม่ได้ เพราะมีคนสแกนแล้ว และ Q${notOpen[1]} ยังไม่เริ่ม — คะแนนจะหายจากตารางคะแนนทุกช่วงจนกว่า Q${notOpen[1]} จะเปิด`;
+    const orgOnly = m.match(/QUARTER_CLOSED_ORG_WIDE_ONLY:Q(\d)/);
+    if (orgOnly) return `ย้ายกลับไป Q${orgOnly[1]} ที่ปิดแล้วได้เฉพาะผู้ดูแล SAMO Passport ทุกฝ่าย`;
     const closed = m.match(/QUARTER_CLOSED:Q(\d)/);
     if (closed) return `Q${closed[1]} ปิดไปแล้ว — เลือก Quarter ปัจจุบันหรือที่ยังไม่ถึง`;
     if (m.includes('NO_OPEN_SEASON')) return 'ยังไม่มีวาระสโม/Season ที่เปิดอยู่ — เปิดใน วาระสโม & Season Control ก่อน';
@@ -870,30 +927,37 @@ window.editActivity = async (id) => {
     document.getElementById('edit-badge-url').value = data.badge_url || '';
     document.getElementById('edit-badge-url').dispatchEvent(new Event('input', { bubbles: true }));
 
-    // ตั้งค่าตัวเลือกฝ่ายหลัก
+    // ตั้งค่าตัวเลือกฝ่ายหลัก — a HIDDEN ฝ่าย this activity already has stays
+    // selectable, so saving an edit never silently moves it out of its ฝ่าย.
+    fillDeptSelect('edit-department', { keep: data.department_id });
     const deptVal = data.department_id || '';
     document.getElementById('edit-department').value = deptVal;
 
+    document.getElementById('edit-sub-department').dataset.keep = data.sub_department_id || '';
     document.getElementById('edit-department').dispatchEvent(new Event('change'));
 
     document.getElementById('edit-sub-department').value = data.sub_department_id || '';
 
-    // The quarter can move only while nobody has scanned: a scan is a snapshot
-    // filed under the quarter it was credited to, and moving the activity
-    // would leave its earlier scans filed somewhere its QR no longer is.
+    // 0246 (owner, 2026-10-23): points live in the activity's quarter, so
+    // MOVING it moves the points already earned. Where it may go — the same
+    // rule the database enforces (activity_season_default):
+    //   * the quarter OPEN now — always;
+    //   * a CLOSED quarter of this วาระ — org-wide admins only (it rewrites a
+    //     finished leaderboard, and the QR stops scanning);
+    //   * a quarter NOT STARTED — only while nobody has scanned.
     editingQuarter = data.quarter ?? null;
     const qSel = document.getElementById('edit-quarter');
     const qHint = document.getElementById('edit-quarter-hint');
     const { count: scanCount } = await adminDb.from('scans')
         .select('id', { count: 'exact', head: true }).eq('activity_id', id);
-    fillQuarterSelect(qSel, { keep: data.quarter });
-    if (data.quarter && ![...qSel.options].some((o) => o.value === String(data.quarter))) {
-        qSel.insertAdjacentHTML('afterbegin', `<option value="${data.quarter}">Q${data.quarter} (ปิดแล้ว)</option>`);
-        qSel.value = String(data.quarter);
-    }
-    qSel.disabled = (scanCount || 0) > 0;
-    qHint.textContent = qSel.disabled
-        ? `มีคนสแกนแล้ว ${scanCount} ครั้ง จึงย้าย Quarter ไม่ได้ — คะแนนที่ได้ไปแล้วนับอยู่ใน Q${data.quarter}`
+    editingScanCount = scanCount || 0;
+    const opts = editQuarterOptions(data, editingScanCount);
+    qSel.innerHTML = opts.map((o) => `<option value="${o.q}" data-closed="${o.closed ? 1 : 0}">${escapeHtml(o.label)}</option>`).join('');
+    qSel.value = String(data.quarter ?? '');
+    qSel.disabled = opts.length <= 1;
+    qHint.textContent = editingScanCount
+        ? `มีคนสแกนแล้ว ${editingScanCount} ครั้ง — ถ้าย้าย Quarter คะแนนที่ได้ไปแล้วจะย้ายไปนับใน Quarter ใหม่ด้วย (ระยะทางรวมของแต่ละคนเท่าเดิม)`
+            + (isAllDepts() ? '' : ' · ย้ายกลับไป Quarter ที่ปิดแล้วได้เฉพาะผู้ดูแลทุกฝ่าย')
         : 'ยังไม่มีใครสแกน เปลี่ยน Quarter ได้';
 
     document.getElementById('event-creation').style.display = 'none';
@@ -965,6 +1029,11 @@ async function submitEditActivity(e) {
     const qSel = document.getElementById('edit-quarter');
     const newQ = qSel && !qSel.disabled && qSel.value ? parseInt(qSel.value, 10) : null;
     if (newQ && newQ !== editingQuarter) {
+        const closed = qSel.selectedOptions[0]?.dataset.closed === '1';
+        if (editingScanCount && !confirm(`ย้ายกิจกรรมนี้ไป Q${newQ}?\n\n`
+            + `คะแนนจากการสแกน ${editingScanCount} ครั้ง จะย้ายจาก Q${editingQuarter} ไปนับใน Q${newQ} `
+            + '(ระยะทางรวมของแต่ละคนเท่าเดิม)'
+            + (closed ? `\n\nQ${newQ} ปิดไปแล้ว: QR ของกิจกรรมนี้จะสแกนไม่ได้อีก และตารางคะแนนของ Q${newQ} จะเปลี่ยน` : ''))) return;
         patch.quarter = newQ;
         patch.season_id = null;            // let the trigger resolve the new quarter's season
     }
@@ -1506,6 +1575,7 @@ function escapeHtml(s) {
 
 let seasonStatus = null;       // passport.season_status() — see samo.js
 let editingQuarter = null;
+let editingScanCount = 0;
 
 async function loadSamoData() {
     // Status FIRST: it applies a quarter boundary that passed overnight, so the
@@ -1722,6 +1792,236 @@ window.startNewSeason = async () => {
     return window.switchQuarter(next);
 };
 
+// ── รายชื่อฝ่าย (0247) — Passport's own list, picked from ทีม SAMO ─────────────
+// One home for the names every Passport page shows (js/depts.js reads the same
+// table). Org-wide admins only, like the season control: a rename shows on
+// every activity and scan of that ฝ่าย, for every ฝ่าย's admins.
+let deptCatalog = null;      // passport.department_catalog(): list + tree + usage
+let nodePick = null;         // { onPick, suggestUnder } while the picker is open
+
+function deptStatus(msg, kind = '') {
+    const el = document.getElementById('depts-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = `depts-status${kind ? ` is-${kind}` : ''}`;
+}
+
+async function reloadDeptCatalog(data = null) {
+    if (!data) {
+        const res = await adminDb.rpc('department_catalog');
+        if (res.error) { deptStatus(`โหลดรายชื่อฝ่ายไม่สำเร็จ: ${res.error.message}`, 'error'); return; }
+        data = res.data;
+    }
+    deptCatalog = data;
+    applyCatalog(data);          // every picker on this page follows at once
+    fillAllDeptSelects();
+    renderDepts();
+}
+
+window.openDepts = async () => {
+    if (!assertOrgWide('การจัดการรายชื่อฝ่าย')) return;
+    ['event-creation', 'manage-section', 'seasons-section'].forEach((x) => { document.getElementById(x).style.display = 'none'; });
+    document.getElementById('depts-section').style.display = 'block';
+    deptStatus('กำลังโหลด…');
+    await reloadDeptCatalog();
+    if (deptCatalog) deptStatus('');
+};
+
+window.closeDepts = () => {
+    closeNodePicker();
+    document.getElementById('depts-section').style.display = 'none';
+    document.getElementById('event-creation').style.display = 'block';
+    document.getElementById('manage-section').style.display = 'block';
+    renderActivityList();
+};
+
+const nodeById = (id) => (deptCatalog?.tree || []).find((n) => n.id === id) || null;
+function nodePath(id) {
+    const names = [];
+    for (let n = nodeById(id), guard = 0; n && guard < 12; n = nodeById(n.parent_id), guard += 1) names.unshift(n.name);
+    return names.join(' › ');
+}
+const usageOf = (kind, id) => deptCatalog?.usage?.[kind]?.[id] || { activities: 0, scans: 0, grants: 0 };
+const isUnused = (u) => !u.activities && !u.scans && !u.grants;
+
+function deptRowHtml(kind, row, idx, count) {
+    const u = usageOf(kind === 'dept' ? 'departments' : 'sub_departments', row.id);
+    const link = row.team_node_id ? escapeHtml(nodePath(row.team_node_id) || 'ไม่พบใน ทีม SAMO แล้ว') : 'ยังไม่ได้ผูกกับ ทีม SAMO';
+    const subs = kind === 'dept' ? (deptCatalog.sub_departments || []).filter((x) => x.department_id === row.id) : [];
+    return `
+      <div class="dept-${kind === 'dept' ? 'card' : 'sub'}${row.active === false ? ' is-hidden' : ''}" data-kind="${kind}" data-id="${row.id}">
+        <div class="dept-row">
+          <input type="text" class="dept-name" maxlength="80" value="${escapeHtml(row.name)}" aria-label="ชื่อที่แสดง" />
+          <div class="dept-meta">
+            <span class="dept-link${row.team_node_id ? '' : ' is-unlinked'}">ทีม SAMO: ${link}</span>
+            <span class="dept-usage">กิจกรรม ${u.activities} · สแกน ${u.scans} · สิทธิ์ ${u.grants}${row.active === false ? ' · <strong>ซ่อนอยู่</strong>' : ''}</span>
+          </div>
+          <div class="dept-actions">
+            <button type="button" class="btn-action" data-act="save">บันทึกชื่อ</button>
+            <button type="button" class="btn-action" data-act="up" ${idx === 0 ? 'disabled' : ''} aria-label="เลื่อนขึ้น">↑</button>
+            <button type="button" class="btn-action" data-act="down" ${idx === count - 1 ? 'disabled' : ''} aria-label="เลื่อนลง">↓</button>
+            <button type="button" class="btn-action" data-act="link">${row.team_node_id ? 'เปลี่ยนที่ผูก' : 'ผูกกับ ทีม SAMO'}</button>
+            <button type="button" class="btn-action" data-act="toggle">${row.active === false ? 'แสดง' : 'ซ่อน'}</button>
+            ${isUnused(u) ? '<button type="button" class="btn-action btn-delete" data-act="delete">ลบ</button>' : ''}
+          </div>
+        </div>
+        ${kind === 'dept' ? `
+        <div class="dept-subs">
+          ${subs.map((x, i) => deptRowHtml('sub', x, i, subs.length)).join('')}
+          <button type="button" class="btn-action dept-add-sub" data-act="add-sub">＋ เพิ่มฝ่ายย่อยจาก ทีม SAMO</button>
+        </div>` : ''}
+      </div>`;
+}
+
+function renderDepts() {
+    const box = document.getElementById('depts-list');
+    if (!box || !deptCatalog) return;
+    const depts = deptCatalog.departments || [];
+    box.innerHTML = depts.length
+        ? depts.map((d, i) => deptRowHtml('dept', d, i, depts.length)).join('')
+        : '<p style="font-size:0.9rem;">ยังไม่มีฝ่าย — เพิ่มจาก ทีม SAMO ด้านล่าง</p>';
+}
+
+async function deptRpc(fn, args, okMsg) {
+    deptStatus('กำลังบันทึก…');
+    const { data, error } = await adminDb.rpc(fn, args);
+    if (error) { deptStatus(error.message, 'error'); return false; }
+    await reloadDeptCatalog(data);
+    deptStatus(okMsg, 'ok');
+    return true;
+}
+
+/** Save one row with some fields changed — every save sends the whole row,
+ *  so nothing not on screen is reset. */
+function saveRow(kind, row, change, okMsg) {
+    const r = { ...row, ...change };
+    return kind === 'dept'
+        ? deptRpc('save_department', { p_id: r.id ?? null, p_name: r.name, p_team_node_id: r.team_node_id || null,
+            p_active: r.active !== false, p_sort_order: r.sort_order ?? null }, okMsg)
+        : deptRpc('save_sub_department', { p_id: r.id ?? null, p_department_id: r.department_id, p_name: r.name,
+            p_team_node_id: r.team_node_id || null, p_active: r.active !== false, p_sort_order: r.sort_order ?? null }, okMsg);
+}
+
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest?.('#depts-list [data-act]');
+    if (!btn) return;
+    const wrap = btn.closest('[data-kind]');
+    const kind = wrap.dataset.kind;
+    const id = Number(wrap.dataset.id);
+    const list = kind === 'dept' ? deptCatalog.departments : deptCatalog.sub_departments;
+    const row = list.find((x) => x.id === id);
+    if (!row) return;
+    const act = btn.dataset.act;
+    if (act === 'add-sub') {
+        return void openNodePicker({
+            title: `เพิ่มฝ่ายย่อยของ “${row.name}”`, suggestUnder: row.team_node_id,
+            onPick: (n) => saveRow('sub', { id: null, department_id: row.id, active: true }, { name: n.name, team_node_id: n.id },
+                `เพิ่ม “${n.name}” เป็นฝ่ายย่อยของ ${row.name} แล้ว`),
+        });
+    }
+    if (act === 'save') {
+        const name = wrap.querySelector(':scope > .dept-row .dept-name').value.trim();
+        if (!name || name === row.name) return void deptStatus(name ? 'ชื่อไม่ได้เปลี่ยน' : 'ใส่ชื่อก่อนบันทึก', name ? '' : 'error');
+        return void saveRow(kind, row, { name }, `เปลี่ยนชื่อเป็น “${name}” แล้ว — แสดงในทุกกิจกรรมและคะแนนของฝ่ายนี้`);
+    }
+    if (act === 'up' || act === 'down') {
+        const sibs = kind === 'dept' ? list : list.filter((x) => x.department_id === row.department_id);
+        const i = sibs.indexOf(row);
+        const other = sibs[act === 'up' ? i - 1 : i + 1];
+        if (!other) return;
+        // Swap; equal sort values (old rows) get distinct ones first.
+        const a = row.sort_order ?? 0; const b = other.sort_order ?? 0;
+        const [na, nb] = a === b ? (act === 'up' ? [b - 1, a] : [b + 1, a]) : [b, a];
+        if (!await saveRow(kind, other, { sort_order: nb }, '')) return;
+        const fresh = (kind === 'dept' ? deptCatalog.departments : deptCatalog.sub_departments).find((x) => x.id === id);
+        return void saveRow(kind, fresh, { sort_order: na }, 'เรียงลำดับแล้ว');
+    }
+    if (act === 'link') {
+        return void openNodePicker({
+            title: `ผูก “${row.name}” กับ ทีม SAMO`,
+            suggestUnder: kind === 'sub' ? deptCatalog.departments.find((d) => d.id === row.department_id)?.team_node_id : null,
+            onPick: (n) => saveRow(kind, row, { team_node_id: n.id }, `ผูก “${row.name}” กับ ${n.name} แล้ว — ชื่อที่แสดงไม่เปลี่ยน`),
+        });
+    }
+    if (act === 'toggle') {
+        const hide = row.active !== false;
+        if (hide && !confirm(`ซ่อน “${row.name}”?\n\nจะไม่มีให้เลือกตอนสร้างกิจกรรมใหม่ กิจกรรมและคะแนนเดิมยังแสดงชื่อนี้ตามปกติ`)) return;
+        return void saveRow(kind, row, { active: !hide }, hide ? `ซ่อน “${row.name}” แล้ว` : `แสดง “${row.name}” อีกครั้งแล้ว`);
+    }
+    if (act === 'delete') {
+        if (!confirm(`ลบ “${row.name}” ถาวร?\n\nยังไม่มีกิจกรรม คะแนน หรือสิทธิ์ใดใช้รายการนี้`)) return;
+        return void deptRpc('delete_department', { p_kind: kind === 'dept' ? 'department' : 'sub_department', p_id: id }, `ลบ “${row.name}” แล้ว`);
+    }
+    return undefined;
+});
+
+window.addDeptFromTeam = () => {
+    if (!deptCatalog) return;
+    openNodePicker({
+        title: 'เพิ่มฝ่ายจาก ทีม SAMO',
+        onPick: (n) => saveRow('dept', { id: null, active: true }, { name: n.name, team_node_id: n.id },
+            `เพิ่มฝ่าย “${n.name}” แล้ว — เลือกได้ตอนสร้างกิจกรรมทันที`),
+    });
+};
+
+// ── the ทีม SAMO picker ────────────────────────────────────────────────────
+function openNodePicker({ title, suggestUnder = null, onPick }) {
+    nodePick = { onPick, suggestUnder };
+    document.getElementById('node-picker-title').textContent = title;
+    const q = document.getElementById('node-picker-q');
+    q.value = '';
+    document.getElementById('node-picker').style.display = 'flex';
+    renderNodePicker();
+    q.focus();
+}
+window.closeNodePicker = closeNodePicker;
+function closeNodePicker() {
+    nodePick = null;
+    const el = document.getElementById('node-picker');
+    if (el) el.style.display = 'none';
+}
+
+function isUnder(id, rootId) {
+    for (let n = nodeById(id), guard = 0; n && guard < 12; n = nodeById(n.parent_id), guard += 1) {
+        if (n.parent_id === rootId) return true;
+    }
+    return false;
+}
+
+function renderNodePicker() {
+    if (!nodePick || !deptCatalog) return;
+    const q = document.getElementById('node-picker-q').value.trim().toLowerCase();
+    const used = new Set([...(deptCatalog.departments || []), ...(deptCatalog.sub_departments || [])]
+        .map((x) => x.team_node_id).filter(Boolean));
+    const root = nodePick.suggestUnder;
+    let nodes = (deptCatalog.tree || []).filter((n) => !q || n.name.toLowerCase().includes(q) || nodePath(n.id).toLowerCase().includes(q));
+    // What is most likely wanted first: under the ฝ่าย being filled, then ฝ่าย
+    // (divisions) before ตำแหน่ง (roles), then shallow before deep.
+    const depth = (id) => nodePath(id).split(' › ').length;
+    nodes = nodes
+        .map((n) => ({ n, under: root ? isUnder(n.id, root) : false, div: n.kind === 'division' }))
+        .sort((a, b) => (b.under - a.under) || (b.div - a.div) || (depth(a.n.id) - depth(b.n.id)))
+        .slice(0, 60);
+    const list = document.getElementById('node-picker-list');
+    list.innerHTML = nodes.length ? nodes.map(({ n, under }) => `
+        <button type="button" class="node-pick${used.has(n.id) ? ' is-used' : ''}" data-node="${n.id}">
+          <span class="node-pick-name">${escapeHtml(n.name)}</span>
+          <span class="node-pick-path">${escapeHtml(nodePath(n.id))}${n.kind === 'division' ? ' · ฝ่าย' : ' · ตำแหน่ง'}${under ? ' · อยู่ใต้ฝ่ายนี้' : ''}${used.has(n.id) ? ' · ใช้แล้วใน Passport' : ''}</span>
+        </button>`).join('')
+        : '<p class="node-pick-empty">ไม่พบใน ทีม SAMO — ถ้ายังไม่มี ให้เพิ่มในผัง ทีม SAMO ก่อน</p>';
+}
+
+document.addEventListener('input', (e) => { if (e.target.id === 'node-picker-q') renderNodePicker(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && nodePick) closeNodePicker(); });
+document.addEventListener('click', (e) => {
+    const b = e.target.closest?.('#node-picker-list [data-node]');
+    if (!b || !nodePick) return;
+    const n = nodeById(b.dataset.node);
+    const { onPick } = nodePick;
+    closeNodePicker();
+    if (n) onPick(n);
+});
+
 // Danger zone: wipe all app content (keeps user accounts). Double-gated.
 window.cleanAllData = async () => {
     if (!assertOrgWide('การล้างข้อมูลทั้งหมด')) return;
@@ -1803,7 +2103,8 @@ function populateLbDepartments() {
     const sel = document.getElementById('lb-department');
     if (sel.options.length) return;
     const allowed = allowedDeptIds(adminScope); // null = every department
-    const entries = Object.entries(DEPARTMENTS)
+    const entries = deptChoices({ includeHidden: true })
+        .map((d) => [String(d.id), escapeHtml(d.name)])
         .filter(([id]) => !allowed || allowed.includes(parseInt(id, 10)));
     // "All departments" means "everything you administer" — for a scoped admin
     // that is their own ฝ่าย, not the org total, so drop the option when it
@@ -1897,10 +2198,10 @@ function populateLbSeasonsForYear() {
 function onLbDeptChange() {
     const dept = document.getElementById('lb-department').value;
     const subSel = document.getElementById('lb-subdepartment');
-    const options = SUB_DEPT_OPTIONS[dept];
-    if (options) {
+    const options = dept ? subChoices(dept, { includeHidden: true }) : [];
+    if (options.length) {
         subSel.innerHTML = '<option value="">All sub-departments</option>' +
-            options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+            options.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
         subSel.style.display = '';
     } else {
         subSel.innerHTML = '';

@@ -99,19 +99,10 @@
 
           <select id="act-department">
             <option value="">เลือกฝ่ายอุปนายก (Optional)</option>
-            <option value="1">บริหารองค์กร</option>
-            <option value="2">ดิจิทัลและสื่อสารองค์กร</option>
-            <option value="3">กิจการภายใน</option>
-            <option value="4">กิจการภายนอก</option>
-            <option value="5">กิจการมหาวิทยาลัย</option>
-            <option value="6">วิชาการ</option>
-            <option value="7">ยุทธศาสตร์และพัฒนาองค์กร</option>
-            <option value="8">คุณภาพชีวิตและสิ่งแวดล้อม</option>
-            <option value="9">เวชนิทัศน์</option>
-            <option value="10">รังสีเทคนิค</option>
+            <!-- options: js/depts.js, from the database (0247) — never typed here -->
           </select><br />
           
-          <!-- ตัวเลือกย่อย (ซ่อนอยู่และจะแสดงเมื่อเลือก ฝ่ายกิจการภายใน หรือ กิจการมหาวิทยาลัย) -->
+          <!-- ฝ่ายย่อย: shown when the chosen ฝ่าย has any (js/depts.js, 0247) -->
           <select id="act-sub-department" style="display: none;">
             <option value="">เลือกประเภทฝ่ายย่อย</option>
           </select><br />
@@ -138,16 +129,7 @@
 
           <select id="edit-department">
             <option value="">เลือกฝ่ายอุปนายก (Optional)</option>
-            <option value="1">บริหารองค์กร</option>
-            <option value="2">ดิจิทัลและสื่อสารองค์กร</option>
-            <option value="3">กิจการภายใน</option>
-            <option value="4">กิจการภายนอก</option>
-            <option value="5">กิจการมหาวิทยาลัย</option>
-            <option value="6">วิชาการ</option>
-            <option value="7">ยุทธศาสตร์และพัฒนาองค์กร</option>
-            <option value="8">คุณภาพชีวิตและสิ่งแวดล้อม</option>
-            <option value="9">เวชนิทัศน์</option>
-            <option value="10">รังสีเทคนิค</option>
+            <!-- options: js/depts.js, from the database (0247) — never typed here -->
           </select><br />
           
           <!-- ตัวเลือกย่อยฟอร์มแก้ไข -->
@@ -176,20 +158,12 @@
         <div>
           <h3>Manage Existing Activities</h3>
           <button type="button" onclick="openLeaderboard()" class="btn-action" style="width:auto;margin-bottom:12px;">🏆 View Leaderboard</button>
-          <button type="button" onclick="openSeasons()" class="btn-action" style="width:auto;margin-bottom:12px;">📅 Manage Seasons</button><br />
+          <button type="button" onclick="openSeasons()" class="btn-action" style="width:auto;margin-bottom:12px;">📅 Manage Seasons</button>
+          <button type="button" onclick="openDepts()" class="btn-action" style="width:auto;margin-bottom:12px;">🗂 จัดการรายชื่อฝ่าย</button><br />
           <input type="search" id="search-activity" placeholder="🔍 Search activities by name…" /><br />
           <select id="filter-department">
             <option value="">Filter by Department</option>
-            <option value="1">บริหารองค์กร</option>
-            <option value="2">ดิจิทัลและสื่อสารองค์กร</option>
-            <option value="3">กิจการภายใน</option>
-            <option value="4">กิจการภายนอก</option>
-            <option value="5">กิจการมหาวิทยาลัย</option>
-            <option value="6">วิชาการ</option>
-            <option value="7">ยุทธศาสตร์และพัฒนาองค์กร</option>
-            <option value="8">คุณภาพชีวิตและสิ่งแวดล้อม</option>
-            <option value="9">เวชนิทัศน์</option>
-            <option value="10">รังสีเทคนิค</option>
+            <!-- options: js/depts.js, from the database (0247) — never typed here -->
           </select><br />
           
           <!-- ตัวเลือกย่อยฟอร์มแก้ไข -->
@@ -302,6 +276,29 @@
           <button type="button" id="lb-csv-btn" class="btn-action" style="width:auto;">⬇️ Download CSV</button>
         </div>
         <div id="leaderboard-table"></div>
+      </div>
+
+      <!-- 0247: Passport's own ฝ่าย list, picked from ทีม SAMO. Org-wide admins. -->
+      <div id="depts-section" style="display: none;">
+        <button type="button" onclick="closeDepts()" class="btn-cancel-edit" style="margin-bottom: 15px;">← Back to
+          activities</button>
+        <h3>🗂 รายชื่อฝ่ายของ SAMO Passport</h3>
+        <small style="color: var(--text-muted); display: block; margin-bottom: 14px;">ฝ่ายและฝ่ายย่อยที่เลือกได้ตอนสร้างกิจกรรม
+          และใช้กรองตารางคะแนน เพิ่มโดยเลือกจาก ทีม SAMO แล้วตั้งชื่อที่จะแสดงได้ ·
+          ฝ่ายที่มีกิจกรรมแล้ว “ซ่อน” ได้แต่ลบไม่ได้ — ชื่อยังแสดงในกิจกรรมและคะแนนเดิม</small>
+        <div id="depts-status" class="depts-status" role="status" aria-live="polite"></div>
+        <div id="depts-list"></div>
+        <button type="button" class="btn-action" style="width:auto;" onclick="addDeptFromTeam()">＋ เพิ่มฝ่ายจาก ทีม SAMO</button>
+        <div id="node-picker" class="node-picker" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="node-picker-title">
+          <div class="node-picker-box">
+            <div class="node-picker-head">
+              <strong id="node-picker-title">เลือกจาก ทีม SAMO</strong>
+              <button type="button" class="node-picker-x" onclick="closeNodePicker()" aria-label="ปิด">×</button>
+            </div>
+            <input type="search" id="node-picker-q" placeholder="🔍 พิมพ์ชื่อฝ่ายหรือตำแหน่ง…" autocomplete="off" />
+            <div id="node-picker-list" class="node-picker-list"></div>
+          </div>
+        </div>
       </div>
 
       <div id="seasons-section" style="display: none;">

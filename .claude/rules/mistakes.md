@@ -404,6 +404,6 @@ class; tighten this paragraph first.
 - `integrations.md` *(37)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(82)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
-- `passport.md` *(42)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
+- `passport.md` *(44)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

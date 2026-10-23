@@ -1,0 +1,52 @@
+/* รายชื่อฝ่าย (0247) — Passport's ฝ่าย list, picked from ทีม SAMO */
+.depts-status { min-height: 1.2em; font-size: 0.82rem; margin-bottom: 10px; color: var(--text-muted); }
+.depts-status.is-ok { color: var(--accent-success, #16a34a); }
+.depts-status.is-error { color: var(--accent-danger); }
+
+.dept-card {
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid var(--glass-border, rgba(0, 0, 0, 0.08));
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
+}
+.dept-sub {
+    border-left: 2px solid var(--glass-border, rgba(0, 0, 0, 0.1));
+    padding: 8px 0 8px 12px; margin-left: 6px;
+}
+.dept-card.is-hidden > .dept-row, .dept-sub.is-hidden > .dept-row { opacity: 0.55; }
+.dept-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.dept-row .dept-name { flex: 1 1 14rem; min-width: 0; margin: 0; font-weight: 700; }
+.dept-sub .dept-name { font-weight: 600; }
+.dept-meta { flex: 1 1 16rem; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dept-link { font-size: 0.76rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.dept-link.is-unlinked { color: #8a5a00; }
+.dept-usage { font-size: 0.72rem; color: var(--text-muted); }
+.dept-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dept-actions .btn-action { flex: 0 0 auto; width: auto; padding: 6px 10px; }
+.dept-subs { margin-top: 8px; }
+.dept-add-sub { width: auto; flex-grow: 0; margin: 6px 0 0 18px; padding: 6px 10px; }
+
+/* the ทีม SAMO picker */
+.node-picker {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 6vh 16px 16px; background: rgba(15, 23, 42, 0.35);
+}
+.node-picker-box {
+    width: min(560px, 100%); max-height: 80vh; display: flex; flex-direction: column; gap: 10px;
+    background: var(--bg-card, #fff); border-radius: 14px; padding: 14px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+.node-picker-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.node-picker-x { width: auto; padding: 2px 10px; font-size: 1.2rem; line-height: 1; background: transparent; color: var(--text-muted); box-shadow: none; }
+.node-picker-box input { margin: 0; }
+.node-picker-list { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.node-pick {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+    width: 100%; padding: 8px 10px; border-radius: 8px;
+    background: rgba(148, 163, 184, 0.08); color: inherit; box-shadow: none;
+}
+.node-pick:hover, .node-pick:focus-visible { background: color-mix(in srgb, var(--accent-primary) 12%, transparent); }
+.node-pick.is-used { opacity: 0.6; }
+.node-pick-name { font-weight: 600; font-size: 0.9rem; }
+.node-pick-path { font-size: 0.72rem; color: var(--text-muted); }
+.node-pick-empty { font-size: 0.85rem; color: var(--text-muted); }

@@ -2177,19 +2177,23 @@ function fillPassDeptSelect(sel) {
   const prev = sel.value;
   sel.innerHTML = '<option value="">— เลือกขอบเขต —</option>'
     + `<option value="${PASS_SCOPE_ALL}">ทุกฝ่าย (ดูแลทั้งระบบ)</option>`
-    + passportDepts.map((d) => `<option value="${escHtml(String(d.id))}">${escHtml(d.name)}</option>`).join('');
+    // A ฝ่าย Passport has HIDDEN (0247) stays listed, marked: a grant that
+    // already names it is re-selected by value after this fill, and dropping
+    // the option would silently erase that grant on the next save.
+    + passportDepts.map((d) => `<option value="${escHtml(String(d.id))}">${escHtml(d.name)}${d.active === false ? ' (ซ่อนใน Passport)' : ''}</option>`).join('');
   if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
 }
 
-/** Sub-department select — only rendered for departments that HAVE children
- *  (2 of 10 today), so the common case stays a single dropdown. */
+/** Sub-department select — only rendered for departments that HAVE children,
+ *  so the common case stays a single dropdown. The list is Passport's own,
+ *  managed in Passport admin → จัดการรายชื่อฝ่าย (0247). */
 function fillPassSubSelect(sel, deptId) {
   if (!sel) return;
   const kids = passportSubs.filter((x) => String(x.department_id) === String(deptId));
   if (!kids.length) { sel.innerHTML = ''; sel.classList.add('d-none'); return; }
   const prev = sel.value;
   sel.innerHTML = '<option value="">ทั้งฝ่าย (ทุกแผนกย่อย)</option>'
-    + kids.map((x) => `<option value="${escHtml(String(x.id))}">เฉพาะ ${escHtml(x.name)}</option>`).join('');
+    + kids.map((x) => `<option value="${escHtml(String(x.id))}">เฉพาะ ${escHtml(x.name)}${x.active === false ? ' (ซ่อนใน Passport)' : ''}</option>`).join('');
   if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
   sel.classList.remove('d-none');
 }

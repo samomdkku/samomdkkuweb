@@ -2496,3 +2496,15 @@ What shipped: `src/js/rest-pages.js` (`pagedFetch` on every client), both leader
 
 **e. `npm run dev` could not load Passport through :5174 — Status: VERIFIED fixed.** The portal's SPA fallback answered `/passport/@vite/client` with its own HTML (`docs/mistakes/tooling-proofs.md`). Anyone who judged Passport in dev before 2026-10-23 saw a page that could not load its client.
 
+## 30. Passport's ฝ่าย list is admin-managed, picked from ทีม SAMO; moving an activity moves its points (2026-10-23)
+
+**Status: VERIFIED 2026-10-23 — how: production full `npm run proofs` 73/80 (the same 7 red as §27); `passport0247-departments.sql` 25/25 + `passport0246-move-points.sql` 16/16 (and 0245 47/47, 0180 6/6, pass-hardening 54/54 after both); mutation-tested (`after update OF season_id` → cases 24 + 30 red; both org-wide gates removed → 7 cases red — ONE removed stays green because `save_department` returns the gated catalog, a deliberate double gate); `tools/browser/passport-depts.mjs` 13/13 on samo-dev (the real add-from-ทีม SAMO flow, cleaned up after).**
+
+What shipped: 0246 (moving an activity's quarter moves its points: open quarter = any admin; closed = org-wide only, QR stops; not started = refused once scanned); 0247 (the ฝ่าย tables are THE list; admin screen; one loader `passport/js/depts.js`; four hand-typed copies removed). On production, through the RPC as an org-wide admin: **ฝ่าย #11 รพ. ร่วมผลิต**, ฝ่ายย่อย **#5 รพ. ขอนแก่น · #6 รพ. มหาสารคาม · #7 รพ. อุดรธานี**, all linked to their ทีม SAMO nodes.
+
+**a. The ฝ่ายย่อย โครงการ · ชุมนุม · จิตอาสา · 7 คณะ are not linked to ทีม SAMO — Status: OWED (an admin, one click each).** Their names match several nodes, so the backfill did not guess. Passport admin → จัดการรายชื่อฝ่าย → "ผูกกับ ทีม SAMO".
+
+**b. PR form, next — Status: DECIDED (owner), not started.** Owner: PR gets the same admin-configured ฝ่าย list picked from ทีม SAMO; **โครงการอื่นๆ (Projects) stays an exception** (different workflow); the form should DEFAULT to the ฝ่าย the signed-in kkumail filled in. ⚠️ `pr_tickets.department` is FREE TEXT and the stored strings are the values (`pr-depts.js`, `DEPT_ALIASES`) — renaming a label orphans history unless the new list keeps a stable key. PR's ฝ่าย reaches Discord as message TEXT only (no routing).
+
+**c. VitalSound, after — Status: DECIDED (owner: "would need more care"), not started.** VS routes each ticket to a Discord webhook by ฝ่าย (`vs_tickets.target_dept`, `requested_dept`, `VS_DEPTS`, 12 webhooks on the VM). A configurable list there must keep the ROUTING key separate from the label and refuse to hide a ฝ่าย that still has a webhook or open tickets.
+

@@ -650,3 +650,60 @@ and after.
 **The general rule**: if correctness depends on a person acting on a DATE, make
 the date the data and let the write path apply it — and stamp what it creates
 with the date, not with the moment somebody first noticed.
+
+---
+
+## Passport's ฝ่าย list existed FOUR times — adding "ฝ่าย รพ. ร่วมผลิต" would have been a code change in four files
+
+**Symptom** (asked 2026-10-23): the client wanted "ฝ่าย รพ. ร่วมผลิต: รพ. ขอนแก่น,
+รพ. มหาสารคาม, รพ. อุดรธานี" in Passport's เลือกฝ่าย. There was no way for an
+admin to do it.
+
+**Cause**: the ten ฝ่าย and four ฝ่ายย่อย were the `passport.departments` /
+`sub_departments` tables AND `js/constants.js` AND four hand-typed `<select>`s
+in `html/admin.html` AND `SUB_DEPT_OPTIONS` in `admin-page.js`. The copies
+already disagreed — the table said "อุปนายกฝ่ายบริหารองค์กร", the pages
+"บริหารองค์กร" — and ทีม SAMO's Passport-scope picker read the TABLE, so the two
+sides of one grant named the same ฝ่าย differently (class 6: a hand-written list
+beside a shared one).
+
+**Fix** (0247): the tables are THE list, managed by org-wide Passport admins in
+Passport admin → จัดการรายชื่อฝ่าย, picked from ทีม SAMO (owner: "a universal
+lists of ฝ่าย that every system can pull … This'd be the teamsamo"). Each row
+keeps its id for ever (it is on activities, scans and ทีม SAMO grants), links to
+a ทีม SAMO node, carries Passport's own label, and is HIDDEN rather than deleted
+once used. `js/depts.js` is the one loader; `constants.js` exports the maps
+empty. รพ. ร่วมผลิต went in through the new RPC as #11 with ฝ่ายย่อย #5–#7.
+
+**Where it lives now**: `supabase/migrations/0247_*`; `passport/js/depts.js`;
+guard `src/js/passport-depts.test.js` (no ฝ่าย name as data in any passport
+script, no hand-typed `<option>`, the catalog loads before any page renders a
+ฝ่าย); proof `tools/passport0247-departments.sql`; browser
+`tools/browser/passport-depts.mjs`.
+
+**The general rule**: a list a person will want to change is DATA with an admin
+screen, not code — and the page that edits it and every page that reads it go
+through ONE loader.
+
+---
+
+## An activity's quarter could be changed by a console write, leaving its points behind — the rule lived in the admin page only
+
+**Symptom** (found 2026-10-23 answering "if admin config activity point to go in
+Q2, people scan at Q2, then admin change it to Q3, what'll happen"): the edit
+form disabled the quarter once anyone had scanned, but `passport.activities`
+accepted the UPDATE — and the scans stayed in the old quarter, breaking 0245's
+invariant that every scan sits in its activity's quarter.
+
+**Fix** (0246, owner's call on the recommendation they asked for): moving an
+activity MOVES its points. To the open quarter — any admin; back to a closed
+quarter — org-wide admins only (it rewrites a finished leaderboard; the QR
+stops); to a quarter not started — refused once anyone scanned. Enforced in the
+trigger. The AFTER trigger that moves the scans is `after update`, not
+`after update OF season_id`: a client that sets only `quarter` gets its
+season_id from the BEFORE trigger, which an `UPDATE OF` trigger never sees —
+`passport0246-move-points.sql` case 24 goes red with the `OF` form.
+
+**The general rule**: a rule the PAGE enforces is a suggestion; put it where the
+write lands. And `UPDATE OF col` means "the statement named col", not "col
+changed".
