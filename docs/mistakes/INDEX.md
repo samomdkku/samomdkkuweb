@@ -479,7 +479,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run proofs` checked nothing for two days
 - Passport's admin page showed its sign-in card to a signed-in master under `npm run dev`
 
-## `passport.md` — The Passport app's own write-ups *(44)*
+## `passport.md` — The Passport app's own write-ups *(45)*
 
 Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
@@ -527,5 +527,6 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Nobody pressed "New Season" on 1 ก.ย.
 - Passport's ฝ่าย list existed FOUR times
 - An activity's quarter could be changed by a console write, leaving its points behind
+- Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_466 entries across 10 files._
+_467 entries across 10 files._

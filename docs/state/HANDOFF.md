@@ -2508,3 +2508,11 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 
 **c. VitalSound, after — Status: DECIDED (owner: "would need more care"), not started.** VS routes each ticket to a Discord webhook by ฝ่าย (`vs_tickets.target_dept`, `requested_dept`, `VS_DEPTS`, 12 webhooks on the VM). A configurable list there must keep the ROUTING key separate from the label and refuse to hide a ฝ่าย that still has a webhook or open tickets.
 
+## 31. ONE year system — 1 มี.ค. starts the ปี SAMO and the Passport วาระสโม together (2026-10-23)
+
+**Status: VERIFIED 2026-10-23 — how: `tools/year0248-one-year-system.sql` 19/19 on production AND samo-dev (red with the ปี SAMO step removed from the rollover, and with the apply-first line removed from the stamping trigger); year0242, team0224, pr0220, shop0230, passport0245/0246 all still green on production; `tools/browser/year-page.mjs` 27/27 on samo-dev.** Production after 0248: ปี SAMO 2569 current, Passport "MDKKU SAMO'69" bridged to 2569 (was unbridged).
+
+**a. The first automatic switch is 1 มี.ค. 2570 00:00 — Status: OWED (check that day).** Expected the first time anything touches the database that day: `current_samo_year()` = 2570, `team_terms` 2569 ended and 2570 started at exactly 2027-02-28 17:00 UTC, 2569 archived (`published_at` set) if it was not already, Passport "MDKKU SAMO'70" open, bridged 2570, season Q1. ⚠️ The team archive is taken AT THAT MOMENT from the live tree — if the tree was already edited to the new team without pressing step 1 first, the 2569 archive is the new team (the page warns; the auto switch makes the date fixed, not the risk new).
+
+**b. The public ทีม SAMO page between 1 มี.ค. and the real handover — Status: HYPOTHESIS (worth a look in March).** It labels the LIVE tree with the current year, so if the new team takes office after 1 มี.ค., the old team shows as "ทีมปี 2570" until the tree is edited. Not changed here — the owner chose 1 มี.ค. as the year boundary; raise it only if it confuses someone.
+

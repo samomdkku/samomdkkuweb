@@ -707,3 +707,31 @@ season_id from the BEFORE trigger, which an `UPDATE OF` trigger never sees —
 **The general rule**: a rule the PAGE enforces is a suggestion; put it where the
 write lands. And `UPDATE OF col` means "the statement named col", not "col
 changed".
+
+---
+
+## Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
+
+**Symptom** (owner, 2026-10-23, reading /admin/#years): "will the ปี SAMO
+ปัจจุบัน 2569 sync with the วาระสโม · Passport MDKKU SAMO'69 … ยังไม่ได้ผูกกับปี
+SAMO". It would not: 0245 made Passport's Q1 open a new วาระ by itself, but the
+ปี SAMO (team_terms) moved only on a button press, and the open วาระ was not
+even bridged to its ปี SAMO.
+
+**Cause**: one fact — "which year is it for SAMO" — had two clocks, and the
+automatic one was added to only one of them (class 6, two implementations of
+one rule).
+
+**Fix** (0248): Q1 IS the ปี SAMO's start; the rollover moves both in one act,
+from every write that files work by year. `start_team_term` / `publish_team_term`
+were split into a permission check over one body so the automatic switch can
+run as anybody (a student's scan, a guest PR) without a second copy of the
+body. The status the page shows says only what WILL happen (the switch is
+forward-only — samo-dev's ปี SAMO 2571 would otherwise have been told "becomes
+2570 on 1 มี.ค.").
+
+**Where it lives now**: `supabase/migrations/0248_*`; proof
+`tools/year0248-one-year-system.sql`; INVARIANTS "ONE year system".
+
+**The general rule**: when one fact has two clocks, automating ONE of them makes
+them disagree on a schedule — unify the clock, then automate it.

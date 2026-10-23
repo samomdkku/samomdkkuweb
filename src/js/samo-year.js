@@ -105,6 +105,12 @@ export const SAMO_YEAR_CHANGED = 'samo-year-changed';
  *  Granted to anon, so any signed-in page may ask. Null on any failure. */
 export async function fetchCurrentSamoYear() {
   try {
+    // 0248: 1 มี.ค. starts the ปี SAMO by itself, applied by whatever reaches
+    // the database first. Ask season_status first so the chip cannot show
+    // yesterday's year on the morning of the switch. Signed out it refuses —
+    // ignored; the read below still answers.
+    await dbRest('/rpc/season_status', { method: 'POST', body: {}, headers: { 'Content-Profile': 'passport' } })
+      .catch(() => null);
     const { data, error } = await dbRest('/rpc/current_samo_year', { method: 'POST', body: {} });
     return !error && data != null ? Number(data) : null;
   } catch {

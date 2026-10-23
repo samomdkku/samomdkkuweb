@@ -132,6 +132,7 @@ function overviewHtml(st) {
           : 'ยังไม่มีปีที่เป็นปีปัจจุบัน งานใหม่จะยังไม่ถูกนับเข้าปีใด — เริ่มปีที่ขั้นที่ 3 ด้านล่าง'}</p>
         ${c ? `<div class="sy-hero-meta">
           ${thDate(c.started_at) ? `<span><i class="bi bi-flag"></i> เริ่ม ${escHtml(thDate(c.started_at))}</span>` : ''}
+          ${nextYearHtml()}
           <span class="${st.published ? 'is-ok' : 'is-todo'}">
             <i class="bi ${st.published ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
             ${st.published ? `บันทึกทีมปีนี้แล้ว · ${escHtml(thDate(c.published_at))}` : 'ยังไม่ได้บันทึกทีมปีนี้เป็นประวัติ'}
@@ -164,6 +165,17 @@ function overviewHtml(st) {
         </li>
       </ul>
     </section>`;
+}
+
+/** When the ปี SAMO changes BY ITSELF (0248): Q1 of the Passport schedule is
+ *  the start of the ปี SAMO for every system, and Passport's วาระ moves with it. */
+function nextYearHtml() {
+  const st = passport?.status;
+  const nx = st?.next_samo_year;
+  if (!st) return '';
+  if (!st.auto) return '<span><i class="bi bi-pause-circle"></i> ปิดการเปลี่ยนปีอัตโนมัติอยู่</span>';
+  if (!nx) return '';   // already at or past next year's — the switch is forward-only
+  return `<span class="is-ok"><i class="bi bi-arrow-repeat"></i> เป็นปี SAMO ${escHtml(yr(nx.year))} อัตโนมัติ ${escHtml(thDateTime(nx.at))} พร้อมวาระสโมของ Passport</span>`;
 }
 
 function step(n, state, title, body) {
@@ -237,7 +249,9 @@ function samoHtml(st) {
     ${st.editing ? '<div class="sy-step-note"><i class="bi bi-pencil"></i> เริ่มแก้ผังแล้ว</div>' : ''}`;
 
   const s3Body = `
-    <p class="sy-step-text">ทำในวันที่ทีมใหม่รับตำแหน่ง${!st.published && c
+    <p class="sy-step-text">ทำในวันที่ทีมใหม่รับตำแหน่ง${passport?.status?.next_samo_year
+      ? ` — ถ้าไม่ได้กด ระบบเริ่มปี SAMO ${escHtml(yr(passport.status.next_samo_year.year))} ให้เอง ${escHtml(thDate(passport.status.next_samo_year.at))} (วันเริ่ม Q1) และบันทึกผังตอนนั้นเป็นทีมปีเดิมให้`
+      : ''}${!st.published && c
       ? `<span class="sy-warn"><i class="bi bi-exclamation-triangle"></i> ยังไม่ได้ทำขั้นที่ 1 — ถ้าเริ่มตอนนี้ ผังตอนนี้จะถูกบันทึกเป็นทีมปี SAMO ${escHtml(yr(cy))}</span>` : ''}</p>
     <div class="sy-start">
       <label class="sy-field sy-field--year"><span>ปี SAMO ใหม่</span>

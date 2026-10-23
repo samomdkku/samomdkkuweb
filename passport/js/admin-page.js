@@ -1677,7 +1677,7 @@ function renderSchedule() {
         `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${n}</option>`).join('');
     const rows = (st.quarters || []).map((q) => `
         <div class="sched-row" data-q="${q.quarter}">
-          <span class="sched-q">Q${q.quarter}${q.quarter === 1 ? ' <small>(วาระสโมใหม่)</small>' : ''}</span>
+          <span class="sched-q">Q${q.quarter}${q.quarter === 1 ? ' <small>(ปี SAMO + วาระสโมใหม่)</small>' : ''}</span>
           <label>วันที่ <input type="number" class="sched-day" min="1" max="31" value="${q.day}" /></label>
           <label>เดือน <select class="sched-month">${monthOpts(q.month)}</select></label>
           <label>เวลา <input type="time" class="sched-time" value="${escapeHtml(q.time)}" /></label>
@@ -1687,7 +1687,8 @@ function renderSchedule() {
         <label class="sched-auto"><input type="checkbox" id="sched-auto" ${st.auto ? 'checked' : ''} />
           เปลี่ยน Quarter และวาระสโมให้อัตโนมัติตามวันด้านล่าง (เวลาประเทศไทย)</label>
         ${rows}
-        <small class="sched-note">แต่ละ Quarter เริ่มวันที่ตั้งไว้และจบเมื่อ Quarter ถัดไปเริ่ม · Q1 เปิดวาระสโมใหม่
+        <small class="sched-note">แต่ละ Quarter เริ่มวันที่ตั้งไว้และจบเมื่อ Quarter ถัดไปเริ่ม · Q1 คือวันเริ่มปี SAMO ของทุกระบบ
+          (PR, VitalSound, หนังสือโครงการ, SAMO Shop) และเปิดวาระสโมใหม่ — แก้ Q1 หรือปิดการเปลี่ยนอัตโนมัติต้องมีสิทธิ์แก้ไขทีม SAMO ด้วย
           · บันทึกแล้วจะไม่เปลี่ยน Quarter ตอนนี้ทันที — มีผลครั้งถัดไปที่ถึงวันเริ่ม</small>
         <button type="button" class="btn-action" onclick="saveSchedule()">บันทึกวันเปลี่ยน Quarter</button>
       </div>`;

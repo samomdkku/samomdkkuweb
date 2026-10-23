@@ -890,3 +890,26 @@ teamsamo"). Every page reads it through `passport/js/depts.js`; never type a
   samopassport first"). VitalSound ROUTES Discord webhooks by its ฝ่าย, so its
   version must keep the routing key stable — HANDOFF §30.
 
+## ONE year system: Q1 starts the ปี SAMO AND the Passport วาระสโม
+
+Since 0248 (owner, 2026-10-23: "at มีนาคม it should be ปี SAMO 2570
+automatically. it should use the same year system for both"), the Q1 start in
+`passport.season_schedule` (default 1 มี.ค. 00:00 Asia/Bangkok) is the start of
+the ปี SAMO for EVERY system — PR, VitalSound, หนังสือโครงการ, SAMO Shop, the
+ทีม SAMO archive — and of Passport's วาระสโม, in ONE act
+(`apply_season_schedule`), stamped with the boundary.
+- It runs first in every write that files work by year (`samo_year_be_default`,
+  `stamp_scan`, activity inserts) and in `season_status` (pages, the chip). ⛔
+  Never add a writer that stamps a ปี SAMO without going through
+  `current_samo_year()` inside that trigger.
+- Forward only; a ปี SAMO started by hand ahead of the date is never switched
+  again; the button still starts early or goes back, and the automatic step
+  never undoes it before the next Q1.
+- `start_team_term` / `publish_team_term` are a permission check over ONE body
+  each (`_start_team_term` / `_publish_team_term`, definer-only). The automatic
+  switch calls the body — never copy it.
+- Moving Q1 or switching the automatic change off takes ทีม SAMO edit rights as
+  well as org-wide Passport (it moves every system's year).
+- ปีการศึกษา is still a SEPARATE value with its own cutoff (0244) — the faculty's
+  year is not the team's.
+

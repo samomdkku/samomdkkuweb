@@ -157,6 +157,11 @@ insert into probe select '45. refusals wrote no scan', '0',
      (select id from passport.activities where static_token in ('proof-0245-2', 'proof-0245-b2')));
 
 -- ── §E who may move a quarter ───────────────────────────────────────────────
+-- Auto back ON, so the schedule saves below change Q3 only. (§D froze it; the
+-- boundary is acknowledged to 1 มี.ค. 2027 by §C, so real now() rolls nothing.)
+-- Switching auto or Q1 needs ทีม SAMO rights too since 0248 —
+-- year0248-one-year-system.sql proves that half.
+update passport.season_schedule set auto = true where id;
 create temporary table subj on commit drop as
   select id, email from public.users where email is not null order by id limit 3;
 create temporary table p1 on commit drop as select id, email from subj order by id limit 1;
