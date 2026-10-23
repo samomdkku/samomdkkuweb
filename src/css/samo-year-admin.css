@@ -249,3 +249,12 @@
   .sy-btn, .workspace-year-chip { transition: none; }
   .sy-btn:active:not(:disabled), .workspace-year-chip.is-link:active { transform: none; }
 }
+
+/* 0244 — where the ปีการศึกษา came from, when it next changes, and the cutoff editor */
+.sy-badge.is-ok { color: var(--ink-900); background: color-mix(in srgb, var(--brand-primary) 12%, var(--surface)); }
+.sy-badge { color: var(--ink-700); background: var(--ink-100, color-mix(in srgb, var(--ink-500) 10%, var(--surface))); }
+.sy-acad-next { margin: 0; font-size: .875rem; color: var(--ink-700); display: flex; gap: .4rem; align-items: baseline; }
+.sy-acad-sched { border-top: 1px solid var(--ink-100, rgb(var(--ink-900-rgb) / .08)); padding-top: .5rem; }
+.sy-acad-form { display: grid; gap: .65rem; padding-top: .5rem; }
+.sy-acad-when { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: flex-end; }
+.sy-acad-when .sy-field { min-width: 6rem; }

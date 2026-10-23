@@ -293,11 +293,13 @@ describe('ชั้นปี — a DIFFERENCE is stored, the year is derived', (
   const JUN_2026 = new Date('2026-06-15T00:00:00Z');   // still 2568
   const AUG_2027 = new Date('2027-08-15T00:00:00Z');   // 2570
 
-  it('rolls the ปีการศึกษา over in สิงหาคม, not in January', () => {
+  it('the clock FALLBACK rolls the ปีการศึกษา over in กรกฎาคม, not in January', () => {
+    // 0244 moved the default cutoff to 1 ก.ค. (the instant June ends). The real
+    // answer comes from the database; this is only what a failed fetch shows.
     expect(academicYear(AUG_2026)).toBe(2569);
     expect(academicYear(JUN_2026)).toBe(2568);
-    expect(academicYear(new Date('2026-07-31T00:00:00Z'))).toBe(2568);
-    expect(academicYear(new Date('2026-08-01T00:00:00Z'))).toBe(2569);
+    expect(academicYear(new Date('2026-06-30T12:00:00Z'))).toBe(2568);
+    expect(academicYear(new Date('2026-07-01T12:00:00Z'))).toBe(2569);
   });
 
   it('counts a normal student from their ปีที่เข้า', () => {

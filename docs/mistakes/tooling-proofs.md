@@ -3867,3 +3867,35 @@ own guard.
 **The general rule**: *a guard that only runs when someone invokes the tool it
 guards protects nothing between invocations — copy the check to where commits
 are checked.*
+
+---
+
+## Passport's admin page showed its sign-in card to a signed-in master under `npm run dev` — the portal's SPA fallback answered `/passport/@vite/client` with its own HTML
+
+**Symptom** (2026-10-23, writing `tools/browser/passport-quarters.mjs`): on
+`http://localhost:5174/passport/html/admin.html` a master who was signed in saw
+"เข้าสู่ระบบด้วย Google". No console error. Every module curled 200. The
+database, asked with the page's own stored token, said `is_admin: true`.
+
+**Cause**: `spaFallback()` in `vite.config.js` rewrites every extensionless URL
+that does not start with `/@` to `/`. `/passport/@vite/client` is extensionless
+and starts with `/passport`, so the PORTAL served its index.html for it (200,
+`text/html`). Passport's pre-bundled supabase-js imports `injectQuery` from that
+URL, so `app.js` — and everything importing it — failed to load. A module that
+fails to LOAD raises no Runtime exception, so the page sat on its default
+markup, which is the sign-in card: indistinguishable from "not signed in".
+Three hypotheses died first (cold optimise cache; wrong session; master not
+mapping to Passport admin) — each disproved by one measurement.
+
+**Fix**: the fallback leaves `/passport` and `/passport/*` to the proxy. The
+harness, when the page does not paint, imports the client the way the page does
+and prints `/passport/@vite/client`'s status and content type.
+
+**Also from the same harness**: code passed into a CDP `Runtime.evaluate` inside
+a JS TEMPLATE LITERAL loses its regex backslashes (`\d` → `d`, `\?` → `?`) and
+the page receives a syntax error — the evaluate returns `undefined`, which reads
+like "the page navigated away". Use string tests in page-side code.
+
+**The general rule**: when a page "looks signed out", ask whether its MODULES
+loaded before asking whether its SESSION exists — and check the content TYPE of
+what the dev server answered, not only the status.

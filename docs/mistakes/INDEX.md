@@ -12,7 +12,7 @@ different clothes.
 The recurring CLASSES — the part that generalises to code not yet written —
 are in `.claude/rules/mistakes.md`, which every session already has.
 
-## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(20)*
+## `supabase-client.md` — supabase-js, PostgREST & the session lifecycle *(21)*
 
 Open when: auth.js · db.js · anything calling supabase-js.
 
@@ -36,6 +36,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 - Three fetchers of one API, three error strings, and all three showed the raw JSON body
 - "when i click ตั้งเป็นปีปัจจุบัน it got DELETE requires a WHERE clause"
+- "samopassport points got freeze, also on the leaderboard"
 
 ## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(36)*
 
@@ -391,7 +392,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 - The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(81)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(82)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -476,8 +477,9 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - One backticked path outside the repo blinded `state-handoff.test.js`'s whole dead-pointer sweep
 - Two night-agent proofs, green when written, red a day later
 - `npm run proofs` checked nothing for two days
+- Passport's admin page showed its sign-in card to a signed-in master under `npm run dev`
 
-## `passport.md` — The Passport app's own write-ups *(41)*
+## `passport.md` — The Passport app's own write-ups *(42)*
 
 Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
@@ -522,5 +524,6 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 - The upload badge image button is gone
 - A legacy `passport/db/*.sql` file re-applied after its own later migration would silently undo it
+- Nobody pressed "New Season" on 1 ก.ย.
 
-_461 entries across 10 files._
+_464 entries across 10 files._

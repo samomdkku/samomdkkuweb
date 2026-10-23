@@ -126,6 +126,16 @@ async function pg(path, init = {}) {
   const r = await net('Supabase', path.split('?')[0], () => fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, { ...init, headers: { apikey: k, Authorization: `Bearer ${k}`, 'Content-Type': 'application/json', ...(init.headers || {}) } }));
   const body = await r.text();
   if (!r.ok) throw new Error(`Supabase HTTP ${r.status} ${path.split('?')[0]}: ${body.slice(0, 200)}`);
+  // ⛔ FAIL CLOSED AT POSTGREST'S ROW CAP. One response stops at 1,000 rows and
+  // says so only in Content-Range ("0-999/*"). A truncated discord_role_targets
+  // would read every person past row 1,000 as holding NO roles, and the
+  // reconcile would take theirs away. The Passport leaderboard froze on exactly
+  // this cut (2026-10-23, src/js/rest-pages.js); here it would delete. A read
+  // that asks for its own `limit=` (the queue) is bounded on purpose.
+  const cr = /^(\d+)-(\d+)\//.exec(r.headers?.get?.('content-range') || '');
+  if (cr && Number(cr[2]) - Number(cr[1]) + 1 >= 1000 && !/[?&]limit=/.test(path)) {
+    throw new Error(`Supabase ${path.split('?')[0]} returned a FULL 1,000-row page — refusing to act on a list that may be cut short`);
+  }
   return body ? JSON.parse(body) : null;
 }
 

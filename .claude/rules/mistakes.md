@@ -68,7 +68,8 @@ code not yet written.
    **A rule held in every MESSAGE not at the transport is the same shape**: `@here` was removed from three VS builders and two branches kept
    no test, while `data.role` / a display name could still carry `@everyone`
    in from DATA. `allowed_mentions:{parse:[]}` in `postOnce` closes both
-   (`integrations.md`). Non-security twin: a handler guarded on state the CALLER sets misses every
+   (`integrations.md`). So did PostgREST's silent row cap
+   (`supabase-client.md`). Non-security twin: a handler guarded on state the CALLER sets misses every
    other entry point. COPY too — one claim lived in the
    sign-in caption, the signup link AND the home strip. A LABEL, a CHART and a
    DERIVED value each claim something about every case they cover (org chart,
@@ -383,11 +384,10 @@ REPORTED — what the next reader greps for. Run `npm run mistakes:index` (never
 hand-edit generated parts; fix the heading if a line reads badly). A new
 instance of a class gets its site added above.
 
-**Charged to every session.** The per-entry index once lived here (18,533/30,000,
-bigger than the classes) until it blocked a write-up; it moved to
-`docs/mistakes/INDEX.md`. If `check:context` fails: COMPRESS (same meaning,
-fewer bytes) or move detail to `docs/mistakes/`. Never raise the budget or cut
-a class — tighten this paragraph first.
+**Charged to every session.** The per-entry index (18.5k of 30k) moved to
+`docs/mistakes/INDEX.md` when it blocked a write-up. `check:context` failing:
+COMPRESS or move detail to `docs/mistakes/` — never raise the budget or cut a
+class; tighten this paragraph first.
 
 ---
 
@@ -395,7 +395,7 @@ a class — tighten this paragraph first.
 
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
-- `supabase-client.md` *(20)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
+- `supabase-client.md` *(21)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
 - `authz-rls.md` *(36)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(23)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(38)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
@@ -403,7 +403,7 @@ a class — tighten this paragraph first.
 - `app-state.md` *(38)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(37)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(81)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
-- `passport.md` *(41)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
+- `tooling-proofs.md` *(82)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `passport.md` *(42)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

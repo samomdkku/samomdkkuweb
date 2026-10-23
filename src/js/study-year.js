@@ -54,12 +54,23 @@ import { arabicDigits } from './utils.js';
 export const COHORT_EPOCH = 2515;
 export const COHORT_PREFIX = 'MD';
 
-/** Where the clock WOULD put the rollover. The fallback below, and the value the
- *  ระบบบ้าน admin page compares the stored setting against. */
-export const ACADEMIC_YEAR_ROLLOVER_MONTH = 8;
+/** The month the FALLBACK below rolls over in, used only when the database's
+ *  answer could not be fetched. The real cutoff is an admin setting (0244:
+ *  default 1 ก.ค. 00:00, the instant June ends) resolved in ONE place,
+ *  public.academic_year_resolve(); this mirrors that default so a failed fetch
+ *  is wrong for as few days as possible. It is NOT a second rule to keep in step. */
+export const ACADEMIC_YEAR_ROLLOVER_MONTH = 7;
 
 /**
- * ปีการศึกษา is an ADMIN-SET value (migration 0141), primed once at boot.
+ * ปีการศึกษา is decided by the DATABASE (0141, then 0244), primed once at boot.
+ *
+ * ⚠️ 2026-10-23, owner: it now CHANGES ITSELF at a cutoff an admin sets (default
+ * 1 ก.ค. 00:00), and a value an admin sets by hand stands until the next cutoff
+ * — "in case admin in later years forgot to change", while still letting them
+ * "change it or change back manually". That supersedes the stance below ("it
+ * reminds; it never acts"), which is kept because its worry is still answered:
+ * the faculty's day is the admin's to set, not hard-coded. The rule has one
+ * home, public.academic_year_resolve(); this file only receives its answer.
  *
  * 0131 made it a constant derived from the clock, arguing that "a setting
  * somebody must change every August is a setting that is forgotten every

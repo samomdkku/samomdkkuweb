@@ -603,8 +603,11 @@ importer and the person's own card — because `io.js` previously carried its ow
 ```
 
 ปีที่เข้า is read off the รหัสนักศึกษา and re-derived whenever the รหัส moves
-(`students_fill_cohort` 0128, `people_fill_cohort` 0145). ปีการศึกษา is
-admin-set (`get_academic_year()`, 0141). `year_offset` is a DIFFERENCE — ลาพัก /
+(`students_fill_cohort` 0128, `people_fill_cohort` 0145). ปีการศึกษา comes from
+ONE resolver, `public.academic_year_resolve()` (0244): it changes itself at an
+admin-set cutoff (default 1 ก.ค. 00:00 Asia/Bangkok), and a value set by hand
+(`set_academic_year`, 0141) stands until the next cutoff. Readers ask
+`get_academic_year()`, never the column. `year_offset` is a DIFFERENCE — ลาพัก /
 เรียนซ้ำ / จบช้า — which stays correct in every later year with no maintenance,
 and survives a corrected รหัส unchanged because it is relative.
 
@@ -803,7 +806,7 @@ read all 593 profiles, and that per-department filtering was therefore cosmetic.
 |---|---|
 | write policies (`INSERT`/`UPDATE`/`DELETE`/`ALL`) open to `anon`/`public` with a `true` check | **0** |
 | `profiles` rows readable by an unauthenticated caller | **0** — no `true` policy |
-| passport tables with RLS enabled | **12 of 12** since 0182 (was 11 of 12: `continents` kept its GRANTs across the monorepo merge and lost its row security — `docs/mistakes/authz-rls.md`) |
+| passport tables with RLS enabled | **13 of 13** since 0245 (`season_schedule`, deny-all; 12 of 12 since 0182 — was 11 of 12: `continents` kept its GRANTs across the monorepo merge and lost its row security — `docs/mistakes/authz-rls.md`) |
 
 What remains open to `public` is **SELECT on the board data** — activities,
 seasons, scans, certificates, account_migrations — which is the public
@@ -866,7 +869,11 @@ with them, and a `setof` return auto-exposes each column added later (cf.
 **Every year in one admin page (2026-10-20, 0242).** `/admin/#years`
 (`src/js/samo-year-admin.js`, gate `SIDE_FEATURE.years = ['team_edit','house']`)
 holds the ปี SAMO handover (`team_terms` below), ปีการศึกษา (`set_academic_year`,
-0141), Passport's วาระสโม and ปีงบ (read-only, the calendar). Starting a ปี SAMO
+0141; its automatic cutoff `set_academic_year_schedule`, 0244), Passport's วาระสโม
+and ปีงบ (read-only, the calendar). Passport QUARTERS change themselves (0245,
+`passport.season_schedule`, edited in Passport admin by an org-wide admin);
+`passport.apply_season_schedule()` runs first in `stamp_scan` and every activity
+insert, and each activity names the quarter its scans are credited to. Starting a ปี SAMO
 goes through `start_samo_year()` — `start_team_term()` plus, for an org-wide
 Passport admin, the next `passport.samo_years` row + its first season in one
 transaction. Despite this section's old name, `team_terms` is the ปี SAMO (a term
@@ -1268,7 +1275,7 @@ nothing may compute or repair one.
 | `students` | ~1,800. Import-owned columns and self-owned columns are disjoint; `nickname` is a generated `coalesce(nickname_self, nickname_imported)`. |
 | `student_change_requests` | The correction queue. Partial unique index allows one OPEN request per field per student. |
 | `student_import_batches` | Audit of each import. |
-| `house_settings` | One row: `sai_self_edit_open`. (`academic_year` vestigial since 0123 — it only fed ชั้นปี; `roster_visible` vestigial since 0124 — it gated a roster that no longer exists.) |
+| `house_settings` | One row: `academic_year` (the MANUAL value, 0141) + its automatic cutoff `academic_auto` / `academic_cutoff_*` / `academic_year_set_at` (0244) — read only through `academic_year_resolve()`; `sai_self_edit_open`. (`roster_visible` vestigial since 0124 — it gated a roster that no longer exists.) |
 
 **RLS** — every table: `for all to authenticated using (role in (vp_admin,dev)
 or current_user_has_permission('house'))`, plus an explicit
@@ -1312,8 +1319,9 @@ faculty-wide picker vocabulary (write gate widened to `house` in 0125).
   **ชั้นปี no longer exists in ระบบบ้าน**: `student_year()` was dropped in 0123
   along with its JS mirror, because it needed a clock and a per-student override
   and was ambiguous across years. `students.year_override`,
-  `students.verified_at` and `house_settings.academic_year` survive as vestigial
-  columns that nothing reads or writes.
+  `students.verified_at` survive as vestigial columns that nothing reads or
+  writes. (`house_settings.academic_year` was vestigial too, until 0141 made it
+  the admin-set ปีการศึกษา again.)
 
 **No date gates anywhere.** No reveal flag — an unnamed house *is* the
 un-revealed state and renders as "บ้าน N". The whole feature works with zero

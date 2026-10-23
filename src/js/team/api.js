@@ -309,12 +309,22 @@ export async function startSamoYear(year, passport = null) {
  *  are world-readable (samo_years_read / samo_seasons_read = true). */
 export async function fetchPassportTerm() {
   const h = { 'Accept-Profile': 'passport' };
+  // season_status FIRST (0245): it applies a quarter boundary that passed with
+  // nobody scanning, so the reads below never show yesterday's quarter. Its
+  // answer also carries the schedule — what this page says changes next.
+  const st = await dbRest('/rpc/season_status', {
+    method: 'POST', body: {}, headers: { 'Content-Profile': 'passport' },
+  });
   const [y, s] = await Promise.all([
     dbRest('/samo_years?select=id,name,started_at,team_term_year&ended_at=is.null&order=started_at.desc&limit=1', { headers: h }),
-    dbRest('/samo_seasons?select=id,name,samo_year_id,started_at&ended_at=is.null&order=started_at.desc&limit=1', { headers: h }),
+    dbRest('/samo_seasons?select=id,name,quarter,samo_year_id,started_at&ended_at=is.null&order=started_at.desc&limit=1', { headers: h }),
   ]);
   if (y.error) throw new Error(y.error.message || 'อ่านวาระสโมของ Passport ไม่สำเร็จ');
-  return { term: (y.data || [])[0] || null, season: (s.data || [])[0] || null };
+  return {
+    term: (y.data || [])[0] || null,
+    season: (s.data || [])[0] || null,
+    status: st.error ? null : st.data || null,
+  };
 }
 
 /** May this account open a Passport วาระ? Asked of the database's own answer

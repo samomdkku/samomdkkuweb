@@ -613,3 +613,40 @@ before running this one.
 that first wrote it* (class 7) — and when a later migration quietly takes
 over a function an older, still-present file also defines, say so loudly in
 the older file, because nothing else will stop someone from re-running it.
+
+---
+
+## Nobody pressed "New Season" on 1 ก.ย. — Q3 never existed, and seven weeks of points were filed as Q2
+
+**Symptom** (found 2026-10-23 while investigating the frozen leaderboard): the
+Q2 season was still open on 23 ต.ค. 2569; 323 scans (28,150 km, 208 students)
+from September–October and 8 activities created in that time were all Q2, and
+there was no Q3 leaderboard at all.
+
+**Cause**: a quarter rolled over only when an admin pressed a button on the day.
+A rollover that depends on someone remembering a date is forgotten by
+construction — the same argument 0244 makes for ปีการศึกษา. And because
+`stamp_scan` stamped "whatever season is open", nothing ever looked wrong.
+
+**Fix** (0245, owner's spec): `passport.season_schedule` holds the four quarter
+starts (Q1 1 มี.ค. opens a new วาระสโม · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค.,
+editable, Asia/Bangkok). `passport.apply_season_schedule()` rolls the season
+when a boundary has passed, stamped with the BOUNDARY's instant, and is called
+first by `stamp_scan` and by every activity insert — so no scan can land in a
+stale quarter even if no page is ever opened and no timer exists. Manual
+switches (`start_season`, forward or back) and schedule edits acknowledge the
+current boundary, so the automatic step never undoes an admin's choice. An
+activity now NAMES its quarter, chosen by the admin at creation (owner: "admin
+must specify which quarter the points will be credited to"), and every scan is
+credited to it. The backward repair moved the 8 September–October activities
+plus the 7 older ones still being scanned (owner: "all 7 to q3") and every scan
+of them to Q3 — 350 scans; the per-person km fingerprint was identical before
+and after.
+
+**Where it lives now**: `supabase/migrations/0245_*`; proof
+`tools/passport0245-quarters.sql` (47 cases, fixed instants); browser
+`tools/browser/passport-quarters.mjs`; rule in `docs/INVARIANTS.md`.
+
+**The general rule**: if correctness depends on a person acting on a DATE, make
+the date the data and let the write path apply it — and stamp what it creates
+with the date, not with the moment somebody first noticed.

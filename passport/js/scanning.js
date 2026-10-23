@@ -5,6 +5,7 @@ import { supabase } from './app.js';
 import { checkSession, getPassportAccess, renderAccessBlock } from './auth.js';
 import { fixGoogleDriveUrl, savePendingScanUrl, clearPendingScanUrl } from './utils.js';
 import { ROUTES } from './routes.js';
+import { thaiDate } from './samo.js';
 
 export async function processScan() {
     const titleEl = document.getElementById('scan-title');
@@ -140,6 +141,18 @@ if (!user) {
                     'QR นี้เป็นของ Season ที่จบไปแล้ว จึงสะสม km ไม่ได้ '
                     + 'แต้มที่เคยได้รับไปแล้วยังอยู่ครบ ไม่ได้หายไปไหน '
                     + 'ถ้ากิจกรรมนี้ยังจัดอยู่ ให้แจ้งผู้จัดขอ QR ใหม่ของ Season ปัจจุบัน',
+                    'error');
+            } else if (msg.includes('SEASON_NOT_OPEN')) {
+                // 0245: the organiser filed this activity under a quarter that
+                // has not started yet. Say which, and from when — the QR is
+                // right, it is just early.
+                const [, q, at] = msg.match(/SEASON_NOT_OPEN:Q(\d):(\S*)/) || [];
+                const when = at ? thaiDate(`${at}:00+07:00`, { withTime: true }) : '';
+                showStatus(
+                    'กิจกรรมนี้ยังไม่เปิดรับ',
+                    `คะแนนของกิจกรรมนี้นับเข้า ${q ? `Q${q}` : 'Quarter ถัดไป'} `
+                    + (when ? `ซึ่งเริ่ม ${when} ` : '')
+                    + 'จึงยังสะสม km ไม่ได้ตอนนี้ สแกน QR เดิมอีกครั้งเมื่อถึงวันนั้นได้เลย',
                     'error');
             } else if (msg.includes('NO_OPEN_SEASON')) {
                 showStatus(

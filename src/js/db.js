@@ -14,7 +14,14 @@ import { createClient } from '@supabase/supabase-js';
 // One home for "PostgREST error body → something a human can read". The two
 // guest forms fetch PostgREST without this client and share the same helper.
 import { parseRestError } from './rest-error.js';
+// Every PostgREST read is fetched in FULL past the 1,000-row cap — see the
+// header of rest-pages.js (the frozen Passport leaderboard, 2026-10-23).
+import { pagedFetch } from './rest-pages.js';
 export { parseRestError };
+
+// Resolved per call, not captured at load, so a test that stubs
+// globalThis.fetch still reaches the stub through the wrapper.
+const restFetch = pagedFetch((...args) => fetch(...args));
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -46,6 +53,7 @@ export const db = createClient(url || 'http://invalid', anonKey || 'invalid', {
     autoRefreshToken: false,
     detectSessionInUrl: true,
   },
+  global: { fetch: restFetch },
 });
 
 // Proactive refresh: keep the JWT fresh on a fixed interval so it never
@@ -154,7 +162,7 @@ export async function dbRest(path, opts = {}) {
         ...(prefer ? { Prefer: prefer } : {}),
         ...extraHeaders,
       };
-      const res = await fetch(`${url}/rest/v1${path}`, {
+      const res = await restFetch(`${url}/rest/v1${path}`, {
         method,
         headers,
         body: body == null ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),

@@ -78,6 +78,14 @@ function spaFallback() {
         const url = req.url || '/';
         // Pass through admin paths — they have their own entry.
         if (url.startsWith('/admin')) return next();
+        // /passport/* belongs to the proxy (passport's own Vite on 5173). This
+        // fallback used to claim /passport/@vite/client — extensionless, and not
+        // starting with "/@" — and answer it with the PORTAL's HTML. Passport's
+        // pre-bundled supabase-js imports injectQuery from that URL, so every
+        // module that touched the client failed to load: the admin page showed
+        // its sign-in card to a signed-in master, with no console error
+        // (found 2026-10-23 driving tools/browser/passport-quarters.mjs).
+        if (url === '/passport' || url.startsWith('/passport/')) return next();
         // Skip Vite internals + static asset requests.
         if (url.startsWith('/@') || url.startsWith('/src/') || url.startsWith('/node_modules/')) return next();
         if (url === '/' || url === '/index.html') return next();

@@ -141,25 +141,24 @@ removing roles, not after.
 
 ---
 
-## 2. Tell the ฝ่าย before Q3 starts
+## 2. Tell the ฝ่าย what changed about quarters (Q3 was started late, backwards)
 
-**Status: DECIDED 2026-09-05** — owner is aware and will tell the ฝ่าย; still Q2.
+**Status: DECIDED 2026-10-23 (owner) — the conversation with the ฝ่าย is OWED.**
+Nobody started Q3 on 1 ก.ย.; it was opened on 2026-10-23 **backdated to 1 ก.ย.
+00:00** by 0245, with every September–October activity and the 7 older ones
+still being scanned (owner: "all 7 to q3") moved to Q3 with all their scans —
+350 scans, 31,450 km, 218 students; per-person km unchanged (fingerprint
+identical before/after). Detail §29.
 
-Two things become true the moment somebody presses **Start new Season**, and
-both will otherwise arrive as surprises:
+What the ฝ่าย will notice, all by the owner's decision:
+- **Creating an activity now asks which Quarter its km count toward** — required,
+  one only; a later quarter can be picked ahead and its QR starts working on that
+  quarter's first day.
+- **Quarters change by themselves** (Q4 on 1 ธ.ค. 2569 00:00, Q1 = new วาระสโม on
+  1 มี.ค.). Every Q3 QR stops scanning at the rollover — the 0180 rule, unchanged.
+  An event spanning the rollover needs its activity filed in the NEXT quarter.
 
-- **Every Q2 QR stops scanning.** That is the rule the ฝ่าย asked for
-  (*"ถ้าเกิน quater ก็คือสแกนไม่ได้ๆๆ"*), shipped as migration 0180. Concretely
-  **เปิดโลกกิจกรรม 2569 had 84 scans in the last 30 days and will stop.**
-- **An activity must be created IN the quarter it should count toward.** An
-  event spanning the rollover loses its QR.
-
-⛔ Do not "fix" either by falling back to the current season — that restores the
-original bug wearing a helpful face. `docs/INVARIANTS.md` says so.
-
-**Owner / ฝ่าย. A conversation, not a task.** ✅ **Owner is aware (2026-09-05)
-and will tell the ฝ่าย themselves; it is still Q2, so nothing is urgent.** Do not
-re-raise — but do NOT weaken the rule to soften the surprise.
+⛔ Do not "fix" a dead QR by falling back to the current season — `docs/INVARIANTS.md`.
 
 ---
 
@@ -2364,6 +2363,8 @@ before trusting either numbering scheme.
 
 **c. `tools/browser/accounts-dashboard.mjs` probably breaks on samo-dev now — Status: HYPOTHESIS.** samo-dev gained the `auth.users` triggers (night agent 0234, dev only), so the users row exists before the harness grants `master`, and `users_self_update_guard` refuses that write — exactly what `year-page.mjs` hit first (fixed there by disabling the guard around the fixture write). Run it before trusting it; same fix if red.
 
+**d. ปีการศึกษา now changes itself (0244) — Status: VERIFIED 2026-10-23 — how: `tools/house0244-academic-auto.sql` 23/23 on production AND samo-dev (red with the explicit stamp removed from set_academic_year); `tools/browser/year-page.mjs` 27/27 on samo-dev.** The card shows ตั้งเอง/อัตโนมัติ, the next change (2570 on 1 ก.ค. 2570 00:00) and a cutoff editor. Production today: 2569, set by hand 2026-08-07, so it is held as manual until 1 ก.ค. 2570. Step 3's first-season field now defaults to the schedule's quarter, not "Q1".
+
 ## 26. ระบบบ้าน อาจารย์ — imported 2026-10-21; the data a person still owes
 
 **Status: VERIFIED 2026-10-21 — how: `tools/house-advisor-import.mjs` committed on production and a
@@ -2478,3 +2479,20 @@ ABSENCE"):
 **b. Never seen in Safari or on a real iPhone — Status: HYPOTHESIS that it works.** Every measurement above is Chrome (headless). The sheet's drag-to-dismiss was driven with MOUSE events, not touch. Check on an iPhone and in desktop Safari: (1) the grid's tiles line up in rows and a tall ฝ่าย (เวชนิทัศน์) spans two rows; (2) the sheet drags down and closes, and the page behind does not scroll while it is open (`html.orgs-lock`); (3) INSIDE the sheet, the ฝ่ายย่อย headers stick under the jump row while scrolling (sticky inside an overflow scroller is where WebKit has differed) and the jump row's blur renders; (4) on desktop Safari the card opens/closes as a small scale + fade, not a shrink.
 
 **c. What was tried and REMOVED — do not bring back without the owner — Status: DECIDED.** A script-placed masonry (fitted laptops on one screen, but staggered, and re-sorted itself when a ฝ่าย was deleted); a two-column wide tile with `dense` flow (reordered the ฝ่าย); a หัวหน้าฝ่ายย่อย | ทุกคน segmented control in the sheet ("so weird"); closed ฝ่ายย่อย disclosures in the sheet; "+N / และอีก N" caps ("people would be น้อยใจ"); a hint sentence above the map and an on-screen "ดูทุกคน" verb. Each one's reason is in the code comment where it used to be.
+
+## 29. Passport quarters + ปีการศึกษา change themselves; the frozen leaderboard (2026-10-23)
+
+**Status: VERIFIED 2026-10-23 — how: production `npm run proofs` 71/78 (the 7 red are the 7 already listed in §27, none new); `passport0245-quarters.sql` 47/47 + `house0244-academic-auto.sql` 23/23 + `row-cap-probe.mjs` 6/6 on production (raw read 1,000 of 1,352 = control; wrapped 1,352); mutation-tested (season policy reverted → 52/55 red; boundary stamp → 32 red; set_academic_year stamp → 32 red; wrapper disabled → 4 unit cases red); `tools/browser/passport-quarters.mjs` 16/16 + `year-page.mjs` 27/27 on samo-dev.**
+
+What shipped: `src/js/rest-pages.js` (`pagedFetch` on every client), both leaderboards paged, `discord-sync` fails closed at the cap; 0244 (ปีการศึกษา resolver + schedule); 0245 (quarter schedule, rollover, activity quarter, org-wide-only season writes, the backward repair). Write-ups: `docs/mistakes/supabase-client.md`, `passport.md`, `tooling-proofs.md`.
+
+**a. Paging an RPC through live PostgREST has not been measured — Status: HYPOTHESIS.** `leaderboard_names` / `admin_leaderboard` are paged with `.order().range()`; PostgREST documents limit/offset on set-returning RPCs, but no anon-callable SRF on production has rows to prove it with, and both return 701 (< 1,000) today, so a wrong page could not show yet. `fetchAllPages` stops rather than loops if the bound is ignored. Test it when either passes 1,000, or with a signed-in token.
+
+**b. The first AUTOMATIC rollover in production is 1 ธ.ค. 2569 00:00 — Status: OWED (check that day).** Proved at fixed instants in a rolled-back transaction, never live. On 1 ธ.ค.: `select name, quarter, started_at from passport.samo_seasons order by started_at` should show Q4 started exactly at 2026-11-30 17:00 UTC, and the Q4-ahead activities linked.
+
+**c. `row-cap-probe.mjs` is red on samo-dev — Status: VERIFIED (by design).** samo-dev's copy has 974 scans, under the cap, so the probe refuses to call itself green. It goes green after the next `dev:refresh`.
+
+**d. samo-dev reds unrelated to this work — Status: VERIFIED 2026-10-23 they predate it.** year0219 (dev's genesis term has a real started_at from the night agent's 2026-10-18 dev run), house0146 and team0196 (fixtures find no unplaced people on dev). None touches quarters or ปีการศึกษา.
+
+**e. `npm run dev` could not load Passport through :5174 — Status: VERIFIED fixed.** The portal's SPA fallback answered `/passport/@vite/client` with its own HTML (`docs/mistakes/tooling-proofs.md`). Anyone who judged Passport in dev before 2026-10-23 saw a page that could not load its client.
+

@@ -13,8 +13,12 @@
 //   วาระสโม      Opened IN THE SAME ACT as a new ปี SAMO (owner: "Move it in the
 //                same click") — start_samo_year, 0242, one transaction.
 //   ปีการศึกษา   house_settings.academic_year (0141). Every ชั้นปี and who reads
-//                "จบแล้ว". Moved by an admin when the faculty promotes — NOT on
-//                the team's handover day, so it keeps its own button.
+//                "จบแล้ว". CHANGES ITSELF at a cutoff the admin sets (0244,
+//                default 1 ก.ค. 00:00); a value set by hand stands until the
+//                next cutoff. NOT the team's handover day, so its own card.
+//   Passport     quarters also change themselves (0245): Q1 1 มี.ค. (new
+//   quarters     วาระสโม) · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค. Edited in
+//                Passport's own admin, where the season control lives.
 //   ปีงบ         the calendar (1 ต.ค., projects/fiscal-year.js). Shown, never set.
 //
 // Before this page the ปี SAMO switch was an outline button inside ทีม SAMO →
@@ -36,7 +40,7 @@ import {
   fetchPassportTerm, fetchPassportOrgWide,
 } from './team/api.js';
 import { askPublishTerm, askStartTerm } from './team/term-dialogs.js';
-import { fetchAcademicYearStatus, saveAcademicYear, primeAcademicYear } from './house/api.js';
+import { fetchAcademicYearStatus, saveAcademicYear, saveAcademicSchedule, primeAcademicYear } from './house/api.js';
 import { askConfirm } from './confirm-modal.js';
 import { dbRest } from './db.js';
 import { studyYear } from './study-year.js';
@@ -59,10 +63,25 @@ let busy = false;
 let target = null;          // step 3's year as typed
 let ppOn = true;            // step 3's "move Passport too" choice
 let ppName = null;          // as typed; null = the suggestion
-let ppSeason = 'Q1';
+let ppSeason = null;        // as typed; null = the quarter the schedule says it is now
+let acadOpen = false;       // the cutoff editor is expanded
 
 const $ = (id) => document.getElementById(id);
 const yr = (n) => (n == null ? '—' : String(n));   // a year is never "2,569"
+
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+/** "1 ก.ค. 2570 00:00 น." in THAI time — the cutoff means Bangkok's midnight
+ *  whatever zone this browser is in. */
+const thDateTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const b = new Date(d.getTime() + 7 * 3600 * 1000);   // Asia/Bangkok, no DST
+  const hh = String(b.getUTCHours()).padStart(2, '0');
+  const mm = String(b.getUTCMinutes()).padStart(2, '0');
+  return `${b.getUTCDate()} ${TH_MONTHS[b.getUTCMonth()]} ${b.getUTCFullYear() + 543} ${hh}:${mm} น.`;
+};
 
 const thDate = (iso) => {
   if (!iso) return '';
@@ -125,12 +144,17 @@ function overviewHtml(st) {
           <span class="sy-tile-s">${!passport ? 'อ่านไม่ได้'
             : !pp ? 'ไม่มีวาระที่เปิดอยู่'
             : ppMatch ? `ตรงกับปี SAMO ${escHtml(yr(c.year))}${passport.season ? ` · season ${escHtml(passport.season.name)}` : ''}`
-            : `ยังไม่ได้ผูกกับปี SAMO${passport.season ? ` · season ${escHtml(passport.season.name)}` : ''} — จะเปลี่ยนพร้อมปีใหม่`}</span>
+            : `ยังไม่ได้ผูกกับปี SAMO${passport.season ? ` · season ${escHtml(passport.season.name)}` : ''} — จะเปลี่ยนพร้อมปีใหม่`}${
+            passport?.status?.auto && passport.status.next_change_at
+              ? ` · เปลี่ยนเป็น ${escHtml(passport.status.next_label || '')} อัตโนมัติ ${escHtml(thDate(passport.status.next_change_at))}` : ''}</span>
         </li>
         <li class="sy-tile${academic?.behind ? ' is-warn' : ''}">
           <span class="sy-tile-k"><i class="bi bi-mortarboard"></i> ปีการศึกษา · ชั้นปี</span>
           <span class="sy-tile-v">${escHtml(yr(ay))}</span>
-          <span class="sy-tile-s">${academic?.behind ? 'ถึงกำหนดเลื่อนแล้ว' : 'คนละค่ากับปี SAMO · เลื่อนแยก'}
+          <span class="sy-tile-s">${academic?.behind ? 'ถึงกำหนดเลื่อนแล้ว'
+            : academic?.auto && academic?.next_change_at
+              ? `เป็น ${escHtml(yr(academic.next_value))} อัตโนมัติ ${escHtml(thDate(academic.next_change_at))}`
+              : 'คนละค่ากับปี SAMO · เลื่อนแยก'}
             · <a href="#syAcademic" class="sy-link">จัดการ</a></span>
         </li>
         <li class="sy-tile">
@@ -177,7 +201,7 @@ function passportBlockHtml(t) {
         <label class="sy-field"><span>ชื่อวาระ</span>
           <input type="text" class="form-control form-control-sm" id="syPpName" maxlength="80" value="${escHtml(name)}" /></label>
         <label class="sy-field sy-field--short"><span>season แรก</span>
-          <input type="text" class="form-control form-control-sm" id="syPpSeason" maxlength="80" value="${escHtml(ppSeason)}" /></label>
+          <input type="text" class="form-control form-control-sm" id="syPpSeason" maxlength="80" value="${escHtml(ppSeason ?? (passport?.status?.schedule_now?.label || 'Q1'))}" /></label>
       </div>
     </fieldset>`;
 }
@@ -280,28 +304,63 @@ function samoHtml(st) {
     </section>`;
 }
 
+function academicScheduleHtml(ro) {
+  const a = academic || {};
+  const months = TH_MONTHS.map((n, i) =>
+    `<option value="${i + 1}" ${Number(a.cutoff_month) === i + 1 ? 'selected' : ''}>${n}</option>`).join('');
+  return `
+    <details class="sy-acad-sched" ${acadOpen ? 'open' : ''}>
+      <summary class="sy-more-sum">วันเปลี่ยนปีการศึกษาอัตโนมัติ
+        <span class="sy-more-hint">${a.auto ? `ทุกวันที่ ${escHtml(String(a.cutoff_day))} ${escHtml(TH_MONTHS[(a.cutoff_month || 1) - 1])} เวลา ${escHtml(a.cutoff_time || '00:00')} น.` : 'ปิดอยู่'}</span></summary>
+      <div class="sy-acad-form">
+        <label class="sy-pp-toggle"><input type="checkbox" class="form-check-input" id="syAcadAuto" ${a.auto ? 'checked' : ''} ${ro ? 'disabled' : ''} />
+          <span>เปลี่ยนให้อัตโนมัติทุกปี <span class="sy-pp-sub">กันลืม — ถ้าปิด ปีการศึกษาจะเปลี่ยนเมื่อกดเปลี่ยนเองเท่านั้น</span></span></label>
+        <div class="sy-acad-when">
+          <label class="sy-field sy-field--short"><span>วันที่</span>
+            <input type="number" class="form-control form-control-sm" id="syAcadDay" min="1" max="31" value="${escHtml(String(a.cutoff_day ?? 1))}" ${ro ? 'disabled' : ''} /></label>
+          <label class="sy-field"><span>เดือน</span>
+            <select class="form-select form-select-sm" id="syAcadMonth" ${ro ? 'disabled' : ''}>${months}</select></label>
+          <label class="sy-field sy-field--short"><span>เวลา</span>
+            <input type="time" class="form-control form-control-sm" id="syAcadTime" value="${escHtml(a.cutoff_time || '00:00')}" ${ro ? 'disabled' : ''} /></label>
+        </div>
+        <p class="sy-step-text">เวลาประเทศไทย · มหาวิทยาลัยเปิดภาคเรียนราว 17–27 มิ.ย. ค่าเริ่มต้นจึงเป็นทันทีที่หมดเดือนมิถุนายน
+          · บันทึกแล้วปีการศึกษาตอนนี้ไม่เปลี่ยนทันที — มีผลครั้งถัดไปที่ถึงวันนี้</p>
+        <button type="button" class="btn sy-btn sy-btn-soft" data-sy-acad-save ${ro || busy ? 'disabled' : ''}>
+          <i class="bi bi-calendar-check"></i> บันทึกวันเปลี่ยน</button>
+      </div>
+    </details>`;
+}
+
 function academicHtml() {
   const y = academic?.academic_year ?? null;
   const ro = !can.house;
   const behind = Number(academic?.behind || 0);
+  const manual = academic?.source === 'manual';
+  const next = academic?.auto && academic?.next_change_at
+    ? `จะเปลี่ยนเป็น <strong>${escHtml(yr(academic.next_value))}</strong> อัตโนมัติ ${escHtml(thDateTime(academic.next_change_at))}`
+    : 'ไม่เปลี่ยนเอง — ปิดการเปลี่ยนอัตโนมัติอยู่';
   return `
     <section class="sy-card" id="syAcademic" aria-labelledby="syAcadH">
       <header class="sy-card-head">
         <h2 class="sy-h" id="syAcadH">ปีการศึกษา <span class="sy-h-sub">ใช้คำนวณชั้นปี</span></h2>
-        <p class="sy-sub">คนละค่ากับปี SAMO — เลื่อนเมื่อคณะขึ้นปีการศึกษาใหม่ ซึ่งอาจไม่ใช่วันเดียวกับวันส่งต่อทีม</p>
+        <p class="sy-sub">คนละค่ากับปี SAMO — เปลี่ยนเองทุกปีตามวันด้านล่าง และกดเลื่อนหรือย้อนเองได้ ซึ่งอาจไม่ใช่วันเดียวกับวันส่งต่อทีม</p>
         ${ro ? '<p class="sy-ro"><i class="bi bi-eye"></i> ดูได้อย่างเดียว — การเลื่อนปีการศึกษาต้องมีสิทธิ์ระบบบ้าน</p>' : ''}
       </header>
       <div class="sy-acad">
         <div class="sy-acad-now">
           <span class="sy-acad-v">${escHtml(yr(y))}</span>
+          ${academic ? `<span class="sy-badge${manual ? '' : ' is-ok'}"><i class="bi ${manual ? 'bi-hand-index' : 'bi-arrow-repeat'}"></i>
+            ${manual ? `ตั้งเอง${thDate(academic.set_at) ? ` · ${escHtml(thDate(academic.set_at))}` : ''}` : 'ตามวันเปลี่ยนอัตโนมัติ'}</span>` : ''}
           ${behind ? `<span class="sy-badge is-warn"><i class="bi bi-alarm"></i> ถึงกำหนดเลื่อนแล้ว — ปฏิทินอยู่ที่ ${escHtml(yr(academic.clock_year))}</span>` : ''}
         </div>
+        ${academic ? `<p class="sy-acad-next"><i class="bi bi-calendar-event"></i> ${next}</p>` : ''}
         <ul class="sy-acad-what">
           <li>ชั้นปีของนักศึกษาทุกคนเลื่อนขึ้นพร้อมกัน — คนที่เคยเลือกชั้นปีเอง (ลาพัก/เรียนซ้ำ) เลื่อนตามส่วนต่างที่บันทึกไว้</li>
           <li>${atSix == null ? 'คนที่อยู่ปี 6 จะกลายเป็น “จบแล้ว” และหายจากรายชื่อเริ่มต้นในระบบบ้าน'
             : atSix ? `<strong>${atSix.toLocaleString('th-TH')} คน</strong>ที่อยู่ปี 6 ตอนนี้จะกลายเป็น “จบแล้ว” และหายจากรายชื่อเริ่มต้นในระบบบ้าน`
             : 'ตอนนี้ไม่มีใครอยู่ปี 6'}</li>
           <li>ชื่อใน Discord (ชื่อเล่น_#ชั้นปี) เปลี่ยนตามเมื่อบอทซิงก์รอบถัดไป ถ้าเปิดบอทอยู่</li>
+          <li>กดเลื่อนหรือย้อนเองได้เสมอ — ค่าที่ตั้งเองอยู่จนถึงวันเปลี่ยนอัตโนมัติครั้งถัดไป</li>
         </ul>
         ${y ? `<div class="sy-acad-actions">
           <button type="button" class="btn sy-btn sy-btn-soft" data-sy-acad="${y + 1}" ${ro || busy ? 'disabled' : ''}>
@@ -309,6 +368,7 @@ function academicHtml() {
           <button type="button" class="btn btn-link btn-sm sy-btn-quiet" data-sy-acad="${y - 1}" ${ro || busy ? 'disabled' : ''}>
             ย้อนเป็น ${escHtml(yr(y - 1))}</button>
         </div>` : ''}
+        ${academic ? academicScheduleHtml(ro) : ''}
       </div>
     </section>`;
 }
@@ -341,11 +401,12 @@ function status(msg, kind = '') {
 
 /** People at ชั้นปี 6 under the CURRENT ปีการศึกษา — who a move turns
  *  "จบแล้ว". The same studyYear() arithmetic ระบบบ้าน counts with, over the
- *  three columns it needs; never a second formula. */
+ *  three columns it needs; never a second formula. Ordered by `id` because
+ *  Range pages of an UNORDERED read may overlap or skip a row. */
 async function countAtSix() {
   const out = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await dbRest('/students?select=cohort_year,student_id,year_offset',
+    const { data, error } = await dbRest('/students?select=cohort_year,student_id,year_offset&order=id.asc',
       { headers: { Range: `${from}-${from + 999}`, 'Range-Unit': 'items' } });
     if (error && error.status === 416) break;
     if (error) return null;
@@ -417,7 +478,7 @@ async function doStart(year, { withPassport = false } = {}) {
   let pp = null;
   if (withPassport && ppOrgWide && ppOn && passport && !passportAlreadyOn(passport.term, year)) {
     const name = ($('syPpName')?.value || '').trim();
-    const season = ($('syPpSeason')?.value || '').trim();
+    const season = ($('syPpSeason')?.value || '').trim();   // the schedule's quarter unless retyped
     if (!name || !season) return void status('ใส่ชื่อวาระและ season แรกของ Passport ให้ครบ หรือเอาเครื่องหมายออก', 'error');
     pp = { name, season };
   }
@@ -453,6 +514,21 @@ async function doAcademic(year) {
   });
 }
 
+async function doAcademicSchedule() {
+  const auto = !!$('syAcadAuto')?.checked;
+  const day = Number($('syAcadDay')?.value);
+  const month = Number($('syAcadMonth')?.value);
+  const time = $('syAcadTime')?.value || '00:00';
+  acadOpen = true;
+  await run(async () => {
+    await saveAcademicSchedule({ auto, month, day, time });
+    await primeAcademicYear();
+    return [auto
+      ? `บันทึกแล้ว — ปีการศึกษาจะเปลี่ยนเองทุกปีวันที่ ${day} ${TH_MONTHS[month - 1]} ${time} น.`
+      : 'บันทึกแล้ว — ปิดการเปลี่ยนอัตโนมัติ ปีการศึกษาจะเปลี่ยนเมื่อกดเองเท่านั้น', 'ok'];
+  });
+}
+
 /** Repaint only what the step-3 inputs drive — a full render() would replace
  *  the input and drop the caret mid-typing. */
 function onTargetInput(el) {
@@ -485,6 +561,7 @@ function wire() {
     if (pub) return void doPublish(Number(pub.dataset.syPublish));
     const sw = t.closest?.('[data-sy-switch]');
     if (sw) return void doStart(Number(sw.dataset.sySwitch));
+    if (t.closest?.('[data-sy-acad-save]')) return void doAcademicSchedule();
     const ac = t.closest?.('[data-sy-acad]');
     if (ac) return void doAcademic(Number(ac.dataset.syAcad));
     if (t.closest?.('#syStart')) {
@@ -506,6 +583,9 @@ function wire() {
     else if (id === 'syPpName') ppName = e.target.value;
     else if (id === 'syPpSeason') ppSeason = e.target.value;
   });
+  host.addEventListener('toggle', (e) => {
+    if (e.target.classList?.contains('sy-acad-sched')) acadOpen = e.target.open;
+  }, true);
   host.addEventListener('change', (e) => {
     if (e.target.id !== 'syPpOn') return;
     ppOn = e.target.checked;

@@ -497,7 +497,8 @@ export async function primeAcademicYear() {
   }
 }
 
-/** Stored value + what the clock would have said + whether a move is due. */
+/** The resolver's whole answer (0244): the value, whether it came from the
+ *  schedule or a person, the cutoff, and when it next changes by itself. */
 export async function fetchAcademicYearStatus() {
   const { data, error } = await dbRest('/rpc/academic_year_status', { method: 'POST', body: {} });
   if (error) fail(error, 'อ่านปีการศึกษาไม่สำเร็จ');
@@ -509,6 +510,17 @@ export async function saveAcademicYear(year) {
     method: 'POST', body: { p_year: Number(year) },
   });
   if (error) fail(error, 'เปลี่ยนปีการศึกษาไม่สำเร็จ');
+  return data || null;
+}
+
+/** When the ปีการศึกษา changes itself (0244): on/off + month, day, time
+ *  (Asia/Bangkok). Saving never moves today's value — the database pins it. */
+export async function saveAcademicSchedule({ auto, month, day, time }) {
+  const { data, error } = await dbRest('/rpc/set_academic_year_schedule', {
+    method: 'POST',
+    body: { p_auto: !!auto, p_month: Number(month), p_day: Number(day), p_time: String(time || '00:00') },
+  });
+  if (error) fail(error, 'บันทึกวันเปลี่ยนปีการศึกษาไม่สำเร็จ');
   return data || null;
 }
 

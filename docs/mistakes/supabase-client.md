@@ -648,3 +648,60 @@ the migrations and fails on a WHERE-less DELETE/UPDATE (shown red without
 site: it skips PostgREST's role, its preloaded libraries and its timeouts. A
 function the site calls needs one check that goes THROUGH PostgREST — or a
 source guard for the rule PostgREST adds.
+
+---
+
+## "samopassport points got freeze, also on the leaderboard" — PostgREST returns at most 1,000 rows and says so only in a header
+
+**Symptom** (reported 2026-10-23): the Passport leaderboard stopped moving —
+students scanned new activities and their rank and km on the board stayed put.
+Each student's own passport page showed the right km the whole time, which made
+it look like a leaderboard bug rather than a data one. The admin leaderboard
+was frozen the same way.
+
+**Cause**: PostgREST caps every response at `max-rows` (1,000 on this project)
+and answers a capped read with a normal **200** and a normal JSON array; the
+only sign is `Content-Range: 0-999/*`. Both leaderboards read
+`passport.scans` in ONE request with no paging — at 1,352 scans, 352 never
+reached the browser (`content-range: 0-999/1352`, measured). Which 352 depends
+on physical row order, not on time (an UPDATE moves a row to the end of the
+heap), so the board froze unevenly from about the end of August, when the table
+crossed 1,000. The student's OWN page was right because it read only their own
+scans (`.eq('user_id', …)`), far under the cap.
+
+**Why it got through**: the cut had been paid for TWICE already and fixed at
+each call site — `listAllOrders` in `shop/api.js` and `fetchStudents` in
+`house/api.js` each hand-rolled a pager — so the rule existed three times and
+nowhere that the next reader passed through (class 4 / class 6). No test ever
+fed a reader more rows than the cap, and no proof read through PostgREST at a
+size where the cap applies; `db-query.mjs` runs SQL directly and never sees it.
+A third pager (`countAtSix`, `samo-year-admin.js`) paged with `Range` but no
+`order=`, so its pages could overlap or skip a row.
+
+**Fix**:
+- **At the transport, once**: `src/js/rest-pages.js` `pagedFetch()` wraps every
+  PostgREST client in both apps (`db.js` — the supabase-js client AND `dbRest`;
+  `passport/js/app.js` — both clients). A GET that comes back as a full page
+  with no bound of the caller's own is fetched in full (Range pages,
+  concatenated); an unordered one still pages and warns `[ROW-CAP]`. A POST to
+  `/rpc/` is NEVER repeated (an RPC can write) — it reports `[ROW-CAP]` instead.
+- **At the reads that are RPCs or must be stable**: both leaderboards page
+  `scans` (ordered by `id`) and their name RPC (`leaderboard_names` /
+  `admin_leaderboard`, 701 rows today, ordered) with `fetchAllPages()`.
+- **Where a short list would DELETE**: `server/discord-sync.mjs` `pg()` refuses a
+  full 1,000-row page outright (fails closed) — a truncated
+  `discord_role_targets` would read everyone past row 1,000 as holding no roles.
+- `countAtSix` now orders by `id`.
+
+**Where it lives now**: `src/js/rest-pages.js`; guard `src/js/row-cap.test.js`
+(a stub PostgREST with a real cap; asserts what comes OUT, and that every client
+is built with the wrapper); live proof `tools/row-cap-probe.mjs` (production:
+raw read 1,000 of 1,352 as the CONTROL, wrapped read 1,352, no duplicate at the
+seam). Seven tables were already past 1,000 rows that day (analytics_events,
+project_notifications, claude_usage_samples, students, people, scans,
+project_doc_views) and `users` / `profiles` were at ~700.
+
+**The general rule**: a limit a server applies silently is a rule to hold at
+the TRANSPORT, not at each reader — the third time a fix is written at a call
+site is the proof it should not be. And a test of a reader must feed it MORE
+rows than every cap between it and the data, or it cannot see this class at all.

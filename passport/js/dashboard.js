@@ -6,6 +6,7 @@ import { renderCertificate, downloadCanvasPng } from './certificate.js';
 import { ROUTES } from './routes.js';
 import { getCurrentContext } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
+import { fetchAllPages } from '../../src/js/rest-pages.js';
 
 // ─── State ───────────────────────────────────────────────
 let currentUserId = null;
@@ -1144,9 +1145,18 @@ async function ensureLbPageData() {
     // that allowed it (`profiles_read_all using (true)`) allowed email too, to
     // anyone holding the bundled anon key. The RPC is a projection of exactly
     // (id, full_name), for participants only, and requires a session.
+    //
+    // ⛔ BOTH reads are PAGED, ordered by a unique key. One request returns at
+    // most 1,000 rows (PostgREST's cap) and says so only in a header: at 1,352
+    // scans the newest 352 never arrived and this board FROZE (2026-10-23,
+    // src/js/rest-pages.js). The transport would page the table read on its own,
+    // but an RPC is never re-run there, and an unordered page can overlap.
     const [{ data: scans, error: e1 }, { data: names, error: e2 }] = await Promise.all([
-        supabase.from('scans').select('user_id, activity_id, points_awarded, samo_year_id, season_id, department_id, sub_department_id, scanned_at'),
-        supabase.rpc('leaderboard_names'),
+        fetchAllPages((from, to) => supabase.from('scans')
+            .select('user_id, activity_id, points_awarded, samo_year_id, season_id, department_id, sub_department_id, scanned_at')
+            .order('id', { ascending: true }).range(from, to)),
+        fetchAllPages((from, to) => supabase.rpc('leaderboard_names')
+            .order('id', { ascending: true }).range(from, to)),
     ]);
     if (e1 || e2) return false;
     lbPageScans = scans || [];

@@ -116,6 +116,14 @@
             <option value="">เลือกประเภทฝ่ายย่อย</option>
           </select><br />
 
+          <!-- 0245: the quarter this activity's km count toward. REQUIRED, one
+               only — filled by renderQuarterPickers() from passport.season_status(). -->
+          <label for="act-quarter" class="quarter-label">นับคะแนนเข้า Quarter <span aria-hidden="true">*</span></label>
+          <select id="act-quarter" required>
+            <option value="">เลือก Quarter ที่คะแนนจะถูกนับ</option>
+          </select>
+          <small id="act-quarter-hint" class="quarter-hint"></small><br />
+
           <button type="submit">Create Activity</button>
         </form>
       </div>
@@ -146,6 +154,10 @@
           <select id="edit-sub-department" style="display: none;">
             <option value="">เลือกประเภทฝ่ายย่อย</option>
           </select><br />
+
+          <label for="edit-quarter" class="quarter-label">นับคะแนนเข้า Quarter</label>
+          <select id="edit-quarter"></select>
+          <small id="edit-quarter-hint" class="quarter-hint"></small><br />
 
           <!-- Delete bonus container -->
 
@@ -301,6 +313,10 @@
           starting a new season or year resets the live leaderboard but keeps all past logs and standings.</small>
 
         <div id="samo-current"></div>
+
+        <!-- 0245: when each quarter starts. Filled by renderSchedule(). -->
+        <h4 style="margin-top: 18px;">เปลี่ยน Quarter อัตโนมัติ</h4>
+        <div id="samo-schedule"></div>
 
         <h4 style="margin-top: 18px;">History</h4>
         <div id="samo-history"></div>

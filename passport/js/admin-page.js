@@ -8,8 +8,9 @@ import { generateUUID, fixGoogleDriveUrl } from './utils.js';
 import { ROUTES } from './routes.js';
 import { renderCertificate, loadCertImage, CERT_FONTS } from './certificate.js';
 import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigured } from './upload.js';
-import { getCurrentContext } from './samo.js';
+import { getCurrentContext, getSeasonStatus, thaiDate, thaiDayBefore, quarterChoiceLabel, TH_MONTH_NAMES } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
+import { fetchAllPages } from '../../src/js/rest-pages.js';
 import {
     getAdminScope, scopeCoversActivity, allowedDeptIds, allowedSubIdsForDept, scopeLabel,
     LEGACY_PASSWORD_LOGIN, LEGACY_LOGIN_CONFIGURED, getLegacyScope, legacyLogin, clearLegacySession,
@@ -736,8 +737,9 @@ function renderActivityList(){
     const searchTerm = document.getElementById('search-activity').value.trim().toLowerCase();
     const filterYear = document.getElementById('filter-samoyear')?.value || '';
     const filterSeason = document.getElementById('filter-season')?.value || '';
-    // วาระสโม/Season filter the activity list by the time window it was CREATED in.
-    const win = activitySamoWindow(filterSeason || filterYear, !!filterSeason);
+    // วาระสโม/Season filter by the quarter the activity NAMES (0245) — not the
+    // window it was created in, which disagreed with it for every activity made
+    // ahead for a later quarter.
 
     activitiesCache.forEach((act) => {
         // Apply filters
@@ -750,7 +752,10 @@ function renderActivityList(){
         if (searchTerm && !(act.name || '').toLowerCase().includes(searchTerm)) {
             return;
         }
-        if (win && !withinWindow(act.created_at, win)) {
+        if (filterYear && act.samo_year_id !== filterYear) {
+            return;
+        }
+        if (filterSeason && !activityInSeason(act, filterSeason)) {
             return;
         }
 
@@ -758,6 +763,7 @@ function renderActivityList(){
           <div class="activity-card">
             <div class="activity-card-header">
               <strong class="activity-card-name">${act.name}</strong>
+              ${quarterBadge(act)}
               <span class="activity-card-km">${act.base_points_km} km</span>
             </div>
             <div class="activity-card-actions">
@@ -775,21 +781,66 @@ function renderActivityList(){
     }
 }
 
-// Resolve a วาระสโม/Season id to its [started_at, ended_at] window. `ended_at`
-// NULL = still open. Returns null when nothing is selected (no time filtering).
-function activitySamoWindow(id, isSeason) {
-    if (!id) return null;
-    const row = isSeason ? samoSeasons.find(s => s.id === id) : samoYears.find(y => y.id === id);
-    return row ? { start: row.started_at, end: row.ended_at } : null;
+// Is this activity credited to that season? season_id is NULL for a quarter
+// that has not opened yet, so match on (วาระ, quarter) as stamp_scan does.
+function activityInSeason(act, seasonId) {
+    if (act.season_id) return act.season_id === seasonId;
+    const s = samoSeasons.find((x) => x.id === seasonId);
+    return !!s && s.samo_year_id === act.samo_year_id && s.quarter === act.quarter;
 }
 
-function withinWindow(createdAt, win) {
-    if (!win) return true;
-    if (!createdAt) return false;
-    const t = new Date(createdAt).getTime();
-    if (win.start && t < new Date(win.start).getTime()) return false;
-    if (win.end && t > new Date(win.end).getTime()) return false;
-    return true;
+// "Q3" on every card; a quarter that has not opened says so, because its QR
+// will refuse a scan until then.
+function quarterBadge(act) {
+    if (!act.quarter) return '';
+    const waiting = !act.season_id;
+    const closed = !waiting && samoSeasons.find((x) => x.id === act.season_id)?.ended_at;
+    const cls = waiting ? ' is-waiting' : (closed ? ' is-closed' : '');
+    const note = waiting ? ' · ยังไม่เปิด' : (closed ? ' · ปิดแล้ว' : '');
+    return `<span class="q-badge${cls}" title="คะแนนนับเข้า Q${act.quarter}">Q${act.quarter}${note}</span>`;
+}
+
+// ── 0245: the quarter an activity's km count toward ─────────────────────────
+// Filled from passport.season_status().choices — the open quarter plus the
+// ones still ahead in this วาระ. The create form starts with NOTHING chosen:
+// the owner asked that the admin must pick it ("admin must specify which
+// quarter the points will be credited to … only one quarter can be selected").
+function fillQuarterSelect(sel, { placeholder, keep = '' } = {}) {
+    if (!sel) return;
+    const st = seasonStatus;
+    const curQ = st?.season?.quarter ?? null;
+    const choices = st?.choices || [];
+    sel.innerHTML = (placeholder ? `<option value="">${placeholder}</option>` : '')
+        + choices.map((c) => `<option value="${c.quarter}">${escapeHtml(quarterChoiceLabel(c, curQ))}</option>`).join('');
+    sel.value = choices.some((c) => String(c.quarter) === String(keep)) ? String(keep) : '';
+}
+
+function renderQuarterPickers() {
+    const sel = document.getElementById('act-quarter');
+    const hint = document.getElementById('act-quarter-hint');
+    if (!sel) return;
+    const keep = sel.value;
+    if (!seasonStatus?.year) {
+        sel.innerHTML = '<option value="">ยังไม่มีวาระสโมที่เปิดอยู่</option>';
+        sel.disabled = true;
+        if (hint) hint.textContent = 'สร้างกิจกรรมได้เมื่อมีวาระสโมที่เปิดอยู่';
+        return;
+    }
+    sel.disabled = false;
+    fillQuarterSelect(sel, { placeholder: 'เลือก Quarter ที่คะแนนจะถูกนับ', keep });
+    if (hint) {
+        hint.textContent = `${seasonStatus.year.name} · คะแนนจากการสแกนนับเข้า Quarter ที่เลือกเท่านั้น `
+            + 'และ QR สแกนได้เฉพาะช่วงของ Quarter นั้น — Quarter ที่ยังไม่เปิดจะเริ่มสแกนได้ในวันที่ Quarter เริ่ม';
+    }
+}
+
+// What a refused write says to a person, for the three 0245 refusals.
+function quarterError(msg) {
+    const m = String(msg || '');
+    const closed = m.match(/QUARTER_CLOSED:Q(\d)/);
+    if (closed) return `Q${closed[1]} ปิดไปแล้ว — เลือก Quarter ปัจจุบันหรือที่ยังไม่ถึง`;
+    if (m.includes('NO_OPEN_SEASON')) return 'ยังไม่มีวาระสโม/Season ที่เปิดอยู่ — เปิดใน วาระสโม & Season Control ก่อน';
+    return m;
 }
 
 window.startScannerFor = (id) => {
@@ -826,6 +877,24 @@ window.editActivity = async (id) => {
     document.getElementById('edit-department').dispatchEvent(new Event('change'));
 
     document.getElementById('edit-sub-department').value = data.sub_department_id || '';
+
+    // The quarter can move only while nobody has scanned: a scan is a snapshot
+    // filed under the quarter it was credited to, and moving the activity
+    // would leave its earlier scans filed somewhere its QR no longer is.
+    editingQuarter = data.quarter ?? null;
+    const qSel = document.getElementById('edit-quarter');
+    const qHint = document.getElementById('edit-quarter-hint');
+    const { count: scanCount } = await adminDb.from('scans')
+        .select('id', { count: 'exact', head: true }).eq('activity_id', id);
+    fillQuarterSelect(qSel, { keep: data.quarter });
+    if (data.quarter && ![...qSel.options].some((o) => o.value === String(data.quarter))) {
+        qSel.insertAdjacentHTML('afterbegin', `<option value="${data.quarter}">Q${data.quarter} (ปิดแล้ว)</option>`);
+        qSel.value = String(data.quarter);
+    }
+    qSel.disabled = (scanCount || 0) > 0;
+    qHint.textContent = qSel.disabled
+        ? `มีคนสแกนแล้ว ${scanCount} ครั้ง จึงย้าย Quarter ไม่ได้ — คะแนนที่ได้ไปแล้วนับอยู่ใน Q${data.quarter}`
+        : 'ยังไม่มีใครสแกน เปลี่ยน Quarter ได้';
 
     document.getElementById('event-creation').style.display = 'none';
     document.getElementById('manage-section').style.display = 'none';
@@ -890,22 +959,23 @@ async function submitEditActivity(e) {
     // move an activity they own out into a department they don't.
     if (!assertInScope({ department_id: dept, sub_department_id: subDept }, 'ย้ายกิจกรรมไปยัง')) return;
 
-    // 1. Update the activity details
+    // 1. Update the activity details. The quarter is sent only when it was
+    //    changeable AND changed — the trigger re-files it (0245).
+    const patch = { name, base_points_km: km, department_id: dept, sub_department_id: subDept, badge_name, badge_url };
+    const qSel = document.getElementById('edit-quarter');
+    const newQ = qSel && !qSel.disabled && qSel.value ? parseInt(qSel.value, 10) : null;
+    if (newQ && newQ !== editingQuarter) {
+        patch.quarter = newQ;
+        patch.season_id = null;            // let the trigger resolve the new quarter's season
+    }
     const { error } = await adminDb
         .from('activities')
-        .update({
-            name,
-            base_points_km: km,
-            department_id: dept,
-            sub_department_id: subDept,
-            badge_name,
-            badge_url,
-        })
+        .update(patch)
         .eq('id', editingActivityId);
 
     if (error) {
         console.error(error);
-        alert('Update failed: ' + error.message);
+        alert('Update failed: ' + quarterError(error.message));
         return;
     }
 
@@ -939,10 +1009,19 @@ async function createActivity(e) {
     const subDept = subDeptRaw ? parseInt(subDeptRaw, 10) : null;
     const badge_name = document.getElementById('act-badge-name').value || name;
     const badge_url = document.getElementById('act-badge-url').value || null;
+    const quarterRaw = document.getElementById('act-quarter').value;
+    const quarter = quarterRaw ? parseInt(quarterRaw, 10) : null;
 
     // A scoped admin must file the activity under a department they own —
     // including the "no department" case, which only a full admin may create.
     if (!assertInScope({ department_id: dept, sub_department_id: subDept }, 'สร้าง')) return;
+
+    // 0245: required, one quarter. The <select required> already blocks an
+    // empty submit; this is for the console and for a status that failed to load.
+    if (!quarter || !seasonStatus?.year) {
+        alert('เลือก Quarter ที่คะแนนของกิจกรรมนี้จะถูกนับก่อน');
+        return;
+    }
 
     const { data, error } = await adminDb
         .from('activities')
@@ -954,13 +1033,15 @@ async function createActivity(e) {
                 sub_department_id: subDept,
                 badge_name,
                 badge_url,
+                quarter,
+                samo_year_id: seasonStatus.year.id,
             },
         ])
         .select();
 
     if (error) {
         console.error(error);
-        alert('Failed to create activity: ' + error.message);
+        alert('Failed to create activity: ' + quarterError(error.message));
         return;
     }
 
@@ -1423,13 +1504,20 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+let seasonStatus = null;       // passport.season_status() — see samo.js
+let editingQuarter = null;
+
 async function loadSamoData() {
+    // Status FIRST: it applies a quarter boundary that passed overnight, so the
+    // two table reads below already see the new season.
+    seasonStatus = await getSeasonStatus(adminDb);
     const [{ data: ys }, { data: ss }] = await Promise.all([
         adminDb.from('samo_years').select('*').order('started_at', { ascending: false }),
         adminDb.from('samo_seasons').select('*').order('started_at', { ascending: false }),
     ]);
     samoYears = ys || [];
     samoSeasons = ss || [];
+    renderQuarterPickers();
 }
 
 const currentYearRow = () => samoYears.find(y => !y.ended_at) || null;
@@ -1469,6 +1557,17 @@ window.closeSeasons = () => {
 function renderSamoControl() {
     const y = currentYearRow();
     const s = currentSeasonRow();
+    const st = seasonStatus;
+    const next = st?.auto && st?.next_change_at
+        ? `<small>เปลี่ยนเป็น ${escapeHtml(st.next_label || '')} อัตโนมัติ ${escapeHtml(thaiDate(st.next_change_at, { withTime: true }))}</small>`
+        : '<small>ปิดการเปลี่ยนอัตโนมัติอยู่ — เปลี่ยน Quarter ด้วยปุ่มด้านล่างเท่านั้น</small>';
+    // Every quarter of the open วาระ is a button: ahead = start it early, behind
+    // = CHANGE IT BACK (the season reopens with its scans intact).
+    const qButtons = y ? [1, 2, 3, 4].map((q) => {
+        const isNow = s && s.quarter === q;
+        return `<button type="button" class="btn-action q-switch${isNow ? ' is-now' : ''}" ${isNow ? 'disabled' : ''}
+            onclick="switchQuarter(${q})">${isNow ? `Q${q} (ตอนนี้)` : `เปลี่ยนเป็น Q${q}`}</button>`;
+    }).join('') : '';
     document.getElementById('samo-current').innerHTML = `
       <div class="samo-card">
         <div class="samo-row">
@@ -1483,13 +1582,76 @@ function renderSamoControl() {
           <div class="samo-row-info">
             <span class="samo-label">Current Season</span>
             <strong class="samo-value">${s ? escapeHtml(s.name) : '— none yet —'}</strong>
-            ${s ? `<small>since ${fmtDate(s.started_at)}</small>` : ''}
+            ${s ? `<small>since ${escapeHtml(thaiDate(s.started_at, { withTime: true }))}</small>` : ''}
+            ${next}
           </div>
-          <button class="btn-action" onclick="startNewSeason()" ${y ? '' : 'disabled'}>＋ New Season</button>
         </div>
+        ${y ? `<div class="q-switch-row" role="group" aria-label="เปลี่ยน Quarter ด้วยตัวเอง">${qButtons}</div>
+        <small class="q-switch-note">ย้อนกลับไป Quarter ก่อนหน้าได้ — Season นั้นเปิดอีกครั้งพร้อมคะแนนเดิม
+          การเปลี่ยนด้วยตัวเองจะไม่ถูกเปลี่ยนกลับอัตโนมัติ จนกว่าจะถึงวันเริ่ม Quarter ถัดไป</small>` : ''}
       </div>`;
+    renderSchedule();
     renderSamoHistory();
 }
+
+// ── the automatic schedule (0245) ──────────────────────────────────────────
+function renderSchedule() {
+    const box = document.getElementById('samo-schedule');
+    if (!box) return;
+    const st = seasonStatus;
+    if (!st) {
+        box.innerHTML = '<p style="font-size:0.9rem;">อ่านตารางเปลี่ยน Quarter ไม่ได้ — ลองโหลดหน้าใหม่</p>';
+        return;
+    }
+    const monthOpts = (m) => TH_MONTH_NAMES.map((n, i) =>
+        `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${n}</option>`).join('');
+    const rows = (st.quarters || []).map((q) => `
+        <div class="sched-row" data-q="${q.quarter}">
+          <span class="sched-q">Q${q.quarter}${q.quarter === 1 ? ' <small>(วาระสโมใหม่)</small>' : ''}</span>
+          <label>วันที่ <input type="number" class="sched-day" min="1" max="31" value="${q.day}" /></label>
+          <label>เดือน <select class="sched-month">${monthOpts(q.month)}</select></label>
+          <label>เวลา <input type="time" class="sched-time" value="${escapeHtml(q.time)}" /></label>
+        </div>`).join('');
+    box.innerHTML = `
+      <div class="samo-card sched-card">
+        <label class="sched-auto"><input type="checkbox" id="sched-auto" ${st.auto ? 'checked' : ''} />
+          เปลี่ยน Quarter และวาระสโมให้อัตโนมัติตามวันด้านล่าง (เวลาประเทศไทย)</label>
+        ${rows}
+        <small class="sched-note">แต่ละ Quarter เริ่มวันที่ตั้งไว้และจบเมื่อ Quarter ถัดไปเริ่ม · Q1 เปิดวาระสโมใหม่
+          · บันทึกแล้วจะไม่เปลี่ยน Quarter ตอนนี้ทันที — มีผลครั้งถัดไปที่ถึงวันเริ่ม</small>
+        <button type="button" class="btn-action" onclick="saveSchedule()">บันทึกวันเปลี่ยน Quarter</button>
+      </div>`;
+}
+
+window.saveSchedule = async () => {
+    if (!assertOrgWide('การตั้งวันเปลี่ยน Quarter')) return;
+    const quarters = [...document.querySelectorAll('#samo-schedule .sched-row')].map((row) => ({
+        month: parseInt(row.querySelector('.sched-month').value, 10),
+        day: parseInt(row.querySelector('.sched-day').value, 10),
+        time: row.querySelector('.sched-time').value || '00:00',
+    }));
+    const auto = document.getElementById('sched-auto').checked;
+    const { error } = await adminDb.rpc('set_season_schedule', { p_auto: auto, p_quarters: quarters });
+    if (error) { alert(`บันทึกไม่สำเร็จ: ${error.message}`); return; }
+    await loadSamoData();
+    renderSamoControl();
+    alert('บันทึกวันเปลี่ยน Quarter แล้ว');
+};
+
+// Forward early, or BACK — passport.start_season reopens a quarter that
+// already ran (its season row and scans intact) and closes the open one.
+window.switchQuarter = async (q) => {
+    if (!assertOrgWide('การเปลี่ยน Quarter')) return;
+    const s = currentSeasonRow();
+    const back = s && s.quarter && q < s.quarter;
+    if (!confirm(back
+        ? `ย้อนกลับไป Q${q}?\n\nQ${q} จะเปิดอีกครั้ง (คะแนนเดิมยังอยู่) และ ${s.name} จะปิด QR ของกิจกรรมใน ${s.name} จะสแกนไม่ได้จนกว่าจะเปิด ${s.name} อีกครั้ง`
+        : `เริ่ม Q${q} ตอนนี้?\n\n${s ? `${s.name} จะปิด และ QR ของกิจกรรมใน ${s.name} จะสแกนไม่ได้` : ''} ตารางคะแนนสดเริ่มนับ Q${q}`)) return;
+    const { error } = await adminDb.rpc('start_season', { p_quarter: q });
+    if (error) { alert(`เปลี่ยนไม่สำเร็จ: ${error.message}\nไม่มีอะไรเปลี่ยน`); return; }
+    await loadSamoData();
+    renderSamoControl();
+};
 
 function renderSamoHistory() {
     const box = document.getElementById('samo-history');
@@ -1517,12 +1679,15 @@ function renderSamoHistory() {
 
 window.startNewYear = async () => {
     if (!assertOrgWide('การเริ่มวาระสโมใหม่')) return;
-    const name = (prompt("Name the new วาระสโม (e.g. วาระสโม'69):") || '').trim();
+    const name = (prompt("Name the new วาระสโม (e.g. MDKKU SAMO'70):") || '').trim();
     if (!name) return;
-    // A วาระสโม must open WITH a season — otherwise scans before the first season is
-    // started would land in the uncategorized (season_id NULL) bucket. Require it here.
-    const seasonName = (prompt(`Name the FIRST season for "${name}" (e.g. Q1):`) || '').trim();
-    if (!seasonName) { alert('Cancelled — a วาระสโม must start with a season (so scans are never uncategorized).'); return; }
+    // A วาระสโม opens WITH a quarter, in one transaction (passport.start_vara,
+    // 0245) — so no scan can ever find a วาระ with no season. The quarter
+    // defaults to the one the schedule says it is now.
+    const defQ = seasonStatus?.schedule_now?.quarter || 1;
+    const qRaw = (prompt(`Quarter แรกของ "${name}" (1–4):`, String(defQ)) || '').trim();
+    const quarter = parseInt(qRaw, 10);
+    if (!(quarter >= 1 && quarter <= 4)) { alert('Cancelled — a วาระสโม must start with a quarter 1–4.'); return; }
     // team_term_year bridge (0232, docs/YEAR-ROLLOVER.md § Passport) — a loose,
     // hand-set reference to public.team_terms.year so a FUTURE report can join
     // "how much km did ทีม SAMO term X award" without merging the two year
@@ -1534,75 +1699,27 @@ window.startNewYear = async () => {
     if (teamTermRaw && (!Number.isInteger(teamTermYear) || teamTermYear < 2500 || teamTermYear > 2700)) {
         alert('ปีทีม SAMO ต้องเป็นเลขปี พ.ศ. (เช่น 2569) — เว้นว่างได้ถ้าไม่ทราบ'); return;
     }
-    if (!confirm(`Start "${name}" with season "${seasonName}"?\n\nThis ENDS the current วาระสโม + season and resets the live leaderboard and current-year totals. All past logs and standings are kept.`)) return;
-    // ⛔ THE ORDER IS LOAD-BEARING: CREATE the new rows, THEN end the old ones.
-    // This used to end first, and that left a window — four network round-trips
-    // wide — with NO open วาระ and NO open season. passport.stamp_scan stamps
-    // every scan with "the open row having the latest started_at", and both
-    // columns are nullable, so a scan in that window is filed under NULL: the
-    // student sees no error, their km still lands on total_km, and the row is
-    // missing from every per-season view for ever, unrepairable except by
-    // guessing from a timestamp. Worse, if a later step failed the old rows
-    // were ALREADY ended, leaving nothing open until a human noticed.
-    //
-    // Creating first makes the worst case a one-second OVERLAP, which every
-    // reader resolves correctly because they all take the newest open row:
-    // stamp_scan, samo.js getCurrentYear/getCurrentSeason, and admin's
-    // currentYearRow (its list is loaded started_at-descending). And if an
-    // insert fails, nothing has been ended — the current วาระ is still running.
+    if (!confirm(`Start "${name}" with Q${quarter}?\n\nThis ENDS the current วาระสโม + season and resets the live leaderboard and current-year totals. All past logs and standings are kept.`)) return;
+    // ⛔ ONE call, not four. This used to insert the year, insert the season,
+    // then end the old ones from the browser — four round-trips with a window
+    // where nothing (or two things) was open, and a failure path that could
+    // leave the new วาระ with no season. The RPC does it in one transaction.
     // docs/INVARIANTS.md, "Never leave a GAP between two วาระ or two seasons".
-    const { data: yRows, error } = await adminDb.from('samo_years')
-        .insert([{ name, team_term_year: teamTermYear }]).select();
+    const { error } = await adminDb.rpc('start_vara', {
+        p_name: name, p_quarter: quarter, p_team_term_year: teamTermYear,
+    });
     if (error) { alert(`Failed: ${error.message}\nNothing was changed — the current วาระสโม is still running.`); return; }
-    const newYear = yRows && yRows[0];
-    if (!newYear) { alert('Could not read the new วาระสโม back — nothing was ended; check the list and retry.'); await loadSamoData(); renderSamoControl(); return; }
-
-    const { data: sRows, error: sErr } = await adminDb.from('samo_seasons')
-        .insert([{ samo_year_id: newYear.id, name: seasonName }]).select();
-    if (sErr || !sRows || !sRows[0]) {
-        // Undo the วาระ just created. Leaving it would be worse than failing:
-        // stamp_scan resolves the season GLOBALLY (no year filter), so an open
-        // year with no season of its own would pair the NEW year with the OLD
-        // year's season — a mismatched stamp on every scan until someone spotted it.
-        const { error: undoErr } = await adminDb.from('samo_years').delete().eq('id', newYear.id);
-        alert(undoErr
-            ? `The season failed (${sErr ? sErr.message : 'could not read it back'}) AND rolling back "${name}" failed (${undoErr.message}).\nEND "${name}" MANUALLY NOW, or scans will be mis-stamped.`
-            : `Failed to create the season: ${sErr ? sErr.message : 'could not read it back'}\nNothing was changed — the current วาระสโม is still running.`);
-        await loadSamoData(); renderSamoControl(); return;
-    }
-    const newSeason = sRows[0];
-
-    // Only now close the previous ones — excluding the two just created.
-    const now = new Date().toISOString();
-    await adminDb.from('samo_seasons').update({ ended_at: now }).is('ended_at', null).neq('id', newSeason.id);
-    await adminDb.from('samo_years').update({ ended_at: now }).is('ended_at', null).neq('id', newYear.id);
-
     await loadSamoData();
     renderSamoControl();
-    alert(`Started "${name}" · season "${seasonName}".`);
+    alert(`Started "${name}" · Q${quarter}.`);
 };
 
+// "＋ New Season" is now the Q-buttons (switchQuarter): a season IS a quarter.
 window.startNewSeason = async () => {
-    if (!assertOrgWide('การเริ่ม Season ใหม่')) return;
-    const y = currentYearRow();
-    if (!y) { alert('Start a วาระสโม first.'); return; }
-    const name = (prompt('Name the new Season (e.g. Q1):') || '').trim();
-    if (!name) return;
-    if (!confirm(`Start season "${name}" under ${y.name}?\n\nThis ENDS the current season and resets the live leaderboard. The previous season's standings stay viewable.`)) return;
-    // ⛔ CREATE first, then end — same reason as startNewYear above, and the
-    // same reason spelled out in docs/INVARIANTS.md. Ending first leaves a
-    // window where no season is open and scans are filed under NULL silently.
-    const { data: sRows, error } = await adminDb.from('samo_seasons')
-        .insert([{ samo_year_id: y.id, name }]).select();
-    if (error || !sRows || !sRows[0]) {
-        alert(`Failed: ${error ? error.message : 'could not read the new season back'}\nNothing was changed — the current season is still running.`);
-        return;
-    }
-    const now = new Date().toISOString();
-    await adminDb.from('samo_seasons').update({ ended_at: now })
-        .is('ended_at', null).eq('samo_year_id', y.id).neq('id', sRows[0].id);
-    await loadSamoData();
-    renderSamoControl();
+    const s = currentSeasonRow();
+    const next = s && s.quarter ? (s.quarter % 4) + 1 : (seasonStatus?.schedule_now?.quarter || 1);
+    if (s && s.quarter === 4) { alert('Q4 เป็น Quarter สุดท้าย — เริ่มวาระสโมใหม่แทน'); return; }
+    return window.switchQuarter(next);
 };
 
 // Danger zone: wipe all app content (keeps user accounts). Double-gated.
@@ -1737,9 +1854,17 @@ async function ensureLbScans() {
     // shared admin account, so it holds a real JWT and takes the same RPC as a
     // Google admin — which is the whole point of doing it that way: no second code
     // path to keep in step, and no reliance on profiles being world-readable.
+    //
+    // ⛔ PAGED, by a unique key: one PostgREST response stops at 1,000 rows and
+    // says so only in a header, which froze this board at 1,000 of 1,352 scans
+    // (2026-10-23, src/js/rest-pages.js). admin_leaderboard is an RPC, which the
+    // transport deliberately never re-runs, so it is paged here too.
     const [{ data: scans, error: e1 }, { data: people, error: e2 }] = await Promise.all([
-        adminDb.from('scans').select('user_id, points_awarded, samo_year_id, season_id, department_id, sub_department_id'),
-        adminDb.rpc('admin_leaderboard'),
+        fetchAllPages((from, to) => adminDb.from('scans')
+            .select('user_id, points_awarded, samo_year_id, season_id, department_id, sub_department_id')
+            .order('id', { ascending: true }).range(from, to)),
+        fetchAllPages((from, to) => adminDb.rpc('admin_leaderboard')
+            .order('user_id', { ascending: true }).range(from, to)),
     ]);
     if (e1 || e2) {
         table.innerHTML = `<p style="color:var(--accent-danger);">Could not load leaderboard: ${(e1 || e2).message}</p>`;

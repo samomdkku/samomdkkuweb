@@ -4,7 +4,7 @@
 -- working guard from a broken connection (.claude/rules/mistakes.md class 7).
 --   ALLOW  — season open  → the scan is created
 --   DENY   — season ended → SEASON_CLOSED, and NO scan is created
---   DENY   — no season at all (NULL) → SEASON_CLOSED, fails CLOSED
+--   DENY   — a quarter not open yet (0245) → SEASON_NOT_OPEN, fails CLOSED
 --   CONTROL— the ALLOW case is genuinely reachable, so a green DENY means something
 --
 -- Everything happens inside a transaction that ROLLS BACK. It creates its own
@@ -35,6 +35,7 @@ declare
   v_scan    passport.scans;
   v_err     text;
   v_scans_before int;
+  v_empty   uuid;
 begin
   -- A real kkumail identity: stamp_scan reads auth.uid() and checks the domain.
   select id into v_uid from auth.users
@@ -94,20 +95,22 @@ begin
     insert into proof_0180(verdict,detail) values ('FAIL', format('DENY refused but a scan row appeared'));
   end if;
 
-  ---------------------------------------------------------------- DENY (null)
-  -- Reaching stamp_scan with a NULL season should fail CLOSED. The column is
-  -- NOT NULL, so this is only reachable by disabling the constraint — which is
-  -- the point: it proves the FUNCTION does not rely on the constraint.
-  alter table passport.activities alter column season_id drop not null;
-  update passport.activities set season_id = null where id = v_act;
+  ---------------------------------------------------------------- DENY (not open yet)
+  -- 0245 changed what a NULL season_id MEANS: "a quarter whose season does not
+  -- exist yet" (an activity made AHEAD for Q4). It must still fail CLOSED —
+  -- with SEASON_NOT_OPEN — and must NOT fall through to whatever quarter is
+  -- open, which is the bug 0180 exists to stop wearing a new face. A proof
+  -- วาระ with no seasons at all guarantees nothing can resolve.
+  insert into passport.samo_years (name) values ('PROOF-0180-empty-year') returning id into v_empty;
+  update passport.activities set samo_year_id = v_empty, season_id = null where id = v_act;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
-    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season NULL -> the scan was ACCEPTED (fails OPEN)'));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY quarter NOT OPEN -> the scan was ACCEPTED (fails OPEN)'));
   exception when others then
-    if sqlerrm = 'SEASON_CLOSED' then
-      insert into proof_0180(verdict,detail) values ('PASS', format('DENY   season NULL   -> SEASON_CLOSED (fails closed)'));
+    if sqlerrm like 'SEASON_NOT_OPEN:%' then
+      insert into proof_0180(verdict,detail) values ('PASS', format('DENY   quarter NOT OPEN -> %s (fails closed)', sqlerrm));
     else
-      insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season NULL -> wrong error: %s', sqlerrm));
+      insert into proof_0180(verdict,detail) values ('FAIL', format('DENY quarter NOT OPEN -> wrong error: %s', sqlerrm));
     end if;
   end;
 

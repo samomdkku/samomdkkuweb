@@ -150,11 +150,14 @@ describe('ปีการศึกษา', () => {
     expect(academicYear(new Date('2026-08-10'))).toBe(2570);
   });
 
-  it('falls back to the clock, rolling over in สิงหาคม', () => {
-    // A failed fetch must degrade to the pre-0141 behaviour, not to a blank
-    // ชั้นปี on every card. Re-priming is impossible once set, so this asserts
-    // the rollover month rather than resetting module state.
-    expect(ACADEMIC_YEAR_ROLLOVER_MONTH).toBe(8);
+  it('falls back to the clock, rolling over in กรกฎาคม (0244\'s default cutoff)', () => {
+    // A failed fetch must degrade to a clock answer, not to a blank ชั้นปี on
+    // every card. Re-priming is impossible once set, so this asserts the
+    // rollover month rather than resetting module state. 7 = the default of
+    // house_settings.academic_cutoff_month (0244), the instant June ends.
+    expect(ACADEMIC_YEAR_ROLLOVER_MONTH).toBe(7);
+    const mig = readFileSync(new URL('../../supabase/migrations/0244_academic_year_changes_itself.sql', import.meta.url), 'utf8');
+    expect(mig).toMatch(new RegExp(`academic_cutoff_month\\s+smallint not null default ${ACADEMIC_YEAR_ROLLOVER_MONTH}\\b`));
   });
 
   it('ignores a value that is not a ปี พ.ศ.', () => {

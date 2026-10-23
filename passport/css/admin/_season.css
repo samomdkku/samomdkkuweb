@@ -42,3 +42,27 @@
     background: var(--accent-success, #16a34a); border-radius: 999px;
     padding: 2px 8px; margin-left: 6px;
 }
+
+/* 0245 — switch quarter by hand (forward or back) */
+.q-switch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.q-switch-row .btn-action { flex: 1 1 120px; }
+.q-switch.is-now { background: var(--accent-primary); color: #fff; opacity: 1; }
+.q-switch-note { color: var(--text-muted); font-size: 0.74rem; }
+
+/* 0245 — the automatic schedule */
+.sched-card { gap: 8px; }
+.sched-auto { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 600; }
+.sched-auto input { width: auto; margin: 0; }
+.sched-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--glass-border, rgba(0, 0, 0, 0.08));
+    border-radius: 10px; padding: 8px 12px;
+}
+.sched-q { min-width: 8.5rem; font-weight: 700; color: var(--accent-primary); }
+.sched-q small { font-weight: 400; color: var(--text-muted); }
+.sched-row label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); margin: 0; }
+.sched-row input, .sched-row select { width: auto; margin: 0; padding: 6px 8px; }
+.sched-row .sched-day { width: 4.2rem; }
+.sched-note { color: var(--text-muted); font-size: 0.74rem; }
+.sched-card .btn-action { align-self: flex-start; flex-grow: 0; }

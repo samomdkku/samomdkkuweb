@@ -673,8 +673,15 @@ what serves a path before assuming an edit is internal.
 
 ## Never leave a GAP between two วาระ or two seasons — start the new one first
 
-`passport.stamp_scan` stamps every scan with whichever วาระ and season is
-**currently open**, resolved at scan time:
+⚠️ **Since 0245 (2026-10-23) every rollover is ONE database call** —
+`passport.apply_season_schedule` (automatic), `start_season`, `start_vara`,
+`start_samo_year` — each creating before it ends, inside one transaction, and
+the browser no longer writes `samo_years` / `samo_seasons` at all
+(`season-rollover.test.js`). The rule below still governs any NEW writer.
+
+Before 0245, `passport.stamp_scan` stamped every scan with whichever วาระ and
+season was **currently open**, resolved at scan time (it now takes the
+ACTIVITY's season — next section):
 
 ```sql
 select id into v_year   from passport.samo_years   where ended_at is null …
@@ -709,12 +716,30 @@ silent, permanent mislabelling rather than an error. Ask what a
 
 ---
 
-## A QR code lives and dies with its quarter
+## A QR code lives and dies with its quarter — and its points go to THAT quarter
 
-Since migration 0180, `passport.activities.season_id` records which quarter an
-activity belongs to, and `passport.stamp_scan` refuses (`SEASON_CLOSED`) once
-that season's `ended_at` is set. A trigger fills the column on insert, so it
-holds no matter which client creates the activity.
+Since migration 0180, an activity belongs to one quarter, and
+`passport.stamp_scan` refuses (`SEASON_CLOSED`) once that season's `ended_at` is
+set.
+
+**Since 0245 (owner, 2026-10-23)**:
+- **The admin CHOOSES the quarter when creating an activity** — required, one
+  only (*"admin must specify which quarter the points will be credited to upon
+  scanning"*). `activities.samo_year_id` + `quarter`; `season_id` is the link,
+  NULL for a quarter AHEAD of the open one until it opens. An insert that names
+  none (a script, an old client) still gets the open quarter, by trigger.
+- **Every scan is credited to the ACTIVITY's quarter**, never "whatever is open".
+  A QR made ahead refuses with `SEASON_NOT_OPEN:Q<n>:<start>` until its quarter
+  starts. Invariant: no scan of a live activity is filed outside its quarter
+  (0245 asserts it; `passport0245-quarters.sql`).
+- **Quarters change themselves** (`passport.season_schedule`: Q1 1 มี.ค. opens a
+  new วาระสโม · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., Asia/Bangkok, editable). The
+  rollover runs FIRST in every scan and activity insert, so it needs no timer and
+  no visitor; rows it creates carry the BOUNDARY's instant. A manual switch
+  (forward or back) or a schedule edit acknowledges the current boundary — the
+  automatic step never undoes an admin, it next acts at the next boundary.
+- Only an org-wide Passport admin moves a quarter — RPC AND table (the season
+  policies were `is_admin()`, which a ฝ่าย-scoped admin also holds).
 
 **Decided by the ฝ่าย, 2026-09-04** — *"ถ้าเกิน quater ก็คือสแกนไม่ได้ๆๆ"*. Before
 this, a poster from a finished event kept working for ever and its scans landed
@@ -722,9 +747,10 @@ in whatever quarter was open, so someone who never attended a Q2 event could
 collect km toward the Q3 leaderboard. `UNIQUE (user_id, activity_id)` capped it
 at once per person, so it was a fairness problem, never farmable.
 
-**The accepted cost, so nobody reports it as a bug:** an activity must be created
-IN the quarter it should count toward, and an event spanning a rollover loses its
-QR when the quarter ends. The owner raised exactly this and the ฝ่าย chose it.
+**The accepted cost, so nobody reports it as a bug:** an event spanning a
+rollover loses its QR when its quarter ends. The owner raised exactly this and
+the ฝ่าย chose it. (Since 0245 an activity may be created AHEAD for a later
+quarter, so "create it in the quarter" is no longer the cost.)
 
 ⛔ **Do not "fix" it by falling back to the current season when an activity's
 season has closed.** That restores the original bug wearing a helpful face. The
@@ -815,3 +841,28 @@ continuously (HANDOFF §14b; design `docs/DISCORD-ROLE-SYNC.md`):
   page instead.
 - **The banner's autoplay clock is a CSS animation named `hero-progress`.**
   JS advances on its `animationend`; renaming it stops autoplay with no error.
+
+## ปีการศึกษา has ONE resolver — ask it, never the column
+
+`public.academic_year_resolve()` (0244) decides the ปีการศึกษา every reader sees:
+with auto ON (default) the calendar's year from the cutoff on (default 1 ก.ค.
+00:00 Asia/Bangkok), unless an admin set the value AFTER the most recent cutoff
+— then theirs stands until the next one. `get_academic_year()`,
+`academic_year_status()` and `get_my_team_seat()` all go through it; the JS
+fallback month (`ACADEMIC_YEAR_ROLLOVER_MONTH = 7`) only mirrors the default for
+a failed fetch. ⛔ Never read `house_settings.academic_year` directly: the stored
+value is the MANUAL one, and a cutoff moves the answer without any write.
+`house0244-academic-auto.sql` sweeps every function for a direct reader.
+Saving a schedule pins today's value, so it never jumps the moment it is saved.
+
+## No read may be silently cut at PostgREST's 1,000-row cap
+
+One PostgREST response stops at `max-rows` (1,000) with a 200 and a normal
+array — the only sign is `Content-Range`. Every client in both apps is built
+with `pagedFetch` (`src/js/rest-pages.js`), which fetches a capped GET in full;
+an RPC is never re-run there (it may write), so a read RPC that can grow pages
+itself with `fetchAllPages`, ordered by a unique key. A server-side reader whose
+short list would DELETE something fails closed instead (`discord-sync.mjs`).
+Guards: `row-cap.test.js` (a stub with a real cap) and `tools/row-cap-probe.mjs`
+(production, raw cut as the control). Why: the frozen Passport leaderboard,
+`docs/mistakes/supabase-client.md`.

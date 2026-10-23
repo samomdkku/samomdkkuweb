@@ -1,5 +1,11 @@
 // js/app.js
 import { createClient } from "@supabase/supabase-js";
+// Every read is fetched in FULL past PostgREST's 1,000-row cap. Without it the
+// leaderboards saw 1,000 of 1,352 scans and froze (2026-10-23) — header of
+// src/js/rest-pages.js. Both clients below take it; row-cap.test.js checks.
+import { pagedFetch } from "../../src/js/rest-pages.js";
+
+const restFetch = pagedFetch((...args) => fetch(...args));
 
 // GET THESE FROM VITE ENVIRONMENT VARIABLES
 // Merged into samoweb's Supabase project A (fheueuowbchsnsvbcgil) for single
@@ -15,7 +21,7 @@ try {
     // `db.schema: 'passport'` routes every supabase.from(...) to the passport
     // schema (all query surfaces: activities/scans/profiles/samo_seasons/
     // samo_years/certificates/user_tiers). Auth stays on the shared project.
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: "passport" } });
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: "passport" }, global: { fetch: restFetch } });
 } catch (err) {
     console.error("Failed to initialize Supabase:", err);
 }
@@ -36,6 +42,7 @@ export function getLegacyAdminClient() {
     if (!legacyClient) {
         legacyClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             db: { schema: "passport" },
+            global: { fetch: restFetch },
             auth: { storageKey: "sb-passport-legacy-admin", detectSessionInUrl: false },
         });
     }

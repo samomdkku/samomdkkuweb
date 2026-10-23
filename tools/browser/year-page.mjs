@@ -98,8 +98,12 @@ try {
   await ev(`const a = await import('/src/js/auth.js'); await a.signOut().catch(()=>{}); await a.signInWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)}); await new Promise(r=>setTimeout(r,2000)); return 1;`);
 
   // 2. the page, against the database
+  // ay through the RESOLVER (0244), never the raw column: the page shows what
+  // public.academic_year_resolve() decides, which a cutoff can move without a
+  // write. q = the quarter the schedule says it is (0245), step 3's default.
   const [db] = await sql(`select public.current_samo_year() cy,
-      (select academic_year from public.house_settings limit 1) ay,
+      public.get_academic_year() ay,
+      passport.schedule_at() ->> 'label' q,
       (select name from passport.samo_years where ended_at is null order by started_at desc limit 1) pp`);
   await send('Page.navigate', { url: `${DEV_URL}/admin/#years` });
   const painted = await waitFor(`document.querySelector('#samoYearHost .sy-hero-year')`, 60);
@@ -167,7 +171,7 @@ try {
   say('the confirm says Passport starts a new วาระ', press.body.slice(0, 160), /Passport เริ่มวาระ/.test(press.body));
   const c = press.calls[0] || {};
   say('ONE request, the exact payload', JSON.stringify(press.calls),
-    press.calls.length === 1 && c.p_year === db.cy + 3 && /\d{2}$/.test(c.p_passport_name || '') && c.p_season_name === 'Q1');
+    press.calls.length === 1 && c.p_year === db.cy + 3 && /\d{2}$/.test(c.p_passport_name || '') && c.p_season_name === db.q);
   say('the outcome is said', press.status, /Passport เริ่ม/.test(press.status));
   const [after] = await sql('select public.current_samo_year() cy');
   say('…and nothing was written (intercepted)', after.cy, after.cy === db.cy);

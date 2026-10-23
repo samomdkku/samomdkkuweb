@@ -1,104 +1,113 @@
 // ============================================================
-// season-rollover.test.js — create the new วาระ/season BEFORE ending the old one.
+// season-rollover.test.js — a วาระ / season rollover leaves no gap.
 //
-// passport.stamp_scan stamps every scan with "the open row having the latest
-// started_at", and passport.scans.samo_year_id / season_id are both NULLABLE
-// while points_awarded is not. So if a rollover ends the current row before
-// creating its replacement, a scan landing in that window:
+// passport.stamp_scan files every scan under a season, and a moment with NO open
+// season (or a วาระ with none of its own) mis-files or refuses scans silently.
+// Both rollover buttons once did exactly that: they ended the current row from
+// the browser, THEN created its replacement, four round-trips apart — and if the
+// create failed, nothing was open at all until a human noticed (fixed
+// 2026-09-04 by reordering, guarded here since).
 //
-//   - succeeds, showing the student nothing wrong,
-//   - still adds km to their total_km (the trigger never reads the season), and
-//   - is filed under NO วาระ and NO season, missing from every per-period view
-//     for ever, repairable only by guessing from a timestamp.
+// 0245 (2026-10-23) removed the window instead of narrowing it: the browser no
+// longer writes samo_years / samo_seasons at all. Every rollover is ONE
+// database call — start_vara, start_season, the automatic
+// apply_season_schedule, start_samo_year — inside one transaction, where "create
+// then end" cannot be observed half-done by any reader. So the property is now:
 //
-// Both rollover buttons did exactly that until 2026-09-04 — and their FAILURE
-// paths were worse than the race: if creating the replacement errored, the old
-// rows were already ended and nothing was open at all until a human noticed.
-//
-// Creating first makes the worst case a one-second OVERLAP, which every reader
-// resolves correctly because they all take the newest open row. The fix shipped
-// into a repo with no test runner; this is the standing guard it owed, added
-// when passport moved in here.
+//   1. no handler in the admin page writes those tables directly, and
+//   2. inside each rollover FUNCTION, the replacement is created before the
+//      old row is ended, and the closing update excludes the row it made.
 //
 // Rule and reasoning: docs/INVARIANTS.md, "Never leave a GAP between two วาระ
 // or two seasons".
 // ============================================================
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
-const SRC = readFileSync(join(ROOT, 'passport/js/admin-page.js'), 'utf8');
+const SRC = stripComments(readFileSync(join(ROOT, 'passport/js/admin-page.js'), 'utf8'));
 
-/** The body of one `window.<name> = async () => { … }` handler. */
+/** The body of one `window.<name> = async (…) => { … }` handler. */
 function bodyOf(name) {
-  const start = SRC.indexOf(`window.${name} = async () =>`);
+  const start = SRC.search(new RegExp(`window\\.${name} = async \\([^)]*\\) =>`));
   expect(start, `${name} not found in admin-page.js — was it renamed?`).toBeGreaterThan(-1);
   const end = SRC.indexOf('\n};', start);
   expect(end, `${name}: could not find the end of the handler`).toBeGreaterThan(start);
   return SRC.slice(start, end);
 }
 
-const ROLLOVERS = ['startNewYear', 'startNewSeason'];
+const HANDLERS = { startNewYear: 'start_vara', switchQuarter: 'start_season', saveSchedule: 'set_season_schedule' };
 
-describe('season / วาระ rollover leaves no gap', () => {
-  it('found both rollover handlers (a sweep that finds nothing must prove it looked)', () => {
-    expect(ROLLOVERS.length).toBe(2);
-    for (const n of ROLLOVERS) expect(bodyOf(n).length).toBeGreaterThan(200);
+describe('the browser never writes a วาระ / season row', () => {
+  it('found every handler (a sweep that finds nothing must prove it looked)', () => {
+    for (const n of Object.keys(HANDLERS)) expect(bodyOf(n).length).toBeGreaterThan(150);
   });
 
-  for (const name of ROLLOVERS) {
-    describe(name, () => {
-      const body = bodyOf(name);
-
-      it('CREATES the replacement before ending anything', () => {
-        const insertAt = body.indexOf('.insert(');
-        const endAt = body.indexOf('ended_at: now');
-        expect(insertAt, `${name}: no .insert( — it no longer creates a replacement`)
-          .toBeGreaterThan(-1);
-        expect(endAt, `${name}: no ended_at update — it no longer closes the old row`)
-          .toBeGreaterThan(-1);
-        expect(insertAt, [
-          `${name} ends the current row BEFORE creating its replacement.`,
-          'That reopens the window where no วาระ/season is open, and a scan in it is',
-          'filed under NULL with no error shown to anyone. It also means a failed',
-          'insert leaves NOTHING open at all.',
-          'This ordering reads tidier and is the bug — see docs/INVARIANTS.md.',
-        ].join('\n')).toBeLessThan(endAt);
-      });
-
-      it('excludes the row it just created when closing the old ones', () => {
-        expect(body, [
-          `${name}'s closing update has no .neq('id', …).`,
-          'Without it the update matches every row with ended_at IS NULL — which now',
-          'includes the season it just created. The button would end its own new',
-          'season, leaving nothing open: worse than the bug it was meant to fix.',
-        ].join('\n')).toContain(".neq('id'");
-      });
-
-      it('does not end anything on the failure path', () => {
-        // Everything before the first `ended_at: now` must be able to bail out
-        // without having closed a row. If an `ended_at` write appears before the
-        // first early return, the failure path is destructive again.
-        const endAt = body.indexOf('ended_at: now');
-        const beforeEnd = body.slice(0, endAt);
-        expect(beforeEnd, `${name}: no early return guarding the insert — an error would `
-          + 'fall through to the closing update').toMatch(/if\s*\([^)]*error[\s\S]{0,300}?return;/);
-      });
+  for (const [name, rpc] of Object.entries(HANDLERS)) {
+    it(`${name} is one call to passport.${rpc}`, () => {
+      expect(bodyOf(name)).toContain(`adminDb.rpc('${rpc}'`);
     });
   }
 
-  it('startNewYear rolls back its new วาระ if the season cannot be created', () => {
-    // stamp_scan resolves the season GLOBALLY, with no year filter. An open year
-    // owning no season would therefore pair the NEW year with the OLD year's
-    // season and mis-stamp every scan — so a half-finished rollover must undo
-    // itself rather than be left for someone to notice.
-    const body = bodyOf('startNewYear');
-    expect(body, [
-      'startNewYear no longer deletes the วาระ it created when the season insert fails.',
-      'An open วาระ with no season of its own pairs with the PREVIOUS season, because',
-      'stamp_scan looks the season up globally. Every scan is then mis-stamped.',
-    ].join('\n')).toMatch(/\.delete\(\)[\s\S]{0,80}newYear\.id/);
+  it('no code in the admin page inserts, updates or deletes samo_years / samo_seasons', () => {
+    // cleanAllData's wipe() is the one deliberate exception: it deletes EVERY
+    // row of every table by name, so there is nothing left open to mis-file.
+    const writes = SRC.match(/from\('samo_(years|seasons)'\)\s*\.(insert|update|delete|upsert)\(/g) || [];
+    expect(writes, [
+      'A rollover is writing samo_years / samo_seasons from the browser again.',
+      'Several round-trips reopen the window with nothing open, and a failed step',
+      'leaves it half-done. Use the RPC (one transaction) — passport.start_season /',
+      'start_vara.',
+    ].join('\n')).toEqual([]);
   });
+});
+
+/** Every SQL function in the migrations that opens a season, as its LAST
+ *  definition (a later migration replaces an earlier one). */
+function rolloverFunctions() {
+  const dir = join(ROOT, 'supabase/migrations');
+  const out = new Map();
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
+    const sql = readFileSync(join(dir, f), 'utf8');
+    const re = /create or replace function ([\w.]+)\s*\([\s\S]*?\$fn\$;/gi;   // a body ends at its FIRST `$fn$;`
+    let m;
+    while ((m = re.exec(sql))) {
+      const body = m[0];
+      if (/insert into passport\.samo_seasons/i.test(body)) out.set(m[1].toLowerCase(), { file: f, body });
+    }
+  }
+  return out;
+}
+
+// The CLOSING update — `set ended_at = <instant>`. Not `= null`: that is a
+// quarter being REOPENED (start_season going back), which closes nothing.
+const CLOSE = /update passport\.samo_seasons\s+set ended_at\s*=\s*(?!null\b)\S/i;
+
+describe('inside each rollover function: create, THEN end', () => {
+  const fns = rolloverFunctions();
+
+  it('finds the four rollover functions (control: the sweep can see them)', () => {
+    for (const n of ['passport.apply_season_schedule', 'passport.start_season',
+      'passport.start_vara', 'public.start_samo_year']) {
+      expect(fns.has(n), `${n} not found in supabase/migrations`).toBe(true);
+    }
+  });
+
+  for (const [name, { file, body }] of fns) {
+    it(`${name} (${file}) creates its season before ending the open one`, () => {
+      const createAt = body.search(/insert into passport\.samo_seasons/i);
+      const endAt = body.search(CLOSE);
+      expect(endAt, `${name}: never ends the open season`).toBeGreaterThan(-1);
+      expect(createAt, `${name}: ends the open season BEFORE creating the new one`).toBeLessThan(endAt);
+    });
+
+    it(`${name} excludes the season it opened from the closing update`, () => {
+      const close = body.slice(body.search(CLOSE));
+      expect(close.slice(0, 200), `${name}: the closing update would also end the season it just opened`)
+        .toMatch(/id <> /);
+    });
+  }
 });

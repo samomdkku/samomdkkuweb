@@ -97,9 +97,13 @@ triggered over ssh (needs the KKU VPN).
   ปี SAMO that PR, VitalSound, หนังสือโครงการ and SAMO Shop file new work under,
   in display type with what a switch changes; the team handover as three
   ordered steps whose state is read from the database; starting a ปี SAMO opens
-  the next Passport วาระสโม in the same transaction; ปีการศึกษา (ชั้นปี) moved by
-  its own button; ปีงบ shown. The current ปี SAMO sits in the top bar of every
-  admin page.
+  the next Passport วาระสโม in the same transaction; ปีการศึกษา (ชั้นปี) changes
+  itself at an admin-set cutoff (default 1 ก.ค.) and has its own move/undo
+  button; ปีงบ shown. The current ปี SAMO sits in the top bar of every admin page.
+- **SAMO Passport quarters change themselves** (Q1 1 มี.ค. = new วาระสโม · Q2
+  1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., editable in Passport admin; switch forward or
+  back by hand). Each activity names the quarter its km are credited to, chosen
+  when it is created; its QR scans only while that quarter is open.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
   sits in. FOUR views over the one dataset: **ภาพรวม**, the whole organisation
