@@ -306,17 +306,25 @@ export function diffBoards(prev, next) {
 /**
  * Format a list of students who haven't filled their GPA into a message
  * suitable for sharing in a LINE group so classmates can notify them.
+ * Students who already ticked "อยู่กลุ่มนี้" (staying) are excluded from the
+ * callout list because they do not intend to swap (and thus do not need GPA).
  */
 export function formatMissingGpaCopyText(students, groups = ['A', 'B', 'C', 'D', 'E', 'F']) {
-  const missing = (students || []).filter((s) => !s.has_gpa);
-  if (!missing.length) return 'ทุกคนในตารางกรอก GPA เรียบร้อยแล้ว';
+  const needGpa = (students || []).filter((s) => !s.has_gpa && !s.staying);
+  const stayingWithoutGpa = (students || []).filter((s) => !s.has_gpa && s.staying);
+
+  if (!needGpa.length && !stayingWithoutGpa.length) return 'ทุกคนในตารางกรอก GPA เรียบร้อยแล้ว';
+  if (!needGpa.length && stayingWithoutGpa.length) {
+    return `ทุกคนที่ประสงค์แลกกรอก GPA เรียบร้อยแล้ว (มีอีก ${stayingWithoutGpa.length} คนที่เลือก "อยู่กลุ่มนี้" จึงไม่จำเป็นต้องใช้ GPA)`;
+  }
+
   const byGroup = new Map(groups.map((g) => [g, []]));
-  for (const s of missing) {
+  for (const s of needGpa) {
     if (!byGroup.has(s.current_group)) byGroup.set(s.current_group, []);
     byGroup.get(s.current_group).push(s);
   }
   const lines = [
-    `📌 รายชื่อเพื่อนที่ยังไม่ได้กรอก GPA ในระบบแลก Rotation (${missing.length} คน)`,
+    `📌 รายชื่อเพื่อนที่ยังไม่ได้กรอก GPA ในระบบแลก Rotation (${needGpa.length} คน)`,
     'รบกวนเข้าไปกรอกที่ https://samo.md.kku.ac.th/rotation เพื่อนคนอื่นจะได้ขอแลกได้ครับ/ค่ะ',
     '',
   ];
@@ -329,6 +337,9 @@ export function formatMissingGpaCopyText(students, groups = ['A', 'B', 'C', 'D',
       lines.push(`• ${s.student_id} ${displayName(s)}${extra}`);
     }
     lines.push('');
+  }
+  if (stayingWithoutGpa.length) {
+    lines.push(`(หมายเหตุ: มีเพื่อนอีก ${stayingWithoutGpa.length} คนที่เลือก "อยู่กลุ่มนี้" แล้ว จึงไม่ประสงค์แลกและไม่จำเป็นต้องกรอก GPA ครับ/ค่ะ)`);
   }
   return lines.join('\n').trim();
 }

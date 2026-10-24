@@ -845,7 +845,7 @@ function memberRow(s) {
     ? `<span class="rot-member-wish">อยากไปกลุ่ม ${wishes.map((g) => groupChip(g, 'is-sm')).join('')}</span>` : '';
   const admin = state.board.is_admin && !state.practice;
   const needsGpa = ruleNeedsGpa(state.board.round.gpa_rule);
-  const gpaTag = needsGpa && !s.has_gpa ? ' · <span class="rot-tag is-warn">ยังไม่กรอก GPA</span>' : '';
+  const gpaTag = needsGpa && !s.has_gpa && !s.staying ? ' · <span class="rot-tag is-warn">ยังไม่กรอก GPA</span>' : '';
   return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${isMe ? 'is-me' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}">
     <span class="rot-gender is-${s.gender === 'M' ? 'm' : 'f'}" title="${genderTh(s.gender)}" aria-label="${genderTh(s.gender)}"></span>
     <div class="rot-member-text">
@@ -892,10 +892,12 @@ function paintGroups() {
   const q = state.query;
   const needsGpa = ruleNeedsGpa(state.board.round.gpa_rule);
   const missingGpa = (state.board.students || []).filter((s) => !s.has_gpa);
+  const needGpa = missingGpa.filter((s) => !s.staying);
+  const stayingMissing = missingGpa.filter((s) => s.staying);
   const groupsHtml = m.groupList.map((g) => {
     let members = g.members.filter((s) => matchesQuery(s, q));
     if (state.onlyEligible) members = members.filter((s) => s.can_swap || (me && s.id === me.id));
-    if (state.onlyMissingGpa) members = members.filter((s) => !s.has_gpa);
+    if (state.onlyMissingGpa) members = members.filter((s) => !s.has_gpa && !s.staying);
     if (q.trim() && !members.length) return '';
     if (state.onlyEligible && me && !g.isMine && !g.eligible) return '';
     if (state.onlyMissingGpa && !members.length) return '';
@@ -932,12 +934,12 @@ function paintGroups() {
     ${needsGpa && missingGpa.length ? `
       <div class="rot-unswappable-banner">
         <div class="rot-unswappable-text">
-          <strong><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>เพื่อนยังไม่กรอก GPA ${missingGpa.length} คน</strong>
-          <span>เกณฑ์คณะใช้ GPA เทียบช่วง จึงยังแลกกับเพื่อนเหล่านี้ไม่ได้จนกว่าเพื่อนจะเข้ามากรอก</span>
+          <strong><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>เพื่อนยังไม่กรอก GPA ${needGpa.length} คน</strong>
+          <span>เกณฑ์คณะใช้ GPA เทียบช่วง จึงยังแลกกับเพื่อนเหล่านี้ไม่ได้จนกว่าเพื่อนจะเข้ามากรอก${stayingMissing.length ? ` · <span class="rot-staying-note"><i class="bi bi-pin-angle-fill me-1"></i>มีอีก ${stayingMissing.length} คนเลือกอยู่กลุ่มนี้แล้ว (ไม่ต้องใช้ GPA)</span>` : ''}</span>
         </div>
         <div class="rot-unswappable-actions">
           <button type="button" class="btn btn-sm btn-outline-secondary" data-rot-act="view-unswappable">ดูรายชื่อ (${missingGpa.length})</button>
-          <button type="button" class="btn btn-sm btn-custom" data-rot-act="copy-missing-gpa"><i class="bi bi-clipboard me-1"></i>คัดลอกส่ง LINE</button>
+          <button type="button" class="btn btn-sm btn-custom" data-rot-act="copy-missing-gpa"><i class="bi bi-clipboard me-1"></i>คัดลอกส่ง LINE (${needGpa.length})</button>
         </div>
       </div>` : ''}
     ${showGpa() ? '<p class="rot-note is-private"><i class="bi bi-eye" aria-hidden="true"></i> คุณเห็น GPA ของทุกคน — มีเฉพาะบัญชีที่กำหนดไว้เท่านั้น ผู้ดูแลคนอื่นและ master ไม่เห็น อย่าแคปหน้าจอนี้ส่งต่อ</p>' : ''}
@@ -949,7 +951,7 @@ function paintGroups() {
       <input type="search" class="form-control form-control-sm" placeholder="ค้นหาชื่อ ชื่อเล่น หรือรหัสนักศึกษา"
              value="${escHtml(state.query)}" data-rot-input="query" aria-label="ค้นหาชื่อ ชื่อเล่น หรือรหัสนักศึกษา">
       ${me ? `<label class="rot-switch"><input type="checkbox" data-rot-input="only" ${state.onlyEligible ? 'checked' : ''}> เฉพาะคนที่แลกกับฉันได้</label>` : ''}
-      ${needsGpa && missingGpa.length ? `<label class="rot-switch"><input type="checkbox" data-rot-input="only-missing-gpa" ${state.onlyMissingGpa ? 'checked' : ''}> เฉพาะคนที่ยังไม่กรอก GPA (${missingGpa.length})</label>` : ''}
+      ${needsGpa && needGpa.length ? `<label class="rot-switch"><input type="checkbox" data-rot-input="only-missing-gpa" ${state.onlyMissingGpa ? 'checked' : ''}> เฉพาะคนที่ยังไม่กรอก GPA (${needGpa.length})</label>` : ''}
     </div>
     <div class="rot-groups">${groupsHtml || '<p class="rot-empty">ไม่พบชื่อที่ค้นหา</p>'}</div>`;
 }
@@ -1167,12 +1169,21 @@ function showUnswappableModal(missing, groups) {
     el.addEventListener('click', onClick);
     document.body.appendChild(el);
   }
-  const byGroup = new Map(groups.map((g) => [g, []]));
-  for (const s of missing) {
-    if (byGroup.has(s.current_group)) byGroup.get(s.current_group).push(s);
+  const needGpa = (missing || []).filter((s) => !s.staying);
+  const staying = (missing || []).filter((s) => s.staying);
+
+  const byGroupNeed = new Map(groups.map((g) => [g, []]));
+  for (const s of needGpa) {
+    if (byGroupNeed.has(s.current_group)) byGroupNeed.get(s.current_group).push(s);
   }
+
+  const byGroupStay = new Map(groups.map((g) => [g, []]));
+  for (const s of staying) {
+    if (byGroupStay.has(s.current_group)) byGroupStay.get(s.current_group).push(s);
+  }
+
   const groupsHtml = groups.map((g) => {
-    const list = byGroup.get(g) || [];
+    const list = byGroupNeed.get(g) || [];
     if (!list.length) return '';
     return `<div class="rot-unswappable-sec">
       <div class="rot-unswappable-head">${groupChip(g, 'is-sm')} <strong>กลุ่ม ${g}</strong> <span class="rot-muted">(${list.length} คน)</span></div>
@@ -1185,6 +1196,32 @@ function showUnswappableModal(missing, groups) {
     </div>`;
   }).join('');
 
+  const stayingHtml = staying.length ? `
+    <div class="rot-unswappable-staying-box">
+      <div class="rot-unswappable-staying-title">
+        <span><i class="bi bi-pin-angle-fill text-success me-1"></i>เลือก "อยู่กลุ่มนี้" แล้ว (${staying.length} คน)</span>
+        <span class="badge bg-success-subtle text-success border border-success-subtle">ไม่ประสงค์แลก · ไม่ต้องใช้ GPA</span>
+      </div>
+      <p class="rot-unswappable-staying-desc">
+        เพื่อนกลุ่มนี้เลือกไม่ประสงค์แลกกลุ่ม จึงไม่จำเป็นต้องกรอก GPA และคนอื่นไม่สามารถขอแลกได้ (ไม่ต้องสะกิดให้กรอก)
+      </p>
+      <div class="rot-unswappable-body">
+        ${groups.map((g) => {
+          const list = byGroupStay.get(g) || [];
+          if (!list.length) return '';
+          return `<div class="rot-unswappable-sec mb-2">
+            <div class="rot-unswappable-head small">${groupChip(g, 'is-sm')} <strong>กลุ่ม ${g}</strong> <span class="rot-muted">(${list.length} คน)</span></div>
+            <ul class="rot-unswappable-list small">
+              ${list.map((s) => `<li>
+                <span class="rot-unswappable-name">${escHtml(displayName(s))}</span>
+                <span class="rot-muted">${escHtml(s.student_id)} · <span class="rot-tag is-stay"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> อยู่กลุ่มนี้</span></span>
+              </li>`).join('')}
+            </ul>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
   el.innerHTML = `
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
@@ -1193,13 +1230,16 @@ function showUnswappableModal(missing, groups) {
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
-          <p class="rot-muted mb-3">เกณฑ์รอบนี้ใช้ GPA เทียบช่วง จึงยังแลกกับเพื่อนเหล่านี้ไม่ได้จนกว่าเพื่อนจะเข้ามากรอก</p>
+          <p class="rot-muted mb-2">
+            เกณฑ์รอบนี้ใช้ GPA เทียบช่วง เพื่อน <strong>${needGpa.length} คน</strong> ด้านล่างต้องกรอก GPA ก่อน คนอื่นจึงจะส่งคำขอแลกได้
+          </p>
           <div class="d-grid mb-3">
             <button type="button" class="btn btn-sm btn-outline-success" data-rot-act="copy-missing-gpa">
-              <i class="bi bi-clipboard me-1"></i>คัดลอกรายชื่อสำหรับส่งกลุ่ม LINE
+              <i class="bi bi-clipboard me-1"></i>คัดลอกรายชื่อสำหรับส่งกลุ่ม LINE (${needGpa.length} คน)
             </button>
           </div>
-          <div class="rot-unswappable-body">${groupsHtml}</div>
+          <div class="rot-unswappable-body">${groupsHtml || '<p class="rot-muted text-center py-2">ทุกคนที่ประสงค์แลกกรอก GPA ครบแล้ว</p>'}</div>
+          ${stayingHtml}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
@@ -1431,7 +1471,8 @@ async function onClick(e) {
     const missing = (state.board.students || []).filter((s) => !s.has_gpa);
     const text = formatMissingGpaCopyText(missing, state.board.round.groups);
     await copyText(text);
-    toast(`คัดลอกรายชื่อเพื่อนที่ยังไม่กรอก GPA (${missing.length} คน) แล้ว`);
+    const needCount = missing.filter((s) => !s.staying).length;
+    toast(`คัดลอกรายชื่อเพื่อนที่ยังไม่กรอก GPA (${needCount} คน) แล้ว`);
     return;
   }
 }

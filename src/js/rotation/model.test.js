@@ -216,8 +216,28 @@ describe('formatMissingGpaCopyText', () => {
     expect(text).not.toContain('653070003-3');
   });
 
+  it('excludes staying students from callout list and adds a polite footnote', () => {
+    const students = [
+      { student_id: '653070001-1', first_name: 'ก', last_name: 'ข', nickname: 'บอม', current_group: 'A', has_gpa: false, staying: false },
+      { student_id: '653070002-2', first_name: 'ค', last_name: 'ง', nickname: null, current_group: 'A', has_gpa: false, staying: true },
+    ];
+    const text = formatMissingGpaCopyText(students, ['A']);
+    expect(text).toContain('1 คน');
+    expect(text).toContain('653070001-1');
+    expect(text).not.toContain('653070002-2');
+    expect(text).toContain('หมายเหตุ: มีเพื่อนอีก 1 คนที่เลือก "อยู่กลุ่มนี้" แล้ว จึงไม่ประสงค์แลกและไม่จำเป็นต้องกรอก GPA');
+  });
+
   it('handles empty list or all filled', () => {
     expect(formatMissingGpaCopyText([])).toBe('ทุกคนในตารางกรอก GPA เรียบร้อยแล้ว');
+  });
+
+  it('handles case where only staying students lack GPA', () => {
+    const students = [
+      { student_id: '653070001-1', first_name: 'ก', last_name: 'ข', current_group: 'A', has_gpa: false, staying: true },
+      { student_id: '653070002-2', first_name: 'ค', last_name: 'ง', current_group: 'A', has_gpa: true, staying: false },
+    ];
+    expect(formatMissingGpaCopyText(students)).toContain('ทุกคนที่ประสงค์แลกกรอก GPA เรียบร้อยแล้ว');
   });
 });
 
