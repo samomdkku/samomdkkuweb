@@ -92,7 +92,7 @@ try {
       pageOverflowX: document.documentElement.scrollWidth > innerWidth,
       newsLatest: document.querySelector('.hero-news-latest')?.hidden === false ? document.querySelector('.hero-news-title').textContent : '(hidden)',
     };`);
-    say('slides / dots', `${info.slides} / ${info.dots}`, info.slides === 3 && info.dots === 3);
+    say('slides / dots', `${info.slides} / ${info.dots}`, info.slides === 4 && info.dots === 4);
     const lead = ['SAMO Shop', 'SAMO Booking', 'PR Form', 'SAMO Project', 'VitalSound'];
     say('rail leads with', info.rail.slice(0, 5).join(' · '), JSON.stringify(info.rail.slice(0, 5)) === JSON.stringify(lead));
     say('rail ends with', info.rail.at(-1), info.rail.at(-1) === 'ดูทั้งหมด');
@@ -185,7 +185,7 @@ try {
     let s0 = await state();
     await sleep(7300);
     let s1 = await state();
-    say('autoplay moves on by itself', `${s0.active} → ${s1.active} (held=${s1.paused})`, s1.active === (s0.active + 1) % 3);
+    say('autoplay moves on by itself', `${s0.active} → ${s1.active} (held=${s1.paused})`, s1.active === (s0.active + 1) % 4);
     await ev(`document.querySelector('#homeHero .hero-pause').click(); return 1`);
     s0 = await state();
     await sleep(7300);

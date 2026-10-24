@@ -173,6 +173,79 @@
   transform: rotate(-8deg);
 }
 
+/* Rotation promo — academic / medical green gradient */
+.hero-slide--rotation {
+  background:
+    radial-gradient(120% 140% at 100% 0%, #2f8f6b 0%, #155e42 60%, #0d3827 100%);
+  color: #ffffff;
+}
+.hero-slide--rotation .hero-eyebrow {
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.04em;
+  font-size: 0.76rem;
+  text-transform: none;
+}
+.hero-slide--rotation .hero-title {
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.hero-slide--rotation .hero-sub {
+  color: rgba(255, 255, 255, 0.88);
+}
+.hero-slide--rotation .hero-cta {
+  background: var(--surface);
+  color: #0d3827;
+  color: color-mix(in srgb, #0d3827 var(--fg-mix), var(--fg-mix-to));
+  font-weight: 600;
+}
+.hero-slide--rotation .hero-link:hover .hero-cta {
+  background: #e6f7ef;
+  background: color-mix(in srgb, #e6f7ef var(--tint-mix), var(--surface));
+}
+.hero-rotation-art {
+  position: absolute;
+  right: clamp(1rem, 7vw, 6rem);
+  top: 50%;
+  width: clamp(7rem, 22vw, 15rem);
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+}
+.hero-rotation-orb {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(52, 179, 94, 0.25) 0%, rgba(13, 56, 39, 0.75) 100%);
+  border: 1px solid rgb(var(--surface-rgb) / 0.12);
+}
+.hero-rotation-orb--sub {
+  position: absolute;
+  width: 40%;
+  aspect-ratio: 1;
+  left: -10%;
+  bottom: -4%;
+  border-radius: 50%;
+  background: rgb(var(--surface-rgb) / 0.12);
+  border: 1px solid rgb(var(--surface-rgb) / 0.18);
+  backdrop-filter: blur(4px);
+}
+.hero-rotation-badge {
+  position: absolute;
+  inset: 22%;
+  display: grid;
+  place-items: center;
+  border-radius: 28%;
+  background: linear-gradient(135deg, #34b35e 0%, #1c743f 100%);
+  color: #ffffff;
+  font-size: clamp(2rem, 5.5vw, 4rem);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  transform: rotate(-6deg);
+  transition: transform var(--t-base) var(--ease);
+}
+.hero-slide--rotation .hero-link:hover .hero-rotation-badge {
+  transform: rotate(0deg) scale(1.04);
+}
+
 /* News promo — a dark slate island in BOTH themes (deliberately off the
    --ink scale, which flips in dark mode), the newest cover on the right. */
 .hero-slide--news {
@@ -381,6 +454,10 @@
   .hero-copy { gap: 0.2rem; max-width: 68%; }
   .hero-eyebrow { font-size: 0.6rem; letter-spacing: 0.14em; }
   .hero-cta { margin-top: 0.3rem; padding: 0.35rem 0.75rem; font-size: 0.74rem; }
+  .hero-slide--rotation .hero-copy { max-width: 66%; }
+  .hero-slide--rotation .hero-title { font-size: 1.05rem; }
+  .hero-slide--rotation .hero-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hero-rotation-art { right: 0.9rem; width: 6.25rem; }
   .hero-shop-art { right: 0.9rem; width: 6.25rem; }
   .hero-slide--shop .hero-copy { max-width: 64%; }
   .hero-slide--shop .hero-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

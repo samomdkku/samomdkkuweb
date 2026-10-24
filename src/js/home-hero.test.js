@@ -107,14 +107,14 @@ describe('the home tool rail', () => {
 });
 
 describe('the banner markup', () => {
-  it('has the three slides: welcome, shop, ประกาศ', () => {
+  it('has the four slides: welcome, rotation, shop, ประกาศ', () => {
     const slides = [...home.matchAll(/class="hero-slide hero-slide--(\w+)"/g)].map((m) => m[1]);
-    expect(slides).toEqual(['welcome', 'shop', 'news']);
+    expect(slides).toEqual(['welcome', 'rotation', 'shop', 'news']);
   });
 
   it('every slide link opens through the in-app tab handler and keeps a real href', () => {
     const links = [...home.matchAll(/<a class="hero-link" ([^>]*)>/g)].map((m) => m[1]);
-    expect(links).toHaveLength(2);
+    expect(links).toHaveLength(3);
     for (const a of links) {
       expect(a).toMatch(/href="\/\w+"/);
       expect(a).toMatch(/data-dept-tool-tab="pills-[\w-]+-tab"/);
