@@ -775,7 +775,7 @@ function memberRow(s) {
   const recent = !!mv && isRecent(mv.at);
   const movedAway = s.original_group !== s.current_group;
   let moveLine = '';
-  if (mv && (movedAway || recent)) {
+  if (mv && movedAway) {
     const partner = mv.partnerId ? m.byId.get(mv.partnerId) : null;
     moveLine = `<span class="rot-member-move">${recent ? '<span class="rot-tag is-new">เพิ่งย้าย</span> ' : ''}ย้ายมาจาก ${groupChip(mv.from, 'is-sm')}${partner ? ` · แลกกับ ${escHtml(shortName(partner))}` : mv.kind === 'admin' ? ' · ผู้ดูแลย้าย' : mv.kind === 'chain' ? ' · แลกต่อเนื่อง 3 คน' : ''} <span class="rot-muted">${agoTh(mv.at)}</span></span>`;
   } else if (movedAway) {
