@@ -1,7 +1,7 @@
 // model.test.js — the page's reading of rotation_board().
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles } from './model.js';
+import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles, formatMissingGpaCopyText } from './model.js';
 import { parseRosterText, compareNames, splitPrefix } from './roster-parse.js';
 
 const S = (id, g, gender, can_swap = false) => ({ id, first_name: id, last_name: 'x', gender, current_group: g, original_group: g, can_swap });
@@ -197,3 +197,27 @@ describe('roster-parse', () => {
     expect(compareNames({ first_name: 'ก', last_name: 'ข' }, { first_name: 'ก', last_name: 'ค' })).toBe('different');
   });
 });
+
+describe('formatMissingGpaCopyText', () => {
+  it('formats missing GPA students grouped by group', () => {
+    const students = [
+      { student_id: '653070001-1', first_name: 'ก', last_name: 'ข', nickname: 'บอม', current_group: 'A', has_gpa: false, signed_in: true },
+      { student_id: '653070002-2', first_name: 'ค', last_name: 'ง', nickname: null, current_group: 'A', has_gpa: false, signed_in: false },
+      { student_id: '653070003-3', first_name: 'จ', last_name: 'ฉ', nickname: null, current_group: 'B', has_gpa: true, signed_in: true },
+      { student_id: '653070004-4', first_name: 'ช', last_name: 'ซ', nickname: null, current_group: 'B', has_gpa: false, signed_in: true },
+    ];
+    const text = formatMissingGpaCopyText(students, ['A', 'B']);
+    expect(text).toContain('3 คน');
+    expect(text).toContain('[กลุ่ม A - 2 คน]');
+    expect(text).toContain('• 653070001-1 ก ข (บอม)');
+    expect(text).toContain('• 653070002-2 ค ง (ยังไม่เคยเข้าเว็บ)');
+    expect(text).toContain('[กลุ่ม B - 1 คน]');
+    expect(text).toContain('• 653070004-4 ช ซ');
+    expect(text).not.toContain('653070003-3');
+  });
+
+  it('handles empty list or all filled', () => {
+    expect(formatMissingGpaCopyText([])).toBe('ทุกคนในตารางกรอก GPA เรียบร้อยแล้ว');
+  });
+});
+

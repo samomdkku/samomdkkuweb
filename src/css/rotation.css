@@ -394,6 +394,7 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
 }
 .rot-tag.is-new { background: var(--brand-orange); color: #fff; }
 .rot-tag.is-accent { background: color-mix(in srgb, var(--brand-orange) 15%, var(--surface)); color: #b4441a; color: color-mix(in srgb, #b4441a var(--fg-mix), var(--fg-mix-to)); }
+.rot-tag.is-warn { background: color-mix(in srgb, var(--brand-orange) 15%, var(--surface)); color: #b4441a; color: color-mix(in srgb, #b4441a var(--fg-mix), var(--fg-mix-to)); }
 
 /* ---------- feed ---------- */
 .rot-feed { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
@@ -481,3 +482,26 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
   background: color-mix(in srgb, var(--brand-primary) 12%, var(--surface)); color: var(--brand-primary); }
 .rot-pair.is-chain { flex-wrap: wrap; }
 .rot-chain-label { flex-basis: 100%; font-size: 0.75rem; font-weight: 600; color: var(--brand-primary); }
+
+/* ── คนที่ยังไม่กรอก GPA (unswappable list & modal) ──────────────────────── */
+.rot-unswappable-banner {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem;
+  padding: 0.65rem 0.85rem; border-radius: var(--radius-md); margin-bottom: 0.75rem;
+  background: color-mix(in srgb, var(--brand-orange) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--brand-orange) 30%, var(--ink-200));
+}
+.rot-unswappable-text { display: grid; gap: 0.1rem; font-size: 0.84rem; }
+.rot-unswappable-text strong { color: var(--ink-900); }
+.rot-unswappable-text span { font-size: 0.78rem; color: var(--ink-600); }
+.rot-unswappable-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+
+.rot-unswappable-body { display: grid; gap: 1rem; max-height: 60vh; overflow-y: auto; }
+.rot-unswappable-sec { display: grid; gap: 0.35rem; }
+.rot-unswappable-head { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; }
+.rot-unswappable-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.rot-unswappable-list li {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); background: var(--ink-50); font-size: 0.82rem;
+}
+.rot-unswappable-name { font-weight: 500; color: var(--ink-900); }
+

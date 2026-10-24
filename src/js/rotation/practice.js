@@ -281,6 +281,19 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
     c.status = 'cancelled'; c.resolved_at = now();
     return { ok: true };
   }
+  function chainKick(actorId, chainId, seq) {
+    const c = chains.find((x) => x.id === chainId);
+    if (!c) return { ok: false, reason: 'no_such_request' };
+    if (c.starter_id !== actorId) return { ok: false, reason: 'not_yours' };
+    if (c.status !== 'pending') return { ok: false, reason: 'not_pending' };
+    const leg = c.legs.find((l) => l.seq === seq);
+    if (!leg) return { ok: false, reason: 'no_such_leg' };
+    if (leg.target_id) return { ok: false, reason: 'not_open_leg' };
+    if (!leg.taker_id) return { ok: false, reason: 'no_taker' };
+    leg.taker_id = null;
+    leg.committed_at = null;
+    return { ok: true };
+  }
   /** The board's `can_take`, as rotation_board() computes it. */
   const canTake = (c, l) => live(c) && !l.taker_id && me.current_group === l.from_group
     && (!l.target_id || l.target_id === me.id) && me.id !== c.starter_id && !me.staying
@@ -291,6 +304,7 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
     const pub = (s) => {
       const { gpa, ...rest } = s;   // nobody's GPA but your own (0251)
       return { ...rest, can_swap: s.id !== me.id && askable(me, s),
+        has_gpa: s.gpa !== null && s.gpa !== undefined,
         wishes: s.staying ? [] : (s.wishes || []).filter((g) => g !== s.current_group) };
     };
     return {
@@ -336,6 +350,7 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
         case 'rotation_chain_propose': return chainPropose(me.id, body.p_via, body.p_to, body.p_via_target || null, body.p_to_target || null);
         case 'rotation_chain_respond': return chainRespond(me.id, body.p_chain, body.p_yes);
         case 'rotation_chain_cancel': return chainCancel(me.id, body.p_chain);
+        case 'rotation_chain_kick': return chainKick(me.id, body.p_chain, body.p_seq);
         default: return { ok: false, reason: 'practice_only' };
       }
     })();

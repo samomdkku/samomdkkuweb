@@ -44,13 +44,14 @@
 
 import { db, dbRest, currentAccessToken } from '../db.js';
 import { authReady, onAuthChange, getUser } from '../auth.js';
-import { escHtml } from '../utils.js';
+import { escHtml, copyText } from '../utils.js';
 import { ROTATION_2570 as ROUND } from '../../data/rotation-2570.js';
 import { groupTimetable, weekOf, blockIndexOfWeek, thDate, thRange, weeksLabel } from './schedule.js';
 import {
   buildModel, buildFeed, reasonText, fullName, displayName, matchesQuery, genderTh, agoTh, parseGpa,
   swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa,
   chainPeople, chainOffers, myChains, chainYeses, routesTo, chainCycles,
+  formatMissingGpaCopyText,
 } from './model.js';
 import { createPractice } from './practice.js';
 
@@ -58,6 +59,7 @@ const ROUND_ID = ROUND.roundId;
 const POLL_MS = 60_000;
 const FLASH_MS = 6000;
 const GUIDE_KEY = 'rot-guide-hidden-v1';
+const DISMISSED_KEY = `rot-dismissed-offers-${ROUND_ID}`;
 
 const state = {
   mounted: false,
@@ -67,6 +69,7 @@ const state = {
   view: 'mine',
   feedFilter: 'all',
   onlyEligible: false,
+  onlyMissingGpa: false,
   query: '',
   openGroups: new Set(),
   busy: false,
@@ -97,6 +100,20 @@ function readGuideHidden() {
 }
 function writeGuideHidden(v) {
   try { if (v) localStorage.setItem(GUIDE_KEY, '1'); else localStorage.removeItem(GUIDE_KEY); } catch (_) {}
+}
+
+function readDismissedOffers() {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]')); } catch (_) { return new Set(); }
+}
+function addDismissedOffer(id) {
+  try {
+    const s = readDismissedOffers();
+    s.add(id);
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...s]));
+  } catch (_) {}
+}
+function clearDismissedOffers() {
+  try { localStorage.removeItem(DISMISSED_KEY); } catch (_) {}
 }
 
 // ── entry ────────────────────────────────────────────────────────────────────
@@ -586,12 +603,30 @@ function paintAlert() {
   const el = $('rotAlert');
   const m = state.model;
   const live = state.board.round.swaps_live;
-  const chainOff = m.me ? chainOffers(state.board) : [];
-  if (!m.me || (!m.incoming.length && !chainOff.length)) { el.hidden = true; el.innerHTML = ''; return; }
-  const list = [...m.incoming].sort((a, b) => (a.target_id ? 0 : 1) - (b.target_id ? 0 : 1)
+  const dismissed = readDismissedOffers();
+  const allChainOff = m.me ? chainOffers(state.board) : [];
+  const chainOff = allChainOff.filter(({ chain: c }) => !dismissed.has(c.id));
+  const allIncoming = m.incoming || [];
+  const list = allIncoming.filter((q) => !dismissed.has(q.id)).sort((a, b) => (a.target_id ? 0 : 1) - (b.target_id ? 0 : 1)
     || String(b.created_at).localeCompare(String(a.created_at)));
   const n = list.length + chainOff.length;
+  const hiddenCount = (allIncoming.length - list.length) + (allChainOff.length - chainOff.length);
+
+  if (!m.me || (!n && !hiddenCount)) { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
+
+  if (n === 0 && hiddenCount > 0) {
+    el.innerHTML = `
+      <div class="rot-alert-head">
+        <i class="bi bi-bell-slash rot-alert-icon" aria-hidden="true"></i>
+        <div>
+          <h2 class="rot-alert-title">ซ่อนคำขอแลกไว้ ${hiddenCount} รายการ</h2>
+          <p class="rot-alert-sub mb-0"><button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-rot-act="restore-dismissed">เลิกซ่อนคำขอทั้งหมด</button></p>
+        </div>
+      </div>`;
+    return;
+  }
+
   el.innerHTML = `
     <div class="rot-alert-head">
       <i class="bi bi-bell-fill rot-alert-icon" aria-hidden="true"></i>
@@ -620,6 +655,7 @@ function paintAlert() {
         <div class="rot-offer-actions">
           ${live ? `<button type="button" class="btn btn-sm btn-custom" data-rot-act="accept" data-id="${q.id}">ดูและตอบรับ</button>` : '<span class="rot-muted">ยังไม่เปิดให้แลก</span>'}
           ${live && !broadcast ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="decline" data-id="${q.id}">ไม่รับ</button>` : ''}
+          ${broadcast ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="dismiss-offer" data-id="${q.id}">ไม่สนใจ</button>` : ''}
         </div>
       </li>`;
     }).join('')}${chainOff.map(({ chain: c, leg }) => {
@@ -643,9 +679,11 @@ function paintAlert() {
         <div class="rot-offer-actions">
           ${live ? `<button type="button" class="btn btn-sm btn-custom" data-rot-act="chain-yes" data-id="${c.id}">ดูและตอบรับ</button>` : '<span class="rot-muted">ยังไม่เปิดให้แลก</span>'}
           ${live && leg.target_id ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="chain-no" data-id="${c.id}">ไม่รับ</button>` : ''}
+          ${!leg.target_id ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="dismiss-chain" data-id="${c.id}">ไม่สนใจ</button>` : ''}
         </div>
       </li>`;
-    }).join('')}</ul>`;
+    }).join('')}</ul>
+    ${hiddenCount > 0 ? `<div class="rot-alert-footer text-end mt-2"><button type="button" class="btn btn-link btn-sm rot-quiet p-0" data-rot-act="restore-dismissed"><i class="bi bi-eye me-1" aria-hidden="true"></i>เลิกซ่อนคำขอที่กดไม่สนใจ (${hiddenCount})</button></div>` : ''}`;
 }
 
 function personLine(s) {
@@ -806,11 +844,13 @@ function memberRow(s) {
   const wishLine = wishes.length && !isMe
     ? `<span class="rot-member-wish">อยากไปกลุ่ม ${wishes.map((g) => groupChip(g, 'is-sm')).join('')}</span>` : '';
   const admin = state.board.is_admin && !state.practice;
+  const needsGpa = ruleNeedsGpa(state.board.round.gpa_rule);
+  const gpaTag = needsGpa && !s.has_gpa ? ' · <span class="rot-tag is-warn">ยังไม่กรอก GPA</span>' : '';
   return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${isMe ? 'is-me' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}">
     <span class="rot-gender is-${s.gender === 'M' ? 'm' : 'f'}" title="${genderTh(s.gender)}" aria-label="${genderTh(s.gender)}"></span>
     <div class="rot-member-text">
       <span class="rot-member-name">${escHtml(displayName(s))}${isMe ? ' <span class="rot-tag">คุณ</span>' : ''}${s.staying ? ' <span class="rot-tag is-stay"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> อยู่กลุ่มนี้</span>' : ''}${theirs ? ' <span class="rot-tag is-accent">ขอแลกกับคุณ</span>' : ''}${wantsMine ? ' <span class="rot-tag is-wish">อยากมากลุ่มคุณ</span>' : ''}</span>
-      <span class="rot-member-meta">${escHtml(s.student_id)}${s.signed_in ? '' : ' · ยังไม่เคยเข้าเว็บ'}${showGpa() ? ` · <span class="rot-gpa-private" title="เห็นเฉพาะบัญชีที่กำหนด">GPA ${s.gpa === null || s.gpa === undefined ? '—' : escHtml(Number(s.gpa).toFixed(2))}</span>` : ''}</span>
+      <span class="rot-member-meta">${escHtml(s.student_id)}${s.signed_in ? '' : ' · ยังไม่เคยเข้าเว็บ'}${gpaTag}${showGpa() ? ` · <span class="rot-gpa-private" title="เห็นเฉพาะบัญชีที่กำหนด">GPA ${s.gpa === null || s.gpa === undefined ? '—' : escHtml(Number(s.gpa).toFixed(2))}</span>` : ''}</span>
       ${moveLine}
       ${wishLine}
       ${contactLine(s)}
@@ -850,12 +890,16 @@ function paintGroups() {
   const me = m.me;
   const live = state.board.round.swaps_live;
   const q = state.query;
+  const needsGpa = ruleNeedsGpa(state.board.round.gpa_rule);
+  const missingGpa = (state.board.students || []).filter((s) => !s.has_gpa);
   const groupsHtml = m.groupList.map((g) => {
     let members = g.members.filter((s) => matchesQuery(s, q));
     if (state.onlyEligible) members = members.filter((s) => s.can_swap || (me && s.id === me.id));
+    if (state.onlyMissingGpa) members = members.filter((s) => !s.has_gpa);
     if (q.trim() && !members.length) return '';
     if (state.onlyEligible && me && !g.isMine && !g.eligible) return '';
-    const open = state.openGroups.has(g.group) || !!q.trim() || state.onlyEligible;
+    if (state.onlyMissingGpa && !members.length) return '';
+    const open = state.openGroups.has(g.group) || !!q.trim() || state.onlyEligible || state.onlyMissingGpa;
     const myBc = m.myBroadcast.get(g.group);
     const justMoved = g.members.some((s) => state.flash.has(s.id));
     let bcAction = '';
@@ -883,8 +927,19 @@ function paintGroups() {
       <h2 class="rot-section-title">หาคนแลก</h2>
       <p class="rot-muted">${me ? 'ปุ่ม <strong>ขอแลก</strong> สีเขียวขึ้นเฉพาะคนที่แลกกับคุณได้ · ' : ''}เกณฑ์ตอนนี้: ${escHtml(criteriaTh(state.board.round.gpa_rule))} · แตะแถวในตารางเพื่อไปที่กลุ่มนั้น</p>
     </div>
-    ${me && !me.staying && ruleNeedsGpa(state.board.round.gpa_rule) && (me.gpa === null || me.gpa === undefined)
+    ${me && !me.staying && needsGpa && (me.gpa === null || me.gpa === undefined)
       ? '<p class="rot-note is-warn"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> กรอก GPA ในการ์ดของคุณก่อน — เกณฑ์ใช้ GPA เทียบ ตอนนี้จึงยังไม่มีใครที่แลกกับคุณได้</p>' : ''}
+    ${needsGpa && missingGpa.length ? `
+      <div class="rot-unswappable-banner">
+        <div class="rot-unswappable-text">
+          <strong><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>เพื่อนยังไม่กรอก GPA ${missingGpa.length} คน</strong>
+          <span>เกณฑ์คณะใช้ GPA เทียบช่วง จึงยังแลกกับเพื่อนเหล่านี้ไม่ได้จนกว่าเพื่อนจะเข้ามากรอก</span>
+        </div>
+        <div class="rot-unswappable-actions">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-rot-act="view-unswappable">ดูรายชื่อ (${missingGpa.length})</button>
+          <button type="button" class="btn btn-sm btn-custom" data-rot-act="copy-missing-gpa"><i class="bi bi-clipboard me-1"></i>คัดลอกส่ง LINE</button>
+        </div>
+      </div>` : ''}
     ${showGpa() ? '<p class="rot-note is-private"><i class="bi bi-eye" aria-hidden="true"></i> คุณเห็น GPA ของทุกคน — มีเฉพาะบัญชีที่กำหนดไว้เท่านั้น ผู้ดูแลคนอื่นและ master ไม่เห็น อย่าแคปหน้าจอนี้ส่งต่อ</p>' : ''}
     ${me?.staying ? '<p class="rot-note"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> คุณเลือกอยู่กลุ่มนี้ไว้ จึงส่งหรือรับคำขอไม่ได้ · ปิดสวิตช์ในการ์ดของคุณถ้าเปลี่ยนใจ</p>' : ''}
     ${routeFinder()}
@@ -894,6 +949,7 @@ function paintGroups() {
       <input type="search" class="form-control form-control-sm" placeholder="ค้นหาชื่อ ชื่อเล่น หรือรหัสนักศึกษา"
              value="${escHtml(state.query)}" data-rot-input="query" aria-label="ค้นหาชื่อ ชื่อเล่น หรือรหัสนักศึกษา">
       ${me ? `<label class="rot-switch"><input type="checkbox" data-rot-input="only" ${state.onlyEligible ? 'checked' : ''}> เฉพาะคนที่แลกกับฉันได้</label>` : ''}
+      ${needsGpa && missingGpa.length ? `<label class="rot-switch"><input type="checkbox" data-rot-input="only-missing-gpa" ${state.onlyMissingGpa ? 'checked' : ''}> เฉพาะคนที่ยังไม่กรอก GPA (${missingGpa.length})</label>` : ''}
     </div>
     <div class="rot-groups">${groupsHtml || '<p class="rot-empty">ไม่พบชื่อที่ค้นหา</p>'}</div>`;
 }
@@ -1100,7 +1156,61 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = f
   });
 }
 
+function showUnswappableModal(missing, groups) {
+  let el = document.getElementById('rotUnswappableModal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'rotUnswappableModal';
+    el.className = 'modal fade rot-sheet';
+    el.tabIndex = -1;
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+  }
+  const byGroup = new Map(groups.map((g) => [g, []]));
+  for (const s of missing) {
+    if (byGroup.has(s.current_group)) byGroup.get(s.current_group).push(s);
+  }
+  const groupsHtml = groups.map((g) => {
+    const list = byGroup.get(g) || [];
+    if (!list.length) return '';
+    return `<div class="rot-unswappable-sec">
+      <div class="rot-unswappable-head">${groupChip(g, 'is-sm')} <strong>กลุ่ม ${g}</strong> <span class="rot-muted">(${list.length} คน)</span></div>
+      <ul class="rot-unswappable-list">
+        ${list.map((s) => `<li>
+          <span class="rot-unswappable-name">${escHtml(displayName(s))}</span>
+          <span class="rot-muted">${escHtml(s.student_id)}${s.signed_in ? '' : ' · <span class="rot-tag">ยังไม่เคยเข้าเว็บ</span>'}</span>
+        </li>`).join('')}
+      </ul>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-6">เพื่อนที่ยังไม่กรอก GPA (${missing.length} คน)</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="rot-muted mb-3">เกณฑ์รอบนี้ใช้ GPA เทียบช่วง จึงยังแลกกับเพื่อนเหล่านี้ไม่ได้จนกว่าเพื่อนจะเข้ามากรอก</p>
+          <div class="d-grid mb-3">
+            <button type="button" class="btn btn-sm btn-outline-success" data-rot-act="copy-missing-gpa">
+              <i class="bi bi-clipboard me-1"></i>คัดลอกรายชื่อสำหรับส่งกลุ่ม LINE
+            </button>
+          </div>
+          <div class="rot-unswappable-body">${groupsHtml}</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>`;
+  const modal = window.bootstrap.Modal.getOrCreateInstance(el);
+  modal.show();
+}
+
 // ── actions ──────────────────────────────────────────────────────────────────
+
 
 async function act(button, fn) {
   if (state.busy) return;
@@ -1296,6 +1406,32 @@ async function onClick(e) {
   if (kind === 'cancel' || kind === 'decline') {
     const res = await act(b, () => rpc('rotation_respond_no', { p_request: b.dataset.id }));
     if (res?.ok) toast(kind === 'cancel' ? 'ยกเลิกคำขอแล้ว' : 'ไม่รับคำขอนี้แล้ว');
+    return;
+  }
+
+  if (kind === 'dismiss-offer' || kind === 'dismiss-chain') {
+    addDismissedOffer(b.dataset.id);
+    toast('ซ่อนคำขอนี้แล้ว (คนอื่นในกลุ่มยังตอบรับได้ตามปกติ)');
+    paintAlert();
+    return;
+  }
+  if (kind === 'restore-dismissed') {
+    clearDismissedOffers();
+    toast('แสดงคำขอทั้งหมดแล้ว');
+    paintAlert();
+    return;
+  }
+  if (kind === 'view-unswappable') {
+    const missing = (state.board.students || []).filter((s) => !s.has_gpa);
+    showUnswappableModal(missing, state.board.round.groups);
+    return;
+  }
+  if (kind === 'copy-missing-gpa') {
+    const missing = (state.board.students || []).filter((s) => !s.has_gpa);
+    const text = formatMissingGpaCopyText(missing, state.board.round.groups);
+    await copyText(text);
+    toast(`คัดลอกรายชื่อเพื่อนที่ยังไม่กรอก GPA (${missing.length} คน) แล้ว`);
+    return;
   }
 }
 
@@ -1355,6 +1491,7 @@ function onInput(e) {
 async function onChange(e) {
   const t = e.target;
   if (t.dataset.rotInput === 'only') { state.onlyEligible = t.checked; paintGroups(); return; }
+  if (t.dataset.rotInput === 'only-missing-gpa') { state.onlyMissingGpa = t.checked; paintGroups(); return; }
   if (t.dataset.rotInput === 'stay') { await setStaying(t); return; }
   if (t.dataset.rotMove) {
     const s = state.model.byId.get(t.dataset.rotMove);

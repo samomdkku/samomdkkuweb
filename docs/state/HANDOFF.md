@@ -2537,7 +2537,16 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 - ✅ Page (committed, NOT deployed): wish chips on my card; หาคนแลก › อยากไปกลุ่มไหน (direct count + routes via one middle group, "ทุกคนได้กลุ่มที่อยากไป"); chain offers in the top banner; my chains + my yeses in คำขอของคุณ; chains drawn as 3-person cycles; practice scenes `chain_needs_me` / `chain_others_yes` (practice.js re-states the chain rules — `practice.test.js` mirrors §J). `tools/browser/rotation-page.mjs` 33/33 on samo-dev.
 - ⏳ OWED: not built — naming a specific person per leg in the UI (the RPC supports `p_via_target`/`p_to_target`; the page sends "anyone"); the chain does not yet notify anyone outside the page.
 
+**i. Reject/dismiss open broadcast offers & kick taker from open leg (0259) — Status: VERIFIED 2026-10-24.**
+- 0259 `rotation_chain_kick(p_chain, p_seq)` allows the chain starter to kick/reject a taker from an open leg without cancelling the whole chain (applied on dev AND production 2026-10-24; `rotation0250-swaps` 99/99 both).
+- Students receiving an open broadcast offer ("ขอแลกกับใครก็ได้ในกลุ่ม X" or chain "ชวนใครก็ได้ในกลุ่ม X") now see a "ไม่สนใจ" button that hides the offer locally from their own banner without declining it for their groupmates. "เลิกซ่อนคำขอที่กดไม่สนใจ" restores them anytime.
+
+**j. Missing GPA list & LINE sharing (0260) — Status: VERIFIED 2026-10-24.**
+- 0260 `rotation_board()` carries `'has_gpa', s.gpa is not null` on each student (applied on dev AND production 2026-10-24; `rotation0250-swaps` 99/99 both). The exact GPA number remains secret.
+- Banner in "หาคนแลก" shows how many students haven't filled GPA (blocks swaps under `band_or_close`). Modal lists students by group with student ID and nickname; "คัดลอกส่ง LINE" copies clean text for cohort LINE groups; filter checkbox and `ยังไม่กรอก GPA` tags on rows make unswappable status clear.
+
 **c. Two surnames differ between the PDF and the registry — Status: OWED (a person to confirm).** The import used the registry's name for both and printed them (rows B 653070135-6 and C 653070030-0, `node tools/rotation-import.mjs <pdf>` shows them again — dry run). Seven other differences are the PDF's text layer turning ำ into า, and two are surnames clipped in the PDF itself; neither needs anyone.
+
 
 **d. Never seen on a real phone or by a real student — Status: HYPOTHESIS.** Headless Chrome at three widths only; the first real look is when the owner opens it.
 

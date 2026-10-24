@@ -302,3 +302,34 @@ export function diffBoards(prev, next) {
   const chainsDone = chainCycles(next).filter((c) => !done0.has(c.id));
   return { moved, swaps, newIncoming, newChainOffers, chainsDone };
 }
+
+/**
+ * Format a list of students who haven't filled their GPA into a message
+ * suitable for sharing in a LINE group so classmates can notify them.
+ */
+export function formatMissingGpaCopyText(students, groups = ['A', 'B', 'C', 'D', 'E', 'F']) {
+  const missing = (students || []).filter((s) => !s.has_gpa);
+  if (!missing.length) return 'ทุกคนในตารางกรอก GPA เรียบร้อยแล้ว';
+  const byGroup = new Map(groups.map((g) => [g, []]));
+  for (const s of missing) {
+    if (!byGroup.has(s.current_group)) byGroup.set(s.current_group, []);
+    byGroup.get(s.current_group).push(s);
+  }
+  const lines = [
+    `📌 รายชื่อเพื่อนที่ยังไม่ได้กรอก GPA ในระบบแลก Rotation (${missing.length} คน)`,
+    'รบกวนเข้าไปกรอกที่ https://samo.md.kku.ac.th/rotation เพื่อนคนอื่นจะได้ขอแลกได้ครับ/ค่ะ',
+    '',
+  ];
+  for (const g of groups) {
+    const list = byGroup.get(g) || [];
+    if (!list.length) continue;
+    lines.push(`[กลุ่ม ${g} - ${list.length} คน]`);
+    for (const s of list) {
+      const extra = s.signed_in ? '' : ' (ยังไม่เคยเข้าเว็บ)';
+      lines.push(`• ${s.student_id} ${displayName(s)}${extra}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
+
