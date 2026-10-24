@@ -1164,6 +1164,7 @@ function showUnswappableModal(missing, groups) {
     el.className = 'modal fade rot-sheet';
     el.tabIndex = -1;
     el.setAttribute('aria-hidden', 'true');
+    el.addEventListener('click', onClick);
     document.body.appendChild(el);
   }
   const byGroup = new Map(groups.map((g) => [g, []]));
