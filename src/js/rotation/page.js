@@ -150,7 +150,14 @@ async function load() {
     if (!state.practice && !getUser()) { state.board = null; paintGate('signed_out'); return; }
     const prev = state.board;
     const board = await rpc('rotation_board', { p_round: ROUND_ID });
-    if (!board || board.ok === false) { paintGate('error', board?.detail); return; }
+    if (!board || board.ok === false) {
+      if (!prev) { paintGate('error', board?.detail); }
+      else {
+        // Keep existing board rendered if a background update blips; retry shortly.
+        setTimeout(() => { if (isOnPage()) load(); }, 2000 + Math.floor(Math.random() * 2000));
+      }
+      return;
+    }
     state.board = board;
     state.lastLoadedAt = new Date();
     if (board.state !== 'ok') { paintGate(board.state); return; }
@@ -214,7 +221,7 @@ function startLive() {
         () => {
           if (state.practice) return;
           clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => { if (isOnPage()) load(); }, 250);
+          debounceTimer = setTimeout(() => { if (isOnPage()) load(); }, 150 + Math.floor(Math.random() * 250));
         })
       .subscribe((status) => {
         state.live = status === 'SUBSCRIBED';
