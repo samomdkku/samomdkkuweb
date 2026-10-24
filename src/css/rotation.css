@@ -1,0 +1,285 @@
+/* ==============================================
+ * แลก Rotation — /rotation (#pills-rotation). Painted by
+ * src/js/rotation/page.js. Every rule is scoped under .rot-tab or the sheet.
+ *
+ * DEVICE PLAN (the owner's question: will a timetable hurt the phone?):
+ *   phone   one column; the PDF's 48-week grid is never drawn — the timetable
+ *           is six stacked blocks, the overview a 6 × 6 grid of short labels.
+ *   ≥ 992   two columns: me + asks (sticky) | the views.
+ * `--unit` is each subject's colour from the faculty PDF (src/data/rotation-2570.js).
+ * ============================================== */
+
+.rot-tab { padding-bottom: 3rem; }
+.rot-container { max-width: 1120px; padding-top: 1.25rem; }
+
+.rot-head { margin-bottom: 1rem; }
+.rot-eyebrow { margin: 0; font-size: 0.8rem; color: var(--ink-500); font-weight: 500; }
+.rot-title {
+  margin: 0.1rem 0 0.5rem;
+  font-family: "Prompt", "Noto Sans Thai", system-ui, sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ink-900);
+}
+.rot-status { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; min-height: 1.75rem; }
+.rot-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.2rem 0.7rem; border-radius: var(--radius-pill);
+  font-size: 0.8rem; font-weight: 600;
+}
+.rot-pill.is-open { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-200); }
+.rot-pill.is-closed { background: var(--ink-100); color: var(--ink-600); border: 1px solid var(--ink-200); }
+.rot-live-dot { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--ink-500); }
+.rot-live-dot > span { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-300); }
+.rot-live-dot.is-live > span { background: var(--brand-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-accent) 20%, transparent); }
+
+.rot-muted { color: var(--ink-500); font-size: 0.82rem; }
+.rot-empty { color: var(--ink-500); font-size: 0.88rem; padding: 0.75rem 0; margin: 0; list-style: none; }
+.rot-footnote { font-size: 0.75rem; color: var(--ink-400); margin-top: 0.75rem; }
+
+/* ---------- gate ---------- */
+.rot-gate-card {
+  max-width: 520px; margin: 2rem auto; padding: 2rem 1.5rem; text-align: center;
+  background: var(--surface); border: 1px solid var(--ink-200); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.rot-gate-card h2 { font-size: 1.1rem; font-weight: 600; margin: 0.5rem 0; }
+.rot-gate-card p { margin-bottom: 0.75rem; }
+.rot-gate-icon { font-size: 2rem; color: var(--ink-400); }
+
+/* ---------- layout ---------- */
+.rot-main { display: grid; gap: 1rem; }
+.rot-side, .rot-content { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+@media (min-width: 992px) {
+  .rot-main { grid-template-columns: minmax(300px, 360px) 1fr; gap: 1.5rem; }
+  .rot-side { position: sticky; top: 96px; max-height: calc(100vh - 112px); overflow: auto; }
+}
+
+.rot-card {
+  background: var(--surface); border: 1px solid var(--ink-200);
+  border-radius: var(--radius-lg); padding: 1rem; box-shadow: var(--shadow-xs);
+}
+.rot-section-title { font-size: 0.95rem; font-weight: 600; color: var(--ink-800); margin: 0 0 0.5rem; }
+.rot-count {
+  display: inline-grid; place-items: center; min-width: 1.4rem; height: 1.4rem; padding: 0 0.35rem;
+  border-radius: var(--radius-pill); background: var(--brand-orange); color: #fff; font-size: 0.72rem; margin-left: 0.25rem;
+}
+
+/* ---------- me ---------- */
+.rot-me-top { display: flex; gap: 0.9rem; align-items: center; }
+.rot-me-group {
+  flex: 0 0 64px; height: 64px; border-radius: var(--radius-md);
+  display: grid; place-items: center; align-content: center;
+  background: var(--brand-primary); color: #fff;
+}
+.rot-me-group-label { font-size: 0.65rem; opacity: 0.8; line-height: 1; }
+.rot-me-group-letter { font-family: "Prompt", system-ui, sans-serif; font-size: 1.9rem; font-weight: 600; line-height: 1; }
+.rot-me-who { min-width: 0; }
+.rot-me-who p { margin: 0; }
+.rot-me-name { font-weight: 600; color: var(--ink-900); overflow-wrap: anywhere; }
+.rot-me-meta { font-size: 0.8rem; color: var(--ink-500); }
+.rot-me-when { font-size: 0.82rem; color: var(--ink-700); margin-top: 0.15rem !important; }
+.rot-moved { color: #b4441a; color: color-mix(in srgb, #b4441a var(--fg-mix), var(--fg-mix-to)); font-weight: 600; }
+
+.rot-gpa {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 0.25rem 0.5rem; align-items: center;
+  margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--ink-100);
+}
+.rot-gpa-label { font-weight: 600; font-size: 0.85rem; }
+.rot-gpa-input { max-width: 8rem; }
+.rot-gpa-help, .rot-gpa-error { grid-column: 1 / -1; margin: 0; font-size: 0.75rem; color: var(--ink-500); }
+.rot-gpa-error { color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); }
+
+/* ---------- asks ---------- */
+.rot-inbox:empty { display: none; }
+.rot-list { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 0.5rem; }
+.rot-ask {
+  display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;
+  padding: 0.7rem 0.85rem; background: var(--surface);
+  border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+}
+.rot-ask.is-incoming { border-color: color-mix(in srgb, var(--brand-orange) 45%, var(--ink-200)); background: color-mix(in srgb, var(--brand-orange) 5%, var(--surface)); }
+.rot-ask-text { display: grid; gap: 0.1rem; min-width: 0; font-size: 0.88rem; }
+.rot-ask-result { font-size: 0.8rem; color: var(--ink-700); }
+.rot-ask-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; flex-shrink: 0; }
+.rot-quiet { color: var(--ink-500); text-decoration: none; font-size: 0.8rem; }
+
+.rot-group-chip {
+  display: inline-grid; place-items: center; min-width: 1.9rem; height: 1.9rem; padding: 0 0.3rem;
+  border-radius: var(--radius-sm); background: var(--ink-100); color: var(--ink-800);
+  font-family: "Prompt", system-ui, sans-serif; font-weight: 600; font-size: 0.95rem;
+}
+.rot-group-chip.is-sm { min-width: 1.35rem; height: 1.35rem; font-size: 0.75rem; border-radius: 6px; vertical-align: 1px; }
+
+/* ---------- segmented control ---------- */
+.rot-seg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px;
+  background: var(--ink-100); border-radius: var(--radius-md);
+  /* Not sticky: the phone navbar floats over the top ~80px and would cover it. */
+}
+.rot-seg-btn {
+  border: 0; background: transparent; border-radius: calc(var(--radius-md) - 3px);
+  padding: 0.45rem 0.25rem; font-size: 0.85rem; font-weight: 500; color: var(--ink-600);
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.rot-seg-btn:active { transform: scale(0.97); }
+.rot-seg-btn[aria-selected="true"] { background: var(--surface); color: var(--ink-900); font-weight: 600; box-shadow: var(--shadow-sm); }
+.rot-seg-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+
+.rot-view-head { margin-bottom: 0.75rem; }
+.rot-view-head p { margin: 0; }
+
+/* ---------- timetable (vertical; one block per card) ---------- */
+.rot-timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+@media (min-width: 768px) { .rot-timeline { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1200px) { .rot-timeline { grid-template-columns: repeat(3, 1fr); } }
+.rot-block {
+  position: relative; padding: 0.8rem 0.9rem 0.8rem 1.1rem;
+  background: var(--surface); border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.rot-block::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--unit); }
+.rot-block.is-now { border-color: var(--brand-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-primary) 18%, transparent); }
+.rot-block.is-past { opacity: 0.6; }
+.rot-block-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.1rem 0.5rem; font-size: 0.75rem; color: var(--ink-500); }
+.rot-block-label { font-weight: 600; color: var(--ink-700); }
+.rot-block-term { font-weight: 400; color: var(--ink-500); }
+.rot-block-unit { margin: 0.2rem 0 0.4rem; font-weight: 600; font-size: 1rem; color: var(--ink-900); }
+.rot-courses { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+.rot-courses li {
+  display: grid; grid-template-columns: 1fr auto; gap: 0 0.5rem; font-size: 0.8rem;
+  padding: 0.35rem 0.5rem; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--unit) 22%, var(--surface));
+}
+.rot-course-kind { font-weight: 600; color: var(--ink-800); }
+.rot-course-code { color: var(--ink-600); text-align: right; font-variant-numeric: tabular-nums; }
+.rot-course-weeks { color: var(--ink-600); grid-column: 1; }
+.rot-course-sec { grid-column: 2; grid-row: 2; text-align: right; font-weight: 600; color: var(--ink-700); }
+.rot-block-was { margin: 0.4rem 0 0; font-size: 0.75rem; color: var(--ink-500); }
+
+.rot-unit {
+  display: inline-block; padding: 0.1rem 0.45rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600;
+  background: color-mix(in srgb, var(--unit) 70%, var(--surface)); color: var(--ink-900); white-space: nowrap;
+}
+
+/* ---------- overview matrix (6 × 6; fits 360 px) ---------- */
+.rot-matrix { display: grid; gap: 3px; margin-bottom: 0.9rem; }
+.rot-matrix-row {
+  display: grid; grid-template-columns: 1.6rem repeat(6, minmax(0, 1fr)); gap: 3px; align-items: stretch;
+  border: 0; padding: 0; background: transparent; text-align: center; width: 100%;
+  border-radius: var(--radius-sm); -webkit-tap-highlight-color: transparent;
+  transition: transform var(--t-fast) var(--ease);
+}
+button.rot-matrix-row:active { transform: scale(0.99); }
+button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.rot-matrix-row.is-mine { box-shadow: 0 0 0 2px var(--brand-primary); }
+.rot-matrix-g { display: grid; place-items: center; font-family: "Prompt", system-ui, sans-serif; font-weight: 600; color: var(--ink-800); }
+.rot-matrix-row.is-mine .rot-matrix-g { color: var(--brand-primary); }
+.rot-matrix-h { font-size: 0.68rem; font-weight: 600; color: var(--ink-600); line-height: 1.2; }
+.rot-matrix-h small { display: block; font-weight: 400; color: var(--ink-400); font-size: 0.62rem; }
+.rot-matrix-c {
+  display: grid; place-items: center; min-height: 2.1rem; padding: 0 2px;
+  background: color-mix(in srgb, var(--unit) 75%, var(--surface)); color: var(--ink-900);
+  font-size: 0.68rem; font-weight: 600; border-radius: 5px; overflow-wrap: anywhere; line-height: 1.1;
+}
+@media (min-width: 576px) { .rot-matrix-c { font-size: 0.78rem; min-height: 2.4rem; } }
+
+/* ---------- groups + members ---------- */
+.rot-filter { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin-bottom: 0.75rem; }
+.rot-filter input[type="search"] { flex: 1 1 220px; }
+.rot-switch { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; }
+.rot-groups { display: grid; gap: 0.6rem; }
+.rot-group {
+  background: var(--surface); border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+  scroll-margin-top: 96px;
+}
+.rot-group.is-mine { border-color: color-mix(in srgb, var(--brand-primary) 50%, var(--ink-200)); }
+.rot-group > summary {
+  list-style: none; display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem 0.85rem; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rot-group > summary::-webkit-details-marker { display: none; }
+.rot-group > summary:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; border-radius: var(--radius-md); }
+.rot-group-sum { display: grid; gap: 0.05rem; min-width: 0; flex: 1; }
+.rot-group-title { font-weight: 600; font-size: 0.92rem; }
+.rot-group-plan { font-size: 0.75rem; color: var(--ink-600); overflow-wrap: anywhere; }
+.rot-group-counts { font-size: 0.75rem; color: var(--ink-500); }
+.rot-group-caret { color: var(--ink-400); transition: transform var(--t-base) var(--ease); }
+.rot-group[open] .rot-group-caret { transform: rotate(180deg); }
+.rot-group-bc { padding: 0 0.85rem 0.6rem; }
+.rot-group-bc p { margin: 0.25rem 0 0; }
+
+.rot-members { list-style: none; margin: 0; padding: 0 0.35rem 0.4rem; }
+.rot-member {
+  display: flex; gap: 0.6rem; align-items: center; padding: 0.55rem 0.5rem;
+  border-top: 1px solid var(--ink-100);
+}
+.rot-member:not(.is-eligible):not(.is-me) .rot-member-name { color: var(--ink-600); }
+.rot-member.is-me { background: var(--green-50); border-radius: var(--radius-sm); }
+.rot-gender { flex: 0 0 8px; height: 8px; border-radius: 50%; }
+.rot-gender.is-m { background: #4f7fd1; }
+.rot-gender.is-f { background: #d1608f; }
+.rot-member-text { display: grid; min-width: 0; flex: 1; }
+.rot-member-name { font-size: 0.9rem; font-weight: 500; color: var(--ink-900); overflow-wrap: anywhere; }
+.rot-member-meta { font-size: 0.74rem; color: var(--ink-500); }
+.rot-member-asks { font-size: 0.74rem; color: #9a5b00; color: color-mix(in srgb, #9a5b00 var(--fg-mix), var(--fg-mix-to)); }
+.rot-member-action { display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0; }
+.rot-admin-move { width: 4.2rem; }
+.rot-tag {
+  display: inline-block; padding: 0 0.4rem; border-radius: var(--radius-pill); font-size: 0.68rem; font-weight: 600;
+  background: var(--ink-100); color: var(--ink-600); vertical-align: 1px;
+}
+.rot-tag.is-accent { background: color-mix(in srgb, var(--brand-orange) 15%, var(--surface)); color: #b4441a; color: color-mix(in srgb, #b4441a var(--fg-mix), var(--fg-mix-to)); }
+
+/* ---------- feed ---------- */
+.rot-feed { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+.rot-feed-item {
+  display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; font-size: 0.86rem; line-height: 1.6;
+  background: var(--surface); border: 1px solid var(--ink-200); border-radius: var(--radius-md);
+}
+.rot-feed-item > i { color: var(--ink-400); margin-top: 0.15rem; }
+.rot-feed-item.is-swap > i { color: var(--brand-accent); }
+.rot-feed-item.is-private { background: var(--ink-50); border-style: dashed; }
+.rot-feed-item .rot-muted { display: block; font-size: 0.74rem; }
+
+/* ---------- admin ---------- */
+.rot-admin { border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--ink-200)); }
+.rot-admin-form { display: grid; gap: 0.55rem; }
+.rot-admin-field { display: grid; gap: 0.2rem; font-size: 0.8rem; color: var(--ink-600); }
+
+/* ---------- toast ---------- */
+.rot-toast {
+  position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  z-index: 1080; max-width: min(92vw, 480px); margin: 0; padding: 0.65rem 1rem;
+  background: rgba(15, 23, 42, 0.92); color: #fff; border-radius: var(--radius-md); font-size: 0.88rem;
+  box-shadow: var(--shadow-lg); animation: rotToastIn var(--t-slow) var(--ease);
+}
+.rot-toast[data-tone="error"] { background: rgba(180, 35, 24, 0.95); }
+@keyframes rotToastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- confirm sheet ---------- */
+/* The site's .modal-header carries the PR form's pink; this sheet is neutral. */
+.rot-sheet .modal-header { background: var(--surface); border-bottom: 1px solid var(--ink-100); }
+.rot-sheet .modal-title { color: var(--ink-900); font-weight: 600; }
+.rot-sheet-lead { font-size: 0.9rem; line-height: 1.65; }
+.rot-compare { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 0.85rem; }
+.rot-compare th, .rot-compare td { padding: 0.15rem 0.35rem; vertical-align: middle; }
+.rot-compare thead th { font-size: 0.75rem; color: var(--ink-500); font-weight: 600; }
+.rot-compare tbody th { font-weight: 600; white-space: nowrap; }
+.rot-compare tbody th small { display: block; font-weight: 400; color: var(--ink-400); font-size: 0.68rem; }
+@media (max-width: 575.98px) {
+  /* A bottom sheet on phones: it rises from the thumb, the way it is dismissed. */
+  .rot-sheet .modal-dialog { margin: 0; position: fixed; inset: auto 0 0 0; max-width: none; }
+  .rot-sheet .modal-content { border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  .rot-sheet.fade .modal-dialog { transform: translateY(24px); }
+  .rot-sheet.show .modal-dialog { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rot-toast { animation: none; }
+  .rot-seg-btn, .rot-group-caret, .rot-matrix-row { transition: none; }
+  .rot-sheet.fade .modal-dialog { transform: none; }
+}

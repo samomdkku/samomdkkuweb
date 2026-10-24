@@ -1,0 +1,37 @@
+      <!-- /rotation — แลก Rotation (ปี 6). Everything inside #rotRoot is painted
+           by src/js/rotation/page.js from ONE rpc, rotation_board() (0250); this
+           file is only the frame. Design + how to extend: docs/ROTATION-SWAP.md. -->
+      <div class="tab-pane fade rot-tab" id="pills-rotation" role="tabpanel">
+        <div class="container rot-container" id="rotRoot">
+
+          <header class="rot-head">
+            <p class="rot-eyebrow">นักศึกษาแพทย์ชั้นปีที่ 6 · ปีการศึกษา 2570</p>
+            <h1 class="rot-title">แลก Rotation</h1>
+            <div class="rot-status" id="rotStatus"></div>
+          </header>
+
+          <!-- signed out / not in the roster / not open yet / loading / error -->
+          <section id="rotGate" class="rot-gate" aria-live="polite"></section>
+
+          <div id="rotMain" class="rot-main" hidden>
+            <div class="rot-side">
+              <section id="rotAdmin" class="rot-card rot-admin" aria-label="ตั้งค่าสำหรับผู้ดูแล" hidden></section>
+              <section id="rotMe" class="rot-card rot-me" aria-label="ข้อมูลของฉัน"></section>
+              <section id="rotInbox" class="rot-inbox" aria-label="คำขอแลก"></section>
+            </div>
+
+            <div class="rot-content">
+              <div class="rot-seg" role="tablist" aria-label="มุมมอง">
+                <button type="button" role="tab" class="rot-seg-btn" data-rot-view="mine" aria-selected="true">ตารางของฉัน</button>
+                <button type="button" role="tab" class="rot-seg-btn" data-rot-view="groups" aria-selected="false">ทุกกลุ่ม</button>
+                <button type="button" role="tab" class="rot-seg-btn" data-rot-view="feed" aria-selected="false">ความเคลื่อนไหว</button>
+              </div>
+              <section id="rotViewMine" class="rot-view" data-rot-pane="mine" role="tabpanel"></section>
+              <section id="rotViewGroups" class="rot-view" data-rot-pane="groups" role="tabpanel" hidden></section>
+              <section id="rotViewFeed" class="rot-view" data-rot-pane="feed" role="tabpanel" hidden></section>
+            </div>
+          </div>
+
+          <p id="rotToast" class="rot-toast" role="status" aria-live="polite" hidden></p>
+        </div>
+      </div>

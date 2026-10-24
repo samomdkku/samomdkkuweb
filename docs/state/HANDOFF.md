@@ -2518,3 +2518,15 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 
 **c. Pressing เริ่มปี SAMO on Q1 day can undo the automatic switch — Status: OWED (bug confirmed, fix unfinished).** `start_samo_year` (0248) runs the due automatic switch first, which starts the year the admin asked for; `start_team_term` then raises "ปี … เป็นปีปัจจุบันอยู่แล้ว" and the WHOLE transaction (the automatic switch too) rolls back — every press, until a scan/form applies the switch first. Only bites on Q1 day before anything else touched the database (next: 1 มี.ค. 2570). Reproduced: `tools/year0248-one-year-system.sql` §E case 40 is RED on production and samo-dev (that red IS this bug — do not delete the case). A draft fix, `0249_start_samo_year_on_q1_day_keeps_the_switch.sql`, adds an early return when the year is already current after the switch; it is applied to **samo-dev only** and case 40 is STILL red with it — the second condition (the open Passport วาระ bridged to `p_year`) is the first suspect; print `passport.samo_years` and `apply_season_schedule()`'s answer inside §E before changing anything. ⛔ Do not apply 0249 to production until case 40 is green.
 
+## 32. แลก Rotation — ปี 6 swap their rotation group (2026-10-24)
+
+**Status: VERIFIED 2026-10-24 — how: `tools/rotation0250-swaps.sql` 43/43 on production AND samo-dev (red on cases 22/30/52 with the gender rule removed); `tools/browser/rotation-page.mjs` on samo-dev: a real ask on a 390 px phone, accepted on an 820 px iPad, the database swapped, a desktop page followed a change it did not make through Realtime, everything cleaned up; 161 roster rows imported to production, all 161 with a kkumail.** The whole map: `docs/ROTATION-SWAP.md`.
+
+**a. Opening it — Status: OWED (owner).** The round ships CLOSED (`published` and `swaps_open` false) and the tools entry hidden; `/rotation` shows students "ยังไม่เปิดให้ใช้". Owner opens it from the admin panel on `/rotation`; making it findable is one entry in `src/data/tools.js` + a PENDING release note — `docs/ROTATION-SWAP.md` §5.
+
+**b. The GPA criterion — Status: DECIDED (owner: collect now, enforce later).** Waiting on the faculty ("may a 3.0 swap with a 2.8?"). The band rule is BUILT and proved (`gpa_rule = 'same_band'`, one switch in the admin panel); a different rule = a new migration replacing `rotation_pair_allowed()` only.
+
+**c. Two surnames differ between the PDF and the registry — Status: OWED (a person to confirm).** The import used the registry's name for both and printed them (rows B 653070135-6 and C 653070030-0, `node tools/rotation-import.mjs <pdf>` shows them again — dry run). Seven other differences are the PDF's text layer turning ำ into า, and two are surnames clipped in the PDF itself; neither needs anyone.
+
+**d. Never seen on a real phone or by a real student — Status: HYPOTHESIS.** Headless Chrome at three widths only; the first real look is when the owner opens it.
+

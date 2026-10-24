@@ -323,6 +323,7 @@ document.addEventListener('shown.bs.tab', (e) => {
       || e.target?.id === 'pills-golden-period-tab'
       || e.target?.id === 'pills-tool-embed-tab'
       || e.target?.id === 'pills-me-tab'
+      || e.target?.id === 'pills-rotation-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
@@ -330,6 +331,14 @@ document.addEventListener('shown.bs.tab', (e) => {
   // The Google Calendar embed is built the first time this tab opens, never at
   // page load — see golden-period.js.
   if (e.target?.id === 'pills-golden-period-tab') mountGoldenPeriodCalendar();
+
+  // แลก Rotation (/rotation) — DYNAMIC import: only ปี 6 ever opens it, so the
+  // entry bundle never carries it. docs/ROTATION-SWAP.md.
+  if (e.target?.id === 'pills-rotation-tab') {
+    import('./rotation/page.js')
+      .then((m) => m.enterRotation())
+      .catch((err) => console.warn('[rotation] failed to load', err));
+  }
 
   // The org chart is one rpc and ~400 people of DOM; load it the first time the
   // about tab is opened (org chart now lives inside เกี่ยวกับเรา).
@@ -408,6 +417,7 @@ const PATH_ROUTES = [
   { path: '/about',    tab: 'pills-about-tab' },
   { path: '/updates',  tab: 'pills-updates-tab' },
   { path: '/me',       tab: 'pills-me-tab' },
+  { path: '/rotation', tab: 'pills-rotation-tab' },
 ];
 
 /** Open the release-notes page. Bound to window so the footer link and the

@@ -166,6 +166,25 @@ export const TOOLS = [
     short: 'SAMO Project',
   },
   {
+    // แลก Rotation — ปี 6 swap their rotation group (0250, docs/ROTATION-SWAP.md).
+    // HIDDEN (dept:null + launcher:false) until the owner opens the round
+    // (rotation_rounds.published): before that every student who found it would
+    // meet "ยังไม่เปิดให้ใช้". To show it: dept:'academic' (ฝ่ายวิชาการ's page)
+    // and drop `launcher: false`. /rotation works either way.
+    slug: 'rotation-swap',
+    dept: null,
+    kind: 'path',
+    path: '/rotation',
+    launcher: false,
+    name: 'แลก Rotation ปี 6',
+    desc: 'ดูกลุ่ม Rotation และตารางของคุณ แลกกลุ่มกับเพื่อนที่ตรงเกณฑ์',
+    icon: 'bi-arrow-left-right',
+    color: '#2f8f6b',
+    keywords: 'rotation แลก สลับ กลุ่ม block ตาราง ปี6 extern',
+    cats: 'public',
+    short: 'แลก Rotation',
+  },
+  {
     slug: 'acad-notion',
     dept: 'academic',
     kind: 'external',
