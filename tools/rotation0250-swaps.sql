@@ -575,11 +575,39 @@ insert into r select 'j_cancel_other', public.rotation_chain_cancel((select v::u
 reset role;
 select pg_temp.as_('m1'); set local role authenticated;
 insert into r select 'j_cancel', public.rotation_chain_cancel((select v::uuid from r where k='j_c8'))->>'ok';
+-- 9. kick taker from open leg (0259)
+insert into r select 'j_c9', public.rotation_chain_propose('proof-0250', 'B', 'C')->>'chain_id';
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'j_m2_take_c9', public.rotation_chain_respond((select v::uuid from r where k='j_c9'), true)->>'ok';
+reset role;
+-- non-starter (m3) cannot kick
+select pg_temp.as_('m3'); set local role authenticated;
+insert into r select 'j_kick_other', public.rotation_chain_kick((select v::uuid from r where k='j_c9'), 1::smallint)->>'reason';
+reset role;
+-- starter cannot kick an empty leg (seq 2 has no taker yet)
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_kick_notaker', public.rotation_chain_kick((select v::uuid from r where k='j_c9'), 2::smallint)->>'reason';
+-- starter kicks m2 from seq 1
+insert into r select 'j_kick_ok', public.rotation_chain_kick((select v::uuid from r where k='j_c9'), 1::smallint)->>'ok';
+reset role;
+-- leg 1 is open again: taker_id is null
+insert into r select 'j_kick_reopened', (
+  select (taker_id is null)::text from public.rotation_chain_legs
+   where chain_id = (select v::uuid from r where k='j_c9') and seq = 1
+);
+-- and now m2 can take it again
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'j_m2_retake', public.rotation_chain_respond((select v::uuid from r where k='j_c9'), true)->>'ok';
 reset role;
 insert into probe select '129. the same chain twice is refused', 'duplicate', (select v from r where k='j_dup');
 insert into probe select '130. an expired chain refuses a yes', 'expired', (select v from r where k='j_exp');
 insert into probe select '131. only the starter cancels (DENY, then ALLOW)', 'not_yours/true',
   (select (select v from r where k='j_cancel_other') || '/' || (select v from r where k='j_cancel'));
+insert into probe select '132. non-starter cannot kick a taker', 'not_yours', (select v from r where k='j_kick_other');
+insert into probe select '133. kicking an empty leg is refused', 'no_taker', (select v from r where k='j_kick_notaker');
+insert into probe select '134. starter can kick a taker from an open leg and it re-opens', 'true/true/true',
+  (select (select v from r where k='j_kick_ok') || '/' || (select v from r where k='j_kick_reopened') || '/' || (select v from r where k='j_m2_retake'));
 
 -- ── §K admin is a named list (0256) ─────────────────────────────────────────
 select pg_temp.as_('mst'); set local role authenticated;

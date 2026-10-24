@@ -660,9 +660,17 @@ function paintInbox() {
   const ch = myChains(state.board);
   const total = (m.outgoing?.length || 0) + ch.started.length + ch.committed.length;
   if (!m.me || !total) { el.innerHTML = ''; return; }
-  const legState = (c, l) => l.taker_id
-    ? `${escHtml(shortName(m.byId.get(l.taker_id)))} ตอบรับแล้ว`
-    : l.target_id ? `รอ ${escHtml(shortName(m.byId.get(l.target_id)))}` : 'รอใครสักคน';
+  const live = state.board?.round?.swaps_live;
+  const legState = (c, l) => {
+    if (!l.taker_id) {
+      return l.target_id ? `รอ ${escHtml(shortName(m.byId.get(l.target_id)))}` : 'รอใครสักคน';
+    }
+    const taker = m.byId.get(l.taker_id);
+    const kickBtn = (!l.target_id && c.starter_id === m.me?.id && live)
+      ? ` <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1 align-baseline rot-quiet" data-rot-act="chain-kick" data-id="${c.id}" data-seq="${l.seq}" data-name="${escHtml(displayName(taker))}">ปฏิเสธคนนี้</button>`
+      : '';
+    return `${escHtml(shortName(taker))} ตอบรับแล้ว${kickBtn}`;
+  };
   const chainsHtml = [
     ...ch.started.map((c) => `<li class="rot-ask is-chain">
       <div class="rot-ask-text">
@@ -1054,7 +1062,7 @@ function compareHtml(fromGroup, toGroup) {
   </table>`;
 }
 
-function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '' }) {
+function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = false }) {
   return new Promise((resolve) => {
     let el = document.getElementById('rotSheet');
     if (!el) {
@@ -1080,7 +1088,7 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '' }) {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-            <button type="button" class="btn btn-custom" data-rot-sheet-yes>${yes}</button>
+            <button type="button" class="${danger ? 'btn btn-danger' : 'btn btn-custom'}" data-rot-sheet-yes>${yes}</button>
           </div>
         </div>
       </div>`;
@@ -1209,6 +1217,22 @@ async function onClick(e) {
   if (kind === 'chain-cancel') {
     const res = await act(b, () => rpc('rotation_chain_cancel', { p_chain: b.dataset.id }));
     if (res?.ok) toast('ยกเลิกแลกต่อเนื่องแล้ว');
+    return;
+  }
+  if (kind === 'chain-kick') {
+    const chainId = b.dataset.id;
+    const seq = parseInt(b.dataset.seq, 10);
+    const who = b.dataset.name || 'คนนี้';
+    const yes = await askSheet({
+      title: `ปฏิเสธ ${who} ออกจากแลกต่อเนื่อง?`,
+      lead: `คุณกำลังปฏิเสธ <strong>${escHtml(who)}</strong> ออกจากคำชวนแลกต่อเนื่องนี้<br>
+             คำชวนของคุณจะยังเปิดอยู่ และที่นั่งในกลุ่มนี้จะเปิดให้คนอื่นเข้ามาร่วมแลกแทน`,
+      yes: 'ปฏิเสธคนนี้',
+      danger: true,
+    });
+    if (!yes) return;
+    const res = await act(b, () => rpc('rotation_chain_kick', { p_chain: chainId, p_seq: seq }));
+    if (res?.ok) toast(`ปฏิเสธ ${who} แล้ว — เปิดรับคนใหม่ในกลุ่มนี้แล้ว`);
     return;
   }
 

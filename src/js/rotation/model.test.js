@@ -161,7 +161,8 @@ describe('reasons', () => {
     const sql = readFileSync('supabase/migrations/0250_rotation_swap.sql', 'utf8')
       + readFileSync('supabase/migrations/0251_rotation_gpa_owner_only_nickname_contact.sql', 'utf8')
       + readFileSync('supabase/migrations/0252_rotation_stay_here.sql', 'utf8')
-      + readFileSync('supabase/migrations/0255_rotation_wishes_and_chains.sql', 'utf8');
+      + readFileSync('supabase/migrations/0255_rotation_wishes_and_chains.sql', 'utf8')
+      + readFileSync('supabase/migrations/0259_rotation_chain_kick_taker.sql', 'utf8');
     const reasons = [...sql.matchAll(/'reason', '([a-z_]+)'/g)].map((x) => x[1]);
     expect(reasons.length).toBeGreaterThan(5);                       // the sweep found something
     for (const r of new Set(reasons)) {

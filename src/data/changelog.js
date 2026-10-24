@@ -152,6 +152,7 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'improved', area: 'portal', audience: 'public', text: 'ระบบแลก Rotation: ผู้ตั้งคำชวนแลกต่อเนื่องสามารถกดปฏิเสธคนที่เข้ามาร่วมในขาที่เปิดรับใครก็ได้ โดยคำชวนยังคงเปิดรอคนอื่นในกลุ่มนั้นอยู่ ไม่ต้องกดยกเลิกทั้งคำชวนแล้วตั้งใหม่' },
   { type: 'improved', area: 'team', audience: 'staff', text: 'ปี SAMO กับวาระสโมของ SAMO Passport ใช้ปีเดียวกันแล้ว และเปลี่ยนพร้อมกันเองทุกวันที่ 1 มี.ค. '
     + 'เช่น 1 มี.ค. 2570 จะเป็นปี SAMO 2570 ทันที งานใหม่ใน PR, VitalSound, หนังสือโครงการ และ SAMO Shop นับเป็นปี 2570 '
     + 'และ Passport เริ่มวาระสโม MDKKU SAMO\'70 กับ Q1 ในครั้งเดียว ทีมชุดเดิมถูกบันทึกเป็นประวัติให้ ถ้ายังไม่ได้บันทึก '
