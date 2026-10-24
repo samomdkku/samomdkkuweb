@@ -519,4 +519,12 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
 .rot-unswappable-staying-desc {
   font-size: 0.78rem; color: var(--ink-600); margin-bottom: 0.5rem;
 }
+.rot-kick-btn {
+  font-size: 0.74rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--radius-sm, 0.4rem);
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  line-height: 1.25;
+}
 

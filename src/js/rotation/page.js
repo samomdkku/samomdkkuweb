@@ -705,7 +705,7 @@ function paintInbox() {
     }
     const taker = m.byId.get(l.taker_id);
     const kickBtn = (!l.target_id && c.starter_id === m.me?.id && live)
-      ? ` <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1 align-baseline rot-quiet" data-rot-act="chain-kick" data-id="${c.id}" data-seq="${l.seq}" data-name="${escHtml(displayName(taker))}">ปฏิเสธคนนี้</button>`
+      ? ` <button type="button" class="btn btn-sm btn-outline-danger rot-kick-btn" data-rot-act="chain-kick" data-id="${c.id}" data-seq="${l.seq}" data-name="${escHtml(displayName(taker))}"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>ปฏิเสธคนนี้</button>`
       : '';
     return `${escHtml(shortName(taker))} ตอบรับแล้ว${kickBtn}`;
   };
@@ -1120,7 +1120,7 @@ function compareHtml(fromGroup, toGroup) {
   </table>`;
 }
 
-function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = false }) {
+function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = false, requireConfirm = false, confirmLabel = '' }) {
   return new Promise((resolve) => {
     let el = document.getElementById('rotSheet');
     if (!el) {
@@ -1132,6 +1132,12 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = f
       el.setAttribute('aria-labelledby', 'rotSheetTitle');
       document.body.appendChild(el);
     }
+    const confirmHtml = requireConfirm ? `
+      <label class="form-check d-flex align-items-center gap-2 p-2 mt-3 rounded border bg-light text-start cursor-pointer">
+        <input type="checkbox" class="form-check-input mt-0" data-rot-sheet-confirm>
+        <span class="small fw-semibold text-danger">${confirmLabel || 'ฉันแน่ใจว่าต้องการทำรายการนี้'}</span>
+      </label>` : '';
+
     el.innerHTML = `
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -1142,17 +1148,25 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = f
           <div class="modal-body">
             <p class="rot-sheet-lead">${lead}</p>
             ${extra}
+            ${confirmHtml}
             ${fromGroup && toGroup ? compareHtml(fromGroup, toGroup) : ''}
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-            <button type="button" class="${danger ? 'btn btn-danger' : 'btn btn-custom'}" data-rot-sheet-yes>${yes}</button>
+            <button type="button" class="${danger ? 'btn btn-danger' : 'btn btn-custom'}" data-rot-sheet-yes ${requireConfirm ? 'disabled' : ''}>${yes}</button>
           </div>
         </div>
       </div>`;
     const modal = window.bootstrap.Modal.getOrCreateInstance(el);
     let answer = false;
-    el.querySelector('[data-rot-sheet-yes]').addEventListener('click', () => { answer = true; modal.hide(); }, { once: true });
+    const yesBtn = el.querySelector('[data-rot-sheet-yes]');
+    const confirmInput = el.querySelector('[data-rot-sheet-confirm]');
+    if (confirmInput && yesBtn) {
+      confirmInput.addEventListener('change', () => {
+        yesBtn.disabled = !confirmInput.checked;
+      });
+    }
+    yesBtn.addEventListener('click', () => { answer = true; modal.hide(); }, { once: true });
     el.addEventListener('hidden.bs.modal', () => resolve(answer), { once: true });
     modal.show();
   });
@@ -1377,9 +1391,12 @@ async function onClick(e) {
     const yes = await askSheet({
       title: `ปฏิเสธ ${who} ออกจากแลกต่อเนื่อง?`,
       lead: `คุณกำลังปฏิเสธ <strong>${escHtml(who)}</strong> ออกจากคำชวนแลกต่อเนื่องนี้<br>
-             คำชวนของคุณจะยังเปิดอยู่ และที่นั่งในกลุ่มนี้จะเปิดให้คนอื่นเข้ามาร่วมแลกแทน`,
-      yes: 'ปฏิเสธคนนี้',
+             คำชวนของคุณจะยังเปิดอยู่ และที่นั่งในกลุ่มนี้จะเปิดให้คนอื่นเข้ามาร่วมแลกแทน<br>
+             <span class="rot-muted small mt-2 d-block"><i class="bi bi-info-circle me-1"></i>หากกดผิด เพื่อนยังสามารถกดตอบรับเข้ามาร่วมใหม่ได้ตราบใดที่ขานี้ยังว่างอยู่</span>`,
+      yes: 'ยืนยันปฏิเสธคนนี้',
       danger: true,
+      requireConfirm: true,
+      confirmLabel: `ฉันแน่ใจว่าต้องการปฏิเสธ ${escHtml(who)} ออกจากกลุ่มนี้`,
     });
     if (!yes) return;
     const res = await act(b, () => rpc('rotation_chain_kick', { p_chain: chainId, p_seq: seq }));
