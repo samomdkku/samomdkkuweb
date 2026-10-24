@@ -2530,6 +2530,8 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 
 **f. "ฉันอยากอยู่กลุ่มนี้" + practice mode — Status: VERIFIED (samo-dev browser run).** 0252 `staying`: closes in-flight asks, nobody can ask them, they cannot ask, broadcasts skip them (§G). โหมดทดลอง (`src/js/rotation/practice.js`) answers the page's RPCs from a pretend cohort so anyone can RECEIVE offers; it RE-STATES the rules — `practice.test.js` mirrors the proof's cases, and its GPA rule is always off (pretend people have no GPA).
 
+**g. แลกต่อเนื่อง (chain swaps, E → A → B in one step) — Status: DESIGN ONLY, 2026-10-24.** Owner asked for it; nothing built. The design is `docs/ROTATION-CHAINS.md`. A chain executes all at once or not at all, and commitments lock nobody. It needs "อยากไปกลุ่ม…" wishes first. Blocked on its §7: legality is the faculty's call (default vs per-seat GPA check), and length (recommend 3 people) plus public wishes are the owner's. Recommended order: wishes → 3-person chains → automatic matching only if needed.
+
 **c. Two surnames differ between the PDF and the registry — Status: OWED (a person to confirm).** The import used the registry's name for both and printed them (rows B 653070135-6 and C 653070030-0, `node tools/rotation-import.mjs <pdf>` shows them again — dry run). Seven other differences are the PDF's text layer turning ำ into า, and two are surnames clipped in the PDF itself; neither needs anyone.
 
 **d. Never seen on a real phone or by a real student — Status: HYPOTHESIS.** Headless Chrome at three widths only; the first real look is when the owner opens it.

@@ -188,3 +188,7 @@ tools-launcher entry is still hidden (students arrive by link).
 - **The left column must never scroll inside itself** — on iPad that hid "คำขอ
   ของคุณ" below a fold (owner's screenshot). It scrolls with the page.
 - The repo is **public**: the PDF and the roster never go into git.
+
+## Next: chain swaps
+
+E → A → B in one atomic step is designed, not built: `docs/ROTATION-CHAINS.md`.
