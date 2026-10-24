@@ -16,6 +16,10 @@
 --   §H  the faculty's rule (0253): same band, OR at most 0.20 apart; no GPA = no
 --   §I  named GPA viewers (0254): only a listed ACCOUNT reads every GPA — an
 --       admin/master off the list still reads none (case 18)
+--   §J  wishes + แลกต่อเนื่อง (0255): a chain moves nobody until the LAST yes,
+--       then all three at once; a moved taker re-opens the leg, a moved starter
+--       or a named "no" fails it; staying, the GPA rule (against the STARTER),
+--       the re-check at the last yes, expiry, cancel, privacy
 --
 -- Synthetic round 'proof-0250' over REAL users rows (the identity helper joins
 -- public.users), everything inside a transaction that ROLLS BACK.
@@ -377,6 +381,192 @@ insert into probe select '101. a listed account reads every student''s GPA (the 
 insert into probe select '102. an admin/master off the list still reads none', 'false/false',
   (select (v::jsonb->>'gpa_viewer') || '/' || exists (select 1 from jsonb_array_elements(v::jsonb->'students') e where e ? 'gpa')::text
      from r where k = 'i_admin');
+
+-- ── §J wishes + chains (0255) ───────────────────────────────────────────────
+-- Fresh geometry: rule off, nobody staying, m1 A · m2 B · out B · m3 C · f1 B.
+insert into public.rotation_students (round_id, student_id, prefix, first_name, last_name, gender,
+                                      original_group, current_group, kkumail)
+select 'proof-0250', '999000005-1', 'นาย', 'ทดสอบ', 'out', 'M', 'B', 'B', email from subj where k = 'out';
+insert into sid select 'out', id from public.rotation_students where round_id = 'proof-0250' and last_name = 'out';
+update public.rotation_students set staying = false, gpa = null where round_id = 'proof-0250';
+create or replace function pg_temp.place() returns void language plpgsql as $$
+begin
+  update public.rotation_students s set current_group = x.g
+    from (values ('m1','A'), ('m2','B'), ('out','B'), ('m3','C'), ('f1','B')) x(k, g)
+   where s.id = (select id from sid where sid.k = x.k);
+end $$;
+select pg_temp.place();
+select pg_temp.as_('admin'); set local role authenticated;
+select public.rotation_admin_update_round('proof-0250', true, true, null, 'off');
+reset role;
+create or replace function pg_temp.grp(p_k text) returns text language sql as $$
+  select current_group from public.rotation_students where id = (select id from sid where k = p_k) $$;
+create or replace function pg_temp.chain(p_id text) returns jsonb language sql as $$
+  select e from jsonb_array_elements(public.rotation_board('proof-0250')->'chains') e where e->>'id' = p_id $$;
+grant execute on function pg_temp.chain(text) to authenticated;
+create temporary table sizes0 on commit drop as
+  select current_group g, count(*) n from public.rotation_students where round_id = 'proof-0250' group by 1;
+
+-- wishes
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_wish', public.rotation_set_wishes('proof-0250', array['C','B'])->>'ok';
+insert into r select 'j_wish_own', public.rotation_set_wishes('proof-0250', array['A'])->>'reason';
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'j_wish_seen', (select (e->'wishes')::text from jsonb_array_elements(public.rotation_board('proof-0250')->'students') e where e->>'last_name' = 'm1');
+reset role;
+insert into probe select '110. wishes are stored ranked and the cohort sees them', 'true/["C", "B"]',
+  (select (select v from r where k='j_wish') || '/' || (select v from r where k='j_wish_seen'));
+insert into probe select '111. wishing for your own group is refused', 'bad_group', (select v from r where k='j_wish_own');
+insert into probe select '112. RLS on the three new tables, students cannot read them', '3/raised',
+  (select count(*)::text from pg_class where relnamespace='public'::regnamespace and relrowsecurity
+      and relname in ('rotation_wishes','rotation_chains','rotation_chain_legs'))
+  || '/' || left((select v from r where k='j_read'), 6);
+
+-- 1. the happy chain: m1 A → C via B; m2 takes leg 1, m3 leg 2
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c1', public.rotation_chain_propose('proof-0250', 'B', 'C')->>'chain_id';
+insert into r select 'j_read', pg_temp.try('select count(*)::text from public.rotation_chains');
+reset role;
+update probe set got = (select count(*)::text from pg_class where relnamespace='public'::regnamespace and relrowsecurity
+      and relname in ('rotation_wishes','rotation_chains','rotation_chain_legs'))
+  || '/' || left((select v from r where k='j_read'), 6) where step like '112.%';
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'j_m2_can', pg_temp.chain((select v from r where k='j_c1'))->'legs'->0->>'can_take';
+insert into r select 'j_m2_yes', public.rotation_chain_respond((select v::uuid from r where k='j_c1'), true)::text;
+reset role;
+select pg_temp.as_('f1'); set local role authenticated;
+insert into r select 'j_f1_can', pg_temp.chain((select v from r where k='j_c1'))->'legs'->0->>'can_take';
+reset role;
+insert into r select 'j_after1', pg_temp.grp('m1') || pg_temp.grp('m2') || pg_temp.grp('m3');
+select pg_temp.as_('out'); set local role authenticated;
+insert into r select 'j_out_taken', public.rotation_chain_respond((select v::uuid from r where k='j_c1'), true)->>'reason';
+reset role;
+select pg_temp.as_('m3'); set local role authenticated;
+insert into r select 'j_m3_yes', public.rotation_chain_respond((select v::uuid from r where k='j_c1'), true)::text;
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_m1_wishes', (public.rotation_board('proof-0250')->'me'->'wishes')::text;
+insert into r select 'j_c1_status', pg_temp.chain((select v from r where k='j_c1'))->>'status';
+reset role;
+insert into probe select '113. a same-gender classmate in the leg''s group may take it (ALLOW)', 'true', (select v from r where k='j_m2_can');
+insert into probe select '114. … a classmate of the other gender may not', 'false', (select v from r where k='j_f1_can');
+insert into probe select '115. the first yes moves NOBODY', '{"ok": true, "done": false}/ABC',
+  (select (select v from r where k='j_m2_yes') || '/' || (select v from r where k='j_after1'));
+insert into probe select '116. a second person cannot take a filled leg', 'taken', (select v from r where k='j_out_taken');
+insert into probe select '117. the last yes moves all three at once (m1 C · m2 A · m3 B)', 'true/CAB',
+  (select ((select v from r where k='j_m3_yes')::jsonb->>'done') || '/' || pg_temp.grp('m1') || pg_temp.grp('m2') || pg_temp.grp('m3'));
+insert into probe select '118. three chain moves recorded, group sizes unchanged', '3/0',
+  (select count(*)::text from public.rotation_moves where chain_id = (select v::uuid from r where k='j_c1') and kind = 'chain')
+  || '/' || (select count(*)::text from (
+       select g, n from sizes0 except
+       select current_group, count(*) from public.rotation_students where round_id='proof-0250' group by 1) d);
+insert into probe select '119. the wish that came true is spent, the other stays; chain reads done', '["B"]/done',
+  (select (select v from r where k='j_m1_wishes') || '/' || (select v from r where k='j_c1_status'));
+
+-- 2. a taker who moves re-opens the leg; a starter who moves fails the chain
+select pg_temp.place();
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c2', public.rotation_chain_propose('proof-0250', 'B', 'C')->>'chain_id';
+reset role;
+select pg_temp.as_('out'); set local role authenticated;
+select public.rotation_chain_respond((select v::uuid from r where k='j_c2'), true);
+reset role;
+select pg_temp.as_('admin'); set local role authenticated;
+select public.rotation_admin_move((select id from sid where k='out'), 'D');
+insert into r select 'j_reopen', (pg_temp.chain((select v from r where k='j_c2'))->>'status')
+       || '/' || coalesce(pg_temp.chain((select v from r where k='j_c2'))->'legs'->0->>'taker_id', 'open');
+select public.rotation_admin_move((select id from sid where k='m1'), 'E');
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c2_m1', (pg_temp.chain((select v from r where k='j_c2'))->>'status') || '/' || (pg_temp.chain((select v from r where k='j_c2'))->>'fail_reason');
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'j_c2_m2', coalesce(pg_temp.chain((select v from r where k='j_c2'))->>'status', 'hidden');
+reset role;
+insert into probe select '132. an admin move works (0250 raised text = text[] on every call)', 'pending/open',
+  (select v from r where k='j_reopen');
+insert into probe select '120. a committed taker who moves re-opens the leg (chain still pending)', 'pending/open', (select v from r where k='j_reopen');
+insert into probe select '121. a starter who moves fails the chain — they see why', 'failed/moved', (select v from r where k='j_c2_m1');
+insert into probe select '122. … a bystander does not see a failed chain', 'hidden', (select v from r where k='j_c2_m2');
+
+-- 3. a named person says no
+select pg_temp.place();
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c3', public.rotation_chain_propose('proof-0250', 'B', 'C', (select id from sid where k='m2'), null)->>'chain_id';
+reset role;
+select pg_temp.as_('out'); set local role authenticated;
+insert into r select 'j_c3_out', public.rotation_chain_respond((select v::uuid from r where k='j_c3'), true)->>'reason';
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+select public.rotation_chain_respond((select v::uuid from r where k='j_c3'), false);
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c3_st', (pg_temp.chain((select v from r where k='j_c3'))->>'status') || '/' || (pg_temp.chain((select v from r where k='j_c3'))->>'fail_reason');
+reset role;
+insert into probe select '123. a leg naming someone cannot be taken by another', 'not_yours', (select v from r where k='j_c3_out');
+insert into probe select '124. the named person''s no fails the chain', 'failed/declined', (select v from r where k='j_c3_st');
+
+-- 4. staying, 5. the GPA rule against the STARTER
+select pg_temp.as_('m3'); set local role authenticated;
+select public.rotation_set_staying('proof-0250', true);
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_stay', public.rotation_chain_propose('proof-0250', 'B', 'C')->>'reason';
+reset role;
+select pg_temp.as_('m3'); set local role authenticated;
+select public.rotation_set_staying('proof-0250', false);
+reset role;
+select pg_temp.as_('admin'); set local role authenticated;
+select public.rotation_admin_update_round('proof-0250', null, null, null, 'band_or_close');
+reset role;
+update public.rotation_students set gpa = 3.30 where id = (select id from sid where k='m1');
+update public.rotation_students set gpa = 3.10 where id = (select id from sid where k='m2');
+update public.rotation_students set gpa = 2.60 where id = (select id from sid where k='m3');
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_gpa_no', public.rotation_chain_propose('proof-0250', 'B', 'C', (select id from sid where k='m2'), (select id from sid where k='m3'))->>'reason';
+reset role;
+update public.rotation_students set gpa = 3.49 where id = (select id from sid where k='m3');
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c5', public.rotation_chain_propose('proof-0250', 'B', 'C', (select id from sid where k='m2'), (select id from sid where k='m3'))->>'chain_id';
+reset role;
+insert into probe select '125. nobody eligible in a leg (the only one is staying)', 'nobody_eligible', (select v from r where k='j_stay');
+insert into probe select '126. a taker who fails the GPA rule against the starter is refused', 'not_eligible', (select v from r where k='j_gpa_no');
+insert into probe select '127. takers are NOT compared with each other (3.10 vs 3.49: the documented default)', 'true',
+  (select ((select v from r where k='j_c5') is not null)::text);
+
+-- 6. the last yes re-checks: m2 commits, then edits GPA out of range → nobody moves
+select pg_temp.as_('m2'); set local role authenticated;
+select public.rotation_chain_respond((select v::uuid from r where k='j_c5'), true);
+select public.rotation_set_gpa('proof-0250', 2.70);
+reset role;
+select pg_temp.as_('m3'); set local role authenticated;
+insert into r select 'j_recheck', public.rotation_chain_respond((select v::uuid from r where k='j_c5'), true)->>'reason';
+reset role;
+insert into probe select '128. the last yes re-checks everyone: a changed GPA fails it, nobody moves', 'chain_failed/ABC',
+  (select (select v from r where k='j_recheck') || '/' || pg_temp.grp('m1') || pg_temp.grp('m2') || pg_temp.grp('m3'));
+select pg_temp.as_('admin'); set local role authenticated;
+select public.rotation_admin_update_round('proof-0250', null, null, null, 'off');
+reset role;
+
+-- 7. expiry, 8. cancel
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_c7', public.rotation_chain_propose('proof-0250', 'B', 'C')->>'chain_id';
+insert into r select 'j_c8', public.rotation_chain_propose('proof-0250', 'C', 'B')->>'chain_id';
+insert into r select 'j_dup', public.rotation_chain_propose('proof-0250', 'C', 'B')->>'reason';
+reset role;
+update public.rotation_chains set expires_at = now() - interval '1 minute' where id = (select v::uuid from r where k='j_c7');
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'j_exp', public.rotation_chain_respond((select v::uuid from r where k='j_c7'), true)->>'reason';
+insert into r select 'j_cancel_other', public.rotation_chain_cancel((select v::uuid from r where k='j_c8'))->>'reason';
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'j_cancel', public.rotation_chain_cancel((select v::uuid from r where k='j_c8'))->>'ok';
+reset role;
+insert into probe select '129. the same chain twice is refused', 'duplicate', (select v from r where k='j_dup');
+insert into probe select '130. an expired chain refuses a yes', 'expired', (select v from r where k='j_exp');
+insert into probe select '131. only the starter cancels (DENY, then ALLOW)', 'not_yours/true',
+  (select (select v from r where k='j_cancel_other') || '/' || (select v from r where k='j_cancel'));
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
