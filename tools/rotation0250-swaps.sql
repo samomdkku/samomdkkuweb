@@ -16,6 +16,8 @@
 --   §H  the faculty's rule (0253): same band, OR at most 0.20 apart; no GPA = no
 --   §I  named GPA viewers (0254): only a listed ACCOUNT reads every GPA — an
 --       admin/master off the list still reads none (case 18)
+--   §K  admin is a NAMED list (0256): a `master` off rotation_admins cannot
+--       move a student or change the round (the 2026-10-24 misuse)
 --   §J  wishes + แลกต่อเนื่อง (0255): a chain moves nobody until the LAST yes,
 --       then all three at once; a moved taker re-opens the leg, a moved starter
 --       or a named "no" fails it; staying, the GPA rule (against the STARTER),
@@ -73,6 +75,17 @@ cross join lateral (values (case n when 1 then 'm1' when 2 then 'm2' when 3 then
                                    when 4 then 'f1' when 5 then 'out' end)) v(k)
 where n <= 5;
 insert into probe select '05. six subject accounts exist (admin + 5)', '6', (select count(*)::text from subj);
+-- 0256: rotation admin is a NAMED list, not a permission — name the probe admin
+-- (rolled back with everything else) and keep one master who is NOT on it.
+insert into public.rotation_admins (user_id, note) select uid, 'proof' from subj where k = 'admin'
+  on conflict do nothing;
+insert into subj
+select 'mst', u.id, lower(btrim(u.email)) from public.users u
+ where u.email is not null and coalesce(u.role, 'user') <> 'dev'
+   and 'master' = any (coalesce(u.permissions,'{}') || coalesce(u.managed_permissions,'{}'))
+   and not exists (select 1 from public.rotation_admins a where a.user_id = u.id)
+   and not exists (select 1 from subj x where x.uid = u.id)
+ order by u.id limit 1;
 
 insert into public.rotation_rounds (id, title) values ('proof-0250', 'proof');
 create temporary table sid (k text primary key, id uuid) on commit drop;
@@ -567,6 +580,17 @@ insert into probe select '129. the same chain twice is refused', 'duplicate', (s
 insert into probe select '130. an expired chain refuses a yes', 'expired', (select v from r where k='j_exp');
 insert into probe select '131. only the starter cancels (DENY, then ALLOW)', 'not_yours/true',
   (select (select v from r where k='j_cancel_other') || '/' || (select v from r where k='j_cancel'));
+
+-- ── §K admin is a named list (0256) ─────────────────────────────────────────
+select pg_temp.as_('mst'); set local role authenticated;
+insert into r select 'k_move', pg_temp.try($q$select public.rotation_admin_move((select id from sid where k='m1'), 'D')::text$q$);
+insert into r select 'k_round', pg_temp.try($q$select public.rotation_admin_update_round('proof-0250', null, null, null, 'off')::text$q$);
+insert into r select 'k_board', (public.rotation_board('proof-0250')->>'is_admin');
+reset role;
+insert into probe select '140. a master NOT on rotation_admins cannot move a student', 'raised: ROTATION_ADMIN_ONLY', (select v from r where k='k_move');
+insert into probe select '141. … nor change the round, and the board says not admin', 'raised: ROTATION_ADMIN_ONLY/' ,
+  (select (select v from r where k='k_round') || '/' || coalesce((select v from r where k='k_board'), ''));
+insert into probe select '142. the named admin can (the ALLOW, case 132 moves a student)', 'pending/open', (select v from r where k='j_reopen');
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,

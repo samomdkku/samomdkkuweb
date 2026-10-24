@@ -79,7 +79,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - A function "authenticated ONLY" answered the anon key
 - "ลบปีปัจจุบันไม่ได้" was a disabled BUTTON
 
-## `authz-grants.md` — The permission / seat / scope channel *(23)*
+## `authz-grants.md` — The permission / seat / scope channel *(24)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -106,6 +106,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A claim reached `students` around the gate the importer goes through
 - "Why did มิกซ์มี่ get หัวหน้าฝ่าย PR?"
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
+- "ผู้ดูแลย้าย" on students nobody moved
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(38)*
 
@@ -531,4 +532,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_469 entries across 10 files._
+_470 entries across 10 files._

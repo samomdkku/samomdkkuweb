@@ -1192,3 +1192,32 @@ design doc frozen before a schema change is exactly the kind of "second home"
 this repo's mistakes keep coming from. The tell is a privileged ACTION (not a
 read) gated on a permission whose own migration header says it is granted
 "with no grant needed".
+
+## "ผู้ดูแลย้าย" on students nobody moved — fixing a dead control handed it to 41 people
+
+**Symptom** (owner, 2026-10-24, during the open แลก Rotation round): student
+cards showed "เพิ่งย้าย ย้ายมาจาก B · ผู้ดูแลย้าย"; four students had been
+bounced between groups (one left in the wrong group) by people who are not the
+round's admin.
+
+**Cause**: two steps, the second mine. (1) 0250 gated rotation admin on
+`current_user_has_permission('rotation')`, and `master` answers yes to every
+permission (0081/0111) — so all 41 masters were rotation admins and saw a
+"ย้ายกลุ่ม" select beside every student. (2) That select had NEVER worked:
+`p_group = any ((select groups …))` is ANY-over-a-subquery, so every call raised
+`text = text[]`. 0255 fixed the SQL as a drive-by found by a proof — and in
+doing so ARMED a control that had been visible to 41 people for a day without
+asking who could reach it. They clicked it.
+
+**Fix**: 0256 `rotation_admins`, a hand-kept list of accounts (the 0254
+`rotation_gpa_viewers` pattern) — `rotation_is_admin()` no longer reads the
+permission. 0257 deleted the admin moves and restored the one student left
+moved. Proof §K: a master off the list cannot move or reconfigure (red with the
+old predicate).
+
+**Where it lives now**: `supabase/migrations/0256_*`, `0257_*`;
+`tools/rotation0250-swaps.sql` §K.
+
+**The general rule**: *a broken control is also a closed door. Before fixing
+one, enumerate who can SEE it — through every permission fold — because the fix
+grants exactly that set the power, effective immediately, on live data.*
