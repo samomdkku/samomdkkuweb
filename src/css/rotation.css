@@ -456,3 +456,28 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
   .rot-seg-btn, .rot-group-caret, .rot-matrix-row { transition: none; }
   .rot-sheet.fade .modal-dialog { transform: none; }
 }
+
+/* ── แลกต่อเนื่อง (0255): wishes, route finder, chain cards ───────────────── */
+.rot-wishes { display: grid; gap: 0.35rem; margin-top: 0.75rem; }
+.rot-wish[aria-pressed="true"] { border-color: var(--rot-g, var(--brand-primary)); }
+.rot-wish-n { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: 0.3rem;
+  border-radius: 50%; background: var(--brand-primary); color: #fff; font-size: 0.68rem; font-weight: 700; }
+.rot-member-wish { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: var(--ink-600); }
+.rot-tag.is-wish { background: color-mix(in srgb, var(--brand-primary) 12%, var(--surface)); color: var(--brand-primary); }
+.rot-route { display: grid; gap: 0.6rem; padding: 0.9rem 1rem; margin-bottom: 1rem;
+  border: 1px solid var(--ink-200); border-radius: 0.9rem; background: var(--surface); }
+.rot-route-direct, .rot-route-chain { display: grid; gap: 0.4rem; }
+.rot-routes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.rot-route-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--ink-200); border-radius: 0.7rem; }
+.rot-route-item.is-happy { border-color: color-mix(in srgb, var(--brand-primary) 45%, var(--ink-200));
+  background: color-mix(in srgb, var(--brand-primary) 5%, var(--surface)); }
+.rot-route-steps { display: grid; gap: 0.2rem; font-size: 0.85rem; justify-items: start; }
+.rot-route-steps > span, .rot-chain-step, .rot-chain-legs > span { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.rot-chain-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.82rem; }
+.rot-chain-sep { color: var(--ink-400); }
+.rot-chain-legs { display: grid; gap: 0.15rem; font-size: 0.8rem; }
+.rot-chain-badge { display: grid; place-items: center; width: 2rem; height: 2rem; flex: none; border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--brand-primary) 12%, var(--surface)); color: var(--brand-primary); }
+.rot-pair.is-chain { flex-wrap: wrap; }
+.rot-chain-label { flex-basis: 100%; font-size: 0.75rem; font-weight: 600; color: var(--brand-primary); }

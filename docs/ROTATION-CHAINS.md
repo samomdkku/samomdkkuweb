@@ -1,6 +1,6 @@
 # แลกต่อเนื่อง — chain swaps for แลก Rotation (DESIGN ONLY)
 
-**Status: DESIGN ONLY, 2026-10-24 — nothing here is built.** Owner asked: *"what
+**Status: BUILT 2026-10-24 (0255 + the page) with the recommended answers to §7; see HANDOFF §32g for what is deployed.** Owner asked: *"what
 if i want to be able to swap continuous, like if no one in B swaps with E, i'll
 have to E → A → B — design it"*. Builds on `docs/ROTATION-SWAP.md` (read that
 first). Two decisions in §7 are the owner's / the faculty's.

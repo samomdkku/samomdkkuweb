@@ -1,7 +1,7 @@
 // model.test.js — the page's reading of rotation_board().
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa } from './model.js';
+import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles } from './model.js';
 import { parseRosterText, compareNames, splitPrefix } from './roster-parse.js';
 
 const S = (id, g, gender, can_swap = false) => ({ id, first_name: id, last_name: 'x', gender, current_group: g, original_group: g, can_swap });
@@ -86,12 +86,53 @@ describe('who swapped with whom', () => {
     const d = diffBoards(board, swapped);
     expect(d.moved.sort()).toEqual(['b1', 'c1']);
     expect(d.swaps.map((p) => p.id)).toEqual(['q9']);
-    expect(diffBoards(null, swapped)).toEqual({ moved: [], swaps: [], newIncoming: [] });
+    expect(diffBoards(null, swapped)).toEqual({ moved: [], swaps: [], newIncoming: [], newChainOffers: [], chainsDone: [] });
   });
   it('isRecent: within 24 h', () => {
     const now = Date.parse('2026-10-25T05:00:00Z');
     expect(isRecent('2026-10-24T05:10:00Z', now)).toBe(true);
     expect(isRecent('2026-10-24T04:00:00Z', now)).toBe(false);
+  });
+});
+
+describe('chains (0255)', () => {
+  const st = (id, g, extra = {}) => ({ id, current_group: g, can_swap: true, wishes: [], ...extra });
+  const chain = {
+    id: 'c1', status: 'pending', starter_id: 'me', from_group: 'E', via_group: 'A', to_group: 'B',
+    legs: [{ seq: 1, from_group: 'A', to_group: 'E', target_id: null, taker_id: 'a1', can_take: false },
+           { seq: 2, from_group: 'B', to_group: 'A', target_id: null, taker_id: null, can_take: true }],
+  };
+  it('a chain is three moves that close a cycle: E→B, A→E, B→A', () => {
+    const p = chainPeople(chain);
+    expect(p.map((x) => `${x.from}${x.to}`)).toEqual(['EB', 'AE', 'BA']);
+    // every group gives one seat and takes one back
+    const out = p.map((x) => x.from).sort().join(''); const inn = p.map((x) => x.to).sort().join('');
+    expect(out).toBe(inn);
+  });
+  it('offers come from the server\'s can_take only', () => {
+    expect(chainOffers({ chains: [chain] }).map((o) => o.leg.seq)).toEqual([2]);
+    expect(chainOffers({ chains: [{ ...chain, status: 'failed' }] })).toEqual([]);
+    expect(chainOffers({ chains: [{ ...chain, legs: chain.legs.map((l) => ({ ...l, can_take: false })) }] })).toEqual([]);
+  });
+  it('my chains: started vs said yes to', () => {
+    expect(myChains({ me: { id: 'me' }, chains: [chain] }).started).toHaveLength(1);
+    expect(myChains({ me: { id: 'a1' }, chains: [chain] }).committed).toHaveLength(1);
+  });
+  it('routes through one middle group; happy when both legs wish what they get', () => {
+    const model = buildModel({
+      round: { groups: ['A', 'B', 'E'] }, me: { id: 'me', current_group: 'E' },
+      students: [st('me', 'E', { can_swap: false }), st('a1', 'A', { wishes: ['E'] }), st('b1', 'B', { wishes: ['A'] }), st('b2', 'B', { can_swap: false, wishes: ['E'] })],
+      requests: [],
+    });
+    const r = routesTo(model, 'B');
+    expect(r.direct).toEqual({ n: 1, wish: 0 });          // b2 wishes E but is not askable
+    expect(r.routes).toEqual([{ via: 'A', n1: 1, n2: 1, w1: 1, w2: 1, possible: true, happy: true }]);
+    expect(routesTo(model, 'E')).toBeNull();
+  });
+  it('a done chain is a cycle in the feed; a failed one is private (server-filtered)', () => {
+    const done = { ...chain, status: 'done', resolved_at: '2026-10-24T10:00:00Z' };
+    expect(chainCycles({ chains: [done, chain] }).map((c) => c.id)).toEqual(['c1']);
+    expect(buildFeed({ chains: [done] }).map((i) => i.kind)).toEqual(['chain-done']);
   });
 });
 
@@ -116,10 +157,11 @@ describe('parseGpa', () => {
 });
 
 describe('reasons', () => {
-  it('every reason an RPC in 0250–0252 can return has Thai', () => {
+  it('every reason an RPC in 0250–0255 can return has Thai', () => {
     const sql = readFileSync('supabase/migrations/0250_rotation_swap.sql', 'utf8')
       + readFileSync('supabase/migrations/0251_rotation_gpa_owner_only_nickname_contact.sql', 'utf8')
-      + readFileSync('supabase/migrations/0252_rotation_stay_here.sql', 'utf8');
+      + readFileSync('supabase/migrations/0252_rotation_stay_here.sql', 'utf8')
+      + readFileSync('supabase/migrations/0255_rotation_wishes_and_chains.sql', 'utf8');
     const reasons = [...sql.matchAll(/'reason', '([a-z_]+)'/g)].map((x) => x[1]);
     expect(reasons.length).toBeGreaterThan(5);                       // the sweep found something
     for (const r of new Set(reasons)) {

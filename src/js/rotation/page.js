@@ -19,6 +19,12 @@
 // cohort in memory — so the owner, or any student, can be the one who RECEIVES
 // offers. `rpc()` below is the only switch; nothing else knows.
 //
+// แลกต่อเนื่อง (0255, docs/ROTATION-CHAINS.md): E → A → B as ONE act of three
+// people. The route finder (หาคนแลก › อยากไปกลุ่มไหน) counts people from the
+// server's `can_swap` — which IS the per-leg rule (each taker vs the starter) —
+// and students' public wishes; whether *I* may fill a leg is the server's
+// `can_take`. A yes is a commitment; the server moves all three on the last one.
+//
 // WHAT THE PAGE NEVER DOES: decide who may swap (`can_swap` is the server's,
 // rotation_pair_allowed), or show anyone's GPA but your own — except to an
 // account the server names `gpa_viewer` (0254: a hand-kept list, not admins,
@@ -44,6 +50,7 @@ import { groupTimetable, weekOf, blockIndexOfWeek, thDate, thRange, weeksLabel }
 import {
   buildModel, buildFeed, reasonText, fullName, displayName, matchesQuery, genderTh, agoTh, parseGpa,
   swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa,
+  chainPeople, chainOffers, myChains, chainYeses, routesTo, chainCycles,
 } from './model.js';
 import { createPractice } from './practice.js';
 
@@ -74,6 +81,7 @@ const state = {
   realMe: null,           // the last real `me`, copied into practice
   guideHidden: readGuideHidden(),
   adminOpen: false,
+  routeTarget: null,      // หาคนแลก › "อยากไปกลุ่มไหน"
 };
 
 let channel = null;
@@ -177,6 +185,12 @@ function announce(d, prev) {
     toast(`คุณย้ายไปกลุ่ม ${me.current_group} แล้ว — ตารางของคุณเปลี่ยนตามด้านล่าง`);
     return;
   }
+  if (d.newChainOffers.length) {
+    toast('มีคนชวนคุณแลกต่อเนื่อง — ดูด้านบนสุด');
+    return;
+  }
+  const othersChains = d.chainsDone.filter((c) => !c.people.some((p) => p.id === me?.id));
+  if (othersChains.length) toast(`มีแลกต่อเนื่องสำเร็จ ${othersChains.length} รายการ (3 คนย้ายพร้อมกัน) — ดูที่ ความเคลื่อนไหว`);
   if (d.newIncoming.length) {
     toast(d.newIncoming.length === 1 ? 'มีคำขอแลกใหม่ถึงคุณ — ดูด้านบนสุด' : `มีคำขอแลกใหม่ถึงคุณ ${d.newIncoming.length} รายการ — ดูด้านบนสุด`);
     return;
@@ -250,6 +264,8 @@ const SCENES = [
   ['someone_beats_me', 'bi-lightning', 'เพื่อนในกลุ่มตอบรับตัดหน้าฉัน'],
   ['they_accept_mine', 'bi-check2-circle', 'มีคนตอบรับคำขอของฉัน'],
   ['others_swap', 'bi-arrow-left-right', 'เพื่อนคนอื่นแลกกัน'],
+  ['chain_needs_me', 'bi-diagram-3', 'มีคนเริ่มแลกต่อเนื่องผ่านกลุ่มฉัน'],
+  ['chain_others_yes', 'bi-check2-all', 'คนอื่นในแลกต่อเนื่องตอบรับครบ'],
 ];
 
 function paintPractice() {
@@ -407,6 +423,36 @@ function pairCard(p, { compact = false } = {}) {
   </div>`;
 }
 
+/** One completed แลกต่อเนื่อง: three people, each into the seat of the next. */
+function chainCard(cy, { compact = false } = {}) {
+  const by = state.model.byId;
+  const meId = state.board.me?.id;
+  const flash = cy.people.some((p) => state.flash.has(p.id));
+  return `<div class="rot-pair is-chain ${compact ? 'is-compact' : ''} ${flash ? 'is-flash' : ''}">
+    <span class="rot-chain-label"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> แลกต่อเนื่อง 3 คน</span>
+    ${cy.people.map((p) => {
+      const s = by.get(p.id);
+      return `<div class="rot-pair-side ${p.id === meId ? 'is-me' : ''}">
+        <span class="rot-pair-name">${escHtml(shortName(s))}${p.id === meId ? ' <span class="rot-tag">คุณ</span>' : ''}</span>
+        <span class="rot-pair-move">${moveArrow(p.from, p.to)}</span>
+      </div>`;
+    }).join('')}
+    <span class="rot-pair-time">${agoTh(cy.at)}</span>
+  </div>`;
+}
+
+/** The three moves of a chain in one line: "ก E→B · ข A→E · (ใครก็ได้) B→A". */
+function chainLine(c) {
+  const by = state.model.byId;
+  const meId = state.board.me?.id;
+  return chainPeople(c).map((p) => {
+    const who = p.id === meId ? 'คุณ'
+      : p.leg?.can_take ? '<strong>คุณ</strong> (ถ้าตอบรับ)'
+      : p.id ? escHtml(shortName(by.get(p.id))) : `ใครก็ได้ในกลุ่ม ${escHtml(p.from)}`;
+    return `<span class="rot-chain-step">${who} ${moveArrow(p.from, p.to)}</span>`;
+  }).join('<span class="rot-chain-sep" aria-hidden="true">·</span>');
+}
+
 // ── paint ────────────────────────────────────────────────────────────────────
 
 function paintAll() {
@@ -458,6 +504,16 @@ function paintMe() {
         ? 'เปิดอยู่ — ไม่มีใครส่งคำขอถึงคุณได้ และเพื่อนเห็นว่าคุณอยู่กลุ่มนี้ · ปิดได้ทุกเมื่อ'
         : 'เปิดแล้วจะไม่มีใครส่งคำขอถึงคุณได้ คำขอที่ค้างอยู่จะปิด · ปิดได้ทุกเมื่อ'}</p>
     </div>
+    ${me.staying ? '' : `<div class="rot-wishes">
+      <span class="rot-field-label">อยากไปกลุ่ม</span>
+      <div class="rot-chips" role="group" aria-label="กลุ่มที่อยากไป">
+        ${r.groups.filter((g) => g !== me.current_group).map((g) => {
+          const k = (me.wishes || []).indexOf(g);
+          return `<button type="button" class="rot-chip rot-wish" data-g="${g}" data-rot-act="wish" data-group="${g}" aria-pressed="${k >= 0}">${k >= 0 ? `<span class="rot-wish-n">${k + 1}</span>` : ''}${g}</button>`;
+        }).join('')}
+      </div>
+      <span class="rot-field-help"><i class="bi bi-people" aria-hidden="true"></i> เพื่อนเห็น · ช่วยให้คนที่อยากมากลุ่มคุณหาคุณเจอ และใช้หาเส้นทางแลกต่อเนื่อง · เลือกได้หลายกลุ่ม ตามลำดับที่กด</span>
+    </div>`}
     <form class="rot-profile" data-rot-form="profile" novalidate>
       <label class="rot-field">
         <span class="rot-field-label">ช่องทางติดต่อ</span>
@@ -490,8 +546,9 @@ function paintGuide() {
   const m = state.model;
   const live = state.board.round.swaps_live;
   const filled = me.gpa !== null && me.gpa !== undefined && !!me.contact;
-  const asked = m.outgoing.length > 0;
-  const swapped = swapPairs(state.board).some((p) => p.aId === me.id || p.bId === me.id);
+  const asked = m.outgoing.length > 0 || myChains(state.board).started.length > 0;
+  const swapped = swapPairs(state.board).some((p) => p.aId === me.id || p.bId === me.id)
+    || chainCycles(state.board).some((c) => c.people.some((p) => p.id === me.id));
   const step = (done, n, title, body) => `<li class="rot-step ${done ? 'is-done' : ''}">
       <span class="rot-step-n" aria-hidden="true">${done ? '<i class="bi bi-check-lg"></i>' : n}</span>
       <div><p class="rot-step-title">${title}${done ? '<span class="visually-hidden"> (ทำแล้ว)</span>' : ''}</p><p class="rot-step-body">${body}</p></div>
@@ -510,7 +567,7 @@ function paintGuide() {
       ${me.staying
         ? step(true, 3, 'คุณเลือกอยู่กลุ่มนี้', 'ไม่ต้องทำอะไรต่อ · เปลี่ยนใจเมื่อไหร่ ปิดสวิตช์ <strong>ฉันอยากอยู่กลุ่มนี้</strong> ในการ์ดของคุณ')
         : `${step(asked || swapped, 3, 'หาคนที่แลกกับคุณได้ แล้วกด ขอแลก', live
-          ? `<button type="button" class="btn btn-sm btn-outline-success mt-1" data-rot-act="find-mates"><i class="bi bi-search me-1" aria-hidden="true"></i>หาคนที่แลกกับฉันได้</button><br>ไม่อยากแลก? เปิด <strong>ฉันอยากอยู่กลุ่มนี้</strong> ในการ์ดของคุณ`
+          ? `<button type="button" class="btn btn-sm btn-outline-success mt-1" data-rot-act="find-mates"><i class="bi bi-search me-1" aria-hidden="true"></i>หาคนที่แลกกับฉันได้</button><br>ไม่มีใครในกลุ่มที่อยากไปแลกตรงๆ? ใช้ <strong>อยากไปกลุ่มไหน</strong> ในแท็บ หาคนแลก — ระบบหา <strong>แลกต่อเนื่อง</strong> ผ่านอีกกลุ่มให้ · ไม่อยากแลก? เปิด <strong>ฉันอยากอยู่กลุ่มนี้</strong>`
           : 'รอสโมสรเปิดให้แลก ระหว่างนี้ดูรายชื่อได้ที่ <button type="button" class="btn btn-link p-0 align-baseline" data-rot-view="groups">หาคนแลก</button>')}
       ${step(swapped, 4, 'รออีกฝ่ายกดตอบรับ', 'พอเขาตอบรับ ระบบสลับกลุ่มให้ทันที ทุกคนเห็นพร้อมกัน · ถ้ามีคนขอแลกกับคุณ จะขึ้นที่ด้านบนสุด')}`}
     </ol>
@@ -522,17 +579,18 @@ function paintAlert() {
   const el = $('rotAlert');
   const m = state.model;
   const live = state.board.round.swaps_live;
-  if (!m.me || !m.incoming.length) { el.hidden = true; el.innerHTML = ''; return; }
+  const chainOff = m.me ? chainOffers(state.board) : [];
+  if (!m.me || (!m.incoming.length && !chainOff.length)) { el.hidden = true; el.innerHTML = ''; return; }
   const list = [...m.incoming].sort((a, b) => (a.target_id ? 0 : 1) - (b.target_id ? 0 : 1)
     || String(b.created_at).localeCompare(String(a.created_at)));
-  const n = list.length;
+  const n = list.length + chainOff.length;
   el.hidden = false;
   el.innerHTML = `
     <div class="rot-alert-head">
       <i class="bi bi-bell-fill rot-alert-icon" aria-hidden="true"></i>
       <div>
         <h2 class="rot-alert-title">${n === 1 ? 'มีคนขอแลกกับคุณ' : `มี ${n} คำขอแลกถึงคุณ`}</h2>
-        <p class="rot-alert-sub">${n > 1 ? 'ตอบรับได้คนเดียว — พอแลกแล้ว คำขออื่นจะปิดเอง · ' : ''}เทียบตารางก่อนตอบรับได้</p>
+        <p class="rot-alert-sub">${n > 1 ? 'ย้ายได้ครั้งเดียว — พอแลกแล้ว คำขออื่นจะปิดเอง · ' : ''}เทียบตารางก่อนตอบรับได้</p>
       </div>
     </div>
     <ul class="rot-offers">${list.map((q) => {
@@ -557,6 +615,29 @@ function paintAlert() {
           ${live && !broadcast ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="decline" data-id="${q.id}">ไม่รับ</button>` : ''}
         </div>
       </li>`;
+    }).join('')}${chainOff.map(({ chain: c, leg }) => {
+      const st = m.byId.get(c.starter_id);
+      const k = chainYeses(c);
+      return `<li class="rot-offer is-chain">
+        <div class="rot-offer-who">
+          <span class="rot-chain-badge" aria-hidden="true"><i class="bi bi-arrow-repeat"></i></span>
+          <div class="rot-offer-text">
+            <span class="rot-offer-name">แลกต่อเนื่อง 3 คน · เริ่มโดย ${escHtml(displayName(st))}</span>
+            <span class="rot-muted">${leg.target_id ? 'ชวนคุณโดยตรง' : `ชวนใครก็ได้ในกลุ่ม ${escHtml(leg.from_group)}`} · ตอบรับแล้ว ${k}/2 · ${agoTh(c.created_at)}</span>
+            ${contactLine(st)}
+            <span class="rot-chain-line">${chainLine(c)}</span>
+          </div>
+        </div>
+        <div class="rot-offer-result">
+          <span class="rot-offer-if">ถ้าครบ คุณย้าย ${moveArrow(leg.from_group, leg.to_group)}</span>
+          <span class="rot-offer-plan-label">ตารางทั้งปีของกลุ่ม ${escHtml(leg.to_group)}</span>
+          ${planChips(leg.to_group)}
+        </div>
+        <div class="rot-offer-actions">
+          ${live ? `<button type="button" class="btn btn-sm btn-custom" data-rot-act="chain-yes" data-id="${c.id}">ดูและตอบรับ</button>` : '<span class="rot-muted">ยังไม่เปิดให้แลก</span>'}
+          ${live && leg.target_id ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="chain-no" data-id="${c.id}">ไม่รับ</button>` : ''}
+        </div>
+      </li>`;
     }).join('')}</ul>`;
 }
 
@@ -569,8 +650,33 @@ function personLine(s) {
 function paintInbox() {
   const el = $('rotInbox');
   const m = state.model;
-  if (!m.me || !m.outgoing.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<h2 class="rot-section-title">คำขอของคุณที่รอตอบ <span class="rot-count is-quiet">${m.outgoing.length}</span></h2>
+  const ch = myChains(state.board);
+  const total = (m.outgoing?.length || 0) + ch.started.length + ch.committed.length;
+  if (!m.me || !total) { el.innerHTML = ''; return; }
+  const legState = (c, l) => l.taker_id
+    ? `${escHtml(shortName(m.byId.get(l.taker_id)))} ตอบรับแล้ว`
+    : l.target_id ? `รอ ${escHtml(shortName(m.byId.get(l.target_id)))}` : 'รอใครสักคน';
+  const chainsHtml = [
+    ...ch.started.map((c) => `<li class="rot-ask is-chain">
+      <div class="rot-ask-text">
+        <span><i class="bi bi-arrow-repeat" aria-hidden="true"></i> แลกต่อเนื่อง: คุณ ${moveArrow(c.from_group, c.to_group)} ผ่านกลุ่ม ${groupChip(c.via_group, 'is-sm')}</span>
+        <span class="rot-chain-legs">${c.legs.map((l) => `<span>${moveArrow(l.from_group, l.to_group)} ${legState(c, l)}</span>`).join('')}</span>
+        <span class="rot-muted">ตอบรับแล้ว ${chainYeses(c)}/2 · ยังไม่มีใครย้ายจนกว่าจะครบ · ${agoTh(c.created_at)}</span>
+      </div>
+      <div class="rot-ask-actions"><button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="chain-cancel" data-id="${c.id}">ยกเลิก</button></div>
+    </li>`),
+    ...ch.committed.map((c) => {
+      const mine = c.legs.find((l) => l.taker_id === m.me.id);
+      return `<li class="rot-ask is-chain">
+      <div class="rot-ask-text">
+        <span><i class="bi bi-arrow-repeat" aria-hidden="true"></i> คุณตอบรับแลกต่อเนื่องของ ${personLine(m.byId.get(c.starter_id))} แล้ว</span>
+        <span class="rot-muted">ถ้าครบ คุณย้าย ${moveArrow(mine.from_group, mine.to_group)} · รออีก ${2 - chainYeses(c)} คน</span>
+      </div>
+      <div class="rot-ask-actions"><button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="chain-no" data-id="${c.id}">ถอนตัว</button></div>
+    </li>`;
+    }),
+  ].join('');
+  el.innerHTML = `<h2 class="rot-section-title">คำขอของคุณที่รอตอบ <span class="rot-count is-quiet">${total}</span></h2>
     <p class="rot-muted mb-2">ถ้ามีคนตอบรับคำขอใดก่อน คุณจะย้ายทันที แล้วคำขอที่เหลือจะปิดเอง</p>
     <ul class="rot-list">${m.outgoing.map((q) => {
       const who = q.target_id ? m.byId.get(q.target_id) : null;
@@ -583,7 +689,7 @@ function paintInbox() {
           <button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="cancel" data-id="${q.id}">ยกเลิก</button>
         </div>
       </li>`;
-    }).join('')}</ul>`;
+    }).join('')}${chainsHtml}</ul>`;
 }
 
 function paintViews() {
@@ -671,7 +777,7 @@ function memberRow(s) {
   let moveLine = '';
   if (mv && (movedAway || recent)) {
     const partner = mv.partnerId ? m.byId.get(mv.partnerId) : null;
-    moveLine = `<span class="rot-member-move">${recent ? '<span class="rot-tag is-new">เพิ่งย้าย</span> ' : ''}ย้ายมาจาก ${groupChip(mv.from, 'is-sm')}${partner ? ` · แลกกับ ${escHtml(shortName(partner))}` : mv.kind === 'admin' ? ' · ผู้ดูแลย้าย' : ''} <span class="rot-muted">${agoTh(mv.at)}</span></span>`;
+    moveLine = `<span class="rot-member-move">${recent ? '<span class="rot-tag is-new">เพิ่งย้าย</span> ' : ''}ย้ายมาจาก ${groupChip(mv.from, 'is-sm')}${partner ? ` · แลกกับ ${escHtml(shortName(partner))}` : mv.kind === 'admin' ? ' · ผู้ดูแลย้าย' : mv.kind === 'chain' ? ' · แลกต่อเนื่อง 3 คน' : ''} <span class="rot-muted">${agoTh(mv.at)}</span></span>`;
   } else if (movedAway) {
     moveLine = `<span class="rot-member-move">เดิมกลุ่ม ${groupChip(s.original_group, 'is-sm')}</span>`;
   }
@@ -680,13 +786,18 @@ function memberRow(s) {
         ? `ขอแลกกับ ${escHtml(shortName(m.byId.get(q.target_id)))}`
         : `ขอแลกกับใครก็ได้ในกลุ่ม ${escHtml(q.to_group)}`).join(' · ')}</span>`
     : '';
+  const wishes = s.wishes || [];
+  const wantsMine = !!me && !isMe && wishes.includes(me.current_group);
+  const wishLine = wishes.length && !isMe
+    ? `<span class="rot-member-wish">อยากไปกลุ่ม ${wishes.map((g) => groupChip(g, 'is-sm')).join('')}</span>` : '';
   const admin = state.board.is_admin && !state.practice;
   return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${isMe ? 'is-me' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}">
     <span class="rot-gender is-${s.gender === 'M' ? 'm' : 'f'}" title="${genderTh(s.gender)}" aria-label="${genderTh(s.gender)}"></span>
     <div class="rot-member-text">
-      <span class="rot-member-name">${escHtml(displayName(s))}${isMe ? ' <span class="rot-tag">คุณ</span>' : ''}${s.staying ? ' <span class="rot-tag is-stay"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> อยู่กลุ่มนี้</span>' : ''}${theirs ? ' <span class="rot-tag is-accent">ขอแลกกับคุณ</span>' : ''}</span>
+      <span class="rot-member-name">${escHtml(displayName(s))}${isMe ? ' <span class="rot-tag">คุณ</span>' : ''}${s.staying ? ' <span class="rot-tag is-stay"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> อยู่กลุ่มนี้</span>' : ''}${theirs ? ' <span class="rot-tag is-accent">ขอแลกกับคุณ</span>' : ''}${wantsMine ? ' <span class="rot-tag is-wish">อยากมากลุ่มคุณ</span>' : ''}</span>
       <span class="rot-member-meta">${escHtml(s.student_id)}${s.signed_in ? '' : ' · ยังไม่เคยเข้าเว็บ'}${showGpa() ? ` · <span class="rot-gpa-private" title="เห็นเฉพาะบัญชีที่กำหนด">GPA ${s.gpa === null || s.gpa === undefined ? '—' : escHtml(Number(s.gpa).toFixed(2))}</span>` : ''}</span>
       ${moveLine}
+      ${wishLine}
       ${contactLine(s)}
       ${askLine}
     </div>
@@ -705,14 +816,16 @@ function showGpa() {
 }
 
 function recentStrip() {
-  const pairs = swapPairs(state.board);
-  if (!pairs.length) return '';
+  const all = [...swapPairs(state.board).map((p) => ({ at: p.at, html: (o) => pairCard(p, o) })),
+               ...chainCycles(state.board).map((c) => ({ at: c.at, html: (o) => chainCard(c, o) }))]
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  if (!all.length) return '';
   return `<section class="rot-recent" aria-label="แลกล่าสุด">
     <div class="rot-recent-head">
       <h3 class="rot-subtitle">แลกล่าสุด</h3>
-      <button type="button" class="btn btn-link btn-sm p-0" data-rot-act="feed-swaps">ดูทั้งหมด ${pairs.length} คู่</button>
+      <button type="button" class="btn btn-link btn-sm p-0" data-rot-act="feed-swaps">ดูทั้งหมด ${all.length} รายการ</button>
     </div>
-    <div class="rot-pairs">${pairs.slice(0, 3).map((p) => pairCard(p, { compact: true })).join('')}</div>
+    <div class="rot-pairs">${all.slice(0, 3).map((x) => x.html({ compact: true })).join('')}</div>
   </section>`;
 }
 
@@ -759,6 +872,7 @@ function paintGroups() {
       ? '<p class="rot-note is-warn"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> กรอก GPA ในการ์ดของคุณก่อน — เกณฑ์ใช้ GPA เทียบ ตอนนี้จึงยังไม่มีใครที่แลกกับคุณได้</p>' : ''}
     ${showGpa() ? '<p class="rot-note is-private"><i class="bi bi-eye" aria-hidden="true"></i> คุณเห็น GPA ของทุกคน — มีเฉพาะบัญชีที่กำหนดไว้เท่านั้น ผู้ดูแลคนอื่นและ master ไม่เห็น อย่าแคปหน้าจอนี้ส่งต่อ</p>' : ''}
     ${me?.staying ? '<p class="rot-note"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> คุณเลือกอยู่กลุ่มนี้ไว้ จึงส่งหรือรับคำขอไม่ได้ · ปิดสวิตช์ในการ์ดของคุณถ้าเปลี่ยนใจ</p>' : ''}
+    ${routeFinder()}
     ${recentStrip()}
     ${matrixHtml()}
     <div class="rot-filter">
@@ -767,6 +881,50 @@ function paintGroups() {
       ${me ? `<label class="rot-switch"><input type="checkbox" data-rot-input="only" ${state.onlyEligible ? 'checked' : ''}> เฉพาะคนที่แลกกับฉันได้</label>` : ''}
     </div>
     <div class="rot-groups">${groupsHtml || '<p class="rot-empty">ไม่พบชื่อที่ค้นหา</p>'}</div>`;
+}
+
+/** "อยากไปกลุ่มไหน": the direct swap, then every route through one middle group. */
+function routeFinder() {
+  const m = state.model;
+  const me = m.me;
+  if (!me || me.staying) return '';
+  const live = state.board.round.swaps_live;
+  const T = state.routeTarget && state.routeTarget !== me.current_group ? state.routeTarget : null;
+  const r = T ? routesTo(m, T) : null;
+  const started = myChains(state.board).started;
+  const chips = m.groups.filter((g) => g !== me.current_group).map((g) =>
+    `<button type="button" class="rot-chip" data-g="${g}" data-rot-act="route" data-group="${g}" aria-pressed="${g === T}">${g}</button>`).join('');
+  let body = '<p class="rot-muted mb-0">เลือกกลุ่มที่อยากไป — ระบบบอกว่าแลกตรงได้กี่คน และถ้าไม่มี มีทางแลกต่อเนื่องผ่านกลุ่มไหนบ้าง</p>';
+  if (r) {
+    const routes = r.routes.filter((x) => x.possible);
+    body = `
+      <div class="rot-route-direct">
+        <p class="mb-1"><strong>แลกตรง</strong> ${moveArrow(r.from, r.to)} · ในกลุ่ม ${escHtml(T)} แลกกับคุณได้ <strong>${r.direct.n}</strong> คน${r.direct.wish ? ` · <span class="rot-ok">${r.direct.wish} คนอยากมากลุ่มคุณ</span>` : ''}</p>
+        ${r.direct.n ? `<button type="button" class="btn btn-sm btn-outline-success" data-rot-act="jump-group" data-group="${T}">ดูรายชื่อกลุ่ม ${escHtml(T)}</button>` : ''}
+      </div>
+      <div class="rot-route-chain">
+        <p class="mb-1"><strong>แลกต่อเนื่อง 3 คน</strong> — คุณไปกลุ่ม ${escHtml(T)}, คนจากกลุ่มกลางมาแทนที่คุณ, คนจากกลุ่ม ${escHtml(T)} ไปแทนที่เขา · <strong>ย้ายพร้อมกันทั้ง 3 คน หรือไม่มีใครย้ายเลย</strong></p>
+        ${routes.length ? `<ul class="rot-routes">${routes.map((x) => {
+          const mine = started.find((c) => c.via_group === x.via && c.to_group === T);
+          return `<li class="rot-route-item ${x.happy ? 'is-happy' : ''}">
+            <div class="rot-route-steps">
+              <span>คุณ ${moveArrow(r.from, T)}</span>
+              <span>คนกลุ่ม ${escHtml(x.via)} ${moveArrow(x.via, r.from)} <span class="rot-muted">${x.n1} คน${x.w1 ? ` · ${x.w1} อยากมา` : ''}</span></span>
+              <span>คนกลุ่ม ${escHtml(T)} ${moveArrow(T, x.via)} <span class="rot-muted">${x.n2} คน${x.w2 ? ` · ${x.w2} อยากไป` : ''}</span></span>
+              ${x.happy ? '<span class="rot-tag is-wish">ทุกคนได้กลุ่มที่อยากไป</span>' : ''}
+            </div>
+            ${live ? (mine
+              ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-rot-act="chain-cancel" data-id="${mine.id}">ส่งแล้ว ${chainYeses(mine)}/2 · ยกเลิก</button>`
+              : `<button type="button" class="btn btn-sm btn-outline-success" data-rot-act="chain-ask" data-via="${x.via}" data-to="${T}">ชวนแลกต่อเนื่องผ่าน ${escHtml(x.via)}</button>`) : ''}
+          </li>`;
+        }).join('')}</ul>` : '<p class="rot-muted mb-0">ยังไม่มีเส้นทางผ่านกลุ่มอื่นที่มีคนแลกกับคุณได้ทั้งสองทอด</p>'}
+      </div>`;
+  }
+  return `<section class="rot-route" aria-label="อยากไปกลุ่มไหน">
+    <h3 class="rot-subtitle">อยากไปกลุ่มไหน</h3>
+    <div class="rot-chips" role="group" aria-label="กลุ่มที่อยากไป">${chips}</div>
+    ${body}
+  </section>`;
 }
 
 const FEED_FILTERS = [['all', 'ทั้งหมด'], ['swaps', 'แลกสำเร็จ'], ['asks', 'กำลังขอแลก'], ['mine', 'เกี่ยวกับฉัน']];
@@ -781,14 +939,15 @@ function paintFeed() {
   const pairById = new Map(swapPairs(state.board).map((p) => [p.id, p]));
   const involvesMe = (it) => {
     if (!me) return false;
+    if (it.c) return chainPeople(it.c).some((p) => p.id === me.id) || (it.c.legs || []).some((l) => l.can_take);
     if (it.m) return it.m.student_id === me.id;
     const q = it.q;
     return [q.requester_id, q.target_id, q.accepted_by].includes(me.id)
       || (it.kind === 'ask' && !q.target_id && q.to_group === me.current_group);
   };
   const items = buildFeed(state.board).filter((it) => f === 'all'
-    || (f === 'swaps' && (it.kind === 'swap' || it.kind === 'admin'))
-    || (f === 'asks' && it.kind === 'ask')
+    || (f === 'swaps' && (it.kind === 'swap' || it.kind === 'admin' || it.kind === 'chain-done'))
+    || (f === 'asks' && (it.kind === 'ask' || it.kind === 'chain-open'))
     || (f === 'mine' && involvesMe(it)));
   const rows = items.map((it) => {
     if (it.kind === 'swap') {
@@ -801,6 +960,21 @@ function paintFeed() {
         <strong>${name(q.requester_id)}</strong> ${groupChip(q.from_group, 'is-sm')}
         ${q.target_id ? `ขอแลกกับ <strong>${name(q.target_id)}</strong> ${groupChip(q.to_group, 'is-sm')}` : `ขอแลกกับใครก็ได้ในกลุ่ม ${groupChip(q.to_group, 'is-sm')}`}
         <span class="rot-muted">รอตอบ · ${agoTh(it.at)}</span></div></li>`;
+    }
+    if (it.kind === 'chain-done') {
+      const cy = chainCycles({ chains: [it.c] })[0];
+      return `<li class="rot-feed-item is-swap">${chainCard(cy)}</li>`;
+    }
+    if (it.kind === 'chain-open') {
+      return `<li class="rot-feed-item"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><div>
+        <strong>${name(it.c.starter_id)}</strong> ชวนแลกต่อเนื่อง ${moveArrow(it.c.from_group, it.c.to_group)} ผ่านกลุ่ม ${groupChip(it.c.via_group, 'is-sm')}
+        <span class="rot-muted">ตอบรับแล้ว ${chainYeses(it.c)}/2 · ${agoTh(it.at)}</span></div></li>`;
+    }
+    if (it.kind === 'chain-closed') {
+      const why = { cancelled: 'ยกเลิกแล้ว', expired: 'หมดเวลา', failed: it.c.fail_reason === 'declined' ? 'มีคนไม่ตอบรับ' : it.c.fail_reason === 'moved' ? 'มีคนย้ายกลุ่มไปก่อน' : 'ข้อมูลเปลี่ยนระหว่างรอ ไม่มีใครย้าย' };
+      return `<li class="rot-feed-item is-private"><i class="bi bi-eye-slash" aria-hidden="true"></i><div>
+        แลกต่อเนื่องของ <strong>${it.c.starter_id === me?.id ? 'คุณ' : name(it.c.starter_id)}</strong> ${moveArrow(it.c.from_group, it.c.to_group)} — ${why[it.c.status] || it.c.status}
+        <span class="rot-muted">${agoTh(it.at)} · เห็นเฉพาะคนที่เกี่ยวข้อง</span></div></li>`;
     }
     if (it.kind === 'admin') {
       const mv = it.m;
@@ -972,6 +1146,64 @@ async function onClick(e) {
   if (kind === 'find-mates') { state.view = 'groups'; state.onlyEligible = true; paintViews(); scrollToViews(); return; }
   if (kind === 'feed-swaps') { state.view = 'feed'; state.feedFilter = 'swaps'; paintViews(); return; }
   if (kind === 'feed-filter') { state.feedFilter = b.dataset.f; paintFeed(); return; }
+  if (kind === 'route') {
+    state.routeTarget = state.routeTarget === b.dataset.group ? null : b.dataset.group;
+    paintGroups();
+    document.querySelector('#rotViewGroups .rot-route')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
+  if (kind === 'wish') {
+    if (!me) return;
+    const g = b.dataset.group;
+    const now = me.wishes || [];
+    const next = now.includes(g) ? now.filter((x) => x !== g) : [...now, g];
+    const res = await act(b, () => rpc('rotation_set_wishes', { p_round: ROUND_ID, p_groups: next }));
+    if (res?.ok) toast(next.length ? `บันทึกแล้ว — อยากไปกลุ่ม ${next.join(', ')}` : 'ล้างกลุ่มที่อยากไปแล้ว');
+    return;
+  }
+  if (kind === 'chain-ask') {
+    if (!me) return;
+    const via = b.dataset.via; const to = b.dataset.to;
+    const yes = await askSheet({
+      title: `ชวนแลกต่อเนื่อง: คุณไปกลุ่ม ${escHtml(to)} ผ่านกลุ่ม ${escHtml(via)}?`,
+      lead: `<strong>คุณ</strong> ${escHtml(me.current_group)} → ${escHtml(to)} · <strong>ใครก็ได้ในกลุ่ม ${escHtml(via)}</strong> ที่แลกกับคุณได้ → ${escHtml(me.current_group)} · <strong>ใครก็ได้ในกลุ่ม ${escHtml(to)}</strong> ที่แลกกับคุณได้ → ${escHtml(via)}<br>
+             <strong>ยังไม่มีใครย้ายจนกว่าทั้งสองกลุ่มจะมีคนตอบรับ</strong> แล้วทั้ง 3 คนย้ายพร้อมกันทันที · ถ้ามีคนย้ายไปก่อน ระบบหาคนใหม่ให้ หรือยกเลิกเอง · หมดเวลาใน 48 ชั่วโมง · ทุกคนในปี 6 เห็นคำชวนนี้`,
+      fromGroup: me.current_group, toGroup: to, yes: 'ส่งคำชวน',
+    });
+    if (!yes) return;
+    const res = await act(b, () => rpc('rotation_chain_propose', { p_round: ROUND_ID, p_via: via, p_to: to, p_via_target: null, p_to_target: null }));
+    if (res?.ok) toast(`ส่งคำชวนแลกต่อเนื่องแล้ว — รอคนในกลุ่ม ${via} และ ${to} ตอบรับ`);
+    return;
+  }
+  if (kind === 'chain-yes') {
+    const c = (state.board.chains || []).find((x) => x.id === b.dataset.id);
+    const leg = c?.legs?.find((l) => l.can_take);
+    if (!c || !leg || !me) return;
+    const last = chainYeses(c) === 1;
+    const yes = await askSheet({
+      title: `แลกต่อเนื่องกับ ${escHtml(displayName(m.byId.get(c.starter_id)))}?`,
+      lead: `<span class="rot-chain-line">${chainLine(c)}</span><br>
+             ${last
+               ? '<strong>คุณเป็นคนสุดท้าย — ตอบรับแล้วทั้ง 3 คนย้ายทันที</strong>'
+               : '<strong>การตอบรับคือการยืนยันไว้ก่อน</strong> — ยังไม่มีใครย้ายจนกว่าอีกคนจะตอบรับครบ แล้วทั้ง 3 คนย้ายพร้อมกัน · ถอนตัวได้จนกว่าจะครบ'}
+             · คำขออื่นที่เกี่ยวกับทั้ง 3 คนจะปิดเองเมื่อย้ายแล้ว`,
+      fromGroup: leg.from_group, toGroup: leg.to_group, yes: last ? 'ตอบรับและย้ายเลย' : 'ยืนยันไว้ก่อน',
+    });
+    if (!yes) return;
+    const res = await act(b, () => rpc('rotation_chain_respond', { p_chain: c.id, p_yes: true }));
+    if (res?.ok) toast(res.done ? `แลกต่อเนื่องสำเร็จ — ทั้ง 3 คนย้ายแล้ว ตอนนี้คุณอยู่กลุ่ม ${res.my_group}` : 'ยืนยันแล้ว — รออีกคนตอบรับ แล้วทั้ง 3 คนย้ายพร้อมกัน');
+    return;
+  }
+  if (kind === 'chain-no') {
+    const res = await act(b, () => rpc('rotation_chain_respond', { p_chain: b.dataset.id, p_yes: false }));
+    if (res?.ok) toast('เรียบร้อย — ไม่มีใครย้าย');
+    return;
+  }
+  if (kind === 'chain-cancel') {
+    const res = await act(b, () => rpc('rotation_chain_cancel', { p_chain: b.dataset.id }));
+    if (res?.ok) toast('ยกเลิกแลกต่อเนื่องแล้ว');
+    return;
+  }
 
   if (kind === 'jump-group') {
     const g = b.dataset.group;
@@ -1104,7 +1336,8 @@ async function onChange(e) {
 async function setStaying(input) {
   const m = state.model;
   const on = input.checked;
-  const open = (m.incoming.filter((q) => q.target_id).length) + m.outgoing.length;
+  const ch = myChains(state.board);
+  const open = (m.incoming.filter((q) => q.target_id).length) + m.outgoing.length + ch.started.length + ch.committed.length;
   if (on && open) {
     const yes = await askSheet({
       title: 'อยู่กลุ่มนี้ ไม่รับคำขอแลก?',

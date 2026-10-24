@@ -13,7 +13,8 @@
 //
 // ⚠️ THIS FILE RE-STATES THE SERVER'S RULES (0250 rotation_request /
 // rotation_accept / rotation_supersede_for, criterion "same gender, different
-// group"; 0252 rotation_set_staying and the `staying` checks). It is a PRACTICE COPY — nothing real is decided here; the one home
+// group"; 0252 rotation_set_staying and the `staying` checks; 0255 wishes and
+// the chain RPCs propose / respond / cancel). It is a PRACTICE COPY — nothing real is decided here; the one home
 // of the rules stays rotation_pair_allowed() in Postgres. practice.test.js
 // walks the same edge cases as tools/rotation0250-swaps.sql so the two do not
 // silently drift (mistakes.md class 6). If you change a rule in SQL, change it
@@ -55,7 +56,7 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
     first_name: realMe?.first_name || 'คุณ', last_name: realMe?.last_name || '(ทดลอง)',
     nickname: realMe?.nickname || null, contact: realMe?.contact || null,
     gender: meGender, original_group: meGroup, current_group: meGroup,
-    gpa: realMe?.gpa ?? null, signed_in: true, staying: false,
+    gpa: realMe?.gpa ?? null, signed_in: true, staying: false, wishes: [],
   };
 
   const students = [me];
@@ -74,12 +75,15 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
         nickname: (isM ? M_NICK : F_NICK)[j % 24], contact: k % 3 === 0 ? null : `LINE: demo${String(n).padStart(2, '0')}`,
         gender: isM ? 'M' : 'F', original_group: g, current_group: g, gpa: null, signed_in: k % 4 !== 3,
         staying: i === 2,   // one person per group chose to stay, so the page shows what that looks like
+        // a wish or two, so the route finder has something to find
+        wishes: [groups[(groups.indexOf(g) + 1 + (k % (groups.length - 1))) % groups.length]],
       });
     }
   }
 
   const requests = [];
   const moves = [];
+  const chains = [];
   const round = {
     id: PRACTICE_ROUND_ID, title: 'โหมดทดลอง', groups: [...groups], published: true, swaps_open: true,
     swaps_close_at: null, gpa_rule: 'off', swaps_live: true, max_pending: 15,
@@ -93,6 +97,17 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
   const pendingOf = (id) => requests.filter((q) => q.status === 'pending' && q.requester_id === id);
 
   function supersedeFor(ids) {
+    // 0255: chains whose starter or named person moved fail; an "anyone" leg re-opens;
+    // a wish that came true is spent.
+    for (const c of chains) {
+      if (c.status !== 'pending') continue;
+      if (ids.includes(c.starter_id) || c.legs.some((l) => l.target_id && ids.includes(l.target_id))) {
+        c.status = 'failed'; c.fail_reason = 'moved'; c.resolved_at = now();
+      } else {
+        for (const l of c.legs) if (!l.target_id && ids.includes(l.taker_id)) { l.taker_id = null; l.committed_at = null; }
+      }
+    }
+    for (const id of ids) { const s = byId(id); if (s) s.wishes = (s.wishes || []).filter((g) => g !== s.current_group); }
     let k = 0;
     for (const q of requests) {
       if (q.status === 'pending' && (ids.includes(q.requester_id) || ids.includes(q.target_id))) {
@@ -176,25 +191,124 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
         if (q.target_id === a.id) { q.status = 'declined'; q.resolved_at = now(); declined++; }
         else if (q.requester_id === a.id) { q.status = 'cancelled'; q.resolved_at = now(); cancelled++; }
       }
+      // 0255's set_staying: my chains cancelled, chains naming me refused, my yeses withdrawn
+      for (const c of chains) {
+        if (c.status !== 'pending') continue;
+        if (c.starter_id === a.id) { c.status = 'cancelled'; c.resolved_at = now(); continue; }
+        if (c.legs.some((l) => l.target_id === a.id)) { c.status = 'failed'; c.fail_reason = 'declined'; c.resolved_at = now(); continue; }
+        for (const l of c.legs) if (l.taker_id === a.id) { l.taker_id = null; l.committed_at = null; }
+      }
     }
     return { ok: true, staying: !!on, declined, cancelled };
   }
 
+  // ── แลกต่อเนื่อง (0255): the practice copy of the chain RPCs ────────────
+  const live = (c) => c.status === 'pending' && c.expires_at > now();
+  function chainPropose(actorId, via, to, viaTarget = null, toTarget = null) {
+    const a = byId(actorId);
+    if (a.staying) return { ok: false, reason: 'you_staying' };
+    if (!via || !to || via === to || via === a.current_group || to === a.current_group
+        || !groups.includes(via) || !groups.includes(to)) return { ok: false, reason: 'bad_group' };
+    for (const [g, t] of [[via, viaTarget], [to, toTarget]]) {
+      if (t) {
+        const s = byId(t);
+        if (!s || s.current_group !== g) return { ok: false, reason: 'stale' };
+        if (s.staying) return { ok: false, reason: 'staying' };
+        if (!pairAllowed(a, s)) return { ok: false, reason: 'not_eligible' };
+      } else if (!students.some((s) => s.current_group === g && askable(a, s))) {
+        return { ok: false, reason: 'nobody_eligible' };
+      }
+    }
+    if (chains.filter((c) => c.starter_id === actorId && live(c)).length >= 3) return { ok: false, reason: 'too_many_chains' };
+    if (chains.some((c) => c.starter_id === actorId && live(c) && c.via_group === via && c.to_group === to
+        && (c.legs[0].target_id || null) === viaTarget && (c.legs[1].target_id || null) === toTarget)) {
+      return { ok: false, reason: 'duplicate' };
+    }
+    const c = {
+      id: newId('c'), starter_id: actorId, from_group: a.current_group, via_group: via, to_group: to,
+      status: 'pending', fail_reason: null, created_at: now(), resolved_at: null,
+      expires_at: new Date(clock() + 48 * 3600 * 1000).toISOString(),
+      legs: [{ seq: 1, from_group: via, to_group: a.current_group, target_id: viaTarget, taker_id: null, committed_at: null },
+             { seq: 2, from_group: to, to_group: via, target_id: toTarget, taker_id: null, committed_at: null }],
+    };
+    chains.push(c);
+    return { ok: true, chain_id: c.id };
+  }
+  function chainRespond(actorId, chainId, yes) {
+    const c = chains.find((x) => x.id === chainId);
+    if (!c) return { ok: false, reason: 'no_such_request' };
+    if (c.status !== 'pending') return { ok: false, reason: 'not_pending' };
+    if (c.expires_at <= now()) { c.status = 'expired'; c.resolved_at = now(); return { ok: false, reason: 'expired' }; }
+    if (actorId === c.starter_id) return { ok: false, reason: 'own_request' };
+    const a = byId(actorId);
+    if (!yes) {
+      if (c.legs.some((l) => l.target_id === actorId)) { c.status = 'failed'; c.fail_reason = 'declined'; c.resolved_at = now(); }
+      else if (c.legs.some((l) => l.taker_id === actorId)) c.legs.forEach((l) => { if (l.taker_id === actorId) { l.taker_id = null; l.committed_at = null; } });
+      else return { ok: false, reason: 'not_yours' };
+      return { ok: true };
+    }
+    if (a.staying) return { ok: false, reason: 'you_staying' };
+    if (c.legs.some((l) => l.taker_id === actorId)) return { ok: false, reason: 'duplicate' };
+    const l = c.legs.find((x) => x.from_group === a.current_group);
+    if (!l) return { ok: false, reason: 'not_yours' };
+    if (l.taker_id) return { ok: false, reason: 'taken' };
+    if (l.target_id && l.target_id !== actorId) return { ok: false, reason: 'not_yours' };
+    const st = byId(c.starter_id);
+    if (st.staying) return { ok: false, reason: 'staying' };
+    if (!pairAllowed(st, a)) return { ok: false, reason: 'not_eligible' };
+    l.taker_id = actorId; l.committed_at = now();
+    if (c.legs.some((x) => !x.taker_id)) return { ok: true, done: false };
+    const t1 = byId(c.legs[0].taker_id); const t2 = byId(c.legs[1].taker_id);
+    if (st.current_group !== c.from_group || t1.current_group !== c.via_group || t2.current_group !== c.to_group
+        || st.staying || t1.staying || t2.staying || !pairAllowed(st, t1) || !pairAllowed(st, t2)) {
+      c.status = 'failed'; c.fail_reason = 'changed'; c.resolved_at = now();
+      return { ok: false, reason: 'chain_failed' };
+    }
+    const at = now();
+    st.current_group = c.to_group; t1.current_group = c.from_group; t2.current_group = c.via_group;
+    c.status = 'done'; c.resolved_at = at;
+    moves.push({ student_id: st.id, from_group: c.from_group, to_group: c.to_group, request_id: null, chain_id: c.id, kind: 'chain', at });
+    moves.push({ student_id: t1.id, from_group: c.via_group, to_group: c.from_group, request_id: null, chain_id: c.id, kind: 'chain', at });
+    moves.push({ student_id: t2.id, from_group: c.to_group, to_group: c.via_group, request_id: null, chain_id: c.id, kind: 'chain', at });
+    supersedeFor([st.id, t1.id, t2.id]);
+    return { ok: true, done: true, my_group: l.to_group };
+  }
+  function chainCancel(actorId, chainId) {
+    const c = chains.find((x) => x.id === chainId);
+    if (!c) return { ok: false, reason: 'no_such_request' };
+    if (c.starter_id !== actorId) return { ok: false, reason: 'not_yours' };
+    if (c.status !== 'pending') return { ok: false, reason: 'not_pending' };
+    c.status = 'cancelled'; c.resolved_at = now();
+    return { ok: true };
+  }
+  /** The board's `can_take`, as rotation_board() computes it. */
+  const canTake = (c, l) => live(c) && !l.taker_id && me.current_group === l.from_group
+    && (!l.target_id || l.target_id === me.id) && me.id !== c.starter_id && !me.staying
+    && !c.legs.some((x) => x.taker_id === me.id) && pairAllowed(byId(c.starter_id), me);
+  const involved = (c) => c.starter_id === me.id || c.legs.some((l) => l.taker_id === me.id || l.target_id === me.id);
+
   function board() {
     const pub = (s) => {
       const { gpa, ...rest } = s;   // nobody's GPA but your own (0251)
-      return { ...rest, can_swap: s.id !== me.id && askable(me, s) };
+      return { ...rest, can_swap: s.id !== me.id && askable(me, s),
+        wishes: s.staying ? [] : (s.wishes || []).filter((g) => g !== s.current_group) };
     };
     return {
       state: 'ok', is_admin: false, practice: true,
       round: { ...round },
-      me: { ...me, gpa_band: null },
+      me: { ...me, gpa_band: null, wishes: me.staying ? [] : me.wishes.filter((g) => g !== me.current_group) },
       students: students.map(pub).sort((a, b) => a.current_group.localeCompare(b.current_group) || a.student_id.localeCompare(b.student_id)),
       requests: requests
         .filter((q) => q.status === 'pending' || q.status === 'accepted' || [q.requester_id, q.target_id, q.accepted_by].includes(me.id))
         .map((q) => ({ ...q }))
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
-      moves: moves.map((m) => ({ ...m })).sort((a, b) => b.at.localeCompare(a.at)),
+      moves: moves.map((m) => ({ chain_id: null, ...m })).sort((a, b) => b.at.localeCompare(a.at)),
+      chains: chains
+        .filter((c) => (c.status === 'done' || live(c)) || involved(c))
+        .map((c) => ({ ...c, status: c.status === 'pending' && !live(c) ? 'expired' : c.status,
+                       fail_reason: involved(c) ? c.fail_reason : null,
+                       legs: c.legs.map((l) => ({ ...l, can_take: canTake(c, l) })) }))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     };
   }
 
@@ -213,6 +327,15 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
           if (c && c.length > 200) return { ok: false, reason: 'too_long' };
           me.contact = c; return { ok: true, contact: c };
         }
+        case 'rotation_set_wishes': {
+          const list = body.p_groups || [];
+          if (list.length > 5 || new Set(list).size !== list.length
+              || list.some((g) => !groups.includes(g) || g === me.current_group)) return { ok: false, reason: 'bad_group' };
+          me.wishes = [...list]; return { ok: true, wishes: list };
+        }
+        case 'rotation_chain_propose': return chainPropose(me.id, body.p_via, body.p_to, body.p_via_target || null, body.p_to_target || null);
+        case 'rotation_chain_respond': return chainRespond(me.id, body.p_chain, body.p_yes);
+        case 'rotation_chain_cancel': return chainCancel(me.id, body.p_chain);
         default: return { ok: false, reason: 'practice_only' };
       }
     })();
@@ -278,6 +401,37 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
       if (!r.ok) return { ok: false, text: 'ตอบรับไม่ได้: ' + r.reason };
       return { ok: true, text: `${who.first_name} (${who.nickname}) ตอบรับแล้ว — คุณย้ายไปกลุ่ม ${me.current_group}` };
     },
+    /** A classmate starts a แลกต่อเนื่อง that needs someone from YOUR group. */
+    chain_needs_me() {
+      if (me.staying) return { ok: false, text: STAYING_TEXT };
+      for (const st of students.filter((s) => s.id !== me.id && !s.staying && pairAllowed(s, me))) {
+        const to = groups.find((g) => g !== st.current_group && g !== me.current_group
+          && students.some((x) => x.id !== me.id && x.current_group === g && askable(st, x)));
+        if (!to) continue;
+        const r = chainPropose(st.id, me.current_group, to);
+        if (!r.ok) continue;
+        return { ok: true, text: `${st.first_name} (${st.nickname}) กลุ่ม ${st.current_group} อยากไปกลุ่ม ${to} ผ่านกลุ่มคุณ — ถ้าคุณตอบรับ คุณได้ไปกลุ่ม ${st.current_group}` };
+      }
+      return { ok: false, text: 'ไม่มีเพื่อนสมมติที่เริ่มแลกต่อเนื่องผ่านกลุ่มคุณได้ ลองกด เริ่มใหม่' };
+    },
+    /** Everyone else in your open chain(s) says yes — watch three people move at once. */
+    chain_others_yes() {
+      const open = chains.filter((c) => live(c) && involved(c));
+      if (!open.length) return { ok: false, text: 'ยังไม่มีแลกต่อเนื่องที่เกี่ยวกับคุณ — ไปที่ "หาคนแลก" › อยากไปกลุ่มไหน แล้วเริ่มสักเส้นทาง หรือกด "มีคนเริ่มแลกต่อเนื่องผ่านกลุ่มฉัน"' };
+      let moved = 0; let waiting = 0;
+      for (const c of open) {
+        const st = byId(c.starter_id);
+        for (const l of c.legs.filter((x) => !x.taker_id)) {
+          if (l.from_group === me.current_group && c.starter_id !== me.id) { waiting++; continue; }   // that leg is yours to answer
+          const who = students.find((s) => s.id !== me.id && s.id !== c.starter_id && s.current_group === l.from_group
+            && (!l.target_id || l.target_id === s.id) && !s.staying && pairAllowed(st, s) && !c.legs.some((x) => x.taker_id === s.id));
+          if (who) { const r = chainRespond(who.id, c.id, true); if (r.done) moved++; }
+        }
+      }
+      if (moved) return { ok: true, text: `ทุกคนตอบรับครบ — ย้ายพร้อมกันทั้ง 3 คนแล้ว${me.current_group ? ` · ตอนนี้คุณอยู่กลุ่ม ${me.current_group}` : ''}` };
+      if (waiting) return { ok: true, text: 'เพื่อนอีกคนตอบรับแล้ว — เหลือคุณคนเดียว กดตอบรับที่ด้านบนสุดเพื่อให้ทั้ง 3 คนย้ายพร้อมกัน' };
+      return { ok: false, text: 'ไม่มีใครตอบรับได้' };
+    },
     /** Two other classmates swap — watch the lists change. */
     others_swap() {
       const others = students.filter((s) => s.id !== me.id);
@@ -298,7 +452,7 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
     scene(name) { return SCENES[name] ? SCENES[name]() : { ok: false, text: 'ไม่รู้จักฉากนี้' }; },
     scenes: Object.keys(SCENES),
     // for tests
-    _state: () => ({ me, students, requests, moves }),
-    _as: { request, accept, respondNo, setStaying },
+    _state: () => ({ me, students, requests, moves, chains }),
+    _as: { request, accept, respondNo, setStaying, chainPropose, chainRespond, chainCancel },
   };
 }

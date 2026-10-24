@@ -177,3 +177,80 @@ describe('scenes', () => {
     expect(swapPairs(after)).toHaveLength(2);
   });
 });
+
+describe('แลกต่อเนื่อง (0255), mirrored from the SQL proof §J', () => {
+  const grp = (p, id) => p._state().students.find((s) => s.id === id).current_group;
+  it('the first yes moves nobody; the last moves all three; a filled leg is taken', async () => {
+    const p = fresh();
+    const [b1, b2] = males(p, 'B'); const [c1] = males(p, 'C');
+    const r = await p.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C' });
+    expect(r.ok).toBe(true);
+    expect(p._as.chainRespond(b1.id, r.chain_id, true)).toEqual({ ok: true, done: false });
+    expect([grp(p, 'me'), grp(p, b1.id), grp(p, c1.id)]).toEqual(['A', 'B', 'C']);
+    expect(p._as.chainRespond(b2.id, r.chain_id, true).reason).toBe('taken');
+    expect(p._as.chainRespond(c1.id, r.chain_id, true).done).toBe(true);
+    expect([grp(p, 'me'), grp(p, b1.id), grp(p, c1.id)]).toEqual(['C', 'A', 'B']);
+    expect(p._state().moves.filter((m) => m.kind === 'chain')).toHaveLength(3);
+  });
+  it('a moved taker re-opens the leg; a moved starter fails it; a named no fails it', async () => {
+    const p = fresh();
+    const [b1, b2] = males(p, 'B'); const [d1] = males(p, 'D');
+    const r = await p.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C' });
+    p._as.chainRespond(b1.id, r.chain_id, true);
+    const q = p._as.request(b1.id, d1.id, null); p._as.accept(d1.id, q.id);       // b1 swaps away
+    const c = p._state().chains.find((x) => x.id === r.chain_id);
+    expect([c.status, c.legs[0].taker_id]).toEqual(['pending', null]);
+    const q2 = await p.rpc('rotation_request', { p_target: b2.id }); p._as.accept(b2.id, q2.id);   // the starter moves
+    expect([c.status, c.fail_reason]).toEqual(['failed', 'moved']);
+    const p2 = fresh();
+    const [x] = males(p2, 'B');
+    const r2 = await p2.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C', p_via_target: x.id });
+    expect(p2._as.chainRespond(males(p2, 'B')[1].id, r2.chain_id, true).reason).toBe('not_yours');
+    p2._as.chainRespond(x.id, r2.chain_id, false);
+    expect(p2._state().chains[0].fail_reason).toBe('declined');
+  });
+  it('the board carries can_take for me; staying makes a leg nobody_eligible; duplicate refused', async () => {
+    const p = fresh();
+    expect(p.scene('chain_needs_me').ok).toBe(true);
+    const b = await p.rpc('rotation_board');
+    expect(b.chains[0].legs.find((l) => l.from_group === 'A').can_take).toBe(true);
+    const p2 = fresh();
+    males(p2, 'C').forEach((s) => { s.staying = true; });
+    expect((await p2.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C' })).reason).toBe('nobody_eligible');
+    await p2.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'D' });
+    expect((await p2.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'D' })).reason).toBe('duplicate');
+  });
+  it('scenes: someone needs me, I say yes, the others say yes → all three move', async () => {
+    const p = fresh();
+    p.scene('chain_needs_me');
+    const c = (await p.rpc('rotation_board')).chains[0];
+    expect((await p.rpc('rotation_chain_respond', { p_chain: c.id, p_yes: true })).done).toBe(false);
+    expect(p.scene('chain_others_yes').ok).toBe(true);
+    expect(grp(p, 'me')).toBe(c.from_group);
+    const p2 = fresh();
+    await p2.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C' });
+    p2.scene('chain_others_yes');
+    expect(grp(p2, 'me')).toBe('C');
+  });
+  it('staying settles chains like 0255 set_staying: mine cancelled, naming me failed, my yes withdrawn', async () => {
+    const p = fresh();
+    const mine = await p.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C' });
+    const [b1] = males(p, 'B'); const [c1] = males(p, 'C');
+    const theirs = p._as.chainPropose(b1.id, 'A', 'C');           // b1 needs someone from A (me)
+    await p.rpc('rotation_chain_respond', { p_chain: theirs.chain_id, p_yes: true });
+    const named = p._as.chainPropose(c1.id, 'A', 'B', 'me');
+    await p.rpc('rotation_set_staying', { p_staying: true });
+    const by = (id) => p._state().chains.find((c) => c.id === id);
+    expect(by(mine.chain_id).status).toBe('cancelled');
+    expect([by(theirs.chain_id).status, by(theirs.chain_id).legs.some((l) => l.taker_id === 'me')]).toEqual(['pending', false]);
+    expect([by(named.chain_id).status, by(named.chain_id).fail_reason]).toEqual(['failed', 'declined']);
+  });
+  it('wishes: stored, never my own group, a wish that came true is spent', async () => {
+    const p = fresh();
+    expect((await p.rpc('rotation_set_wishes', { p_groups: ['A'] })).reason).toBe('bad_group');
+    await p.rpc('rotation_set_wishes', { p_groups: ['C', 'B'] });
+    await p.rpc('rotation_chain_propose', { p_via: 'B', p_to: 'C' });
+    p.scene('chain_others_yes');
+    expect((await p.rpc('rotation_board')).me.wishes).toEqual(['B']);
+  });
+});

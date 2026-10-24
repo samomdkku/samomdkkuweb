@@ -191,4 +191,4 @@ tools-launcher entry is still hidden (students arrive by link).
 
 ## Next: chain swaps
 
-E → A → B in one atomic step is designed, not built: `docs/ROTATION-CHAINS.md`.
+E → A → B in one atomic step: `docs/ROTATION-CHAINS.md` (0255; RPCs `rotation_set_wishes`, `rotation_chain_propose`, `rotation_chain_respond`, `rotation_chain_cancel`; proof §J).

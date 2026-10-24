@@ -215,7 +215,9 @@ try {
   await size(390, 844, true);
   const realGroup = await ev(`return document.querySelector('.rot-me-group-letter')?.textContent`);
   const countWrites = async () => (await sql(`select (select count(*) from public.rotation_requests where round_id = ${lit(ROUND)})
-      + (select count(*) from public.rotation_moves where round_id = ${lit(ROUND)}) n`))[0].n;
+      + (select count(*) from public.rotation_moves where round_id = ${lit(ROUND)})
+      + (select count(*) from public.rotation_chains where round_id = ${lit(ROUND)})
+      + (select count(*) from public.rotation_wishes w join public.rotation_students s on s.id = w.student_id where s.round_id = ${lit(ROUND)}) n`))[0].n;
   const writesBefore = await countWrites();
   await ev(`document.getElementById('rotPracticeBtn').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
   await ev(`document.querySelector('#rotPractice [data-scene="many_ask_me"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
@@ -234,7 +236,45 @@ try {
   const flashing = await ev(`return document.querySelectorAll('#rotViewGroups .rot-member.is-flash').length`);
   say('practice: two others swap → both rows flash in หาคนแลก', String(flashing), flashing === 2);
   await shot('phone-practice-groups.png');
+
+  // แลกต่อเนื่อง (0255) in practice: be asked to fill a leg, say yes, the others say yes
+  await ev(`document.querySelector('#rotPractice [data-scene="chain_needs_me"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  const chainOffer = await ev(`return document.querySelectorAll('#rotAlert .rot-offer.is-chain').length`);
+  say('practice chain: a chain offer appears in the banner', String(chainOffer), chainOffer === 1);
+  await send('Runtime.evaluate', { expression: 'window.scrollTo(0,0)' });
+  await shot('phone-practice-chain-offer.png', false);
+  const g0 = await ev(`return document.querySelector('.rot-me-group-letter')?.textContent`);
+  await ev(`document.querySelector('#rotAlert [data-rot-act="chain-yes"]').click(); return 1`);
+  await sleep(800);
+  await shot('phone-practice-chain-sheet.png', false);
+  await sheetYes();
+  const committed = await ev(`return document.querySelectorAll('#rotInbox .rot-ask.is-chain').length + '/' + document.querySelector('.rot-me-group-letter')?.textContent`);
+  say('practice chain: a yes is a commitment — listed in my asks, nobody moved', committed, committed === `1/${g0}`);
+  await ev(`document.querySelector('#rotPractice [data-scene="chain_others_yes"]').click(); await new Promise(r=>setTimeout(r,900)); return 1`);
+  const g1 = await ev(`return document.querySelector('.rot-me-group-letter')?.textContent`);
+  say('practice chain: the last yes moves all three (me included)', `${g0} → ${g1}`, !!g1 && g1 !== g0);
+  await ev(`document.querySelector('#rotRoot .rot-seg-btn[data-rot-view="groups"]').click(); await new Promise(r=>setTimeout(r,400)); return 1`);
+  const cyc = await ev(`return document.querySelectorAll('#rotViewGroups .rot-pair.is-chain').length`);
+  say('practice chain: แลกล่าสุด draws the 3-person cycle', String(cyc), cyc >= 1);
+  // the route finder: pick a group, see routes, start one
+  await ev(`document.querySelector('#rotViewGroups [data-rot-act="route"]').click(); await new Promise(r=>setTimeout(r,400)); return 1`);
+  const routes = await ev(`return document.querySelectorAll('#rotViewGroups .rot-route-item').length`);
+  say('route finder: routes through a middle group are listed', String(routes), routes >= 1);
+  await ev(`document.querySelector('#rotViewGroups .rot-route').scrollIntoView(); return 1`);
+  await shot('phone-practice-route.png', false);
+  await ev(`document.querySelector('#rotViewGroups [data-rot-act="chain-ask"]').click(); return 1`);
+  await sleep(800);
+  await sheetYes();
+  const started = await ev(`return document.querySelectorAll('#rotInbox .rot-ask.is-chain').length`);
+  say('route finder: starting a chain lists it under my asks', String(started), started === 1);
+  await ev(`document.querySelector('#rotMe [data-rot-act="wish"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  const wish = await ev(`return document.querySelector('#rotMe [data-rot-act="wish"][aria-pressed="true"]') ? 'on' : 'off'`);
+  say('wishes: a chip toggles and stays on after the re-read', wish, wish === 'on');
+
   await ev(`document.querySelector('#rotMe [data-rot-input="stay"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  await sheetYes();   // the chain started above is an open ask, so staying asks to confirm first
+  const stayChain = await ev(`return document.querySelectorAll('#rotInbox .rot-ask.is-chain').length`);
+  say('practice: staying cancels my own chain', String(stayChain), stayChain === 0);
   const blocked = await ev(`document.querySelector('#rotPractice [data-scene="one_asks_me"]').click(); await new Promise(r=>setTimeout(r,500));
     return document.getElementById('rotToast').dataset.tone + '/' + document.getElementById('rotAlert').hidden`);
   say('practice: while staying, nobody can send you an offer', blocked, blocked === 'error/true');

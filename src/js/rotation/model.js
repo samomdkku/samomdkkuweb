@@ -27,6 +27,10 @@ export const REASON_TH = {
   too_long: 'ยาวเกินไป (ไม่เกิน 200 ตัวอักษร)',
   staying: 'คนนี้เลือกอยู่กลุ่มเดิม ไม่รับคำขอแลกแล้ว',
   you_staying: 'คุณเลือก "อยู่กลุ่มนี้" ไว้ ปิดตัวเลือกนั้นก่อนถึงจะแลกได้',
+  bad_group: 'เลือกกลุ่มนี้ไม่ได้',
+  too_many_chains: 'คุณมีแลกต่อเนื่องที่รออยู่ 3 รายการแล้ว ยกเลิกบางรายการก่อน',
+  chain_failed: 'แลกต่อเนื่องไม่สำเร็จ เพราะมีคนเปลี่ยนข้อมูลระหว่างรอ — ไม่มีใครย้าย',
+  expired: 'แลกต่อเนื่องนี้หมดเวลาแล้ว',
 };
 
 export function reasonText(reason) {
@@ -126,6 +130,12 @@ export function buildFeed(board) {
   for (const m of board.moves || []) {
     if (m.kind === 'admin') items.push({ at: m.at, kind: 'admin', m });
   }
+  // Chains (0255): the server already hides a failed/cancelled one from bystanders.
+  for (const c of board.chains || []) {
+    if (c.status === 'pending') items.push({ at: c.created_at, kind: 'chain-open', c });
+    else if (c.status === 'done') items.push({ at: c.resolved_at || c.created_at, kind: 'chain-done', c });
+    else items.push({ at: c.resolved_at || c.created_at, kind: 'chain-closed', c });
+  }
   return items.sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
 
@@ -185,9 +195,82 @@ export function lastMoves(board) {
     if (prev && String(prev.at) >= String(m.at)) continue;
     const q = m.request_id ? reqs.get(m.request_id) : null;
     const partnerId = q ? (q.requester_id === m.student_id ? q.accepted_by : q.requester_id) : null;
-    out.set(m.student_id, { from: m.from_group, to: m.to_group, at: m.at, kind: m.kind, partnerId });
+    out.set(m.student_id, { from: m.from_group, to: m.to_group, at: m.at, kind: m.kind, partnerId, chainId: m.chain_id || null });
   }
   return out;
+}
+
+// ── แลกต่อเนื่อง (0255) ──────────────────────────────────────────────────────
+// A chain: the STARTER goes from_group → to_group; leg 1's taker via → from;
+// leg 2's taker to → via. All three move at once, or nobody does (server).
+
+/** The chain's people as moves: [{ id, from, to, role }] — starter first. */
+export function chainPeople(c) {
+  const legs = c.legs || [];
+  const l1 = legs.find((l) => l.seq === 1) || {};
+  const l2 = legs.find((l) => l.seq === 2) || {};
+  return [
+    { id: c.starter_id, from: c.from_group, to: c.to_group, role: 'starter' },
+    { id: l1.taker_id || l1.target_id || null, from: c.via_group, to: c.from_group, role: 'leg', leg: l1 },
+    { id: l2.taker_id || l2.target_id || null, from: c.to_group, to: c.via_group, role: 'leg', leg: l2 },
+  ];
+}
+
+/** Chains asking ME to fill a leg — the server's can_take, never re-derived. */
+export function chainOffers(board) {
+  const out = [];
+  for (const c of board?.chains || []) {
+    if (c.status !== 'pending') continue;
+    const leg = (c.legs || []).find((l) => l.can_take);
+    if (leg) out.push({ chain: c, leg });
+  }
+  return out;
+}
+
+/** My open chains: the ones I started, and the ones I have said yes to. */
+export function myChains(board) {
+  const meId = board?.me?.id;
+  if (!meId) return { started: [], committed: [] };
+  const open = (board.chains || []).filter((c) => c.status === 'pending');
+  return {
+    started: open.filter((c) => c.starter_id === meId),
+    committed: open.filter((c) => (c.legs || []).some((l) => l.taker_id === meId)),
+  };
+}
+
+/** How many of a chain's two legs have a yes. */
+export const chainYeses = (c) => (c.legs || []).filter((l) => l.taker_id).length;
+
+/**
+ * "อยากไปกลุ่ม T" for me: the direct swap and every route through ONE middle
+ * group. `can_swap` already is the chain's per-leg rule (each taker vs the
+ * STARTER, not staying), so a route is possible when both legs have someone.
+ * `happy` = someone in each leg WISHES the group they would get.
+ */
+export function routesTo(model, target) {
+  const me = model.me;
+  if (!me || !target || target === me.current_group) return null;
+  const S = me.current_group;
+  const inGroup = (g) => model.students.filter((s) => s.current_group === g && s.can_swap);
+  const wishing = (list, g) => list.filter((s) => (s.wishes || []).includes(g));
+  const directList = inGroup(target);
+  const direct = { n: directList.length, wish: wishing(directList, S).length };
+  const routes = model.groups.filter((x) => x !== S && x !== target).map((via) => {
+    const leg1 = inGroup(via);        // they would take MY seat: via → S
+    const leg2 = inGroup(target);     // they would take leg 1's seat: T → via
+    const w1 = wishing(leg1, S).length;
+    const w2 = wishing(leg2, via).length;
+    return { via, n1: leg1.length, n2: leg2.length, w1, w2, possible: leg1.length > 0 && leg2.length > 0, happy: w1 > 0 && w2 > 0 };
+  }).sort((a, b) => (b.happy - a.happy) || (b.possible - a.possible) || ((b.w1 + b.w2) - (a.w1 + a.w2)) || a.via.localeCompare(b.via));
+  return { from: S, to: target, direct, routes };
+}
+
+/** Completed chains as cycles, newest first (for แลกล่าสุด and the feed). */
+export function chainCycles(board) {
+  return (board?.chains || [])
+    .filter((c) => c.status === 'done')
+    .map((c) => ({ id: c.id, at: c.resolved_at || c.created_at, people: chainPeople(c) }))
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)));
 }
 
 /** A move this recent is drawn as "just moved". */
@@ -200,7 +283,7 @@ export function isRecent(iso, now = Date.now()) {
 /** What changed between two reads of the board — what the page flashes and
  *  announces when a realtime ping (or the poll) brings a new board. */
 export function diffBoards(prev, next) {
-  const none = { moved: [], swaps: [], newIncoming: [] };
+  const none = { moved: [], swaps: [], newIncoming: [], newChainOffers: [], chainsDone: [] };
   if (prev?.state !== 'ok' || next?.state !== 'ok') return none;
   const before = new Map((prev.students || []).map((s) => [s.id, s.current_group]));
   const moved = (next.students || [])
@@ -210,5 +293,9 @@ export function diffBoards(prev, next) {
   const swaps = swapPairs(next).filter((p) => !seen.has(p.id));
   const inc0 = new Set(buildModel(prev).incoming.map((q) => q.id));
   const newIncoming = buildModel(next).incoming.filter((q) => !inc0.has(q.id));
-  return { moved, swaps, newIncoming };
+  const off0 = new Set(chainOffers(prev).map((o) => o.chain.id));
+  const newChainOffers = chainOffers(next).filter((o) => !off0.has(o.chain.id));
+  const done0 = new Set((prev.chains || []).filter((c) => c.status === 'done').map((c) => c.id));
+  const chainsDone = chainCycles(next).filter((c) => !done0.has(c.id));
+  return { moved, swaps, newIncoming, newChainOffers, chainsDone };
 }
