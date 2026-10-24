@@ -107,9 +107,9 @@ describe('the home tool rail', () => {
 });
 
 describe('the banner markup', () => {
-  it('has the four slides: welcome, rotation, shop, ประกาศ', () => {
+  it('has the four slides: rotation, welcome, shop, ประกาศ', () => {
     const slides = [...home.matchAll(/class="hero-slide hero-slide--(\w+)"/g)].map((m) => m[1]);
-    expect(slides).toEqual(['welcome', 'rotation', 'shop', 'news']);
+    expect(slides).toEqual(['rotation', 'welcome', 'shop', 'news']);
   });
 
   it('every slide link opens through the in-app tab handler and keeps a real href', () => {
