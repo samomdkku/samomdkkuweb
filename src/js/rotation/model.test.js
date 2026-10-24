@@ -1,7 +1,7 @@
 // model.test.js — the page's reading of rotation_board().
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH } from './model.js';
+import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa } from './model.js';
 import { parseRosterText, compareNames, splitPrefix } from './roster-parse.js';
 
 const S = (id, g, gender, can_swap = false) => ({ id, first_name: id, last_name: 'x', gender, current_group: g, original_group: g, can_swap });
@@ -26,6 +26,9 @@ describe('buildModel', () => {
   it('incoming = named to me + broadcasts to my group from people the SERVER says I may swap with', () => {
     expect(m.incoming.map((q) => q.id).sort()).toEqual(['q1', 'q2']);   // q3: b2 is can_swap false
   });
+  it('nothing is incoming while I chose to stay (0252)', () => {
+    expect(buildModel({ ...board, me: { ...board.me, staying: true } }).incoming).toEqual([]);
+  });
   it('outgoing = my open asks only', () => {
     expect(m.outgoing.map((q) => q.id)).toEqual(['q4']);
   });
@@ -47,6 +50,62 @@ describe('buildFeed', () => {
   });
 });
 
+describe('names', () => {
+  it('displayName adds the registry nickname; search matches it too', () => {
+    const s = { first_name: 'ก', last_name: 'ข', nickname: 'บอม', student_id: '653070001-1' };
+    expect(displayName(s)).toBe('ก ข (บอม)');
+    expect(displayName({ ...s, nickname: null })).toBe('ก ข');
+    expect(matchesQuery(s, 'บอ')).toBe(true);
+    expect(matchesQuery(s, '0700')).toBe(true);
+    expect(matchesQuery(s, 'zz')).toBe(false);
+  });
+});
+
+describe('who swapped with whom', () => {
+  const swapped = {
+    ...board,
+    requests: [...board.requests,
+      { id: 'q9', requester_id: 'b1', target_id: 'c1', from_group: 'B', to_group: 'C', status: 'accepted', accepted_by: 'c1', created_at: '2026-10-24T05:00:00Z', resolved_at: '2026-10-24T05:10:00Z' }],
+    moves: [
+      { student_id: 'b1', from_group: 'B', to_group: 'C', request_id: 'q9', kind: 'swap', at: '2026-10-24T05:10:00Z' },
+      { student_id: 'c1', from_group: 'C', to_group: 'B', request_id: 'q9', kind: 'swap', at: '2026-10-24T05:10:00Z' },
+      { student_id: 'b2', from_group: 'A', to_group: 'B', request_id: null, kind: 'admin', at: '2026-10-20T00:00:00Z' },
+    ],
+    students: board.students.map((s) => s.id === 'b1' ? { ...s, current_group: 'C' } : s.id === 'c1' ? { ...s, current_group: 'B' } : s),
+  };
+  it('swapPairs: one pair per accepted ask, each side with its direction', () => {
+    expect(swapPairs(swapped)).toEqual([{ id: 'q9', at: '2026-10-24T05:10:00Z', aId: 'b1', aFrom: 'B', aTo: 'C', bId: 'c1', bFrom: 'C', bTo: 'B' }]);
+  });
+  it('lastMoves names the partner of a swap and none for an admin move', () => {
+    const lm = lastMoves(swapped);
+    expect(lm.get('b1')).toMatchObject({ from: 'B', to: 'C', partnerId: 'c1' });
+    expect(lm.get('c1').partnerId).toBe('b1');
+    expect(lm.get('b2')).toMatchObject({ kind: 'admin', partnerId: null });
+  });
+  it('diffBoards: who moved and the new pair; nothing on the first read', () => {
+    const d = diffBoards(board, swapped);
+    expect(d.moved.sort()).toEqual(['b1', 'c1']);
+    expect(d.swaps.map((p) => p.id)).toEqual(['q9']);
+    expect(diffBoards(null, swapped)).toEqual({ moved: [], swaps: [], newIncoming: [] });
+  });
+  it('isRecent: within 24 h', () => {
+    const now = Date.parse('2026-10-25T05:00:00Z');
+    expect(isRecent('2026-10-24T05:10:00Z', now)).toBe(true);
+    expect(isRecent('2026-10-24T04:00:00Z', now)).toBe(false);
+  });
+});
+
+describe('criteria text', () => {
+  it('names every gpa_rule the database allows (0253 check constraint)', () => {
+    const sql = readFileSync('supabase/migrations/0253_rotation_gpa_band_or_close.sql', 'utf8');
+    const allowed = sql.match(/check \(gpa_rule in \(([^)]*)\)\)/)[1].match(/'([a-z_]+)'/g).map((x) => x.slice(1, -1));
+    expect(allowed).toEqual(['off', 'same_band', 'band_or_close']);
+    expect(new Set(allowed.map(criteriaTh)).size).toBe(3);             // each says something different
+    expect(criteriaTh('band_or_close')).toMatch(/0\.20/);
+    expect(allowed.filter(ruleNeedsGpa)).toEqual(['same_band', 'band_or_close']);
+  });
+});
+
 describe('parseGpa', () => {
   it.each([['3.5', 3.5], ['3,25', 3.25], [' 4 ', 4], ['', null]])('%s', (raw, v) => {
     expect(parseGpa(raw)).toEqual({ value: v, error: null });
@@ -57,8 +116,10 @@ describe('parseGpa', () => {
 });
 
 describe('reasons', () => {
-  it('every reason an RPC in 0250 can return has Thai', () => {
-    const sql = readFileSync('supabase/migrations/0250_rotation_swap.sql', 'utf8');
+  it('every reason an RPC in 0250–0252 can return has Thai', () => {
+    const sql = readFileSync('supabase/migrations/0250_rotation_swap.sql', 'utf8')
+      + readFileSync('supabase/migrations/0251_rotation_gpa_owner_only_nickname_contact.sql', 'utf8')
+      + readFileSync('supabase/migrations/0252_rotation_stay_here.sql', 'utf8');
     const reasons = [...sql.matchAll(/'reason', '([a-z_]+)'/g)].map((x) => x[1]);
     expect(reasons.length).toBeGreaterThan(5);                       // the sweep found something
     for (const r of new Set(reasons)) {

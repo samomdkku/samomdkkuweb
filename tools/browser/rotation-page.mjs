@@ -9,12 +9,18 @@
 //   1. registers two throwaway username accounts;
 //   2. points two roster rows of the SAME gender in DIFFERENT groups at them
 //      (their real kkumails are saved and put back), opens the round;
-//   3. A asks B through "ขอแลก" + the confirm sheet; B sees it in
-//      "คำขอถึงคุณ", accepts through the sheet; asserts the groups swapped and
-//      A's page updated WITHOUT a reload (realtime or the poll);
-//   4. screenshots every view at 390, 820 and 1440 px;
-//   5. ALWAYS restores: groups, kkumails, the round's switches, the rows the
-//      run wrote, and deletes both accounts.
+//   3. A writes a contact + GPA, then asks B through "ขอแลก" + the confirm
+//      sheet; B sees it in the offers banner at the top (with A's contact,
+//      never A's GPA — 0251), accepts through the sheet; asserts the groups
+//      swapped, the feed draws the pair, and A's page updated WITHOUT a
+//      reload (realtime or the poll);
+//   4. iPad landscape: the left column scrolls with the page (no inner scroll
+//      hiding "คำขอของคุณ"); the "อยู่กลุ่มนี้" switch on and off;
+//   5. โหมดทดลอง: three pretend offers at once, accept one, the rest close,
+//      staying blocks offers, leave — the real board comes back untouched;
+//   5. screenshots every view at 390, 820 and 1440 px;
+//   6. ALWAYS restores: groups, kkumails, contact/GPA, the round's switches,
+//      the rows the run wrote, and deletes both accounts.
 //
 // RUN (needs `npm run dev` on :5174 and Chrome; the roster imported on
 // samo-dev with tools/rotation-import.mjs --dev --commit):
@@ -98,8 +104,8 @@ try {
   A.email = emails.find((e) => e.id === A.uid).email;
   B.email = emails.find((e) => e.id === B.uid).email;
   const [pair] = await sql(`
-    select a.id a_id, a.kkumail a_mail, a.current_group a_group, a.person_id::text a_person,
-           b.id b_id, b.kkumail b_mail, b.current_group b_group, b.person_id::text b_person
+    select a.id a_id, a.kkumail a_mail, a.current_group a_group, a.person_id::text a_person, a.contact a_contact, a.gpa::text a_gpa,
+           b.id b_id, b.kkumail b_mail, b.current_group b_group, b.person_id::text b_person, b.contact b_contact, b.gpa::text b_gpa
       from public.rotation_students a join public.rotation_students b
         on b.round_id = a.round_id and b.gender = a.gender and b.current_group <> a.current_group
      where a.round_id = ${lit(ROUND)} and a.current_group = 'A' and b.current_group = 'C' and a.gender = 'M'
@@ -121,6 +127,14 @@ try {
   const meA = await ev(`return document.querySelector('.rot-me-group-letter')?.textContent`);
   say('A sees their group', meA, meA === pair.a_group);
   await shot('phone-mine.png');
+  const saved1 = await ev(`const f = document.querySelector('#rotMe [data-rot-form="profile"]');
+    f.elements.contact.value = 'LINE: probe-${stamp}'; f.elements.gpa.value = '3.41';
+    f.querySelector('[type=submit]').click(); await new Promise(r=>setTimeout(r,2500));
+    return document.getElementById('rotToast').textContent`);
+  const [cg] = await sql(`select contact, gpa::text gpa from public.rotation_students where id = ${lit(pair.a_id)}`);
+  say('A saves contact + GPA in one go', `${saved1} → ${cg.contact} / ${cg.gpa}`, cg.contact === `LINE: probe-${stamp}` && cg.gpa === '3.41');
+  const guide = await ev(`return !!document.querySelector('#rotGuide .rot-step') && document.querySelectorAll('#rotGuide .rot-step.is-done').length`);
+  say('the guide is shown and ticks step 2 after saving', String(guide), guide === 2);
   await view('groups');
   await shot('phone-groups.png');
   await ev(`document.querySelector('#rotRoot [data-rot-act="jump-group"][data-group="${pair.b_group}"]').click(); await new Promise(r=>setTimeout(r,600)); return 1`);
@@ -137,10 +151,13 @@ try {
   await size(820, 1180, true);
   await signInAs(B);
   await send('Page.navigate', { url: `${DEV_URL}/rotation` }); await sleep(5000);
-  const inB = await ev(`return document.getElementById('rotInbox').textContent.replace(/\\s+/g,' ').trim().slice(0,160)`);
-  say('B: the ask arrives under คำขอถึงคุณ', inB, /คำขอถึงคุณ/.test(inB));
+  const inB = await ev(`return document.getElementById('rotAlert').hidden ? 'HIDDEN' : document.getElementById('rotAlert').textContent.replace(/\\s+/g,' ').trim().slice(0,200)`);
+  say('B: the ask arrives in the banner at the top, with A\'s contact', inB, /ขอแลกกับคุณ/.test(inB) && inB.includes(`probe-${stamp}`));
+  const gpaLeak = await ev(`const r = await (await import('/src/js/db.js')).dbRest('/rpc/rotation_board', { method: 'POST', body: { p_round: '${ROUND}' } });
+    const t = JSON.stringify(r.data); return (t.includes('3.41') || (r.data.students || []).some((s) => 'gpa' in s)) + '/' + (r.data.students || []).length`);
+  say('B\'s board carries nobody\'s GPA (0251)', gpaLeak, /^false\/\d+$/.test(gpaLeak) && !gpaLeak.endsWith('/0'));
   await shot('ipad-mine-incoming.png');
-  await ev(`document.querySelector('#rotInbox [data-rot-act="accept"]').click(); return 1`);
+  await ev(`document.querySelector('#rotAlert [data-rot-act="accept"]').click(); return 1`);
   await sleep(800);
   await shot('ipad-sheet-accept.png', false);
   await sheetYes();
@@ -150,6 +167,8 @@ try {
                                  (select current_group from public.rotation_students where id = ${lit(pair.b_id)}) b`);
   say('database agrees: swapped', `${db.a}/${db.b}`, db.a === pair.b_group && db.b === pair.a_group);
   await view('feed');
+  const pairs = await ev(`return document.querySelectorAll('#rotViewFeed .rot-pair').length`);
+  say('the feed draws the swap as a pair', String(pairs), pairs >= 1);
   await shot('ipad-feed.png');
 
   // ── desktop, as A, without navigating: the page must catch up by itself ──
@@ -174,6 +193,57 @@ try {
   await view('mine');
   await shot('desktop-after-live.png');
 
+  // ── iPad landscape: one page scroll, nothing hidden inside the left column ─
+  await size(1180, 820, true);
+  await send('Page.reload'); await sleep(5000);
+  const side = await ev(`const el = document.querySelector('#rotRoot .rot-side'); const cs = getComputedStyle(el);
+    const order = [...el.children].filter((c) => !c.hidden && c.innerHTML.trim()).map((c) => c.id).join(',');
+    return cs.overflowY + '/' + cs.position + '/' + order`);
+  say('iPad landscape: left column has no inner scroll; me first', side, /^visible\/static\/rotMe/.test(side));
+  await shot('ipad-landscape.png', false);
+  // "ฉันอยากอยู่กลุ่มนี้" on, then off
+  await ev(`const t = document.querySelector('#rotMe [data-rot-input="stay"]'); t.click(); await new Promise(r=>setTimeout(r,2500)); return 1`);
+  const [st1] = await sql(`select staying from public.rotation_students where id = ${lit(pair.a_id)}`);
+  const tag = await ev(`return !!document.querySelector('#rotMe .rot-tag.is-stay')`);
+  say('the stay switch saves and shows "อยู่กลุ่มนี้"', `${st1.staying}/${tag}`, st1.staying === true && tag === true);
+  await shot('ipad-landscape-staying.png', false);
+  await ev(`document.querySelector('#rotMe [data-rot-input="stay"]').click(); await new Promise(r=>setTimeout(r,2500)); return 1`);
+  const [st2] = await sql(`select staying from public.rotation_students where id = ${lit(pair.a_id)}`);
+  say('… and switches back off', String(st2.staying), st2.staying === false);
+
+  // ── โหมดทดลอง (phone): be the one who gets several offers ──────────────
+  await size(390, 844, true);
+  const realGroup = await ev(`return document.querySelector('.rot-me-group-letter')?.textContent`);
+  const countWrites = async () => (await sql(`select (select count(*) from public.rotation_requests where round_id = ${lit(ROUND)})
+      + (select count(*) from public.rotation_moves where round_id = ${lit(ROUND)}) n`))[0].n;
+  const writesBefore = await countWrites();
+  await ev(`document.getElementById('rotPracticeBtn').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  await ev(`document.querySelector('#rotPractice [data-scene="many_ask_me"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  const offers = await ev(`return document.querySelectorAll('#rotAlert .rot-offer').length`);
+  say('practice: three offers at once in the banner', String(offers), offers === 3);
+  await send('Runtime.evaluate', { expression: 'window.scrollTo(0,0)' });
+  await shot('phone-practice-offers.png');
+  await ev(`document.querySelectorAll('#rotAlert [data-rot-act="accept"]')[1].click(); return 1`);
+  await sleep(800);
+  await shot('phone-practice-sheet.png', false);
+  await sheetYes();
+  const after = await ev(`return document.getElementById('rotAlert').hidden + '/' + document.querySelector('.rot-me-group-letter')?.textContent`);
+  say('practice: accepting one closes the others and moves you', after, after.startsWith('true/') && !after.endsWith(`/${realGroup}`));
+  await sleep(6500);   // let the highlight of OUR swap fade (FLASH_MS) so only theirs is counted
+  await ev(`document.querySelector('#rotPractice [data-scene="others_swap"]').click(); await new Promise(r=>setTimeout(r,900)); return 1`);
+  const flashing = await ev(`return document.querySelectorAll('#rotViewGroups .rot-member.is-flash').length`);
+  say('practice: two others swap → both rows flash in หาคนแลก', String(flashing), flashing === 2);
+  await shot('phone-practice-groups.png');
+  await ev(`document.querySelector('#rotMe [data-rot-input="stay"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  const blocked = await ev(`document.querySelector('#rotPractice [data-scene="one_asks_me"]').click(); await new Promise(r=>setTimeout(r,500));
+    return document.getElementById('rotToast').dataset.tone + '/' + document.getElementById('rotAlert').hidden`);
+  say('practice: while staying, nobody can send you an offer', blocked, blocked === 'error/true');
+  await ev(`document.querySelector('#rotPractice [data-rot-act="practice-stop"]').click(); await new Promise(r=>setTimeout(r,3000)); return 1`);
+  const back = await ev(`return document.getElementById('rotPractice').hidden + '/' + document.querySelector('.rot-me-group-letter')?.textContent`);
+  say('leaving practice brings the real board back unchanged', back, back === `true/${realGroup}`);
+  const writesAfter = await countWrites();
+  say('practice wrote nothing to the database', `${writesBefore} → ${writesAfter}`, String(writesBefore) === String(writesAfter));
+
   say('no page errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
 } catch (e) {
   failed += 1;
@@ -186,9 +256,11 @@ try {
         delete from public.rotation_requests where requester_id in (${lit(saved.a_id)}, ${lit(saved.b_id)})
                                                or target_id in (${lit(saved.a_id)}, ${lit(saved.b_id)});
         update public.rotation_students set current_group = ${lit(saved.a_group)}, kkumail = ${saved.a_mail ? lit(saved.a_mail) : 'null'},
-               person_id = ${saved.a_person ? lit(saved.a_person) : 'null'} where id = ${lit(saved.a_id)};
+               person_id = ${saved.a_person ? lit(saved.a_person) : 'null'},
+               contact = ${saved.a_contact ? lit(saved.a_contact) : 'null'}, gpa = ${saved.a_gpa ? lit(saved.a_gpa) : 'null'}, staying = false, staying_at = null where id = ${lit(saved.a_id)};
         update public.rotation_students set current_group = ${lit(saved.b_group)}, kkumail = ${saved.b_mail ? lit(saved.b_mail) : 'null'},
-               person_id = ${saved.b_person ? lit(saved.b_person) : 'null'} where id = ${lit(saved.b_id)};
+               person_id = ${saved.b_person ? lit(saved.b_person) : 'null'},
+               contact = ${saved.b_contact ? lit(saved.b_contact) : 'null'}, gpa = ${saved.b_gpa ? lit(saved.b_gpa) : 'null'}, staying = false, staying_at = null where id = ${lit(saved.b_id)};
         select 1`);
     }
     if (roundBefore) {

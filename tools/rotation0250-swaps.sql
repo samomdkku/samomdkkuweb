@@ -4,11 +4,18 @@
 --
 --   §A  the catalog: RLS on, anon holds nothing, students cannot read the roster
 --   §B  visibility: outsider refused, unpublished round admin-only, a GPA never
---       reaches another student
+--       reaches ANYONE but its owner — admins included since 0251 (they get a
+--       count)
 --   §C  the swap: gender rule, duplicate, wrong person, accept, the other asks
 --       closed, a broadcast taken by the FIRST accept only
 --   §D  the GPA switch: off = ignored, same_band = enforced
 --   §E  closed round, decline privacy, admin-only writes
+--   §F  contact (0251): owner writes it, the cohort reads it, 200-char cap
+--   §G  "I want to stay here" (0252): closes what is in flight, nobody can ask
+--       them, they cannot ask, a broadcast does not count them; off = allowed
+--   §H  the faculty's rule (0253): same band, OR at most 0.20 apart; no GPA = no
+--   §I  named GPA viewers (0254): only a listed ACCOUNT reads every GPA — an
+--       admin/master off the list still reads none (case 18)
 --
 -- Synthetic round 'proof-0250' over REAL users rows (the identity helper joins
 -- public.users), everything inside a transaction that ROLLS BACK.
@@ -128,8 +135,13 @@ insert into probe select '16. member board is ok and lists 4 students (control)'
 insert into probe select '17. … and carries NO other student''s GPA', 'false',
   (select (v like '%3.17%' or exists (select 1 from jsonb_array_elements(v::jsonb->'students') e where e ? 'gpa'))::text
      from r where k = 'm1_board');
-insert into probe select '18. admin board DOES carry it (control for 17)', 'true',
-  (select (v like '%3.17%')::text from r where k = 'admin_board');
+insert into probe select '18. admin board carries NO GPA either (0251, owner)', 'false',
+  (select (v like '%3.17%' or exists (select 1 from jsonb_array_elements(v::jsonb->'students') e where e ? 'gpa'))::text
+     from r where k = 'admin_board');
+insert into probe select '18b. … only the count, which DID see the stored GPA (control for 17/18)', '1',
+  (select v::jsonb->'round'->>'gpa_filled' from r where k = 'admin_board');
+insert into probe select '18c. a student board carries no gpa_filled', 'false',
+  (select (v::jsonb->'round' ? 'gpa_filled')::text from r where k = 'm1_board');
 insert into probe select '19. a student reading the roster table is refused', 'true',
   (select (v like 'raised: permission denied%')::text from r where k = 'm1_roster');
 insert into probe select '20. member receives the realtime pings', 'true', (select (v::int > 0)::text from r where k = 'm1_events');
@@ -240,6 +252,131 @@ insert into probe select '63. a student cannot change the round', 'true',
 insert into probe select '64. a student cannot move anyone', 'true',
   (select (v like 'raised: ROTATION_ADMIN_ONLY%')::text from r where k = 'm2_move');
 insert into probe select '65. a closed round takes no asks', 'closed', (select v from r where k = 'closed_req');
+
+-- ── §F contact (0251) ───────────────────────────────────────────────────────
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'c_set', public.rotation_set_contact('proof-0250', E'  LINE: proof0251\n IG: x ')->>'contact';
+insert into r select 'c_long', public.rotation_set_contact('proof-0250', repeat('x', 201))->>'reason';
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'c_seen', (select e->>'contact' from jsonb_array_elements(public.rotation_board('proof-0250')->'students') e
+                                  where e->>'id' = (select id::text from sid where k = 'm2'));
+insert into r select 'c_keys', (select bool_and(e ? 'nickname' and e ? 'contact')::text
+                                  from jsonb_array_elements(public.rotation_board('proof-0250')->'students') e);
+reset role;
+select pg_temp.as_('out'); set local role authenticated;
+insert into r select 'c_out', public.rotation_board('proof-0250')::text;
+insert into r select 'c_out_set', pg_temp.try($q$select public.rotation_set_contact('proof-0250', 'x')::text$q$);
+reset role;
+insert into probe select '70. contact is stored on one line, trimmed', 'LINE: proof0251 IG: x', (select v from r where k = 'c_set');
+insert into probe select '71. a classmate reads it (the ALLOW)', 'LINE: proof0251 IG: x', (select v from r where k = 'c_seen');
+insert into probe select '72. every student row names nickname + contact', 'true', (select v from r where k = 'c_keys');
+insert into probe select '73. an outsider''s board does not carry it', 'false', (select (v like '%proof0251%')::text from r where k = 'c_out');
+insert into probe select '74. an outsider cannot write one', 'true',
+  (select (v like 'raised: ROTATION_NOT_IN_ROSTER%')::text from r where k = 'c_out_set');
+insert into probe select '75. 201 characters is refused', 'too_long', (select v from r where k = 'c_long');
+
+-- ── §G staying (0252). State here: m1 B, m2 B, m3 A; m1→m3 still pending. ──
+select pg_temp.as_('admin'); set local role authenticated;
+insert into r select 'g_open', public.rotation_admin_update_round('proof-0250', null, true, null, 'off')->>'ok';
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'g_m2m3', public.rotation_request('proof-0250', (select id from sid where k='m3'), null)::text;
+reset role;
+select pg_temp.as_('m3'); set local role authenticated;
+insert into r select 'g_stay', public.rotation_set_staying('proof-0250', true)::text;
+insert into r select 'g_m3_asks', public.rotation_request('proof-0250', (select id from sid where k='m2'), null)->>'reason';
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'g_m1_asks', public.rotation_request('proof-0250', (select id from sid where k='m3'), null)->>'reason';
+insert into r select 'g_m1_board', (select (e->>'staying') || '/' || (e->>'can_swap')
+  from jsonb_array_elements(public.rotation_board('proof-0250')->'students') e where e->>'last_name' = 'm3');
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'g_bc', public.rotation_request('proof-0250', null, 'A')->>'reason';
+reset role;
+select pg_temp.as_('m3'); set local role authenticated;
+insert into r select 'g_unstay', public.rotation_set_staying('proof-0250', false)->>'staying';
+insert into r select 'g_m3_asks2', public.rotation_request('proof-0250', (select id from sid where k='m2'), null)->>'ok';
+reset role;
+insert into probe select '80. round reopened for §G', 'true', (select v from r where k = 'g_open');
+insert into probe select '81. staying declines the 2 asks naming them, cancels none of theirs', '2/0',
+  (select (v::jsonb->>'declined') || '/' || (v::jsonb->>'cancelled') from r where k = 'g_stay');
+insert into probe select '82. … the ask m2 had sent is now declined', 'declined',
+  (select status from public.rotation_requests where id = (select (v::jsonb->>'id')::uuid from r where k = 'g_m2m3'));
+insert into probe select '83. nobody can name a staying person', 'staying', (select v from r where k = 'g_m1_asks');
+insert into probe select '84. a staying person cannot ask', 'you_staying', (select v from r where k = 'g_m3_asks');
+insert into probe select '85. the board says staying, and nobody may ask them', 'true/false', (select v from r where k = 'g_m1_board');
+insert into probe select '86. a broadcast does not count a staying person', 'nobody_eligible', (select v from r where k = 'g_bc');
+insert into probe select '87. switching it off (the ALLOW): they may ask again', 'false/true',
+  (select (select v from r where k = 'g_unstay') || '/' || (select v from r where k = 'g_m3_asks2'));
+
+-- ── §H band_or_close (0253). m1 B 2.99, m2 B 3.17, m3 A 2.80; m3→m2 pending. ─
+create or replace function pg_temp.can(p_who text, p_whom text) returns text language sql as $$
+  select e->>'can_swap' from jsonb_array_elements(public.rotation_board('proof-0250')->'students') e
+   where e->>'last_name' = p_whom $$;
+grant execute on function pg_temp.can(text, text) to authenticated;
+select pg_temp.as_('admin'); set local role authenticated;
+insert into r select 'h_on', public.rotation_admin_update_round('proof-0250', null, null, null, 'band_or_close')->>'ok';
+reset role;
+insert into r select 'h_req', id::text from public.rotation_requests where round_id = 'proof-0250'
+   and status = 'pending' and requester_id = (select id from sid where k='m3') and target_id = (select id from sid where k='m2');
+select pg_temp.as_('m2'); set local role authenticated;
+insert into r select 'h_far', public.rotation_accept((select v::uuid from r where k = 'h_req'))->>'reason';
+insert into r select 'h_set300', public.rotation_set_gpa('proof-0250', 3.00)->>'ok';
+insert into r select 'h_edge', public.rotation_accept((select v::uuid from r where k = 'h_req'))->>'ok';
+reset role;
+-- now m2 A 3.00, m3 B 2.80, m1 B 2.99
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'h_close', pg_temp.can('m1', 'm2');
+select public.rotation_set_gpa('proof-0250', null);
+insert into r select 'h_nogpa', pg_temp.can('m1', 'm2');
+select public.rotation_set_gpa('proof-0250', 3.30);
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+select public.rotation_set_gpa('proof-0250', 3.60);
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'h_33_36', pg_temp.can('m1', 'm2');
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+select public.rotation_set_gpa('proof-0250', 3.50);
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'h_33_35', pg_temp.can('m1', 'm2');
+reset role;
+select pg_temp.as_('m2'); set local role authenticated;
+select public.rotation_set_gpa('proof-0250', 3.51);
+reset role;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'h_33_351', pg_temp.can('m1', 'm2');
+reset role;
+insert into probe select '90. admin selects band_or_close', 'true', (select v from r where k = 'h_on');
+insert into probe select '91. 2.80 ↔ 3.17: other band and 0.37 apart → refused at ACCEPT', 'not_eligible', (select v from r where k = 'h_far');
+insert into probe select '92. 2.80 ↔ 3.00: other band but exactly 0.20 apart → swaps', 'true', (select v from r where k = 'h_edge');
+insert into probe select '93. 2.99 ↔ 3.00: other band, 0.01 apart → may ask', 'true', (select v from r where k = 'h_close');
+insert into probe select '94. no GPA → may not ask', 'false', (select v from r where k = 'h_nogpa');
+insert into probe select '95. the owner''s example 3.3 ↔ 3.6 → no', 'false', (select v from r where k = 'h_33_36');
+insert into probe select '96. 3.30 ↔ 3.50 (0.20) → yes', 'true', (select v from r where k = 'h_33_35');
+insert into probe select '97. 3.30 ↔ 3.51 (0.21) → no', 'false', (select v from r where k = 'h_33_351');
+
+-- ── §I named GPA viewers (0254) ─────────────────────────────────────────────
+insert into probe select '100. nobody can read the viewer list through the API', 'false',
+  (select has_table_privilege('authenticated', 'public.rotation_gpa_viewers', 'select')::text);
+insert into public.rotation_gpa_viewers (user_id, note) select uid, 'proof' from subj where k = 'm1'
+  on conflict do nothing;
+select pg_temp.as_('m1'); set local role authenticated;
+insert into r select 'i_m1', public.rotation_board('proof-0250')::text;
+reset role;
+select pg_temp.as_('admin'); set local role authenticated;
+insert into r select 'i_admin', public.rotation_board('proof-0250')::text;
+reset role;
+insert into probe select '101. a listed account reads every student''s GPA (the ALLOW)', 'true/3.51',
+  (select (v::jsonb->>'gpa_viewer') || '/' || (select e->>'gpa' from jsonb_array_elements(v::jsonb->'students') e where e->>'last_name' = 'm2')
+     from r where k = 'i_m1');
+insert into probe select '102. an admin/master off the list still reads none', 'false/false',
+  (select (v::jsonb->>'gpa_viewer') || '/' || exists (select 1 from jsonb_array_elements(v::jsonb->'students') e where e ? 'gpa')::text
+     from r where k = 'i_admin');
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,

@@ -150,7 +150,7 @@ Open when: writing a migration.
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 - A weekly prune silently erased 20 of every ~24 days' worth of analytics
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(119)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(120)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -273,6 +273,7 @@ Open when: markup, modals, layout, touch, icons.
 - ⌘-click on the home banner's ร้านค้า / ประกาศ and the /me link stopped opening a new tab
 - "ปีการศึกษาที่ใช้คำนวณชั้นปี 2,569" — a year printed with a thousands comma
 - ภาพรวม ran off the side at 1024 and 820 wide, and every row was as tall as the tallest
+- On iPad the left column of /rotation cut off "คำขอของคุณ"
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(38)*
 
@@ -530,4 +531,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_468 entries across 10 files._
+_469 entries across 10 files._

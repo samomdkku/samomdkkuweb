@@ -24,6 +24,9 @@ export const REASON_TH = {
   not_yours: 'คำขอนี้ไม่ได้ส่งถึงคุณ',
   own_request: 'นี่เป็นคำขอของคุณเอง',
   stale: 'มีคนย้ายกลุ่มไปก่อนแล้ว คำขอนี้จึงใช้ไม่ได้',
+  too_long: 'ยาวเกินไป (ไม่เกิน 200 ตัวอักษร)',
+  staying: 'คนนี้เลือกอยู่กลุ่มเดิม ไม่รับคำขอแลกแล้ว',
+  you_staying: 'คุณเลือก "อยู่กลุ่มนี้" ไว้ ปิดตัวเลือกนั้นก่อนถึงจะแลกได้',
 };
 
 export function reasonText(reason) {
@@ -32,6 +35,21 @@ export function reasonText(reason) {
 
 export function fullName(s) {
   return s ? `${s.first_name} ${s.last_name}` : '';
+}
+
+/** "ชื่อ นามสกุล (ชื่อเล่น)" — the nickname comes from public.people (0251). */
+export function displayName(s) {
+  if (!s) return '';
+  return s.nickname ? `${fullName(s)} (${s.nickname})` : fullName(s);
+}
+
+/** Does a search box query match this person (name, nickname, รหัส)? */
+export function matchesQuery(s, q) {
+  const t = String(q || '').trim().toLowerCase();
+  if (!t) return true;
+  return fullName(s).toLowerCase().includes(t)
+    || String(s.nickname || '').toLowerCase().includes(t)
+    || String(s.student_id || '').includes(t);
 }
 
 export function genderTh(g) {
@@ -61,8 +79,9 @@ export function buildModel(board) {
   });
 
   // Asks that I could answer: named to me, or a broadcast to my group from
-  // someone the server says I may swap with.
-  const incoming = !me ? [] : pending.filter((q) => q.requester_id !== me.id && (
+  // someone the server says I may swap with. None while I chose to stay (0252):
+  // named ones were closed by the server; a broadcast I could not accept anyway.
+  const incoming = !me || me.staying ? [] : pending.filter((q) => q.requester_id !== me.id && (
     q.target_id === me.id
     || (q.target_id === null && q.to_group === me.current_group && byId.get(q.requester_id)?.can_swap)
   ));
@@ -122,6 +141,17 @@ export function agoTh(iso, now = Date.now()) {
   return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/** The swap criteria in words, per rotation_rounds.gpa_rule (0250/0253). The
+ *  RULE lives in rotation_pair_allowed(); this is only how the page says it. */
+export const GPA_BANDS_TH = '2.55–2.99 / 3.00–3.49 / 3.50–4.00';
+export function criteriaTh(rule) {
+  if (rule === 'band_or_close') return `เพศเดียวกัน และ GPA ช่วงเดียวกัน (${GPA_BANDS_TH}) หรือห่างกันไม่เกิน 0.20`;
+  if (rule === 'same_band') return `เพศเดียวกัน และ GPA ช่วงเดียวกัน (${GPA_BANDS_TH})`;
+  return 'เพศเดียวกัน';
+}
+/** Does this rule need both people's GPA? */
+export const ruleNeedsGpa = (rule) => rule === 'band_or_close' || rule === 'same_band';
+
 /** Parse a GPA typed by a person: "3.5", "3,50", " 3.25 " → number; else null.
  *  Returns { value, error }. Empty → { value: null } (clears it). */
 export function parseGpa(raw) {
@@ -131,4 +161,54 @@ export function parseGpa(raw) {
   const v = Number(s);
   if (v < 0 || v > 4) return { value: null, error: 'GPA ต้องอยู่ระหว่าง 0.00 ถึง 4.00' };
   return { value: v, error: null };
+}
+
+/** Every completed swap as a PAIR, newest first: A went aFrom → aTo, B the
+ *  other way. Read from accepted requests, which every viewer can see. */
+export function swapPairs(board) {
+  return (board?.requests || [])
+    .filter((q) => q.status === 'accepted' && q.accepted_by)
+    .map((q) => ({
+      id: q.id, at: q.resolved_at || q.created_at,
+      aId: q.requester_id, aFrom: q.from_group, aTo: q.to_group,
+      bId: q.accepted_by, bFrom: q.to_group, bTo: q.from_group,
+    }))
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)));
+}
+
+/** student id → their MOST RECENT move: { from, to, at, kind, partnerId }. */
+export function lastMoves(board) {
+  const reqs = new Map((board?.requests || []).map((q) => [q.id, q]));
+  const out = new Map();
+  for (const m of board?.moves || []) {
+    const prev = out.get(m.student_id);
+    if (prev && String(prev.at) >= String(m.at)) continue;
+    const q = m.request_id ? reqs.get(m.request_id) : null;
+    const partnerId = q ? (q.requester_id === m.student_id ? q.accepted_by : q.requester_id) : null;
+    out.set(m.student_id, { from: m.from_group, to: m.to_group, at: m.at, kind: m.kind, partnerId });
+  }
+  return out;
+}
+
+/** A move this recent is drawn as "just moved". */
+export const RECENT_MS = 24 * 3600 * 1000;
+export function isRecent(iso, now = Date.now()) {
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) && now - t < RECENT_MS;
+}
+
+/** What changed between two reads of the board — what the page flashes and
+ *  announces when a realtime ping (or the poll) brings a new board. */
+export function diffBoards(prev, next) {
+  const none = { moved: [], swaps: [], newIncoming: [] };
+  if (prev?.state !== 'ok' || next?.state !== 'ok') return none;
+  const before = new Map((prev.students || []).map((s) => [s.id, s.current_group]));
+  const moved = (next.students || [])
+    .filter((s) => before.has(s.id) && before.get(s.id) !== s.current_group)
+    .map((s) => s.id);
+  const seen = new Set((prev.requests || []).filter((q) => q.status === 'accepted').map((q) => q.id));
+  const swaps = swapPairs(next).filter((p) => !seen.has(p.id));
+  const inc0 = new Set(buildModel(prev).incoming.map((q) => q.id));
+  const newIncoming = buildModel(next).incoming.filter((q) => !inc0.has(q.id));
+  return { moved, swaps, newIncoming };
 }

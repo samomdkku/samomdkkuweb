@@ -1,29 +1,46 @@
       <!-- /rotation — แลก Rotation (ปี 6). Everything inside #rotRoot is painted
-           by src/js/rotation/page.js from ONE rpc, rotation_board() (0250); this
-           file is only the frame. Design + how to extend: docs/ROTATION-SWAP.md. -->
+           by src/js/rotation/page.js from ONE rpc, rotation_board() (0250/0251);
+           this file is only the frame. Design + how to extend: docs/ROTATION-SWAP.md. -->
       <div class="tab-pane fade rot-tab" id="pills-rotation" role="tabpanel">
         <div class="container rot-container" id="rotRoot">
 
           <header class="rot-head">
-            <p class="rot-eyebrow">นักศึกษาแพทย์ชั้นปีที่ 6 · ปีการศึกษา 2570</p>
-            <h1 class="rot-title">แลก Rotation</h1>
+            <div class="rot-head-row">
+              <div>
+                <p class="rot-eyebrow">นักศึกษาแพทย์ชั้นปีที่ 6 · ปีการศึกษา 2570</p>
+                <h1 class="rot-title">แลก Rotation</h1>
+              </div>
+              <div class="rot-head-actions">
+                <button type="button" class="btn btn-sm btn-link rot-quiet" id="rotGuideBtn" data-rot-act="guide-show" hidden>
+                  <i class="bi bi-question-circle me-1" aria-hidden="true"></i>วิธีใช้</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="rotPracticeBtn" data-rot-act="practice-start">
+                  <i class="bi bi-controller me-1" aria-hidden="true"></i>ลองใช้แบบจำลอง</button>
+              </div>
+            </div>
             <div class="rot-status" id="rotStatus"></div>
           </header>
+
+          <!-- โหมดทดลอง: scene buttons (practice.js) -->
+          <section id="rotPractice" class="rot-practice" aria-label="โหมดทดลอง" hidden></section>
 
           <!-- signed out / not in the roster / not open yet / loading / error -->
           <section id="rotGate" class="rot-gate" aria-live="polite"></section>
 
           <div id="rotMain" class="rot-main" hidden>
+            <!-- offers TO me: the one thing that needs an answer, above everything -->
+            <section id="rotAlert" class="rot-alert" aria-label="คำขอแลกถึงคุณ" aria-live="polite" hidden></section>
+
             <div class="rot-side">
-              <section id="rotAdmin" class="rot-card rot-admin" aria-label="ตั้งค่าสำหรับผู้ดูแล" hidden></section>
               <section id="rotMe" class="rot-card rot-me" aria-label="ข้อมูลของฉัน"></section>
-              <section id="rotInbox" class="rot-inbox" aria-label="คำขอแลก"></section>
+              <section id="rotInbox" class="rot-inbox" aria-label="คำขอของคุณ"></section>
+              <section id="rotGuide" class="rot-card rot-guide" aria-label="วิธีแลก" hidden></section>
+              <section id="rotAdmin" class="rot-card rot-admin" aria-label="ตั้งค่าสำหรับผู้ดูแล" hidden></section>
             </div>
 
             <div class="rot-content">
               <div class="rot-seg" role="tablist" aria-label="มุมมอง">
                 <button type="button" role="tab" class="rot-seg-btn" data-rot-view="mine" aria-selected="true">ตารางของฉัน</button>
-                <button type="button" role="tab" class="rot-seg-btn" data-rot-view="groups" aria-selected="false">ทุกกลุ่ม</button>
+                <button type="button" role="tab" class="rot-seg-btn" data-rot-view="groups" aria-selected="false">หาคนแลก</button>
                 <button type="button" role="tab" class="rot-seg-btn" data-rot-view="feed" aria-selected="false">ความเคลื่อนไหว</button>
               </div>
               <section id="rotViewMine" class="rot-view" data-rot-pane="mine" role="tabpanel"></section>

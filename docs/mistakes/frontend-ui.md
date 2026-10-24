@@ -4694,3 +4694,34 @@ choose it only when fitting matters more than things staying put.*
 container's size is known yet — `1fr` in an intrinsic pass, a multicol under a
 fixed height, an `auto` track around a multicol. Measure the boxes at the
 widths people use; a stylesheet that reads correctly is not evidence.*
+
+## On iPad the left column of /rotation cut off "คำขอของคุณ" — "they would confuse why they don't see it"
+
+**Symptom** (owner, iPad landscape screenshot, 2026-10-24): on แลก Rotation the
+left column (admin panel, my card, then "คำขอของคุณ 1") ended at the bottom of
+the screen with the heading of my asks half visible and nothing under it.
+Scrolling the page did not reveal it; the column had to be scrolled *inside
+itself*, which nothing on screen suggested.
+
+**Cause**: `.rot-side { position: sticky; max-height: calc(100vh - 112px);
+overflow: auto }` at ≥ 992 px — a sticky sidebar with its own scroll. On a
+desktop with a mouse wheel that is discoverable; on iPad an inner scroll region
+has no scrollbar until touched, and the page beside it (a long timetable)
+scrolls normally, so the column simply looks finished. Worse, the admin panel
+sat FIRST, pushing the one thing a student must act on below that hidden fold.
+
+**Fix**: the left column is a plain column that scrolls with the page (no
+sticky, no `max-height`, no `overflow`); order is me → my asks → the guide →
+the admin panel, which is folded into a `<details>`; offers TO me moved out of
+the column altogether into a full-width banner above both columns.
+`tools/browser/rotation-page.mjs` asserts at 1180 × 820 that the column's
+computed `overflow-y` is `visible`, `position` is `static`, and `rotMe` comes
+first.
+
+**Where it lives now**: `src/css/rotation.css` (the comment where the sticky
+rule was), `src/html/tab-rotation.html` (the order), `page.js` header comment.
+
+**The general rule**: *a nested scroll region is invisible on touch devices
+until someone touches it — a column that looks complete is believed complete.
+Let secondary columns scroll with the page, and put the thing that needs an
+answer where the page starts, not at the bottom of a column.*
