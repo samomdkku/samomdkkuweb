@@ -343,6 +343,7 @@ insert into r select 'h_far', public.rotation_accept((select v::uuid from r wher
 insert into r select 'h_set300', public.rotation_set_gpa('proof-0250', 3.00)->>'ok';
 insert into r select 'h_edge', public.rotation_accept((select v::uuid from r where k = 'h_req'))->>'ok';
 reset role;
+delete from public.rotation_gpa_audit where round_id = 'proof-0250';
 -- now m2 A 3.00, m3 B 2.80, m1 B 2.99
 select pg_temp.as_('m1'); set local role authenticated;
 insert into r select 'h_close', pg_temp.can('m1', 'm2');
@@ -549,6 +550,7 @@ insert into probe select '127. takers are NOT compared with each other (3.10 vs 
   (select ((select v from r where k='j_c5') is not null)::text);
 
 -- 6. the last yes re-checks: m2 commits, then edits GPA out of range → nobody moves
+delete from public.rotation_gpa_audit where round_id = 'proof-0250';
 select pg_temp.as_('m2'); set local role authenticated;
 select public.rotation_chain_respond((select v::uuid from r where k='j_c5'), true);
 select public.rotation_set_gpa('proof-0250', 2.70);
