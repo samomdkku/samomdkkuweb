@@ -1096,7 +1096,12 @@ function paintAdmin() {
           <option value="band_or_close" ${r.gpa_rule === 'band_or_close' ? 'selected' : ''}>ช่วงเดียวกัน หรือห่างกันไม่เกิน 0.20 (เกณฑ์คณะ)</option>
           <option value="same_band" ${r.gpa_rule === 'same_band' ? 'selected' : ''}>ต้องอยู่ช่วงเดียวกันเท่านั้น (2.55–2.99 / 3.00–3.49 / 3.50–4.00)</option>
         </select></label>
-      <button type="submit" class="btn btn-sm btn-custom">บันทึก</button>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <button type="submit" class="btn btn-sm btn-custom">บันทึก</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-rot-act="view-gpa-audit">
+          <i class="bi bi-clock-history me-1"></i>ประวัติการแก้ GPA
+        </button>
+      </div>
       <p class="rot-muted mb-0">${state.board.students.length} คนในตาราง · กรอก GPA แล้ว ${Number(r.gpa_filled ?? 0)} คน (${showGpa() ? 'คุณเห็นตัวเลข — บัญชีที่กำหนดเท่านั้น' : 'ผู้ดูแลไม่เห็นตัวเลขของใคร'}) · อยู่กลุ่มเดิม ${state.board.students.filter((s) => s.staying).length} คน · ช่องเลือกกลุ่มข้างชื่อในแท็บ "หาคนแลก" = ย้ายเองโดยผู้ดูแล</p>
     </form>
   </details>`;
@@ -1262,6 +1267,89 @@ function showUnswappableModal(missing, groups) {
     </div>`;
   const modal = window.bootstrap.Modal.getOrCreateInstance(el);
   modal.show();
+}
+
+async function showGpaAuditModal() {
+  let el = document.getElementById('rotGpaAuditModal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'rotGpaAuditModal';
+    el.className = 'modal fade rot-sheet';
+    el.tabIndex = -1;
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+  }
+
+  el.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-6"><i class="bi bi-clock-history me-1 text-primary"></i>ประวัติการแก้ไข GPA (Audit Log)</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body" id="rotGpaAuditBody">
+          <p class="rot-muted text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลดประวัติ...</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>`;
+
+  const modal = window.bootstrap.Modal.getOrCreateInstance(el);
+  modal.show();
+
+  const res = await rpc('rotation_admin_gpa_audit', { p_round: ROUND_ID });
+  const bodyEl = document.getElementById('rotGpaAuditBody');
+  if (!bodyEl) return;
+
+  if (!Array.isArray(res)) {
+    bodyEl.innerHTML = `<p class="text-danger text-center py-4">โหลดข้อมูลไม่สำเร็จ: \${escHtml(res?.message || 'ข้อผิดพลาด')}</p>`;
+    return;
+  }
+
+  if (res.length === 0) {
+    bodyEl.innerHTML = `
+      <div class="text-center py-4">
+        <i class="bi bi-shield-check text-success fs-2 mb-2 d-block"></i>
+        <p class="rot-muted mb-0">ยังไม่มีประวัติการแก้ไข GPA ใหม่นับตั้งแต่เปิดใช้ระบบตรวจจับ</p>
+        <small class="text-muted">ระบบจะบันทึกอัตโนมัติทันทีที่มีคนกดเปลี่ยนเกรด</small>
+      </div>`;
+    return;
+  }
+
+  bodyEl.innerHTML = `
+    <p class="rot-muted small mb-3">บันทึกทุกการแก้ไขเกรดจริงโดยตรงจาก Database Trigger เรียงจากล่าสุด (\${res.length} รายการ):</p>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle small mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">เวลา</th>
+            <th scope="col">ชื่อ-สกุล</th>
+            <th scope="col">รหัส</th>
+            <th scope="col" class="text-center">กลุ่ม</th>
+            <th scope="col" class="text-center">การเปลี่ยนเกรด</th>
+          </tr>
+        </thead>
+        <tbody>
+          \${res.map(r => \`
+            <tr>
+              <td class="font-monospace text-muted" style="white-space: nowrap;">\${agoTh(r.changed_at)}<br><small class="text-muted">\${new Date(r.changed_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</small></td>
+              <td class="fw-medium">\${escHtml(r.name || '-')}</td>
+              <td class="font-monospace text-muted">\${escHtml(r.student_id || '-')}</td>
+              <td class="text-center">\${groupChip(r.group, 'is-sm')}</td>
+              <td class="text-center font-monospace">
+                <span class="badge bg-secondary-subtle text-secondary border">\${r.old_gpa != null ? Number(r.old_gpa).toFixed(2) : 'ว่าง'}</span>
+                <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                <span class="badge \${r.new_gpa != null ? 'bg-primary-subtle text-primary border border-primary-subtle fw-bold' : 'bg-danger-subtle text-danger border'}">
+                  \${r.new_gpa != null ? Number(r.new_gpa).toFixed(2) : 'ลบออก'}
+                </span>
+              </td>
+            </tr>
+          \`).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 // ── actions ──────────────────────────────────────────────────────────────────
@@ -1490,6 +1578,10 @@ async function onClick(e) {
     await copyText(text);
     const needCount = missing.filter((s) => !s.staying).length;
     toast(`คัดลอกรายชื่อเพื่อนที่ยังไม่กรอก GPA (${needCount} คน) แล้ว`);
+    return;
+  }
+  if (kind === 'view-gpa-audit') {
+    showGpaAuditModal();
     return;
   }
 }

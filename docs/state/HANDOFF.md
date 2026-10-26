@@ -2543,6 +2543,7 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 
 **j. Missing GPA list & LINE sharing (0260) — Status: VERIFIED 2026-10-24.**
 - 0260 `rotation_board()` carries `'has_gpa', s.gpa is not null` on each student (applied on dev AND production 2026-10-24; `rotation0250-swaps` 99/99 both). The exact GPA number remains secret.
+- 0261 `rotation_gpa_audit` + trigger `trg_rotation_log_gpa_change` on `rotation_students` (applied on dev AND production 2026-10-26; `rotation0261-audit` 10/10 both). Records silent audit trail `(old_gpa, new_gpa)` whenever a GPA is updated or cleared. Gated RPC `rotation_admin_gpa_audit(p_round)` inspectable by named rotation admins only via modal on `/rotation` admin settings panel.
 - Banner in "หาคนแลก" shows how many students haven't filled GPA (blocks swaps under `band_or_close`). Modal lists students by group with student ID and nickname; "คัดลอกส่ง LINE" copies clean text for cohort LINE groups; filter checkbox and `ยังไม่กรอก GPA` tags on rows make unswappable status clear.
 
 **c. Two surnames differ between the PDF and the registry — Status: OWED (a person to confirm).** The import used the registry's name for both and printed them (rows B 653070135-6 and C 653070030-0, `node tools/rotation-import.mjs <pdf>` shows them again — dry run). Seven other differences are the PDF's text layer turning ำ into า, and two are surnames clipped in the PDF itself; neither needs anyone.
