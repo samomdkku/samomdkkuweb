@@ -335,7 +335,10 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
         case 'rotation_accept': return accept(me.id, body.p_request);
         case 'rotation_respond_no': return respondNo(me.id, body.p_request);
         case 'rotation_set_staying': return setStaying(me.id, body.p_staying);
-        case 'rotation_set_gpa': me.gpa = body.p_gpa; return { ok: true, gpa: body.p_gpa };
+        case 'rotation_set_gpa':
+          me.gpa = body.p_gpa;
+          me.gpa_edit_count = (me.gpa_edit_count || 0) + 1;
+          return { ok: true, gpa: body.p_gpa };
         case 'rotation_set_contact': {
           const c = String(body.p_contact || '').replace(/\s+/g, ' ').trim() || null;
           if (c && c.length > 200) return { ok: false, reason: 'too_long' };

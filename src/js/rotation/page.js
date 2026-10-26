@@ -556,12 +556,15 @@ function paintMe() {
         <span class="rot-field-help"><i class="bi bi-people" aria-hidden="true"></i> เพื่อนปี 6 ที่เปิดหน้านี้เห็น ใช้คุยกันก่อนแลก</span>
       </label>
       <label class="rot-field">
-        <span class="rot-field-label">GPA ${editCount >= 3 ? '<span class="badge bg-secondary ms-1">ล็อกแล้ว (3/3 ครั้ง)</span>' : editCount > 0 ? `<span class="rot-muted ms-1 small">(แก้ไขแล้ว ${editCount}/3 ครั้ง)</span>` : ''}</span>
-        <input name="gpa" class="form-control form-control-sm rot-gpa-input" inputmode="decimal" autocomplete="off"
-               placeholder="เช่น 3.25" value="${escHtml(gpaVal)}" ${editCount >= 3 ? 'disabled' : ''}>
+        <span class="rot-field-label">GPA ${editCount >= 3 ? '<span class="badge bg-secondary ms-1 rot-meme-clickable" data-rot-act="view-locked-meme" role="button" title="คลิกเพื่อดูรูปเตือนล็อก 📸">ล็อกแล้ว (3/3 ครั้ง) 🔒</span>' : editCount > 0 ? `<span class="rot-muted ms-1 small">(แก้ไขแล้ว ${editCount}/3 ครั้ง)</span>` : ''}</span>
+        <div class="position-relative">
+          <input name="gpa" class="form-control form-control-sm rot-gpa-input" inputmode="decimal" autocomplete="off"
+                 placeholder="เช่น 3.25" value="${escHtml(gpaVal)}" ${editCount >= 3 ? 'disabled' : ''}>
+          ${editCount >= 3 ? '<div class="position-absolute inset-0 w-100 h-100 rot-meme-clickable" style="top:0;left:0;" data-rot-act="view-locked-meme" title="คลิกเพื่อดูรูปเตือนล็อก 📸"></div>' : ''}
+        </div>
         <span class="rot-field-help"><i class="bi bi-lock" aria-hidden="true"></i> ไม่มีใครเห็นนอกจากคุณ ·
           ${ruleNeedsGpa(r.gpa_rule) ? `ใช้เทียบเกณฑ์: ${escHtml(criteriaTh(r.gpa_rule))}` : 'ยังไม่ใช้เป็นเกณฑ์ เก็บไว้เทียบภายหลัง'}</span>
-        ${editCount >= 3 ? '<span class="rot-field-warn"><i class="bi bi-lock-fill me-1"></i>คุณแก้ไขเกรดครบโควตาสูงสุดแล้ว (3/3 ครั้ง) หากต้องการแก้ไขกรุณาติดต่อผู้ดูแลระบบ</span>' : ''}
+        ${editCount >= 3 ? '<span class="rot-field-warn rot-meme-clickable" data-rot-act="view-locked-meme" role="button" tabindex="0"><i class="bi bi-lock-fill me-1"></i>คุณแก้ไขเกรดครบโควตาสูงสุดแล้ว (3/3 ครั้ง) ระบบล็อกการแก้ไขแล้ว · <span class="text-decoration-underline">ดูรูป 📸</span></span>' : ''}
         ${ruleNeedsGpa(r.gpa_rule) && (me.gpa === null || me.gpa === undefined) && editCount < 3
           ? '<span class="rot-field-warn"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> ยังไม่ได้กรอก — ต้องกรอก GPA ก่อน ถึงจะแลกกับใครได้</span>' : ''}
       </label>
@@ -1233,7 +1236,7 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = f
   });
 }
 
-function showGpaMemeModal(newGpa) {
+function showGpaEdit2Modal(newGpa) {
   return new Promise((resolve) => {
     let el = document.getElementById('rotMemeModal');
     if (!el) {
@@ -1244,15 +1247,59 @@ function showGpaMemeModal(newGpa) {
       el.setAttribute('aria-hidden', 'true');
       document.body.appendChild(el);
     }
+    const valStr = newGpa != null ? Number(newGpa).toFixed(2) : 'ลบเกรดออก';
     el.innerHTML = `
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content text-center border-warning">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content text-center border-warning rot-meme-dialog">
           <div class="modal-header border-0 pb-0 justify-content-end">
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
           </div>
-          <div class="modal-body px-4 pt-0">
-            <div class="my-2" style="font-size: 3.5rem; line-height: 1;" aria-hidden="true">👀 🤨</div>
-            <h3 class="fs-5 fw-bold text-danger mb-2">เอ๊ะ... แก้เกรดรอบที่ 3 แล้วนะจ๊ะ!</h3>
+          <div class="modal-body px-3 pt-0 pb-2">
+            <img src="/rotation-memes/edit-2.jpg" alt="Whatchu doin? Trying to edit your grades again?" class="rot-meme-img">
+            <h3 class="fs-5 fw-bold text-warning-emphasis mb-2">เอ๊ะ... แก้เกรดรอบที่ 2 แล้วนะ! 👀</h3>
+            <p class="text-secondary small mb-3">
+              คุณกำลังจะแก้ไข GPA เป็น <strong>${escHtml(valStr)}</strong><br>
+              <span class="text-danger small">⚠️ <strong>คำเตือน:</strong> คุณจะแก้ไขได้อีกเพียง <strong>1 ครั้งสุดท้ายเท่านั้น (รอบที่ 3)</strong><br>ระบบบันทึกประวัติและตัวเลขทุกครั้งเพื่อความโปร่งใสนะจ๊ะ</span>
+            </p>
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="button" class="btn btn-sm btn-warning px-3 fw-semibold" data-rot-meme-yes>ยืนยันแก้ไขรอบที่ 2 (${escHtml(valStr)})</button>
+          </div>
+        </div>
+      </div>`;
+    const modal = window.bootstrap.Modal.getOrCreateInstance(el);
+    let answer = false;
+    const yesBtn = el.querySelector('[data-rot-meme-yes]');
+    if (yesBtn) {
+      yesBtn.addEventListener('click', () => { answer = true; modal.hide(); }, { once: true });
+    }
+    el.addEventListener('hidden.bs.modal', () => resolve(answer), { once: true });
+    modal.show();
+  });
+}
+
+function showGpaEdit3Modal(newGpa) {
+  return new Promise((resolve) => {
+    let el = document.getElementById('rotMemeModal');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rotMemeModal';
+      el.className = 'modal fade rot-sheet';
+      el.tabIndex = -1;
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+    }
+    const valStr = newGpa != null ? Number(newGpa).toFixed(2) : 'ลบเกรดออก';
+    el.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content text-center border-danger rot-meme-dialog">
+          <div class="modal-header border-0 pb-0 justify-content-end">
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+          </div>
+          <div class="modal-body px-3 pt-0 pb-2">
+            <img src="/rotation-memes/edit-3.jpg" alt="This is the last time, last warning! Edit 3/3" class="rot-meme-img">
+            <h3 class="fs-5 fw-bold text-danger mb-2">เตือนครั้งสุดท้าย! แก้เกรดรอบที่ 3 (3/3) 🚨</h3>
             <p class="text-secondary small mb-3">
               กำลังแอบสุ่มเกรดส่องเพื่อนอยู่หรือเปล่าเอ่ย? 🕵️‍♂️<br>
               <strong>ระบบบันทึกประวัติและตัวเลขการแก้ไขทุกครั้ง</strong> ส่งให้ผู้ดูแลระบบตรวจสอบนะจ๊ะ!
@@ -1260,16 +1307,16 @@ function showGpaMemeModal(newGpa) {
             <div class="alert alert-warning text-start small mb-3">
               <i class="bi bi-lightbulb-fill text-warning me-1"></i><strong>ไม่ต้องแอบแก้เกรดแล้ว!</strong><br>
               ถ้าเกรดคุณกับเพื่อนห่างกันเกิน 0.20 หรือยังไม่กรอกเกรด และได้คุยกับฝ่ายวิชาการนอกรอบแล้ว
-              คุณสามารถกดปุ่ม <strong>"ทักคุย/ขอแลก"</strong> ที่การ์ดของเพื่อนได้เลยโดยตรงนะ
+              คุณสามารถกดปุ่ม <strong>"ขอแลก"</strong> ที่การ์ดของเพื่อนได้เลยโดยตรงนะ
             </div>
-            <label class="form-check d-flex align-items-center gap-2 p-2 rounded border bg-light text-start cursor-pointer">
+            <label class="form-check d-flex align-items-center gap-2 p-2 rounded border bg-light text-start rot-meme-clickable">
               <input type="checkbox" class="form-check-input mt-0" data-rot-meme-confirm>
-              <span class="small fw-semibold text-danger">ฉันรับทราบว่านี่คือการแก้ไขครั้งสุดท้าย (3/3) และจะล็อกการแก้ไขทันที</span>
+              <span class="small fw-semibold text-danger">ฉันรับทราบว่านี่คือการแก้ไขครั้งสุดท้าย (3/3) และระบบจะล็อกการแก้ไขทันที</span>
             </label>
           </div>
           <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-            <button type="button" class="btn btn-sm btn-danger px-3" data-rot-meme-yes disabled>ยืนยันบันทึกเกรดจริง (${newGpa != null ? Number(newGpa).toFixed(2) : 'ลบเกรดออก'})</button>
+            <button type="button" class="btn btn-sm btn-danger px-3 fw-semibold" data-rot-meme-yes disabled>ยืนยันบันทึกเกรดจริง (${escHtml(valStr)})</button>
           </div>
         </div>
       </div>`;
@@ -1282,8 +1329,48 @@ function showGpaMemeModal(newGpa) {
         yesBtn.disabled = !confirmInput.checked;
       });
     }
-    yesBtn.addEventListener('click', () => { answer = true; modal.hide(); }, { once: true });
+    if (yesBtn) {
+      yesBtn.addEventListener('click', () => { answer = true; modal.hide(); }, { once: true });
+    }
     el.addEventListener('hidden.bs.modal', () => resolve(answer), { once: true });
+    modal.show();
+  });
+}
+
+function showGpaLockedModal({ justSaved = false } = {}) {
+  return new Promise((resolve) => {
+    let el = document.getElementById('rotMemeModal');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rotMemeModal';
+      el.className = 'modal fade rot-sheet';
+      el.tabIndex = -1;
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content text-center border-danger rot-meme-dialog">
+          <div class="modal-header border-0 pb-0 justify-content-end">
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+          </div>
+          <div class="modal-body px-3 pt-0 pb-2">
+            <img src="/rotation-memes/locked.jpg" alt="Caught in 4K Admin Open Up" class="rot-meme-img">
+            <h3 class="fs-5 fw-bold text-danger mb-2">CAUGHT IN 4K! ${justSaved ? 'บันทึกครั้งสุดท้ายแล้ว 📸🔒' : 'โดนล็อกแล้วจ้า 📸🔒'}</h3>
+            <p class="text-secondary small mb-3">
+              ${justSaved
+                ? 'บันทึกเกรดครั้งสุดท้ายสำเร็จแล้ว! 🚨<br>คุณแก้ไขครบโควตา <strong>3/3 ครั้ง</strong> เรียบร้อย ระบบได้ทำการ<strong>ล็อกเกรดถาวร</strong>'
+                : 'คุณได้แก้ไขเกรดครบโควตาสูงสุดแล้ว (3/3 ครั้ง) 🚨<br>ระบบได้ทำการ<strong>ล็อกการแก้ไข</strong>และบันทึกประวัติไว้เรียบร้อยแล้ว'}<br>
+              <span class="rot-muted small mt-2 d-block">หากมีเหตุจำเป็นต้องแก้ไขตัวเลขจริง ๆ กรุณาติดต่อฝ่ายวิชาการหรือผู้ดูแลระบบนะจ๊ะ!</span>
+            </p>
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center">
+            <button type="button" class="btn btn-sm btn-dark px-4 fw-semibold" data-bs-dismiss="modal">รับทราบ (โดนจับได้แล้ว 😅)</button>
+          </div>
+        </div>
+      </div>`;
+    const modal = window.bootstrap.Modal.getOrCreateInstance(el);
+    el.addEventListener('hidden.bs.modal', () => resolve(), { once: true });
     modal.show();
   });
 }
@@ -1778,6 +1865,10 @@ async function onClick(e) {
     showGpaAuditModal();
     return;
   }
+  if (kind === 'view-locked-meme') {
+    showGpaLockedModal();
+    return;
+  }
 }
 
 async function onSubmit(e) {
@@ -1801,20 +1892,14 @@ async function onSubmit(e) {
     if (gpaChanged) {
       const editCount = me.gpa_edit_count || 0;
       if (editCount >= 3) {
-        toast('คุณแก้ไข GPA ครบโควตาสูงสุดแล้ว (3/3 ครั้ง) หากต้องการแก้ไขกรุณาติดต่อผู้ดูแลระบบ', 'error');
+        showGpaLockedModal();
         return;
       }
-      const valStr = value != null ? Number(value).toFixed(2) : 'ลบเกรดออก';
       if (editCount === 1) {
-        const ok = await askSheet({
-          title: 'ยืนยันแก้ไข GPA ครั้งที่ 2',
-          lead: `คุณเคยแก้ไข GPA แล้ว 1 ครั้ง ต้องการแก้ไขเป็น <strong>${escHtml(valStr)}</strong> ใช่หรือไม่?<br>
-                 <span class="text-danger small">⚠️ คุณจะสามารถแก้ไขได้อีกเพียง 1 ครั้งเท่านั้น</span>`,
-          yes: 'ยืนยันแก้ไข',
-        });
+        const ok = await showGpaEdit2Modal(value);
         if (!ok) return;
       } else if (editCount === 2) {
-        const ok = await showGpaMemeModal(value);
+        const ok = await showGpaEdit3Modal(value);
         if (!ok) return;
       }
     }
@@ -1827,7 +1912,12 @@ async function onSubmit(e) {
       if (gpaChanged) return rpc('rotation_set_gpa', { p_round: ROUND_ID, p_gpa: value });
       return { ok: true };
     });
-    if (res?.ok) toast('บันทึกแล้ว');
+    if (res?.ok) {
+      toast('บันทึกแล้ว');
+      if (gpaChanged && (me.gpa_edit_count || 0) === 2) {
+        showGpaLockedModal({ justSaved: true });
+      }
+    }
   }
   if (form.dataset.rotForm === 'practice-as') {
     startPractice({ gender: form.elements.gender.value, group: form.elements.group.value });
