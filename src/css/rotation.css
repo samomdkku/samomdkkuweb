@@ -377,6 +377,14 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
 }
 .rot-member:not(.is-eligible):not(.is-eligible-off):not(.is-me) .rot-member-name { color: var(--ink-600); }
 .rot-member.is-me { background: var(--green-50); border-radius: var(--radius-sm); }
+.rot-member.is-dim {
+  opacity: 0.45;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.rot-member.is-dim:hover,
+.rot-member.is-dim:focus-within {
+  opacity: 0.85;
+}
 .rot-gender { flex: 0 0 8px; height: 8px; border-radius: 50%; }
 .rot-gender.is-m { background: #4f7fd1; }
 .rot-gender.is-f { background: #d1608f; }

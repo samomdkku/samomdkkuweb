@@ -840,6 +840,12 @@ function memberRow(s) {
   const mine = m.askedByMe.get(s.id);
   const theirs = m.askedMe.get(s.id);
   const asks = (m.openAsksBy.get(s.id) || []);
+  const isDim = !!(me && !isMe && !theirs && !mine && (s.staying || s.gender !== me.gender));
+  let dimReason = '';
+  if (isDim) {
+    if (s.staying) dimReason = 'คนนี้เลือกอยู่กลุ่มเดิม ไม่รับคำขอแลก';
+    else if (s.gender !== me.gender) dimReason = 'เพศต่างกัน ไม่สามารถแลกข้ามเพศได้ตามเกณฑ์คณะ';
+  }
   let action = '';
   if (live && me && !me.staying && !isMe) {
     if (theirs) action = `<button type="button" class="btn btn-sm btn-custom" data-rot-act="accept" data-id="${theirs.id}">ตอบรับ</button>`;
@@ -891,7 +897,7 @@ function memberRow(s) {
     else if (s.off_criteria_reason === 'diff_over_03') offTag = ' · <span class="rot-tag is-warn">เกรดห่าง >0.3 (ผิดเกณฑ์)</span>';
   }
   const gpaTag = needsGpa && !s.has_gpa && !s.staying && !offTag ? ' · <span class="rot-tag is-warn">ยังไม่กรอก GPA</span>' : '';
-  return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${s.can_off_criteria_swap ? 'is-eligible-off' : ''} ${isMe ? 'is-me' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}">
+  return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${s.can_off_criteria_swap ? 'is-eligible-off' : ''} ${isMe ? 'is-me' : ''} ${isDim ? 'is-dim' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}"${dimReason ? ` title="${escHtml(dimReason)}"` : ''}>
     <span class="rot-gender is-${s.gender === 'M' ? 'm' : 'f'}" title="${genderTh(s.gender)}" aria-label="${genderTh(s.gender)}"></span>
     <div class="rot-member-text">
       <span class="rot-member-name">${escHtml(displayName(s))}${isMe ? ' <span class="rot-tag">คุณ</span>' : ''}${s.staying ? ' <span class="rot-tag is-stay"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> อยู่กลุ่มนี้</span>' : ''}${theirs ? ' <span class="rot-tag is-accent">ขอแลกกับคุณ</span>' : ''}${wantsMine ? ' <span class="rot-tag is-wish">อยากมากลุ่มคุณ</span>' : ''}</span>
