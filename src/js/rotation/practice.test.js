@@ -200,7 +200,7 @@ describe('แลกต่อเนื่อง (0255), mirrored from the SQL pro
     const q = p._as.request(b1.id, d1.id, null); p._as.accept(d1.id, q.id);       // b1 swaps away
     const c = p._state().chains.find((x) => x.id === r.chain_id);
     expect([c.status, c.legs[0].taker_id]).toEqual(['pending', null]);
-    const q2 = await p.rpc('rotation_request', { p_target: b2.id }); p._as.accept(b2.id, q2.id);   // the starter moves
+    const q2 = await p.rpc('rotation_request', { p_target: b2.id, p_off_criteria: true }); p._as.accept(b2.id, q2.id);   // the starter moves
     expect([c.status, c.fail_reason]).toEqual(['failed', 'moved']);
     const p2 = fresh();
     const [x] = males(p2, 'B');
@@ -296,6 +296,17 @@ describe('practice anonymization and off-criteria swaps (0262)', () => {
     expect(acc.ok).toBe(true);
     const moves = p._state().moves;
     expect(moves.some((m) => m.kind === 'off_criteria' && m.off_criteria_reason === 'diff_02_03')).toBe(true);
+  });
+
+  it('shows green, 0.2-0.3, >0.3, and no grade right next to each other in Group B', async () => {
+    const p = fresh();
+    const b = await p.rpc('rotation_board');
+    const bMales = b.students.filter((s) => s.current_group === 'B' && s.gender === 'M');
+    expect(bMales).toHaveLength(4);
+    expect(bMales[0].can_swap).toBe(true); // Green
+    expect(bMales[1].off_criteria_reason).toBe('diff_02_03'); // 0.2-0.3
+    expect(bMales[2].off_criteria_reason).toBe('diff_over_03'); // >0.3
+    expect(bMales[3].off_criteria_reason).toBe('missing_gpa'); // no grade
   });
 
   it('new off-criteria scenes work for recording demo', async () => {

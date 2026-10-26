@@ -81,22 +81,20 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
       const genderSeat = Math.floor(i / 2);
       let gpa = 3.40;
       if (genderSeat === 0) gpa = 3.40;
-      else if (genderSeat === 1) gpa = 3.35;
-      else if (genderSeat === 2) {
-        if (gIdx === 2 || gIdx === 3 || gIdx === 5) gpa = null;
-        else gpa = 3.48;
-      } else if (genderSeat === 3) {
-        if (gIdx === 1 || gIdx === 3 || gIdx === 5) gpa = 3.70;
-        else if (gIdx === 2 || gIdx === 4) gpa = 2.70;
-        else gpa = null;
-      }
+      else if (genderSeat === 1) gpa = 3.70;
+      else if (genderSeat === 2) gpa = 2.70;
+      else if (genderSeat === 3) gpa = null;
+
+      // Group B has no stayers so all 4 swap button variations (Green, 0.2-0.3, >0.3, missing GPA) appear right next to each other.
+      // Group C has a stayer to demonstrate the staying / dimmed state.
+      const isStaying = g !== 'B' && i === 2;
 
       students.push({
         id: `s${n}`, student_id: `ทดลอง-${String(n).padStart(2, '0')}`, prefix: isM ? 'นาย' : 'นางสาว',
         first_name: (isM ? M_FIRST : F_FIRST)[j % 24], last_name: LAST[(j * 5) % LAST.length],
         nickname: (isM ? M_NICK : F_NICK)[j % 24], contact: k % 3 === 0 ? null : `LINE: demo${String(n).padStart(2, '0')}`,
         gender: isM ? 'M' : 'F', original_group: g, current_group: g, gpa, signed_in: k % 4 !== 3,
-        staying: i === 2,   // one person per group chose to stay, so the page shows what that looks like
+        staying: isStaying,
         // a wish or two, so the route finder has something to find
         wishes: [groups[(groups.indexOf(g) + 1 + (k % (groups.length - 1))) % groups.length]],
       });
