@@ -254,3 +254,59 @@ describe('แลกต่อเนื่อง (0255), mirrored from the SQL pro
     expect((await p.rpc('rotation_board')).me.wishes).toEqual(['B']);
   });
 });
+
+describe('practice anonymization and off-criteria swaps (0262)', () => {
+  it('anonymize replaces realMe with a 100% demo persona for safe recordings', async () => {
+    const p = createPractice({
+      groups: G,
+      realMe: { first_name: 'จริง', last_name: 'คน', student_id: '663040123-4', gender: 'M', gpa: 3.99 },
+      anonymize: true,
+    });
+    const b = await p.rpc('rotation_board');
+    expect(b.me.first_name).toBe('สมมติ');
+    expect(b.me.last_name).toBe('รักเรียน');
+    expect(b.me.student_id).toBe('663040999-9');
+    expect(b.me.gpa).toBe(3.45);
+  });
+
+  it('off-criteria requests are 1-to-1, capped at 1 pending, and log off_criteria moves', async () => {
+    const p = fresh();
+    const b = await p.rpc('rotation_board');
+    const offStudent = b.students.find((s) => s.can_off_criteria_swap && s.gender === 'M' && s.off_criteria_reason === 'diff_02_03');
+    expect(offStudent).toBeTruthy();
+    expect(offStudent.can_swap).toBe(false);
+
+    // cannot broadcast off-criteria
+    const noBroadcast = await p.rpc('rotation_request', { p_to_group: offStudent.current_group, p_off_criteria: true });
+    expect(noBroadcast.reason).toBe('cannot_broadcast_off_criteria');
+
+    // direct off-criteria request succeeds
+    const req = await p.rpc('rotation_request', { p_target: offStudent.id, p_off_criteria: true });
+    expect(req.ok).toBe(true);
+
+    // anti-spam: max 1 pending off-criteria request
+    const anotherOff = b.students.find((s) => s.can_off_criteria_swap && s.id !== offStudent.id && s.gender === 'M');
+    if (anotherOff) {
+      const spammed = await p.rpc('rotation_request', { p_target: anotherOff.id, p_off_criteria: true });
+      expect(spammed.reason).toBe('too_many_off_criteria');
+    }
+
+    // accept off-criteria request logs move with kind: 'off_criteria'
+    const acc = p._as.accept(offStudent.id, req.id);
+    expect(acc.ok).toBe(true);
+    const moves = p._state().moves;
+    expect(moves.some((m) => m.kind === 'off_criteria' && m.off_criteria_reason === 'diff_02_03')).toBe(true);
+  });
+
+  it('new off-criteria scenes work for recording demo', async () => {
+    const p = fresh();
+    expect(p.scene('one_asks_me_off_criteria').ok).toBe(true);
+    const inc = buildModel(await p.rpc('rotation_board')).incoming;
+    expect(inc.length).toBeGreaterThan(0);
+    expect(inc[0].off_criteria).toBe(true);
+
+    expect(p.scene('others_swap_off_criteria').ok).toBe(true);
+    const moves = p._state().moves;
+    expect(moves.some((m) => m.kind === 'off_criteria')).toBe(true);
+  });
+});

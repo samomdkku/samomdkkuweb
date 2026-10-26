@@ -42,38 +42,58 @@ export const PRACTICE_ROUND_ID = 'practice';
  * @param {string} [o.group]       start in (defaults to realMe's)
  * @param {number} [o.perGroup]    pretend classmates per group (default 8: 4 M + 4 F)
  * @param {() => number} [o.clock] ms clock (tests pass a fake one)
+ * @param {boolean} [o.anonymize]  force 100% pretend persona for recordings/screenshots
+ * @param {string} [o.gpaRule]     gpa rule to simulate (default 'band_or_close')
  */
-export function createPractice({ groups, realMe = null, gender, group, perGroup = 8, clock = () => Date.now() }) {
+export function createPractice({ groups, realMe = null, gender, group, perGroup = 8, clock = () => Date.now(), anonymize = false, gpaRule = 'band_or_close' }) {
   let tick = 0;
   const now = () => new Date(clock() + (tick++)).toISOString();   // strictly increasing
   let seq = 0;
   const newId = (p) => `${p}-${++seq}`;
 
-  const meGender = gender || realMe?.gender || 'M';
-  const meGroup = group && groups.includes(group) ? group : (realMe?.current_group && groups.includes(realMe.current_group) ? realMe.current_group : groups[0]);
+  const meGender = gender || (!anonymize && realMe?.gender) || 'M';
+  const meGroup = group && groups.includes(group) ? group : (!anonymize && realMe?.current_group && groups.includes(realMe.current_group) ? realMe.current_group : groups[0]);
   const me = {
-    id: 'me', student_id: realMe?.student_id || 'ทดลอง-00', prefix: realMe?.prefix || '',
-    first_name: realMe?.first_name || 'คุณ', last_name: realMe?.last_name || '(ทดลอง)',
-    nickname: realMe?.nickname || null, contact: realMe?.contact || null,
+    id: 'me',
+    student_id: anonymize ? '663040999-9' : (realMe?.student_id || 'ทดลอง-00'),
+    prefix: anonymize ? (meGender === 'M' ? 'นาย' : 'นางสาว') : (realMe?.prefix || ''),
+    first_name: anonymize ? 'สมมติ' : (realMe?.first_name || 'คุณ'),
+    last_name: anonymize ? 'รักเรียน' : (realMe?.last_name || '(ทดลอง)'),
+    nickname: anonymize ? 'เดโม' : (realMe?.nickname || null),
+    contact: anonymize ? 'LINE: demo_me' : (realMe?.contact || null),
     gender: meGender, original_group: meGroup, current_group: meGroup,
-    gpa: realMe?.gpa ?? null, signed_in: true, staying: false, wishes: [],
+    gpa: anonymize ? 3.45 : (realMe?.gpa ?? 3.45),
+    gpa_edit_count: 0,
+    signed_in: true, staying: false, wishes: [],
   };
 
   const students = [me];
   let n = 0;
   const seen = { M: 0, F: 0 };   // per-gender counters: no two pretend people share a name
   for (const g of groups) {
+    const gIdx = groups.indexOf(g);
     const count = g === meGroup ? perGroup - 1 : perGroup;   // you are the last seat of yours
     for (let i = 0; i < count; i++) {
       const isM = i % 2 === 0;
       n++;
       const k = n - 1;
       const j = seen[isM ? 'M' : 'F']++;
+      const genderSeat = Math.floor(i / 2);
+      let gpa = 3.40;
+      if (genderSeat === 0) gpa = 3.40;
+      else if (genderSeat === 1) gpa = 3.35;
+      else if (genderSeat === 2) gpa = 3.48;
+      else if (genderSeat === 3) {
+        if (gIdx === 1 || gIdx === 4) gpa = 3.70;
+        else if (gIdx === 2) gpa = 2.70;
+        else gpa = null;
+      }
+
       students.push({
         id: `s${n}`, student_id: `ทดลอง-${String(n).padStart(2, '0')}`, prefix: isM ? 'นาย' : 'นางสาว',
         first_name: (isM ? M_FIRST : F_FIRST)[j % 24], last_name: LAST[(j * 5) % LAST.length],
         nickname: (isM ? M_NICK : F_NICK)[j % 24], contact: k % 3 === 0 ? null : `LINE: demo${String(n).padStart(2, '0')}`,
-        gender: isM ? 'M' : 'F', original_group: g, current_group: g, gpa: null, signed_in: k % 4 !== 3,
+        gender: isM ? 'M' : 'F', original_group: g, current_group: g, gpa, signed_in: k % 4 !== 3,
         staying: i === 2,   // one person per group chose to stay, so the page shows what that looks like
         // a wish or two, so the route finder has something to find
         wishes: [groups[(groups.indexOf(g) + 1 + (k % (groups.length - 1))) % groups.length]],
@@ -86,12 +106,46 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
   const chains = [];
   const round = {
     id: PRACTICE_ROUND_ID, title: 'โหมดทดลอง', groups: [...groups], published: true, swaps_open: true,
-    swaps_close_at: null, gpa_rule: 'off', swaps_live: true, max_pending: 15,
+    swaps_close_at: null, gpa_rule: gpaRule, swaps_live: true, max_pending: 15,
   };
 
   const byId = (id) => students.find((s) => s.id === id) || null;
-  /** The practice copy of rotation_pair_allowed (gpa_rule is always 'off' here). */
-  const pairAllowed = (a, b) => !!a && !!b && a.id !== b.id && a.current_group !== b.current_group && a.gender === b.gender;
+
+  function gpaBand(g) {
+    if (g === null || g === undefined) return null;
+    const num = Number(g);
+    if (isNaN(num)) return null;
+    if (num >= 3.50) return '3.50-4.00';
+    if (num >= 3.00) return '3.00-3.49';
+    if (num >= 2.55) return '2.55-2.99';
+    return null;
+  }
+
+  const pairAllowed = (a, b) => {
+    if (!a || !b || a.id === b.id || a.current_group === b.current_group || a.gender !== b.gender) return false;
+    if (round.gpa_rule === 'off') return true;
+    if (round.gpa_rule === 'same_band') {
+      const ba = gpaBand(a.gpa);
+      const bb = gpaBand(b.gpa);
+      return ba !== null && ba === bb;
+    }
+    if (round.gpa_rule === 'band_or_close') {
+      if (a.gpa === null || a.gpa === undefined || b.gpa === null || b.gpa === undefined) return false;
+      const ba = gpaBand(a.gpa);
+      const bb = gpaBand(b.gpa);
+      return (ba !== null && ba === bb) || Math.abs(Number(a.gpa) - Number(b.gpa)) <= 0.20001;
+    }
+    return true;
+  };
+
+  const offCriteriaReason = (a, b) => {
+    if (!a || !b || a.id === b.id || a.current_group === b.current_group || a.gender !== b.gender) return null;
+    if (pairAllowed(a, b)) return null;
+    if (a.gpa === null || a.gpa === undefined || b.gpa === null || b.gpa === undefined) return 'missing_gpa';
+    if (Math.abs(Number(a.gpa) - Number(b.gpa)) <= 0.30001) return 'diff_02_03';
+    return 'diff_over_03';
+  };
+
   /** …and "may ASK them now": they have not chosen to stay (0252). */
   const askable = (a, b) => pairAllowed(a, b) && !b.staying;
   const pendingOf = (id) => requests.filter((q) => q.status === 'pending' && q.requester_id === id);
@@ -118,27 +172,47 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
   }
 
   // ── the RPCs, as ANY actor (you, or a pretend classmate) ─────────────────
-  function request(actorId, targetId, toGroup) {
+  function request(actorId, targetId, toGroup, offCriteria = false) {
     const a = byId(actorId);
     if (a.staying) return { ok: false, reason: 'you_staying' };
     let to = toGroup;
-    if (targetId) {
+    let reason = null;
+
+    if (offCriteria) {
+      if (!targetId) return { ok: false, reason: 'cannot_broadcast_off_criteria' };
+      if (requests.some((q) => q.status === 'pending' && q.requester_id === a.id && q.off_criteria)) {
+        return { ok: false, reason: 'too_many_off_criteria' };
+      }
       const t = byId(targetId);
       if (!t) return { ok: false, reason: 'no_such_student' };
       to = t.current_group;
-      if (!pairAllowed(a, t)) return { ok: false, reason: 'not_eligible' };
       if (t.staying) return { ok: false, reason: 'staying' };
-      if (requests.some((q) => q.status === 'pending' && q.requester_id === a.id && q.target_id === t.id)) return { ok: false, reason: 'duplicate' };
+      reason = offCriteriaReason(a, t);
+      if (!reason) return { ok: false, reason: 'not_eligible' };
+      if (requests.some((q) => q.status === 'pending' && q.requester_id === a.id && q.target_id === t.id)) {
+        return { ok: false, reason: 'duplicate' };
+      }
     } else {
-      if (!to || !groups.includes(to)) return { ok: false, reason: 'no_such_group' };
-      if (to === a.current_group) return { ok: false, reason: 'same_group' };
-      if (!students.some((s) => s.current_group === to && askable(a, s))) return { ok: false, reason: 'nobody_eligible' };
-      if (requests.some((q) => q.status === 'pending' && q.requester_id === a.id && !q.target_id && q.to_group === to)) return { ok: false, reason: 'duplicate' };
+      if (targetId) {
+        const t = byId(targetId);
+        if (!t) return { ok: false, reason: 'no_such_student' };
+        to = t.current_group;
+        if (t.staying) return { ok: false, reason: 'staying' };
+        if (!pairAllowed(a, t)) return { ok: false, reason: 'not_eligible' };
+        if (requests.some((q) => q.status === 'pending' && q.requester_id === a.id && q.target_id === t.id)) return { ok: false, reason: 'duplicate' };
+      } else {
+        if (!to || !groups.includes(to)) return { ok: false, reason: 'no_such_group' };
+        if (to === a.current_group) return { ok: false, reason: 'same_group' };
+        if (!students.some((s) => s.current_group === to && askable(a, s))) return { ok: false, reason: 'nobody_eligible' };
+        if (requests.some((q) => q.status === 'pending' && q.requester_id === a.id && !q.target_id && q.to_group === to)) return { ok: false, reason: 'duplicate' };
+      }
     }
+
     if (pendingOf(a.id).length >= round.max_pending) return { ok: false, reason: 'too_many' };
     const q = {
       id: newId('q'), requester_id: a.id, target_id: targetId || null, from_group: a.current_group, to_group: to,
       status: 'pending', accepted_by: null, created_at: now(), resolved_at: null,
+      off_criteria: !!offCriteria, off_criteria_reason: reason,
     };
     requests.push(q);
     return { ok: true, id: q.id };
@@ -159,13 +233,19 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
       if (q.target_id || req.current_group !== q.from_group) { q.status = 'superseded'; q.resolved_at = now(); }
       return { ok: false, reason: 'stale' };
     }
-    if (!pairAllowed(req, mine)) return { ok: false, reason: 'not_eligible' };
+    if (q.off_criteria) {
+      const reason = offCriteriaReason(req, mine);
+      if (!reason) return { ok: false, reason: 'not_eligible' };
+    } else {
+      if (!pairAllowed(req, mine)) return { ok: false, reason: 'not_eligible' };
+    }
     req.current_group = q.to_group;
     mine.current_group = q.from_group;
     q.status = 'accepted'; q.accepted_by = mine.id; q.resolved_at = now();
     const at = q.resolved_at;
-    moves.push({ student_id: req.id, from_group: q.from_group, to_group: q.to_group, request_id: q.id, kind: 'swap', at });
-    moves.push({ student_id: mine.id, from_group: q.to_group, to_group: q.from_group, request_id: q.id, kind: 'swap', at });
+    const kind = q.off_criteria ? 'off_criteria' : 'swap';
+    moves.push({ student_id: req.id, from_group: q.from_group, to_group: q.to_group, request_id: q.id, kind, off_criteria_reason: q.off_criteria_reason, at });
+    moves.push({ student_id: mine.id, from_group: q.to_group, to_group: q.from_group, request_id: q.id, kind, off_criteria_reason: q.off_criteria_reason, at });
     const closed = supersedeFor([req.id, mine.id]);
     return { ok: true, requester_group: q.to_group, my_group: q.from_group, closed_other_requests: closed };
   }
@@ -303,20 +383,39 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
   function board() {
     const pub = (s) => {
       const { gpa, ...rest } = s;   // nobody's GPA but your own (0251)
-      return { ...rest, can_swap: s.id !== me.id && askable(me, s),
+      const offReason = !s.staying && s.id !== me.id ? offCriteriaReason(me, s) : null;
+      return {
+        ...rest,
+        can_swap: s.id !== me.id && askable(me, s),
+        can_off_criteria_swap: s.id !== me.id && !s.staying && !!offReason,
+        off_criteria_reason: offReason,
         has_gpa: s.gpa !== null && s.gpa !== undefined,
-        wishes: s.staying ? [] : (s.wishes || []).filter((g) => g !== s.current_group) };
+        wishes: s.staying ? [] : (s.wishes || []).filter((g) => g !== s.current_group),
+      };
     };
     return {
       state: 'ok', is_admin: false, practice: true,
       round: { ...round },
-      me: { ...me, gpa_band: null, wishes: me.staying ? [] : me.wishes.filter((g) => g !== me.current_group) },
+      me: {
+        ...me,
+        gpa_band: gpaBand(me.gpa),
+        gpa_edit_count: me.gpa_edit_count || 0,
+        wishes: me.staying ? [] : me.wishes.filter((g) => g !== me.current_group),
+      },
       students: students.map(pub).sort((a, b) => a.current_group.localeCompare(b.current_group) || a.student_id.localeCompare(b.student_id)),
       requests: requests
         .filter((q) => q.status === 'pending' || q.status === 'accepted' || [q.requester_id, q.target_id, q.accepted_by].includes(me.id))
-        .map((q) => ({ ...q }))
+        .map((q) => ({
+          ...q,
+          off_criteria: !!q.off_criteria,
+          off_criteria_reason: q.off_criteria_reason || null,
+        }))
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
-      moves: moves.map((m) => ({ chain_id: null, ...m })).sort((a, b) => b.at.localeCompare(a.at)),
+      moves: moves.map((m) => ({
+        chain_id: null,
+        ...m,
+        off_criteria_reason: m.off_criteria_reason || null,
+      })).sort((a, b) => b.at.localeCompare(a.at)),
       chains: chains
         .filter((c) => (c.status === 'done' || live(c)) || involved(c))
         .map((c) => ({ ...c, status: c.status === 'pending' && !live(c) ? 'expired' : c.status,
@@ -331,7 +430,7 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
     const out = (() => {
       switch (name) {
         case 'rotation_board': return board();
-        case 'rotation_request': return request(me.id, body.p_target, body.p_to_group);
+        case 'rotation_request': return request(me.id, body.p_target, body.p_to_group, body.p_off_criteria);
         case 'rotation_accept': return accept(me.id, body.p_request);
         case 'rotation_respond_no': return respondNo(me.id, body.p_request);
         case 'rotation_set_staying': return setStaying(me.id, body.p_staying);
@@ -380,6 +479,19 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
       if (!s) return { ok: false, text: 'ไม่มีเพื่อนสมมติที่แลกกับคุณได้เหลือแล้ว ลองกด เริ่มใหม่' };
       request(s.id, me.id, null);
       return { ok: true, text: `${s.first_name} (${s.nickname}) กลุ่ม ${s.current_group} ส่งคำขอแลกถึงคุณ` };
+    },
+    /** An off-criteria classmate asks you. */
+    one_asks_me_off_criteria() {
+      if (me.staying) return { ok: false, text: STAYING_TEXT };
+      const s = students.find((x) => x.id !== me.id && x.gender === me.gender && x.current_group !== me.current_group && !x.staying && offCriteriaReason(x, me) && !askedMeAlready(x));
+      if (!s) return { ok: false, text: 'ไม่มีเพื่อนสมมติที่ส่งคำขอผิดเกณฑ์ถึงคุณได้เหลือแล้ว' };
+      const reason = offCriteriaReason(s, me);
+      request(s.id, me.id, null, true);
+      let desc = 'ผิดเกณฑ์';
+      if (reason === 'diff_02_03') desc = 'เกรดห่าง 0.2–0.3';
+      else if (reason === 'missing_gpa') desc = 'เช็กเกรดนอกรอบ';
+      else if (reason === 'diff_over_03') desc = 'เกรดห่าง >0.3';
+      return { ok: true, text: `${s.first_name} (${s.nickname}) กลุ่ม ${s.current_group} ส่งคำขอแลก (${desc}) ถึงคุณ` };
     },
     /** Three classmates, three groups, all ask you at once. */
     many_ask_me() {
@@ -462,6 +574,19 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
         return { ok: true, text: `${a.first_name} (${a.nickname}) กับ ${b.first_name} (${b.nickname}) แลกกันแล้ว: ${b.current_group} ⇄ ${a.current_group}` };
       }
       return { ok: false, text: 'ไม่มีคู่ให้แลก' };
+    },
+    /** Two classmates swap off-criteria. */
+    others_swap_off_criteria() {
+      const others = students.filter((s) => s.id !== me.id);
+      for (const a of others.filter((x) => !x.staying)) {
+        const b = others.find((x) => !x.staying && x.gender === a.gender && x.current_group !== a.current_group && offCriteriaReason(a, x) === 'diff_02_03');
+        if (!b) continue;
+        const r = request(a.id, b.id, null, true);
+        if (!r.ok) continue;
+        accept(b.id, r.id);
+        return { ok: true, text: `${a.first_name} กับ ${b.first_name} แลกผิดเกณฑ์ (0.2–0.3) สำเร็จแล้ว: ${b.current_group} ⇄ ${a.current_group}` };
+      }
+      return { ok: false, text: 'ไม่มีคู่ให้แลกผิดเกณฑ์' };
     },
   };
 

@@ -81,6 +81,7 @@ const state = {
   flash: new Set(),       // student ids that just moved
   flashPairs: new Set(),  // request ids of swaps that just happened
   practice: null,         // createPractice() instance while in โหมดทดลอง
+  practiceAnonymize: true, // hide real identity completely for safe recording/screens
   realMe: null,           // the last real `me`, copied into practice
   guideHidden: readGuideHidden(),
   adminOpen: false,
@@ -258,9 +259,12 @@ function startLive() {
 
 // ── practice mode ────────────────────────────────────────────────────────────
 
-function startPractice({ gender, group } = {}) {
+function startPractice({ gender, group, anonymize } = {}) {
+  if (typeof anonymize === 'boolean') state.practiceAnonymize = anonymize;
+  else if (state.practiceAnonymize === undefined) state.practiceAnonymize = true;
   state.practice = createPractice({
     groups: Object.keys(ROUND.groups), realMe: state.realMe, gender, group,
+    anonymize: state.practiceAnonymize,
   });
   state.board = null;
   state.view = 'mine';
@@ -283,11 +287,13 @@ function stopPractice() {
 
 const SCENES = [
   ['one_asks_me', 'bi-person', 'มีคนขอแลกกับฉัน'],
+  ['one_asks_me_off_criteria', 'bi-exclamation-triangle', 'มีคนขอแลกผิดเกณฑ์ (0.2–0.3) กับฉัน'],
   ['many_ask_me', 'bi-people', 'หลายคนขอแลกพร้อมกัน'],
   ['broadcast_to_my_group', 'bi-megaphone', 'มีคนขอแลกกับทั้งกลุ่มฉัน'],
   ['someone_beats_me', 'bi-lightning', 'เพื่อนในกลุ่มตอบรับตัดหน้าฉัน'],
   ['they_accept_mine', 'bi-check2-circle', 'มีคนตอบรับคำขอของฉัน'],
   ['others_swap', 'bi-arrow-left-right', 'เพื่อนคนอื่นแลกกัน'],
+  ['others_swap_off_criteria', 'bi-patch-exclamation', 'เพื่อนแลกผิดเกณฑ์ (0.2–0.3)'],
   ['chain_needs_me', 'bi-diagram-3', 'มีคนเริ่มแลกต่อเนื่องผ่านกลุ่มฉัน'],
   ['chain_others_yes', 'bi-check2-all', 'คนอื่นในแลกต่อเนื่องตอบรับครบ'],
 ];
@@ -304,7 +310,7 @@ function paintPractice() {
     <div class="rot-practice-head">
       <div>
         <p class="rot-practice-title"><i class="bi bi-controller me-1" aria-hidden="true"></i>โหมดทดลอง</p>
-        <p class="rot-practice-sub">รายชื่อเพื่อนและคำขอทั้งหมดเป็นข้อมูลสมมติ ไม่มีผลกับกลุ่มจริง ไม่มีใครเห็น</p>
+        <p class="rot-practice-sub">รายชื่อเพื่อนและคำขอทั้งหมดเป็นข้อมูลสมมติ ไม่มีผลกับกลุ่มจริง ปลอดภัยสำหรับการบันทึกหน้าจอ</p>
       </div>
       <button type="button" class="btn btn-sm btn-light rot-practice-exit" data-rot-act="practice-stop">ออกจากโหมดทดลอง</button>
     </div>
@@ -312,6 +318,12 @@ function paintPractice() {
     <div class="rot-practice-scenes">
       ${SCENES.map(([k, icon, label]) => `<button type="button" class="rot-scene" data-rot-act="scene" data-scene="${k}">
         <i class="bi ${icon}" aria-hidden="true"></i><span>${label}</span></button>`).join('')}
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-2 mt-2 pt-2 border-top">
+      <span class="rot-muted small"><i class="bi bi-camera me-1"></i>ดูรูปเตือน/Meme สำหรับแคปจอ:</span>
+      <button type="button" class="btn btn-xs btn-outline-warning" data-rot-act="view-edit2-meme">เตือนแก้เกรด 2</button>
+      <button type="button" class="btn btn-xs btn-outline-danger" data-rot-act="view-edit3-meme">เตือนแก้เกรด 3 (Meme)</button>
+      <button type="button" class="btn btn-xs btn-outline-dark" data-rot-act="view-locked-meme">เตือนล็อก 4K</button>
     </div>
     <form class="rot-practice-as" data-rot-form="practice-as">
       <span>เล่นเป็น</span>
@@ -322,6 +334,10 @@ function paintPractice() {
       <select name="group" class="form-select form-select-sm" aria-label="กลุ่มเริ่มต้น">
         ${Object.keys(ROUND.groups).map((g) => `<option value="${g}" ${g === me.original_group ? 'selected' : ''}>กลุ่ม ${g}</option>`).join('')}
       </select>
+      <label class="form-check form-check-inline mb-0 d-flex align-items-center gap-1 small text-muted">
+        <input type="checkbox" name="anonymize" class="form-check-input mt-0" ${state.practiceAnonymize ? 'checked' : ''}>
+        <span>ซ่อนข้อมูลจริง 100% (ชื่อ/รหัสสมมติ)</span>
+      </label>
       <button type="submit" class="btn btn-sm btn-light">เริ่มใหม่</button>
     </form>`;
 }
@@ -1871,6 +1887,14 @@ async function onClick(e) {
     showGpaAuditModal();
     return;
   }
+  if (kind === 'view-edit2-meme') {
+    showGpaEdit2Modal('3.50');
+    return;
+  }
+  if (kind === 'view-edit3-meme') {
+    showGpaEdit3Modal('3.50');
+    return;
+  }
   if (kind === 'view-locked-meme') {
     showGpaLockedModal();
     return;
@@ -1926,7 +1950,11 @@ async function onSubmit(e) {
     }
   }
   if (form.dataset.rotForm === 'practice-as') {
-    startPractice({ gender: form.elements.gender.value, group: form.elements.group.value });
+    startPractice({
+      gender: form.elements.gender.value,
+      group: form.elements.group.value,
+      anonymize: form.elements.anonymize ? form.elements.anonymize.checked : true,
+    });
     toast('เริ่มโหมดทดลองใหม่แล้ว');
   }
   if (form.dataset.rotForm === 'admin') {
