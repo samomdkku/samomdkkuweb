@@ -75,12 +75,29 @@ describe('who swapped with whom', () => {
   };
   it('swapPairs: one pair per accepted ask, each side with its direction', () => {
     expect(swapPairs(swapped)).toEqual([{ id: 'q9', at: '2026-10-24T05:10:00Z', aId: 'b1', aFrom: 'B', aTo: 'C', bId: 'c1', bFrom: 'C', bTo: 'B' }]);
+
+    const offSwapped = {
+      ...swapped,
+      requests: swapped.requests.map((q) => q.id === 'q9' ? { ...q, off_criteria: true, off_criteria_reason: 'diff_02_03' } : q),
+      moves: swapped.moves.map((m) => m.kind === 'swap' ? { ...m, kind: 'off_criteria', off_criteria_reason: 'diff_02_03' } : m),
+    };
+    expect(swapPairs(offSwapped)).toEqual([{
+      id: 'q9', at: '2026-10-24T05:10:00Z', aId: 'b1', aFrom: 'B', aTo: 'C', bId: 'c1', bFrom: 'C', bTo: 'B',
+      off_criteria: true, off_criteria_reason: 'diff_02_03',
+    }]);
   });
   it('lastMoves names the partner of a swap and none for an admin move', () => {
     const lm = lastMoves(swapped);
     expect(lm.get('b1')).toMatchObject({ from: 'B', to: 'C', partnerId: 'c1' });
     expect(lm.get('c1').partnerId).toBe('b1');
     expect(lm.get('b2')).toMatchObject({ kind: 'admin', partnerId: null });
+
+    const offSwapped = {
+      ...swapped,
+      moves: swapped.moves.map((m) => m.kind === 'swap' ? { ...m, kind: 'off_criteria', off_criteria_reason: 'missing_gpa' } : m),
+    };
+    const lmOff = lastMoves(offSwapped);
+    expect(lmOff.get('b1')).toMatchObject({ kind: 'off_criteria', off_criteria_reason: 'missing_gpa', partnerId: 'c1' });
   });
   it('diffBoards: who moved and the new pair; nothing on the first read', () => {
     const d = diffBoards(board, swapped);

@@ -34,6 +34,8 @@ export const REASON_TH = {
   no_such_leg: 'ไม่พบขาของคำขอนี้',
   no_taker: 'ยังไม่มีคนตอบรับในขานี้',
   not_open_leg: 'ขาที่ระบุตัวบุคคลไว้ปฏิเสธแยกคนไม่ได้ (ยกเลิกทั้งคำชวนแทน)',
+  cannot_broadcast_off_criteria: 'การแลกกรณีพิเศษ/นอกรอบ ต้องระบุตัวบุคคล ไม่สามารถส่งหาทั้งกลุ่มได้',
+  too_many_off_criteria: 'คุณมีคำขอนอกรอบค้างอยู่แล้ว 1 รายการ กรุณารอเพื่อนตอบรับหรือยกเลิกคำขอนั้นก่อน',
 };
 
 export function reasonText(reason) {
@@ -181,11 +183,18 @@ export function parseGpa(raw) {
 export function swapPairs(board) {
   return (board?.requests || [])
     .filter((q) => q.status === 'accepted' && q.accepted_by)
-    .map((q) => ({
-      id: q.id, at: q.resolved_at || q.created_at,
-      aId: q.requester_id, aFrom: q.from_group, aTo: q.to_group,
-      bId: q.accepted_by, bFrom: q.to_group, bTo: q.from_group,
-    }))
+    .map((q) => {
+      const p = {
+        id: q.id, at: q.resolved_at || q.created_at,
+        aId: q.requester_id, aFrom: q.from_group, aTo: q.to_group,
+        bId: q.accepted_by, bFrom: q.to_group, bTo: q.from_group,
+      };
+      if (q.off_criteria) {
+        p.off_criteria = true;
+        p.off_criteria_reason = q.off_criteria_reason || null;
+      }
+      return p;
+    })
     .sort((x, y) => String(y.at).localeCompare(String(x.at)));
 }
 
@@ -198,7 +207,11 @@ export function lastMoves(board) {
     if (prev && String(prev.at) >= String(m.at)) continue;
     const q = m.request_id ? reqs.get(m.request_id) : null;
     const partnerId = q ? (q.requester_id === m.student_id ? q.accepted_by : q.requester_id) : null;
-    out.set(m.student_id, { from: m.from_group, to: m.to_group, at: m.at, kind: m.kind, partnerId, chainId: m.chain_id || null });
+    out.set(m.student_id, {
+      from: m.from_group, to: m.to_group, at: m.at, kind: m.kind,
+      off_criteria_reason: m.off_criteria_reason || null,
+      partnerId, chainId: m.chain_id || null
+    });
   }
   return out;
 }

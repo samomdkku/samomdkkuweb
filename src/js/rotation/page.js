@@ -439,7 +439,16 @@ function pairCard(p, { compact = false } = {}) {
       <span class="rot-pair-name">${escHtml(shortName(s))}${s && s.id === meId ? ' <span class="rot-tag">คุณ</span>' : ''}</span>
       <span class="rot-pair-move">${moveArrow(from, to)}</span>
     </div>`;
+  let offLabel = '';
+  if (p.off_criteria || p.off_criteria_reason) {
+    let text = 'แลกนอกรอบ ตกลงฝ่ายวิชาการแล้ว';
+    if (p.off_criteria_reason === 'diff_02_03') text = 'เกรดห่าง 0.2–0.3 ตกลงฝ่ายวิชาการแล้ว';
+    else if (p.off_criteria_reason === 'missing_gpa') text = 'ยังไม่กรอกเกรด แต่เช็กแล้วและวิชาการอนุมัติ';
+    else if (p.off_criteria_reason === 'diff_over_03') text = 'เกรดห่าง >0.3 คุยกับเพื่อนและวิชาการอนุมัติให้แลกได้';
+    offLabel = `<span class="rot-chain-label" style="background: rgba(245, 158, 11, 0.15); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3);"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${text}</span>`;
+  }
   return `<div class="rot-pair ${compact ? 'is-compact' : ''} ${state.flashPairs.has(p.id) ? 'is-flash' : ''}">
+    ${offLabel}
     ${side(by.get(p.aId), p.aFrom, p.aTo)}
     <i class="bi bi-arrow-left-right rot-pair-icon" aria-label="แลกกับ"></i>
     ${side(by.get(p.bId), p.bFrom, p.bTo)}
@@ -506,6 +515,7 @@ function paintMe() {
   else if (bi >= 0) when = `ตอนนี้ ${tt[bi].block.label}: ${escHtml(tt[bi].unit.name)}`;
   else when = 'ครบทุก Block แล้ว';
   const gpaVal = me.gpa === null || me.gpa === undefined ? '' : Number(me.gpa).toFixed(2);
+  const editCount = me.gpa_edit_count || 0;
   el.innerHTML = `
     <div class="rot-me-top">
       <div class="rot-me-group ${state.flash.has(me.id) ? 'is-flash' : ''}" data-g="${escHtml(me.current_group)}" aria-label="กลุ่มของฉัน">
@@ -546,12 +556,13 @@ function paintMe() {
         <span class="rot-field-help"><i class="bi bi-people" aria-hidden="true"></i> เพื่อนปี 6 ที่เปิดหน้านี้เห็น ใช้คุยกันก่อนแลก</span>
       </label>
       <label class="rot-field">
-        <span class="rot-field-label">GPA</span>
+        <span class="rot-field-label">GPA ${editCount >= 3 ? '<span class="badge bg-secondary ms-1">ล็อกแล้ว (3/3 ครั้ง)</span>' : editCount > 0 ? `<span class="rot-muted ms-1 small">(แก้ไขแล้ว ${editCount}/3 ครั้ง)</span>` : ''}</span>
         <input name="gpa" class="form-control form-control-sm rot-gpa-input" inputmode="decimal" autocomplete="off"
-               placeholder="เช่น 3.25" value="${escHtml(gpaVal)}">
+               placeholder="เช่น 3.25" value="${escHtml(gpaVal)}" ${editCount >= 3 ? 'disabled' : ''}>
         <span class="rot-field-help"><i class="bi bi-lock" aria-hidden="true"></i> ไม่มีใครเห็นนอกจากคุณ ·
           ${ruleNeedsGpa(r.gpa_rule) ? `ใช้เทียบเกณฑ์: ${escHtml(criteriaTh(r.gpa_rule))}` : 'ยังไม่ใช้เป็นเกณฑ์ เก็บไว้เทียบภายหลัง'}</span>
-        ${ruleNeedsGpa(r.gpa_rule) && (me.gpa === null || me.gpa === undefined)
+        ${editCount >= 3 ? '<span class="rot-field-warn"><i class="bi bi-lock-fill me-1"></i>คุณแก้ไขเกรดครบโควตาสูงสุดแล้ว (3/3 ครั้ง) หากต้องการแก้ไขกรุณาติดต่อผู้ดูแลระบบ</span>' : ''}
+        ${ruleNeedsGpa(r.gpa_rule) && (me.gpa === null || me.gpa === undefined) && editCount < 3
           ? '<span class="rot-field-warn"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> ยังไม่ได้กรอก — ต้องกรอก GPA ก่อน ถึงจะแลกกับใครได้</span>' : ''}
       </label>
       <p class="rot-field-error" data-rot-profile-error hidden></p>
@@ -638,12 +649,20 @@ function paintAlert() {
     <ul class="rot-offers">${list.map((q) => {
       const who = m.byId.get(q.requester_id);
       const broadcast = !q.target_id;
+      let offBadge = '';
+      if (q.off_criteria) {
+        let text = 'คำขอนอกรอบ';
+        if (q.off_criteria_reason === 'diff_02_03') text = 'คำขอผิดเกณฑ์ (0.2–0.3)';
+        else if (q.off_criteria_reason === 'missing_gpa') text = 'คำขอเช็กเกรดนอกรอบ';
+        else if (q.off_criteria_reason === 'diff_over_03') text = 'คำขอผิดเกณฑ์ (>0.3)';
+        offBadge = ` · <span class="rot-tag is-warn">${text}</span>`;
+      }
       return `<li class="rot-offer">
         <div class="rot-offer-who">
           ${groupChip(q.from_group)}
           <div class="rot-offer-text">
             <span class="rot-offer-name">${escHtml(displayName(who))}</span>
-            <span class="rot-muted">${broadcast ? `ขอแลกกับใครก็ได้ในกลุ่ม ${escHtml(q.to_group)}` : 'ขอแลกกับคุณ'} · ${agoTh(q.created_at)}</span>
+            <span class="rot-muted">${broadcast ? `ขอแลกกับใครก็ได้ในกลุ่ม ${escHtml(q.to_group)}` : 'ขอแลกกับคุณ'}${offBadge} · ${agoTh(q.created_at)}</span>
             ${contactLine(who)}
           </div>
         </div>
@@ -653,8 +672,8 @@ function paintAlert() {
           ${planChips(q.from_group)}
         </div>
         <div class="rot-offer-actions">
-          ${live ? `<button type="button" class="btn btn-sm btn-custom" data-rot-act="accept" data-id="${q.id}">ดูและตอบรับ</button>` : '<span class="rot-muted">ยังไม่เปิดให้แลก</span>'}
-          ${live && !broadcast ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="decline" data-id="${q.id}">ไม่รับ</button>` : ''}
+          ${live ? `<button type="button" class="btn btn-sm btn-custom" data-rot-act="accept" data-id="${q.id}">${q.off_criteria ? 'คุยตกลงกันแล้ว · ดูและตอบรับ' : 'ดูและตอบรับ'}</button>` : '<span class="rot-muted">ยังไม่เปิดให้แลก</span>'}
+          ${live && !broadcast ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="decline" data-id="${q.id}">${q.off_criteria ? 'ยังไม่ได้คุยกัน / ไม่รับ' : 'ไม่รับ'}</button>` : ''}
           ${broadcast ? `<button type="button" class="btn btn-sm btn-link rot-quiet" data-rot-act="dismiss-offer" data-id="${q.id}">ไม่สนใจ</button>` : ''}
         </div>
       </li>`;
@@ -823,6 +842,15 @@ function memberRow(s) {
     if (theirs) action = `<button type="button" class="btn btn-sm btn-custom" data-rot-act="accept" data-id="${theirs.id}">ตอบรับ</button>`;
     else if (mine) action = `<button type="button" class="btn btn-sm btn-outline-secondary" data-rot-act="cancel" data-id="${mine.id}">ส่งแล้ว · ยกเลิก</button>`;
     else if (s.can_swap) action = `<button type="button" class="btn btn-sm btn-outline-success" data-rot-act="ask" data-id="${s.id}">ขอแลก</button>`;
+    else if (s.can_off_criteria_swap) {
+      if (s.off_criteria_reason === 'diff_02_03') {
+        action = `<button type="button" class="btn btn-sm btn-outline-warning" data-rot-act="ask-off-criteria" data-id="${s.id}" data-reason="diff_02_03">ทักคุย/ขอแลก (0.2–0.3)</button>`;
+      } else if (s.off_criteria_reason === 'missing_gpa') {
+        action = `<button type="button" class="btn btn-sm btn-outline-warning" data-rot-act="ask-off-criteria" data-id="${s.id}" data-reason="missing_gpa">ทักคุย/ขอแลก (เช็กนอกรอบ)</button>`;
+      } else if (s.off_criteria_reason === 'diff_over_03') {
+        action = `<button type="button" class="btn btn-sm btn-outline-warning" data-rot-act="ask-off-criteria" data-id="${s.id}" data-reason="diff_over_03">ทักคุย/ขอแลก (>0.3)</button>`;
+      }
+    }
   }
   const mv = state.moves.get(s.id);
   const recent = !!mv && isRecent(mv.at);
@@ -830,7 +858,16 @@ function memberRow(s) {
   let moveLine = '';
   if (mv && movedAway) {
     const partner = mv.partnerId ? m.byId.get(mv.partnerId) : null;
-    moveLine = `<span class="rot-member-move">${recent ? '<span class="rot-tag is-new">เพิ่งย้าย</span> ' : ''}ย้ายมาจาก ${groupChip(mv.from, 'is-sm')}${partner ? ` · แลกกับ ${escHtml(shortName(partner))}` : mv.kind === 'admin' ? ' · ผู้ดูแลย้าย' : mv.kind === 'chain' ? ' · แลกต่อเนื่อง 3 คน' : ''} <span class="rot-muted">${agoTh(mv.at)}</span></span>`;
+    let extraKind = '';
+    if (mv.kind === 'admin') extraKind = ' · ผู้ดูแลย้าย';
+    else if (mv.kind === 'chain') extraKind = ' · แลกต่อเนื่อง 3 คน';
+    else if (mv.kind === 'off_criteria') {
+      if (mv.off_criteria_reason === 'diff_02_03') extraKind = ' · เกรดห่าง 0.2–0.3 ตกลงฝ่ายวิชาการแล้ว';
+      else if (mv.off_criteria_reason === 'missing_gpa') extraKind = ' · ยังไม่กรอกเกรด แต่เช็กแล้วและวิชาการอนุมัติ';
+      else if (mv.off_criteria_reason === 'diff_over_03') extraKind = ' · เกรดห่าง >0.3 คุยกับเพื่อนและวิชาการอนุมัติให้แลกได้';
+      else extraKind = ' · แลกนอกรอบ ตกลงฝ่ายวิชาการแล้ว';
+    }
+    moveLine = `<span class="rot-member-move">${recent ? '<span class="rot-tag is-new">เพิ่งย้าย</span> ' : ''}ย้ายมาจาก ${groupChip(mv.from, 'is-sm')}${partner ? ` · แลกกับ ${escHtml(shortName(partner))}` : ''}${extraKind} <span class="rot-muted">${agoTh(mv.at)}</span></span>`;
   } else if (movedAway) {
     moveLine = `<span class="rot-member-move">เดิมกลุ่ม ${groupChip(s.original_group, 'is-sm')}</span>`;
   }
@@ -845,12 +882,18 @@ function memberRow(s) {
     ? `<span class="rot-member-wish">อยากไปกลุ่ม ${wishes.map((g) => groupChip(g, 'is-sm')).join('')}</span>` : '';
   const admin = state.board.is_admin && !state.practice;
   const needsGpa = ruleNeedsGpa(state.board.round.gpa_rule);
-  const gpaTag = needsGpa && !s.has_gpa && !s.staying ? ' · <span class="rot-tag is-warn">ยังไม่กรอก GPA</span>' : '';
-  return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${isMe ? 'is-me' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}">
+  let offTag = '';
+  if (s.can_off_criteria_swap && !s.staying && !isMe) {
+    if (s.off_criteria_reason === 'diff_02_03') offTag = ' · <span class="rot-tag is-warn">เกรดห่าง 0.2–0.3 (ผิดเกณฑ์)</span>';
+    else if (s.off_criteria_reason === 'missing_gpa') offTag = ' · <span class="rot-tag is-warn">ยังไม่กรอกเกรด</span>';
+    else if (s.off_criteria_reason === 'diff_over_03') offTag = ' · <span class="rot-tag is-warn">เกรดห่าง >0.3 (ผิดเกณฑ์)</span>';
+  }
+  const gpaTag = needsGpa && !s.has_gpa && !s.staying && !offTag ? ' · <span class="rot-tag is-warn">ยังไม่กรอก GPA</span>' : '';
+  return `<li class="rot-member ${s.can_swap ? 'is-eligible' : ''} ${s.can_off_criteria_swap ? 'is-eligible-off' : ''} ${isMe ? 'is-me' : ''} ${state.flash.has(s.id) ? 'is-flash' : ''} ${recent ? 'is-recent' : ''}">
     <span class="rot-gender is-${s.gender === 'M' ? 'm' : 'f'}" title="${genderTh(s.gender)}" aria-label="${genderTh(s.gender)}"></span>
     <div class="rot-member-text">
       <span class="rot-member-name">${escHtml(displayName(s))}${isMe ? ' <span class="rot-tag">คุณ</span>' : ''}${s.staying ? ' <span class="rot-tag is-stay"><i class="bi bi-pin-angle-fill" aria-hidden="true"></i> อยู่กลุ่มนี้</span>' : ''}${theirs ? ' <span class="rot-tag is-accent">ขอแลกกับคุณ</span>' : ''}${wantsMine ? ' <span class="rot-tag is-wish">อยากมากลุ่มคุณ</span>' : ''}</span>
-      <span class="rot-member-meta">${escHtml(s.student_id)}${s.signed_in ? '' : ' · ยังไม่เคยเข้าเว็บ'}${gpaTag}${showGpa() ? ` · <span class="rot-gpa-private" title="เห็นเฉพาะบัญชีที่กำหนด">GPA ${s.gpa === null || s.gpa === undefined ? '—' : escHtml(Number(s.gpa).toFixed(2))}</span>` : ''}</span>
+      <span class="rot-member-meta">${escHtml(s.student_id)}${s.signed_in ? '' : ' · ยังไม่เคยเข้าเว็บ'}${gpaTag}${offTag}${showGpa() ? ` · <span class="rot-gpa-private" title="เห็นเฉพาะบัญชีที่กำหนด">GPA ${s.gpa === null || s.gpa === undefined ? '—' : escHtml(Number(s.gpa).toFixed(2))}</span>` : ''}</span>
       ${moveLine}
       ${wishLine}
       ${contactLine(s)}
@@ -1125,7 +1168,7 @@ function compareHtml(fromGroup, toGroup) {
   </table>`;
 }
 
-function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = false, requireConfirm = false, confirmLabel = '' }) {
+function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = false, requireConfirm = false, confirmLabel = '', requireConfirms = [] }) {
   return new Promise((resolve) => {
     let el = document.getElementById('rotSheet');
     if (!el) {
@@ -1137,11 +1180,19 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = f
       el.setAttribute('aria-labelledby', 'rotSheetTitle');
       document.body.appendChild(el);
     }
-    const confirmHtml = requireConfirm ? `
-      <label class="form-check d-flex align-items-center gap-2 p-2 mt-3 rounded border bg-light text-start cursor-pointer">
-        <input type="checkbox" class="form-check-input mt-0" data-rot-sheet-confirm>
-        <span class="small fw-semibold text-danger">${confirmLabel || 'ฉันแน่ใจว่าต้องการทำรายการนี้'}</span>
-      </label>` : '';
+    const allConfirms = Array.isArray(requireConfirms) && requireConfirms.length
+      ? requireConfirms
+      : (requireConfirm ? [confirmLabel || 'ฉันแน่ใจว่าต้องการทำรายการนี้'] : []);
+
+    const confirmHtml = allConfirms.length ? `
+      <div class="mt-3 p-2 rounded border bg-light text-start">
+        ${allConfirms.map((label, idx) => `
+          <label class="form-check d-flex align-items-start gap-2 ${idx > 0 ? 'mt-2 pt-2 border-top' : ''} cursor-pointer">
+            <input type="checkbox" class="form-check-input mt-1 flex-shrink-0" data-rot-sheet-confirm>
+            <span class="small fw-semibold text-dark">${label}</span>
+          </label>
+        `).join('')}
+      </div>` : '';
 
     el.innerHTML = `
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -1158,14 +1209,70 @@ function askSheet({ title, lead, fromGroup, toGroup, yes, extra = '', danger = f
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-            <button type="button" class="${danger ? 'btn btn-danger' : 'btn btn-custom'}" data-rot-sheet-yes ${requireConfirm ? 'disabled' : ''}>${yes}</button>
+            <button type="button" class="${danger ? 'btn btn-danger' : 'btn btn-custom'}" data-rot-sheet-yes ${allConfirms.length ? 'disabled' : ''}>${yes}</button>
           </div>
         </div>
       </div>`;
     const modal = window.bootstrap.Modal.getOrCreateInstance(el);
     let answer = false;
     const yesBtn = el.querySelector('[data-rot-sheet-yes]');
-    const confirmInput = el.querySelector('[data-rot-sheet-confirm]');
+    const confirmInputs = el.querySelectorAll('[data-rot-sheet-confirm]');
+    if (confirmInputs.length && yesBtn) {
+      const checkAll = () => {
+        yesBtn.disabled = !Array.from(confirmInputs).every((i) => i.checked);
+      };
+      confirmInputs.forEach((i) => i.addEventListener('change', checkAll));
+    }
+    yesBtn.addEventListener('click', () => { answer = true; modal.hide(); }, { once: true });
+    el.addEventListener('hidden.bs.modal', () => resolve(answer), { once: true });
+    modal.show();
+  });
+}
+
+function showGpaMemeModal(newGpa) {
+  return new Promise((resolve) => {
+    let el = document.getElementById('rotMemeModal');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rotMemeModal';
+      el.className = 'modal fade rot-sheet';
+      el.tabIndex = -1;
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center border-warning">
+          <div class="modal-header border-0 pb-0 justify-content-end">
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+          </div>
+          <div class="modal-body px-4 pt-0">
+            <div class="my-2" style="font-size: 3.5rem; line-height: 1;" aria-hidden="true">👀 🤨</div>
+            <h3 class="fs-5 fw-bold text-danger mb-2">เอ๊ะ... แก้เกรดรอบที่ 3 แล้วนะจ๊ะ!</h3>
+            <p class="text-secondary small mb-3">
+              กำลังแอบสุ่มเกรดส่องเพื่อนอยู่หรือเปล่าเอ่ย? 🕵️‍♂️<br>
+              <strong>ระบบบันทึกประวัติและตัวเลขการแก้ไขทุกครั้ง</strong> ส่งให้ผู้ดูแลระบบตรวจสอบนะจ๊ะ!
+            </p>
+            <div class="alert alert-warning text-start small mb-3">
+              <i class="bi bi-lightbulb-fill text-warning me-1"></i><strong>ไม่ต้องแอบแก้เกรดแล้ว!</strong><br>
+              ถ้าเกรดคุณกับเพื่อนห่างกันเกิน 0.20 หรือยังไม่กรอกเกรด และได้คุยกับฝ่ายวิชาการนอกรอบแล้ว
+              คุณสามารถกดปุ่ม <strong>"ทักคุย/ขอแลก"</strong> ที่การ์ดของเพื่อนได้เลยโดยตรงนะ
+            </div>
+            <label class="form-check d-flex align-items-center gap-2 p-2 rounded border bg-light text-start cursor-pointer">
+              <input type="checkbox" class="form-check-input mt-0" data-rot-meme-confirm>
+              <span class="small fw-semibold text-danger">ฉันรับทราบว่านี่คือการแก้ไขครั้งสุดท้าย (3/3) และจะล็อกการแก้ไขทันที</span>
+            </label>
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="button" class="btn btn-sm btn-danger px-3" data-rot-meme-yes disabled>ยืนยันบันทึกเกรดจริง (${newGpa.toFixed(2)})</button>
+          </div>
+        </div>
+      </div>`;
+    const modal = window.bootstrap.Modal.getOrCreateInstance(el);
+    let answer = false;
+    const yesBtn = el.querySelector('[data-rot-meme-yes]');
+    const confirmInput = el.querySelector('[data-rot-meme-confirm]');
     if (confirmInput && yesBtn) {
       confirmInput.addEventListener('change', () => {
         yesBtn.disabled = !confirmInput.checked;
@@ -1532,16 +1639,99 @@ async function onClick(e) {
     return;
   }
 
+  if (kind === 'ask-off-criteria') {
+    const t = m.byId.get(b.dataset.id);
+    if (!t || !me) return;
+    const reason = b.dataset.reason || t.off_criteria_reason;
+
+    const hasPendingOff = m.outgoing.some((q) => q.off_criteria);
+    if (hasPendingOff) {
+      toast('คุณมีคำขอนอกรอบค้างอยู่แล้ว 1 รายการ กรุณารอเพื่อนตอบรับหรือยกเลิกคำขอนั้นก่อน', 'error');
+      return;
+    }
+
+    let title = '';
+    let categoryLead = '';
+    let confirm1 = `ฉันได้ติดต่อคุยกับ ${displayName(t)} ทาง LINE/โทรศัพท์ และเพื่อนตกลงจะแลกแล้ว`;
+    let confirm2 = 'ได้รับความเห็นชอบจากฝ่ายวิชาการนอกรอบแล้วว่ากรณีนี้แลกได้';
+
+    if (reason === 'diff_02_03') {
+      title = `เกรดห่าง 0.2–0.3 กับ ${escHtml(displayName(t))}?`;
+      categoryLead = `<strong>เกรดห่าง 0.2–0.3 (คุยกับเพื่อนและฝ่ายวิชาการแล้วอนุมัติให้แลกได้)</strong><br>
+                      <span class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i>กรณีนี้ผิดเกณฑ์ปกติ คุณต้องทักไปคุยตกลงกับเพื่อนและได้รับอนุญาตจากฝ่ายวิชาการนอกรอบก่อนเท่านั้น</span>`;
+    } else if (reason === 'missing_gpa') {
+      title = `เช็กเกรดนอกรอบ กับ ${escHtml(displayName(t))}?`;
+      categoryLead = `<strong>มีฝ่ายยังไม่กรอกเกรดในระบบ (เช็กกันแล้วว่าอยู่ในเกณฑ์ และวิชาการอนุมัติให้แลกได้)</strong><br>
+                      <span class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i>เนื่องจากมีฝ่ายที่ยังไม่ได้กรอกเกรดในระบบ คุณต้องตรวจสอบเกรดกันนอกรอบและได้รับอนุญาตจากฝ่ายวิชาการแล้วเท่านั้น</span>`;
+    } else if (reason === 'diff_over_03') {
+      title = `เกรดห่าง >0.3 กับ ${escHtml(displayName(t))}?`;
+      categoryLead = `<strong>เกรดห่าง >0.3 (คุยกับเพื่อนและฝ่ายวิชาการแล้วอนุมัติให้แลกได้)</strong><br>
+                      <span class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i>กรณีนี้เกรดห่างกันเกิน 0.3 คุณต้องได้รับความเห็นชอบเป็นกรณีพิเศษจากฝ่ายวิชาการแล้วเท่านั้น</span>`;
+    }
+
+    const contactBlock = `
+      <div class="card p-2 my-2 bg-light border text-start">
+        <div class="small fw-bold text-dark mb-1"><i class="bi bi-chat-dots-fill text-custom me-1"></i>ช่องทางติดต่อนอกรอบ:</div>
+        <div class="small text-secondary">
+          ${t.nickname ? `<div>ชื่อเล่น: <strong>${escHtml(t.nickname)}</strong></div>` : ''}
+          ${t.contact ? `<div>ช่องทางติดต่อ / LINE: <span class="user-select-all fw-semibold text-dark">${escHtml(t.contact)}</span></div>` : ''}
+          <div>KKU Mail: <span class="user-select-all text-muted">${escHtml(t.kkumail || '-')}</span></div>
+        </div>
+        <div class="text-muted small mt-1" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>กรุณาทักไปคุยและตรวจสอบกับฝ่ายวิชาการนอกรอบก่อนส่งคำขอ</div>
+      </div>`;
+
+    const yes = await askSheet({
+      title,
+      lead: categoryLead,
+      extra: contactBlock,
+      fromGroup: me.current_group,
+      toGroup: t.current_group,
+      yes: 'ส่งคำขอแลก',
+      requireConfirms: [confirm1, confirm2],
+    });
+    if (!yes) return;
+
+    const res = await act(b, () => rpc('rotation_request', {
+      p_round: ROUND_ID, p_target: t.id, p_to_group: null, p_off_criteria: true
+    }));
+    if (res?.ok) toast(`ส่งคำขอถึง ${shortName(t)} แล้ว — รอเพื่อนตอบรับ`);
+    else if (res?.reason === 'too_many_off_criteria') toast('คุณมีคำขอนอกรอบค้างอยู่แล้ว 1 รายการ', 'error');
+    else toast(reasonText(res?.reason || 'error'), 'error');
+    return;
+  }
+
   if (kind === 'accept') {
     const q = (state.board.requests || []).find((x) => x.id === b.dataset.id);
     if (!q || !me) return;
     const who = m.byId.get(q.requester_id);
+    const isOff = q.off_criteria;
+    let title = `แลกกับ ${escHtml(displayName(who))}?`;
+    let lead = `คุณจะย้ายจากกลุ่ม <strong>${escHtml(me.current_group)}</strong> ไปกลุ่ม <strong>${escHtml(q.from_group)}</strong>
+           และ ${escHtml(shortName(who))} จะมากลุ่ม ${escHtml(me.current_group)} <strong>ทันที</strong><br>
+           คำขออื่นที่เกี่ยวกับคุณทั้งสองคนจะปิดเอง`;
+    let requireConfirms = [];
+
+    if (isOff) {
+      if (q.off_criteria_reason === 'diff_02_03') {
+        title = `ตอบรับแลกผิดเกณฑ์ (0.2–0.3) กับ ${escHtml(displayName(who))}?`;
+        lead = `<strong>คำขอนี้เป็นกรณีเกรดห่าง 0.2–0.3 (ตกลงฝ่ายวิชาการแล้ว)</strong><br>` + lead;
+      } else if (q.off_criteria_reason === 'missing_gpa') {
+        title = `ตอบรับแลกเช็กเกรดนอกรอบ กับ ${escHtml(displayName(who))}?`;
+        lead = `<strong>คำขอนี้เป็นกรณีมีฝ่ายยังไม่กรอกเกรดในระบบ (เช็กนอกรอบแล้ว)</strong><br>` + lead;
+      } else if (q.off_criteria_reason === 'diff_over_03') {
+        title = `ตอบรับแลกผิดเกณฑ์ (>0.3) กับ ${escHtml(displayName(who))}?`;
+        lead = `<strong>คำขอนี้เป็นกรณีเกรดห่าง >0.3 (ตกลงฝ่ายวิชาการแล้ว)</strong><br>` + lead;
+      }
+      requireConfirms = [`ฉันยืนยันว่าได้คุยตกลงกับ ${shortName(who)} และได้รับอนุญาตจากฝ่ายวิชาการนอกรอบแล้ว`];
+    }
+
     const yes = await askSheet({
-      title: `แลกกับ ${escHtml(displayName(who))}?`,
-      lead: `คุณจะย้ายจากกลุ่ม <strong>${escHtml(me.current_group)}</strong> ไปกลุ่ม <strong>${escHtml(q.from_group)}</strong>
-             และ ${escHtml(shortName(who))} จะมากลุ่ม ${escHtml(me.current_group)} <strong>ทันที</strong><br>
-             คำขออื่นที่เกี่ยวกับคุณทั้งสองคนจะปิดเอง`,
-      fromGroup: me.current_group, toGroup: q.from_group, yes: 'ตอบรับและแลกเลย',
+      title,
+      lead,
+      fromGroup: me.current_group,
+      toGroup: q.from_group,
+      yes: 'ตอบรับและแลกเลย',
+      requireConfirms,
     });
     if (!yes) return;
     const res = await act(b, () => rpc('rotation_accept', { p_request: q.id }));
@@ -1603,6 +1793,27 @@ async function onSubmit(e) {
     const gpaChanged = had !== value;
     const contactChanged = contact !== (me.contact || '');
     if (!gpaChanged && !contactChanged) { toast('ไม่มีอะไรเปลี่ยน'); return; }
+
+    if (gpaChanged) {
+      const editCount = me.gpa_edit_count || 0;
+      if (editCount >= 3) {
+        toast('คุณแก้ไข GPA ครบโควตาสูงสุดแล้ว (3/3 ครั้ง) หากต้องการแก้ไขกรุณาติดต่อผู้ดูแลระบบ', 'error');
+        return;
+      }
+      if (editCount === 1) {
+        const ok = await askSheet({
+          title: 'ยืนยันแก้ไข GPA ครั้งที่ 2',
+          lead: `คุณเคยแก้ไข GPA แล้ว 1 ครั้ง ต้องการแก้ไขเป็น <strong>${value.toFixed(2)}</strong> ใช่หรือไม่?<br>
+                 <span class="text-danger small">⚠️ คุณจะสามารถแก้ไขได้อีกเพียง 1 ครั้งเท่านั้น</span>`,
+          yes: 'ยืนยันแก้ไข',
+        });
+        if (!ok) return;
+      } else if (editCount === 2) {
+        const ok = await showGpaMemeModal(value);
+        if (!ok) return;
+      }
+    }
+
     const res = await act(btn, async () => {
       if (contactChanged) {
         const r = await rpc('rotation_set_contact', { p_round: ROUND_ID, p_contact: contact || null });

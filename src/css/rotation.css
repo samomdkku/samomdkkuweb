@@ -375,7 +375,7 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
   display: flex; gap: 0.6rem; align-items: center; padding: 0.55rem 0.5rem;
   border-top: 1px solid var(--ink-100);
 }
-.rot-member:not(.is-eligible):not(.is-me) .rot-member-name { color: var(--ink-600); }
+.rot-member:not(.is-eligible):not(.is-eligible-off):not(.is-me) .rot-member-name { color: var(--ink-600); }
 .rot-member.is-me { background: var(--green-50); border-radius: var(--radius-sm); }
 .rot-gender { flex: 0 0 8px; height: 8px; border-radius: 50%; }
 .rot-gender.is-m { background: #4f7fd1; }
