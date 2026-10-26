@@ -82,10 +82,12 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
       let gpa = 3.40;
       if (genderSeat === 0) gpa = 3.40;
       else if (genderSeat === 1) gpa = 3.35;
-      else if (genderSeat === 2) gpa = 3.48;
-      else if (genderSeat === 3) {
-        if (gIdx === 1 || gIdx === 4) gpa = 3.70;
-        else if (gIdx === 2) gpa = 2.70;
+      else if (genderSeat === 2) {
+        if (gIdx === 2 || gIdx === 3 || gIdx === 5) gpa = null;
+        else gpa = 3.48;
+      } else if (genderSeat === 3) {
+        if (gIdx === 1 || gIdx === 3 || gIdx === 5) gpa = 3.70;
+        else if (gIdx === 2 || gIdx === 4) gpa = 2.70;
         else gpa = null;
       }
 
