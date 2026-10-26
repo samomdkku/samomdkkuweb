@@ -880,7 +880,6 @@ function memberRow(s) {
   const wantsMine = !!me && !isMe && wishes.includes(me.current_group);
   const wishLine = wishes.length && !isMe
     ? `<span class="rot-member-wish">อยากไปกลุ่ม ${wishes.map((g) => groupChip(g, 'is-sm')).join('')}</span>` : '';
-  const admin = state.board.is_admin && !state.practice;
   const needsGpa = ruleNeedsGpa(state.board.round.gpa_rule);
   let offTag = '';
   if (s.can_off_criteria_swap && !s.staying && !isMe) {
@@ -901,9 +900,6 @@ function memberRow(s) {
     </div>
     <div class="rot-member-action">
       ${action}
-      ${admin ? `<select class="form-select form-select-sm rot-admin-move" data-rot-move="${s.id}" aria-label="ย้ายกลุ่ม (ผู้ดูแล)">
-          ${state.board.round.groups.map((g) => `<option value="${g}" ${g === s.current_group ? 'selected' : ''}>${g}</option>`).join('')}
-        </select>` : ''}
     </div>
   </li>`;
 }
@@ -1072,9 +1068,17 @@ function paintFeed() {
     }
     if (it.kind === 'ask') {
       const q = it.q;
+      let offBadge = '';
+      if (q.off_criteria) {
+        let text = 'คำขอนอกรอบ';
+        if (q.off_criteria_reason === 'diff_02_03') text = 'เกรดห่าง 0.2–0.3 ตกลงฝ่ายวิชาการแล้ว';
+        else if (q.off_criteria_reason === 'missing_gpa') text = 'ยังไม่กรอกเกรด แต่เช็กแล้วและวิชาการอนุมัติ';
+        else if (q.off_criteria_reason === 'diff_over_03') text = 'เกรดห่าง >0.3 คุยกับเพื่อนและวิชาการอนุมัติให้แลกได้';
+        offBadge = ` · <span class="rot-tag is-warn">${text}</span>`;
+      }
       return `<li class="rot-feed-item"><i class="bi bi-hourglass-split" aria-hidden="true"></i><div>
         <strong>${name(q.requester_id)}</strong> ${groupChip(q.from_group, 'is-sm')}
-        ${q.target_id ? `ขอแลกกับ <strong>${name(q.target_id)}</strong> ${groupChip(q.to_group, 'is-sm')}` : `ขอแลกกับใครก็ได้ในกลุ่ม ${groupChip(q.to_group, 'is-sm')}`}
+        ${q.target_id ? `ขอแลกกับ <strong>${name(q.target_id)}</strong> ${groupChip(q.to_group, 'is-sm')}` : `ขอแลกกับใครก็ได้ในกลุ่ม ${groupChip(q.to_group, 'is-sm')}`}${offBadge}
         <span class="rot-muted">รอตอบ · ${agoTh(it.at)}</span></div></li>`;
     }
     if (it.kind === 'chain-done') {
@@ -1145,7 +1149,7 @@ function paintAdmin() {
           <i class="bi bi-clock-history me-1"></i>ประวัติการแก้ GPA
         </button>
       </div>
-      <p class="rot-muted mb-0">${state.board.students.length} คนในตาราง · กรอก GPA แล้ว ${Number(r.gpa_filled ?? 0)} คน (${showGpa() ? 'คุณเห็นตัวเลข — บัญชีที่กำหนดเท่านั้น' : 'ผู้ดูแลไม่เห็นตัวเลขของใคร'}) · อยู่กลุ่มเดิม ${state.board.students.filter((s) => s.staying).length} คน · ช่องเลือกกลุ่มข้างชื่อในแท็บ "หาคนแลก" = ย้ายเองโดยผู้ดูแล</p>
+      <p class="rot-muted mb-0">${state.board.students.length} คนในตาราง · กรอก GPA แล้ว ${Number(r.gpa_filled ?? 0)} คน (${showGpa() ? 'คุณเห็นตัวเลข — บัญชีที่กำหนดเท่านั้น' : 'ผู้ดูแลไม่เห็นตัวเลขของใคร'}) · อยู่กลุ่มเดิม ${state.board.students.filter((s) => s.staying).length} คน</p>
     </form>
   </details>`;
 }
@@ -1265,7 +1269,7 @@ function showGpaMemeModal(newGpa) {
           </div>
           <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-            <button type="button" class="btn btn-sm btn-danger px-3" data-rot-meme-yes disabled>ยืนยันบันทึกเกรดจริง (${newGpa.toFixed(2)})</button>
+            <button type="button" class="btn btn-sm btn-danger px-3" data-rot-meme-yes disabled>ยืนยันบันทึกเกรดจริง (${newGpa != null ? Number(newGpa).toFixed(2) : 'ลบเกรดออก'})</button>
           </div>
         </div>
       </div>`;
@@ -1411,7 +1415,7 @@ async function showGpaAuditModal() {
   if (!bodyEl) return;
 
   if (!Array.isArray(res)) {
-    bodyEl.innerHTML = `<p class="text-danger text-center py-4">โหลดข้อมูลไม่สำเร็จ: \${escHtml(res?.message || 'ข้อผิดพลาด')}</p>`;
+    bodyEl.innerHTML = `<p class="text-danger text-center py-4">โหลดข้อมูลไม่สำเร็จ: ${escHtml(res?.message || 'ข้อผิดพลาด')}</p>`;
     return;
   }
 
@@ -1426,7 +1430,7 @@ async function showGpaAuditModal() {
   }
 
   bodyEl.innerHTML = `
-    <p class="rot-muted small mb-3">บันทึกทุกการแก้ไขเกรดจริงโดยตรงจาก Database Trigger เรียงจากล่าสุด (\${res.length} รายการ):</p>
+    <p class="rot-muted small mb-3">บันทึกทุกการแก้ไขเกรดจริงโดยตรงจาก Database Trigger เรียงจากล่าสุด (${res.length} รายการ):</p>
     <div class="table-responsive">
       <table class="table table-sm table-hover align-middle small mb-0">
         <thead class="table-light">
@@ -1439,21 +1443,21 @@ async function showGpaAuditModal() {
           </tr>
         </thead>
         <tbody>
-          \${res.map(r => \`
+          ${res.map((r) => `
             <tr>
-              <td class="font-monospace text-muted" style="white-space: nowrap;">\${agoTh(r.changed_at)}<br><small class="text-muted">\${new Date(r.changed_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</small></td>
-              <td class="fw-medium">\${escHtml(r.name || '-')}</td>
-              <td class="font-monospace text-muted">\${escHtml(r.student_id || '-')}</td>
-              <td class="text-center">\${groupChip(r.group, 'is-sm')}</td>
+              <td class="font-monospace text-muted" style="white-space: nowrap;">${agoTh(r.changed_at)}<br><small class="text-muted">${new Date(r.changed_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</small></td>
+              <td class="fw-medium">${escHtml(r.name || '-')}</td>
+              <td class="font-monospace text-muted">${escHtml(r.student_id || '-')}</td>
+              <td class="text-center">${groupChip(r.group, 'is-sm')}</td>
               <td class="text-center font-monospace">
-                <span class="badge bg-secondary-subtle text-secondary border">\${r.old_gpa != null ? Number(r.old_gpa).toFixed(2) : 'ว่าง'}</span>
+                <span class="badge bg-secondary-subtle text-secondary border">${r.old_gpa != null ? Number(r.old_gpa).toFixed(2) : 'ว่าง'}</span>
                 <i class="bi bi-arrow-right mx-1 text-muted"></i>
-                <span class="badge \${r.new_gpa != null ? 'bg-primary-subtle text-primary border border-primary-subtle fw-bold' : 'bg-danger-subtle text-danger border'}">
-                  \${r.new_gpa != null ? Number(r.new_gpa).toFixed(2) : 'ลบออก'}
+                <span class="badge ${r.new_gpa != null ? 'bg-primary-subtle text-primary border border-primary-subtle fw-bold' : 'bg-danger-subtle text-danger border'}">
+                  ${r.new_gpa != null ? Number(r.new_gpa).toFixed(2) : 'ลบออก'}
                 </span>
               </td>
             </tr>
-          \`).join('')}
+          `).join('')}
         </tbody>
       </table>
     </div>`;
@@ -1800,10 +1804,11 @@ async function onSubmit(e) {
         toast('คุณแก้ไข GPA ครบโควตาสูงสุดแล้ว (3/3 ครั้ง) หากต้องการแก้ไขกรุณาติดต่อผู้ดูแลระบบ', 'error');
         return;
       }
+      const valStr = value != null ? Number(value).toFixed(2) : 'ลบเกรดออก';
       if (editCount === 1) {
         const ok = await askSheet({
           title: 'ยืนยันแก้ไข GPA ครั้งที่ 2',
-          lead: `คุณเคยแก้ไข GPA แล้ว 1 ครั้ง ต้องการแก้ไขเป็น <strong>${value.toFixed(2)}</strong> ใช่หรือไม่?<br>
+          lead: `คุณเคยแก้ไข GPA แล้ว 1 ครั้ง ต้องการแก้ไขเป็น <strong>${escHtml(valStr)}</strong> ใช่หรือไม่?<br>
                  <span class="text-danger small">⚠️ คุณจะสามารถแก้ไขได้อีกเพียง 1 ครั้งเท่านั้น</span>`,
           yes: 'ยืนยันแก้ไข',
         });

@@ -387,7 +387,8 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
 .rot-member.is-recent { background: color-mix(in srgb, var(--brand-orange) 5%, var(--surface)); border-radius: var(--radius-sm); }
 .rot-member-asks { font-size: 0.74rem; color: #9a5b00; color: color-mix(in srgb, #9a5b00 var(--fg-mix), var(--fg-mix-to)); }
 .rot-member-action { display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0; }
-.rot-admin-move { width: 4.2rem; }
+.rot-member-action .btn-outline-warning { color: #b45309; color: color-mix(in srgb, #b45309 var(--fg-mix), var(--fg-mix-to)); border-color: #f59e0b; }
+.rot-member-action .btn-outline-warning:hover { background-color: #f59e0b; border-color: #f59e0b; color: #fff; }
 .rot-tag {
   display: inline-block; padding: 0 0.4rem; border-radius: var(--radius-pill); font-size: 0.68rem; font-weight: 600;
   background: var(--ink-100); color: var(--ink-600); vertical-align: 1px;
