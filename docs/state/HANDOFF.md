@@ -2522,7 +2522,7 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 
 **Status: VERIFIED 2026-10-24 — how: `tools/rotation0250-swaps.sql` 70/70 on production AND samo-dev after 0251–0254 (red on cases 22/30/52 with the gender rule removed; §G/§H/§I each red under their own mutation); `tools/browser/rotation-page.mjs` on samo-dev: a real ask on a 390 px phone, accepted on an 820 px iPad, the database swapped, a desktop page followed a change it did not make through Realtime, everything cleaned up; 161 roster rows imported to production, all 161 with a kkumail.** The whole map: `docs/ROTATION-SWAP.md`.
 
-**a. Opening it — Status: VERIFIED 2026-10-24 (read from production): the owner OPENED it** (`published` and `swaps_open` true; 10 asks and 2 swaps by then). Still owed (owner): making it findable on the site — one entry in `src/data/tools.js` + a PENDING release note — `docs/ROTATION-SWAP.md` §5; until then students arrive by link.
+**a. Opening it — Status: VERIFIED 2026-10-24 (read from production): the owner OPENED it** (`published` and `swaps_open` true). Findable since 2026-10-24 (c71382f): the `rotation-swap` launcher entry is under ฝ่ายวิชาการ and on the home page, and the home banner links to it. Launch release note added to PENDING 2026-10-30.
 
 **b. The GPA criterion — Status: DECIDED + VERIFIED 2026-10-24.** The faculty answered (via the owner): same band (2.55–2.99 · 3.00–3.49 · 3.50–4.00), OR at most 0.20 apart across bands (3.3 ↔ 3.6 no; 3.30 ↔ 3.50 yes). 0253 `gpa_rule = 'band_or_close'`, SWITCHED ON for y6-2570 on production the moment it applied — while the round was already open with 1 of 161 GPAs filled, so from then on nobody without a GPA can ask or be asked (the page says so). The 2 swaps before it were made under gender only. Proof §H 8/8, red with `< 0.20`. GPA is SELF-REPORTED — nothing checks it against the registrar (HYPOTHESIS that this is acceptable; owner's call).
 
@@ -2546,8 +2546,14 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 - 0261 `rotation_gpa_audit` + trigger `trg_rotation_log_gpa_change` on `rotation_students` (applied on dev AND production 2026-10-26; `rotation0261-audit` 10/10 both). Records silent audit trail `(old_gpa, new_gpa)` whenever a GPA is updated or cleared. Gated RPC `rotation_admin_gpa_audit(p_round)` inspectable by named rotation admins only via modal on `/rotation` admin settings panel.
 - Banner in "หาคนแลก" shows how many students haven't filled GPA (blocks swaps under `band_or_close`). Modal lists students by group with student ID and nickname; "คัดลอกส่ง LINE" copies clean text for cohort LINE groups; filter checkbox and `ยังไม่กรอก GPA` tags on rows make unswappable status clear.
 
+**k. GPA audit, the 3-edit limit, off-criteria asks, KKU Mail (0261–0265) — Status: VERIFIED 2026-10-30; owner decisions recorded.** The map is `docs/ROTATION-SWAP.md` §1 + §3.
+- 0261 logs every GPA edit; 0262 refuses the 4th (the first fill counts — owner: keep it); 0264 reset the log before launch. Admins read the log (`rotation_admin_gpa_audit`) although they do not see GPAs on the board — owner: keep it. Today the one admin is also the one GPA viewer; decide before adding a second admin.
+- 0262 off-criteria asks: one named same-gender classmate whom the GPA rule refuses; the feed and lists show the gap (0.2–0.3 / >0.3 / no GPA) — owner: on purpose. Words in ONE place: `OFF_CRITERIA` in `model.js`, tested against the migration's check constraint.
+- 0262 broke `rotation_board()` for everyone for about 13 min on 2026-10-26; 0263 repaired it. The 0262 file was later edited in place and is now restored to what ran (`docs/mistakes/postgres-schema.md`).
+- 0265 + page: the off-criteria sheet shows the classmate's KKU Mail; a failed board read keeps the board, says so, and backs off 3 s → 60 s. Proofs: rotation0261 10/10, rotation0262 10/10, rotation0265 11/11 on production; `tools/browser/rotation-page.mjs` 38/38 (it now removes the GPA log rows it writes, or the next run hits the 3-edit warning).
+
 **c. Two surnames differ between the PDF and the registry — Status: OWED (a person to confirm).** The import used the registry's name for both and printed them (rows B 653070135-6 and C 653070030-0, `node tools/rotation-import.mjs <pdf>` shows them again — dry run). Seven other differences are the PDF's text layer turning ำ into า, and two are surnames clipped in the PDF itself; neither needs anyone.
 
 
-**d. Never seen on a real phone or by a real student — Status: HYPOTHESIS.** Headless Chrome at three widths only; the first real look is when the owner opens it.
+**d. Real phones and real students — Status: VERIFIED by the owner 2026-10-30.** Students have used it since 2026-10-24; the owner checks it on an iPad and a phone ("i see on ipad and mobile normally"). The automated run is still headless Chrome at three widths (`tools/browser/rotation-page.mjs`, samo-dev).
 

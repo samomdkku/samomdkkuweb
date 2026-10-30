@@ -557,5 +557,12 @@ button.rot-matrix-row:focus-visible { outline: 2px solid var(--brand-primary); o
 .rot-meme-clickable {
   cursor: pointer;
 }
+/* A whole confirm row is the click target, so say so. */
+.rot-check {
+  cursor: pointer;
+}
+.rot-accent {
+  color: var(--brand-primary);
+}
 
 

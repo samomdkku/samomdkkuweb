@@ -71,6 +71,7 @@ const sheetYes = () => ev(`await new Promise(r=>setTimeout(r,700)); document.que
 
 let saved = null;
 let roundBefore = null;
+let runStart = null;
 try {
   for (let i = 0; i < 30 && !ws; i += 1) {
     try {
@@ -112,6 +113,11 @@ try {
      order by a.student_id, b.student_id limit 1`);
   if (!pair) throw new Error('no roster pair on samo-dev — run tools/rotation-import.mjs --dev --commit first');
   saved = pair;
+  // Every GPA write is logged (0261) and the 4th is refused (0262), so a run
+  // that leaves its own two log rows behind (the save + the restore) makes the
+  // NEXT run's save the 3rd edit, which opens a warning instead of saving.
+  // Cleanup deletes this run's rows, found by this instant.
+  [{ t: runStart }] = await sql(`select now()::text t`);
   [roundBefore] = await sql(`select published, swaps_open, swaps_close_at, gpa_rule from public.rotation_rounds where id = ${lit(ROUND)}`);
   // person_id is cleared for the run so the match is by the probe's email only
   // (a real person's account must not be the one that matches).
@@ -335,6 +341,8 @@ try {
         update public.rotation_students set current_group = ${lit(saved.b_group)}, kkumail = ${saved.b_mail ? lit(saved.b_mail) : 'null'},
                person_id = ${saved.b_person ? lit(saved.b_person) : 'null'},
                contact = ${saved.b_contact ? lit(saved.b_contact) : 'null'}, gpa = ${saved.b_gpa ? lit(saved.b_gpa) : 'null'}, staying = false, staying_at = null where id = ${lit(saved.b_id)};
+        delete from public.rotation_gpa_audit where student_id in (${lit(saved.a_id)}, ${lit(saved.b_id)})
+                                                and changed_at >= ${lit(runStart)};
         select 1`);
     }
     if (roundBefore) {
@@ -347,8 +355,9 @@ try {
         delete from auth.users where email = ${lit(`${who.user.toLowerCase()}@samomdkku.app`)}; select 1`);
     }
     const [left] = await sql(`select (select count(*) from auth.users where email like 'claude_%${stamp}@samomdkku.app') accounts,
-      (select count(*) from public.rotation_students where round_id = ${lit(ROUND)} and current_group <> original_group) moved`);
-    say('cleaned up (accounts, moved students on samo-dev)', JSON.stringify(left), Number(left.accounts) === 0);
+      (select count(*) from public.rotation_students where round_id = ${lit(ROUND)} and current_group <> original_group) moved,
+      (select count(*) from public.rotation_gpa_audit where ${saved ? `student_id in (${lit(saved.a_id)}, ${lit(saved.b_id)}) and changed_at >= ${lit(runStart || 'infinity')}` : 'false'}) gpa_log`);
+    say('cleaned up (accounts, moved students, GPA log on samo-dev)', JSON.stringify(left), Number(left.accounts) === 0 && Number(left.gpa_log) === 0);
   } catch (e) { failed += 1; console.log('✗ cleanup failed:', e.message); }
   chrome.kill();
   console.log(`\nscreenshots: ${OUT}`);

@@ -42,6 +42,33 @@ export function reasonText(reason) {
   return REASON_TH[reason] || 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง';
 }
 
+/** The words for an off-criteria swap (0262), one row per reason the server
+ *  computes (`rotation_pair_off_criteria_reason`). `done` = a swap that happened
+ *  or a pending ask in the feed, `ask` = an offer badge, `button` = the member
+ *  list's action, `tag` = the member list's label. The gap shown is on purpose
+ *  (owner, 2026-10-30). model.test.js reads the reasons from the migration. */
+export const OFF_CRITERIA = {
+  diff_02_03: {
+    done: 'เกรดห่าง 0.2–0.3 ตกลงฝ่ายวิชาการแล้ว', ask: 'คำขอผิดเกณฑ์ (0.2–0.3)',
+    button: 'ทักคุย/ขอแลก (0.2–0.3)', tag: 'เกรดห่าง 0.2–0.3 (ผิดเกณฑ์)',
+  },
+  missing_gpa: {
+    done: 'ยังไม่กรอกเกรด แต่เช็กแล้วและวิชาการอนุมัติ', ask: 'คำขอเช็กเกรดนอกรอบ',
+    button: 'ทักคุย/ขอแลก (เช็กนอกรอบ)', tag: 'ยังไม่กรอกเกรด',
+  },
+  diff_over_03: {
+    done: 'เกรดห่าง >0.3 คุยกับเพื่อนและวิชาการอนุมัติให้แลกได้', ask: 'คำขอผิดเกณฑ์ (>0.3)',
+    button: 'ทักคุย/ขอแลก (>0.3)', tag: 'เกรดห่าง >0.3 (ผิดเกณฑ์)',
+  },
+};
+const OFF_CRITERIA_ANY = { done: 'แลกนอกรอบ ตกลงฝ่ายวิชาการแล้ว', ask: 'คำขอนอกรอบ' };
+
+/** `kind` of OFF_CRITERIA for `reason`; an unknown reason falls back to
+ *  `fallback` (default: the generic words, or '' where there are none). */
+export function offCriteriaText(reason, kind, fallback = OFF_CRITERIA_ANY[kind] || '') {
+  return OFF_CRITERIA[reason]?.[kind] || fallback;
+}
+
 export function fullName(s) {
   return s ? `${s.first_name} ${s.last_name}` : '';
 }

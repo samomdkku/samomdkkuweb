@@ -1,7 +1,7 @@
 // model.test.js — the page's reading of rotation_board().
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles, formatMissingGpaCopyText, retryDelayMs } from './model.js';
+import { readFileSync, readdirSync } from 'node:fs';
+import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles, formatMissingGpaCopyText, retryDelayMs, OFF_CRITERIA, offCriteriaText } from './model.js';
 import { parseRosterText, compareNames, splitPrefix } from './roster-parse.js';
 
 const S = (id, g, gender, can_swap = false) => ({ id, first_name: id, last_name: 'x', gender, current_group: g, original_group: g, can_swap });
@@ -175,11 +175,11 @@ describe('parseGpa', () => {
 
 describe('reasons', () => {
   it('every reason an RPC in 0250–0255 can return has Thai', () => {
-    const sql = readFileSync('supabase/migrations/0250_rotation_swap.sql', 'utf8')
-      + readFileSync('supabase/migrations/0251_rotation_gpa_owner_only_nickname_contact.sql', 'utf8')
-      + readFileSync('supabase/migrations/0252_rotation_stay_here.sql', 'utf8')
-      + readFileSync('supabase/migrations/0255_rotation_wishes_and_chains.sql', 'utf8')
-      + readFileSync('supabase/migrations/0259_rotation_chain_kick_taker.sql', 'utf8');
+    // EVERY rotation migration, not a hand-kept list: the list stopped at 0259
+    // and 0262/0265's reasons were never checked.
+    const files = readdirSync('supabase/migrations').filter((f) => /^\d{4}_rotation_/.test(f));
+    expect(files.length).toBeGreaterThan(10);
+    const sql = files.map((f) => readFileSync(`supabase/migrations/${f}`, 'utf8')).join('\n');
     const reasons = [...sql.matchAll(/'reason', '([a-z_]+)'/g)].map((x) => x[1]);
     expect(reasons.length).toBeGreaterThan(5);                       // the sweep found something
     for (const r of new Set(reasons)) {
@@ -285,5 +285,33 @@ describe('page.js — what the board does not carry', () => {
     const load = src.slice(src.indexOf('async function load()'), src.indexOf('function startLive()'));
     expect(load).toContain('retryDelayMs(state.failures)');
     expect(load).not.toMatch(/setTimeout\([^)]*\b\d{4}\b/);
+  });
+});
+
+describe('off-criteria words (0262)', () => {
+  it('every reason the database allows has all four labels, and nothing else does', () => {
+    const sql = readFileSync('supabase/migrations/0262_rotation_off_criteria_swap.sql', 'utf8');
+    const m = /rotation_requests_off_criteria_reason_check\s*check \(off_criteria_reason is null or off_criteria_reason in \(([^)]*)\)/.exec(sql);
+    expect(m).toBeTruthy();
+    const reasons = [...m[1].matchAll(/'([a-z0-9_]+)'/g)].map((x) => x[1]);
+    expect(reasons.length).toBe(3);
+    expect(Object.keys(OFF_CRITERIA).sort()).toEqual([...reasons].sort());
+    for (const r of reasons) {
+      for (const k of ['done', 'ask', 'button', 'tag']) expect(OFF_CRITERIA[r][k], `${r}.${k}`).toBeTruthy();
+    }
+  });
+  it('an unknown reason falls back to the generic words', () => {
+    expect(offCriteriaText(null, 'done')).toBe('แลกนอกรอบ ตกลงฝ่ายวิชาการแล้ว');
+    expect(offCriteriaText(undefined, 'ask')).toBe('คำขอนอกรอบ');
+    expect(offCriteriaText('x', 'done', 'คำขอนอกรอบ')).toBe('คำขอนอกรอบ');
+    expect(offCriteriaText('diff_02_03', 'tag')).toBe('เกรดห่าง 0.2–0.3 (ผิดเกณฑ์)');
+  });
+  it('page.js spells no off-criteria label itself', () => {
+    const page = readFileSync('src/js/rotation/page.js', 'utf8');
+    for (const words of Object.values(OFF_CRITERIA)) {
+      for (const k of ['done', 'ask', 'button', 'tag']) {
+        expect(page.includes(`'${words[k]}'`), words[k]).toBe(false);
+      }
+    }
   });
 });

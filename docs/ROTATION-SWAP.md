@@ -42,22 +42,54 @@ changing anything; every section names the file that owns the thing.
 | # | Rule | Status |
 |---|---|---|
 | 1 | Same gender (from the PDF prefix: นาย = M, นางสาว/นาง = F) | **ENFORCED** |
-| 2 | GPA: same band (2.55–2.99 · 3.00–3.49 · 3.50–4.00) **or** at most 0.20 apart | **ENFORCED** since 0253 (`gpa_rule = 'band_or_close'`); no GPA = cannot swap |
+| 2 | GPA: same band (2.55–2.99 · 3.00–3.49 · 3.50–4.00) **or** at most 0.20 apart | **ENFORCED** since 0253 (`gpa_rule = 'band_or_close'`); no GPA = cannot swap, except by an off-criteria ask |
 | — | Not "staying" (the person's own choice, 0252) | **ENFORCED** beside the rule |
+| — | **Off-criteria ask** (0262): a same-gender pair that fails rule 2 may still swap if both agreed outside the page (with ฝ่ายวิชาการ) | **ALLOWED, labelled** — see below |
 
 `rotation_rounds.gpa_rule`: `off` · `same_band` (stricter) · `band_or_close` (the
 faculty's, 2026-10-24) — the admin panel's เกณฑ์ GPA select. To change the rule,
-change **only** `public.rotation_pair_allowed()` in a new migration — it is the
-one home of the criteria; the board, the request guard and the accept guard all
-call it, and the page reads its answer (`can_swap`). The words the page shows
-are `criteriaTh()` in `model.js` (tested against the check constraint).
+change `public.rotation_pair_allowed()` in a new migration — it is the home of
+the criteria; the board, the request guard and the accept guard all call it, and
+the page reads its answer (`can_swap`). The words the page shows are
+`criteriaTh()` in `model.js` (tested against the check constraint).
+
+**Off-criteria asks (0262) are the one exception, and it is deliberate (owner,
+2026-10-26).** `rotation_request(..., p_off_criteria => true)` lets a student
+ask ONE named, same-gender classmate whom rule 2 refuses. The server decides
+which kind it is, `public.rotation_pair_off_criteria_reason()`, which answers
+null whenever `rotation_pair_allowed()` already says yes:
+
+| Reason | When | Label everyone sees |
+|---|---|---|
+| `diff_02_03` | GPAs more than 0.20 and at most 0.30 apart | เกรดห่าง 0.2–0.3 |
+| `missing_gpa` | one or both have no GPA | ยังไม่กรอกเกรด |
+| `diff_over_03` | more than 0.30 apart | >0.3 |
+
+Rules: never a broadcast (`cannot_broadcast_off_criteria`), at most ONE open
+off-criteria ask per person (`too_many_off_criteria`), gender and "staying" still
+enforced. The swap is recorded as `rotation_moves.kind = 'off_criteria'` with its
+reason, and the feed and group lists show the gap label **on purpose** (owner:
+"i want to show 0.2-0.3 >0.3 etc it's my intention") — the label tells the cohort
+roughly how far apart two GPAs are. The ask sheet tells the student to talk to
+the classmate first and shows their KKU Mail (`rotation_contact_email`, 0265 —
+one address at a time, same gender only — about half the cohort never filled in a contact).
+The Thai for each label is written in several places in `page.js`; change all of
+them together (grep `diff_02_03`).
+
+**GPA edits are limited to 3 (0262), and recorded (0261).** Every change to a GPA
+writes a row to `rotation_gpa_audit` (old, new, who, when). `rotation_set_gpa`
+refuses the 4th change (`ROTATION_GPA_LOCKED`); the FIRST fill counts as 1 of the
+3 (owner: keep it). The page shows "(แก้ไขแล้ว n/3 ครั้ง)" from
+`me.gpa_edit_count`. The count was reset to 0 for everyone before launch (0264).
+Why: students were changing their GPA dozens of times a minute to work out
+classmates' GPAs from who became swappable.
 
 ## 2. Files
 
 | Thing | File |
 |---|---|
-| Schema, RLS, every RPC | `supabase/migrations/0250_rotation_swap.sql` (read its header), then 0251 (GPA owner-only, nickname, contact), 0252 (staying), 0253 (the GPA rule), 0254 (named GPA viewers) |
-| DB proof (§A–§I, rolls back) | `tools/rotation0250-swaps.sql` — `node tools/db-query.mjs tools/rotation0250-swaps.sql [--dev]` |
+| Schema, RLS, every RPC | `supabase/migrations/0250_rotation_swap.sql` (read its header), then 0251 (GPA owner-only, nickname, contact), 0252 (staying), 0253 (the GPA rule), 0254 (named GPA viewers), 0255 (wishes + chains), 0256 (named admins), 0257 (removed misused admin moves), 0258 (the board made cheap after the 2026-10-24 outage), 0259 (kick a chain taker), 0260 (`has_gpa` on the board), 0261 (GPA audit trail), 0262 (off-criteria asks + the 3-edit GPA limit), 0263 (repaired the board 0262 broke), 0264 (audit reset before launch), 0265 (a classmate's KKU Mail) |
+| DB proofs (each rolls back) | `tools/rotation0250-swaps.sql` (§A–§K), `rotation0261-audit.sql`, `rotation0262-off-criteria.sql`, `rotation0265-contact-email.sql` — `node tools/db-query.mjs <file> [--dev]`. ⚠️ A proof of a NEW branch is not a proof of the board: 0262's proof was green while the board it rewrote failed for everyone. After touching `rotation_board()`, run `tools/browser/rotation-page.mjs` |
 | Roster import from the PDF | `tools/rotation-import.mjs` (dry run by default; `--commit`) |
 | The one PDF parser | `src/js/rotation/roster-parse.js` |
 | The timetable (no people) | `src/data/rotation-2570.js` |
@@ -69,7 +101,7 @@ are `criteriaTh()` in `model.js` (tested against the check constraint).
 | Styles | `src/css/rotation.css` (all rules under `.rot-`) |
 | Route `/rotation` | `src/js/main.js` `PATH_ROUTES` + the dynamic import in `shown.bs.tab` |
 | Hidden nav button | `src/html/navbar.html` `pills-rotation-tab` |
-| Tools launcher entry | `src/data/tools.js` slug `rotation-swap` (hidden until opened — §5) |
+| Tools launcher entry | `src/data/tools.js` slug `rotation-swap` — under ฝ่ายวิชาการ, and on the home page (`home: 8`) |
 | Browser test (two accounts, real swap) | `tools/browser/rotation-page.mjs` (samo-dev only) |
 
 ## 3. Data model (0250)
@@ -103,8 +135,16 @@ rotation_gpa_viewers  ACCOUNTS that read every GPA (0254). No policy, no grant; 
 - Every write takes `pg_advisory_xact_lock(hashtext('rotation:'||round))`, so two
   accepts never interleave. That is what makes "two people accept the same
   broadcast at once" safe: the second sees `status = 'accepted'` → `reason: 'taken'`.
-- Admin = `role = 'dev'` or the `rotation` permission (and `master`, which holds
-  every permission). Grant `rotation` in ทีม SAMO → สิทธิ์ to a ฝ่ายวิชาการ person.
+- Admin = `role = 'dev'` or a row in `rotation_admins` (0256). **Not** a
+  permission: `master` answers yes to every permission, and a master moved
+  students by hand without asking. Add an admin with one SQL row (never commit
+  the address):
+  `insert into public.rotation_admins (user_id, note) select id, '…' from public.users where lower(btrim(email)) = '<kkumail>';`
+- **Admins see the GPA edit HISTORY** (`rotation_admin_gpa_audit`, 0261: old
+  and new value of every edit) even though they do not see GPAs on the board.
+  The owner decided to keep this (2026-10-30). Today the only admin is also the
+  only GPA viewer; before adding a second admin, decide whether they should see
+  it.
 
 ### RPCs the page calls
 
@@ -117,8 +157,12 @@ rotation_gpa_viewers  ACCOUNTS that read every GPA (0254). No policy, no grant; 
 | `rotation_request(p_round, p_target, p_to_group)` | roster member | `{ok, id}` / `{ok:false, reason}`; `p_target` null = broadcast |
 | `rotation_accept(p_request)` | the target / an eligible member of the broadcast's group | `{ok, my_group, requester_group, closed_other_requests}` |
 | `rotation_respond_no(p_request)` | requester (= cancel) or named target (= decline) | `{ok}` |
+| `rotation_request(..., p_off_criteria => true)` | roster member | as above; one named target only (§1 off-criteria) |
+| `rotation_contact_email(p_round, p_student)` | same-gender classmate, or admin | `{ok, kkumail}` / `{ok:false, reason}` |
+| `rotation_set_wishes` · `rotation_chain_propose / _respond / _cancel / _kick` | roster member | chains: `docs/ROTATION-CHAINS.md` |
 | `rotation_admin_update_round(...)` | admin | `{ok}` |
-| `rotation_admin_move(p_student, p_group)` | admin | `{ok}` |
+| `rotation_admin_gpa_audit(p_round)` | admin | every GPA edit (old → new, when) |
+| `rotation_admin_move(p_student, p_group)` | admin | `{ok}` — **no button since 2026-10-26** (owner: no hand moves); still callable by SQL |
 
 Every `reason` has Thai in `model.js` `REASON_TH`; `model.test.js` fails if the
 migration grows a reason with no translation.
@@ -138,24 +182,19 @@ migration grows a reason with no translation.
 | Round closed (switch off, or `swaps_close_at` passed) | Every write returns `closed`; the page shows "ดูได้อย่างเดียว" |
 | Student never signed in | Still listed (badge *ยังไม่เคยเข้าเว็บ*); can be asked; sees it when they sign in |
 | Realtime socket dies (backgrounded phone, stale token) | Page re-reads every 60 s while visible and on returning to the tab |
+| A board read FAILS (server busy, network down) | The last board stays on screen with "เชื่อมต่อไม่ได้ชั่วคราว ข้อมูลอาจไม่ล่าสุด"; retries wait 3 s, 6 s, 12 s… up to 60 s, with jitter (`retryDelayMs`). Never a fixed short timer: 161 pages retrying every 2–4 s is what kept the 2026-10-24 outage going |
+| Off-criteria ask while one is already open | Refused: `too_many_off_criteria` |
+| A 4th GPA change | Refused: `ROTATION_GPA_LOCKED` |
 | Re-importing the PDF | Updates names/kkumail; **never** resets `current_group` or `gpa` |
 
-Not supported, on purpose: three-way chains (A→B→C→A). Every swap is 1:1, so group
-sizes never change unless an admin moves someone by hand.
+Every swap, and every chain (up to 3 people, `docs/ROTATION-CHAINS.md`), is a
+cycle, so group sizes never change.
 
-## 5. Going live (owner checklist)
+## 5. Going live — done
 
-The round shipped **closed and hidden**; the owner opened it on 2026-10-24. The
-tools-launcher entry is still hidden (students arrive by link).
-
-1. Open `/rotation` as an admin, check the roster and timetable.
-2. Tick **นักศึกษาเห็นหน้านี้** (students can look) — optionally leave
-   **เปิดให้แลก** off for a day so people can check their data first.
-3. Tick **เปิดให้แลก**, optionally set **ปิดรับอัตโนมัติ**.
-4. Make it findable: in `src/data/tools.js` set the `rotation-swap` entry's
-   `dept: 'academic'` and remove `launcher: false`; add a release note to
-   `PENDING` in `src/data/changelog.js`; deploy. Or just send the class the link
-   `https://samo.md.kku.ac.th/rotation`.
+Opened by the owner on 2026-10-24 (round `y6-2570`: published, swaps open). The
+launcher entry is visible under ฝ่ายวิชาการ and on the home page, and the home
+banner links to it. Students have used it on phones and iPads since.
 
 ## 6. Extending it
 
@@ -168,9 +207,9 @@ tools-launcher entry is still hidden (students arrive by link).
 - **Notifications** (Discord/email when someone asks you): not built. If added, do
   it server-side from `rotation_requests`, and remember the request list is
   already public within the cohort, so a notification may say who asked.
-- **Admin bulk tools** (export the final groups as CSV): read `rotation_board()` as
-  an admin — it carries GPA for admins — or query `rotation_students` from a
-  `tools/` script.
+- **Admin bulk tools** (export the final groups as CSV): query `rotation_students`
+  from a `tools/` script. `rotation_board()` does NOT carry GPAs for admins
+  (0254) — only for accounts in `rotation_gpa_viewers`.
 
 ### Working rules for an AI editor in this repo
 
@@ -189,6 +228,6 @@ tools-launcher entry is still hidden (students arrive by link).
   ของคุณ" below a fold (owner's screenshot). It scrolls with the page.
 - The repo is **public**: the PDF and the roster never go into git.
 
-## Next: chain swaps
+## Chain swaps
 
-E → A → B in one atomic step: `docs/ROTATION-CHAINS.md` (0255; RPCs `rotation_set_wishes`, `rotation_chain_propose`, `rotation_chain_respond`, `rotation_chain_cancel`; proof §J).
+E → A → B in one atomic step: `docs/ROTATION-CHAINS.md` (0255; RPCs `rotation_set_wishes`, `rotation_chain_propose`, `rotation_chain_respond`, `rotation_chain_cancel`, `rotation_chain_kick` (0259); proof §J).
