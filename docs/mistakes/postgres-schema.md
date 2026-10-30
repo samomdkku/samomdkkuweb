@@ -1689,3 +1689,44 @@ smoke.
 through the function's READERS, not only its new branch — and a mistake in an
 applied migration is fixed by the next number, never by editing the record.*
 Rebuild from `pg_get_functiondef`, not from the file you remember.
+
+**Update 2026-10-30**: the applied 0262 file was put back byte-for-byte as it
+ran (`git show 7db5b81:…`, checksum `14f09072…` = the recorded one), so the
+history check no longer flags it. The fix stays where it belongs, in 0263.
+
+## เริ่มปี SAMO on 1 มี.ค. fails "ปี … เป็นปีปัจจุบันอยู่แล้ว" on every press and undoes the automatic switch — the first fix guessed the state
+
+**Symptom** (found by the proof before any 1 มี.ค., never reported by a user):
+on Q1 day, before any scan or form had applied the automatic switch, pressing
+เริ่มปี SAMO raised "start_team_term: ปี 2570 เป็นปีปัจจุบันอยู่แล้ว". The raise
+rolled back the whole transaction, including the automatic switch the same
+call had just run, so every press failed the same way.
+
+**Cause**: `start_samo_year` (0248) runs `passport.apply_season_schedule()`
+first, and on Q1 day that is what starts `p_year`. Then it calls
+`start_team_term(p_year)`, whose "already current" guard was written for a
+person pressing twice. A function calling two steps that each move the year
+treats its own first step as someone else's earlier press.
+
+The draft fix (0249) returned early only when the team year AND the open
+Passport วาระ were both on `p_year`. That was a guess about what the switch
+leaves behind, and it was wrong. Printed inside the proof's transaction, the
+switch answered `applied:false, reason:"admin"` and STILL moved the team year,
+with no new วาระ opened. So 0249 fell through to the same raise, and its proof
+case stayed red, correctly, for a week.
+
+**Fix** (0266): read the current year BEFORE the switch. If THIS call's switch
+is what made `p_year` current, skip `start_team_term`. Its permission check is
+restated in place, because skipping the call also skips its gate. Keep the
+Passport half, which opens the วาระ if the switch did not.
+
+**Where it lives now**: `public.start_samo_year`, built from the live body
+(`pg_get_functiondef`). Proof `tools/year0248-one-year-system.sql` §E cases
+40–43: red on 40/41 with the 0249 draft and on 40/42 with the restated gate
+removed. The cases include a DENY for a caller without ทีม SAMO edit rights,
+and a second press, which must still say "already current".
+
+**The general rule**: *before you write the branch that recognises a state,
+PRINT that state from inside the failing case; do not infer it from what the
+earlier step "should" leave behind. And when you skip a call to avoid its
+guard, you skip ALL its guards: restate the permission check you still owe.*

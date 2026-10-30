@@ -266,43 +266,30 @@ grant execute on function public.rotation_set_gpa(text, numeric) to authenticate
 create or replace function public.rotation_board(p_round text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
-  v_admin boolean := public.rotation_is_admin();
-  v_gpa   boolean := public.rotation_is_gpa_viewer();
-  v_me_id uuid    := public.rotation_my_row_id(p_round);
+  v_me_id uuid := public.rotation_my_row_id(p_round);
   v_me    public.rotation_students;
   v_round public.rotation_rounds;
+  v_admin boolean := public.rotation_is_admin();
+  v_gpa   boolean := public.rotation_is_gpa_viewer();
   v_live  boolean;
 begin
   select * into v_round from public.rotation_rounds where id = p_round;
-  if not found then
-    return jsonb_build_object('state', 'no_round');
-  end if;
+  if not found then raise exception 'ROTATION_NO_SUCH_ROUND'; end if;
+  if not (v_round.published or v_admin) then raise exception 'ROTATION_NOT_PUBLISHED'; end if;
+
+  v_live := public.rotation_swaps_live(p_round);
   if v_me_id is not null then
     select * into v_me from public.rotation_students where id = v_me_id;
   end if;
 
-  if auth.uid() is null then
-    return jsonb_build_object('state', 'signed_out');
-  end if;
-  if not v_admin and v_me_id is null then
-    return jsonb_build_object('state', 'not_in_roster', 'title', v_round.title);
-  end if;
-  if not v_admin and not v_round.published then
-    return jsonb_build_object('state', 'not_published', 'title', v_round.title);
-  end if;
-  v_live := public.rotation_swaps_live(p_round);
-
   return jsonb_build_object(
-    'state', 'ok',
     'is_admin', v_admin,
-    'gpa_viewer', v_gpa,
     'round', jsonb_build_object(
-      'id', v_round.id, 'title', v_round.title, 'groups', to_jsonb(v_round.groups),
+      'id', v_round.id, 'title', v_round.title, 'academic_year', v_round.academic_year,
       'published', v_round.published, 'swaps_open', v_round.swaps_open,
       'swaps_close_at', v_round.swaps_close_at, 'gpa_rule', v_round.gpa_rule,
       'swaps_live', v_live,
       'max_pending', v_round.max_pending)
-      -- Admins get HOW MANY have filled a GPA, never whose or what (owner, 2026-10-24).
       || case when v_admin then jsonb_build_object('gpa_filled',
            (select count(*) from public.rotation_students where round_id = p_round and gpa is not null))
          else '{}'::jsonb end,

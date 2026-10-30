@@ -14,8 +14,10 @@
 --   §D  Q1 and the auto switch now move the ปี SAMO for every system: a
 --       Passport-only org-wide admin may edit Q2–Q4 but not Q1 or auto; with
 --       ทีม SAMO edit rights too, they may.
---   §E  (0249) pressing เริ่มปี SAMO on Q1 day, before anything applied the
---       switch, succeeds instead of rolling the switch back.
+--   §E  (0249 → 0266) pressing เริ่มปี SAMO on Q1 day, before anything applied
+--       the switch, succeeds instead of rolling the switch back — also when the
+--       switch opened no Passport วาระ; the team gate still holds; a second
+--       press is still "already current".
 -- Uses the real ปี 2569–2571 rows inside a transaction that ROLLS BACK.
 --   node tools/db-query.mjs tools/year0248-one-year-system.sql
 -- ============================================================
@@ -179,13 +181,31 @@ update passport.season_schedule s
 update public.team_terms set is_current = false where is_current;
 update public.team_terms set is_current = true, started_at = null, ended_at = null where year = (select be - 1 from want);
 update public.team_terms set started_at = null, ended_at = null where year = (select be from want);
+-- 0266 DENY first: without ทีม SAMO edit rights the press is refused, and the
+-- automatic switch it ran rolls back with it (the next press or scan redoes it).
+select pg_temp.as_((select id from pp));
+set local role authenticated;
+insert into r select 'press_pp', pg_temp.try(format('select public.start_samo_year(%s, %L, %L)',
+  (select be from want), 'proof-0249', 'Q1'));
+reset role;
+insert into r select 'after_pp', public.current_samo_year()::text;
+-- The open Passport วาระ left by §B is NOT on this year: the automatic switch
+-- moves the team year without opening one here — the state 0249 missed.
 select pg_temp.as_((select id from pb));
 set local role authenticated;
 insert into r select 'press', pg_temp.try(format('select public.start_samo_year(%s, %L, %L)',
   (select be from want), 'proof-0249', 'Q1'));
+insert into r select 'press_again', pg_temp.try(format('select public.start_samo_year(%s)', (select be from want)));
 reset role;
 insert into probe select '40. pressing เริ่มปี SAMO on Q1 day succeeds — the automatic switch did it', 'ok,true',
   (select (select v from r where k = 'press') || ',' || (public.current_samo_year() = (select be from want))::text);
+insert into probe select '41. …and the Passport วาระ it asked for is open on that year', 'proof-0249',
+  (select string_agg(name, ',') from passport.samo_years where ended_at is null and team_term_year = (select be from want));
+insert into probe select '42. without ทีม SAMO edit rights the press is refused and nothing moves', 'true,true',
+  (select ((select v from r where k = 'press_pp') like 'raised: start_team_term: ไม่มีสิทธิ์%')::text
+       || ',' || ((select v from r where k = 'after_pp') = (select (be - 1)::text from want))::text);
+insert into probe select '43. a second press is still "already current" (only THIS press''s switch is skipped)', 'true',
+  (select ((select v from r where k = 'press_again') like 'raised:%เป็นปีปัจจุบันอยู่แล้ว%')::text);
 
 select step,
        case when got is not distinct from expected then 'PASS' else 'FAIL' end as result,
