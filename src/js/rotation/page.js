@@ -51,7 +51,7 @@ import {
   buildModel, buildFeed, reasonText, fullName, displayName, matchesQuery, genderTh, agoTh, parseGpa,
   swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa,
   chainPeople, chainOffers, myChains, chainYeses, routesTo, chainCycles,
-  formatMissingGpaCopyText,
+  formatMissingGpaCopyText, retryDelayMs,
 } from './model.js';
 import { createPractice } from './practice.js';
 
@@ -86,6 +86,8 @@ const state = {
   guideHidden: readGuideHidden(),
   adminOpen: false,
   routeTarget: null,      // หาคนแลก › "อยากไปกลุ่มไหน"
+  failures: 0,            // background board reads that failed in a row
+  stale: false,           // the board on screen is older than the last failed read
 };
 
 let channel = null;
@@ -93,6 +95,7 @@ let pollTimer = null;
 let reauthTimer = null;
 let debounceTimer = null;
 let flashTimer = null;
+let retryTimer = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -169,13 +172,23 @@ async function load() {
     const prev = state.board;
     const board = await rpc('rotation_board', { p_round: ROUND_ID });
     if (!board || board.ok === false) {
-      if (!prev) { paintGate('error', board?.detail); }
-      else {
-        // Keep existing board rendered if a background update blips; retry shortly.
-        setTimeout(() => { if (isOnPage()) load(); }, 2000 + Math.floor(Math.random() * 2000));
+      if (!prev) { paintGate('error', board?.detail); return; }
+      // Keep the last good board on screen, SAY it may be old, and retry with
+      // backoff — never a fixed short timer, which would keep every open page
+      // hammering a server that is already failing.
+      state.failures += 1;
+      state.stale = true;
+      if (prev.state === 'ok' && $('rotMain').hidden) paintAll();   // re-entered the tab: replace the spinner
+      else paintStatus();
+      if (!retryTimer) {
+        retryTimer = setTimeout(() => { retryTimer = null; if (isOnPage()) load(); }, retryDelayMs(state.failures));
       }
       return;
     }
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    state.failures = 0;
+    state.stale = false;
     state.board = board;
     state.lastLoadedAt = new Date();
     if (board.state !== 'ok') { paintGate(board.state); return; }
@@ -411,9 +424,11 @@ function paintStatus() {
       <i class="bi ${open ? 'bi-arrow-left-right' : 'bi-lock'}" aria-hidden="true"></i>
       ${open ? `เปิดให้แลกอยู่${escHtml(closeTxt)}` : 'ยังไม่เปิดให้แลก — ดูได้อย่างเดียว'}
     </span>
-    <span class="rot-live-dot ${state.live ? 'is-live' : ''}">
+    ${state.stale
+      ? `<span class="rot-pill is-stale" role="status"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>เชื่อมต่อไม่ได้ชั่วคราว ข้อมูลอาจไม่ล่าสุด · กำลังลองใหม่</span>`
+      : `<span class="rot-live-dot ${state.live ? 'is-live' : ''}">
       <span aria-hidden="true"></span>${state.live ? 'อัปเดตสด' : 'อัปเดตทุก 1 นาที'}
-    </span>`;
+    </span>`}`;
 }
 
 // ── small pieces ─────────────────────────────────────────────────────────────
@@ -1788,12 +1803,15 @@ async function onClick(e) {
         <div class="small text-secondary">
           ${t.nickname ? `<div>ชื่อเล่น: <strong>${escHtml(t.nickname)}</strong></div>` : ''}
           ${t.contact ? `<div>ช่องทางติดต่อ / LINE: <span class="user-select-all fw-semibold text-dark">${escHtml(t.contact)}</span></div>` : ''}
-          <div>KKU Mail: <span class="user-select-all text-muted">${escHtml(t.kkumail || '-')}</span></div>
+          <div>KKU Mail: <span class="user-select-all text-muted" data-rot-mail>กำลังโหลด…</span></div>
         </div>
         <div class="text-muted small mt-1" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>กรุณาทักไปคุยและตรวจสอบกับฝ่ายวิชาการนอกรอบก่อนส่งคำขอ</div>
       </div>`;
 
-    const yes = await askSheet({
+    // The board carries no addresses (0265): ask for this one person's, and
+    // fill it in once the sheet is open.
+    const mail = rpc('rotation_contact_email', { p_round: ROUND_ID, p_student: t.id });
+    const sheet = askSheet({
       title,
       lead: categoryLead,
       extra: contactBlock,
@@ -1802,6 +1820,11 @@ async function onClick(e) {
       yes: 'ส่งคำขอแลก',
       requireConfirms: [confirm1, confirm2],
     });
+    mail.then((res) => {
+      const span = document.querySelector('#rotSheet [data-rot-mail]');
+      if (span) span.textContent = res?.ok && res.kkumail ? res.kkumail : '-';
+    });
+    const yes = await sheet;
     if (!yes) return;
 
     const res = await act(b, () => rpc('rotation_request', {
@@ -1984,11 +2007,6 @@ async function onChange(e) {
   if (t.dataset.rotInput === 'only') { state.onlyEligible = t.checked; paintGroups(); return; }
   if (t.dataset.rotInput === 'only-missing-gpa') { state.onlyMissingGpa = t.checked; paintGroups(); return; }
   if (t.dataset.rotInput === 'stay') { await setStaying(t); return; }
-  if (t.dataset.rotMove) {
-    const s = state.model.byId.get(t.dataset.rotMove);
-    const res = await act(null, () => rpc('rotation_admin_move', { p_student: t.dataset.rotMove, p_group: t.value }));
-    if (res?.ok) toast(`ย้าย ${fullName(s)} ไปกลุ่ม ${t.value} แล้ว`);
-  }
 }
 
 /** The "ฉันอยากอยู่กลุ่มนี้" switch. Turning it ON closes open asks, so say so first. */

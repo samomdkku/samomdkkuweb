@@ -54,6 +54,7 @@ const PROOFS = [
   ['rotation0250-swaps.sql', 'แลก Rotation: no GPA reaches another student, a swap needs the same gender, and a broadcast is taken once'],
   ['rotation0261-audit.sql', 'แลก Rotation: GPA changes trigger silent audit log and are readable only by rotation admins'],
   ['rotation0262-off-criteria.sql', 'แลก Rotation: off-criteria swaps (0.2-0.3, missing GPA, >0.3) + anti-probing GPA edit lock'],
+  ['rotation0265-contact-email.sql', "แลก Rotation: a classmate's kkumail reaches a same-gender classmate and admins, nobody else"],
   ['authz0218-null-role.sql', 'a signed-in caller with no users row is refused by EVERY role-gated function'],
   ['house0200-three-copies.sql', 'the main card, ทีม SAMO and ระบบบ้าน agree, a new connection takes the card, and an admin can see and repair a mismatch'],
   ['team0145-one-chan-pi.sql', 'ชั้นปี survives a registry touch'],

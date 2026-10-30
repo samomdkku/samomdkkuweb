@@ -453,6 +453,13 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
         case 'rotation_chain_respond': return chainRespond(me.id, body.p_chain, body.p_yes);
         case 'rotation_chain_cancel': return chainCancel(me.id, body.p_chain);
         case 'rotation_chain_kick': return chainKick(me.id, body.p_chain, body.p_seq);
+        case 'rotation_contact_email': {
+          // 0265: a same-gender classmate's address only; pretend ones here.
+          const t = students.find((s) => s.id === body.p_student);
+          if (!t) return { ok: false, reason: 'no_such_student' };
+          if (t.id === me.id || t.gender !== me.gender) return { ok: false, reason: 'not_eligible' };
+          return { ok: true, kkumail: `${t.id.replace(/^s/, 'demo')}@kkumail.com` };
+        }
         default: return { ok: false, reason: 'practice_only' };
       }
     })();

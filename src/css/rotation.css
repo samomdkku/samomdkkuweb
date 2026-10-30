@@ -50,6 +50,7 @@
 }
 .rot-pill.is-open { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-200); }
 .rot-pill.is-closed { background: var(--ink-100); color: var(--ink-600); border: 1px solid var(--ink-200); }
+.rot-pill.is-stale { background: color-mix(in srgb, var(--brand-orange) 12%, var(--surface)); color: #b4441a; color: color-mix(in srgb, #b4441a var(--fg-mix), var(--fg-mix-to)); border: 1px solid color-mix(in srgb, var(--brand-orange) 40%, var(--ink-200)); }
 .rot-pill.is-practice { background: color-mix(in srgb, var(--brand-orange) 12%, var(--surface)); color: #b4441a; color: color-mix(in srgb, #b4441a var(--fg-mix), var(--fg-mix-to)); border: 1px solid color-mix(in srgb, var(--brand-orange) 40%, var(--ink-200)); }
 .rot-live-dot { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--ink-500); }
 .rot-live-dot > span { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-300); }

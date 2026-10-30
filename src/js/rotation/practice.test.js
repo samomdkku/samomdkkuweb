@@ -32,6 +32,17 @@ describe('practice roster', () => {
 });
 
 describe('the rules, mirrored from the SQL proof', () => {
+  it('a classmate\'s kkumail: same gender only, never yourself (0265 §11–14)', async () => {
+    const p = fresh();
+    const s = p._state().students;
+    const f = s.find((x) => x.gender === 'F');
+    const mB = males(p, 'B')[0];
+    expect(await p.rpc('rotation_contact_email', { p_student: mB.id })).toMatchObject({ ok: true });
+    expect((await p.rpc('rotation_contact_email', { p_student: mB.id })).kkumail).toMatch(/@kkumail\.com$/);
+    expect(await p.rpc('rotation_contact_email', { p_student: f.id })).toEqual({ ok: false, reason: 'not_eligible' });
+    expect(await p.rpc('rotation_contact_email', { p_student: 'me' })).toEqual({ ok: false, reason: 'not_eligible' });
+  });
+
   it('different gender / own group / duplicate are refused', async () => {
     const p = fresh();
     const s = p._state().students;

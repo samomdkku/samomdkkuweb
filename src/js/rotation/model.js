@@ -357,3 +357,15 @@ export function formatMissingGpaCopyText(students, groups = ['A', 'B', 'C', 'D',
   return lines.join('\n').trim();
 }
 
+
+/**
+ * How long to wait before re-reading the board after the Nth background
+ * failure in a row (1-based). Doubles from 3 s and stops at the 60 s poll, with
+ * ±25% jitter: a cohort whose reads failed TOGETHER (the server, not one phone)
+ * must not retry together, and must not keep a struggling server busy every few
+ * seconds — the 2026-10-24 outage was every open page re-reading at once.
+ */
+export function retryDelayMs(failures, random = Math.random) {
+  const base = Math.min(3000 * 2 ** Math.max(0, failures - 1), 60_000);
+  return Math.round(base * (0.75 + random() * 0.5));
+}

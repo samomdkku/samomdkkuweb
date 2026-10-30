@@ -1,7 +1,7 @@
 // model.test.js — the page's reading of rotation_board().
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles, formatMissingGpaCopyText } from './model.js';
+import { buildModel, buildFeed, parseGpa, reasonText, REASON_TH, displayName, matchesQuery, swapPairs, lastMoves, diffBoards, isRecent, criteriaTh, ruleNeedsGpa, chainPeople, chainOffers, myChains, routesTo, chainCycles, formatMissingGpaCopyText, retryDelayMs } from './model.js';
 import { parseRosterText, compareNames, splitPrefix } from './roster-parse.js';
 
 const S = (id, g, gender, can_swap = false) => ({ id, first_name: id, last_name: 'x', gender, current_group: g, original_group: g, can_swap });
@@ -258,3 +258,32 @@ describe('formatMissingGpaCopyText', () => {
   });
 });
 
+
+describe('retryDelayMs — a failed background read backs off (2026-10-24 outage)', () => {
+  const mid = () => 0.5;
+  it('doubles from 3 s and stops at the 60 s poll', () => {
+    expect([1, 2, 3, 4, 5, 6, 10].map((n) => retryDelayMs(n, mid)))
+      .toEqual([3000, 6000, 12000, 24000, 48000, 60000, 60000]);
+  });
+  it('is never shorter than 2.25 s, even on the first failure at the lowest jitter', () => {
+    expect(retryDelayMs(1, () => 0)).toBe(2250);
+    expect(retryDelayMs(0, () => 0)).toBe(2250);
+  });
+  it('jitters ±25% so a cohort that failed together does not retry together', () => {
+    expect(retryDelayMs(3, () => 0)).toBe(9000);
+    expect(retryDelayMs(3, () => 0.999999)).toBeCloseTo(15000, -1);
+  });
+});
+
+describe('page.js — what the board does not carry', () => {
+  const src = readFileSync(new URL('./page.js', import.meta.url), 'utf8');
+  it('never reads a classmate\'s kkumail off the board — it asks rotation_contact_email (0265)', () => {
+    expect(src).not.toMatch(/\b(?!res\.)\w+\.kkumail\b/);   // res = the RPC's own answer
+    expect(src).toContain("rpc('rotation_contact_email'");
+  });
+  it('a failed background read waits retryDelayMs, not a fixed short timer', () => {
+    const load = src.slice(src.indexOf('async function load()'), src.indexOf('function startLive()'));
+    expect(load).toContain('retryDelayMs(state.failures)');
+    expect(load).not.toMatch(/setTimeout\([^)]*\b\d{4}\b/);
+  });
+});
