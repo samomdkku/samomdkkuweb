@@ -108,7 +108,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 - "ผู้ดูแลย้าย" on students nobody moved
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(38)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(39)*
 
 Open when: writing a migration.
 
@@ -150,8 +150,9 @@ Open when: writing a migration.
 - Reopening the genesis `team_terms` row would have erased its own history
 - A reopened VS ticket would have been hidden as "closed" and eligible for PDPA scrub
 - A weekly prune silently erased 20 of every ~24 days' worth of analytics
+- แลก Rotation: 0262 broke `rotation_board()` on production, was fixed by EDITING the applied file, and its proof was gre…
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(120)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(121)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -275,8 +276,9 @@ Open when: markup, modals, layout, touch, icons.
 - "ปีการศึกษาที่ใช้คำนวณชั้นปี 2,569" — a year printed with a thousands comma
 - ภาพรวม ran off the side at 1024 and 820 wide, and every row was as tall as the tallest
 - On iPad the left column of /rotation cut off "คำขอของคุณ"
+- แลก Rotation: "KKU Mail: -" on every off-criteria ask
 
-## `app-state.md` — Routing, read-state, caches & serialization *(38)*
+## `app-state.md` — Routing, read-state, caches & serialization *(39)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -318,6 +320,7 @@ Open when: URL state, per-user "seen", import/export.
 - Editing an archived announcement silently republished it
 - Archiving an announcement made its pictures deletable
 - "I already got the answer from them"
+- แลก Rotation: "โหลดข้อมูลไม่สำเร็จ · signal is aborted without reason" for everyone
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(37)*
 
@@ -532,4 +535,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_470 entries across 10 files._
+_473 entries across 10 files._

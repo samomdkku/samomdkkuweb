@@ -1661,3 +1661,31 @@ authoritative), and that is the one to read.
 **Where it lives now**: `supabase/migrations/0233_prune_analytics_never_splits_a_day.sql`, `tools/stats0233-no-split-day.sql` (registered in `tools/run-proofs.mjs`).
 
 **The general rule**: when a scheduled job's cutoff is computed from `now()` and the job repeats on a fixed calendar cadence (weekly, nightly), the cutoff lands on a different time-of-day every run unless something explicitly aligns it to the data's own grain (day, week, …). A write path with "insert, then `on conflict do update`" is only safe for a bucket that is captured **atomically** — once a bucket can be written from a partial view of its data, the second write silently replaces instead of completing it. When one function in a migration aligns its cutoff to its own grain and a neighboring function in the same migration does not, that asymmetry is worth re-reading on its own; a proof that only ever uses a sentinel day/week far from any real boundary (as 0231's own did) will never exercise this, so it is a case worth constructing on purpose, not one a generic proof stumbles into.
+
+## แลก Rotation: 0262 broke `rotation_board()` on production, was fixed by EDITING the applied file, and its proof was green
+
+**Symptom (found in review, 2026-10-30).** `npm run migrate:status` lists
+`0262_rotation_off_criteria_swap.sql` as EDITED AFTER RECORDING. As committed
+and applied (7db5b81, 2026-10-26 17:47 ICT) its `rotation_board()` read
+`v_round.academic_year` — a column `rotation_rounds` never had — and returned no
+`state`, so every board read errored (plpgsql resolves a record field at RUN
+time; `create or replace` succeeded). 0263 (18:00) restored it, and the same
+commit rewrote 0262 in place to match.
+
+**Cause.** 0262 restated the whole board by hand from an older shape instead of
+the LIVE body (`skills/ship-a-migration.md` step 1). Its proof,
+`rotation0262-off-criteria.sql`, never calls `rotation_board`, so it was 10/10
+on a broken board.
+
+**Fix.** 0263 (a new migration — the right move); the in-place edit of 0262 is
+the wrong one and cannot be undone now, so the file no longer records what ran.
+The board is exercised by `rotation0250-swaps.sql` (20 calls) and the browser
+smoke.
+
+**Where it lives now.** `tools/migrate-status.mjs` flags the edit;
+`skills/ship-a-migration.md` already says never edit an applied migration.
+
+**The general rule**: *a migration that restates a function must be proved
+through the function's READERS, not only its new branch — and a mistake in an
+applied migration is fixed by the next number, never by editing the record.*
+Rebuild from `pg_get_functiondef`, not from the file you remember.

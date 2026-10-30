@@ -4725,3 +4725,26 @@ rule was), `src/html/tab-rotation.html` (the order), `page.js` header comment.
 until someone touches it — a column that looks complete is believed complete.
 Let secondary columns scroll with the page, and put the thing that needs an
 answer where the page starts, not at the bottom of a column.*
+
+## แลก Rotation: "KKU Mail: -" on every off-criteria ask — the page read a field the RPC never sends
+
+**Symptom (review, 2026-10-30).** The ช่องทางติดต่อนอกรอบ block in the
+off-criteria ask sheet showed `KKU Mail: -` for every classmate — for the 84 of
+161 who have no contact filled in, the only way to reach them.
+
+**Cause.** `page.js` printed `t.kkumail`; `rotation_board()` has never carried
+an address. `undefined || '-'` rendered a plausible "nobody has one".
+
+**Fix (0265, c3c602e).** `rotation_contact_email(round, student)` returns ONE
+address — same-gender classmates on the published roster, and rotation admins
+— fetched when the sheet opens; the hot board is untouched. Proof
+`rotation0265-contact-email.sql` 11/11 on both projects (red on 12–13 without
+the gender check).
+
+**Where it lives now.** `page.js` (`ask-off-criteria`), `practice.js`
+(pretend addresses), `model.test.js` (page.js reads no `.kkumail` off the
+board).
+
+**The general rule**: *a `|| '-'` fallback makes a field the server never
+sends look like an empty value. Before rendering `x.field`, grep the RPC that
+built `x` for that key.*

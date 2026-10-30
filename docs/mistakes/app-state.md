@@ -1589,3 +1589,39 @@ pinned by a test.
 states — when a row is kept open on purpose, every list that asks "what needs
 doing" must say why it is open, or it re-asks a question already answered.*
 Fixing the page is half: grep for the other readers of the same population.
+
+## แลก Rotation: "โหลดข้อมูลไม่สำเร็จ · signal is aborted without reason" for everyone — and the safeguard that would have repeated it
+
+**Symptom (owner, 2026-10-24 ~21:00, round open).** "that makes the web crash
+everyone can't use it" — /rotation showed `โหลดข้อมูลไม่สำเร็จ · signal is
+aborted without reason` (dbRest's 15 s timeout), and the rest of the site
+slowed with it.
+
+**Cause.** Every write pings `rotation_events`, and EVERY open page re-reads
+`rotation_board()` on the ping. The board cost ~2 s of database time (a
+per-student scan of `users` by email, wishes and `swaps_live` per row), so one
+burst from the cohort queued past 15 s in PostgREST's small pool — the pool the
+whole site shares.
+
+**Fix 1 (0258, 2026-10-24).** Set-based board, same output: ~2,035 ms → ~6 ms
+on production. **Fix 2 was a regression (c2c5adb).** To stop the board blanking
+on a blip, a failed background read re-ran `load()` on a FIXED 2–4 s timer, for
+ever, silently showing the old board. That is the outage's own shape: when the
+server is the thing failing, every page fails together and retries together, so
+the client keeps a struggling server at ~1 read / 3 s / page. It went live for
+real ~13 minutes on 2026-10-26, when the first 0262 broke `rotation_board()`
+for everyone (`postgres-schema.md`). **Fix 3 (c3c602e, 2026-10-30).**
+`retryDelayMs`: 3 s, doubling to the 60 s poll, ±25% jitter, one retry pending
+at a time; the status bar says "เชื่อมต่อไม่ได้ชั่วคราว ข้อมูลอาจไม่ล่าสุด ·
+กำลังลองใหม่" until a read succeeds. Measured in the browser smoke with the
+board's fetch failing: 3 reads in 21 s (the fixed timer: 7).
+
+**Where it lives now.** `src/js/rotation/model.js` (`retryDelayMs`),
+`page.js` `load()`; `model.test.js` pins the schedule and that `load()` uses
+it; `tools/browser/rotation-page.mjs` fails the board and counts the reads.
+
+**The general rule**: *a retry is load on the thing that just failed. When
+every client shares the failure (one server), a fixed short retry turns an
+outage into a sustained one — back off, jitter, and say the data is stale
+instead of hiding it.* Test the retry against a failure EVERY client sees at
+once, not one flaky phone.

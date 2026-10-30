@@ -193,6 +193,32 @@ try {
   await view('mine');
   await shot('desktop-after-live.png');
 
+  // ── 0265: a classmate's kkumail through the API, as a signed-in student ──
+  const [fem] = await sql(`select id::text from public.rotation_students where round_id = ${lit(ROUND)} and gender = 'F' limit 1`);
+  const mail = await ev(`const { dbRest } = await import('/src/js/db.js');
+    const one = async (id) => (await dbRest('/rpc/rotation_contact_email', { method: 'POST', body: { p_round: '${ROUND}', p_student: id } })).data;
+    const b = await one('${pair.b_id}'); const f = await one('${fem.id}');
+    return (b?.kkumail === ${JSON.stringify(B.email)}) + '/' + (f?.reason || JSON.stringify(f))`);
+  say('0265: A reads same-gender B\'s kkumail, not a woman\'s', mail, mail === 'true/not_eligible');
+
+  // ── a failed background read: keep the board, say so, back off, recover ──
+  await ev(`window.__realFetch = window.fetch; window.__boardTries = 0;
+    window.fetch = (u, o) => { if (String(u).includes('/rpc/rotation_board')) { window.__boardTries += 1; return Promise.reject(new TypeError('probe: offline')); }
+                               return window.__realFetch(u, o); };
+    document.dispatchEvent(new Event('visibilitychange')); await new Promise(r=>setTimeout(r,1500)); return 1`);
+  const staleNow = await ev(`return !!document.querySelector('#rotStatus .rot-pill.is-stale') + '/' + document.getElementById('rotMain').hidden
+    + '/' + document.querySelector('.rot-me-group-letter')?.textContent`);
+  say('board read fails: the old board stays and the status says so', staleNow, staleNow === `true/false/${pair.a_group}`);
+  await shot('desktop-stale.png', false);
+  await sleep(20000);
+  const tries = await ev(`return window.__boardTries`);
+  // backoff: the trigger + ~3 s + ~9 s (+ ~21 s at the edge) — the old fixed 2–4 s timer made 6–10
+  say('… and backs off: board reads in 21 s while failing', String(tries), tries >= 2 && tries <= 4);
+  await ev(`window.fetch = window.__realFetch; document.dispatchEvent(new Event('visibilitychange')); await new Promise(r=>setTimeout(r,2500)); return 1`);
+  const healed = await ev(`return !!document.querySelector('#rotStatus .rot-pill.is-stale') + '/' + !!document.querySelector('#rotStatus .rot-live-dot')`);
+  say('… and the warning goes once a read succeeds', healed, healed === 'false/true');
+  errs.length = 0;   // the probe's own rejected fetches are not page bugs
+
   // ── iPad landscape: one page scroll, nothing hidden inside the left column ─
   await size(1180, 820, true);
   await send('Page.reload'); await sleep(5000);
@@ -220,6 +246,14 @@ try {
       + (select count(*) from public.rotation_wishes w join public.rotation_students s on s.id = w.student_id where s.round_id = ${lit(ROUND)}) n`))[0].n;
   const writesBefore = await countWrites();
   await ev(`document.getElementById('rotPracticeBtn').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+  // the off-criteria sheet fills in the classmate's KKU Mail (0265; practice answers with a pretend one)
+  await view('groups');
+  const offMail = await ev(`const b = document.querySelector('#rotViewGroups [data-rot-act="ask-off-criteria"]'); if (!b) return 'no off-criteria button';
+    b.click(); await new Promise(r=>setTimeout(r,900));
+    const t = document.querySelector('#rotSheet [data-rot-mail]')?.textContent || 'no mail line';
+    document.querySelector('#rotSheet [data-bs-dismiss="modal"]').click(); await new Promise(r=>setTimeout(r,600)); return t`);
+  say('off-criteria sheet shows the classmate\'s KKU Mail', offMail, /@kkumail\.com$/.test(offMail));
+  await view('mine');
   await ev(`document.querySelector('#rotPractice [data-scene="many_ask_me"]').click(); await new Promise(r=>setTimeout(r,800)); return 1`);
   const offers = await ev(`return document.querySelectorAll('#rotAlert .rot-offer').length`);
   say('practice: three offers at once in the banner', String(offers), offers === 3);
