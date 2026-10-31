@@ -1,16 +1,10 @@
 /* org-chart.css — the public โครงสร้างองค์กร section inside เกี่ยวกับเรา (#pills-about).
  *
- * DIRECTION. TWO surfaces over one dataset, and this file styles one of them:
- *
- *   แผนผัง  the PAGE — ฝ่าย panels that nest and reflow. Everything below the
- *           masthead in this file. No canvas, no panning, no horizontal
- *           scrollbar at any width.
- *   ผังรวม  the CANVAS — one d3 chart with connector lines and pan/zoom. Lives
- *           in org-graph.css.
- *
- * รายการ and ผังองค์กร were removed with their stylesheets; the note above the
- * แผนผัง block says what the old connector-tree layout cost and why flow
- * replaced it.
+ * DIRECTION. Since 2026-10-31 the page shows ONE view, ภาพรวม (org-overview.css).
+ * This file holds the masthead and the ฝ่าย PANELS — once the แผนผัง view, now
+ * the body of the sheet a ภาพรวม tile opens. ผังสายงาน, แผนผัง-as-a-view and the
+ * ผังรวม canvas were removed with their stylesheets (git history); the note
+ * above the panel block says why flow replaced a connector-tree layout.
  *
  * ONE PERSON-CARD, everywhere: a 3:4 portrait above the name and ชื่อเล่น. The
  * 3:4 here and PORTRAIT_RATIO in uploads.js are ONE decision written in two
@@ -31,8 +25,7 @@
  */
 
 .org-page {
-  /* org-graph.css draws its connector strokes with this; it is declared here
-     because both surfaces live under .org-page. */
+  /* ภาพรวม's hairlines (org-overview.css) read this. */
   --org-spine: var(--ink-200);
   --org-tint: var(--brand-primary);
   max-width: 1080px;
@@ -175,7 +168,7 @@
 
 
 /* THE TINT ARRIVES INLINE, as `style="--org-tint: …"`, set by org-chart.js and
-   org-graph.js from `tintColor()`. There used to be twenty rules here mapping
+   org-overview.js from `tintColor()`. There used to be twenty rules here mapping
    `[data-tint="digital"]` → `var(--dept-digital)`, one per palette entry — a
    stylesheet that could only express the ten colours somebody had written a
    rule for. An admin can now choose any colour per ฝ่าย (0152), so the value
@@ -201,9 +194,7 @@
    within a panel everything FLOWS: ตำแหน่ง wrap along a row, sub-ฝ่าย pack into
    an auto-fill grid. Flow has no ragged-column failure mode, reflows from four
    columns to one without a media query per level, and never needs a horizontal
-   scrollbar. The connector-line picture is not lost; it is ผังรวม, which is a
-   pan/zoom canvas because that is the only place a 296-node tree of lines is
-   readable.
+   scrollbar. (A connector-line canvas existed as ผังรวม until 2026-10-31.)
 
    THE THREE RANKS A READER SEES, in order of weight:
      1. root ฝ่าย   a white panel with a tinted title rail — the index.

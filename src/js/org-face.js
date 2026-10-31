@@ -1,11 +1,9 @@
 // org-face.js — the ONE way a person's face is drawn on the ทีม SAMO page.
 //
-// Extracted because there are TWO surfaces over the same dataset — แผนผัง (the
-// page) and ผังรวม (the d3 canvas) — and they shared this code only by sitting
-// in the same file. `.claude/rules/mistakes.md` class 6 is "two implementations of
-// one rule drift"; a second copy of the srcset/initials logic in org-graph.js
-// would have been exactly that, and the drift would have been silent — a wrong
-// `sizes` hint just downloads the wrong file.
+// Extracted when two views (the panels and a d3 canvas) shared it — a second
+// copy of the srcset/initials logic would have drifted silently, since a wrong
+// `sizes` hint just downloads the wrong file. Since 2026-10-31 only ภาพรวม
+// draws faces; the canvas and its GRAPH_SHAPE (zoomed portraits) are gone.
 //
 // Initials are ALWAYS rendered, with the photo layered over them. A Drive link
 // can rot (file unshared, moved, deleted) and an <img alt=""> that fails to load
@@ -28,10 +26,9 @@ export function initials(name) {
 
 // The shapes a face appears in, and the exact widths lh3 is asked for.
 //
-// This split is the whole point of the srcset: a แผนผัง portrait renders at 52
-// CSS px and a ผังรวม card portrait at 44 under up to 3× zoom, so handing the
-// small one the big file would waste bytes across 448 people. Widths cover 1×
-// through 3×; the browser downloads exactly one per image using `sizes`.
+// A portrait renders at a fixed CSS width, so handing it a bigger file would
+// waste bytes across 448 people. Widths cover 1× through 3×; the browser
+// downloads exactly one per image using `sizes`.
 
 /**
  * แผนผัง — the page. A 52px-wide 3:4 portrait with the name BESIDE it, not
@@ -54,44 +51,6 @@ export const TREE_SHAPE = {
   widths: [52, 104, 156],
   sizes: '52px',
   base: 104,
-};
-
-/**
- * ผังองค์กร — the d3 chart's node cards. Fixed px, never fluid, because the card
- * is laid out in SVG user units at a known width.
- *
- * `sizes` IS DELIBERATELY LARGER THAN THE BOX (88px hint for a 44px portrait),
- * and that is a fix, not a typo.
- *
- * REPORTED: "when zoom picture also bug". The chart lives on a zoom/pan canvas,
- * so a card can be magnified several times over. But `srcset` is resolved ONCE,
- * from the element's CSS LAYOUT size — and an SVG transform never changes that,
- * it only scales the painted result. Measured on the live page: six zoom-in
- * steps grew the portrait's box from 26×35 to 125×167 while `naturalWidth`
- * stayed 34 and `currentSrc` never changed — the bitmap was stretched 3.7× past
- * its pixel data. The browser will not re-pick a candidate for you here.
- *
- * So the hint has to buy the zoom headroom up front, and the arithmetic is
- * exactly:
- *
- *     sizes = <portrait CSS width> × <max zoom>  =  44 × 3  =  132px
- *
- * with candidates at 1×/2×/3× that for DPR 1, 2 and 3. The zoom ceiling in
- * org-graph.js (`scaleExtent`) is the other half of this: with unbounded zoom no
- * source size is ever enough, so neither number means anything alone. A first
- * attempt used 88px (box × 2) and measured 0.67× at full zoom on a retina
- * screen — still soft, which is why the multiplier has to be the ACTUAL cap.
- *
- * `org-graph-metrics.test.js` asserts this relationship against the CSS width
- * and the real `scaleExtent`, so changing the zoom cap without changing this
- * fails rather than quietly going blurry again.
- */
-export const GRAPH_SHAPE = {
-  cls: 'org-face',
-  ratio: PORTRAIT_RATIO,
-  widths: [132, 264, 396],
-  sizes: '132px',
-  base: 264,
 };
 
 /**

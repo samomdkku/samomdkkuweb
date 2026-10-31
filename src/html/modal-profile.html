@@ -1,6 +1,8 @@
   <!-- Profile modal — edit display name, manage email + password +
-       Google linking. Wired by src/js/profile.js. Opened from the user
-       dropdown via onclick="samoOpenProfile()". The same modal serves
+       Google linking. Wired by src/js/profile.js. ADMIN ONLY since
+       2026-10-31 (the public site edits the same fields inline on /me,
+       tab-me.html — same ids, profile-markup.test.js); opened from the admin
+       sidebar via onclick="samoOpenProfile()". The same modal serves
        every account shape (password-only, Google-only, both) — sections
        hide / change copy based on the current identities. -->
   <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">

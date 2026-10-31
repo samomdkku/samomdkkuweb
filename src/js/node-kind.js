@@ -10,8 +10,7 @@
 //
 // So: a node is either a UNIT (ฝ่าย) or a SEAT (ตำแหน่ง), and that distinction
 // now CARRIES WEIGHT — the public chart orders siblings by it and the
-// "แสดงถึง" rungs are defined in terms of it. See org-chart.js `sortSiblings`
-// and org-graph.js `applyRung`.
+// "แสดงถึง" rungs are defined in terms of it. See org-rung.js `orderChildren`.
 //
 // `department` is still ACCEPTED on read and folded into ฝ่าย. Migration 0151
 // rewrote every live and archived row, but a browser holding the previous

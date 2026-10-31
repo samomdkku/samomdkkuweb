@@ -207,9 +207,7 @@ function computeFilter(qRaw) {
   if (!q) return null;
   const keepNodes = new Set();
   const keepMembers = new Set();
-  // From byParent — the STORED parentage, which is what แผนผัง draws. ผังรวม
-  // re-parents, so it widens this result itself rather than making แผนผัง keep
-  // an ancestor only the canvas needs (`chartFilter`).
+  // From byParent — the STORED parentage, which is what the panels draw.
   const parentOf = new Map();
   for (const [k, kids] of byParent) for (const n of kids) parentOf.set(n.id, k);
   const markUp = (id) => {
@@ -260,8 +258,7 @@ function highlight(text, q) {
 //
 // A panel lays its contents out in two bands: one row per ระดับ of its own
 // seats, then a grid of its sub-ฝ่าย. That is the ordering `orderChildren`
-// returns, which is the SAME ordering ผังรวม draws — see the note there on why
-// one rule in two geometries beats one geometry that fits neither.
+// returns — the one ordering every org list reads.
 //
 // ── why every card is the SAME SIZE ─────────────────────────────────────────
 //

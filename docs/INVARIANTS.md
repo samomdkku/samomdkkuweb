@@ -285,17 +285,18 @@ Each was settled with the owner; the reasoning is in the archive file named.
 - **The sign-in modal's copy is settled after SIX reports.** Read the entry in
   `docs/mistakes/frontend-ui.md` BEFORE touching it; guarded by
   `signin-screen.test.js`. No email domain anywhere in the modal, ever.
-- **The org chart: the owner's asks are about ผังรวม**; they explicitly do not
-  want แผนผัง reworked.
+- **The org chart is ONE view, ภาพรวม, since 2026-10-31** — the owner removed
+  ผังสายงาน, แผนผัง and ผังรวม. No view switcher without asking.
 
 ### 1b. The public org chart (`/team`)
 
-**Fully archived — read `docs/state-archive/2026-08-15-late-org-chart-reporting.md`
-before touching any of the four views.** The two rules that get rediscovered
-the hard way: **FOUR views, TWO parentages** (รายการ+แผนผัง draw CONTAINMENT,
-ผังองค์กร+ผังรวม draw REPORTING — do NOT unify them, that is what made แผนผัง
-a 52,000px staircase), and **"แสดงถึง" is a KIND, not a depth**. Display rules
-live in `src/js/org-rung.js`, guarded by `org-rung.test.js`.
+**One view since 2026-10-31: ภาพรวม** (`org-overview.js` + `org-sheet.js`; the
+sheet's body is แผนผัง's old panel markup). History of the removed views:
+`docs/state-archive/2026-08-15-late-org-chart-reporting.md`. Rules that still
+hold: every list reads `orderChildren()`; **"แสดงถึง" is a KIND, not a depth**;
+if a reporting-tree view ever returns, do NOT apply its parentage to the
+panels (that made แผนผัง a 52,000px staircase). Display rules live in
+`src/js/org-rung.js`, guarded by `org-rung.test.js`.
 
 ### 2. Invariants that will bite you
 

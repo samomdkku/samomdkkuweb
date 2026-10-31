@@ -13,8 +13,6 @@
 //                      260, 390] from the old portrait-above-name column, and
 //                      the box is now 52px.
 //
-// Its twin for the canvas view lives in `org-graph-metrics.test.js`, which
-// carries the zoom arithmetic. This file is the same contract for the page.
 //
 // TO CHECK THIS GUARD ACTUALLY GUARDS: change `width: 3.25rem` to `4rem` in
 // org-chart.css, or drop 104 from TREE_SHAPE's widths, and watch one assertion
