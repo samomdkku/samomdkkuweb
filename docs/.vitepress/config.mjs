@@ -120,7 +120,7 @@ export const SIDEBAR = [
   },
   {
     text: 'Reference',
-    files: ['VERSIONING.md', 'MERGE-CHECKLIST.md', 'SELF-HOST.md', 'SUCCESSION.md'],
+    files: ['VERSIONING.md', 'MERGE-CHECKLIST.md', 'SELF-HOST.md', 'SUCCESSION.md', 'BRAND-ASSETS.md'],
   },
   {
     text: 'Maintainer & agent notes',
