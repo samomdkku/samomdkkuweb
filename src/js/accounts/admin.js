@@ -53,8 +53,7 @@ let ticker = null;
 let loading = false;
 let failed = false;
 // 'กิจกรรม' filter (0232's p_samo_year_be) — ALL_YEARS = unscoped, the
-// original 0211 behaviour. Not loaded yet = null; fetched once in wire().
-let samoYears = null;
+// original 0211 behaviour.
 let acctYearValue = ALL_YEARS;
 
 const fmt = (n) => Number(n || 0).toLocaleString('th-TH');
@@ -532,7 +531,6 @@ function wire() {
   // uses, never a hand-rolled one (class 6). Fetched once; failure just
   // leaves the picker on "ทุกปี" (the dashboard's original, unscoped shape).
   fetchSamoYears().then((years) => {
-    samoYears = years;
     const sel = $('acctYear');
     if (!sel) return;
     sel.innerHTML = `<option value="${ALL_YEARS}">ทุกปี</option>` + samoYearOptionsHtml(years, null);

@@ -440,8 +440,10 @@ export async function submitUserRemark() {
   const text = document.getElementById('userRemarkInput').value.trim();
   if (!text) return;
   const btn = document.querySelector('#userRemarkBox .btn-outline-danger');
+  const alertBox = document.getElementById('userRemarkAlert');
   const ogText = btn.innerHTML;
   btn.innerHTML = 'กำลังส่ง...'; btn.disabled = true;
+  alertBox?.classList.add('d-none');
 
   try {
     // vs_add_submitter_remark (0096). The old path was read-modify-write from
@@ -461,7 +463,16 @@ export async function submitUserRemark() {
     }
     document.getElementById('userRemarkInput').value = '';
     loginToViewHistory();
-  } catch (e) { alert('ส่งข้อความไม่สำเร็จ: ' + (e.message || e)); }
+  } catch (e) {
+    // Was a native alert() — silent after a few dialogs (Chrome's "prevent
+    // additional dialogs" checkbox), and the typed reply would look like it
+    // vanished with no explanation. An inline box next to the textarea is
+    // always visible and never goes mute.
+    if (alertBox) {
+      alertBox.textContent = 'ส่งข้อความไม่สำเร็จ: ' + (e.message || e);
+      alertBox.classList.remove('d-none');
+    }
+  }
   finally { btn.innerHTML = ogText; btn.disabled = false; }
 }
 

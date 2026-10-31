@@ -65,12 +65,6 @@
 //     rule, and the very fault being repaired).
 // ============================================================
 import { readFileSync } from 'node:fs';
-// IMPORTED, never re-implemented. The first draft of this file hand-wrote a
-// slugify beside the real one and got it wrong in every respect — the real one
-// lower-cases, KEEPS Thai, and collapses everything else to '-'. A wrong path
-// would have listed (or asked GAS to walk toward) the wrong folder. data.js has
-// no imports of its own, so Node loads it directly: one home for the rule.
-import { buildDocFolderPath } from '../src/js/projects/data.js';
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');

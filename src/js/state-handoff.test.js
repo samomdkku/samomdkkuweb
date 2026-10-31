@@ -62,6 +62,10 @@ function namedPaths(md) {
  * exemption is how a real broken pointer gets parked here and forgotten.
  */
 const ABSENT_ON_PURPOSE = {
+  'tools/security0236-login-flow-probe.mjs':
+    "WITHDRAWN in review (2026-10-31), never arriving. The night agent's 0236 approach was rejected and its files were not merged; docs/state/night-agent.md is the agent's own notes (carries a review note saying so), so an exemption rather than an edit.",
+  'tools/security0236-username-lookup-hardening.sql':
+    "WITHDRAWN in review (2026-10-31), never arriving. The night agent's 0236 approach was rejected and its files were not merged; docs/state/night-agent.md is the agent's own notes (carries a review note saying so), so an exemption rather than an edit.",
   'src/js/house/year-sheet-csv.js':
     'SUPERSEDED, not pending. It existed only on the night agent\'s 2026-09-15-night1 branch; the 2026-09-17 branch that LANDED on main (2026-09-18) rebuilt the same job differently — the CSV logic went into tools/house-year-sheets.mjs itself, the self-claim cases into house/api.test.js + house/my-house.test.js. So this path is never arriving. It is still named by docs/state/phuriphatma.md, one person\'s session notes, never rewritten by anyone else — hence an exemption rather than an edit.',
   'src/js/house/self-claim.test.js':

@@ -115,7 +115,10 @@ describe('every picked file is either held or read in its own handler', () => {
     'src/js/projects/send.js':    { n: 2, kind: 'held' },      // stageFiles
     'src/js/dept-page-admin.js':  { n: 1, kind: 'held' },      // `pending` map
     'src/js/house/index.js':      { n: 2, kind: 'held' },      // house icon; CSV is .text() at once
-    'src/js/shop/admin.js':       { n: 6, kind: 'held' },      // batch + product image; QR/banner at once
+    'src/js/shop/admin-batches.js':  { n: 1, kind: 'held' },      // batch image
+    'src/js/shop/admin-products.js': { n: 1, kind: 'held' },      // product image strip
+    'src/js/shop/admin-catalog.js':  { n: 2, kind: 'immediate' }, // QR settings + QR editor, uploaded at once
+    'src/js/shop/admin-banners.js':  { n: 2, kind: 'immediate' }, // banner, uploaded at once
     'src/js/my-seat.js':          { n: 1, kind: 'immediate' }, // cropImage
     'src/js/team/index.js':       { n: 2, kind: 'immediate' }, // cropImage; import .text()
     'src/js/team/terms.js':       { n: 1, kind: 'immediate' }, // onArchivePhoto → cropImage

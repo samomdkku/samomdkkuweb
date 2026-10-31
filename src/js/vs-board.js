@@ -313,6 +313,7 @@ function renderProblemDetail(p) {
            <i class="bi bi-chat-left-dots me-1"></i>ร่วมแสดงความคิดเห็น
            <span class="text-muted fw-normal">(ไม่แสดงชื่อจริง)</span>
          </label>
+         <div id="vsCommentAlert" class="alert alert-danger small mb-2 d-none" role="alert"></div>
          <textarea id="vsCommentInput" class="form-control form-control-sm" rows="2" maxlength="2000"
            placeholder="เล่ารายละเอียดที่คุณเจอ หรือแสดงความคิดเห็น..."></textarea>
          <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
@@ -411,7 +412,17 @@ export async function vsBoardMeToo(id, btn) {
     method: 'POST', body: { p_canonical: id },
   });
   btn.disabled = false;
-  if (error) { return; }
+  if (error) {
+    // Used to just `return` — a tap that silently does nothing reads as "did
+    // my tap even register?", and nothing on screen ever answered that. The
+    // button itself never changes (is-on, the count) on this path, by
+    // design — only a sighted+hearing-nothing visitor would otherwise have
+    // zero signal the action failed.
+    announce('บันทึก "เจอเหมือนกัน" ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    btn.classList.add('is-error');
+    setTimeout(() => btn.classList.remove('is-error'), 1500);
+    return;
+  }
   const count = Array.isArray(data) ? data[0] : data; // scalar RPC → number
   btn.classList.toggle('is-on', !on);
   const icon = btn.querySelector('i');
@@ -437,6 +448,8 @@ export async function vsPostComment(id) {
   const body = (input?.value || '').trim();
   if (!body) return;
   const btn = document.querySelector('.vs-comment-composer .btn-submit');
+  const alertBox = document.getElementById('vsCommentAlert');
+  alertBox?.classList.add('d-none');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
   const staffOnly = document.getElementById('vsCommentStaffOnly')?.checked === true;
   const { error } = await dbRest('/rpc/vs_post_public_comment', {
@@ -444,8 +457,17 @@ export async function vsPostComment(id) {
   });
   if (error) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>ส่งความคิดเห็น'; }
+    // Was a native alert() — goes SILENT once Chrome's "prevent this page
+    // from creating additional dialogs" is ticked, which a rate-limited
+    // commenter retrying a few times reaches easily. The typed comment is
+    // left in the textarea either way (no `input.value = ''` on this path),
+    // so nothing is lost — but the visitor needs to be TOLD that, or a
+    // retry looks like a double-post about to happen.
     const m = pgMsg(error);
-    alert(/บ่อยเกินไป|ความยาว/.test(m) ? m : 'ส่งความคิดเห็นไม่สำเร็จ');
+    if (alertBox) {
+      alertBox.textContent = /บ่อยเกินไป|ความยาว/.test(m) ? m : 'ส่งความคิดเห็นไม่สำเร็จ';
+      alertBox.classList.remove('d-none');
+    }
     return;
   }
   vsBoardOpen(id); // reload the thread
@@ -461,6 +483,19 @@ function pgMsg(error) {
 function promptSignin() {
   const el = document.getElementById('signinModal');
   if (el && window.bootstrap?.Modal) window.bootstrap.Modal.getOrCreateInstance(el).show();
+}
+
+// Screen-reader announcement for an action with no other visible outcome
+// (vsBoardMeToo's failure path has nothing else to point at — the button's
+// own state never changes when the call fails). Cleared first so the exact
+// same message re-announces on a second, identical failure — aria-live only
+// speaks on a CHANGE, and setting the same text twice in a row is a no-op.
+function announce(text) {
+  const el = document.getElementById('vsBoardAnnounce');
+  if (!el) return;
+  el.textContent = '';
+  void el.offsetHeight; // force a reflow so AT sees the next line as a change
+  el.textContent = text;
 }
 
 // ---- tiny view helpers ----

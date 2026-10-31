@@ -16,7 +16,7 @@ import { listMyOrders, listActiveBatches, getSettings, addOrderSlip, removeOrder
 import { ensureProductsLoaded, getProductMap } from './cart.js';
 import { uploadShopFile, deleteShopFile, slipFolderForNow, SLIP_MAX_EDGE, prepareSlip } from './uploads.js';
 import { showShopToast } from './products.js';
-import { showOrderQrModal } from './qr.js';
+import { showOrderQrModal } from './qr-order.js';
 
 const state = {
   orders: [],

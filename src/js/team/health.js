@@ -35,7 +35,7 @@ import { updateMember } from './api.js';
 // The rules themselves are pure and shared with the public ตำแหน่งของฉัน card;
 // re-exported so every existing importer of health.js keeps working.
 import {
-  IDENTITY_FIELDS, findIssues, idsOf, KIND_LABEL, issuesByMember, issueCount,
+  IDENTITY_FIELDS, findIssues, idsOf, issuesByMember, issueCount,
 } from './identity.js';
 export { IDENTITY_FIELDS, findIssues, idsOf, issuesByMember, issueCount };
 import { askConfirm } from '../confirm-modal.js';

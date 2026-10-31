@@ -98,6 +98,62 @@ function isSamoYearSegment_(s) {
   return n >= 2500 && n <= 2700;
 }
 
+// ============================================================
+// Upload limits — HOW BIG, per top folder.
+//
+// NIGHT-AGENT WORK (task 15, 2026-10-20), changed in the owner-session review
+// (2026-10-31). Every number matches or exceeds the ALREADY-SHIPPED client
+// check for that path (pr-form.js 35MB, shop admin 8MB picks / 5MB banner+QR,
+// slips 5MB, team portraits downscaled to ~3MB) — a BACKSTOP against a caller
+// that skips the browser (curl, a scraped /exec URL), never a new restriction
+// on a real user. Computed from the base64 length BEFORE anything is decoded
+// or any folder is created.
+//
+// ⛔ NO FILE-TYPE ALLOW-LIST HERE — the draft had one and review removed it:
+//   - it refused real uploads: a ฝ่าย page's cover VIDEO goes through
+//     uploadPRFile (dept-page-admin.js), and a browser reports an EMPTY type
+//     for HEIC photos and some .docx/.csv — all would have failed after a
+//     GAS deploy;
+//   - it protected nothing: the type is whatever the CALLER says, so a curl
+//     caller just labels anything `image/png`.
+// A check that blocks real people and no attacker is worse than none. The
+// one handler that DOES check a type (handleUploadArchiveFile's exact
+// json/csv test) had it before this block and keeps it.
+// ============================================================
+var UPLOAD_LIMITS = {
+  PR:      { maxBytes: 35 * 1024 * 1024 },
+  SHOP:    { maxBytes: 10 * 1024 * 1024 },
+  TEAM:    { maxBytes: 10 * 1024 * 1024 },
+  PROJECT: { maxBytes: 35 * 1024 * 1024 },
+  ARCHIVE: { maxBytes: 50 * 1024 * 1024 },
+};
+
+/** Decoded byte size of a base64 string, without actually decoding it (the
+ *  point — a caller claiming a huge file should be rejected before this
+ *  script spends memory materialising the bytes). */
+function estimateDecodedBytes_(base64) {
+  var s = String(base64 || '');
+  if (!s.length) return 0;
+  var padding = 0;
+  if (s.charAt(s.length - 1) === '=') padding++;
+  if (s.charAt(s.length - 2) === '=') padding++;
+  return Math.floor(s.length * 3 / 4) - padding;
+}
+
+/** Checked BEFORE any Drive call: an empty payload or one over the size cap is
+ *  refused with no folder created and no file written. Returns null when the
+ *  upload may proceed, else a user-facing refusal message. */
+function checkUploadLimits_(data, limits) {
+  var base64Data = String((data && data.fileData) || '').split(',')[1] || '';
+  var bytes = estimateDecodedBytes_(base64Data);
+  if (bytes <= 0) return 'file is empty';
+  if (bytes > limits.maxBytes) {
+    return 'file is ' + Math.ceil(bytes / 1024 / 1024) + 'MB, over the ' +
+      Math.floor(limits.maxBytes / 1024 / 1024) + 'MB limit here';
+  }
+  return null;
+}
+
 /** Does `path` STOP at a SAMO-year container (`Projects/2569`)? Such a folder
  *  holds every year-layout โครงการ of that year, so the public folder handlers
  *  treat it like the `Projects` root itself: never trashed, never shared —
@@ -465,6 +521,8 @@ function doPost(e) {
 
 function handleUploadPRFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.PR);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     var folder;
     if (path) {
@@ -595,6 +653,8 @@ function handleDeletePRFile(data) {
 
 function handleUploadShopFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.SHOP);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
@@ -630,6 +690,8 @@ function handleUploadShopFile(data) {
 
 function handleUploadTeamFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.TEAM);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });
@@ -682,6 +744,12 @@ function handleUploadArchiveFile(data) {
     var mime = String(data.mimeType || '');
     if (mime !== 'application/json' && mime !== 'text/csv') {
       return createResponse({ success: false, message: 'mimeType must be application/json or text/csv' });
+    }
+    var base64Data0 = String(data.fileData || '').split(',')[1] || '';
+    var bytes0 = estimateDecodedBytes_(base64Data0);
+    if (bytes0 > UPLOAD_LIMITS.ARCHIVE.maxBytes) {
+      return createResponse({ success: false, message: 'file is ' + Math.ceil(bytes0 / 1024 / 1024) + 'MB, over the ' +
+        Math.floor(UPLOAD_LIMITS.ARCHIVE.maxBytes / 1024 / 1024) + 'MB limit here' });
     }
 
     var folder = getOrCreateFolderPath_(path);
@@ -1006,6 +1074,8 @@ function walkProjectsPathByCode_(path) {
 
 function handleUploadProjectFile(data) {
   try {
+    var limitErr = checkUploadLimits_(data, UPLOAD_LIMITS.PROJECT);
+    if (limitErr) return createResponse({ success: false, message: limitErr });
     var path = String(data.folderPath || '').trim();
     if (!path) return createResponse({ success: false, message: 'folderPath is required' });
     if (path.indexOf('..') !== -1) return createResponse({ success: false, message: 'invalid path' });

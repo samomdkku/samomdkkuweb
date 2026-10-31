@@ -23,7 +23,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-const SRC = readFileSync(new URL('./admin.js', import.meta.url), 'utf8');
+// ensureMounted (the mount-time wiring) lives in admin.js; openOrderModal
+// (the per-open repaint) moved to admin-orders.js in the task-19 split —
+// concatenated so functionBody() below can find either by name.
+const SRC = readFileSync(new URL('./admin.js', import.meta.url), 'utf8')
+  + '\n' + readFileSync(new URL('./admin-orders.js', import.meta.url), 'utf8');
 // Comment lines stripped, same as my-house.test.js, so a test for the
 // pattern doesn't fire on this file's OWN header describing it.
 const CODE = SRC.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');

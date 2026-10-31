@@ -37,7 +37,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import {
   parseStudentsCsv, toUpsertRow, toUnresolvedRow, saiCodesToSeed,
-  diffAgainstExisting, IMPORT_OWNED_COLUMNS,
+  diffAgainstExisting,
 } from '../src/js/house/io.js';
 import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
@@ -119,7 +119,6 @@ const report = existsSync(reportPath) ? readFileSync(reportPath, 'utf8') : null;
 
 // ── the transaction, in the pane's order ────────────────────────────────────
 const CHUNK = 200;
-const upsertCols = [...IMPORT_OWNED_COLUMNS, 'last_import_batch', 'missing_since'];
 const rowsSql = result.rows.map((r) => toUpsertRow(r, null, result.presentColumns));
 const chunks = [];
 for (let i = 0; i < rowsSql.length; i += CHUNK) chunks.push(rowsSql.slice(i, i + CHUNK));

@@ -3925,3 +3925,37 @@ throws, naming git. Reintroducing the URL now fails as `git check-ignore failed
 **The general rule**: a guard's instrument that treats ITS OWN error as a
 legitimate answer is a guard that can be switched off by any input — make every
 unexpected instrument failure red, and say what failed.
+## dept0177 / team0135: two proofs red on production, both a SHAPE not a PROPERTY
+
+**Symptom (task 14, 2026-10-20).** `npm run proofs` on production showed
+`dept0177-page-scope.sql` and `team0135-name-split.mjs` red; both had been
+green when first written.
+
+**Cause.** Class 7, "assert the property, not the shape." `dept0177`'s §G
+counted every `dept_content` row for `dept = 'admin', kind = 'card'` and
+expected the seed's original 4 — but 0177 exists so a ฝ่าย can add its OWN
+cards through the self-service editor §A already proves works, and
+ฝ่ายบริหารองค์กร did exactly that on production: a real 5th card made the
+hardcoded count wrong for the reason the feature shipped. `team0135`'s A5–A7
+searched for a student+login+team_members triple that happened to already
+exist; on both samo-dev and production nothing currently satisfies all three
+at once, so the search came back empty and the proof went quietly dark on the
+one case it exists to protect (class 7's mirror: a search can go EMPTY as
+easily as it can go vacuously green).
+
+**Fix.** `dept0177` §70–72 now tracks the 4 seeded rows by the `href` the seed
+migration itself uses as its idempotency key, then reintroduces the exact
+event that broke the old count (an editor with blanket dept-page access adds
+a 5th card) and checks the new assertion does not move — 25/25 on samo-dev.
+`team0135` A5–A7 stop searching for a coincidental triple and MANUFACTURE the
+subject: `update_my_identity`/`get_my_team_seat` resolve "self" purely through
+`public.users.email → students.kkumail / team_members.kkumail` (0145 §5/§6,
+no role branch), so any login can carry the subject's identity for the life
+of the rolled-back transaction — borrow another account's login, point its
+email at the real dual-placement person's kkumail, test, and let the
+rollback undo it — 16/16 on samo-dev. Neither has been re-run against
+production (this agent holds no production credential); both are drafts
+until that happens, per the proof-fidelity rule above.
+
+**Where it lives now**: `tools/dept0177-page-scope.sql` §G,
+`tools/team0135-name-split.mjs` A5–A7.

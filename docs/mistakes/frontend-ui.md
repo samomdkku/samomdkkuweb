@@ -4812,3 +4812,78 @@ reads the email row's computed `::before` (red with the rule restored).
 still matches — the hidden node is in the DOM, not in the layout. And verify
 optional rows in BOTH states: a test fixture that has every field shows only
 the full layout.*
+## The shared chunk every page downloads before paint carried a camera scanner nobody but admin uses, and `<head>` blocked on an editor only one tab opens
+
+**Symptom (speed sweep, 2026-10-20).** Vite's build warned about chunks over
+500 kB, which is normal noise — but the PUBLIC entry's `<link
+rel="modulepreload">` chunk (fetched on every page, before `main.js` finishes
+evaluating) measured **1,038 KB raw / 290 KB gzip**, and `index.html`'s
+`<head>` carried a render-blocking `<script src="https://cdn.quilljs.com/…">`
+on every route, including ones with no editor on the page at all.
+
+**Cause — two instances of the same shape, CLAUDE.md's own rule broken in
+practice**: *"Quill, d3-org-chart, GrapesJS — DYNAMIC IMPORT ONLY, never an
+entry bundle."* GrapesJS and d3-org-chart were correctly behind `import()`;
+two things were not.
+1. `shop/qr.js` held BOTH halves of "customer order QR", described in its own
+   header comment as two surfaces: `showOrderQrModal` (the lightweight
+   `qrcode` encoder, shown to every shop customer) and `openScannerModal`
+   (the `Html5Qrcode` camera engine, admin-only, already correctly behind
+   `await import('./qr.js')` in `admin.js`). `shop/orders.js` imported
+   `showOrderQrModal` **statically** — and a static import pulls the WHOLE
+   module, so `Html5Qrcode` (≈338 KB) rode along into the chunk every public
+   visitor's phone downloads, for a feature only staff use, reachable only
+   from `/admin/`.
+2. Quill is CDN-only here (not an npm dependency vite can split), so
+   "dynamic import" meant nothing until something injected the tags on
+   demand. Nothing did — `index.html` shipped the `<script>`/`<link>`
+   unconditionally in `<head>`, for an editor only the VitalSound REPORT tab
+   uses, which most visitors never open.
+
+Grepping a chunk's CONTENT for a library's name to catch this is unreliable:
+our OWN glue code legitimately references the library (`org-graph.js`
+destructures `const [{ OrgChart }] = await import('d3-org-chart')`, so the
+string `OrgChart` already appears in the public entry chunk in a CORRECT
+build). The reliable signal is the chunk GRAPH — whether the library's own
+chunk is referenced by the entry script or a `<link rel="modulepreload">`,
+not whether its name appears anywhere.
+
+**Fix.** Split `shop/qr.js` into the scanner (unchanged name, still only
+reached by `admin.js`'s dynamic import) and `shop/qr-order.js` (new; imports
+only `qrcode`), so `orders.js`'s static import stays static but light.
+`load-quill.js` injects Quill's `<script>`/`<link>` on first need, called
+from `main.js`'s `setupVsQuill`, wired to the VitalSound tab's
+`shown.bs.tab` event (fires on a real click AND on the boot-time route to
+`/vssound`, so a direct link still works). Measured after: the public
+entry's modulepreload chunk dropped to **698 KB raw / 188 KB gzip** (−33%
+gzip), and `index.html`'s `<head>` no longer blocks on a third-party script
+for a tab most visitors never open. `tools/check-bundle.mjs`
+(`npm run check:bundle`) now budgets both entries' first-load JS+CSS bytes
+and fails if GrapesJS's or d3-org-chart's own chunk is ever referenced
+eagerly — proved red by temporarily adding a static `import grapesjs from
+'grapesjs'` to `main.js` (gained a `grapes-*.js` modulepreload, +1.1 MB,
+over budget) and reverting.
+
+**Where it lives now**: `src/js/shop/qr.js` / `qr-order.js`,
+`src/js/load-quill.js`, `src/js/main.js` `setupVsQuill`,
+`tools/check-bundle.mjs`.
+
+**The general rule**: *a module that bundles two unrelated "surfaces" under
+one file, one light and one heavy, forces every importer of the light half
+to also import the heavy half — split by WEIGHT, not just by who currently
+calls it.* And when a dynamic-import boundary needs a guard, check the chunk
+GRAPH (is this chunk in the entry's modulepreload list?), never a string
+match inside chunk content — your own code legitimately names the library
+it dynamically imports.
+
+## A failure note written INTO the editor became part of the complaint
+
+**Symptom.** Found in review of the night agent's task 17 (2026-10-31), before it shipped: a VitalSound image insert that failed replaced its "กำลังอัปโหลดรูป…" placeholder with `แทรกรูปไม่สำเร็จ: <error>` *inside the Quill document*. A student who did not notice it submitted that line as part of their report. The same review found the lazy-load guard swallowed ส่ง with no message when Quill had not loaded (a stalled CDN request has no deadline, so "not loaded" could last for ever).
+
+**Cause.** The fix for a silent `alert()` chose the most visible place it could find, and that place was the user's own content. "Always visible" was the requirement written down; "never part of what is sent" was the one nobody wrote.
+
+**Fix.** Every editor outcome goes to `#vsEditorNote` under the editor (`vsEditorNote()` in `main.js`); the placeholder is removed and the typed text kept. The submit guard says so and retries the load; `load-quill.js` has a 20 s deadline and removes its tags on failure.
+
+**Where it lives now.** `src/js/main.js` (`vsEditorNote`, the image handler, the capture-phase submit guard), `src/js/load-quill.js`, `src/html/tab-vitalsound.html`. Tests: `main-quill-image.test.js`, `load-quill.test.js` — red with the insert restored and with the guard's message removed.
+
+**Rule.** A status message never goes into the thing the user is composing. Ask of any feedback: if they ignore it, where does it end up?

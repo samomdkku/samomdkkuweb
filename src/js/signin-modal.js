@@ -43,6 +43,7 @@ export function showSigninScreen(screen) {
   // reader can no longer see.
   $('signinLoginAlert')?.classList.add('d-none');
   $('signinRegisterAlert')?.classList.add('d-none');
+  $('signinGoogleAlert')?.classList.add('d-none');
 
   // NOTE: no focus move here. Focus belongs to pickScreen(), which the switch
   // LINKS call — the reset that runs when the modal closes goes through this
@@ -102,10 +103,28 @@ async function submitPasswordRegister() {
   }
 }
 
+/**
+ * Show a Google sign-in failure next to the button, on whichever screen is
+ * showing — never a native alert() (see #signinGoogleAlert in
+ * modal-signin.html for why). Opens the modal first if it is not already
+ * open, for account-switch.js's saved-account picker, which calls
+ * signInWithGoogle() with the modal closed.
+ */
+export function showGoogleSigninError(message) {
+  const el = $('signinGoogleAlert');
+  if (!el) return;
+  const modalEl = $('signinModal');
+  if (modalEl && window.bootstrap && !modalEl.classList.contains('show')) {
+    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+  el.textContent = message;
+  el.classList.remove('d-none');
+}
+
 export function mountSigninModal() {
   window.samoGoogleSignIn = async () => {
     try { await signInWithGoogle(); } catch (e) {
-      alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e));
+      showGoogleSigninError(e.message || String(e));
     }
   };
   window.samoShowSigninScreen = pickScreen;

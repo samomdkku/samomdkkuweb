@@ -9,7 +9,7 @@
 //   - exposes openProjectsTab() so other modules / hash routing can jump in
 // ==============================================
 
-import { onAuthChange, getUser, userCanAccess, holdsMaster } from '../auth.js';
+import { onAuthChange, userCanAccess, holdsMaster } from '../auth.js';
 import { listProjects, listDocTypes, getSettings, listMyDocViews } from './api.js';
 import {
   mountInbox, renderInbox, openProjectDetail, openDocumentDetail,

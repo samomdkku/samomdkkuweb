@@ -32,7 +32,7 @@ import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
 import { askPublishTerm } from './term-dialogs.js';
 import {
-  fetchTerms, createTerm, updateTerm, deleteTerm, publishTerm,
+  fetchTerms, createTerm, deleteTerm, publishTerm,
   fetchTermStatus,
   fetchArchive, updateArchiveMember, deleteArchiveMember, updateArchiveNode,
   deleteTeamPhotoIfUnused,
@@ -44,7 +44,6 @@ let terms = [];
 let staleByYear = new Map();   // year -> true when the live tree moved after publish
 let openYear = null;      // the archived year currently expanded for editing
 let archive = null;       // { nodes, members } for openYear
-let busy = false;
 let host = null;
 let onTermsChanged = null; // lets index.js keep its currentTermYear in step
 
@@ -113,7 +112,6 @@ function archiveHtml() {
   const { nodes, members } = archive;
   if (!members.length) return '<div class="team-terms-loading">ปีนี้ไม่มีรายชื่อ</div>';
 
-  const byId = new Map(nodes.map((n) => [n.id, n]));
   const byNode = new Map();
   for (const m of members) {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
@@ -250,14 +248,11 @@ let chain = Promise.resolve();
 
 function guard(fn, okMsg) {
   chain = chain.then(async () => {
-    busy = true;
     try {
       await fn();
       if (okMsg) statusLine(okMsg, 'ok');
     } catch (err) {
       statusLine(err?.message || 'ทำรายการไม่สำเร็จ', 'error');
-    } finally {
-      busy = false;
     }
   });
   return chain;

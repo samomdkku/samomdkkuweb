@@ -1,7 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('html5-qrcode', () => ({ Html5Qrcode: class {} }));
-vi.mock('qrcode', () => ({ default: {} }));
-vi.mock('./products.js', () => ({ showShopToast: () => {} }));
 const { parseScannedText } = await import('./qr.js');
 
 describe('parseScannedText', () => {

@@ -23,7 +23,6 @@
 // "invalid JSON body" before any webhook is resolved.
 // ============================================================
 
-import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 
 const SECRET_KEYS = ['DISCORD_PR_WEBHOOK', 'DISCORD_VS_WEBHOOKS', 'DISCORD_PROJECTS_WEBHOOK', 'GAS_WEBHOOK_URL'];

@@ -189,6 +189,56 @@ describe('sign-in modal — the form asks for what the code accepts', () => {
   });
 });
 
+describe('sign-in modal — a failed Google sign-in never uses alert()', () => {
+  // Found by task 17's phone friction sweep. Both the Google button's own
+  // handler AND account-switch.js's saved-account picker called
+  // `signInWithGoogle()` and showed any failure with a native alert() — which
+  // goes SILENT for the rest of the page once a visitor has ticked Chrome's
+  // "prevent this page from creating additional dialogs", reachable by
+  // retrying a failed sign-in a couple of times. #signinGoogleAlert sits
+  // outside both screens (the Google button is visible on either one), and
+  // showGoogleSigninError() is the one place that writes to it.
+  it('#signinGoogleAlert sits above the divider, outside both screens', () => {
+    const el = HTML.slice(HTML.indexOf('id="signinGoogleAlert"') - 5, HTML.indexOf('id="signinGoogleAlert"') + 80);
+    expect(HTML.indexOf('id="signinGoogleAlert"')).toBeGreaterThan(HTML.indexOf('samoGoogleSignIn'));
+    expect(HTML.indexOf('id="signinGoogleAlert"')).toBeLessThan(HTML.indexOf('signin-divider'));
+    expect(el).toContain('d-none');
+  });
+
+  it('signin-modal.js calls no native alert() at all', () => {
+    expect(SIGNIN_JS).not.toMatch(/(^|[^.\w$])alert\s*\(/);
+  });
+
+  it('exports showGoogleSigninError and routes the Google handler through it', () => {
+    expect(SIGNIN_JS).toMatch(/export function showGoogleSigninError/);
+    const handler = SIGNIN_JS.slice(
+      SIGNIN_JS.indexOf('window.samoGoogleSignIn'),
+      SIGNIN_JS.indexOf('window.samoShowSigninScreen'),
+    );
+    expect(handler).toMatch(/showGoogleSigninError\(/);
+  });
+
+  it('showGoogleSigninError opens the modal if it is not already showing', () => {
+    const fn = SIGNIN_JS.slice(SIGNIN_JS.indexOf('function showGoogleSigninError'));
+    expect(fn).toMatch(/getOrCreateInstance/);
+    expect(fn).toMatch(/\.show\(\)/);
+  });
+
+  it('showSigninScreen clears #signinGoogleAlert along with the other two', () => {
+    const fn = SIGNIN_JS.slice(
+      SIGNIN_JS.indexOf('export function showSigninScreen'),
+      SIGNIN_JS.indexOf('function pickScreen'),
+    );
+    expect(fn).toMatch(/signinGoogleAlert[^;]*d-none/);
+  });
+
+  it('account-switch.js imports the shared helper instead of restating alert()', () => {
+    const switchJs = stripJs(readFileSync(new URL('./account-switch.js', import.meta.url), 'utf8'));
+    expect(switchJs).toMatch(/import\s*\{\s*showGoogleSigninError\s*\}\s*from\s*['"]\.\/signin-modal\.js['"]/);
+    expect(switchJs).not.toMatch(/(^|[^.\w$])alert\s*\(/);
+  });
+});
+
 describe('sign-in modal — one implementation, and it resets', () => {
   it('defines the handlers exactly once, in signin-modal.js', () => {
     // They were duplicated verbatim in main.js and admin-main.js.

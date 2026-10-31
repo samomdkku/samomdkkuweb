@@ -22,6 +22,7 @@ import {
   setAuthSession,
 } from './auth.js';
 import { escHtml } from './utils.js';
+import { showGoogleSigninError } from './signin-modal.js';
 
 const STORAGE_KEY = 'samo.savedAccounts';
 const MAX_SAVED   = 6;
@@ -358,7 +359,14 @@ async function pickAccount(key, originRow) {
 
   if (acct.method === 'google') {
     try { await signInWithGoogle({ loginHint: acct.email || undefined }); }
-    catch (e) { alert('เปิดหน้า Google ไม่สำเร็จ: ' + (e.message || e)); }
+    catch (e) {
+      // Was a native alert() — silent after a couple of retries once Chrome's
+      // "prevent this page from creating additional dialogs" is ticked, and
+      // the switcher modal that was showing a second ago is already closed by
+      // this point (see above), so there is nothing else on screen pointing
+      // at the failure. Reopens the sign-in modal with the error inline.
+      showGoogleSigninError(e.message || String(e));
+    }
     return;
   }
 

@@ -49,7 +49,6 @@ function guardFor(file) {
   const html = readFileSync(ROOT + file, 'utf8');
   const m = /if \((\/[^\n]*?\/i)\.test\(location\.hostname\)/.exec(html);
   expect(m, `${file}: no hostname guard found — did the inline script move?`).toBeTruthy();
-  // eslint-disable-next-line no-eval
   const re = eval(m[1]);
   return (host) => re.test(host);
 }

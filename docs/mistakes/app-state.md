@@ -1625,3 +1625,40 @@ every client shares the failure (one server), a fixed short retry turns an
 outage into a sustained one — back off, jitter, and say the data is stale
 instead of hiding it.* Test the retry against a failure EVERY client sees at
 once, not one flaky phone.
+## A remote change that lands mid-drag never painted if the drop itself was a no-op
+
+**Symptom (found by ESLint's `no-unused-vars`, 2026-10-20 — nothing reported
+it in use).** `scheduleRemoteRender()` (`src/js/team/index.js`) sets
+`pendingRender = true` when a realtime update arrives while a user is
+dragging a node or member, so the render can be deferred until the gesture
+ends. `onNodeDrop` / `onMemberDrop` both reset `pendingRender = false` the
+instant the drag ends — but neither ever READ it, so the deferred render
+itself never happened unless the drop ALSO called `render()` for its own
+reasons.
+
+**Cause.** Both handlers have an early `return` before their own `render()`
+call — `onNodeDrop` when `evt.item.dataset.nodeId` is missing, `onMemberDrop`
+when the id or destination node id is missing (an invalid drop: dropped
+outside a valid target, or SortableJS firing `onEnd` with no real move). On
+every OTHER path the handler's own `render()` happened to repaint the remote
+mutation too (realtime writes land straight into `nodesById`/`membersByNode`
+regardless of `dragging`, so any render draws current state) — which is
+exactly why nothing visibly broke in the paths anyone tries first. Only the
+no-op-drop path lost it, and only until some unrelated later realtime event
+coincidentally forced a render.
+
+**Fix.** Both handlers capture `pendingRender` into a local before resetting
+it, and render once more on the early-return path if it was true:
+`if (!id) { if (hadPendingRender) render(); return; }`.
+
+**Where it lives now:** `src/js/team/index.js` (`onNodeDrop`, `onMemberDrop`).
+No automated regression test — this module is DOM/SortableJS-driven with no
+exported seams, and the repo has no jsdom dependency (vitest's suite here
+tests pure logic only); adding one is a bigger infra call than this lint
+pass. Verified by hand-tracing every call site of `pendingRender` instead.
+
+**The general rule**: *a flag set to defer a side effect must be READ on
+every path that would otherwise skip it, not just reset.* A `let` that is
+only ever written, never read, is not a style nit — `no-unused-vars` caught
+a real dropped-update bug here specifically because nothing in the file
+checked the flag it exists for.

@@ -28,30 +28,6 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { recordApplied, credentials } from './migrations-lib.mjs';
 
-// ---- tiny .env.local parser (no dependency) ----
-function loadEnvLocal() {
-  const env = {};
-  if (!existsSync('.env.local')) return env;
-  for (const raw of readFileSync('.env.local', 'utf8').split('\n')) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq === -1) continue;
-    let v = line.slice(eq + 1).trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-      v = v.slice(1, -1);
-    }
-    env[line.slice(0, eq).trim()] = v;
-  }
-  return env;
-}
-
-function projectRefFromUrl(url) {
-  // https://<ref>.supabase.co  →  <ref>
-  const m = String(url || '').match(/^https?:\/\/([a-z0-9]+)\.supabase\.(?:co|in)/i);
-  return m ? m[1] : null;
-}
-
 /**
  * Record the apply in public.schema_migrations (0169).
  *

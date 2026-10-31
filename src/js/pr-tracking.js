@@ -108,17 +108,32 @@ export async function trackPRTicket() {
 export async function refreshPRTicketDashboard() {
   const tId = document.getElementById('prDashTicketId').innerText.trim();
   const btn = document.getElementById('btnRefreshPrDash');
+  const alertBox = document.getElementById('prDashAlert');
   const ogText = btn.innerHTML;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; btn.disabled = true;
+  alertBox?.classList.add('d-none');
 
   try {
     const idEsc = encodeURIComponent(tId);
     const { data, error } = await dbRest(`/pr_tickets?select=*&id=eq.${idEsc}&deleted_at=is.null&limit=1`);
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : null;
-    if (row) renderPRDashboard(rowToTicket(row));
-    else alert('ไม่พบ Ticket นี้');
-  } catch (e) { alert('เชื่อมต่อเครือข่ายล้มเหลว: ' + (e.message || e)); }
+    if (row) {
+      renderPRDashboard(rowToTicket(row));
+    } else if (alertBox) {
+      alertBox.textContent = 'ไม่พบ Ticket นี้';
+      alertBox.classList.remove('d-none');
+    }
+  } catch (e) {
+    // Native alert() used to carry this — it goes SILENT after a visitor
+    // ticks Chrome's "prevent this page from creating additional dialogs"
+    // (shown after a few dialogs), which a few retried refreshes reaches
+    // easily. An inline box next to the button it's always visible under.
+    if (alertBox) {
+      alertBox.textContent = 'เชื่อมต่อเครือข่ายล้มเหลว: ' + (e.message || e);
+      alertBox.classList.remove('d-none');
+    }
+  }
   finally { btn.innerHTML = ogText; btn.disabled = false; }
 }
 
@@ -219,6 +234,11 @@ export function openPRTicketDetail(id) {
 // --------------------------------------------------
 
 function renderPRDashboard(ticket) {
+  // Every way a ticket reaches the screen (search, refresh, history, a deep
+  // link) paints through here, so this is where an earlier refresh's error is
+  // withdrawn — clearing it only at refresh start left "ไม่พบ Ticket นี้" above
+  // the next ticket opened from history (review, 2026-10-31).
+  document.getElementById('prDashAlert')?.classList.add('d-none');
   document.getElementById('prDashTicketId').innerText = ticket.id;
   let badgeColor = ticket.status.includes('เสร็จสิ้น') ? 'bg-success' : ticket.status.includes('รอ') || ticket.status.includes('แก้ไขงาน') ? 'bg-warning text-dark' : 'bg-primary';
   if (ticket.status.includes('ตีกลับ')) badgeColor = 'bg-danger';

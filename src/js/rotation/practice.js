@@ -71,7 +71,6 @@ export function createPractice({ groups, realMe = null, gender, group, perGroup 
   let n = 0;
   const seen = { M: 0, F: 0 };   // per-gender counters: no two pretend people share a name
   for (const g of groups) {
-    const gIdx = groups.indexOf(g);
     const count = g === meGroup ? perGroup - 1 : perGroup;   // you are the last seat of yours
     for (let i = 0; i < count; i++) {
       const isM = i % 2 === 0;

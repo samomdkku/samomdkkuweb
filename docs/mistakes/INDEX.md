@@ -108,7 +108,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 - "ผู้ดูแลย้าย" on students nobody moved
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(40)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(41)*
 
 Open when: writing a migration.
 
@@ -152,8 +152,9 @@ Open when: writing a migration.
 - A weekly prune silently erased 20 of every ~24 days' worth of analytics
 - แลก Rotation: 0262 broke `rotation_board()` on production, was fixed by EDITING the applied file, and its proof was gre…
 - เริ่มปี SAMO on 1 มี.ค. fails "ปี … เป็นปีปัจจุบันอยู่แล้ว" on every press and undoes the automatic switch
+- 118 functions were anon-executable, and nobody had ever swept for it
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(124)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(126)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -281,8 +282,10 @@ Open when: markup, modals, layout, touch, icons.
 - ระบบบ้าน: a student who retyped their รหัส after a miss would have sent the FIRST, wrong one
 - /me: "บันทึกชื่อแล้ว" vanished the instant it appeared
 - /me: no divider between ชื่อที่แสดง and อีเมล
+- The shared chunk every page downloads before paint carried a camera scanner nobody but admin uses, and `<head>` blocked…
+- A failure note written INTO the editor became part of the complaint
 
-## `app-state.md` — Routing, read-state, caches & serialization *(39)*
+## `app-state.md` — Routing, read-state, caches & serialization *(40)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -325,8 +328,9 @@ Open when: URL state, per-user "seen", import/export.
 - Archiving an announcement made its pictures deletable
 - "I already got the answer from them"
 - แลก Rotation: "โหลดข้อมูลไม่สำเร็จ · signal is aborted without reason" for everyone
+- A remote change that lands mid-drag never painted if the drop itself was a no-op
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(37)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(39)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -367,6 +371,8 @@ Open when: notify, GAS handlers, Drive URLs.
 - "no webhook configured" after the webhook rotation
 - Apps Script's "is this file inside PR/?" matched any folder NAMED PR
 - A Supabase blip mid-pass would have posted "Discord ปฏิเสธ" for every pending role change
+- Every Drive upload handler in prform.gs trusted the caller's claimed mimeType and size
+- An upload file-type allow-list on Apps Script refused real uploads and stopped no one
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(28)*
 
@@ -401,7 +407,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 - The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(83)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(84)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -488,6 +494,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run proofs` checked nothing for two days
 - Passport's admin page showed its sign-in card to a signed-in master under `npm run dev`
 - `test:clean` (and CI) red on a September session note nobody touched
+- dept0177 / team0135: two proofs red on production, both a SHAPE not a PROPERTY
 
 ## `passport.md` — The Passport app's own write-ups *(45)*
 
@@ -539,4 +546,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_477 entries across 10 files._
+_484 entries across 10 files._

@@ -31,6 +31,11 @@
 
           <!-- SECTION 0: PUBLIC PROBLEM BOARD -->
           <div id="vsBoardSection">
+            <!-- Screen-reader announcer for actions that have no visible
+                 success/failure state of their own (me-too can fail silently
+                 otherwise — see vsBoardMeToo). Cleared before every announce
+                 so the SAME message re-announces on a repeat failure. -->
+            <div id="vsBoardAnnounce" class="visually-hidden" aria-live="polite"></div>
             <!-- LIST VIEW -->
             <div id="vsBoardListView">
               <p class="text-center text-muted small mb-3">
@@ -176,6 +181,10 @@
                 <div class="caption-editor-shell shadow-sm">
                   <div id="vsQuillEditor"></div>
                 </div>
+                <!-- Editor problems (failed image, editor not loaded) are said HERE,
+                     never written into the report itself, where a student who does
+                     not notice would submit them as part of the complaint. -->
+                <div id="vsEditorNote" class="small text-danger mt-1" role="alert" hidden></div>
                 <small class="text-muted mt-2 d-block"><i class="bi bi-image me-1"></i> สามารถแทรกรูปภาพขนาดเล็ก,
                   แปะลิงก์ YouTube ได้ (ไม่เกินเนื้อที่จำกัด)</small>
               </div>
@@ -378,6 +387,7 @@
 
               <div id="userRemarkBox" class="mt-4 p-3 rounded d-none" style="background-color: var(--pink-50)">
                 <label class="form-label fw-bold text-pink-custom">เพิ่มข้อความ (Remark) ถึงทีมงาน</label>
+                <div id="userRemarkAlert" class="alert alert-danger small mb-2 d-none" role="alert"></div>
                 <textarea id="userRemarkInput" class="form-control mb-2" rows="2"
                   placeholder="สอบถามความคืบหน้าเพิ่มเติม..."></textarea>
                 <button class="btn btn-sm btn-outline-danger" onclick="submitUserRemark()">ส่งข้อความ</button>

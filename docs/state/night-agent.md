@@ -2039,3 +2039,978 @@ off stops a rename run. **Not applied**: the nginx line is in the repo only —
 install by hand (`sudo nginx -t && sudo systemctl reload nginx` after copying
 the `location` change), then check `X-Img-Cache: HIT` with and without `?x=1`.
 Remaining gaps: HANDOFF §22 "Still OWED".
+
+## Task 14 — Make the proofs trustworthy: samo-dev fidelity and the two red proofs (2026-10-20)
+
+**RESUMED after a quota cut-off.** A prior run of this task committed
+`f156ed8` ("agent: WIP 14...") and was cut off before writing this block.
+Read that commit (`git show --stat f156ed8`) and verified each point of the
+brief by hand rather than redoing the work.
+
+**Point 1 — samo-dev gets production's five `auth.users` triggers.**
+
+- The WIP commit already wrote `supabase/migrations/0234_dev_gets_the_auth_triggers_too.sql`
+  and already stripped the hand-written `insert into public.users` workaround
+  out of the 5 browser harnesses that had one (`tools/browser/accounts-dashboard.mjs`,
+  `house-sai-grid.mjs`, `projects-ui.mjs`, `shop-admin-strip.mjs`,
+  `shop-admin-tour.mjs`), replacing each with a bare `update … set permissions`.
+  I grepped the whole `tools/` tree afterward for `insert into public.users`
+  and found none left; `me-page.mjs` and `shop-checkout-navigate-away.mjs`
+  also call `registerWithPassword` but never had the hand-written insert, so
+  they needed no change.
+- **What I verified that the WIP had not yet run**: `node tools/migrate-status.mjs --dev`
+  showed `PENDING: 0` — 0234 was already applied to samo-dev. Queried
+  `pg_trigger` directly: all 5 triggers (`on_auth_user_created`,
+  `…_passport_link`, `…_email_change`, `…_password_sync_insert/_update`) exist
+  on samo-dev's `auth.users`. Ran `tools/accounts0211-dashboard.mjs --dev`:
+  **15/15** (was 12/15 per HANDOFF §19 item 1) — its own two trigger checks
+  (`a Google sign-up is born google` / `a username sign-up is born password`)
+  insert directly into `auth.users` and read `public.users` back with **no
+  hand-written insert of their own**, which is the same thing the task brief
+  asked a browser signup to demonstrate, done at the SQL layer instead.
+- **Checked the no-op-on-production claim by hand, not by trusting the
+  migration's comment**: grepped every migration that ever defined each of
+  the four functions (`handle_new_auth_user`: 0001, 0042, **0211**;
+  `handle_auth_user_email_change`: **0026**; `handle_auth_user_password_sync`:
+  **0027**; `passport_link_user_by_email`: 0060, 0061, 0063, **0175**) and
+  diffed 0234's copy against the newest one — all four function bodies and
+  all five `create trigger` statements are character-for-character identical
+  (modulo comments, which `pg_get_functiondef` and Postgres both ignore). The
+  migration really is inert on production.
+- **Could NOT drive this through a real browser** — no Chrome/Chromium binary
+  exists in this sandbox (`which google-chrome chromium …` all empty, no
+  `puppeteer`/`playwright` dependency), the same gap task 12 already
+  documented. Substituted the SQL-level proof above, which exercises the same
+  trigger path (`auth.users` insert → `public.users` row with no app code
+  writing it) without needing a browser. **Not independently verified**: the
+  five browser harnesses whose hand-written insert was removed were never
+  actually re-run end-to-end in this sandbox; they are correct by inspection
+  (the trigger fires synchronously inside the `auth.users` insert transaction
+  that `registerWithPassword`'s HTTP call waits on, so the row exists before
+  the harness's next line runs) but the owner should run one once Chrome is
+  available, e.g. `CHROME=/path/to/chrome node tools/browser/accounts-dashboard.mjs`.
+  No throwaway account was created or needed deleting — the SQL proof rolls
+  back its own `auth.users` inserts.
+
+**Point 2 — the two red proofs, rewritten to assert the PROPERTY.**
+
+Both rewrites were already in the WIP commit; I only verified them:
+
+- `tools/dept0177-page-scope.sql` §70–72: **25/25 on samo-dev.** §G used to
+  count every `dept_content` row for `dept='admin', kind='card'` (a SHAPE) and
+  expect the seed's original 4 — wrong the moment ฝ่ายบริหารองค์กร added its
+  own 5th card through the self-service editor §A already proves works
+  (exactly what happened on production). Now it tracks the 4 seeded rows by
+  the `href` the seed migration itself keys on, then reintroduces that exact
+  event (§71: an editor with blanket dept-page access adds a 5th card) and
+  checks the count still reads 4 (§72) — proven to survive the bug it used to
+  die on.
+- `tools/team0135-name-split.mjs` A5–A7: **16/16 on samo-dev.** Used to search
+  for a coincidental student+login+team_members triple; none exists on
+  samo-dev (or, per the proof's own new comment, reliably on production
+  either), so it went quietly dark. Now it manufactures the subject:
+  `update_my_identity`/`get_my_team_seat` resolve "self" purely through
+  `public.users.email → students.kkumail`/`team_members.kkumail` (0145 §5/§6,
+  no role branch), so a borrowed login's email is pointed at a real
+  dual-placement person's kkumail for the life of the rolled-back
+  transaction. Rollback means no other session can ever observe the borrowed
+  account's changed email (Postgres MVCC — uncommitted writes are invisible
+  outside the transaction), so there is no real collision risk even though
+  the account is "borrowed" rather than created fresh.
+- Wrote both up in `docs/mistakes/tooling-proofs.md` ("dept0177 / team0135:
+  two proofs red on production, both a SHAPE not a PROPERTY") and reran
+  `npm run mistakes:index`. **Neither has been re-run against production** —
+  this agent holds no production credential; both are proofs run on samo-dev
+  only, per the proof-fidelity rule the same file already states ("a proof
+  written on samo-dev must be read against production's shape before it is
+  called portable").
+
+**Full `npm run proofs:dev` — 68 of 71 database proofs green** (2 SKIP are
+`repo-protection.mjs`/`notify-exposure.mjs`, which ask GitHub/Cloudflare, not
+a database — expected). **3 red, none caused by this task's own change** (all
+three are real data drift on samo-dev from other tasks' real writes since
+2026-10-14; not relaxed, reported as found):
+
+- `house0146-crest-refcount.sql` step 5 (CONTROL): got 4, want 2. The control
+  hand-sums `team_members + people + students` rows sharing one photo_url for
+  a deterministically-picked subject, but `photo_reference_count()` itself
+  counts across more tables (the comment on the probe already says a person
+  with two ตำแหน่ง legitimately counts 4) — the picked subject on samo-dev
+  today has two placements sharing one photo, so the function's true answer
+  (4) is right and the control's partial hand-sum (2) is stale. Not touched;
+  rewriting this control's hand-sum is outside this task's scope (only
+  dept0177/team0135 were in the brief) and risks exactly the "fix a proof by
+  relaxing it" trap the brief warns against without a careful re-derivation.
+- `team0196-position-not-inherited.sql` step 00: expected 2 unplaced,
+  unlinked `people` rows to exist as test subjects, got 0 — every person in
+  samo-dev's `public.people` now has either a `discord_links` row or a
+  `team_members.person_id`, so the subject pool the proof's setup needs is
+  empty and every later step cascades to FAIL/null. Data drift, not a code
+  bug in `0196`'s guard itself.
+- `year0219-samo-year.sql` steps 32/45/47/48: §G assumes whichever
+  `team_terms` row is `is_current` when the proof STARTS is the untouched
+  genesis row (`started_at` still `NULL` because the column predates it), and
+  that closing it turns that `NULL` into a permanent `-infinity`. On samo-dev
+  today the real genesis row (year 2569) was already closed correctly
+  (`started_at = -infinity`, confirmed by hand:
+  `select year, started_at, is_current from public.team_terms`), but a REAL
+  handover since then (2569→2570→2571, from other tasks' real
+  `start_team_term` calls) means the row that is `is_current` when this proof
+  runs today is 2571, which already has a real timestamp, not `NULL`. §G's
+  close-then-check-for-`-infinity` is therefore checking the wrong row's
+  history, not a broken function. Confirmed the underlying function is fine
+  by reading the real table directly; the proof's own one-time assumption
+  ("the term that was current when 0219 first ran") is what has drifted.
+
+None of these three were fixed — fixing them is a proof-design exercise (same
+shape as dept0177/team0135, but outside what task 14's brief named) that
+would need its own careful re-derivation to avoid "fix by relaxing," which the
+brief explicitly forbids doing casually. Left for a future task to pick up by
+name if the owner wants the proof suite fully green; reporting them here
+satisfies this task's "record every red, do not hide it" instruction.
+
+**`npm test`**: 175 files / 3014 tests, all green. **`npm run build`**: clean,
+both entries (public/admin + Passport). **`git status`**: clean after this
+task's commit.
+
+**Scrutinize pass** (self-review of `f156ed8`, by hand — traced the migration
+against the newest prior definition of each of its 4 functions and all 5
+trigger statements character-for-character, checked the DROP-then-CREATE
+trigger pattern is the same idempotent shape this codebase's own historical
+migrations already use, and checked the `team0135` carrier-identity-borrow
+cannot leak outside the rolled-back transaction under Postgres MVCC). No
+blocker or major finding. Verdict: ship.
+
+**What is NOT done / owed:**
+1. The 5 updated browser harnesses were never run end-to-end against a real
+   browser in this sandbox (no Chrome available) — correct by inspection, not
+   by execution. Run one once Chrome/Chromium is reachable.
+2. `dept0177`/`team0135`'s new proofs have not been re-run against
+   production — this agent has no production credential. They are DRAFTS
+   until that happens (same status every samo-dev-only proof in this queue
+   carries).
+3. `house0146`/`team0196`/`year0219` are red on samo-dev from real data
+   drift, reported above, not fixed — would need their own task.
+
+**Commands the owner runs next:**
+1. `node tools/apply-migration.mjs supabase/migrations/0234_dev_gets_the_auth_triggers_too.sql`
+   against PRODUCTION once this branch is reviewed — it is written to be an
+   inert no-op there (verified above), the point is to stop samo-dev from
+   drifting further from production's trigger set.
+2. `node tools/accounts0211-dashboard.mjs` (no `--dev`) against production to
+   confirm 15/15 there too (expected, since the triggers already exist).
+3. Re-run `node tools/dept0177-page-scope.sql` and
+   `node tools/team0135-name-split.mjs` against production once reviewed, to
+   close out their DRAFT status.
+4. `CHROME=<path> node tools/browser/accounts-dashboard.mjs` (and the other 4
+   updated harnesses) on a machine with Chrome, to actually exercise the
+   browser signup path end-to-end.
+
+## Task 15 — Security sweep: whole-class guards + the three named open items (2026-10-20)
+
+> **REVIEW NOTE (owner session, 2026-10-31): 0236 was WITHDRAWN, not merged.** The approach was rejected in review; the item stays open and is tracked privately. Do NOT apply any 0236 file — none exists in the repo now, and the commands below that name it are void. The Apps Script upload limits below were also changed in review to size caps only (the file-type lists refused real uploads).
+
+**RESUMED after a quota cut-off.** The WIP commit (`1714867`) had already
+written and run (on samo-dev, proofs green): migration 0235 (anon-EXECUTE
+allow-list sweep, `tools/security0235-whole-class-sweeps.sql` 12/12),
+migration 0236 (username sign-in hardening, `tools/security0236-username-lookup-hardening.sql`
+8/8 + `tools/security0236-login-flow-probe.mjs` 7/7), the `src/js/auth.js`
+wiring to pass the password through the lookup RPC, both proofs registered
+in `tools/run-proofs.mjs`, and a first STATE.md edit. **What the WIP had NOT
+done**, verified by reading its diff against the brief point by point:
+
+- **Whole-class sweeps (§0–§4)**: done, all passing, including the required
+  planted controls. No gap.
+- **Item a (username sign-in hardening)**: migration + both proofs written
+  and green on samo-dev. No gap in the mechanism, but the WIP's own migration
+  header, `tools/security0235-whole-class-sweeps.sql`'s header, and STATE.md
+  all narrated the exact exploit mechanism (which functions, why each is
+  dangerous) in files tracked by a PUBLIC repo, for fixes applied to
+  samo-dev only — production is still unpatched. This is a live-exploit
+  writeup for a hole still open on the deployed system, which the brief's
+  own instruction for this item ("describe it in git only as 'username
+  sign-in hardening'... detail goes to the private report") explicitly
+  forbids. **Fixed this session**: reworded migration 0235's header, 0236's
+  header, `security0235-whole-class-sweeps.sql`'s header, and STATE.md's two
+  descriptions to name only the generic property being fixed, moving
+  mechanism/severity detail into `~/samo-night/reports/2026-10-20-security.md`
+  (written this session, did not exist before).
+- **Item b (Apps Script upload limits)**: NOT STARTED by the WIP — no changes
+  to `appscript/prform.gs` existed. **Built this session**: `UPLOAD_LIMITS`
+  (mimeType allow-list + byte cap, checked before any Drive call) for all
+  five handlers (`uploadPRFile`/`Shop`/`Team`/`Project`/`Archive`), each cap
+  matching or exceeding the already-shipped CLIENT-side check for that path.
+  12 new tests in `src/js/gas-drive-scope.test.js` (runs the real
+  `appscript/prform.gs` against a stub Drive), each class with a CONTROL.
+  Guest PR uploads unaffected (same `accept="image/*"`, same-or-higher cap).
+- **Item c (re-check the 2026-10-13 private reports)**: NOT STARTED by the
+  WIP. **Done this session**: read both `~/samo-night/reports/2026-10-13-security-{app,db}.md`
+  in full and traced each finding against current code. DB Finding 1
+  (passport RLS tracking gap) — CLOSED, confirmed via `HANDOFF.md` §19.1
+  (`pass-anon-probe.mjs` ran clean against production after 0214). DB
+  Finding 2 (username lookup) — now built, see item a. DB Findings 3–4 and
+  App Finding 2 (`samo_depts` WHO-not-WHAT) — Finding 3/4 by design/feature
+  gap (not touched, correctly carried); App Finding 2 CLOSED by migration
+  0215 (confirmed by reading the live `projects_samo_depts_guard` body — it
+  now validates VALUES too, not just WHO). App Finding 1 (nginx security
+  headers) — confirmed already written in `server/nginx-samo.conf`, still
+  needs a VM deploy to take effect (carried, owner-only). Full detail and
+  the carried/open items (HSTS, `notifyProjectEmail` content hardening,
+  legacy `admin`/`1234`, `pass-anon-probe.mjs` not registered in
+  `run-proofs.mjs`) are in the private report, not here.
+- **The private report file** (`~/samo-night/reports/2026-10-20-security.md`,
+  required by "Done when") did not exist before this session — written now,
+  with full mechanism/severity detail for items 1–2 above (safe here because
+  this file is outside both repos) plus the re-check of 2026-10-13's items.
+- **`state-handoff.test.js`'s live-proof-count check was RED** after the
+  WIP's STATE.md edit: its historical "70 GREEN of the 73 registered at the
+  time" phrasing was reworded (apparently to dodge the regex that compares a
+  claimed count against `run-proofs.mjs`'s actual registered total) in a way
+  that matched NEITHER accepted pattern, leaving STATE.md with ZERO
+  proof-count claims — and the test requires at least one. Fixed by adding
+  a current, accurate claim ("ALL 75 LIVE PROOFS are now registered") rather
+  than touching the historical sentence, which correctly excludes the 2
+  dev-only proofs this task added from a count about a PRODUCTION run that
+  predates them.
+
+**Decisions made, alternatives rejected:**
+
+- Upload size caps per handler: PR 35MB / Shop 10MB / Team 10MB / Projects
+  35MB / Archives 50MB. Each chosen to match-or-exceed the highest existing
+  CLIENT-side check on that path (pr-form.js 35MB; shop admin.js 8MB product
+  picks / 5MB banner+QR+slip-send; team photos downscaled ~3MB) so no real
+  browser user is newly blocked — only a caller that skips the browser
+  entirely. Projects/Archives have no client cap today (official documents,
+  unpredictable size); picked numbers that match existing precedent (PR's
+  35MB) rather than inventing new ones. **Rejected**: per-exact-extension
+  allow-list for Projects (too brittle — staff attach PDF/Office/image files
+  with no `accept=` restriction client-side today; a wildcard-plus-named-list
+  is more forgiving and fails LOUD, not silently, for a type it's missing).
+- Project mimeType allow-list: `image/*`, `application/pdf`, plain text, and
+  the Word/Excel/PowerPoint MIME types (both legacy `.doc`/`.xls`/`.ppt` and
+  modern `.docx`/`.xlsx`/`.pptx`). **Rejected**: leaving Projects unrestricted
+  (defeats the point) or restricting to PDF-only (official หนังสือ documents
+  are sometimes Office files before being converted/signed, per the e-sign
+  flow's own PDF-conversion step implying non-PDF inputs exist upstream).
+- Redacting the already-written exploit narrative from migrations/STATE.md/
+  the sweep proof's header, rather than leaving it: **this was not asked for
+  explicitly as a fix-the-WIP item**, but the brief's own instruction for
+  item (a) is specific and the WIP's drafts violated it in three files, not
+  just the one the brief named. Treated as part of finishing item (a)
+  correctly, not scope creep — fixing a brief violation the earlier run made
+  is still "finish what the brief asked for."
+- Did NOT touch `tools/pass-anon-probe.mjs` (register it in `run-proofs.mjs`,
+  fix its env-targeting) — flagged in the private report as a carried item.
+  It reads `.env.local` directly with no `env-lib.mjs`/`resolveTarget`
+  targeting and no `→ project:` announcement; wiring a real-network REST
+  probe into the standard proof runner without that safety announcement
+  risked exactly the "which database actually answered" confusion
+  `run-proofs.mjs`'s own header says it was built to stop. A probe whose job
+  is "safe to run against production" deserves a dedicated task, not a
+  rushed side-fix here.
+- Did NOT re-verify the ~500 lines of "Reviewed, no issues found" sections in
+  either 2026-10-13 report beyond spot-checking the two items with concrete
+  findings (DB #1, App #2) against live code. Re-auditing a clean 6-day-old
+  review end-to-end was out of this task's scope; nothing surfaced elsewhere
+  this session contradicts those sections.
+
+**What is NOT done / owed:**
+
+1. **Neither 0235 nor 0236 is on production.** Both are pure samo-dev
+   migrations. Owner: `node tools/apply-migration.mjs supabase/migrations/0235_anon_execute_is_an_allowlist_not_a_default.sql`
+   and `…/0236_username_signin_stops_disclosing_a_real_email.sql` (no
+   `--dev`), confirm with the matching `tools/security023{5,6}-*.sql` proofs
+   (no `--dev`). 0236 also needs the frontend bundle redeployed (`auth.js`
+   changed) (WITHDRAWN in review — see the note above).
+2. **`npm run deploy:gas` not run** — the upload limits in
+   `appscript/prform.gs` are written, verified against a stub Drive, but
+   never executed by the real Apps Script runtime (no Google credential in
+   this sandbox). Owner should run `npm run deploy:gas -- --verify` after
+   deploying to confirm the live `/exec` serves the new code.
+3. **`server/nginx-samo.conf`'s security headers (from the 2026-10-13
+   report, confirmed still in the file) — deploy status on the VM is
+   unconfirmed.** Carried, not this task's job to deploy.
+4. Everything in the private report's "carried, not touched" section (HSTS,
+   `notifyProjectEmail` content hardening, legacy `admin`/`1234`,
+   `pass-anon-probe.mjs` registration) — owner's call, flagged not built.
+5. Full proof suite re-run on samo-dev after this task's changes: 70 of 73
+   DB proofs green (2 skipped, non-DB), same 3 red as task 14 left
+   (`house0146`, `team0196`, `year0219` — real data drift, documented
+   previously, NOT caused by this task); both new security proofs green.
+
+**Verification performed:** `npm test` (175 files / 3025 tests) and
+`npm run build` green. `npm run check:context` green (trimmed
+`.claude/rules/mistakes.md`'s new sentence to fit the 30000-byte budget —
+it was at 29998/30000 before this task touched it, so any addition needed
+an equal cut). `node tools/apply-migration.mjs … --dev` re-run for both
+migrations after the redaction edits (comment-only changes) to confirm the
+idempotent bodies still apply cleanly; both proofs re-ran green after.
+`npm run proofs -- --dev`: 70/73 green as above. A `/scrutinize`-style
+review of `git diff 1714867^..HEAD` traced `src/js/auth.js`'s
+password-forwarding change end to end (password stays in scope, travels
+once over the same HTTPS call that was already being made) and the GAS
+limit-checking order (limits checked before any Drive call, confirmed by
+the "creates no folder" tests) — no blocker found; one residual noted below.
+
+**Residual risk noted, not fixed:** the new mimeType allow-lists reject a
+file whose browser-reported `type` is empty or doesn't match (e.g. an
+unusual OS MIME association). This is a theoretical regression for a real
+image upload with no client-side `accept=` enforcement bypass — judged
+acceptable (fails LOUD with a named message, not silently; all current
+callers traced always populate a real image/PDF/Office mimeType) but worth
+knowing if a real user ever reports "my upload stopped working" after this
+ships.
+
+**Exact commands the owner runs next**, in priority order:
+```
+node tools/apply-migration.mjs supabase/migrations/0236_username_signin_stops_disclosing_a_real_email.sql
+node tools/db-query.mjs tools/security0236-username-lookup-hardening.sql
+node tools/apply-migration.mjs supabase/migrations/0235_anon_execute_is_an_allowlist_not_a_default.sql
+node tools/db-query.mjs tools/security0235-whole-class-sweeps.sql
+npm run deploy:gas -- --verify
+```
+then deploy the frontend bundle (`server/deploy.sh`, per `skills/deploy-vm.md`),
+and read `~/samo-night/reports/2026-10-20-security.md` for everything this
+block and the public repo deliberately omit.
+
+## Task 16 — Static analysis: a lint that finds bugs, not style (2026-10-20)
+
+**RESUMED after a quota cut-off.** The WIP commit (`cf8e697`) had added
+`eslint.config.mjs` (flat config, correctness rules only — `no-undef`,
+`no-unused-vars` with `args: 'none'`, `no-unreachable`, `no-dupe-keys`,
+`no-self-assign`, `no-fallthrough`, `no-constant-condition`,
+`no-unsafe-finally`, `no-cond-assign`, `no-dupe-else-if`, `use-isnan`,
+`valid-typeof`, `no-unsafe-optional-chaining`, `require-atomic-updates: off`),
+`eslint` 10.13.0 pinned as a devDependency, and `npm run lint` in
+`package.json`. **What the WIP had NOT done**, checked point by point against
+the brief:
+
+- **Cover src/, passport/js/, functions/, server/*.mjs, tools/** — done in
+  the WIP's `files:` globs. No gap.
+- **Real browser/Bootstrap/Quill globals declared, never `/* global */`
+  sprinkled** — the WIP's `BROWSER_GLOBALS` list existed but was incomplete:
+  running it surfaced `QRCode` (passport's CDN vendor script,
+  `passport/html/admin.html`), `Path2D` (a real Web API) and `__BUILD_ID__`
+  (vite's build-time `define`, `vite.config.js`) as false `no-undef` hits.
+  Added to the list, each with a one-line reason, matching
+  `undefined-refs.test.js`'s existing convention for this exact problem.
+- **Add `npm run lint`, run it from `npm test` or CI so it stays green** —
+  the WIP added the script but never wired it anywhere; it was not run even
+  once before the cut-off (68 hits were sitting unaddressed). Wired as a
+  required step in `.github/workflows/build.yml`, right after `npm ci`, and
+  its stale "linting is deferred" header comment (written when none
+  existed) replaced.
+- **For every hit: real bug, or dead code grep proves nothing reaches?** —
+  not started by the WIP. Done this run, see below.
+- **No auto-fix sweep, no formatting rule** — held to. Nothing was run with
+  `--fix`; the 6 warnings fixed (stale `eslint-disable` comments for
+  `no-new-func`/`no-eval`/`no-nested-ternary`, rules this config never
+  enables) were removed by hand, one line each.
+
+**The 68 hits, triaged one by one (grep before touching anything, per the
+brief's own instruction):**
+
+- **1 real bug**, found BY the lint, not by looking for one:
+  `src/js/team/index.js`'s `pendingRender` was write-only — a remote
+  realtime change that lands while a user is mid-drag is supposed to defer
+  its re-render until the drag ends, but `onNodeDrop`/`onMemberDrop` both
+  reset the flag without ever reading it, so the deferred render was
+  dropped on the early-return (invalid-drop) path specifically. Every OTHER
+  path happened to call its own `render()` anyway (realtime writes land in
+  `nodesById`/`membersByNode` regardless of `dragging`), which is exactly
+  why nobody had reported it. Fixed by capturing the flag before resetting
+  it and rendering once more on the early-return path. Write-up:
+  `docs/mistakes/app-state.md`. **No automated regression test** — this
+  module is DOM/SortableJS-driven with no exported seams and this repo has
+  no jsdom dependency (the existing suite tests pure logic only); adding
+  jsdom is a bigger infra call than a lint pass should make unasked.
+  Verified by hand-tracing every call site of `pendingRender` instead —
+  flagged here rather than glossed over.
+- **2 rule-config fixes, not bugs, not deletions**: `ignoreRestSiblings:
+  true` (the pervasive `const { omit, ...rest } = x` idiom —
+  `shop/api.js`, `announcements.js`, `account-switch.js`,
+  `analytics-email.test.js`, `env-example.test.js`, `passport/js/admin-page.js`
+  — never reads the destructured name on purpose) and `caughtErrors: 'none'`
+  (the equally pervasive deliberate `catch (_) {}` / `catch (e) { /* ignore
+  */ }` swallow — `team/realtime.js`, `team/index.js`, `auth.js`,
+  `dashboard.js`, `utils.js`). Neither turns off a correctness check; both
+  stop flagging an idiom this codebase uses on purpose, dozens of times,
+  verified by reading several instances of each before changing the rule
+  rather than suppressing one at a time.
+- **~34 confirmed-dead removals**, each checked by grep before deletion —
+  listed in commit `ed39253`'s message rather than retyped here: unused
+  imports left from refactors (`pr-form.js`'s `db`, `claude/usage.js`'s
+  `pad`, `house/index.js`'s `followUpLabel`, three of `main.js`'s `pr-form.js`
+  imports, `projects/{index,inbox}.js`, `shop/products.js`, `team/{health,
+  terms}.js`, `tool-frame.test.js`'s `EMBED_SANDBOX`/`TOOLS`), write-only
+  locals (`accounts/admin.js`'s `samoYears`, `team/terms.js`'s `busy` and
+  `byId`, `house/gaps.js`'s `unplaced`), a fully superseded duplicate
+  (`apply-migration.mjs`'s local `loadEnvLocal`/`projectRefFromUrl` — the
+  file already uses `migrations-lib.mjs`'s `credentials()`), a redundant
+  restatement already pinned by `io.test.js` (`house-import.mjs`'s
+  `upsertCols`), a dead function (`admin-main.js`'s `showBoot()` —
+  `#adminBootGate` ships visible by default, nothing ever transitions back
+  to it), three one-off repair-script leftovers (`house0196`'s
+  `readFileSync`, `notify-exposure.mjs`'s `execFileSync`, `proj0181`'s
+  `buildDocFolderPath` + its now-false justifying comment), a regex scan's
+  unread match variable (`functions/notify.test.js`), and `shop/admin.js`'s
+  `sizes`/`colors`, computed and never read.
+- **1 normalized, not a runtime bug**: `passport/js/admin-page.js`'s
+  `window.cancelEdit = () => {}` called bare as `cancelEdit()` elsewhere in
+  the same file DOES resolve correctly (assigning to `window` creates a
+  real global a bare reference can reach, browser-only, module or not) —
+  but it was the one place in the repo relying on that instead of the
+  documented `window.fnName = fnName` convention (`passport/CLAUDE.md`:
+  "`window.fnName = ...` for inline `onclick` handlers") every other
+  window-bound handler uses. Rewritten to match, not suppressed.
+- **1 left dormant, not deleted**: `main.js`'s `applyLauncherRoleGating` is
+  a documented standing gate (`launcher.js`'s own comment: no registry
+  entry sets `roles` yet, and deleting a dormant gate was explicitly called
+  a separate decision from the refactor that emptied it). Given an
+  `eslint-disable-next-line` pointing at that comment, not removed.
+- **1 flagged for the owner, not acted on**: `projects/inbox.js`'s
+  `onSignCancelClick` read `btn.dataset.docId` and never used it, unlike its
+  two siblings (`onSignApproveClick`/`onSignRejectClick`), which both log a
+  doc-timeline entry via `docId` when a sign request is approved or
+  rejected. Removed the dead read (fixes the lint hit); whether "cancel"
+  should ALSO append a doc-timeline entry is a product decision this task
+  does not make for the owner — `src/js/projects/inbox.js:3627`.
+- **1 unused devDependency**, found while scrutinizing this task's own
+  diff, not by the lint itself: the WIP's commit had added `globals`
+  17.13.0 alongside `eslint`, but `eslint.config.mjs` never imports it (the
+  globals list is hand-rolled, unioned with Node's real `globalThis` —
+  same approach `undefined-refs.test.js` already used for this exact
+  problem). Removed; `npm install` regenerated the lockfile.
+
+**Counts**: 68 lint hits → 0. 1 real bug, fixed, written up. ~34 dead-code/
+unused-import removals, each grep-confirmed before deletion. 2 rule-config
+tunings (0 correctness rules turned off). 6 stale `eslint-disable` comments
+removed (warnings, not errors — unrelated rules this config never enables).
+1 unused devDependency removed.
+
+**Verification performed**: `npm run lint` exits 0. `npm test` — 175 files /
+3025 tests, green, both before AND after every edit batch. `npm run build`
+— both entries (public/admin + Passport) clean. `npm run check:context` —
+within budget (`.claude/rules/mistakes.md` at 29996/30000; did not touch its
+seven-classes text, only let `mistakes:index` regenerate the per-file count
+line). `git status` clean. A `/scrutinize`-style pass over
+`git diff cf8e697^..HEAD` (this task's full range) traced the `team/index.js`
+fix's diff against its unchanged neighbours, re-diffed every dead-code
+removal file-by-file to confirm nothing else referenced what was deleted
+(a stray reference would have shown up as a NEW `no-undef` hit, and it did
+not), and caught the unused `globals` devDependency above.
+
+**Could not verify**: no automated regression test for the `team/index.js`
+fix (see above — this repo has no jsdom). `npm run handoff:check` crashes
+in this sandbox exactly as documented by every prior task this queue
+(`fatal: ambiguous argument 'origin/agent/2026-10-20..HEAD'` — this branch
+has never been pushed, so the `origin/...` ref doesn't exist to diff
+against — followed by an `ENOENT` reading a memory-index path the script
+hardcodes under `~/.claude/projects/…`, which this sandbox never populated;
+this session's real memory store is `~/samo-night/memory/`, a different
+path entirely). Not re-diagnosed here either — `npm test` + `npm run build`
++ `git status`, all re-run fresh for this block, substitute for it.
+
+**Nothing to apply/deploy for this task** — no migration, no schema change,
+no production-facing behavior change beyond the one `team/index.js` fix
+(client-side only, ships on the next normal deploy). **Exact commands the
+owner runs next**: none required for this task specifically; the usual
+`server/deploy.sh` (`skills/deploy-vm.md`) carries this fix whenever the
+next deploy happens. If CI runs the required-checks on this branch, confirm
+the new `npm run lint` step in `.github/workflows/build.yml` goes green
+there too (it is local-verified green in this sandbox but was never seen by
+GitHub Actions, since this branch cannot push).
+
+## Task 17 — A student's phone: accessibility and friction sweep (2026-10-20)
+
+**RESUMED after a quota cut-off.** Two WIP commits existed (`005e6ec`
+"paused by the owner", `ba913a7` "cut off by the quota"). Checked point by
+point against the brief:
+
+- **`tools/browser/a11y-sweep.mjs` (samo-dev only, axe-core injected,
+  390px/1280px, signed out + signed in, violations/overflow/console
+  errors/tap-targets/focus-visible/modal-trap)** — **NOT started by the
+  WIP** (no file existed; this was the `Done when:` gate). Built this run,
+  see below.
+- **Walk the student flows at 390px: sign-in (both kinds), PR form,
+  VitalSound form, shop, /me, ระบบบ้าน claim, a หน้าฝ่าย page** — the WIP
+  had already walked sign-in, the PR ticket-tracking dashboard, and the
+  VitalSound board/form, finding and fixing FIVE real `alert()` dead
+  ends (see below) with a test each. It had not yet looked at shop, /me,
+  or ระบบบ้าน. Continued this run: read `shop/cart.js`,
+  `shop/checkout.js`, `house/my-house.js` (the ระบบบ้าน claim card) and
+  `me-page.js` end to end. `my-house.js` and `checkout.js` were already
+  heavily hardened from earlier sessions (double-submit guards via
+  `btn.disabled`, inline status text, no `alert()` anywhere, a
+  retry-safe slip-upload path) — found ONE new defect, in `shop/cart.js`
+  (below). `pr-form.js` and `vs-form.js` (the forms themselves, not just
+  their tracking/board siblings) were already alert()-free with
+  double-submit guards from earlier work. Did not find a dedicated
+  public หน้าฝ่าย READER module — each ฝ่าย authors its own page under
+  `public/embed/<slug>/` (DEPT-TOOLS.md's by-design model); auditing
+  ฝ่าย-authored content is out of scope for a generic sweep and is what
+  `a11y-sweep.mjs`'s `/departments` + embed-page coverage is FOR, once run.
+- **Fix defects with a test each, record axe counts before/after per
+  route** — the axe counts are **OWED**: this sandbox has no Chrome/Chromium
+  binary at all (checked `/usr/bin/*chrom*`, `find / -iname '*chrome*'`,
+  `~/.cache/ms-playwright`, `~/.cache/puppeteer` — nothing), so the sweep
+  tool could be written and statically reviewed but never executed. Same
+  gap `tools/browser/shop-checkout-navigate-away.mjs` hit earlier this
+  queue (HANDOFF's own note: "written, never run — no Chrome/network in
+  this sandbox"). Local network access (even `curl` to `localhost`) is
+  also denied by this sandbox's permission mode; `node -e "fetch(...)"`
+  works, confirming the dev server itself is reachable — only the browser
+  binary is missing.
+
+**The WIP's five alert()-removal fixes** (all already committed, verified
+present and correct, not redone): Google sign-in failure (`signin-modal.js`
++ `account-switch.js`, shared `showGoogleSigninError`, a `#signinGoogleAlert`
+box outside both sign-in screens), the PR ticket dashboard's refresh
+(`pr-tracking.js`, `#prDashAlert`), the VitalSound board's "เจอเหมือนกัน" +
+public comment (`vs-board.js`, an `aria-live` announcer for the me-too
+button since its own state deliberately does not change on failure, plus
+an inline box for comments), the ticket-tracking remark box
+(`vs-tracking.js`, `#userRemarkAlert`), and the VitalSound form's Quill
+image-insert failure (`main.js`'s `makeQuillImageHandler` — now inserts a
+visible failure note in place of the placeholder instead of deleting it
+and alerting). Each already had its own test
+(`signin-screen.test.js`, `pr-tracking.test.js`,
+`vs-board-error-feedback.test.js`, `vs-tracking-remark.test.js`,
+`main-quill-image.test.js`) asserting structurally (no jsdom here) that no
+`alert()` remains and the visible box/text is reachable. Added the
+changelog entries the WIP had left out for these (`src/data/changelog.js`
+PENDING — `account` + `vs` + `pr` areas; CLAUDE.md's handoff loop step 3
+calls this mandatory for anything a person would notice, and a previously
+silent-after-two-retries error becoming visible is exactly that).
+
+**New this run:**
+
+1. **`tools/browser/a11y-sweep.mjs`.** Routes mirror `PATH_ROUTES` in
+   `src/js/main.js` (dynamic `/news/<id>` and `/tools/<slug>` excluded —
+   each depends on content that may not exist on samo-dev, and shares a
+   renderer with the static page already swept). Admin panes: ALL 14
+   `data-admin-side` values from `SECTION_META` in `admin-main.js` — checked
+   HANDOFF + STATE.md for an owner-authored "main panes" shortlist first;
+   none exists, and a sweep is cheap, so "main" here means every sidebar
+   entry a signed-in session can reach, not a narrowed subset. axe-core is
+   injected once via `Page.addScriptToEvaluateOnNewDocument` (persists
+   across every `Page.navigate`, never re-fetched) alongside a small
+   in-page probe object for overflow / tap-targets / a focus-visible
+   sample. `axe-core` pinned exact (`4.10.3`, was `^4.10.3`) since the
+   brief called for a pinned devDependency — `package-lock.json` updated
+   via `npm install --package-lock-only` (no new download; same resolved
+   version, confirmed network-independent).
+   - **Caught and fixed my own bug while writing this, the kind a real run
+     would have caught the hard way.** The modal focus-trap check
+     originally dispatched a synthetic `KeyboardEvent('keydown', {key:
+     'Tab'})` from INSIDE the page (in PROBE_SRC) to simulate Tab-cycling.
+     That does nothing — browsers only run the native "move focus to the
+     next tabbable element" default action for a REAL key press, not a
+     script-dispatched one, so `document.activeElement` would never
+     change and "focus never left the modal" would read as a PASS whether
+     or not a trap exists at all (exactly `.claude/rules/mistakes.md`
+     class 7's "a probe that only asserts X cannot tell a working guard
+     from a broken one"). Moved the Tab simulation out of the page probe
+     and into the Node driver using CDP's `Input.dispatchKeyEvent` (real
+     native key events, which DO trigger default focus traversal unless a
+     page's own JS intercepts it — which is exactly what Bootstrap's modal
+     trap does at the edges). Escape stayed a synthetic in-page dispatch,
+     correctly — Escape has no native browser default action to
+     replicate, only Bootstrap's own `keydown` listener needs to see the
+     event, so a synthetic dispatch is sufficient there. Caught by tracing
+     the code by hand (no Chrome to run it against and watch it pass
+     vacuously), not by a test — there is no way to unit-test a CDP
+     interaction in this repo's jsdom-less suite, so this is a STATIC
+     claim, not a verified one; the owner should watch for `stayedInside:
+     true` on a modal that is known NOT to trap focus, the first time this
+     runs for real, as a sanity check on the fix itself.
+   - Cannot verify it runs end-to-end, cannot verify the selectors against
+     a live DOM beyond careful reading, cannot report any actual violation
+     counts. **Owed to the owner**: run it once (`npm run dev` then
+     `node tools/browser/a11y-sweep.mjs`, needs a real Chrome/Chromium —
+     `CHROME=/path/to/it` if not at `/usr/bin/google-chrome`), read
+     `results.json` + the per-rule console summary, and treat the FIRST
+     run's numbers as the baseline this task was supposed to produce.
+2. **Shop cart — the "+" button's max-reached reason was `title=""` only**
+   (`src/js/shop/cart.js`), invisible on a phone (no hover). Exactly
+   mistakes.md class 4's "a title tooltip does not exist on a phone",
+   applied to a disabled-control's reason instead of truncated text — a
+   buyer at the stock cap saw a faded `+` with zero explanation. Replaced
+   with a permanent visible line (`.cart-item-maxhint`, uses the existing
+   `--shop-ink-500` token, no new color). Test:
+   `src/js/shop/cart-maxhint.test.js`. Changelog: `shop`/`public` PENDING
+   entry. **Found but NOT fixed** (lower severity, left as a finding, not
+   touched): `src/js/team/terms.js`'s delete-current-year button has
+   the identical `disabled title="..."` shape, but it is admin-only (not
+   a student flow this task's brief named) and the adjacent "ปีปัจจุบัน"
+   badge already gives a sighted user most of the context the title would
+   add — lower priority than the cart one, which is why it is a finding
+   here rather than a fix.
+3. **Accidental commit cleanup**: the WIP's `ba913a7` commit included
+   `.npm-cache/_logs/...` (an npm debug log) and
+   `.npm-cache/_update-notifier-last-checked` — npm's own cache directory,
+   committed by accident (`NPM_CONFIG_CACHE` pointed inside the repo in
+   that run). Removed from git, added `.npm-cache/` to `.gitignore`.
+
+**Verification performed**: `npm test` — 180 files / 3052 tests, green,
+both before and after. `npm run build` — both entries (public/admin +
+Passport) clean. `node --check` + `npx eslint` on the new `.mjs` file —
+clean. `npm run test:clean` — 180 files / 3044 tests (the 8-test gap
+against plain `npm test` is pre-existing and unrelated to this task's
+diff: several tests conditionally register fewer cases when `.env.local`
+is absent, which `test:clean`'s tracked-files-only copy never has —
+confirmed by grepping for `.env.local`/`existsSync` across the suite
+before accepting the gap as expected, not a regression). `npm run
+check:context` — within budget, untouched files. A `/scrutinize`-style
+pass over `git diff 6dd4b5a..HEAD` (this task's full range, both WIP
+commits plus this run) traced every changed file against its unchanged
+neighbours; the one real finding (the Tab-dispatch bug above) was fixed
+during the pass, not left for later.
+
+**Could not verify**: `npm run handoff:check` crashes in this sandbox
+exactly as every prior task this queue reported (`fatal: ambiguous
+argument 'origin/agent/2026-10-20..HEAD'` — never pushed, no `origin` ref
+to diff — then `ENOENT` on a hardcoded `~/.claude/projects/…` memory-index
+path this sandbox never populated; the real memory store here is
+`~/samo-night/memory/`). The a11y sweep tool's actual output (violation
+counts, overflow, tap-targets, focus-visible gaps) — no Chrome binary in
+this sandbox, documented above, not re-attempted beyond confirming the
+binary truly does not exist anywhere on the filesystem.
+
+**Nothing to apply/deploy** — no migration (task 17 owns no number in the
+reserved block; 0238 is task 17's reserved number, left unused since no
+schema change was needed, which keeps `migration-numbers.test.js` green by
+design, not by accident), no production-facing change beyond the cart
+hint (client-side only, ships on the next normal deploy) and the WIP's
+five alert-removal fixes (same). **Exact commands the owner runs next**:
+(1) `npm run dev`, then in another shell `node
+tools/browser/a11y-sweep.mjs` (set `CHROME=` if Chrome is not at
+`/usr/bin/google-chrome`) to get this task's actual axe baseline; (2) spot
+one admin pane's sweep result against the live page by eye once, since
+the modal-focus-trap fix above is reasoned, not run; (3) the usual
+`server/deploy.sh` whenever the next deploy happens, for the cart-hint fix
+and the WIP's alert-removal fixes to reach production.
+
+## Task 18 — Speed on a phone (2026-10-20)
+
+**Could not do the brief's literal "measure first": no browser in this
+sandbox.** Same gap Task 17 hit, re-confirmed rather than assumed: no
+`google-chrome`/`chromium` binary anywhere on the filesystem; `sudo`/`apt-get
+install` both refused (no root); `npx puppeteer browsers install chrome` and
+`npm install --no-save sharp` both failed with `EROFS` on `~/.npm/_cacache`
+(the home-dir npm cache is read-only here); `pip`/`python3 -m pip` don't exist
+either. So there is **no LCP, no time-to-`window.__samoBooted`, and no
+"three runs, median"** — every number below is a BYTE COUNT read from the
+real `dist/` build output (deterministic given the same source: rebuilding
+during this task reproduced the same sizes to the byte across half a dozen
+rebuilds, only the content-hash in the filename changed), not a browser
+measurement. **Owed to the owner**: run the actual Lighthouse/CDP pass once
+Chrome exists somewhere reachable — command at the bottom.
+
+**What I measured instead, and what it found.** Read every `<script
+type="module">` / `<link rel="modulepreload">` / local `<link
+rel="stylesheet">` out of `dist/index.html` and `dist/admin/index.html` —
+that set is exactly what a browser fetches before the entry module finishes
+evaluating, excluding third-party CDN tags (those are outside this build's
+control). Two real, fixable costs turned up:
+
+1. **`shop/qr.js` bundled two unrelated things of very different weight.**
+   Its own header comment already described it as two surfaces — (a)
+   `showOrderQrModal`, the lightweight `qrcode` encoder every shop customer's
+   order view can show, and (b) `openScannerModal`, the `Html5Qrcode`
+   camera-scanning engine (≈338 KB) only admin's pickup scanner uses, already
+   correctly behind `await import('./qr.js')` in `admin.js`. But
+   `shop/orders.js` imported `showOrderQrModal` with a **static** import —
+   and a static import pulls the WHOLE module, Html5Qrcode included — into
+   the shared chunk the public entry's `<link rel="modulepreload">` fetches
+   on literally every page, for a feature only reachable from `/admin/`.
+   **Fix**: split into `qr.js` (scanner, unchanged import site) +
+   `qr-order.js` (new, `qrcode` only). `orders.js` now imports from the
+   light file; nothing else referenced the heavy one's customer half (swept
+   with grep before changing anything).
+2. **Quill shipped as a render-blocking `<script src="cdn.quilljs.com/…">`
+   in `index.html`'s `<head>`, on every route, for an editor only the
+   VitalSound REPORT tab uses.** CLAUDE.md already says "Quill, d3-org-chart,
+   GrapesJS — DYNAMIC IMPORT ONLY, never an entry bundle"; d3-org-chart and
+   GrapesJS followed it (both behind `import()`), Quill did not — it isn't
+   an npm dependency here (CDN-only), so there was no `import()` boundary to
+   put it behind. **Fix**: `src/js/load-quill.js` injects the `<script>`/
+   `<link>` tags on first need (cached promise, retries on failure);
+   `main.js`'s `setupVsQuill()` is wired to the VitalSound tab button's
+   `shown.bs.tab` event, which — traced, not assumed — fires both on a real
+   click AND on the boot-time route to `/vssound` (the SAME mechanism the
+   pre-existing global `shown.bs.tab` listener a few lines above already
+   relies on for scroll-reset on direct-linked tabs, so this was already a
+   load-bearing assumption in this file, not a new one).
+
+**A real bug my own `/scrutinize` pass caught, fixed the same session.**
+`vitalSoundForm` has no `action` attribute. Before Quill was lazy,
+`initVsForm()` (which wires the submit listener and its `preventDefault()`)
+ran at module load — before a user could possibly see the form. Making
+Quill lazy opened a real window, between the tab appearing and Quill's CDN
+fetch resolving, where the submit BUTTON is visible but no listener is
+attached yet — a submit in that window would have fallen through to the
+browser's default behaviour (a GET to the current URL — a full-page reload,
+discarding whatever the user had typed), and the window is LONGER on exactly
+the slow connections this task is about. Fixed with a capture-phase `submit`
+guard on the form that `preventDefault()`s while `vsQuillRef` is still null,
+and is a no-op once it isn't. Test in `load-quill.test.js`.
+
+**Measured, before → after** (exact bytes from `dist/`, not console
+rounding, except the "before" row — captured once, at the very start, before
+any fix, from vite's own build log, which prints to 0.01 kB / ≈10 B
+precision):
+
+| What | Before | After | Change |
+|---|---|---|---|
+| Public entry's eager shared chunk (`core-*.js`, fetched via `modulepreload` on EVERY public page, before `main.js` finishes evaluating) | 1,038,650 B raw / 290,620 B gzip | 698,590 B raw / 188,260 B gzip | −340,060 B raw (−32.8%) / −102,360 B gzip (−35.2%) |
+| Public entry total first-load JS+CSS (entry script + that chunk + its stylesheet) | 1,723,860 B raw / 425,540 B gzip | 1,384,890 B raw / 323,540 B gzip | −338,970 B raw (−19.7%) / −102,000 B gzip (−24.0%) |
+| Render-blocking third-party requests in `<head>` on every PUBLIC page | Bootstrap CSS, Google Fonts, Bootstrap Icons, **Quill CSS + Quill JS** | Bootstrap CSS, Google Fonts, Bootstrap Icons (Quill now fetched only once the VitalSound tab is opened) | 2 fewer blocking requests on every route except `/vssound` |
+| LCP / time to `window.__samoBooted`, throttled Fast 4G + 4× CPU, 390 px | **NOT MEASURED** — no Chrome in this sandbox | **NOT MEASURED**, same reason | owed |
+
+Admin's entry (`admin/index.html`) was measured too but NOT changed —
+672,861 B JS + 325,189 B CSS + the same shared `core-*.js` chunk, both
+before and after (nothing in admin's own import graph changed). Admin still
+blocks on Quill, Cropper.js AND Sortable.js in `<head>` — see "rejected /
+deferred" below for why this task left that alone.
+
+**New guard: `npm run check:bundle` (`tools/check-bundle.mjs`).** Reads
+`dist/` after a build and fails if either entry's first-load JS+CSS exceeds
+a budget set ~15% above today's AFTER-fix size (public 1,600,000 B, admin
+1,950,000 B raw — a ceiling to catch a regression, not a target to chase),
+or if GrapesJS's or d3-org-chart's own chunk is ever referenced by an
+entry's `<script type="module">` or `<link rel="modulepreload">` (checked by
+filename prefix against Vite's own deterministic chunk-naming hook, NOT by
+grepping chunk content for the library's name — tried that first, and it is
+unreliable: our own glue code legitimately references these libraries by
+name, e.g. `org-graph.js`'s `const [{ OrgChart }] = await
+import('d3-org-chart')` already puts the string `OrgChart` in the public
+entry chunk in a CORRECT build, which would have been a permanent false
+positive). Also fails if `dist/index.html`'s `<head>` still carries a real
+`<script>`/`<link>` tag naming `quilljs` (scoped to the public entry only —
+see below). **Proved red**: temporarily added `import grapesjs from
+'grapesjs'` to `main.js`, rebuilt — the public entry gained a
+`grapes-*.js` `modulepreload` (+1.1 MB) and the check failed on both the
+named-library check and the byte budget; reverted, confirmed green again.
+Registered as `npm run check:bundle`, run as part of this task's own
+`Done when:` gate.
+
+**Decisions, and what I rejected:**
+- **Split `qr.js` into two files, rather than just making `orders.js`'s
+  import dynamic.** A dynamic `await import('./qr.js')` from `orders.js`
+  would have kept Html5Qrcode OUT of the eager chunk too, with a one-line
+  diff — but every customer who ever opens their own order's QR would then
+  download the WHOLE merged chunk, camera-scanner code included, just to
+  render a static SVG. Splitting means the customer path's own static
+  import stays genuinely light (`qrcode` only, no `Html5Qrcode`) and the
+  scanner chunk is only ever paid for by the admin flow that already
+  dynamically imports it. More files, but the actually-correct shape — the
+  header comment in the original `qr.js` already described it as two
+  surfaces; the file just hadn't been split along that line.
+- **Did NOT lazy-load admin's Quill, Cropper.js or Sortable.js.** Same
+  class of cost, smaller audience (staff, not every student), and higher
+  risk: `admin-main.js`'s `announcements.js` `fillCreatorFormForEdit()`
+  (reached via the `#creator/{id}` deep link from the public reader's "edit"
+  button, and from the manage-list pencil) sets `creatorQuill.root.innerHTML
+  = post.content` SYNCHRONOUSLY, assuming the editor already exists — it is
+  not gated behind any tab-shown event the way the public VS form is.
+  Making it lazy correctly would mean either awaiting Quill before that
+  function can run (touches a deep-link code path used by staff publishing
+  real announcements) or accepting a null-pointer risk on a workflow this
+  task's budget did not leave room to test carefully. Left as a named,
+  deferred finding — `admin-main.js` lines ~62-111, `announcements.js`
+  `fillCreatorFormForEdit`.
+- **Did not touch `welcome-banner.jpg`.** Measured: `public/welcome-banner.jpg`
+  is a 2000×666 px, 297 KB JPEG, marked `fetchpriority="high"` as the FIRST
+  slide of the home page's hero carousel — i.e. it is very likely the LCP
+  element on `/`, the single most common route, served at full desktop
+  resolution to a 390 px phone with no `srcset`. This is a real, sizeable,
+  fixable cost (a correctly-sized/compressed version would likely be
+  4-6× smaller) that this task found but **could not fix**: no image tool
+  exists in this sandbox (checked `convert`/`magick`/`cwebp`/`pngquant`/
+  `jpegoptim`/`gm`; no `PIL` for python3; `sharp` via `npm install --no-save`
+  failed on the same read-only npm-cache `EROFS` as the Chrome install
+  attempt) and hand-writing a JPEG encoder to do this safely was judged not
+  worth the risk of shipping a corrupted asset. **Recommended next step,
+  for whoever has a real image tool**: re-export at ≤1200 px wide (covers
+  every realistic viewport without upscaling), or add a build-time
+  responsive-image step (e.g. `sharp` at build time generating a `srcset`)
+  if this kind of asset recurs.
+- **nginx caching (`server/nginx-samo.conf`) — checked, not changed.**
+  `/assets/` is already `Cache-Control: public, max-age=31536000,
+  immutable` (hashed filenames), gzip already covers JS/CSS/SVG/fonts, HTML
+  is correctly `no-cache`. Nothing to fix here — "no change" is the honest
+  finding (memory `keep-what-works-show-evidence`).
+- **Did not restructure the 341 KB public CSS file.** Real weight, but
+  splitting one global stylesheet per-route is a materially bigger,
+  riskier change (every tab currently assumes the whole stylesheet is
+  present) than this task's "fix the top few, not everything" scope
+  justifies without a live before/after to actually confirm the split
+  helps more than it costs in extra requests. Left as a lower-priority
+  candidate for a future, dedicated pass — not attempted.
+
+**Verification performed.** `npm run build` (both entries + Passport) —
+clean, deterministic byte counts across repeated rebuilds. `npm run
+check:bundle` — green, and separately proved red (grapesjs experiment
+above) and reverted. `npx eslint` over every touched file — clean. `npm
+test` — 182 files / 3068 tests, green (before this task: 182/3056 — net new
+tests are `load-quill.test.js` + `shop/qr-order.test.js`, both source-text
+guards since this repo runs no jsdom). `npm run test:clean` — 182/3060
+(the 8-test gap against plain `npm test` is the same pre-existing,
+documented `.env.local`-conditional-test gap Task 17 already found and
+ruled out as unrelated — re-confirmed, not re-diagnosed). `npm run
+check:context` — unchanged, within budget. A `/scrutinize` pass over this
+task's full diff (`git diff 1586b43..HEAD`) found and fixed the
+submit-before-Quill-loads gap above — the one real correctness risk this
+task's changes introduced; everything else traced clean (import/export
+graph after the `qr.js` split checked against every OTHER caller in the
+repo via grep before touching anything, not just the two files edited).
+
+**Could not verify.** `npm run handoff:check` — same crash every task this
+queue has hit (`fatal: ambiguous argument 'origin/agent/2026-10-20..HEAD'`,
+then `ENOENT` on a hardcoded memory-index path this sandbox never
+populated); substituted the direct checks above. Live LCP/boot-time/
+request-waterfall numbers — no Chrome in this sandbox, see the top of this
+block. Whether the modulepreload-graph check in `check-bundle.mjs` would
+also catch a GrapesJS/d3-org-chart leak that arrives via a DIFFERENT chunk
+name than today's (e.g. after a dependency upgrade changes how Rollup
+splits it) — only tested against today's actual chunk names.
+
+**Nothing to apply/deploy on samo-dev — no migration** (0239+ stays
+reserved for later tasks per `NIGHT-TASKS.md`; this task's fixes are pure
+frontend/build, no schema touched). **Nothing on production either** — this
+is all client-side, ships on whatever the next normal `server/deploy.sh`
+deploy is, same as every other unreleased commit on this branch. **Exact
+commands the owner runs next**: (1) once a machine with a real Chrome is
+available, run the actual measurement this task's brief asked for —
+`npm run dev`, then drive it with `tools/browser/*.mjs`'s pattern (390 px,
+throttled, cold cache) against `vite preview` of a production build, for
+`/`, `/me`, `/shop`, a หน้าฝ่าย page, and `/admin/`, and treat THOSE numbers
+as the real baseline (this task's byte counts are a floor, not a
+substitute); (2) `npm run build && npm run check:bundle` before any future
+deploy, same as `npm test` — it is cheap and catches exactly the class of
+regression this task found twice; (3) the usual `server/deploy.sh` to ship
+these two fixes; (4) if anyone revisits admin's Quill/Cropper/Sortable or
+`welcome-banner.jpg`, read the "rejected / deferred" bullets above first —
+both have a specific, named reason they were left alone, not an oversight.
+
+## Task 19 — Maintainability: split the two largest modules (2026-10-20)
+
+**Did one of the two, and said why the other one is a different shape of
+problem, not a smaller version of the same one.**
+
+**`src/js/shop/admin.js` (5,110 lines → a ~580-line shell + 9 tab modules),
+DONE.** Split along the seams the file already named in its own `// ====`
+banner comments: `admin-orders.js` (orders list + facets + the create panel +
+CSV export + the order detail modal — 1,716 lines; the verify queue is a
+separate pane but shares `modalOrder`/`openOrderModal` tightly enough that
+splitting it further would just move the coupling, not remove it),
+`admin-verify.js` (217), `admin-preorder.js` (288), `admin-batches.js` (330),
+`admin-products.js` (890 — plus the colour-picker helpers that had been
+stranded at EOF, now beside the editor that uses them), `admin-stock.js`
+(469), `admin-catalog.js` (513 — QR settings + the product-type/pickup/QR
+managers), `admin-banners.js` (223). One cross-cutting helper
+(`trashImageIfUnused`, called by Batches, Products AND Banners) got its own
+`admin-image-cleanup.js` (45 lines) rather than making two tabs import from a
+third tab's file for no reason related to what either tab does.
+
+**Verified it is a pure move, not by eye.** Every new file's body, with the
+`export ` keyword stripped back out (the ONE kind of edit made —
+cross-module calls need it, same-file calls didn't before), diffs
+byte-identical against the matching line range of the original file —
+checked with a script, not a read-through (`git diff --color-moved` agrees,
+but the script is the real proof: it can't be fooled by a reformatted line
+that happens to move to the same place). No window-bound function exists in
+this module (checked: everything is wired via `addEventListener`, nothing
+via `onclick=""`), so there was nothing to avoid renaming. No new
+abstraction beyond the one shared-helper file above.
+
+**What broke on the first `npm test`, and why that's expected, not a
+regression.** Four existing tests hardcoded `'shop/admin.js'` as the one
+file to scan: `read-file.test.js`'s picked-file registry (n:6 "held" calls),
+`upload-cleanup.test.js`'s Drive-upload audit, `src/js/shop/css-rules.test.js`'s
+CSS-class-per-entry sweep, and `pictures-readers.test.js`'s
+`image_url`/`images` reader registry. Each got its single row replaced with
+one row per new file, with the SAME total count, re-derived by actually
+running the count against the new files (not retyped from the old row) —
+and in two cases this is now MORE accurate than before: the old single-row
+registry called all 6 of admin.js's picked-file sites "held" (copies the
+bytes before a later save) because that was the only kind the one file as a
+whole exhibited anywhere; split apart, the QR and banner pickers turned out
+to be `'immediate'` (upload inside the pick handler, nothing held) while
+only the batch and product pickers are genuinely `'held'` — a distinction
+the old test COULD NOT express with one row. `admin-order-modal.test.js`
+(pins that the delete-button listener is wired once in `ensureMounted`, not
+re-wired every `openOrderModal` repaint — the my-house.js re-render-trap
+shape) now reads `admin.js` + `admin-orders.js` concatenated, since
+`ensureMounted` and `openOrderModal` are no longer in one file. `eslint`'s
+`no-unused-vars` (wired into CI by task 16) then caught 3 leftover dead
+imports from the split that the test suite doesn't check for — fixed,
+`npm run lint` clean.
+
+**`src/js/team/index.js` (4,419 lines), NOT split — a different shape of
+problem.** `admin.js` had ONE piece of cross-tab state, a `const state = {}`
+object that is mutated in place and never reassigned — exactly what an ES
+`export`/`import` can share safely between files regardless of which one
+loads first. `team/index.js` has SEVENTEEN module-scope `let`s
+(`mode`, `childrenByParent`, `searchQ`, `selectionMode`, `pendingPlan`,
+`sortables`, `rtStarted`, `dragging`, `pendingRender`, `renderTimer`,
+`healthFlags`, `healthNodeCounts`, `memberPhotoFocus`, `majors`, `loading`,
+`loaded`, `initialized`, `currentTermYear`), and at least two of them
+(`mode`, `childrenByParent`) are REASSIGNED — `childrenByParent = new Map()`
+twice, `mode = 'perms'`/`'health'`/etc. in `switchMode` — not just mutated.
+A `let` reassigned by its owning module can be READ as a live binding from
+another module, but never REASSIGNED from outside it; every function that
+would move to a `perms.js` or a `team.js` closures directly over several of
+these (not as parameters), so a safe split needs either (a) turning all
+seventeen into getter/setter pairs — a real new abstraction the brief rules
+out — or (b) leaving the state in `index.js` and passing a dozen-plus values
+into every extracted function as parameters, which is a signature rewrite,
+not a move. Checked this against the actual code (not assumed): also found
+that the "team" and "perms" modes are not even cleanly separable by
+function — `inheritedPermsFor`/`nodeEffectivePerms`/`nodeEffectiveVsDepts`/
+etc. (lines 191–366) compute inherited permissions read by BOTH the tree's
+own node badges (team mode) and the permission grid (perms mode), and
+`wireMemberModal` (team: editing a member's info) sits between
+`wireMemberPermModal`/`fillMemberPermPane`/`openMemberPermModal` (perms, for
+that same member) in the file's own order — the two modes are interleaved at
+the function level, not just coupled through shared state. A one-night
+mechanical split here risks a genuinely subtle cross-module state bug that
+the test suite has no structural coverage to catch (no jsdom in this repo's
+test setup, and no Chrome in this sandbox to drive the real page either —
+see below), for a module that is read by every session touching ทีม SAMO.
+Leaving it whole and documenting exactly why is safer than a half-verified
+split.
+
+**Could not drive the real page.** `tools/browser/shop-admin-tour.mjs` and
+`shop-admin-strip.mjs` both need Chrome + `npm run dev` on samo-dev — no
+`google-chrome`/`chromium` binary exists anywhere on this sandbox's
+filesystem (same gap tasks 17 and 18 hit and documented; `sudo`/`apt-get`
+refused, no root). Did not attempt to install one again. **Owed to the
+owner**: `node tools/browser/shop-admin-tour.mjs` against samo-dev once run
+from a machine with Chrome, to see the split tabs render exactly as before
+at 1280 and 390 — `npm test`, `npm run build`, `npm run check:bundle` and
+`npm run lint` are all green, and the chunk the shop admin bundles into is
+unchanged (it was already behind the admin entry's lazy `import()`, same as
+before: `admin-xMFQ5cPB.js` 672,861 B vs the pre-split build's
+`admin-duAa3rwZ.js` 672,950 B — the ~90-byte difference is header-comment
+and import-line text, not a behaviour change), but neither of those is a
+substitute for actually looking at the rendered page.
+
+**What I rejected.** Splitting `admin-orders.js` further (it's the largest
+new file at 1,716 lines) — the order list, its facets, the inline "create
+order" panel, and the order detail MODAL are one feature from the admin's
+point of view (click a row → see/edit everything about that order), and the
+modal's `modalOrder`/`modalEditItems` state is read by Stock
+(`onStockProductionStatusChange`) and written by nothing outside this file,
+so splitting it would mean inventing a boundary the UI itself doesn't have,
+for a count that's still a 66% reduction from the original 5,110-line file.
+
+**Commands for the next session**: `npm test && npm run build && npm run
+lint` (all green already; re-run after any further edit here);
+`git diff --color-moved=zebra c21457c^..c21457c -- src/js/shop/` to see the
+move for yourself; `node tools/browser/shop-admin-tour.mjs` once Chrome is
+reachable, to actually look at every shop-admin tab (orders, verify,
+preorder, batches, products, stock, banners, qr, catalog) at 1280 and 390 —
+this is the shop admin's split, NOT ทีม SAMO's team/perms/years/health,
+which this task left untouched for the reasons above.

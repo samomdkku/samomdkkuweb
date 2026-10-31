@@ -5,7 +5,7 @@
 import { GAS_API_URL } from './config.js';
 import { postGAS } from './gas-post.js';
 import { getIsPrAccountVerified } from './pr-auth.js';
-import { db, dbRest } from './db.js';
+import { dbRest } from './db.js';
 import { getUser as authGetUser } from './auth.js';
 import { sendNotify } from './notify.js';
 

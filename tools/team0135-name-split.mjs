@@ -133,13 +133,30 @@ select 'D3. legacy combined name survives an unrelated edit',
                 (select '(no legacy row)' from legacy having count(*) = 0));
 
 -- ---- A5/A6/A7/D5 — the person's own card ----
+-- WHO IS CREATED, NOT FOUND. The old version searched for a student+login+
+-- team_members triple that happened to already exist — on production nothing
+-- satisfies all three at once today (A5 came back '(none)': subject drift,
+-- not a bug), so the proof went quietly dark on the exact case it exists to
+-- protect (class 7, the mirror of "the setup is blocked by the thing being
+-- tested": a search can go EMPTY just as easily as it can go vacuously green).
+-- update_my_identity/get_my_team_seat resolve "self" purely through
+-- public.users.email → students.kkumail / team_members.kkumail (0145 §5/§6,
+-- no role branch) — so ANY login can BE subj for the life of this rolled-back
+-- transaction. Reuse subj's own login if it has one; otherwise borrow any
+-- other account's identity and point its email at subj's for the duration.
+create temporary table carrier as
+select coalesce(
+  (select id from public.users
+    where lower(btrim(email)) = lower(btrim((select kkumail from subj))) limit 1),
+  (select id from public.users order by id limit 1)
+) as uid;
+
+update public.users set email = (select kkumail from subj)
+ where id = (select uid from carrier)
+   and lower(btrim(email)) is distinct from lower(btrim((select kkumail from subj)));
+
 create temporary table who as
-select s.kkumail, u.id as uid, s.person_id,
-       (select m.id from public.team_members m
-         where lower(btrim(m.kkumail)) = lower(btrim(s.kkumail)) limit 1) as mid
-  from public.students s
-  join public.users u on lower(btrim(u.email)) = lower(btrim(s.kkumail))
- limit 1;
+select (select kkumail from subj) as kkumail, (select uid from carrier) as uid;
 grant select on who to authenticated;
 grant insert, select on probe to authenticated;
 

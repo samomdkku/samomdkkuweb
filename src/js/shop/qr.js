@@ -1,45 +1,31 @@
 // ==============================================
-// SHOP QR — Customer order QR + admin scanner
+// SHOP QR — admin scanner only
 //
-// Two surfaces:
+// Admin-side. Mounts a camera viewfinder via html5-qrcode. On a successful
+// scan, extracts the order id from the URL (or accepts a raw id), tears
+// down the camera, and calls onResult(id). Manual entry input below the
+// viewfinder works when the camera is denied / unavailable.
 //
-//   (a) showOrderQrModal(order)
-//       Customer-side. Renders the order id as a QR (deep link to the
-//       admin order page) so the user can show it to admin when picking
-//       up. The deep link is a full HTTPS URL — works with LINE,
-//       iOS camera, Google Lens, and the in-app admin scanner.
-//
-//   (b) openScannerModal(onResult)
-//       Admin-side. Mounts a camera viewfinder via html5-qrcode. On a
-//       successful scan, extracts the order id from the URL (or accepts
-//       a raw id), tears down the camera, and calls onResult(id).
-//       Manual entry input below the viewfinder works when the camera
-//       is denied / unavailable.
+// The customer-facing half (showOrderQrModal / orderDeepLink) moved to
+// ./qr-order.js (2026-10-20, speed sweep) — orders.js imported it
+// statically, which pulled html5-qrcode's whole camera-scanning engine into
+// the eagerly-loaded shared chunk every public visitor downloads, for a
+// feature only admin uses and this file ALREADY loads lazily
+// (`await import('./qr.js')` in admin.js). Splitting is what let the
+// customer path keep its own static (but now light — just `qrcode`) import
+// without dragging the scanner along.
 //
 // LINE edge case worth knowing: LINE's in-app QR scanner opens links in
 // its own webview, which does NOT share auth cookies with regular Chrome
-// / Safari. The customer-visible QR is for admin's phone (or LINE) to
-// scan — the admin themselves is expected to be signed in already in
-// their normal browser. So we always encode an HTTPS URL (universal),
-// not a custom scheme; and our admin scanner extracts the id and routes
-// internally instead of redirecting (no auth handshake needed).
+// / Safari. The customer-visible QR (./qr-order.js) is for admin's phone
+// (or LINE) to scan — the admin themselves is expected to be signed in
+// already in their normal browser. So that QR always encodes an HTTPS URL
+// (universal), not a custom scheme; and this scanner extracts the id and
+// routes internally instead of redirecting (no auth handshake needed).
 // ==============================================
 
-import QRCode from 'qrcode';
 import { Html5Qrcode } from 'html5-qrcode';
-import { copyText, escHtml } from '../utils.js';
-import { showShopToast } from './products.js';
-
-const ADMIN_SCAN_BASE = '/admin/?scan=';
-
-/** Build the URL that the QR encodes. Uses the current origin so a
- *  preview deploy stays scoped to itself; production lands on the real
- *  admin URL. */
-export function orderDeepLink(orderId) {
-  if (!orderId) return '';
-  const origin = window.location.origin;
-  return `${origin}${ADMIN_SCAN_BASE}${encodeURIComponent(orderId)}`;
-}
+import { escHtml } from '../utils.js';
 
 /** Pull an order id out of whatever the camera or input gave us.
  *  Accepts:
@@ -66,42 +52,7 @@ export function parseScannedText(raw) {
   return '';
 }
 
-// ---- (a) Customer-facing order QR modal -------------------------------
-
-export async function showOrderQrModal(order) {
-  const modalEl = document.getElementById('shopOrderQrModal');
-  if (!modalEl || !order?.id) return;
-  const codeEl = document.getElementById('shopOrderQrCode');
-  const imgWrap = document.getElementById('shopOrderQrImage');
-  const copyBtn = document.getElementById('shopOrderQrCopyBtn');
-  if (codeEl) codeEl.textContent = order.id;
-  if (imgWrap) {
-    imgWrap.innerHTML = '<div class="spinner-border text-muted"></div>';
-    try {
-      const svg = await QRCode.toString(orderDeepLink(order.id), {
-        type: 'svg',
-        errorCorrectionLevel: 'M',
-        margin: 1,
-        width: 240,
-        color: { dark: '#0d1a14', light: '#ffffff' },
-      });
-      imgWrap.innerHTML = svg;
-    } catch (e) {
-      imgWrap.innerHTML = `<div class="text-danger small">สร้าง QR ไม่สำเร็จ</div>`;
-      console.error('[shop/qr] toString failed:', e);
-    }
-  }
-  if (copyBtn) {
-    copyBtn.onclick = async () => {
-      const ok = await copyText(order.id);
-      showShopToast(ok ? 'คัดลอกรหัสแล้ว' : 'คัดลอกไม่สำเร็จ', ok ? 'success' : 'warn');
-    };
-  }
-  const inst = window.bootstrap?.Modal.getOrCreateInstance(modalEl);
-  inst?.show();
-}
-
-// ---- (b) Admin scanner modal -----------------------------------------
+// ---- Admin scanner modal -----------------------------------------------
 
 let scannerInstance = null;
 

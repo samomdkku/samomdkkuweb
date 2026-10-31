@@ -1605,4 +1605,3 @@ real use). Paired DENY + ALLOW proof, 7/7 dev + production.
 
 **Rule.** When a table gains READERS in other systems, re-ask who may DELETE
 its rows — the policy was written for the old, smaller meaning.
-

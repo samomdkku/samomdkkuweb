@@ -260,6 +260,7 @@ function startLive() {
       });
     // Our db client does not auto-refresh the socket's JWT (team/realtime.js
     // says why); re-push it so RLS-gated pings keep arriving after an hour.
+    clearInterval(reauthTimer);
     reauthTimer = setInterval(() => {
       try { db.realtime.setAuth(currentAccessToken()); } catch (_) {}
     }, 20 * 60 * 1000);

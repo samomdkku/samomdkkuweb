@@ -213,6 +213,16 @@
 }
 .vs-metoo-btn .vs-metoo-count { font-weight: 800; }
 .vs-metoo-btn-lg { padding: 0.5rem 1.1rem; font-size: 0.92rem; }
+/* Transient failure state — vsBoardMeToo's RPC call can fail (rate limit,
+   a dropped connection) with no other visible change on the button (is-on
+   and the count both stay put on purpose, since nothing happened). Without
+   this a failed tap looks identical to a successful one that did nothing. */
+.vs-metoo-btn.is-error { border-color: #b42318; color: #b42318; color: color-mix(in srgb, #b42318 var(--fg-mix), var(--fg-mix-to)); animation: vs-metoo-shake 0.4s; }
+@keyframes vs-metoo-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
 
 /* --- problem detail --- */
 .vs-problem-title { font-weight: 700; color: var(--gray-900); line-height: 1.4; }

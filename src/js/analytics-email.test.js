@@ -58,7 +58,6 @@ function renderPanel() {
   const escHtml = (x) => String(x).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const barChart = () => '<!--chart-->';
-  // eslint-disable-next-line no-new-func
   return Function('fmt', 'escHtml', 'barChart', `${body}\nreturn emailPanel;`)(
     fmt, escHtml, barChart);
 }
@@ -79,14 +78,12 @@ function renderGas() {
   const barChart = () => '<!--chart-->';
   const rankBars = () => '<!--rank-->';
   const body = `${gasActionsSource()}\n${extract('gasActionList')}\n${extract('gasPanel')}`;
-  // eslint-disable-next-line no-new-func
   return Function('fmt', 'escHtml', 'barChart', 'rankBars',
     `${body}\nreturn gasPanel;`)(fmt, escHtml, barChart, rankBars);
 }
 
 /** The action list itself, for the mirror test against prform.gs. */
 function gasActions() {
-  // eslint-disable-next-line no-new-func
   return Function(`${gasActionsSource()}\nreturn GAS_ACTIONS;`)();
 }
 
@@ -478,7 +475,6 @@ describe('the quota panels stay readable on a phone', () => {
     // The an-email-* guard above never covered this panel, which is why a
     // stylesheet gap here would have been silent. Same property, second panel.
     const rank = extract('rankBars');
-    // eslint-disable-next-line no-new-func
     const realRank = Function('fmt', 'escHtml', `${rank}\nreturn rankBars;`)(
       (n) => String(n ?? ''), (x) => String(x));
     const html = renderGas()({

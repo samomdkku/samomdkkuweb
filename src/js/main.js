@@ -17,6 +17,7 @@ initModalStack();  // stacked modals (crop over member editor, picker over membe
 initTheme();       // light / dark / device — the head script already applied it; this wires the switch
 import { QUILL_TOOLBAR } from './config.js';
 import { uploadImageToDrive } from './uploads.js';
+import { loadQuill } from './load-quill.js';
 
 // --- Module Imports ---
 import { initAuth, onAuthChange, authReady, signOut as samoSignOut, getUser as authGetUser, userCanAccess, holdsMaster } from './auth.js';
@@ -26,7 +27,7 @@ import { initProfileModal } from './profile.js';
 import { initMeSettings, goToAccountSettings } from './me-settings.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
-import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
+import { initPrForm, togglePrMode, toggleProjectFormatCopost, toggleOtherPlatformReason } from './pr-form.js';
 import { trackPRTicket, refreshPRTicketDashboard, loadPRHistory, openPRTicketDetail, logoutPRTrack } from './pr-tracking.js';
 import { initVsForm, initVsConsent, toggleVitalSoundMode, toggleVsAccountFields, verifyAccount, toggleEmergency, setIsAccountVerified } from './vs-form.js';
 import { trackWithTicketId, loginToViewHistory, submitUserRemark, openTicketDetail, logoutTrack } from './vs-tracking.js';
@@ -70,12 +71,9 @@ import { copyText } from './utils.js';
 try { window.__samoBooted = true; } catch { /* nothing to tell */ }
 
 // ==============================================
-// QUILL SETUP
+// QUILL SETUP — lazy. Loaded only when the VitalSound tab is first shown
+// (see setupVsQuill below), not on every page view — see load-quill.js.
 // ==============================================
-
-const Size = Quill.import('attributors/style/size');
-Size.whitelist = ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'];
-Quill.register(Size, true);
 
 // Custom image handler: when the user clicks the image icon in the toolbar,
 // open a file picker, upload the image to Drive, then insert the returned URL
@@ -93,6 +91,7 @@ function makeQuillImageHandler(quillRef) {
       if (!file) return;
       const range = quill.getSelection(true);
       // Insert a placeholder while uploading
+      vsEditorNote('');
       quill.insertText(range.index, 'กำลังอัปโหลดรูป…', { italic: true, color: '#94a3b8' });
       const placeholderLength = 'กำลังอัปโหลดรูป…'.length;
       try {
@@ -101,35 +100,96 @@ function makeQuillImageHandler(quillRef) {
         quill.insertEmbed(range.index, 'image', url, 'user');
         quill.setSelection(range.index + 1);
       } catch (err) {
+        // Never alert(): Chrome silences it for the rest of the page once
+        // "prevent additional dialogs" is ticked (task 17). And never write the
+        // failure INTO the editor either (an earlier fix did): a student who
+        // does not notice it submits "แทรกรูปไม่สำเร็จ: …" as part of the
+        // complaint. The placeholder goes, the sentence they typed stays, and
+        // the outcome is said in the note under the editor.
         quill.deleteText(range.index, placeholderLength);
-        alert('อัปโหลดรูปไม่สำเร็จ: ' + (err.message || err));
+        vsEditorNote(`แทรกรูปไม่สำเร็จ: ${err.message || err} — ข้อความที่พิมพ์ไว้ยังอยู่ ลองแทรกรูปอีกครั้งได้`);
       }
     };
   };
 }
 
 let vsQuillRef = null;
+let vsQuillLoadStarted = false;
+
+/** The line under the VS editor (#vsEditorNote). '' hides it. Every editor
+ *  outcome a student must see goes here, never into the report text. */
+function vsEditorNote(msg) {
+  const el = document.getElementById('vsEditorNote');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.hidden = !msg;
+}
 
 // The public app only initialises Quill for the VS form. The creator
 // (announcement-writing) Quill lives in the admin app (admin-main.js)
 // since /admin/ is where staff publish.
-const vsQuill = new Quill('#vsQuillEditor', {
-  theme: 'snow',
-  placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
-  modules: {
-    toolbar: {
-      container: QUILL_TOOLBAR,
-      handlers: { image: makeQuillImageHandler(() => vsQuillRef) },
-    },
-  },
-});
-vsQuillRef = vsQuill;
+//
+// Triggered by `shown.bs.tab` on the VitalSound tab button rather than run
+// at module load — that event fires both on a real click AND on the
+// boot-time route to /vssound (applyPathRoute → window.activateTab →
+// bootstrap.Tab.show()), so a visitor who lands directly on /vssound still
+// gets the editor, just not before every OTHER page has paid for it. No
+// `{ once: true }` on the listener itself — `vsQuillLoadStarted` is the
+// idempotency guard, and it is reset on failure so re-opening the tab after
+// a dropped connection retries instead of leaving a dead editor forever.
+function setupVsQuill() {
+  if (vsQuillLoadStarted) return;
+  vsQuillLoadStarted = true;
+  loadQuill().then((Quill) => {
+    const Size = Quill.import('attributors/style/size');
+    Size.whitelist = ['10px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px', '32px'];
+    Quill.register(Size, true);
+    const vsQuill = new Quill('#vsQuillEditor', {
+      theme: 'snow',
+      placeholder: 'อธิบายปัญหา หรือข้อเสนอแนะที่นี่... (รองรับการแนบภาพ/ลิงก์)',
+      modules: {
+        toolbar: {
+          container: QUILL_TOOLBAR,
+          handlers: { image: makeQuillImageHandler(() => vsQuillRef) },
+        },
+      },
+    });
+    vsQuillRef = vsQuill;
+    vsEditorNote('');
+    initVsForm(vsQuill);
+  }).catch((err) => {
+    vsQuillLoadStarted = false; // let the next tab-open, or the next ส่ง, retry
+    vsEditorNote(`${err.message || 'โหลดตัวแก้ไขข้อความไม่สำเร็จ'} — กดส่งอีกครั้งเพื่อลองโหลดใหม่`);
+  });
+}
+document.getElementById('pills-vitalsound-tab')?.addEventListener('shown.bs.tab', setupVsQuill);
+
+// Safety net for the gap BETWEEN the tab appearing and Quill finishing its
+// (now lazy) load: `vitalSoundForm` has no `action`, so a submit with no
+// listener attached yet falls through to the browser's default behaviour —
+// a GET to the current URL, i.e. a full-page reload that throws the typed
+// report away. Before this file made Quill lazy, `initVsForm` ran at module
+// load, before a user could possibly see the form; now there is a real
+// window (a slow connection makes it longer, not shorter) where the submit
+// button is visible but unwired. Capture phase so it runs before (and can
+// block) any later listener; becomes a no-op once vsQuillRef is set, i.e.
+// once initVsForm's own listener is the one actually handling the submit.
+// It must also SAY so: a swallowed submit with no message reads as a dead
+// button (review, 2026-10-31), and it retries the load, since a student who
+// stays on the tab never fires shown.bs.tab again.
+document.getElementById('vitalSoundForm')?.addEventListener('submit', (e) => {
+  if (vsQuillRef) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  vsEditorNote('ตัวแก้ไขข้อความยังโหลดไม่เสร็จ กำลังลองโหลดใหม่ — รอสักครู่แล้วกดส่งอีกครั้ง');
+  setupVsQuill();
+}, true);
 
 // ==============================================
 // INITIALIZE MODULES
 // ==============================================
 
-initVsForm(vsQuill);
+// initVsForm(vsQuill) now runs inside setupVsQuill, once Quill has loaded.
 // PDPA consent gate for the Vital Sound report form. Wires the popup's
 // ยินยอม / ไม่ยินยอม buttons; the popup is triggered on every send attempt
 // from inside vs-form.js (handleVsFormSubmit), not on tab view.
@@ -591,6 +651,10 @@ function applyLauncherFilters() {
 // Apply role-gated launcher visibility: each tool with data-roles="…" shows
 // only when the current role is in the whitelist. Section visibility tracks
 // "any visible tool inside" so an empty section disappears.
+// Dormant on purpose (see launcher.js's note): no registry entry sets `roles`
+// today, so this has no caller yet. Left in place rather than deleted — a
+// future `roles` entry must call this after launcher.js renders the grid.
+// eslint-disable-next-line no-unused-vars
 function applyLauncherRoleGating(role) {
   // Show the staff chip + section if the user has any data-roles tool they qualify for.
   let staffVisible = false;
