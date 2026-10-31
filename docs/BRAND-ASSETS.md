@@ -6,15 +6,20 @@ root; the Passport pages and `/admin/` point at the same files.
 
 | File | Used by | Made from |
 |---|---|---|
-| `favicon.svg` | modern browser tabs, bookmarks | the logo mark (`Logo_full HD.svg` from the SAMO logo pack), paths only, square viewBox |
+| `favicon.svg` | modern browser tabs, bookmarks | the guidebook's REVERSE mark — white + orange on a `#105922` rounded square — built from the paths of `Logo_full HD.svg` |
 | `favicon.ico` (16/32/48) | older browsers, some bookmark managers | `favicon.svg` via `rsvg-convert` + ImageMagick |
-| `apple-touch-icon.png` (180) | iPhone/iPad "Add to Home Screen" | the mark on `#F6F3EE`, no transparency (iOS fills transparency black) |
-| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | `site.webmanifest` (Android home screen) | same; the maskable one has extra padding for the round crop |
+| `apple-touch-icon.png` (180) | iPhone/iPad "Add to Home Screen" | `favicon.svg` with square corners (iOS rounds them itself, and fills transparency black) |
+| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | `site.webmanifest` (Android home screen) | same; the maskable one is full-bleed with the mark shrunk into the round crop's safe zone |
 | `og-image.png` (1200×630) | LINE, Facebook, Discord, X link previews | `tools/brand/og-image.html`, screenshotted by headless Chrome |
 
 The tags are in the `<head>` of `index.html` (and `passport/index.html`). They
 must stay static HTML: no link-preview crawler runs the app's JavaScript.
 `og:image` is an ABSOLUTE URL for the same reason.
+
+⛔ **Never the green mark on a transparent background for an icon.** It was the
+first version: on a dark tab bar `#105922` reads as black and the mark vanishes
+(owner, 2026-10-31: "it's hard to see"). An icon sits on a background we do not
+choose, so it carries its own.
 
 **Colours** are the logo pack's: green `#105922`, orange `#FF6F30`, yellow
 `#FDC55A`, beige `#F6F3EE`.
