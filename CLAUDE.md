@@ -25,7 +25,7 @@ Supabase project: `fheueuowbchsnsvbcgil`.
 
 ## Tech stack (quick)
 
-- **Frontend**: Vite 6, Vanilla ES modules, Bootstrap 5, Quill, d3-org-chart,
+- **Frontend**: Vite 6, Vanilla ES modules, Bootstrap 5, Quill,
   GrapesJS — **DYNAMIC IMPORT ONLY, never an entry bundle**
 - **Auth + DB**: Supabase Auth (Google + username/password), Postgres with RLS
 - **Files**: Google Drive via GAS `uploadPRFile` (2 TB quota)

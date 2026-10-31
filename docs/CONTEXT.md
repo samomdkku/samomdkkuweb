@@ -829,28 +829,14 @@ trusting this table — it is a snapshot, not a guarantee.
 public. It is recorded in `docs/state/HANDOFF.md` §11 with the query that finds
 it in one line.
 
-**TWO VIEWS, TWO PARENTAGES, ONE ORDERING.** The public page offers แผนผัง (a
-page of nesting ฝ่าย panels, `org-chart.js` + `org-chart.css`) and ผังรวม (one
-d3 canvas, `org-graph.js` + `org-graph.css`). รายการ and ผังองค์กร were removed
-on 2026-08-20 — each was a near-duplicate of a survivor (same markup / same
-renderer), and a reader whose stored preference is one of them is MIGRATED
-(`RETIRED_VIEWS` in `org-chart.js`), not reset.
-
-แผนผัง draws the STORED tree (containment) and expresses ระดับ as ROWS inside a
-panel; ผังรวม draws a REPORTING tree built by `chartParentage()` in
-`src/js/org-rung.js` — a ฝ่าย's sub-ฝ่าย hang off its head seat, and `tier`
-ranks the seats by NESTING. `org-chart.js` builds both indexes (`byParent`,
-`byParentChart`) and runs `indexStats()` over each. **Do not unify the
-geometries**: applying the reporting parentage to แผนผัง turned it into a
-52,000 px staircase. **Do unify the ORDER** — both call `orderChildren()`
-(ตำแหน่ง before ฝ่าย, ระดับ ascending), and `org-rung.test.js` holds the
-differential that the seat sequence is identical either way. That differential
-is the fix for "แผนผัง doesn't show order like the ผังรวม … it doesn't care
-about ระดับ" (2026-08-20).
-
-The search widens its kept set for the canvas only (`chartFilter`), because a
-canvas ancestor can be a stored sibling.
-Full reference: `docs/state-archive/2026-08-15-late-org-chart-reporting.md`.
+**ONE VIEW SINCE 2026-10-31: ภาพรวม** (`org-chart.js` + `org-overview.js` +
+`org-sheet.js`). The owner removed ผังสายงาน, แผนผัง and ผังรวม; `org-graph.js`,
+its CSS and the d3 packages are deleted and the stored `samo.org.view`
+preference is no longer read. แผนผัง's panel markup (`unitBlock`) is the body of
+the sheet a tile opens. Every list reads `orderChildren()` in `org-rung.js`
+(ตำแหน่ง before ฝ่าย, ระดับ ascending). `chartParentage()` (the REPORTING tree
+the canvas drew) is still in `org-rung.js` with its tests but has no caller.
+History of the four views: `docs/state-archive/2026-08-15-late-org-chart-reporting.md`.
 
 **Public org chart — projection only (migration 0086).** `team_nodes.is_public`
 (default true) marks a subtree as hidden from the future public org chart;

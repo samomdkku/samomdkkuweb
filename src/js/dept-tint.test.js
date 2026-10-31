@@ -138,7 +138,7 @@ describe('tintColor: chosen beats derived, and derived is ROOT-ONLY', () => {
     // argument inherits (safe) rather than guessing (the bug). This asserts
     // every real call site still says which it is, because a silent
     // `tintColor(node)` in a tree renderer is exactly how this came back.
-    const sites = ['./team/index.js', './org-chart.js', './org-graph.js']
+    const sites = ['./team/index.js', './org-chart.js']
       .map((rel) => readFileSync(new URL(rel, import.meta.url), 'utf8'))
       .flatMap((src) => [...src.matchAll(/tintColor\(([^)]*)\)/g)].map((m) => m[1]));
     // A FLOOR, not an equality. This was `toBe(3)`, and adding a legitimate

@@ -15,6 +15,14 @@
 //
 // All mutations go through auth.js so the rules ("can't unlink Google
 // without a password", "username uniqueness", etc.) live in one place.
+//
+// TWO HOMES SINCE 2026-10-31, ONE IMPLEMENTATION. The public site shows these
+// controls inline on /me (tab-me.html, rows opened by me-settings.js); admin
+// keeps the modal. Both markups carry the SAME element ids, so everything here
+// paints and saves either one — profile-markup.test.js fails if they drift.
+// On /me the page is always there, so a repaint can land while somebody is
+// typing (a token refresh fires onAuthChange): a field the person has edited
+// is left alone until it is saved or the account changes (`setField`).
 // ==============================================
 
 import {
@@ -28,14 +36,21 @@ import { loadMySeat, renderMySeat } from './my-seat.js';
 
 let modalEl = null;
 let bsModal = null;
+// True on the public site, where the controls live on /me rather than in a modal.
+let onPage = false;
+let paintedUid = null;
 
 export function initProfileModal() {
   modalEl = document.getElementById('profileModal');
-  if (!modalEl) return;
-  bsModal = window.bootstrap?.Modal.getOrCreateInstance(modalEl);
-
-  modalEl.addEventListener('show.bs.modal', () => repaint());
-  onAuthChange(() => { if (modalEl.classList.contains('show')) repaint(); });
+  onPage = !modalEl && !!document.getElementById('meSettings');
+  if (!modalEl && !onPage) return;
+  if (modalEl) {
+    bsModal = window.bootstrap?.Modal.getOrCreateInstance(modalEl);
+    modalEl.addEventListener('show.bs.modal', () => repaint({ fresh: true }));
+    onAuthChange(() => { if (modalEl.classList.contains('show')) repaint(); });
+  } else {
+    onAuthChange((u) => { if (u) repaint(); });
+  }
 
   // -------- Display name --------
   document.getElementById('profileNameSaveBtn')?.addEventListener('click', onSaveName);
@@ -80,11 +95,12 @@ export function initProfileModal() {
 
 export function openProfileModal() {
   if (!getUser()) return;
+  if (onPage) return;
   if (!bsModal) {
     modalEl = document.getElementById('profileModal');
     bsModal = window.bootstrap?.Modal.getOrCreateInstance(modalEl);
   }
-  repaint();
+  repaint({ fresh: true });
   bsModal?.show();
 }
 
@@ -92,9 +108,41 @@ export function openProfileModal() {
 // Repaint — single source of truth for what the modal shows.
 // ==============================================
 
-function repaint() {
+/** Write a value into an input — unless, on /me, the person has edited it
+ *  since the last paint (and it is still the same account). */
+function setField(el, v) {
+  if (!el) return;
+  const dirty = onPage && el.dataset.painted !== undefined && el.value !== el.dataset.painted;
+  if (dirty && !forcePaint) return;
+  el.value = v;
+  el.dataset.painted = v;
+}
+/** After a save: what is in the field IS the account's value now. */
+function settle(el) { if (el) el.dataset.painted = el.value; }
+let forcePaint = false;
+
+/** The value each /me row shows beside its title. Absent in the modal. */
+function paintSummaries(u) {
+  const put = (k, text, muted) => {
+    const el = document.querySelector(`[data-set-value="${k}"]`);
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('is-muted', !!muted);
+  };
+  put('name', u.name || 'ยังไม่ได้ตั้ง', !u.name);
+  put('email', u.email || (u.pendingEmail ? 'รอยืนยัน' : 'ยังไม่มี'), !u.email);
+  put('phone', u.phone || 'ยังไม่ได้ใส่', !u.phone);
+  put('password', u.hasPassword ? 'ตั้งแล้ว' : 'ยังไม่ได้ตั้ง', !u.hasPassword);
+  put('google', u.hasGoogle ? 'เชื่อมแล้ว' : 'ยังไม่เชื่อม', !u.hasGoogle);
+}
+
+function repaint({ fresh = false } = {}) {
   const u = getUser();
   if (!u) return;
+  // A different account: nothing typed for the previous one survives.
+  forcePaint = paintedUid !== u.id;
+  paintedUid = u.id;
+  paintSummaries(u);
 
   // -------- ตำแหน่งในทีม SAMO (read-only) --------
   // Async, and the section reveals itself only if there IS a posting — so an
@@ -115,17 +163,17 @@ function repaint() {
   // -------- Display name --------
   const nameInput = document.getElementById('profileName');
   if (nameInput) {
-    nameInput.value = u.name || '';
+    setField(nameInput, u.name || '');
     const btn = document.getElementById('profileNameSaveBtn');
-    if (btn) btn.disabled = true;
+    if (btn) btn.disabled = !nameInput.value.trim() || nameInput.value.trim() === (u.name || '');
   }
 
   // -------- Phone --------
   const phoneInput = document.getElementById('profilePhone');
   if (phoneInput) {
-    phoneInput.value = u.phone || '';
+    setField(phoneInput, u.phone || '');
     const btn = document.getElementById('profilePhoneSaveBtn');
-    if (btn) btn.disabled = true;
+    if (btn) btn.disabled = phoneInput.value.trim() === (u.phone || '');
   }
 
   // -------- Username read-only --------
@@ -133,7 +181,9 @@ function repaint() {
   const usernameEl = document.getElementById('profileUsername');
   if (u.username && usernameRow && usernameEl) {
     usernameRow.classList.remove('d-none');
-    usernameEl.value = u.username;
+    // An <input> in the modal, a text row on /me.
+    if (usernameEl.tagName === 'INPUT') usernameEl.value = u.username;
+    else usernameEl.textContent = u.username;
   } else if (usernameRow) {
     usernameRow.classList.add('d-none');
   }
@@ -149,11 +199,12 @@ function repaint() {
   const emailUnlinkRow = document.getElementById('profileEmailUnlinkRow');
   const googleOwned = u.hasGoogle && !u.hasPassword;
   if (emailInput) {
-    emailInput.value = u.email || '';
+    setField(emailInput, u.email || '');
     emailInput.disabled = googleOwned;
   }
   if (emailSave) {
-    emailSave.disabled = true;
+    const v = (emailInput?.value || '').trim().toLowerCase();
+    emailSave.disabled = !v || v === (u.email || '') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
     emailSave.classList.toggle('d-none', googleOwned);
   }
   if (emailHelp) {
@@ -203,17 +254,22 @@ function repaint() {
       document.createTextNode(u.username || u.email || ''));
     // Reset change form so reopening doesn't carry stale input.
     const f = document.getElementById('profilePwChangeForm');
-    if (f) f.classList.add('d-none');
-    ['profilePwChangeNew', 'profilePwChangeConfirm']
-      .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const typing = onPage && !forcePaint && ['profilePwChangeNew', 'profilePwChangeConfirm']
+      .some((id) => document.getElementById(id)?.value);
+    if (!typing) {
+      if (f) f.classList.add('d-none');
+      ['profilePwChangeNew', 'profilePwChangeConfirm']
+        .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }
   } else {
     pwSet?.classList.remove('d-none');
     pwExists?.classList.add('d-none');
     // Show the username input only if the user doesn't already have one
     // (i.e. Google-only). Password users always have a username already.
     if (pwUserRow) pwUserRow.classList.toggle('d-none', !!u.username);
-    ['profilePwUsername', 'profilePwNew', 'profilePwConfirm']
-      .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const ids = ['profilePwUsername', 'profilePwNew', 'profilePwConfirm'];
+    const typing = onPage && !forcePaint && ids.some((id) => document.getElementById(id)?.value);
+    if (!typing) ids.forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
   }
 
   // -------- Google card --------
@@ -251,7 +307,10 @@ function repaint() {
     }
   }
 
-  // Clear stale alerts on every repaint.
+  // Clear stale alerts — when the form is opened fresh or the account changed,
+  // NOT on every repaint: a save refreshes the account more than once, and a
+  // later repaint used to erase the "บันทึกแล้ว" the save had just shown.
+  if (!fresh && !forcePaint) return;
   ['profileNameAlert', 'profilePhoneAlert', 'profileEmailAlert', 'profilePwAlert', 'profileGoogleAlert']
     .forEach((id) => {
       const el = document.getElementById(id);
@@ -286,6 +345,7 @@ async function onSaveName() {
   const stop = spin(document.getElementById('profileNameSaveBtn'));
   try {
     await updateDisplayName(input?.value || '');
+    settle(input);
     showAlert('profileNameAlert', 'บันทึกชื่อแล้ว', 'success');
   } catch (e) {
     showAlert('profileNameAlert', e.message || 'อัปเดตชื่อไม่สำเร็จ');
@@ -297,6 +357,7 @@ async function onSavePhone() {
   const stop = spin(document.getElementById('profilePhoneSaveBtn'));
   try {
     await updatePhone(input?.value || '');
+    settle(input);
     showAlert('profilePhoneAlert', 'บันทึกเบอร์โทรศัพท์แล้ว', 'success');
   } catch (e) {
     showAlert('profilePhoneAlert', e.message || 'บันทึกเบอร์โทรศัพท์ไม่สำเร็จ');
@@ -308,6 +369,7 @@ async function onSaveEmail() {
   const stop = spin(document.getElementById('profileEmailSaveBtn'));
   try {
     await updateEmail(input?.value || '');
+    settle(input);
     const u = getUser();
     const sent = !!u?.pendingEmail;
     showAlert('profileEmailAlert',
@@ -345,6 +407,7 @@ async function onSetPassword() {
   const stop = spin(document.getElementById('profilePwSetBtn'));
   try {
     await setUsernameAndPassword(username, newEl.value);
+    [usernameEl, newEl, confirmEl].forEach((el) => { if (el) el.value = ''; });
     showAlert('profilePwAlert',
       u.username
         ? 'ตั้งรหัสผ่านแล้ว — เข้าสู่ระบบด้วย username/password ได้แล้ว'
@@ -366,6 +429,8 @@ async function onChangePassword() {
   const stop = spin(document.getElementById('profilePwChangeSaveBtn'));
   try {
     await changePassword(newEl.value);
+    newEl.value = ''; confirmEl.value = '';
+    document.getElementById('profilePwChangeForm')?.classList.add('d-none');
     showAlert('profilePwAlert', 'เปลี่ยนรหัสผ่านแล้ว', 'success');
   } catch (e) {
     showAlert('profilePwAlert', e.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');

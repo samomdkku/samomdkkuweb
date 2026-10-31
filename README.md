@@ -108,19 +108,11 @@ triggered over ssh (needs the KKU VPN).
   longer cuts it, and a late scan still counts in the event's quarter.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
-  sits in. FOUR views over the one dataset: **ภาพรวม**, the whole organisation
-  at a glance, one aligned grid on every device — a tile per ฝ่าย with its อุปนายก and
-  EVERY ฝ่ายย่อย with its head, never "+N", opening into a sheet that lists who
-  heads what; **ผังสายงาน**, the connector tree; **แผนผัง**, a page of ฝ่าย panels that
-  reflow at any width (each ฝ่าย opens with the ตำแหน่ง it holds, grouped by
-  ระดับ, and its sub-ฝ่าย as cards you tap to open), and **ผังรวม**, the whole
-  organisation as one real top-down chart on a zoom/pan canvas drawn by
-  `d3-org-chart`. The canvas reads the structure as a REPORTING chart: a ฝ่าย's
-  sub-ฝ่าย hang off its head ตำแหน่ง rather than sitting beside it. It carries
-  per-ตำแหน่ง expand, a **แสดงถึง** selector whose rungs are ฝ่ายหลัก / ฝ่ายย่อย
-  / ตำแหน่ง / ทั้งหมด (a kind, not a depth — this org's branches are not the
-  same shape), and a full-screen toggle (a CSS overlay, not the Fullscreen API,
-  which iPadOS only honours for `<video>`). Each ฝ่าย carries a colour the
+  sits in. ONE view since 2026-10-31, **ภาพรวม**: the whole organisation at a
+  glance, one aligned grid on every device — a tile per ฝ่าย with its อุปนายก and
+  EVERY ฝ่ายย่อย with its head, never "+N", opening into a sheet that lists
+  everyone in it. (ผังสายงาน, แผนผัง and ผังรวม were removed on the owner's call.)
+  Each ฝ่าย carries a colour the
   admin can choose, used on both the public chart and the admin tree. There is
   deliberately no separate คณะกรรมการ portrait grid: the chart already states
   rank by position, so a second larger rendering of the same people was both a
@@ -262,7 +254,6 @@ triggered over ssh (needs the KKU VPN).
 ## Tech stack
 
 - **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill (rich text)
-  + d3-org-chart (the ผังรวม view, lazy-loaded)
   + GrapesJS 0.23.6 (the หน้าฝ่าย visual editor, lazy-loaded, admin only —
     1.15 MB, so it must never reach an entry bundle)
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)

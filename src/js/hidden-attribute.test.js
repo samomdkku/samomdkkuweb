@@ -38,8 +38,9 @@ import { stripComments } from './strip-comments.js';
 // with the real declaration deleted — the exact failure `confirm-modal.test.js`
 // shipped with once (`.claude/rules/mistakes.md`, class 7).
 const base = stripComments(readFileSync(new URL('../css/base.css', import.meta.url), 'utf8'));
-const orgCss = readFileSync(new URL('../css/org-chart.css', import.meta.url), 'utf8');
-const orgJs = stripComments(readFileSync(new URL('./org-chart.js', import.meta.url), 'utf8'));
+const meCss = readFileSync(new URL('../css/me.css', import.meta.url), 'utf8');
+const meJs = stripComments(readFileSync(new URL('./me-page.js', import.meta.url), 'utf8'));
+const homeHtml = readFileSync(new URL('../html/tab-home.html', import.meta.url), 'utf8');
 
 describe('the [hidden] attribute is honoured by a rule this repo owns', () => {
   it('base.css declares it — not Bootstrap, not the UA sheet', () => {
@@ -60,20 +61,22 @@ describe('the [hidden] attribute is honoured by a rule this repo owns', () => {
   it('CONTROL: the hazard is live — a class that sets `display` IS toggled by `.hidden`', () => {
     // A guard whose control finds nothing cannot tell "protected" from "there
     // was never anything to protect". This asserts the dangerous shape still
-    // EXISTS in the codebase: `.orgc-unit-body` declares a display, and
-    // org-chart.js flips its `hidden` property.
+    // EXISTS in the codebase: `.home-me-alert` declares a display, and
+    // me-page.js flips its `hidden` property. (Re-derived 2026-10-31: the
+    // previous subject, `.orgc-unit-body` + org-chart.js's toggleNode, went
+    // with แผนผัง.)
     //
     // ⚠️ If this assertion ever fails, the subject has MOVED — do not delete it,
     // re-derive it. Grep `src/css` for a class that declares `display` and whose
     // element some module sets `.hidden` on, and name that one here instead.
-    const decl = orgCss.match(/\n\.orgc-unit-body\s*\{([^}]*)\}/);
-    expect(decl, '.orgc-unit-body must still exist for this control to mean anything').toBeTruthy();
-    expect(decl[1], '.orgc-unit-body no longer sets `display` — re-derive this control')
+    const decl = meCss.match(/\n\.home-me-alert\s*\{([^}]*)\}/);
+    expect(decl, '.home-me-alert must still exist for this control to mean anything').toBeTruthy();
+    expect(decl[1], '.home-me-alert no longer sets `display` — re-derive this control')
       .toMatch(/display:\s*[a-z-]+/);
     expect(decl[1]).not.toMatch(/display:\s*none/);
 
     // …and the JS really does toggle it as an attribute rather than a class.
-    expect(orgJs).toMatch(/panel\.hidden\s*=/);
-    expect(orgJs).toMatch(/orgc-unit-body/);
+    expect(homeHtml).toMatch(/id="homeMeAlert"[^>]*class="[^"]*home-me-alert|class="[^"]*home-me-alert[^"]*"[^>]*id="homeMeAlert"/);
+    expect(meJs).toMatch(/alert\.hidden\s*=/);
   });
 });

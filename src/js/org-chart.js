@@ -1,12 +1,11 @@
 // org-chart.js — the public ทีม SAMO page.
 //
-// FOUR surfaces over one dataset — every ตำแหน่ง and person, searchable:
-//   • ภาพรวม   — AT A GLANCE. A tile per ฝ่าย, opens into a sheet (org-overview.js).
-//   • ผังสายงาน — the connector tree (this file).
-//   • แผนผัง   — the PAGE. ฝ่าย panels that reflow at any width (this file).
-//   • ผังรวม   — the CANVAS. One d3 chart over the whole org (org-graph.js).
-// The full note on which is which, and why the other two were removed, is at
-// the `VIEWS` constant below.
+// ONE surface since 2026-10-31 — ภาพรวม: a tile per ฝ่าย, each opening into a
+// sheet with everyone in it (org-overview.js, org-sheet.js), searchable.
+// The other three views — ผังสายงาน (connector tree), แผนผัง (panels) and ผังรวม
+// (d3 canvas) — were removed on the owner's call: "remove other 3 tabs ... only
+// left the ภาพรวม". แผนผัง's panel markup (`unitBlock`) survives as the SHEET's
+// body, so a ฝ่าย reads the same as it did. History: `git log -- src/js/org-graph.js`.
 //
 // Data comes from ONE rpc: public.get_public_team_chart(year). That function is
 // the only sanctioned publisher of team data (0086 → 0103 → 0104) — a SECURITY
@@ -24,13 +23,7 @@
 import { dbRest } from './db.js';
 import { escHtml } from './utils.js';
 import { faceHtml, TREE_SHAPE } from './org-face.js';
-import {
-  mountOrgGraph, destroyOrgGraph, setGraphRung, fitGraphs, zoomGraphs,
-  toggleGraphFullscreen, anyGraphFullscreen, exitGraphFullscreen,
-} from './org-graph.js';
-import {
-  RUNG, chartParentage, sortSiblings, subtreeMeta, orderChildren,
-} from './org-rung.js';
+import { sortSiblings, subtreeMeta, orderChildren } from './org-rung.js';
 import { isDivision } from './node-kind.js';
 import { tintColor } from './dept-tint.js';
 import {
@@ -52,26 +45,8 @@ let subStats = new Map(); // node_id -> { nodes, people } for the whole subtree
 let collapsibleIds = new Set();
 let depthById = new Map(); // node_id -> depth in the STORED tree (roots are 0)
 
-// ── TWO PARENTAGES, ONE ORDERING ────────────────────────────────────────────
-//
-// แผนผัง draws CONTAINMENT: what is inside ฝ่าย IT. It reads the tree as stored
-// and expresses ระดับ as ROWS inside the ฝ่าย panel.
-//
-// ผังรวม draws REPORTING: a ฝ่าย's sub-ฝ่าย hang off its head seat, and ระดับ 2
-// hangs off ระดับ 1 (`chartParentage`). That is what a top-down canvas needs.
-//
-// The reporting parentage was applied to BOTH at one point, on the theory that
-// one structure cannot drift. It can't — but nesting costs DEPTH, and on a page
-// depth is vertical: measured on the live tree, แผนผัง went from 25,847px to
-// 52,163px and max depth from 5 to 9, a staircase down the middle of an empty
-// page.
-//
-// So the geometries differ and the ORDER does not. Both read `orderChildren` —
-// ตำแหน่ง before ฝ่าย, ระดับ ascending — and `org-rung.test.js` holds the
-// differential that says the seat sequence is the same one either way. That is
-// the answer to "แผนผัง doesn't show order like the ผังรวม".
-let byParentChart = new Map();
-let subStatsChart = new Map();
+// ORDER: every list reads `orderChildren` (org-rung.js) — ตำแหน่ง before ฝ่าย,
+// ระดับ ascending — the order the removed views shared.
 let loading = false;
 let query = '';
 
@@ -97,84 +72,6 @@ let expanded = new Set();
 // A disclosure in a detail view the reader already chose to open is a tap that
 // should not exist; orientation comes from the sticky headers instead.
 let sheetRender = false;
-
-// TWO surfaces over one dataset, answering two different questions:
-//
-//   • แผนผัง  — THE PAGE. Every ฝ่าย is a panel; inside it, its ตำแหน่ง are laid
-//               out as one ROW PER ระดับ and its sub-ฝ่าย pack into a grid that
-//               reflows from four columns to one. No canvas, no panning, no
-//               horizontal scrollbar — this is the surface you read on a phone.
-//   • ผังรวม  — THE CANVAS. ONE d3 chart over the whole organisation, hung off a
-//               synthetic องค์กร root, with real connector lines and pan/zoom
-//               (org-graph.js). Wide by construction; the แสดงถึง rung is what
-//               makes it navigable.
-//
-// รายการ AND ผังองค์กร WERE REMOVED, on the owner's call: "remove รายการ and
-// ผังองค์กร, left only แผนผัง and ผังรวม". Neither was a third picture. รายการ
-// shared แผนผัง's markup and differed only in CSS; ผังองค์กร shared ผังรวม's
-// renderer and differed only in how the rows were grouped. Four buttons offered
-// two pictures twice, and the pair that went is the pair whose survivor already
-// does the job better at every width.
-//
-// The saved preference is MIGRATED rather than dropped: a reader whose last
-// choice was รายการ lands on แผนผัง, and ผังองค์กร lands on ผังรวม. Silently
-// resetting them to the default would be the same bug as forgetting the
-// preference existed.
-//
-// THREE VIEWS SINCE 2026-08-25, and the third is a RESTORE.
-//
-// The rework above removed the connector chart — white boxes, elbow lines, one
-// section per ฝ่าย, read top to bottom from SAMO's own recruitment poster — and
-// replaced it with the panel view. The owner's answer: *"you've implemented
-// this design which i also like, so i would like to KEEP this and RESTORE the
-// previous and improve it."* Both ship. Neither is a fallback for the other:
-//
-//   ผังสายงาน  the connector tree. Shows the LINES — who reports through whom,
-//              as a picture you could print.
-//   แผนผัง     the panel view. Shows the CONTENT — every ฝ่าย's seats and faces,
-//              at a third the height.
-//   ผังรวม     d3 on a pan/zoom canvas. The whole organisation at once.
-//
-// ⚠️ THE KEY MAPPING, WRITTEN DOWN BEFORE ANYTHING ELSE. `'chart'` means the
-// PANEL view and keeps meaning it. The restored connector tree gets a NEW key,
-// `'lines'`. It historically owned `'chart'`, and giving it back would silently
-// move every reader whose saved preference is `'chart'` — currently the panel
-// view — onto a different picture. A new key costs nothing and moves nobody.
-//
-// FOUR SINCE 2026-10-22: ภาพรวม (`'overview'`, org-overview.js) — every ฝ่าย as
-// a tile listing each ฝ่ายย่อย with its head, in one aligned grid on every
-// device (5 / 3 / 2 columns), each tile opening a sheet. Asked for beside the other three, not instead of one, so it is a new
-// key and the default does not move.
-const VIEWS = ['overview', 'lines', 'chart', 'all'];
-// `Object.create(null)`, and it is the same fix af36088 made to the four
-// vocabulary maps in team/index.js one day earlier: the key here comes from
-// localStorage, which a reader can set to anything, and the read below is
-// `MAP[key] || key`. On a plain object literal `RETIRED_VIEWS['constructor']`
-// returns an inherited FUNCTION rather than undefined. `VIEWS.includes()` would
-// still reject it — so this is the benign end of that bug — but a map read by
-// `[untrusted]` should never have a prototype at all.
-const RETIRED_VIEWS = Object.assign(Object.create(null), { list: 'chart', graph: 'all' });
-const GRAPH_VIEWS = ['all'];
-let view = 'chart';
-try {
-  const saved = localStorage.getItem('samo.org.view');
-  const mapped = RETIRED_VIEWS[saved] || saved;
-  if (VIEWS.includes(mapped)) view = mapped;
-} catch { /* private mode */ }
-
-// ผังรวม's "แสดงถึง" rung. A KIND, not a depth — the `RUNG` note in org-rung.js
-// has the measurements and why a number could not express it. It opens at
-// ฝ่ายหลัก, the only rung of the whole-organisation picture that fits without
-// panning. Still a per-view map (of one) so the control code below does not have
-// to change shape if a second canvas view ever comes back.
-const graphRung = { all: RUNG.top };
-
-/** Which rungs the canvas view OFFERS. The labels say what you will SEE, not
- *  how deep it goes. */
-const VIEW_RUNGS = {
-  all: [[RUNG.top, 'ฝ่ายหลัก'], [RUNG.fai, 'ฝ่ายย่อย'], [RUNG.role, 'ตำแหน่ง'],
-    [RUNG.full, 'ทั้งหมด']],
-};
 
 // ── what opens by default, and why it is a DEPTH ────────────────────────────
 //
@@ -219,19 +116,13 @@ function index() {
   }
   // ตำแหน่ง before ฝ่าย, in EVERY view — an ordering, not a restructure.
   for (const bucket of byParent.values()) sortSiblings(bucket);
-  // The canvas views' reporting structure, built from the stored one.
-  byParentChart = chartParentage(byParent, nodeById);
 
   for (const m of chart.members || []) {
     if (!byNode.has(m.node_id)) byNode.set(m.node_id, []);
     byNode.get(m.node_id).push(m);
   }
 
-  // Twice, because the two parentages give different answers and both are
-  // shown: a head seat's "ใต้สังกัด …" on the canvas has to count the sub-ฝ่าย
-  // hanging off it, while the same seat in แผนผัง must not claim them.
   ({ subStats, collapsibleIds, depthById } = indexStats(byParent));
-  ({ subStats: subStatsChart } = indexStats(byParentChart));
 
   // The default disclosure state belongs to the DATASET, not to a paint — a
   // render() triggered by a search or a view switch must not silently reopen
@@ -543,166 +434,6 @@ function unitBlock(node, depth, filter) {
     </section>`;
 }
 
-// ── rendering ผังสายงาน (the connector tree) ────────────────────────────────
-//
-// RESTORED from `befd30e`, where it was deleted whole, and then changed in
-// exactly three ways. Everything else — the geometry, the elbow technique, the
-// per-ฝ่าย sectioning — is the code that shipped for months, because the owner
-// asked for THIS picture back and a reimplementation would not be it.
-//
-// THE THREE CONSTRAINTS THAT MAKE IT FIT 400 PEOPLE, each measured before the
-// deletion and still true. Do not relax one without re-measuring:
-//   1. ONE SECTION PER ฝ่าย. As a single tree the twelve ฝ่าย sit side by side
-//      and the width is their SUM — 44,386px, about thirty screens. Per-ฝ่าย it
-//      is the widest single ฝ่าย instead.
-//   2. BRANCH SIDEWAYS ONCE. Below depth 1 it switches to a vertical spine.
-//      Branching at every level let the LEAF row set the width.
-//   3. THE SPREADING ROW MUST BE BOUNDED TO WRAP. `.org-tree` is
-//      `width: max-content`, so a container that always grows never reaches its
-//      wrap point — `flex-wrap` alone did nothing here.
-//
-// WHAT CHANGED, and why each was the actual complaint:
-//
-//   a. IT HONOURS ระดับ. The old one read `byParent` in stored order, so the
-//      rungs an admin configures in ทีม SAMO were ignored — *"it doesn't care
-//      about ระดับ that i config in the admin teamsamo"*, which was half the
-//      original bug report. It now routes through `orderChildren()`, the same
-//      call แผนผัง and ผังรวม make. ONE ordering, three pictures.
-//      ⚠️ ORDER, NOT GEOMETRY. It keeps the CONTAINMENT parentage it always
-//      drew. Handing it `chartParentage` is what made this view a 52,000px
-//      staircase in August 2026, and that has now been paid for twice.
-//
-//   b. IT OPENS COLLAPSED, like แผนผัง. The old one did
-//      `expanded = new Set(collapsibleIds)` on entry — every ฝ่าย open, always —
-//      and measured 24,101px at 1440 and 55,273px at 390. It now shares the
-//      one `expanded` set the whole page uses (`OPEN_TO_DEPTH = 0`), which was
-//      the single change that bought แผนผัง most of its win. ขยายทั้งหมด still
-//      opens everything, so nothing is unreachable.
-//      This also dissolves the "many leftover space" complaint at its
-//      STRUCTURAL cause rather than by tuning gaps: a connector row is
-//      `align-items: flex-start`, so a one-person ตำแหน่ง beside a forty-person
-//      ฝ่าย left a dead column as tall as the tall one. Collapsed, there is no
-//      tall one.
-//
-//   c. IT REUSES THE SHARED PERSON CARD, meta wording and tint. The old view had
-//      its own `memberCard()` and `stationMeta()`; two portrait renderers is
-//      how `TREE_SHAPE` and the CSS width drift apart, which
-//      `org-chart-metrics.test.js` exists to catch. Only the BOX and the LINES
-//      are this view's own.
-
-/**
- * One node of the connector tree: a box, its people, and the row of its
- * children hanging beneath on elbows.
- *
- * MARKUP SHAPE, and why the box is its own element: the connector technique
- * needs a node's BOX to be a layout SIBLING of the row of its children —
- * `li > .box + ul` — with the elbows hung off both. So `.org-box` holds the
- * station and `.org-node-body` (which is what collapses) becomes
- * `display: contents`, so it stops being a box of its own while `hidden`
- * keeps working. `[hidden]`'s `display: none` wins over `display: contents`,
- * and since 2026-08-20 that `!important` is OURS in base.css rather than
- * borrowed from Bootstrap's CDN reboot.
- */
-function lineBlock(node, depth, filter) {
-  if (filter && !filter.keepNodes.has(node.id)) return '';
-  const people = visiblePeople(node, filter);
-
-  // The SAME call แผนผัง makes. `orderChildren` groups by ระดับ only when the
-  // parent is a ฝ่าย, so seats under a ตำแหน่ง keep their stored order rather
-  // than being ranked against each other — see childrenHtml().
-  const { rungs, units } = orderChildren(byParent.get(node.id) || [], isDivision(node.kind));
-  const kids = [...rungs.flatMap(([, list]) => list), ...units];
-  const childHtml = kids.map((c) => lineBlock(c, depth + 1, filter)).join('');
-
-  // A branch that filtered down to nothing at all is noise — drop it.
-  if (filter && !people.length && !childHtml) return '';
-
-  // A CSS COLOUR, not a palette key. Set inline so an admin-chosen colour and a
-  // name-derived one arrive by the same route.
-  const tint = tintColor(node, depth === 0);
-  // A ฝ่าย with a dozen sub-ฝ่าย went twelve columns wide, because depth 1 is
-  // the one level that spreads. Past a handful the row WRAPS into a grid: a
-  // single connector bar stops being meaningful across wrapped lines, so
-  // `is-grid` drops it and each child keeps its own drop tick instead.
-  const branchHtml = childHtml
-    ? `<ul class="org-branch${kids.length > 4 ? ' is-grid' : ''}">${childHtml}</ul>`
-    : '';
-  const inner = `${peopleHtml(people, filter)}${branchHtml}`;
-
-  // A search result is always fully open — a disclosure the reader has to
-  // expand to find what they just searched for is the same as no result.
-  const collapsible = !filter && !!inner && collapsibleIds.has(node.id);
-  const open = !collapsible || expanded.has(node.id);
-  // The two views are never in the DOM at once, so one id per node is safe and
-  // the disclosure state carries across a switch — which is the behaviour you
-  // want: closing ฝ่าย IT in one picture and finding it open in the other would
-  // read as the page forgetting.
-  const bodyId = `org-n-${node.id}`;
-  const meta = filter ? '' : (isDivision(node.kind) ? unitMeta(node) : seatMeta(node));
-  const hTag = `h${Math.min(depth + 3, 6)}`;
-
-  const stationInner = `
-        <span class="org-station-dot" aria-hidden="true"></span>
-        <span class="org-station-name">${highlight(node.name || '', filter?.q)}</span>
-        ${meta ? `<span class="org-station-meta">${escHtml(meta)}</span>` : ''}
-        ${collapsible ? '<i class="bi bi-chevron-right org-station-chev" aria-hidden="true"></i>' : ''}`;
-
-  // ARIA accordion pattern: the heading WRAPS the button, so the outline still
-  // reads as a hierarchy and the control is the whole row.
-  const station = collapsible
-    ? `<button type="button" class="org-station-btn" aria-expanded="${open}" aria-controls="${escHtml(bodyId)}">${stationInner}</button>`
-    : `<span class="org-station-btn is-static">${stationInner}</span>`;
-
-  return `
-    <li class="org-node${collapsible ? ' is-collapsible' : ''}" data-depth="${depth}"${
-  tint ? ` style="--org-tint:${tint}"` : ''}>
-      <div class="org-box">
-        <${hTag} class="org-station">${station}</${hTag}>
-      </div>
-      ${inner ? `<div class="org-node-body" id="${escHtml(bodyId)}"${open ? '' : ' hidden'}>${inner}</div>` : ''}
-    </li>`;
-}
-
-/**
- * One scroller per root ฝ่าย — constraint (1) above, in markup.
- *
- * NO VIEWPORT BREAKOUT. The deleted version widened each section with
- * `width: 100vw; margin-inline: calc(50% - 50vw)`, which measured 395px of
- * content in a 390px viewport and gave the PAGE a horizontal scrollbar: `100vw`
- * includes the scrollbar gutter, and on a phone the ~24px it bought was worth
- * less than the sideways wobble it cost. The section scrolls inside the reading
- * column instead, which cannot overflow the page by construction.
- */
-function linesHtml(roots, filter) {
-  return roots.map((n) => {
-    const one = lineBlock(n, 0, filter);
-    return one
-      ? `<div class="org-lines" data-view="lines"><ul class="org-tree">${one}</ul></div>`
-      : '';
-  }).join('');
-}
-
-/** ขยาย/ย่อทั้งหมด drives the page's own disclosures, which only แผนผัง and
- *  ผังสายงาน draw. ผังรวม has its แสดงถึง rung and ภาพรวม opens a sheet. */
-function usesExpandAll() {
-  return view === 'chart' || view === 'lines';
-}
-
-/** The ขยาย/ย่อทั้งหมด control. Hidden while searching (results are already
- *  fully open, so it would do nothing) and when nothing on the page collapses. */
-function renderExpandAll(searching) {
-  const btn = $('orgExpandAll');
-  if (!btn) return;
-  if (searching || !collapsibleIds.size) { btn.hidden = true; return; }
-  btn.hidden = false;
-  const allOpen = expanded.size >= collapsibleIds.size;
-  btn.setAttribute('aria-expanded', String(allOpen));
-  const icon = btn.querySelector('i');
-  if (icon) icon.className = `bi ${allOpen ? 'bi-chevron-contract' : 'bi-chevron-expand'}`;
-  const label = btn.querySelector('.org-expand-all-label');
-  if (label) label.textContent = allOpen ? 'ย่อทั้งหมด' : 'ขยายทั้งหมด';
-}
-
 function render() {
   const body = $('orgBody');
   if (!body || !chart) return;
@@ -711,12 +442,6 @@ function render() {
   const filter = computeFilter(query);
   const roots = byParent.get('') || [];
 
-  // ขยาย/ย่อทั้งหมด drives the DOM panels, which ผังรวม does not use — it has
-  // its own แสดงถึง control, because "expanded" there is a d3 layout state
-  // rather than a `hidden` attribute. Hide it rather than leave a button that
-  // silently does nothing in one of the two views.
-  renderExpandAll(!!filter || !usesExpandAll());
-
   const cnt = $('orgCount');
   if (cnt) {
     cnt.textContent = filter
@@ -724,60 +449,20 @@ function render() {
       : `${(chart.nodes || []).length} ตำแหน่ง · ${(chart.members || []).length} คน`;
   }
 
-  // Built before the shell so the empty state can be decided from the SAME
-  // markup that would have been shown, rather than from a second guess at
-  // whether the filter kept anything.
-  const panels = view === 'chart'
-    ? roots.map((n) => unitBlock(n, 0, filter)).join('')
-    : view === 'lines' ? linesHtml(roots, filter)
-      : view === 'overview' ? overviewPanels(roots, filter) : '';
-  // ผังรวม builds its own DOM inside the canvas, so "did anything survive the
-  // filter" is answered by the ROOT LIST there and by the MARKUP in the two
-  // views that emit some — the same distinction the panel-only version made.
-  const nothing = GRAPH_VIEWS.includes(view) ? !roots.length : !panels;
-
-  if (nothing) {
-    destroyOrgGraph();
+  const panels = overviewPanels(roots, filter);
+  if (!panels) {
     body.innerHTML = `<p class="org-status">${
       filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
     }</p>`;
     return;
   }
 
-  // Every paint replaces #orgBody's markup, which would strand the chart's
-  // ResizeObserver and zoom behaviours on detached nodes. Tear down first,
-  // unconditionally — including when leaving ผังรวม for แผนผัง.
-  destroyOrgGraph();
-
+  // One view, so no switcher: the heading alone names what is below it.
   body.innerHTML = `
     <div class="org-tree-head">
       <h2 class="org-tree-heading">โครงสร้างทั้งหมด</h2>
-      <div class="org-view-switch" role="group" aria-label="รูปแบบการแสดงผล">
-        <button type="button" class="org-view-btn${view === 'overview' ? ' is-on' : ''}"
-          data-org-view="overview" aria-pressed="${view === 'overview'}">
-          <i class="bi bi-grid" aria-hidden="true"></i> ภาพรวม
-        </button>
-        <button type="button" class="org-view-btn${view === 'lines' ? ' is-on' : ''}"
-          data-org-view="lines" aria-pressed="${view === 'lines'}">
-          <i class="bi bi-diagram-2" aria-hidden="true"></i> ผังสายงาน
-        </button>
-        <button type="button" class="org-view-btn${view === 'chart' ? ' is-on' : ''}"
-          data-org-view="chart" aria-pressed="${view === 'chart'}">
-          <i class="bi bi-diagram-3" aria-hidden="true"></i> แผนผัง
-        </button>
-        <button type="button" class="org-view-btn${view === 'all' ? ' is-on' : ''}"
-          data-org-view="all" aria-pressed="${view === 'all'}">
-          <i class="bi bi-bounding-box" aria-hidden="true"></i> ผังรวม
-        </button>
-      </div>
     </div>
-    ${view === 'all'
-    ? graphShellHtml(filter)
-    : view === 'lines' || view === 'overview'
-      ? panels
-      : `<div class="orgc-tree">${panels}</div>`}`;
-
-  if (view === 'all') paintGraph(roots, filter);
+    ${panels}`;
 }
 
 // ── rendering ภาพรวม ─────────────────────────────────────────────────────────
@@ -961,96 +646,6 @@ function initJumpRow() {
   row.addEventListener('scroll', () => updateJumpEdges(row), { passive: true });
 }
 
-/** ผังรวม's own toolbar + the host the chart mounts into. The depth control is
- *  separate from ขยาย/ย่อทั้งหมด because it is a LEVEL, not a boolean — the
- *  whole point of the view is choosing how far down to look. */
-function graphShellHtml(filter) {
-  const cur = graphRung[view];
-  const lvl = (r, label) => `<button type="button" class="orgg-depth-btn${
-    cur === r ? ' is-on' : ''}" data-org-rung="${r}" aria-pressed="${cur === r}">${label}</button>`;
-  return `
-    <div class="orgg-toolbar">
-      ${filter ? '' : `
-      <div class="orgg-depth" role="group" aria-label="ระดับที่แสดง">
-        <span class="orgg-depth-label">แสดงถึง</span>
-        ${(VIEW_RUNGS[view] || VIEW_RUNGS.all).map(([r, label]) => lvl(r, label)).join('')}
-      </div>`}
-      <div class="orgg-zoom" role="group" aria-label="ย่อ-ขยายมุมมอง">
-        <button type="button" class="orgg-zoom-btn" data-org-zoom="out" aria-label="ซูมออก"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
-        <button type="button" class="orgg-zoom-btn" data-org-zoom="in" aria-label="ซูมเข้า"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
-        <button type="button" class="orgg-zoom-btn" data-org-zoom="fit" aria-label="พอดีหน้าจอ"><i class="bi bi-aspect-ratio" aria-hidden="true"></i></button>
-      </div>
-      <p class="orgg-hint">ผังเดียวทั้งองค์กร — ลากเพื่อเลื่อน กดที่ตัวเลขเพื่อเปิดตำแหน่งข้างใน</p>
-    </div>
-    <div class="orgg-host" id="orgGraphHost"></div>`;
-}
-
-/** Mount the charts. Async and fire-and-forget: the library is a dynamic import
- *  so the first switch into this view pays a network round trip, and awaiting it
- *  inside render() would freeze the other two views' repaint behind it. The
- *  token guards the case where the reader switches away (or changes year) while
- *  that import is still in flight — without it a late mount paints charts into a
- *  page that has moved on. */
-/**
- * Widen a search result to the ancestors the CANVAS draws.
- *
- * `computeFilter` walks the stored parents, which is right for แผนผัง. On the
- * canvas, ฝ่าย PR's parent is the อุปนายก — a stored SIBLING —
- * so a search for "PR" would keep ฝ่าย PR without keeping the box the line is
- * drawn from, and `flatten`'s walk, which descends from the root and stops at
- * the first node the filter does not keep, would drop the whole branch.
- *
- * Widened HERE rather than in computeFilter so แผนผัง does not start listing a
- * head seat nobody searched for.
- */
-function chartFilter(filter) {
-  if (!filter) return null;
-  const parentOf = new Map();
-  for (const [k, kids] of byParentChart) for (const n of kids) parentOf.set(n.id, k);
-  const keepNodes = new Set(filter.keepNodes);
-  for (const id of filter.keepNodes) {
-    let cur = parentOf.get(id);
-    while (cur && !keepNodes.has(cur)) { keepNodes.add(cur); cur = parentOf.get(cur); }
-  }
-  return { ...filter, keepNodes };
-}
-
-let graphToken = 0;
-async function paintGraph(roots, filter) {
-  const mine = ++graphToken;
-  const hostEl = $('orgGraphHost');
-  if (!hostEl) return;
-  hostEl.innerHTML = '<p class="org-status">กำลังวาดผังองค์กร…</p>';
-  try {
-    const ctx = {
-      roots,
-      byParent: byParentChart,
-      byNode,
-      subStats: subStatsChart,
-      filter: chartFilter(filter),
-      rung: graphRung[view],
-      chart,
-    };
-    if (mine !== graphToken) return;
-    hostEl.innerHTML = '';
-    const drawn = await mountOrgGraph(hostEl, ctx);
-    if (mine !== graphToken) { destroyOrgGraph(); return; }
-    if (!drawn) {
-      hostEl.innerHTML = `<p class="org-status">${
-        filter ? `ไม่พบ “${escHtml(filter.q)}” ในโครงสร้างองค์กร` : 'ยังไม่มีข้อมูลโครงสร้างองค์กร'
-      }</p>`;
-    }
-  } catch (err) {
-    // A failed dynamic import (offline, a stale chunk after a deploy) must not
-    // leave the reader on a spinner — the other two views still work, so say so
-    // rather than pretending the data is missing.
-    console.warn('org graph failed to load:', err);
-    if (mine === graphToken && hostEl) {
-      hostEl.innerHTML = '<p class="org-status is-error">แสดงผังองค์กรไม่ได้ ลองสลับไปมุมมอง แผนผัง</p>';
-    }
-  }
-}
-
 // ── loading ─────────────────────────────────────────────────────────────────
 
 /** NOTE dbRest resolves to { data, error } rather than to the payload; reading
@@ -1141,55 +736,7 @@ export async function enterOrgChart() {
   }
 }
 
-/** Toggle in the DOM rather than re-rendering. A full repaint of 296 ตำแหน่ง
- *  would drop the scroll position — and the row you clicked would jump out from
- *  under the pointer, which is exactly the wrong feel for a disclosure. */
-/**
- * Open or close one disclosure — in EITHER view.
- *
- * Resolved through `aria-controls`, not through a parent class. แผนผัง's
- * markup is `.orgc-unit > .orgc-unit-body` and ผังสายงาน's is
- * `.org-node > .org-node-body`; a class-keyed lookup would need a branch per
- * view, and the second branch is the one that silently stops matching after a
- * markup change (`> .org-station` selectors, `frontend-ui.md`). The button
- * already names its panel because the ARIA accordion pattern requires it, so
- * the correct answer was in the markup all along.
- */
-function toggleNode(btn) {
-  const panel = document.getElementById(btn.getAttribute('aria-controls') || '');
-  if (!panel) return;
-  const willOpen = btn.getAttribute('aria-expanded') !== 'true';
-  btn.setAttribute('aria-expanded', String(willOpen));
-  panel.hidden = !willOpen;
-  const id = panel.id.replace(/^org-n-/, '');
-  if (willOpen) expanded.add(id); else expanded.delete(id);
-  renderExpandAll(!!query || !usesExpandAll());
-}
-
-function revealOverview() {
-  const head = $('orgBody')?.querySelector('.org-tree-head');
-  const stage = $('orgBody')?.querySelector('.orgo');
-  if (!head || !stage) return;
-  const bottom = stage.getBoundingClientRect().bottom;
-  if (bottom <= window.innerHeight && head.getBoundingClientRect().top >= 0) return;
-  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  head.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
-}
-
 export function initOrgChart() {
-  // ESC leaves เต็มหน้าจอ. The overlay is ours, not the Fullscreen API (iOS and
-  // iPadOS only honour requestFullscreen on <video>), so the browser will not
-  // provide this for free — and an overlay with no keyboard exit is a trap on a
-  // desktop, where ESC is the reflex.
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && anyGraphFullscreen()) {
-      exitGraphFullscreen();
-      $('orgBody')?.querySelectorAll('[data-orgg-full] i').forEach((i) => {
-        i.className = 'bi bi-arrows-fullscreen';
-      });
-    }
-  });
-
   const search = $('orgSearch');
   const clear = $('orgSearchClear');
   let t = null;
@@ -1221,68 +768,6 @@ export function initOrgChart() {
   $('orgBody')?.addEventListener('click', (e) => {
     const ob = e.target.closest('[data-org-open]');
     if (ob) { openOverviewSheet(ob); return; }
-
-    // Both views' disclosure rows. One handler, because toggleNode resolves the
-    // panel from aria-controls rather than from either view's class names.
-    const btn = e.target.closest('.orgc-unit-btn, .org-station-btn');
-    if (btn && btn.tagName === 'BUTTON') { toggleNode(btn); return; }
-
-    // ผังรวม's "แสดงถึง" control. A full re-layout rather than a DOM toggle:
-    // the rung decides d3's LAYOUT, not just visibility, so every box moves.
-    const db = e.target.closest('[data-org-rung]');
-    if (db) {
-      const next = db.dataset.orgRung;
-      if (!RUNG[next] || next === graphRung[view]) return;
-      graphRung[view] = next;
-      setGraphRung(next);
-      $('orgBody')?.querySelectorAll('[data-org-rung]').forEach((b) => {
-        const on = b.dataset.orgRung === next;
-        b.classList.toggle('is-on', on);
-        b.setAttribute('aria-pressed', String(on));
-      });
-      return;
-    }
-
-    // เต็มหน้าจอ. The button lives on the section, which org-graph.js builds —
-    // delegated here because #orgBody is the one element that survives a paint.
-    const fb = e.target.closest('[data-orgg-full]');
-    if (fb) {
-      const on = toggleGraphFullscreen(fb.closest('.orgg-section'));
-      fb.querySelector('i')?.setAttribute('class',
-        `bi bi-${on ? 'fullscreen-exit' : 'arrows-fullscreen'}`);
-      fb.setAttribute('aria-label', on ? 'ออกจากเต็มหน้าจอ' : 'ดูเต็มหน้าจอ');
-      return;
-    }
-
-    const zb = e.target.closest('[data-org-zoom]');
-    if (zb) {
-      const how = zb.dataset.orgZoom;
-      if (how === 'fit') fitGraphs();
-      else zoomGraphs(how === 'in' ? 1 : -1);
-      return;
-    }
-
-    // ภาพรวม ⇄ ผังสายงาน ⇄ แผนผัง ⇄ ผังรวม.
-    const vb = e.target.closest('[data-org-view]');
-    if (!vb) return;
-    const next = VIEWS.includes(vb.dataset.orgView) ? vb.dataset.orgView : 'chart';
-    // 'chart' is the fallback because it is the DEFAULT view, not because it is
-    // the first in VIEWS — those are two different facts and they used to be
-    // the same value.
-    if (next === view) return;
-    view = next;
-    try { localStorage.setItem('samo.org.view', view); } catch { /* private mode */ }
-    render();
-    // ภาพรวม is sized to the screen (on a computer), so it only fits once the
-    // reader is AT it. Bring its heading to the top when it was chosen — never
-    // on page load, which would hijack a scroll nobody asked for.
-    if (view === 'overview') revealOverview();
-  });
-
-  $('orgExpandAll')?.addEventListener('click', () => {
-    const allOpen = expanded.size >= collapsibleIds.size;
-    expanded = allOpen ? new Set() : new Set(collapsibleIds);
-    if (chart) render();
   });
 
   // Delegated: the year buttons are re-rendered on every paint.

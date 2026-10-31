@@ -34,20 +34,178 @@
                  including the claim flow for an account it cannot find yet. -->
             <section id="meMyHouse" class="myhouse mt-3" aria-label="บ้านของฉัน" hidden></section>
 
-            <!-- บัญชี — a grouped list, Settings-style. One row per action; the
-                 destructive one last, alone, in red. -->
-            <section class="me-account" aria-labelledby="meAccountHeading">
+            <!-- บัญชี — Settings-style grouped list. Since 2026-10-31 the account
+                 settings live HERE (owner: "make the จัดการบัญชี be merge in the
+                 ข้อมูลของฉัน"); the public site has no profile modal any more.
+                 Each row shows its CURRENT value and opens its editor in place,
+                 one at a time (me-settings.js). Element ids are the modal's, so
+                 profile.js paints and saves both — admin keeps the modal, and
+                 profile-markup.test.js holds the two markups to the same ids. -->
+            <section class="me-account" id="meAccount" aria-labelledby="meAccountHeading">
               <h2 class="me-group-title" id="meAccountHeading">บัญชี</h2>
               <p class="me-account-who" id="meAccountWho"></p>
+
+              <div class="me-group me-settings" id="meSettings">
+
+                <div class="me-set" data-set="name">
+                  <button type="button" class="me-row me-set-row" aria-expanded="false" aria-controls="meSetName">
+                    <span class="me-row-icon" style="--row-color: var(--brand-primary);"><i class="bi bi-person"></i></span>
+                    <span class="me-row-body"><span class="me-row-title">ชื่อที่แสดง</span></span>
+                    <span class="me-row-value" data-set-value="name"></span>
+                    <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                  </button>
+                  <div class="me-set-panel" id="meSetName" inert>
+                    <div class="me-set-inner">
+                      <label class="me-set-label" for="profileName">ชื่อ – นามสกุล</label>
+                      <div class="me-set-field">
+                        <input type="text" class="form-control" id="profileName" maxlength="80"
+                               placeholder="ชื่อ – นามสกุล" autocomplete="name" />
+                        <button type="button" class="btn btn-custom" id="profileNameSaveBtn" disabled>บันทึก</button>
+                      </div>
+                      <p class="me-set-help">ใช้แสดงในประวัติคำสั่งซื้อและช่องอื่น ๆ ที่คุณส่งข้อมูล</p>
+                      <div id="profileNameAlert" class="alert small py-2 mt-2 d-none"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Username: a fact, not a setting — no editor, no chevron. -->
+                <div class="me-set d-none" id="profileUsernameSection">
+                  <div class="me-row me-row--static">
+                    <span class="me-row-icon" style="--row-color: var(--ink-500);"><i class="bi bi-at"></i></span>
+                    <!-- The username WRAPS under the title, never ellipsised on the
+                         right: this row has no editor to reveal the rest, and a
+                         truncated value with nothing behind it does not exist on
+                         a phone. -->
+                    <span class="me-row-body">
+                      <span class="me-row-title">Username</span>
+                      <span class="me-row-sub me-row-sub--mono" id="profileUsername"></span>
+                    </span>
+                    <span class="me-row-value is-muted" title="เปลี่ยนไม่ได้ เพื่อรักษาประวัติของบัญชี">เปลี่ยนไม่ได้</span>
+                  </div>
+                </div>
+
+                <div class="me-set" data-set="email">
+                  <button type="button" class="me-row me-set-row" aria-expanded="false" aria-controls="meSetEmail">
+                    <span class="me-row-icon" style="--row-color: #2f6fdf;"><i class="bi bi-envelope"></i></span>
+                    <span class="me-row-body"><span class="me-row-title">อีเมล</span></span>
+                    <span class="me-row-value" data-set-value="email"></span>
+                    <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                  </button>
+                  <div class="me-set-panel" id="meSetEmail" inert>
+                    <div class="me-set-inner">
+                      <label class="me-set-label" for="profileEmail">อีเมล</label>
+                      <div class="me-set-field">
+                        <input type="email" class="form-control" id="profileEmail"
+                               placeholder="you@example.com" autocomplete="email" />
+                        <button type="button" class="btn btn-custom" id="profileEmailSaveBtn" disabled>บันทึก</button>
+                      </div>
+                      <div class="d-flex flex-wrap gap-2 mt-2" id="profileEmailBadges"></div>
+                      <p class="me-set-help" id="profileEmailHelp">อีเมลใช้สำหรับติดต่อกลับและสำหรับเชื่อมเข้ากับบัญชี Google</p>
+                      <div class="d-none" id="profileEmailUnlinkRow">
+                        <button type="button" class="btn btn-link btn-sm text-danger p-0" id="profileEmailUnlinkBtn">
+                          <i class="bi bi-x-circle me-1"></i>ลบอีเมลออกจากบัญชี
+                        </button>
+                      </div>
+                      <div id="profileEmailAlert" class="alert small py-2 mt-2 d-none"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="me-set" data-set="phone">
+                  <button type="button" class="me-row me-set-row" aria-expanded="false" aria-controls="meSetPhone">
+                    <span class="me-row-icon" style="--row-color: #1f9d55;"><i class="bi bi-telephone"></i></span>
+                    <span class="me-row-body"><span class="me-row-title">เบอร์โทรศัพท์</span></span>
+                    <span class="me-row-value" data-set-value="phone"></span>
+                    <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                  </button>
+                  <div class="me-set-panel" id="meSetPhone" inert>
+                    <div class="me-set-inner">
+                      <label class="me-set-label" for="profilePhone">เบอร์โทรศัพท์</label>
+                      <div class="me-set-field">
+                        <input type="tel" class="form-control" id="profilePhone" maxlength="20"
+                               inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx" />
+                        <button type="button" class="btn btn-custom" id="profilePhoneSaveBtn" disabled>บันทึก</button>
+                      </div>
+                      <p class="me-set-help">ใช้ติดต่อกลับ และจะเติมให้อัตโนมัติเมื่อสั่งซื้อใน SAMO Shop</p>
+                      <div id="profilePhoneAlert" class="alert small py-2 mt-2 d-none"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="me-set" data-set="password">
+                  <button type="button" class="me-row me-set-row" aria-expanded="false" aria-controls="meSetPassword">
+                    <span class="me-row-icon" style="--row-color: #6b5bd6;"><i class="bi bi-key"></i></span>
+                    <span class="me-row-body"><span class="me-row-title">รหัสผ่าน</span></span>
+                    <span class="me-row-value" data-set-value="password"></span>
+                    <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                  </button>
+                  <div class="me-set-panel" id="meSetPassword" inert>
+                    <div class="me-set-inner">
+                      <div id="profilePwSetBlock" class="d-none">
+                        <p class="me-set-help mt-0 mb-2">เพิ่ม username + รหัสผ่าน แล้วคุณจะเข้าสู่ระบบด้วย username/password ได้ด้วย</p>
+                        <div class="mb-2 d-none" id="profilePwUsernameRow">
+                          <input type="text" class="form-control" id="profilePwUsername"
+                                 autocomplete="username" placeholder="ตั้ง username (3+ ตัวอักษร, a-z 0-9 . _ -)"
+                                 minlength="3" maxlength="40" />
+                        </div>
+                        <div class="mb-2">
+                          <input type="password" class="form-control" id="profilePwNew"
+                                 autocomplete="new-password" placeholder="รหัสผ่านใหม่ (6+ ตัวอักษร)" minlength="6" />
+                        </div>
+                        <div class="mb-2">
+                          <input type="password" class="form-control" id="profilePwConfirm"
+                                 autocomplete="new-password" placeholder="ยืนยันรหัสผ่าน" minlength="6" />
+                        </div>
+                        <button type="button" class="btn btn-custom" id="profilePwSetBtn">บันทึก</button>
+                      </div>
+                      <div id="profilePwExistsBlock" class="d-none">
+                        <p class="me-set-help mt-0">เข้าสู่ระบบด้วย <span class="font-mono" id="profilePwUsernameHint"></span> + รหัสผ่าน ได้
+                          · <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="profilePwChangeToggle">เปลี่ยนรหัสผ่าน</button></p>
+                        <div id="profilePwChangeForm" class="d-none mt-2">
+                          <div class="mb-2">
+                            <input type="password" class="form-control" id="profilePwChangeNew"
+                                   autocomplete="new-password" placeholder="รหัสผ่านใหม่ (6+ ตัวอักษร)" minlength="6" />
+                          </div>
+                          <div class="mb-2">
+                            <input type="password" class="form-control" id="profilePwChangeConfirm"
+                                   autocomplete="new-password" placeholder="ยืนยันรหัสผ่าน" minlength="6" />
+                          </div>
+                          <button type="button" class="btn btn-custom" id="profilePwChangeSaveBtn">บันทึก</button>
+                        </div>
+                      </div>
+                      <div id="profilePwAlert" class="alert small py-2 mt-2 d-none"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="me-set" data-set="google">
+                  <button type="button" class="me-row me-set-row" aria-expanded="false" aria-controls="meSetGoogle">
+                    <span class="me-row-icon" style="--row-color: #ea4335;"><i class="bi bi-google"></i></span>
+                    <span class="me-row-body"><span class="me-row-title">บัญชี Google</span></span>
+                    <span class="me-row-value" data-set-value="google"></span>
+                    <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
+                  </button>
+                  <div class="me-set-panel" id="meSetGoogle" inert>
+                    <div class="me-set-inner">
+                      <div id="profileGoogleStatus" class="me-set-google">
+                        <div class="flex-grow-1" style="min-width:140px;">
+                          <div id="profileGoogleStatusText" class="fw-semibold">กำลังตรวจสอบ…</div>
+                          <div class="me-set-help mt-0" id="profileGoogleStatusSub"></div>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="profileLinkGoogleBtn">เชื่อมต่อ</button>
+                        <button type="button" class="btn btn-link btn-sm text-danger p-0 d-none" id="profileUnlinkGoogleBtn">
+                          <i class="bi bi-x-circle me-1"></i>ยกเลิกการเชื่อม
+                        </button>
+                      </div>
+                      <p class="me-set-help">หลังเชื่อมต่อแล้ว สามารถ "เข้าสู่ระบบด้วย Google" ที่ตรงกับอีเมลนี้ได้ทันที</p>
+                      <div id="profileGoogleAlert" class="alert small py-2 mt-2 d-none"></div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
               <div class="me-group">
-                <button type="button" class="me-row" onclick="samoOpenProfile()">
-                  <span class="me-row-icon" style="--row-color: var(--brand-primary);"><i class="bi bi-person-gear"></i></span>
-                  <span class="me-row-body">
-                    <span class="me-row-title">จัดการบัญชี</span>
-                    <span class="me-row-sub">ชื่อที่แสดง อีเมล รหัสผ่าน และการเชื่อมบัญชี Google</span>
-                  </span>
-                  <i class="bi bi-chevron-right me-row-chev" aria-hidden="true"></i>
-                </button>
                 <button type="button" class="me-row" onclick="samoSwitchAccount()">
                   <span class="me-row-icon" style="--row-color: var(--ink-500);"><i class="bi bi-person-bounding-box"></i></span>
                   <span class="me-row-body">

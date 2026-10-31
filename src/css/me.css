@@ -212,3 +212,75 @@
   .home-me, .home-me-go .bi, .me-row { transition: none; }
   .home-me:active { transform: none; }
 }
+
+/* ---------- บัญชี: settings that open in place (me-settings.js) ----------
+   A row shows its value; a tap opens its editor under it. The panel animates
+   grid rows 0fr → 1fr, which interpolates from the CURRENT height, so a tap
+   mid-animation reverses smoothly instead of jumping. */
+.me-settings { margin-bottom: 0.85rem; }
+.me-set { position: relative; }
+.me-set + .me-set::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(1rem + 30px + 0.8rem);
+  right: 0;
+  height: 1px;
+  background: var(--ink-200);
+  z-index: 1;
+}
+.me-set.d-none + .me-set::before { display: none; }
+.me-row--static { cursor: default; }
+.me-row--static:hover, .me-row--static:active { background: none; }
+.me-row-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  font-size: 0.9rem;
+  color: var(--ink-600);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* the full value is in the editor one tap down */
+}
+.me-row-value.is-muted { color: var(--ink-400); }
+.me-row-sub--mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; color: var(--ink-700); overflow-wrap: anywhere; }
+.me-set-row .me-row-chev { transition: transform var(--t-base) var(--ease); }
+.me-set.is-open .me-set-row .me-row-chev { transform: rotate(90deg); }
+.me-set.is-open .me-set-row { background: var(--ink-50); }
+
+.me-set-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease;
+}
+.me-set.is-open .me-set-panel { grid-template-rows: 1fr; opacity: 1; }
+.me-set-inner {
+  overflow: hidden;
+  min-height: 0;
+  /* Side padding only: vertical padding would hold the box open at 0fr (a
+     border-box cannot be shorter than its padding). The vertical space is
+     CONTENT instead — the ::before/::after below — so it is clipped with it. */
+  padding: 0 1rem 0 calc(1rem + 30px + 0.8rem);
+}
+.me-set-inner::before { content: ''; display: block; height: 0.25rem; }
+.me-set-inner::after { content: ''; display: block; height: 1rem; }
+.me-set-label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--ink-500); margin: 0.35rem 0 0.3rem; }
+.me-set-field { display: flex; gap: 0.5rem; }
+.me-set-field .form-control { flex: 1; min-width: 0; }
+.me-set-field .btn { flex-shrink: 0; }
+.me-set-help { margin: 0.45rem 0 0; font-size: 0.78rem; color: var(--ink-500); line-height: 1.45; }
+.me-set-google { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.me-set-inner .alert { margin-bottom: 0; }
+
+@media (max-width: 575.98px) {
+  /* The editor uses the whole width on a phone; the icon gutter is a luxury. */
+  .me-set-inner { padding-left: 1rem; }
+  .me-row-value { max-width: 45%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .me-set-panel { transition: opacity 150ms ease; }
+  .me-set-row .me-row-chev { transition: none; }
+}

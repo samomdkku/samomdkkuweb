@@ -22,7 +22,8 @@ import { uploadImageToDrive } from './uploads.js';
 import { initAuth, onAuthChange, authReady, signOut as samoSignOut, getUser as authGetUser, userCanAccess, holdsMaster } from './auth.js';
 import { mountAccountSwitch, openSwitcher as openAccountSwitcher } from './account-switch.js';
 import { mountSigninModal } from './signin-modal.js';
-import { initProfileModal, openProfileModal } from './profile.js';
+import { initProfileModal } from './profile.js';
+import { initMeSettings, goToAccountSettings } from './me-settings.js';
 import { loadAnnouncements, viewAnnouncement, closeArticleView, getViewingAnnouncementId, deleteCurrentAnnouncement } from './announcements.js';
 import { initPrAuth, handlePrGoogleLogin, logoutGoogle, forceShowGoogleAuth, togglePrAccountFields } from './pr-auth.js';
 import { initPrForm, togglePrMode, updateFormVisibility, toggleProjectFormatCopost, toggleOtherPlatformReason, applyDateRules, syncPublishDate } from './pr-form.js';
@@ -165,7 +166,9 @@ window.deleteCurrentAnnouncement = deleteCurrentAnnouncement;
 
 // Global Auth
 window.samoSignOut = samoSignOut;
-window.samoOpenProfile = openProfileModal;
+// จัดการบัญชี lives on /me since 2026-10-31 (no modal on the public site);
+// anything still calling this — a cached page, a bookmark — lands there.
+window.samoOpenProfile = goToAccountSettings;
 // One-tap account switch: opens a Gmail-style chooser of saved
 // accounts when at least one is remembered, else falls through to
 // "sign out + open sign-in modal" so first-time users still get a
@@ -980,6 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // be notified when the session is ready.
   initAuth();
   initProfileModal();
+  initMeSettings();
   mountAccountSwitch();
   mountSigninModal();
 

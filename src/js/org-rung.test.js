@@ -312,10 +312,11 @@ describe('the count line says whether it means INSIDE or BELOW', () => {
     }
   });
 
-  it('both renderers call it — neither keeps a hand-rolled copy', () => {
+  it('the renderer calls it — it keeps no hand-rolled copy', () => {
     // It was hand-rolled TWICE with the same four branches before this existed,
-    // which is how one wording bug shipped to two views at once.
-    for (const rel of ['./org-chart.js', './org-graph.js']) {
+    // which is how one wording bug shipped to two views at once. (The second
+    // renderer, org-graph.js, went with ผังรวม on 2026-10-31.)
+    for (const rel of ['./org-chart.js']) {
       const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
       expect(src, `${rel} does not call subtreeMeta`).toMatch(/subtreeMeta\(/);
       expect(src, `${rel} still builds the line itself`)

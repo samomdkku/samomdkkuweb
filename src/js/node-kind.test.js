@@ -65,7 +65,7 @@ describe('no writer emits a kind outside the vocabulary', () => {
   // Only the files that write `team_nodes.kind`. Scoping matters: "department"
   // is a live word elsewhere in this app (PR ฝ่าย, VitalSound แผนก, passport
   // departments), and a repo-wide grep would be noise nobody reads.
-  const WRITERS = ['./team/index.js', './team/io.js', './org-chart.js', './org-graph.js',
+  const WRITERS = ['./team/index.js', './team/io.js', './org-chart.js',
     './org-rung.js', './node-kind.js'];
   // A QUOTED literal, so `x.department_id` and '/rpc/list_passport_departments'
   // — both live, both unrelated — do not register.
