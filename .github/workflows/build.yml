@@ -52,6 +52,9 @@ jobs:
       # access doesn't fail if vars are missing — db.js only logs a warning.
       - run: npm test
       - run: npm run build
+      # check:bundle reads dist/, so it runs after the build. Added in review
+      # (2026-10-31): the night agent wrote the guard but nothing ran it.
+      - run: npm run check:bundle
       # The docs site is the AUTHORITATIVE guard for markdown that renders
       # wrong. `src/js/md-raw-tags.test.js` is a fast local approximation of
       # the same rule and has been fooled three times; the Vue compiler has

@@ -42,12 +42,20 @@ create temporary table probe(step text, expected text, got text);
 -- A person who exists in BOTH systems — the only case where a mirror can be
 -- observed at all.
 create temporary table subj as
-select p.id as pid, p.kkumail,
+-- kkumail is the STUDENT row's, not people.kkumail: update_my_identity finds
+-- the ระบบบ้าน half by students.kkumail = users.email, so a subject whose two
+-- copies differ (or whose people.kkumail is null) skipped the house half and
+-- A5 read '(none)' — red on production for a reason that was the PROOF's
+-- (review 2026-10-31; the night agent's rewrite kept the same subject).
+select p.id as pid,
+       (select s.kkumail from public.students s where s.person_id = p.id
+           and nullif(btrim(s.kkumail), '') is not null limit 1)               as kkumail,
        (select s.id from public.students s where s.person_id = p.id limit 1)     as sid,
        (select m.id from public.team_members m where m.person_id = p.id limit 1) as mid,
        (select s.sai_code from public.students s where s.person_id = p.id limit 1) as sai0
   from public.people p
- where exists (select 1 from public.students s where s.person_id = p.id)
+ where exists (select 1 from public.students s where s.person_id = p.id
+                  and nullif(btrim(s.kkumail), '') is not null)
    and exists (select 1 from public.team_members m where m.person_id = p.id)
  limit 1;
 
@@ -156,7 +164,7 @@ update public.users set email = (select kkumail from subj)
    and lower(btrim(email)) is distinct from lower(btrim((select kkumail from subj)));
 
 create temporary table who as
-select (select kkumail from subj) as kkumail, (select uid from carrier) as uid;
+select (select kkumail from subj) as kkumail, (select uid from carrier) as uid, (select sid from subj) as sid;
 grant select on who to authenticated;
 grant insert, select on probe to authenticated;
 
@@ -168,10 +176,6 @@ set local role authenticated;
 -- A5 — the RPC takes the two parts and never reassembles them from a whole.
 select public.update_my_identity('{"first_name_th":"ปิติ","last_name_th":"รัก เรียน"}'::jsonb);
 
-insert into probe
-select 'A5. own card writes the split verbatim', 'ปิติ|รัก เรียน',
-       coalesce((select s.first_name_th || '|' || s.last_name_th from public.students s
-                  where lower(btrim(s.kkumail)) = lower(btrim((select kkumail from who)))), '(none)');
 
 -- A7 — the payload the card is painted from carries the two keys. Without them
 -- the form would have to read the split back off full_name, i.e. split it.
@@ -184,6 +188,14 @@ select 'A7. get_my_team_seat publishes the split', 'yes',
              and public.get_my_team_seat()->'postings'->0 ? 'last_name_th'
               then 'yes' else 'no' end;
 reset role;
+
+-- A5 is read back AFTER reset role: the write runs as the member (that is
+-- the point), but students' SELECT policy does not show a row to a borrowed
+-- login, so reading it as them returned '(none)' with the write in place.
+insert into probe
+select 'A5. own card writes the split verbatim', 'ปิติ|รัก เรียน',
+       coalesce((select s.first_name_th || '|' || s.last_name_th from public.students s
+                  where s.id = (select sid from subj)), '(none)');
 
 -- A6 / D5 — the self-update guard. Two directions, because a probe that can
 -- only report "denied" cannot tell a working guard from a broken connection.
