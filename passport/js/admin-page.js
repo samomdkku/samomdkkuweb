@@ -8,7 +8,7 @@ import { generateUUID, fixGoogleDriveUrl } from './utils.js';
 import { ROUTES } from './routes.js';
 import { renderCertificate, loadCertImage, CERT_FONTS } from './certificate.js';
 import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigured } from './upload.js';
-import { getCurrentContext, getSeasonStatus, thaiDate, thaiDayBefore, thaiDay, bkkToday, TH_MONTH_NAMES } from './samo.js';
+import { getSeasonStatus, thaiDate, thaiDayBefore, thaiDay, bkkToday, TH_MONTH_NAMES } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
 import { loadDepartments, applyCatalog, deptChoices, subChoices } from './depts.js';
@@ -865,6 +865,10 @@ function syncScanUntil(pfx) {
     const until = $f(pfx, 'scan-until');
     const info = dateInfo[pfx];
     $f(pfx, 'scan-until-wrap').style.display = set ? 'block' : 'none';
+    // Hidden = DISABLED: a disabled control is never validated, so a hidden
+    // date carrying a previous activity's min/max can never silently block a
+    // save ("An invalid form control is not focusable").
+    until.disabled = !set;
     until.required = set;
     if (info?.event_date) {
         until.min = info.event_date;
@@ -1104,22 +1108,29 @@ async function submitEditActivity(e) {
         return;
     }
 
-    // 2. Update earned scans for the CURRENT season only — past seasons/years are
-    //    frozen and must never change. Re-sync the snapshot (points + name + dept)
-    //    so the current วาระ reflects the edit; older scans keep their old values.
-    const { season } = await getCurrentContext().catch(() => ({ season: null }));
-    if (season) {
+    // 2. Re-sync the snapshot (points + name + dept) of this activity's scans
+    //    while they are still ARRIVING — its quarter is open, or its scan
+    //    window is (0267: a closed quarter keeps collecting inside the window,
+    //    and a km edit that skipped those scans would split one activity into
+    //    two prices). Once both have ended its scans are history and frozen.
+    //    Always the activity's OWN season, never "whatever is open".
+    const { data: saved } = await adminDb.from('activities')
+        .select('season_id, scan_until').eq('id', editingActivityId).single();
+    const seasonRow = saved?.season_id ? samoSeasons.find((x) => x.id === saved.season_id) : null;
+    const live = !!saved?.season_id
+        && ((seasonRow && !seasonRow.ended_at) || (saved.scan_until && bkkToday() <= saved.scan_until));
+    if (live) {
         await adminDb
             .from('scans')
             .update({ points_awarded: km, activity_name: name, department_id: dept, sub_department_id: subDept })
             .eq('activity_id', editingActivityId)
-            .eq('season_id', season.id);
+            .eq('season_id', saved.season_id);
     }
 
     commitUpload(badge_url); // image is now attached to a saved activity
-    alert(season
-        ? 'Activity updated. Current-season points were re-synced; past seasons stay frozen.'
-        : 'Activity updated. (No current season is active, so no earned scans changed.)');
+    alert(live
+        ? 'Activity updated. Points already earned for this activity were re-synced (its QR is still collecting scans).'
+        : 'Activity updated. Its quarter and QR window have both ended, so points already earned stay as they were.');
     cancelEdit();
     loadActivities();
 }
