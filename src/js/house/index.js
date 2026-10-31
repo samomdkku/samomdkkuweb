@@ -258,8 +258,18 @@ function renderHelp() {
           h.showing ? `<br /><span class="small text-muted">การ์ดแสดง: ${
             escHtml(h.showing.name || '')} ${escHtml(h.showing.student_id || '')}</span>` : ''}${
           h.note ? `<br /><span class="small">“${escHtml(h.note)}”</span>` : ''}`
-        : `${escHtml(h.typed_first_name || '')} · ${escHtml(h.typed_student_id || '')}${
-          h.attempts > 1 ? ` <span class="text-muted small">(ลอง ${h.attempts} ครั้ง)</span>` : ''}`;
+        : h.details_at
+          // 0268: everything they sent, สาย → บ้าน included. A STATEMENT — the
+          // บ้าน is what saving it WOULD give, checked against the class
+          // head's sheet first (the diagnosis below says so).
+          ? `${escHtml([h.typed_first_name, h.typed_last_name].filter(Boolean).join(' '))}${
+            h.typed_nickname ? ` (${escHtml(h.typed_nickname)})` : ''}<br />${
+            escHtml(h.typed_student_id || '')}${h.typed_major ? ` · ${escHtml(h.typed_major)}` : ''}
+            · <strong>สาย ${escHtml(h.typed_sai_code || '')}</strong>
+            <span class="text-muted">→ ${escHtml(houseName(houseOf(h.typed_sai_code)))}</span>`
+          : `${escHtml(h.typed_first_name || '')} · ${escHtml(h.typed_student_id || '')}${
+            h.attempts > 1 ? ` <span class="text-muted small">(ลอง ${h.attempts} ครั้ง)</span>` : ''}
+            <br /><span class="text-muted">ยังไม่ได้กรอกข้อมูลเพิ่ม</span>`;
       // WHY nothing matched, and what closes it (help-diagnosis.js). Only an
       // OPEN request gets one — a closed one's answer is history.
       const diag = done ? null : diagnoseHelpRequest(h, { students, held });
@@ -278,6 +288,8 @@ function renderHelp() {
         <td>${cands}</td>
         <td class="small">${done ? 'จัดการแล้ว' : `${h.waiting_days} วัน`}</td>
         <td class="text-end">${done ? '' : `
+          ${h.details_at && h.kind === 'no_record' ? `<button type="button" class="btn btn-sm btn-success mb-1" data-help-act="add">
+            <i class="bi bi-person-plus" aria-hidden="true"></i> ตรวจแล้ว เพิ่มเข้าระบบบ้าน</button>` : ''}
           <div class="input-group input-group-sm held-actions">
             <input type="text" class="form-control" data-help-note
                    placeholder="บันทึกว่าทำอะไรไป" autocomplete="off"
@@ -291,7 +303,8 @@ function renderHelp() {
   const open = helpReqs.filter((h) => !h.resolved_at);
   $('houseHelpCount').textContent = open.length
     ? `มี ${open.length} คนที่ติดอยู่ — ถ้าเจอว่าเป็นใครในรายการค้างข้างบน `
-      + 'ให้กรอกอีเมลของเขาในแถวนั้น แล้วรายการนี้จะปิดเอง'
+      + 'ให้กรอกอีเมลของเขาในแถวนั้น ถ้าเขากรอกข้อมูลมาเอง ตรวจสายรหัสกับ sheet ของหัวหน้าชั้นปี '
+      + 'แล้วกด “เพิ่มเข้าระบบบ้าน” — รายการจะปิดเองทั้งสองทาง'
     : 'ไม่มีใครติดอยู่';
 }
 
@@ -2539,6 +2552,33 @@ function openStudentModal(id) {
 }
 
 /**
+ * เพิ่มเข้าระบบบ้าน from what a stuck student SENT (0268). The ordinary add
+ * form, prefilled — the admin still reads it and presses บันทึก, so the สาย
+ * reaches `students` by an admin's hand, never the student's. Saving closes
+ * the request by itself (the trigger on `students`, any path).
+ */
+function openStudentModalFromRequest(h) {
+  openStudentModal(null);
+  $('hsFirst').value = h.typed_first_name || '';
+  $('hsLast').value = h.typed_last_name || '';
+  $('hsNick').value = h.typed_nickname || '';
+  $('hsSid').value = h.typed_student_id || '';
+  $('hsMail').value = h.kkumail || '';
+  $('hsSai').value = h.typed_sai_code || '';
+  const sel = $('hsMajor');
+  if (sel && h.typed_major) {
+    if (![...sel.options].some((o) => o.value === h.typed_major)) {
+      sel.insertAdjacentHTML('beforeend',
+        `<option value="${escHtml(h.typed_major)}">${escHtml(h.typed_major)} (ไม่อยู่ในรายการ)</option>`);
+    }
+    sel.value = h.typed_major;
+  }
+  updateHouseHint();
+  updateCohortHint();
+  lookupPerson();
+}
+
+/**
  * The ชั้นปี chooser — shows years, saves the DIFFERENCE.
  *
  * Same rule and same wording as the student's own card: the admin picks "ปี 4",
@@ -3251,6 +3291,11 @@ function wire() {
     const btn = e.target.closest('[data-help-act]');
     if (!btn) return;
     const tr = btn.closest('[data-help-id]');
+    if (btn.dataset.helpAct === 'add') {
+      const h = helpReqs.find((x) => x.id === tr?.dataset.helpId);
+      if (h) openStudentModalFromRequest(h);
+      return;
+    }
     const note = tr?.querySelector('[data-help-note]')?.value.trim();
     if (!note) { setStatus('บันทึกสั้น ๆ ก่อนว่าทำอะไรไป', true); return; }
     try {

@@ -764,8 +764,10 @@ describe('the receipt — an invisible queue is being ignored (0192)', () => {
     // The correction: VitalSound is not confidential-only — `it / เครือข่าย` is
     // an ordinary category — so it was never the wrong place, only the wrong
     // FIRST step, because it asks a stuck student to re-type what we hold.
-    const fn = CODE.slice(CODE.indexOf('function paintHelpReceipt'),
-      CODE.indexOf('function paintHelpReceipt') + 1800);
+    // Sliced by STRUCTURE (to the function's closing brace), not by a char
+    // count — 0268 grew the function and a fixed 1800 cut off its tail.
+    const at = CODE.indexOf('function paintHelpReceipt');
+    const fn = CODE.slice(at, CODE.indexOf('\n}\n', at));
     expect(fn).toContain('/vssound');
     // …and it is gated on having waited, not shown to everyone who misses once.
     expect(fn).toMatch(/stale\s*\?/);

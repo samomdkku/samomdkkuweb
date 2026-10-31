@@ -668,6 +668,24 @@ export async function claimMySeat(studentId, firstName) {
 }
 
 /**
+ * Everything a student the file does not name knows about themselves — สาย
+ * included — kept on their own help request for an admin to check (0268).
+ * It never creates a record and never reads the held list: the answer is the
+ * same whatever the file holds. Returns the caller's receipt.
+ */
+export async function submitMyHouseDetails(d) {
+  const { data, error } = await dbRest('/rpc/submit_my_house_details', {
+    method: 'POST',
+    body: {
+      p_student_id: d.student_id, p_first_name: d.first_name, p_last_name: d.last_name,
+      p_nickname: d.nickname || null, p_major: d.major || null, p_sai_code: d.sai_code,
+    },
+  });
+  if (error) throw new Error(error.message || 'ส่งข้อมูลไม่สำเร็จ');
+  return data || null;
+}
+
+/**
  * "This record is not mine."
  *
  * The only path for the case that fails OPEN (docs/HOUSE-DATA-REPAIR.md §4): a

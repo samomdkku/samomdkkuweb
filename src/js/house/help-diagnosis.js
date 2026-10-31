@@ -35,22 +35,38 @@ const rangeText = (now) => {
 };
 
 /**
- * Before a claim is SENT: what the student can be told from the number alone.
- * Safe to say because it depends on nothing the database holds — no answer
- * here tells anyone whether a รหัส or a person exists (house0188 §30).
+ * Before a claim is SENT: a TYPO the number alone gives away. Safe to say
+ * because it depends on nothing the database holds — no answer here tells
+ * anyone whether a รหัส or a person exists (house0188 §30).
  * @returns {string|null} a sentence for the student, or null to go ahead.
  */
-export function claimPrecheck(sid, now = new Date()) {
+export function claimPrecheck(sid) {
   const n = normalizeStudentId(sid);
   if (!n.ok) return 'รหัสนักศึกษาต้องเป็นตัวเลข 10 หลัก เช่น 659999999-9';
   if (studentIdChecksumOk(n.value) === false) {
     return 'รหัสนักศึกษานี้น่าจะพิมพ์ผิด — ตัวเลขหลักสุดท้ายไม่ตรงกับเลขข้างหน้า ลองตรวจอีกครั้ง';
   }
-  const c = cohortFromStudentId(n.value);
-  if (c && !houseCoversCohort(c, now)) {
-    return `รหัสนี้เป็นรุ่น ${cohortLabel({ cohort_year: c })} — ระบบบ้านมีเฉพาะรุ่นที่กำลังเรียนอยู่ (${rangeText(now)})`;
-  }
   return null;
+}
+
+/**
+ * A รหัส of a รุ่น ระบบบ้าน has no สาย data for (outside the รุ่น studying now).
+ * There is nothing to claim, so no claim is sent — but since 0268 the person
+ * is NOT turned away: they fill in everything for an admin to check later
+ * (owner, 2026-10-31). Like claimPrecheck it reads only the number.
+ * @returns {string|null} the sentence for the student, or null when covered.
+ */
+export function outsideCohortNote(sid, now = new Date()) {
+  const n = normalizeStudentId(sid);
+  if (!n.ok) return null;
+  const c = cohortFromStudentId(n.value);
+  if (!c || houseCoversCohort(c, now)) return null;
+  return `ปัจจุบันยังไม่มีข้อมูลสายรหัสของรุ่น ${cohortLabel({ cohort_year: c })} ในระบบ `
+    + 'จึงยังตรวจสอบไม่ได้ว่าสายรหัสที่คุณกรอกถูกต้องตามจริงหรือไม่ — กรอกข้อมูลด้านล่างไว้ก่อนได้ '
+    // Owner, 2026-10-31: CONTACT first, not "send the data" — through
+    // VitalSound or whatever channel the class already uses with us.
+    + 'และแจ้งให้หัวหน้าชั้นปีติดต่อผู้ดูแลระบบทาง VitalSound หรือช่องทางที่เคยติดต่อกันอยู่แล้ว '
+    + 'เพื่อส่งข้อมูลสายรหัสของรุ่นพร้อม kkumail ต่อไป';
 }
 
 /**
@@ -77,11 +93,15 @@ export function diagnoseHelpRequest(req, d = {}, now = new Date()) {
   const c = cohortFromStudentId(n.value);
   const md = c ? cohortLabel({ cohort_year: c }) : '';
   if (c && !houseCoversCohort(c, now)) {
-    return {
-      code: 'outside',
-      text: `รหัสถูกต้อง แต่เป็นรุ่น ${md} — ระบบบ้านมีเฉพาะ ${rangeText(now)} ไม่มีอะไรให้เพิ่ม`,
-      close: `รุ่น ${md} ไม่อยู่ในระบบบ้าน (มีเฉพาะ ${rangeText(now)})`,
-    };
+    // 0268: no longer "nothing to add" — the person can hand over everything,
+    // but nothing here can VOUCH for the สาย they typed.
+    return req?.details_at
+      ? { code: 'outside', text: `รุ่น ${md} — ระบบยังไม่มีข้อมูลสายรหัสของรุ่นนี้ (มีเฉพาะ ${rangeText(now)}) จึงตรวจสายที่กรอกไม่ได้ — ยืนยันกับหัวหน้าชั้นปีก่อนเพิ่ม`, close: null }
+      : {
+        code: 'outside',
+        text: `รหัสถูกต้อง แต่เป็นรุ่น ${md} — ระบบบ้านมีเฉพาะ ${rangeText(now)} และเจ้าตัวยังไม่ได้กรอกข้อมูลเพิ่ม`,
+        close: `รุ่น ${md} ไม่อยู่ในระบบบ้าน (มีเฉพาะ ${rangeText(now)})`,
+      };
   }
   const key = (v) => String(v || '').replace(/\D/g, '');
   const owner = (d.students || []).find((s) => key(s.student_id) === key(n.value));
@@ -94,7 +114,9 @@ export function diagnoseHelpRequest(req, d = {}, now = new Date()) {
   }
   return {
     code: 'absent',
-    text: `รหัสถูกต้อง รุ่น ${md} แต่ไม่มีในไฟล์จากคณะเลย (อาจเป็นสาขาอื่นหรือย้ายเข้า) — ต้องขอสายรหัสจากฝ่ายข้อมูล`,
+    text: req?.details_at
+      ? `รหัสถูกต้อง รุ่น ${md} แต่ไม่มีในไฟล์จากคณะ — เจ้าตัวกรอกข้อมูลมาให้แล้ว ตรวจสายรหัสกับ sheet ของหัวหน้าชั้นปีก่อนเพิ่ม`
+      : `รหัสถูกต้อง รุ่น ${md} แต่ไม่มีในไฟล์จากคณะเลย (อาจเป็นสาขาอื่นหรือย้ายเข้า) — ต้องขอสายรหัสจากฝ่ายข้อมูล`,
     close: null,
   };
 }

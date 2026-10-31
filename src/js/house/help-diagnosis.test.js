@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  claimPrecheck, diagnoseHelpRequest, coveredCohortLabels, houseCoversCohort,
+  claimPrecheck, diagnoseHelpRequest, coveredCohortLabels, houseCoversCohort, outsideCohortNote,
 } from './help-diagnosis.js';
 
 // 2026-10-13 is academic year 2569: MD49 (entered 2564) is in ปี 6.
@@ -29,8 +29,26 @@ describe('claimPrecheck — the student is told only what the NUMBER says', () =
   it('catches a mistyped digit before anything is recorded', () => {
     expect(claimPrecheck(bad(MD54), NOW)).toMatch(/พิมพ์ผิด/);
   });
-  it('says a รุ่น outside the system is outside it', () => {
-    expect(claimPrecheck(MD48, NOW)).toMatch(/MD48.*MD49–MD54/);
+  it('no longer turns a รุ่น outside the system away (0268)', () => {
+    // Owner, 2026-10-31: they fill everything in for an admin to check.
+    expect(claimPrecheck(MD48)).toBeNull();
+  });
+});
+
+describe('outsideCohortNote — what an out-of-range รุ่น is told (0268)', () => {
+  it('names the รุ่น, says the สาย cannot be checked, and says CONTACT first', () => {
+    const t = outsideCohortNote(MD48, NOW);
+    expect(t).toMatch(/MD48/);
+    expect(t).toMatch(/ตรวจสอบไม่ได้/);
+    // Owner's correction: contact through VitalSound or the usual channel —
+    // not "send the data now".
+    expect(t).toMatch(/ติดต่อ/);
+    expect(t).toMatch(/VitalSound/);
+    expect(t).toMatch(/ช่องทาง/);
+  });
+  it('is silent for a covered รุ่น and for a malformed รหัส', () => {
+    expect(outsideCohortNote(MD54, NOW)).toBeNull();
+    expect(outsideCohortNote('12', NOW)).toBeNull();
   });
 });
 
@@ -44,6 +62,18 @@ describe('diagnoseHelpRequest', () => {
     const d = diagnoseHelpRequest(req(MD48), {}, NOW);
     expect(d.code).toBe('outside');
     expect(d.close).toMatch(/MD48/);
+  });
+  it('…but once they SENT details it is not prefilled to close (0268)', () => {
+    // Closing would throw away what they handed over; the admin checks the
+    // สาย with the class head instead.
+    const d = diagnoseHelpRequest(req(MD48, { details_at: '2026-10-31' }), {}, NOW);
+    expect(d.code).toBe('outside');
+    expect(d.close).toBe(null);
+    expect(d.text).toMatch(/หัวหน้าชั้นปี/);
+  });
+  it('an absent รหัส with details points at the class head\'s sheet, not ฝ่ายข้อมูล', () => {
+    expect(diagnoseHelpRequest(req(MD54, { details_at: 'x' }), {}, NOW).text).toMatch(/sheet/);
+    expect(diagnoseHelpRequest(req(MD54), {}, NOW).text).toMatch(/ฝ่ายข้อมูล/);
   });
   it('a typo is a typo, and is not closed for them', () => {
     const d = diagnoseHelpRequest(req(bad(MD54)), {}, NOW);

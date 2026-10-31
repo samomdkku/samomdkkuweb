@@ -40,10 +40,10 @@
 import { escHtml } from '../utils.js';
 import { convertDriveUrl } from '../uploads.js';
 import { registerProfileCache, clearProfileCaches } from '../profile-cache.js';
-import { claimPrecheck } from './help-diagnosis.js';
+import { claimPrecheck, outsideCohortNote } from './help-diagnosis.js';
 import {
   fetchMyStudentRecord, saveMyStudentRecord, requestMyChange, fetchMajors,
-  claimMySeat, reportNotMyRecord, fetchMyHelpStatus,
+  claimMySeat, reportNotMyRecord, fetchMyHelpStatus, submitMyHouseDetails,
 } from './api.js';
 import {
   houseLabel, normalizeSai, cohortLabel, normalizeStudentId, saiProblem, safeColor,
@@ -608,9 +608,10 @@ function emptyHouseHtml(account) {
             <span class="myseat-edit-status" data-house-claim-status role="status"></span>
           </div>
         </form>
-        <p class="myhouse-empty myhouse-empty--quiet">ถ้ากรอกถูกแล้วยังไม่พบ
-          ระบบจะแจ้งผู้ดูแลระบบบ้านให้เองทันที พร้อมกับสิ่งที่คุณกรอกไว้
+        <p class="myhouse-empty myhouse-empty--quiet" data-house-claim-hint>ถ้ากรอกถูกแล้วยังไม่พบ
+          ระบบจะแจ้งผู้ดูแลระบบบ้านให้เอง และให้กรอกข้อมูลที่เหลือ (รวมสายรหัส) ไว้ให้ผู้ดูแลตรวจ
           ไม่ต้องกรอกซ้ำที่อื่น</p>
+        ${detailsFormHtml()}
         <div class="myhouse-receipt" data-house-receipt hidden></div>`
     : `
         <p class="myhouse-empty">ระบบบ้านใช้บัญชี <strong>kkumail</strong> ในการจับคู่ข้อมูลนักศึกษา
@@ -621,6 +622,100 @@ function emptyHouseHtml(account) {
         <p class="myhouse-empty">ออกจากระบบแล้วเข้าสู่ระบบใหม่ด้วย Google
           โดยเลือกบัญชี <strong>@kkumail.com</strong> ของคุณ แล้วข้อมูลจะขึ้นเองอัตโนมัติ</p>`}
     </div>`;
+}
+
+/**
+ * Everything else, for a person the file does not name (0268).
+ *
+ * OWNER, 2026-10-31: "these people should be able to fill all information for
+ * admin to check later, fill everything including สาย, because some รุ่น
+ * หัวหน้าชั้นปีส่งข้อมูลมาไม่ครบ". Hidden until it is needed: after a claim
+ * that found nothing, straight away for a รุ่น ระบบบ้าน has no สาย data for, or
+ * from the receipt to correct what was sent. What is typed here is a
+ * STATEMENT on the person's own request — it never becomes their record, or
+ * their บ้าน, until an admin saves it (the สาย is the one field with a reason
+ * to lie about).
+ */
+function detailsFormHtml() {
+  return `
+    <form class="myseat-edit myhouse-claim myhouse-details" data-house-form="details" hidden>
+      <p class="myhouse-empty myhouse-details-note" data-house-details-note role="status"></p>
+      <label class="myseat-edit-field"><span>รหัสนักศึกษา</span>
+        <input type="text" name="student_id" inputmode="numeric" autocomplete="off" required /></label>
+      <label class="myseat-edit-field"><span>ชื่อจริง</span>
+        <input type="text" name="first_name" autocomplete="off" maxlength="80" required /></label>
+      <label class="myseat-edit-field"><span>นามสกุล</span>
+        <input type="text" name="last_name" autocomplete="off" maxlength="80" required /></label>
+      <label class="myseat-edit-field"><span>ชื่อเล่น <small class="text-muted">(ถ้ามี)</small></span>
+        <input type="text" name="nickname" autocomplete="off" maxlength="40" /></label>
+      <label class="myseat-edit-field"><span>สาขา</span>
+        <select name="major">${majorOptionsHtml('')}</select></label>
+      <label class="myseat-edit-field"><span>สายรหัส</span>
+        <input type="text" name="sai_code" inputmode="numeric" autocomplete="off" maxlength="3"
+               placeholder="เช่น 7 หรือ 007" required /></label>
+      <div class="myseat-edit-actions">
+        <button type="submit" class="myseat-save">ส่งข้อมูลให้ผู้ดูแลตรวจ</button>
+        <span class="myseat-edit-status" data-house-details-status role="status"></span>
+      </div>
+    </form>`;
+}
+
+/** Open the details form with `prefill` and a `note` above it. */
+function openDetails(host, prefill = {}, note = '') {
+  const form = host.querySelector?.('[data-house-form="details"]');
+  if (!form) return;
+  const set = (name, v) => { const el = form.querySelector(`[name="${name}"]`); if (el && v != null && !el.value) el.value = v; };
+  set('student_id', prefill.student_id);
+  set('first_name', prefill.first_name);
+  set('last_name', prefill.last_name);
+  set('nickname', prefill.nickname);
+  set('sai_code', prefill.sai_code);
+  const sel = form.querySelector('[name="major"]');
+  if (sel) loadMajorOptions().then(() => { sel.innerHTML = majorOptionsHtml(prefill.major || sel.value || ''); });
+  const n = form.querySelector('[data-house-details-note]');
+  if (n) { n.textContent = note; n.hidden = !note; }
+  form.hidden = false;
+  host.querySelector('[data-house-claim-hint]')?.setAttribute('hidden', '');
+  form.querySelector(prefill.last_name ? '[name="sai_code"]' : '[name="last_name"]')?.focus();
+}
+
+/** What to tell the person after they have SENT the details — by their รุ่น,
+ *  read from the number they typed (never from the database). */
+function afterSendNote(sid) {
+  return outsideCohortNote(sid)
+    || 'รบกวนแจ้งหัวหน้าชั้นปีและผู้ที่เกี่ยวข้องให้กรอกข้อมูลของคุณใน sheet ที่ผู้ดูแลระบบส่งให้แต่ละชั้นปีแล้ว '
+      + 'เพื่อยืนยันว่าสายรหัสที่คุณกรอกเป็นข้อมูลจริง';
+}
+
+function wireDetails(host, opts = {}) {
+  const form = host.querySelector?.('[data-house-form="details"]');
+  if (!form) return;
+  const status = form.querySelector('[data-house-details-status]');
+  const btn = form.querySelector('.myseat-save');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const v = (n) => form.querySelector(`[name="${n}"]`)?.value.trim() || '';
+    const sid = v('student_id');
+    const pre = claimPrecheck(sid);
+    if (pre) { if (status) status.textContent = pre; return; }
+    const sai = normalizeSai(v('sai_code'));
+    if (!sai.ok || !sai.value) { if (status) status.textContent = saiProblem(v('sai_code')) || 'กรอกสายรหัส'; return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'กำลังส่ง…'; }
+    try {
+      await submitMyHouseDetails({
+        student_id: normalizeStudentId(sid).value, first_name: v('first_name'), last_name: v('last_name'),
+        nickname: v('nickname'), major: v('major'), sai_code: sai.value,
+      });
+      form.hidden = true;
+      if (status) status.textContent = '';
+      paintHelpReceipt(host);
+    } catch (err) {
+      if (status) status.textContent = err?.message || 'ส่งข้อมูลไม่สำเร็จ';
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'ส่งข้อมูลให้ผู้ดูแลตรวจ'; }
+    }
+  });
+  void opts;
 }
 
 /**
@@ -652,6 +747,19 @@ async function paintHelpReceipt(host) {
     } catch { return ''; }
   })();
   const stale = (st.waiting_days ?? 0) >= 7;
+  const t = st.typed || {};
+  // 0268: what they SENT, read back (their own words — no oracle), and the
+  // way to finish or correct it. A request from before 0268 carries only
+  // รหัส + ชื่อ, so it is asked for the rest.
+  const sent = st.details_at
+    ? `<p class="myhouse-empty myhouse-receipt-sent">ข้อมูลที่ส่ง: ${escHtml([t.first_name, t.last_name].filter(Boolean).join(' '))}${
+      t.nickname ? ` (${escHtml(t.nickname)})` : ''} · ${escHtml(t.student_id || '')}${t.major ? ` · ${escHtml(t.major)}` : ''} · สาย ${escHtml(t.sai_code || '')}
+      <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-house-details-edit>แก้ไขข้อมูลที่ส่ง</button></p>
+      <p class="myhouse-empty myhouse-empty--quiet">${escHtml(afterSendNote(t.student_id))}</p>`
+    : (st.kind === 'no_record'
+      ? `<p class="myhouse-empty">ผู้ดูแลยังต้องการข้อมูลเพิ่ม —
+          <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-house-details-edit>กรอกข้อมูลให้ครบ (รวมสายรหัส)</button></p>`
+      : '');
   slot.hidden = false;
   slot.innerHTML = `
     <p class="myhouse-empty myhouse-receipt-line">
@@ -659,10 +767,23 @@ async function paintHelpReceipt(host) {
       ผู้ดูแลระบบบ้านได้รับเรื่องของคุณแล้ว${when ? ` เมื่อ ${escHtml(when)}` : ''}
       — ไม่ต้องแจ้งซ้ำ พอแก้ให้แล้วข้อมูลจะขึ้นในหน้านี้เอง
     </p>
+    ${sent}
     ${stale ? `<p class="myhouse-empty myhouse-empty--quiet">
       รอมา ${st.waiting_days} วันแล้ว ถ้าอยากคุยกับคนจริง ๆ
       แจ้งเพิ่มได้ที่ <a href="/vssound">VitalSound</a> (เลือกหมวด IT)
     </p>` : ''}`;
+  // Listener on the node THIS paint made (wireCard's rule).
+  slot.querySelector('[data-house-details-edit]')?.addEventListener('click', () => {
+    openDetails(host, t, st.details_at ? '' : afterSendNote(t.student_id));
+    // A correction REPLACES the values, so the form opens with what was sent.
+    const form = host.querySelector('[data-house-form="details"]');
+    if (form && st.details_at) {
+      for (const [k, val] of Object.entries(t)) {
+        const el = form.querySelector(`[name="${k}"]`);
+        if (el && val != null) el.value = val;
+      }
+    }
+  });
 }
 
 /**
@@ -712,12 +833,25 @@ function wireClaim(host, opts = {}) {
       if (status) status.textContent = pre;
       return;
     }
+    // 0268: a รุ่น ระบบบ้าน has no สาย data for has nothing to claim — so no
+    // claim is sent, and instead of being turned away they fill in the rest.
+    const outside = outsideCohortNote(norm.value);
+    if (outside) {
+      if (status) status.textContent = '';
+      openDetails(host, { student_id: norm.value, first_name: first }, outside);
+      return;
+    }
     if (btn) { btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ…'; }
     if (status) status.textContent = '';
     try {
       const res = await claimMySeat(norm.value, first);
       if (!res?.ok) {
-        if (status) status.textContent = res?.message || 'ไม่พบรายชื่อที่ตรงกัน';
+        // The server's ONE sentence for every miss (still its author), shown
+        // above the form it asks them to fill.
+        if (res?.details) {
+          if (status) status.textContent = '';
+          openDetails(host, { student_id: norm.value, first_name: first }, res.message || '');
+        } else if (status) status.textContent = res?.message || 'ไม่พบรายชื่อที่ตรงกัน';
         if (btn) { btn.disabled = false; btn.textContent = 'ยืนยันตัวตน'; }
         return;
       }
@@ -750,6 +884,7 @@ export function renderMyHouse(host, rec, opts = {}) {
     host.hidden = false;
     host.innerHTML = emptyHouseHtml(opts.account);
     wireClaim(host, opts);
+    wireDetails(host, opts);
     paintHelpReceipt(host);
     return;
   }

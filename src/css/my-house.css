@@ -304,3 +304,8 @@
    above it because it is an ANSWER to that form, not another field. */
 .myhouse-receipt { margin-top: 0.5rem; }
 .myhouse-receipt-line { color: var(--brand-primary); }
+
+/* 0268 — everything else, for a person the file does not name */
+.myhouse-details { margin-top: 0.75rem; }
+.myhouse-details-note[hidden] { display: none; }
+.myhouse-receipt-sent { font-size: 0.875rem; }

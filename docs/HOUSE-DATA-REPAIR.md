@@ -126,7 +126,10 @@ term are the ones to re-ask ฝ่ายข้อมูล about by name.
 4. **The admin types an address in** — a held row that carries neither, or one
    whose รหัส/ชื่อ is wrong. The report above hands them the likely match.
 5. **The admin approves a สาย change** — the only field a student cannot set.
-6. **Back to ฝ่ายข้อมูล** — an empty seat, a missing person, a duplicate address
+6. **The student hands over the rest** (0268) — a missing person types their
+   own นามสกุล and สาย; the admin checks it with the class head's sheet and adds
+   them in one press. A STATEMENT until then, never their บ้าน.
+7. **Back to ฝ่ายข้อมูล** — an empty seat, a missing person nobody can vouch for, a duplicate address
    whose owner is unknown, or a สายรหัส nobody can vouch for. **Never invent a
    สาย**: บ้าน is its last digit, and a guess puts a real student in the wrong
    house with nothing downstream able to tell.
@@ -171,6 +174,35 @@ students. **Silence towards a guesser is not silence towards the admin.**
 | **What the admin sees** | The verified address, what the person typed, and **candidate held rows** — the ones agreeing on either the รหัส *or* the ชื่อ. Anything agreeing on both would have been claimed, so every candidate shown is a near miss, which is the exact shape of a typo in the file. |
 | **How it closes** | By itself. Typing the person's address into the matching held row resolves both. A student who mistyped and then got it right closes their own. A queue that fills with already-solved problems is a queue nobody reads — which is the failure this replaces, not a new version of it. |
 | **Abuse** | The key is the kkumail, so an account that tries ten times leaves **one** row with `attempts = 10`. No counter, no cleanup job; the shape is the rate limit. |
+
+### They hand over EVERYTHING, สาย included (0268)
+
+**Owner, 2026-10-31:** *"these people should be able to fill all information
+for admin to check later, fill everything including สาย, because some รุ่น
+หัวหน้าชั้นปีส่งข้อมูลมาไม่ครบ"*. Rung 6 above ("back to ฝ่ายข้อมูล" for a
+missing person) was the slow one, and the person stuck already knows their
+นามสกุล and สาย. So a miss now opens a form for the rest — นามสกุล, ชื่อเล่น,
+สาขา, **สายรหัส** — kept on their own request (`submit_my_house_details`).
+
+What did NOT change, and why it is still safe:
+
+- **No oracle.** The submit reads nothing but "does this account already have a
+  record"; the claim's miss is still one sentence for every miss
+  (`tools/house0268-details.sql` §B, §I).
+- **A student still never sets their own สาย.** What they typed is a STATEMENT
+  on the request. It reaches `students` only when an admin presses
+  **ตรวจแล้ว เพิ่มเข้าระบบบ้าน** — the ordinary add form, prefilled — after
+  checking it against the class head's sheet. "Never invent a สาย" now reads
+  "never take one on the student's word alone".
+- **Two messages, chosen from the number they typed** (never the database):
+  inside the รุ่น ระบบบ้าน covers, *ask your หัวหน้าชั้นปี to fill you into the
+  sheet the admin sent*; outside it (MD47/MD48 — the owner decided 2026-09-19
+  they are not imported), *we have no สาย data for your รุ่น so it cannot be
+  checked; have the หัวหน้าชั้นปี CONTACT us through VitalSound or the channel
+  already in use* — contact first, not "send the data now" (owner's correction).
+- **Every door closes it.** A trigger on `students` closes the open request on
+  ANY insert or address change giving that kkumail a row — claim, promote, the
+  admin's hand-add, a re-import. Before 0268 only the first two remembered.
 
 ### "This record is not mine"
 
