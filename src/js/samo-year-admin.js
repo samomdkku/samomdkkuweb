@@ -42,11 +42,11 @@
 import { escHtml } from './utils.js';
 import { userCanAccess } from './auth.js';
 import {
-  fetchTerms, fetchTermStatus, publishTerm, startSamoYear,
+  fetchTerms, fetchTermStatus, startSamoYear,
   fetchPassportTerm, fetchPassportOrgWide,
   fetchPassportHistory, passportStartSeason, passportSaveSchedule, passportStartVara,
 } from './team/api.js';
-import { askPublishTerm, askStartTerm } from './team/term-dialogs.js';
+import { publishTermAsking, askStartTerm } from './team/term-dialogs.js';
 import { fetchAcademicYearStatus, saveAcademicYear, saveAcademicSchedule, primeAcademicYear } from './house/api.js';
 import { askConfirm } from './confirm-modal.js';
 import { dbRest } from './db.js';
@@ -602,9 +602,9 @@ async function run(fn) {
 }
 
 async function doPublish(year) {
-  if (!await askPublishTerm(year, false)) return;
   await run(async () => {
-    const res = await publishTerm(year);
+    const res = await publishTermAsking(year, false);
+    if (!res) return ['', ''];
     return [`บันทึกทีมปี SAMO ${year} แล้ว — ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน`, 'ok'];
   });
 }

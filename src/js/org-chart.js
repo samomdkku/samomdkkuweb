@@ -184,6 +184,14 @@ function indexStats(parents) {
 
 // ── the year picker ─────────────────────────────────────────────────────────
 
+/** The year button's text. Every year reads the same way, the one ahead
+ *  included (owner, 2026-10-31: "ทีมปี 2570", no "ว่าที่"); a label an admin
+ *  typed on team_terms wins. */
+export function yearChipLabel(y) {
+  const label = String(y?.label || '').trim();
+  return label || `ทีมปี ${y?.year ?? ''}`.trim();
+}
+
 function renderYears() {
   const host = $('orgYears');
   if (!host) return;
@@ -192,7 +200,7 @@ function renderYears() {
   host.innerHTML = years.map((y) => `
     <button type="button" class="org-year${y.year === activeYear ? ' is-active' : ''}"
       data-year="${y.year}"${y.year === activeYear ? ' aria-current="true"' : ''}>${
-        escHtml(y.label || String(y.year))
+        escHtml(yearChipLabel(y))
       }</button>`).join('');
 }
 

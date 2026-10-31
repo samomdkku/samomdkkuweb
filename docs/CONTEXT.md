@@ -913,6 +913,25 @@ stay EDITABLE via the ทีม SAMO admin's third mode (`src/js/team/terms.js`)
 the point of a snapshot rather than a view. `get_public_team_years()` lists only
 terms that are current or published. Proof: `tools/team0104-terms.mjs` (27 checks).
 
+**A year built by hand (0270).** Any NON-current year's list can be built in
+ทีมแต่ละปี — the year ahead or a past one — and shown on เกี่ยวกับเรา without
+moving the portal's year: `copy_team_year(to, from)` starts it (from = NULL → the
+live tree's public subtree, or another year's list; refuses the current year and a
+non-empty one), the editor adds/renames/moves/removes ตำแหน่ง and people with plain
+REST writes under the 0104 policies, and `set_team_term_shown(year, shown)` sets or
+clears `published_at` WITHOUT rebuilding (refuses the current year and an empty
+one). A shown year ahead keeps showing after the 1 มี.ค. switch, because a
+published archive wins. Integrity the hand-writes need: composite FKs keep a
+member's node and a node's parent in the SAME year
+(`team_archive_*_same_year`), and `team_archive_nodes_no_cycle` refuses a ตำแหน่ง
+under its own descendant. ⛔ `publish_team_term(year, p_replace_hand_edits default
+false)` REFUSES a year whose `team_terms.hand_edited_at` is set (any archive write
+outside the rebuild sets it, by trigger) with `TEAM_YEAR_HAND_EDITED:<people>`;
+the app asks before calling again with true (`publishTermAsking`). The automatic
+switch passes true for an unpublished outgoing year (it ran on the live tree).
+The archive still grants NOTHING: the set of functions reading `team_archive_*`
+is asserted by `tools/team0270-hand-built-years.sql` §0.
+
 **Portrait delivery.** `team_members.photo_focus` is an ENUM (`top|center|bottom`,
 CHECK-constrained because the value is published and would otherwise reach CSS).
 Uploads are downscaled in the browser to a 2400px WebP master

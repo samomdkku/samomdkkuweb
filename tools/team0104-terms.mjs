@@ -277,7 +277,7 @@ async function main() {
     JSON.stringify(nullRole.body).slice(0, 200));
 
   const anonExec = await mgmt(`
-    select has_function_privilege('anon','public.publish_team_term(integer)','execute') as anon_exec,
+    select has_function_privilege('anon','public.publish_team_term(integer,boolean)','execute') as anon_exec,
            has_function_privilege('anon','public.get_public_team_chart(integer)','execute') as anon_chart,
            has_function_privilege('anon','public.get_public_team_years()','execute') as anon_years`);
   const a = anonExec.body?.[0] || {};

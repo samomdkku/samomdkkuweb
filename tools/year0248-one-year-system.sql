@@ -29,10 +29,10 @@ create temporary table probe (step text, expected text, got text) on commit drop
 insert into probe select '00. the unchecked bodies: no anon, no authenticated', 'false,false,false,false',
   (select string_agg(has_function_privilege(r, f, 'execute')::text, ',' order by f, r)
      from unnest(array['anon', 'authenticated']) r,
-          unnest(array['public._start_team_term(integer,timestamptz)', 'public._publish_team_term(integer)']) f);
+          unnest(array['public._start_team_term(integer,timestamptz)', 'public._publish_team_term(integer,boolean)']) f);
 insert into probe select '01. the buttons stay callable by authenticated (they check inside)', 'true,true',
   (select has_function_privilege('authenticated', 'public.start_team_term(integer)', 'execute')::text
-       || ',' || has_function_privilege('authenticated', 'public.publish_team_term(integer)', 'execute')::text);
+       || ',' || has_function_privilege('authenticated', 'public.publish_team_term(integer,boolean)', 'execute')::text);
 insert into probe select '02. the stamping trigger runs as definer (a guest insert can move the year)', 'true',
   (select prosecdef::text from pg_proc where oid = 'public.samo_year_be_default()'::regprocedure);
 

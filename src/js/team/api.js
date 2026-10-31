@@ -378,12 +378,44 @@ export async function passportStartVara(name, quarter, teamTermYear) {
 }
 
 /** Freeze the live tree into `year`'s archive. Re-runnable; replaces wholesale. */
-export async function publishTerm(year) {
+/** Publish `year`'s archive from the live tree (publish_team_term).
+ *
+ *  0270: a year whose list a person built or corrected by hand is REFUSED
+ *  unless `replaceHandEdits` — the rebuild deletes the list. The refusal comes
+ *  back as an Error with `.handEdited` = how many people the list holds, so the
+ *  caller can ask before calling again (term-dialogs.js publishTermAsking). */
+export async function publishTerm(year, { replaceHandEdits = false } = {}) {
   const { data, error } = await dbRest('/rpc/publish_team_term', {
     method: 'POST',
-    body: { p_year: year },
+    body: replaceHandEdits ? { p_year: year, p_replace_hand_edits: true } : { p_year: year },
   });
-  if (error) throw new Error(error.message || 'เผยแพร่ไม่สำเร็จ');
+  if (error) {
+    const m = /TEAM_YEAR_HAND_EDITED:(\d+)/.exec(error.message || '');
+    const err = new Error(m ? `รายชื่อทีมปี SAMO ${year} ถูกแก้ด้วยมือ` : (error.message || 'เผยแพร่ไม่สำเร็จ'));
+    if (m) err.handEdited = Number(m[1]);
+    throw err;
+  }
+  return data;
+}
+
+/** Start `to`'s list (0270): from the live tree (`from` null) or from another
+ *  year's list. The year must not be the current one and must be empty. */
+export async function copyTeamYear(to, from = null) {
+  const { data, error } = await dbRest('/rpc/copy_team_year', {
+    method: 'POST',
+    body: { p_to: to, p_from: from },
+  });
+  if (error) throw new Error(error.message || 'คัดลอกรายชื่อไม่สำเร็จ');
+  return data;
+}
+
+/** Show or hide a non-current year on เกี่ยวกับเรา, as it stands (0270). */
+export async function setTermShown(year, shown) {
+  const { data, error } = await dbRest('/rpc/set_team_term_shown', {
+    method: 'POST',
+    body: { p_year: year, p_shown: !!shown },
+  });
+  if (error) throw new Error(error.message || (shown ? 'แสดงไม่สำเร็จ' : 'ซ่อนไม่สำเร็จ'));
   return data;
 }
 
@@ -428,6 +460,43 @@ export async function updateArchiveNode(id, patch) {
   });
   if (error) throw new Error(error.message || 'บันทึกไม่สำเร็จ');
   if (!Array.isArray(data) || !data.length) throw new Error('บันทึกไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+/** Add a ตำแหน่ง / ฝ่าย to a year's list (0270; the 0104 write policy). */
+export async function createArchiveNode(row) {
+  const { data, error } = await dbRest('/team_archive_nodes', {
+    method: 'POST',
+    body: row,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มตำแหน่งไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('เพิ่มตำแหน่งไม่สำเร็จ (สิทธิ์ไม่พอ)');
+  return data[0];
+}
+
+/** Remove a ตำแหน่ง — and, by cascade, everything and everyone under it. */
+export async function deleteArchiveNode(id) {
+  const { data, error } = await dbRest(`/team_archive_nodes?id=eq.${id}`, {
+    method: 'DELETE',
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'ลบไม่สำเร็จ');
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ลบไม่สำเร็จ — ไม่พบตำแหน่งนี้ หรือคุณไม่มีสิทธิ์ลบ (ต้องมีสิทธิ์ ทีม SAMO (แก้ไข))');
+  }
+}
+
+/** Add a person to a year's list. Carries a name and a photo, never an
+ *  identity: the archive grants nothing (terms.js header). */
+export async function createArchiveMember(row) {
+  const { data, error } = await dbRest('/team_archive_members', {
+    method: 'POST',
+    body: row,
+    prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'เพิ่มคนไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('เพิ่มคนไม่สำเร็จ (สิทธิ์ไม่พอ)');
   return data[0];
 }
 

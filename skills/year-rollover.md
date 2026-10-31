@@ -46,6 +46,15 @@ not touch.
    edit. Forgetting step 1 is covered — the switch auto-archives an
    unpublished outgoing year — but then the archive is whatever the tree
    holds at that moment, which is the new team if step 2 already happened.
+   **Showing the new team BEFORE the switch (0270)** — no live-tree edit
+   needed: ทีม SAMO → ทีมแต่ละปี → เพิ่มปี (e.g. 2570, "คัดลอกผังตอนนี้" or
+   "เริ่มจากว่าง") → จัดรายชื่อ → แสดงบนหน้าเกี่ยวกับเรา. The public page gets a
+   "ทีมปี 2570" button; the portal stays in 2569. On the switch the shown 2570
+   list keeps being what เกี่ยวกับเรา shows (a published archive wins), so the
+   new team appears on the day without editing the live tree first — the tree
+   is then only about WHO HOLDS WHICH PERMISSION. ⛔ Do not press เผยแพร่ซ้ำ on
+   2570 once it is current unless the live tree really is the new team: it
+   rebuilds the list from the tree. It asks first (hand-edited year, 0270).
 3. **Know who is about to lose the admin seat.** Whoever calls
    `start_team_term` keeps whatever `team_edit`/`master` grant they hold — the
    RPC does not touch permissions. If the outgoing VP is the only `team_edit`

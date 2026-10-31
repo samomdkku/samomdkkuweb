@@ -10,6 +10,7 @@
 // ==============================================
 
 import { askConfirm } from '../confirm-modal.js';
+import { publishTerm } from './api.js';
 
 /** Publish (or re-publish) `year`'s archive from the live tree. */
 export function askPublishTerm(year, alreadyPublished) {
@@ -28,6 +29,31 @@ export function askPublishTerm(year, alreadyPublished) {
     yes: alreadyPublished ? 'เผยแพร่ซ้ำ' : 'บันทึกทีมปีนี้',
     danger: !!alreadyPublished,
   });
+}
+
+/**
+ * Ask, publish, and — if the year's list was built or corrected by hand (0270)
+ * — ask AGAIN before replacing it. Resolves to the RPC's result, or null when
+ * the person declined either question. Both publish buttons use this, so
+ * neither can erase a hand-built year with one click.
+ */
+export async function publishTermAsking(year, alreadyPublished) {
+  if (!await askPublishTerm(year, alreadyPublished)) return null;
+  try {
+    return await publishTerm(year);
+  } catch (err) {
+    if (!err?.handEdited) throw err;
+    const ok = await askConfirm({
+      title: `แทนที่รายชื่อทีมปี SAMO ${year} ที่จัดไว้เอง?`,
+      body: `รายชื่อทีมปี SAMO ${year} (${err.handEdited} คน) ถูกเพิ่มหรือแก้ไว้เองที่ ทีมแต่ละปี — `
+        + 'ถ้าบันทึกจากผังตอนนี้ รายชื่อนั้นจะถูกแทนที่ทั้งหมด (รูปคงอยู่เฉพาะคนที่ยังอยู่ในผัง) '
+        + 'ถ้าต้องการเก็บรายชื่อที่จัดไว้ ให้กดยกเลิก',
+      yes: 'แทนที่ด้วยผังตอนนี้',
+      danger: true,
+    });
+    if (!ok) return null;
+    return publishTerm(year, { replaceHandEdits: true });
+  }
 }
 
 /**

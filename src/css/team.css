@@ -659,6 +659,49 @@
 
 .team-arc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 
+/* ── 0270: building a year by hand ─────────────────────────────────────────
+   Every ตำแหน่ง is listed, empty ones too (a hand-built year starts empty), and
+   indented by depth so the breadcrumb is a reminder, not the only cue. */
+.team-arc-toolbar {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.team-arc-count { font-size: 0.8rem; color: var(--ink-500); margin-inline-end: auto; }
+
+.team-arc-group {
+  padding-inline-start: calc(var(--arc-depth, 0) * 0.9rem);
+}
+.team-arc-group.is-division > .team-arc-head .team-arc-name { font-weight: 600; }
+.team-arc-title {
+  display: flex; align-items: center; gap: 0.4rem; flex: 1 1 16rem; min-width: 0;
+}
+.team-arc-trail {
+  font-size: 0.72rem; color: var(--ink-500);
+  max-width: 14rem; overflow-wrap: anywhere;
+}
+.team-arc-name { flex: 1 1 10rem; min-width: 0; max-width: 22rem; }
+.team-arc-kind {
+  font-size: 0.68rem; color: var(--ink-500); white-space: nowrap;
+  border: 1px solid var(--ink-200); border-radius: 999px; padding: 0.05rem 0.45rem;
+}
+.team-arc-node-actions, .team-arc-row-actions {
+  display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;
+}
+.team-arc-move { display: inline-flex; align-items: center; gap: 0.25rem; }
+.team-arc-move .form-select { max-width: 18rem; }
+.team-arc-add {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed var(--ink-300, var(--ink-200));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.team-arc-add input[name="name"] { flex: 2 1 14rem; min-width: 0; }
+.team-arc-add input[name="nickname"] { flex: 1 1 7rem; min-width: 0; }
+.team-arc-add select { flex: 0 1 12rem; width: auto; }
+.team-terms-add select { width: auto; max-width: 18rem; }
+
 .team-arc-row {
   display: flex; align-items: center; gap: 0.7rem;
   background: var(--surface); border: 1px solid var(--ink-200);
@@ -691,6 +734,8 @@
 @media (max-width: 767.98px) {
   .team-term-actions { margin-inline-start: 0; width: 100%; }
   .team-arc-fields { grid-template-columns: minmax(0, 1fr) auto; }
+  .team-arc-group { padding-inline-start: calc(min(var(--arc-depth, 0), 2) * 0.6rem); }
+  .team-arc-trail { max-width: none; flex-basis: 100%; }
 }
 
 /* The "published ≠ visible yet" note. The publish button is the natural thing to
