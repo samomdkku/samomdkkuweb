@@ -664,7 +664,10 @@ function detailsFormHtml() {
 function openDetails(host, prefill = {}, note = '') {
   const form = host.querySelector?.('[data-house-form="details"]');
   if (!form) return;
-  const set = (name, v) => { const el = form.querySelector(`[name="${name}"]`); if (el && v != null && !el.value) el.value = v; };
+  // A value handed in WINS: a retried claim brings a corrected รหัส, and a
+  // form keeping the first one would send the typo it was retyped to fix.
+  // Fields not handed in keep what the person already typed.
+  const set = (name, v) => { const el = form.querySelector(`[name="${name}"]`); if (el && v != null && v !== '') el.value = v; };
   set('student_id', prefill.student_id);
   set('first_name', prefill.first_name);
   set('last_name', prefill.last_name);
@@ -682,7 +685,7 @@ function openDetails(host, prefill = {}, note = '') {
 /** What to tell the person after they have SENT the details — by their รุ่น,
  *  read from the number they typed (never from the database). */
 function afterSendNote(sid) {
-  return outsideCohortNote(sid)
+  return outsideCohortNote(sid, new Date(), { sent: true })
     || 'รบกวนแจ้งหัวหน้าชั้นปีและผู้ที่เกี่ยวข้องให้กรอกข้อมูลของคุณใน sheet ที่ผู้ดูแลระบบส่งให้แต่ละชั้นปีแล้ว '
       + 'เพื่อยืนยันว่าสายรหัสที่คุณกรอกเป็นข้อมูลจริง';
 }
@@ -774,15 +777,8 @@ async function paintHelpReceipt(host) {
     </p>` : ''}`;
   // Listener on the node THIS paint made (wireCard's rule).
   slot.querySelector('[data-house-details-edit]')?.addEventListener('click', () => {
-    openDetails(host, t, st.details_at ? '' : afterSendNote(t.student_id));
-    // A correction REPLACES the values, so the form opens with what was sent.
-    const form = host.querySelector('[data-house-form="details"]');
-    if (form && st.details_at) {
-      for (const [k, val] of Object.entries(t)) {
-        const el = form.querySelector(`[name="${k}"]`);
-        if (el && val != null) el.value = val;
-      }
-    }
+    // Opens with what was sent (openDetails lets handed-in values win).
+    openDetails(host, t, st.details_at ? '' : (outsideCohortNote(t.student_id) || ''));
   });
 }
 

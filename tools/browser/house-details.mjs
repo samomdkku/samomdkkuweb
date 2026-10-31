@@ -100,6 +100,7 @@ try {
   await fill({ last_name: 'ระบบดี', nickname: 'เทส', sai_code: '7' });
   c = await card();
   say('sending shows the receipt with what was sent, สาย padded', c.receipt.slice(0, 140), /สาย 007/.test(c.receipt) && /ระบบดี/.test(c.receipt) && !c.form);
+  say('…and does not point at a form below that is gone', 'ด้านล่าง absent', !/ด้านล่าง/.test(c.receipt));
   [row] = await sql(`select typed_sai_code, typed_last_name, (details_at is not null) d from public.house_help_requests where kkumail = ${lit(MAIL)}`);
   say('…stored on the request', JSON.stringify(row), row?.typed_sai_code === '007' && row?.d === true);
   await shot('2-md48-receipt.png');
@@ -119,9 +120,15 @@ try {
   say('an in-range miss opens the form', JSON.stringify(c.form), c.form);
   say('…under the server\'s one miss sentence (sheet, หัวหน้าชั้นปี)', c.note.slice(0, 90), /หัวหน้าชั้นปี/.test(c.note) && /sheet/.test(c.note));
   await shot('3-md54-miss.png');
+  // a RETRY with a corrected รหัส: the form must take the new one
+  const md54b = await validSid('670009992');
+  await claim(md54b, 'ไม่มีในไฟล์');
+  const retried = await ev(`return document.querySelector('#meMyHouse [data-house-form="details"] [name="student_id"]').value`);
+  say('a retried claim\'s corrected รหัส replaces the first one in the form', retried, retried === md54b);
   await fill({ last_name: 'นามสกุล', sai_code: '142' });
   c = await card();
   say('…and the receipt asks the class head to fill the sheet', c.receipt.slice(0, 160), /สาย 142/.test(c.receipt) && /sheet/.test(c.receipt));
+  say('…for the รหัส they corrected to', md54b, c.receipt.includes(md54b));
   await shot('4-md54-receipt.png');
 
   say('no page errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);

@@ -46,6 +46,10 @@ describe('outsideCohortNote — what an out-of-range รุ่น is told (0268)
     expect(t).toMatch(/VitalSound/);
     expect(t).toMatch(/ช่องทาง/);
   });
+  it('after sending it does not point at a form that is gone', () => {
+    expect(outsideCohortNote(MD48, NOW)).toMatch(/ด้านล่าง/);
+    expect(outsideCohortNote(MD48, NOW, { sent: true })).not.toMatch(/ด้านล่าง/);
+  });
   it('is silent for a covered รุ่น and for a malformed รหัส', () => {
     expect(outsideCohortNote(MD54, NOW)).toBeNull();
     expect(outsideCohortNote('12', NOW)).toBeNull();

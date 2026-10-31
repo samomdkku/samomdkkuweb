@@ -56,13 +56,15 @@ export function claimPrecheck(sid) {
  * (owner, 2026-10-31). Like claimPrecheck it reads only the number.
  * @returns {string|null} the sentence for the student, or null when covered.
  */
-export function outsideCohortNote(sid, now = new Date()) {
+export function outsideCohortNote(sid, now = new Date(), { sent = false } = {}) {
   const n = normalizeStudentId(sid);
   if (!n.ok) return null;
   const c = cohortFromStudentId(n.value);
   if (!c || houseCoversCohort(c, now)) return null;
   return `ปัจจุบันยังไม่มีข้อมูลสายรหัสของรุ่น ${cohortLabel({ cohort_year: c })} ในระบบ `
-    + 'จึงยังตรวจสอบไม่ได้ว่าสายรหัสที่คุณกรอกถูกต้องตามจริงหรือไม่ — กรอกข้อมูลด้านล่างไว้ก่อนได้ '
+    + 'จึงยังตรวจสอบไม่ได้ว่าสายรหัสที่คุณกรอกถูกต้องตามจริงหรือไม่ — '
+    // After sending there is no form below to point at.
+    + (sent ? '' : 'กรอกข้อมูลด้านล่างไว้ก่อนได้ ')
     // Owner, 2026-10-31: CONTACT first, not "send the data" — through
     // VitalSound or whatever channel the class already uses with us.
     + 'และแจ้งให้หัวหน้าชั้นปีติดต่อผู้ดูแลระบบทาง VitalSound หรือช่องทางที่เคยติดต่อกันอยู่แล้ว '
