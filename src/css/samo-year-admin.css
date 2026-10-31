@@ -258,3 +258,24 @@
 .sy-acad-form { display: grid; gap: .65rem; padding-top: .5rem; }
 .sy-acad-when { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: flex-end; }
 .sy-acad-when .sy-field { min-width: 6rem; }
+
+/* SAMO Passport · Quarter (moved here from Passport admin, 2026-10-31) */
+.sy-q-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.sy-q-btn { white-space: normal; line-height: 1.25; }
+.sy-q-btn[aria-current="true"] { opacity: 1; }
+.sy-q-sched { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: flex-end;
+  padding: .55rem 0; border-top: 1px dashed var(--ink-100, rgb(var(--ink-900-rgb) / .08)); }
+.sy-q-sched-name { flex: 0 0 9.5rem; align-self: center; font-weight: 600; font-size: .875rem; color: var(--ink-800, var(--ink-900)); }
+.sy-time { width: 5.5rem !important; font-variant-numeric: tabular-nums; }
+.sy-q-sched .sy-field { min-width: 6rem; }
+.sy-pp-lag { align-items: center; }
+.sy-pp-hist { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .65rem; }
+.sy-pp-hist-head strong { font-size: .9375rem; }
+.sy-pp-hist-seasons { list-style: none; margin: .25rem 0 0 .9rem; padding: 0; display: grid; gap: .15rem; }
+.sy-pp-hist-seasons li { display: flex; gap: .5rem; align-items: baseline; }
+.sy-pp-hist-seasons .sy-pp-sub { display: inline; margin: 0; }
+.sy-pp-hist-q { font-weight: 600; font-size: .875rem; min-width: 2rem; }
+@media (max-width: 575.98px) {
+  .sy-q-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sy-q-sched-name { flex-basis: 100%; }
+}

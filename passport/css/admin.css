@@ -5,7 +5,7 @@
 @import "./admin/_activities.css";  /* activity list cards */
 @import "./admin/_qr.css";  /* QR section layout */
 @import "./admin/_certificates.css";  /* certificate editor + preview */
-@import "./admin/_season.css";  /* samoyear / season control */
+@import "./admin/_season.css";  /* the data-wipe danger zone (seasons moved to /admin/#years) */
 @import "./admin/_leaderboard.css";  /* leaderboard */
 @import "./admin/_upload.css";  /* image upload row */
 @import "./admin/_seasons.css";  /* seasons form */

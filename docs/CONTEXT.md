@@ -877,7 +877,7 @@ with them, and a `setof` return auto-exposes each column added later (cf.
 holds the ปี SAMO handover (`team_terms` below), ปีการศึกษา (`set_academic_year`,
 0141; its automatic cutoff `set_academic_year_schedule`, 0244), Passport's วาระสโม
 and ปีงบ (read-only, the calendar). Passport QUARTERS change themselves (0245,
-`passport.season_schedule`, edited in Passport admin by an org-wide admin);
+`passport.season_schedule`; switched, scheduled and listed on `/admin/#years` by an org-wide Passport admin since 2026-10-31 — Passport admin keeps only a link);
 `passport.apply_season_schedule()` runs first in `stamp_scan` and every activity
 insert. An activity carries an `event_date` (0267): its quarter is DERIVED from
 that date by `passport._resolve_event_date` (the trigger and the admin preview

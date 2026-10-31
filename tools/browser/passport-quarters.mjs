@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ============================================================
-// passport-quarters.mjs — drive the Passport admin's quarter controls (0245)
-// and the event-date field that replaced the quarter picker (0267)
+// passport-quarters.mjs — drive the Passport admin's event-date field (0267)
+// and the link to where its quarter controls moved
 // for real, SIGNED IN as a master, in headless Chrome, against the local dev
 // server on samo-dev. Shape copied from year-page.mjs.
 //
@@ -13,17 +13,16 @@
 //      with the default filled and bounded;
 //   3. creating an activity sends event_date + scan_until_set and NO quarter
 //      (the database decides) — the insert is INTERCEPTED, nothing is written;
-//   4. วาระสโม & Season Control: the current season, the next automatic
-//      change, a switch button per quarter, the four-row schedule matching the
-//      database; pressing "เปลี่ยนเป็น Qn" sends ONE start_season call
-//      (intercepted);
+//   4. the quarter controls are GONE from here (moved to /admin/#years
+//      2026-10-31 — driven by year-page.mjs): only a link to that page is left,
+//      and the data wipe sits folded at the end of the activities;
 //   5. 390px phone, no sideways scroll; no console errors; ALWAYS deletes the account.
 //
 // RUN (needs `npm run dev` on :5174 — it uses samo-dev — and Chrome):
 //   node tools/browser/passport-quarters.mjs
 // ============================================================
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadEnv, resolveTarget, runSql } from '../env-lib.mjs';
@@ -49,8 +48,10 @@ const sql = async (q) => JSON.parse(await runSql(q, devTarget));
 const lit = (s) => `'${String(s).replace(/'/g, "''")}'`;
 
 mkdirSync(OUT, { recursive: true });
+// ~150 MB per run; deleted at the end so repeated runs cannot fill the disk.
+const PROFILE = mkdtempSync(join(tmpdir(), 'passport-quarters-chrome-'));
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${PORT}`,
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'passport-quarters-chrome-'))}`], { stdio: 'ignore' });
+  `--user-data-dir=${PROFILE}`], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
 const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
@@ -208,34 +209,21 @@ try {
   const windows = await ev(`return document.querySelectorAll('#activities-list .activity-card-window').length + '/' + document.querySelectorAll('#activities-list .activity-card').length;`);
   say('…and when its QR scans', windows, /^(\d+)\/\1$/.test(windows) && !windows.startsWith('0/'));
 
-  // 4. season control
-  const ctl = JSON.parse(await ev(`await window.openSeasons(); await new Promise(r => setTimeout(r, 2500));
-    return JSON.stringify({
-      text: document.getElementById('samo-current').innerText,
-      btns: [...document.querySelectorAll('.q-switch')].map(b => b.textContent.trim() + (b.disabled ? '#off' : '')),
-      sched: [...document.querySelectorAll('#samo-schedule .sched-row')].map(r => r.querySelector('.sched-month').value + '/' + r.querySelector('.sched-day').value).join(','),
-      auto: document.getElementById('sched-auto')?.checked });`));
-  say('the next automatic change is shown', (ctl.text.match(/เปลี่ยนเป็น .*อัตโนมัติ[^\n]*/) || ['none'])[0], /อัตโนมัติ/.test(ctl.text));
-  say('one switch per quarter, the open one disabled', ctl.btns.join(' | '), ctl.btns.length === 4 && ctl.btns.filter((b) => b.endsWith('#off')).length === 1);
-  say('the schedule rows match the database', `${ctl.sched} vs ${db.sched}`, ctl.sched === db.sched);
-  await shot('admin-seasons.png');
-  const sw1 = JSON.parse(await ev(`const calls = []; const orig = window.fetch;
-    window.fetch = async (u, o = {}) => { const url = String(u.url || u);
-      if (url.includes('/rpc/start_season')) { calls.push(JSON.parse(o.body)); return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
-      return orig(u, o); };
-    const b = [...document.querySelectorAll('.q-switch')].find(x => !x.disabled); const want = b.getAttribute('onclick').replace(/[^0-9]/g, '');
-    b.click(); await new Promise(r => setTimeout(r, 2000)); window.fetch = orig;
-    return JSON.stringify({ calls, want, dialogs: window.__dialogs.splice(0) });`));
-  say('a switch is ONE start_season call, after a confirm', JSON.stringify(sw1.calls),
-    sw1.calls.length === 1 && String(sw1.calls[0].p_quarter) === sw1.want && sw1.dialogs.length >= 1);
-  const [stillOpen] = await sql(`select string_agg(name, ',') s from passport.samo_seasons where ended_at is null`);
-  say('…and nothing was written (intercepted)', stillOpen.s, true);
+  // 4. the season screen moved to the ปี SAMO page; only a link is left
+  const gone = JSON.parse(await ev(`const l = document.getElementById('seasons-link');
+    const dz = document.getElementById('danger-zone');
+    return JSON.stringify({ href: l?.getAttribute('href'), text: l?.textContent.trim(),
+      screen: !!document.getElementById('seasons-section'), fn: typeof window.openSeasons,
+      dz: dz ? dz.tagName + (dz.open ? ':open' : ':closed') + ':' + !!dz.closest('#manage-section') : 'none' });`));
+  say('the quarter controls are gone; a link to the ปี SAMO page is left', JSON.stringify(gone),
+    gone.href === '/admin/#years' && !gone.screen && gone.fn === 'undefined');
+  say('the data wipe is folded at the end of the activities', gone.dz, gone.dz === 'DETAILS:closed:true');
 
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await sleep(1500);
   const sw = JSON.parse(await ev(`window.scrollTo(0,0); return JSON.stringify({ sw: document.documentElement.scrollWidth, w: window.innerWidth });`));
   say('phone: no sideways scroll', `${sw.sw} ≤ ${sw.w}`, sw.sw <= sw.w);
-  await shot('phone-seasons.png');
+  await shot('phone-admin.png');
 
   say('console errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
 } catch (e) {
@@ -249,6 +237,8 @@ try {
   } catch (e) { console.log(`cleanup FAILED: ${e.message}`); }
   try { ws?.close(); } catch {}
   chrome.kill();
+  await sleep(500);
+  try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* best effort */ }
   console.log(`\n${failed ? `${failed} FAILED` : 'all passed'} · screenshots: ${OUT}`);
   process.exit(failed ? 1 : 0);
 }

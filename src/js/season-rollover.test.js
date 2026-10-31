@@ -28,40 +28,67 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
-const SRC = stripComments(readFileSync(join(ROOT, 'passport/js/admin-page.js'), 'utf8'));
+// Since 2026-10-31 the rollover buttons live on the main admin's ปี SAMO page
+// (samo-year-admin.js), calling one helper each in team/api.js; Passport admin
+// keeps only a link. Both pages are swept for direct writes.
+const read = (f) => stripComments(readFileSync(join(ROOT, f), 'utf8'));
+const API = read('src/js/team/api.js');
+const PAGES = {
+  'passport/js/admin-page.js': read('passport/js/admin-page.js'),
+  'src/js/samo-year-admin.js': read('src/js/samo-year-admin.js'),
+  'src/js/team/api.js': API,
+};
 
-/** The body of one `window.<name> = async (…) => { … }` handler. */
+/** The body of one `export async function <name>(…) { … }` in team/api.js. */
 function bodyOf(name) {
-  const start = SRC.search(new RegExp(`window\\.${name} = async \\([^)]*\\) =>`));
-  expect(start, `${name} not found in admin-page.js — was it renamed?`).toBeGreaterThan(-1);
-  const end = SRC.indexOf('\n};', start);
-  expect(end, `${name}: could not find the end of the handler`).toBeGreaterThan(start);
-  return SRC.slice(start, end);
+  const start = API.search(new RegExp(`export async function ${name}\\(`));
+  expect(start, `${name} not found in team/api.js — was it renamed?`).toBeGreaterThan(-1);
+  const end = API.indexOf('\n}', start);
+  expect(end, `${name}: could not find the end of the function`).toBeGreaterThan(start);
+  return API.slice(start, end);
 }
 
-const HANDLERS = { startNewYear: 'start_vara', switchQuarter: 'start_season', saveSchedule: 'set_season_schedule' };
+const HANDLERS = { passportStartVara: 'start_vara', passportStartSeason: 'start_season', passportSaveSchedule: 'set_season_schedule' };
 
 describe('the browser never writes a วาระ / season row', () => {
   it('found every handler (a sweep that finds nothing must prove it looked)', () => {
-    for (const n of Object.keys(HANDLERS)) expect(bodyOf(n).length).toBeGreaterThan(150);
+    for (const n of Object.keys(HANDLERS)) expect(bodyOf(n).length).toBeGreaterThan(120);
   });
 
   for (const [name, rpc] of Object.entries(HANDLERS)) {
     it(`${name} is one call to passport.${rpc}`, () => {
-      expect(bodyOf(name)).toContain(`adminDb.rpc('${rpc}'`);
+      const body = bodyOf(name);
+      expect(body).toContain(`'/rpc/${rpc}'`);
+      expect(body).toContain('PP_RPC');                       // the passport schema, not public
+      expect(body.match(/dbRest\(/g) || []).toHaveLength(1);
     });
   }
 
-  it('no code in the admin page inserts, updates or deletes samo_years / samo_seasons', () => {
+  it('the ปี SAMO page reaches them through those helpers', () => {
+    const page = PAGES['src/js/samo-year-admin.js'];
+    for (const n of Object.keys(HANDLERS)) expect(page).toContain(`await ${n}(`);
+  });
+
+  it('Passport admin no longer carries a rollover of its own', () => {
+    const pp = PAGES['passport/js/admin-page.js'];
+    for (const rpc of Object.values(HANDLERS)) expect(pp).not.toContain(`rpc('${rpc}'`);
+  });
+
+  it('no code in either page inserts, updates or deletes samo_years / samo_seasons', () => {
     // cleanAllData's wipe() is the one deliberate exception: it deletes EVERY
     // row of every table by name, so there is nothing left open to mis-file.
-    const writes = SRC.match(/from\('samo_(years|seasons)'\)\s*\.(insert|update|delete|upsert)\(/g) || [];
-    expect(writes, [
-      'A rollover is writing samo_years / samo_seasons from the browser again.',
-      'Several round-trips reopen the window with nothing open, and a failed step',
-      'leaves it half-done. Use the RPC (one transaction) — passport.start_season /',
-      'start_vara.',
-    ].join('\n')).toEqual([]);
+    for (const [file, src] of Object.entries(PAGES)) {
+      const writes = [
+        ...(src.match(/from\('samo_(years|seasons)'\)\s*\.(insert|update|delete|upsert)\(/g) || []),
+        ...(src.match(/dbRest\(\s*['`]\/samo_(years|seasons)[^)]*method:\s*['"](POST|PATCH|DELETE)/g) || []),
+      ];
+      expect(writes, [
+        `${file}: a rollover is writing samo_years / samo_seasons from the browser again.`,
+        'Several round-trips reopen the window with nothing open, and a failed step',
+        'leaves it half-done. Use the RPC (one transaction) — passport.start_season /',
+        'start_vara.',
+      ].join('\n')).toEqual([]);
+    }
   });
 });
 

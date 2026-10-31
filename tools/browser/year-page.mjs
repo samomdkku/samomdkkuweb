@@ -16,6 +16,11 @@
 //      answers with a canned reply, so NOTHING IS WRITTEN (the database half is
 //      proved by tools/year0242-start-samo-year.sql); cancels the ปีการศึกษา
 //      dialog the same way;
+//   4b. SAMO Passport · Quarter (moved here from Passport admin 2026-10-31):
+//      the open season, the next automatic change, one switch per quarter
+//      with the open one disabled, the schedule matching the database, the
+//      history; a switch asks first, says QR codes are NOT affected, and sends
+//      ONE passport start_season call (intercepted, nothing written);
 //   5. ทีม SAMO → ทีมแต่ละปี has no ตั้งเป็นปีปัจจุบัน and links here; ระบบบ้าน
 //      links here; 390px phone, no sideways scroll; ALWAYS deletes the account.
 //
@@ -23,7 +28,7 @@
 //   node tools/browser/year-page.mjs
 // ============================================================
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadEnv, resolveTarget, runSql } from '../env-lib.mjs';
@@ -49,8 +54,10 @@ const sql = async (q) => JSON.parse(await runSql(q, devTarget));
 const lit = (s) => `'${String(s).replace(/'/g, "''")}'`;
 
 mkdirSync(OUT, { recursive: true });
+// ~150 MB per run; deleted at the end so repeated runs cannot fill the disk.
+const PROFILE = mkdtempSync(join(tmpdir(), 'year-page-chrome-'));
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${PORT}`,
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'year-page-chrome-'))}`], { stdio: 'ignore' });
+  `--user-data-dir=${PROFILE}`], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
 const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
@@ -116,7 +123,7 @@ try {
       title: q('#adminTopTitle').textContent,
       hero: q('.sy-hero-year').textContent.trim(),
       tiles: [...document.querySelectorAll('.sy-tile-v')].map((e) => e.textContent.trim()),
-      acad: q('.sy-acad-v')?.textContent.trim(),
+      acad: q('#syAcademic .sy-acad-v')?.textContent.trim(),
       steps: document.querySelectorAll('.sy-step').length,
       effects: document.querySelectorAll('.sy-effect').length,
       chip: q('#adminYearChipValue').textContent, chipShown: !q('#adminYearChip').classList.contains('d-none'),
@@ -187,6 +194,55 @@ try {
   const [ay2] = await sql('select academic_year from public.house_settings limit 1');
   say('…cancel changed nothing', ay2.academic_year, ay2.academic_year === db.ay);
 
+  // 4b. SAMO Passport · Quarter
+  const [pq] = await sql(`select (select name from passport.samo_seasons where ended_at is null order by started_at desc limit 1) season,
+      (select q1_month || '/' || q1_day || ',' || q2_month || '/' || q2_day || ',' || q3_month || '/' || q3_day || ',' || q4_month || '/' || q4_day from passport.season_schedule) sched,
+      (select count(*) from passport.samo_years)::int years`);
+  const ppc = JSON.parse(await ev(`const c = document.getElementById('syPassport');
+    if (!c) return JSON.stringify({ none: true });
+    return JSON.stringify({
+      now: c.querySelector('.sy-acad-v')?.textContent.trim(),
+      next: c.querySelector('.sy-acad-next')?.textContent.trim() || '',
+      btns: [...c.querySelectorAll('[data-sy-quarter]')].map((b) => b.textContent.trim() + (b.disabled ? '#off' : '')),
+      sched: [...c.querySelectorAll('.sy-q-sched')].map((r) => r.querySelector('[data-sy-qmonth]').value + '/' + r.querySelector('[data-sy-qday]').value).join(','),
+      hist: c.querySelectorAll('.sy-pp-hist-year').length,
+      ro: !!c.querySelector('.sy-ro'),
+      order: [...document.querySelectorAll('#samoYearHost .sy-card')].map((x) => x.id || x.querySelector('h2')?.id).join(','),
+    });`));
+  say('the Passport card shows the open season', `${ppc.now} vs ${pq.season}`, !ppc.none && ppc.now === pq.season);
+  say('…the next automatic change', ppc.next, /อัตโนมัติ/.test(ppc.next));
+  say('…one switch per quarter, the open one disabled, live for a master', ppc.btns.join(' | '),
+    ppc.btns?.length === 4 && ppc.btns.filter((b) => b.endsWith('#off')).length === 1 && !ppc.ro);
+  say('…the schedule rows match the database', `${ppc.sched} vs ${pq.sched}`, ppc.sched === pq.sched);
+  say('…and the history lists every วาระ', `${ppc.hist} vs ${pq.years}`, ppc.hist === pq.years);
+  await ev(`document.getElementById('syPassport').scrollIntoView(); document.getElementById('syQSched').open = true; return 1;`);
+  await sleep(400);
+  await shot('passport-card.png', false);
+  const qsw = JSON.parse(await ev(`window.__qCalls = [];
+    const real = window.fetch;
+    window.fetch = async (u, o = {}) => {
+      if (String(u).includes('/rpc/start_season')) {
+        window.__qCalls.push({ body: JSON.parse(o.body), profile: (o.headers || {})['Content-Profile'] || (o.headers?.get ? o.headers.get('Content-Profile') : null) });
+        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return real(u, o);
+    };
+    const b = [...document.querySelectorAll('#syPassport [data-sy-quarter]')].find((x) => !x.disabled);
+    const want = Number(b.dataset.syQuarter);
+    b.click(); await new Promise(r => setTimeout(r, 600));
+    const m = document.getElementById('appConfirmModal');
+    const title = m.querySelector('[data-confirm-title]').textContent, body = m.querySelector('[data-confirm-body]').textContent;
+    m.querySelector('[data-confirm-yes]').click();
+    await new Promise(r => setTimeout(r, 1500));
+    window.fetch = real;
+    return JSON.stringify({ want, title, body, calls: window.__qCalls });`));
+  say('a switch asks first, and says QR codes keep their own end date', `${qsw.title} — ${qsw.body.slice(0, 90)}…`,
+    /Q\d/.test(qsw.title) && qsw.body.includes('QR ของกิจกรรมยังสแกนได้ตามวันหมดอายุ'));
+  say('…then ONE start_season call, to the passport schema', JSON.stringify(qsw.calls),
+    qsw.calls.length === 1 && qsw.calls[0].body.p_quarter === qsw.want);
+  const [pq2] = await sql(`select (select name from passport.samo_seasons where ended_at is null order by started_at desc limit 1) season`);
+  say('…and nothing was written (intercepted)', pq2.season, pq2.season === pq.season);
+
   // 5. ทีม SAMO → ทีมแต่ละปี links here; ระบบบ้าน links here
   const team = JSON.parse(await ev(`window.openTeamMode('years'); await new Promise(r => setTimeout(r, 3000));
     const pane = document.getElementById('teamTermsPane');
@@ -219,6 +275,8 @@ try {
   } catch (e) { console.log(`cleanup FAILED: ${e.message}`); }
   try { ws?.close(); } catch {}
   chrome.kill();
+  await sleep(500);
+  try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* best effort */ }
   console.log(`\n${failed ? `${failed} FAILED` : 'all passed'} · screenshots: ${OUT}`);
   process.exit(failed ? 1 : 0);
 }

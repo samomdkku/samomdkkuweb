@@ -9,7 +9,7 @@ import { ROUTES } from './routes.js';
 import { renderCertificate, loadCertImage, CERT_FONTS } from './certificate.js';
 import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigured } from './upload.js';
 import { attachDmy } from './dmy-date.js';
-import { getSeasonStatus, thaiDate, thaiDayBefore, thaiDay, bkkToday, TH_MONTH_NAMES } from './samo.js';
+import { getSeasonStatus, thaiDay, bkkToday } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
 import { loadDepartments, applyCatalog, deptChoices, subChoices } from './depts.js';
@@ -645,11 +645,12 @@ function applyScopeToUi() {
             restrictDeptSelect(id, allowed));
     }
 
-    // Seasons, the ฝ่าย list and the destructive data wipe are org-wide
-    // operations — a department-scoped admin must not start a new วาระ, rename
-    // everyone's ฝ่าย or clean everyone's data.
+    // Quarters (now on the main admin's ปี SAMO page — only the link is here),
+    // the ฝ่าย list and the destructive data wipe are org-wide operations — a
+    // department-scoped admin must not move a quarter, rename everyone's ฝ่าย
+    // or clean everyone's data.
     if (!isAllDepts()) {
-        document.querySelectorAll('[onclick^="openSeasons"], [onclick^="openDepts"]').forEach((el) => el.remove());
+        document.querySelectorAll('#seasons-link, #danger-zone, [onclick^="openDepts"]').forEach((el) => el.remove());
     }
 }
 
@@ -1641,14 +1642,13 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-let seasonStatus = null;       // passport.season_status() — see samo.js
 let editingAct = null;         // the row being edited, as loaded (its quarter + วาระ)
 let editingScanCount = 0;
 
 async function loadSamoData() {
     // Status FIRST: it applies a quarter boundary that passed overnight, so the
     // two table reads below already see the new season.
-    seasonStatus = await getSeasonStatus(adminDb);
+    await getSeasonStatus(adminDb);
     const [{ data: ys }, { data: ss }] = await Promise.all([
         adminDb.from('samo_years').select('*').order('started_at', { ascending: false }),
         adminDb.from('samo_seasons').select('*').order('started_at', { ascending: false }),
@@ -1658,208 +1658,16 @@ async function loadSamoData() {
     renderEventDateDefaults();
 }
 
-const currentYearRow = () => samoYears.find(y => !y.ended_at) || null;
-const currentSeasonRow = () => {
-    const y = currentYearRow();
-    return y ? (samoSeasons.find(s => !s.ended_at && s.samo_year_id === y.id) || null) : null;
-};
 const seasonsOfYear = (yId) => samoSeasons.filter(s => s.samo_year_id === yId);
-const fmtDate = (ts) => ts ? new Date(ts).toLocaleDateString() : '';
 
-// วาระสโม / Season / the data wipe are ORG-WIDE: starting a new season freezes
-// every department's points at once. Only an all-departments admin may do it —
-// applyScopeToUi() removes the entry button, and this guards the console route.
+// The ฝ่าย list and the data wipe are ORG-WIDE: they change every department at
+// once. Only an all-departments admin may do it — applyScopeToUi() removes the
+// entry buttons, and this guards the console route.
 function assertOrgWide(what) {
     if (isAllDepts()) return true;
     alert(`${what} เป็นการดำเนินการระดับองค์กร — ต้องมีสิทธิ์ SAMO Passport ทุกฝ่าย`);
     return false;
 }
-
-window.openSeasons = async () => {
-    if (!assertOrgWide('การจัดการวาระสโม/Season')) return;
-    document.getElementById('event-creation').style.display = 'none';
-    document.getElementById('manage-section').style.display = 'none';
-    document.getElementById('seasons-section').style.display = 'block';
-    await loadSamoData();
-    renderSamoControl();
-};
-
-window.closeSeasons = () => {
-    document.getElementById('seasons-section').style.display = 'none';
-    document.getElementById('event-creation').style.display = 'block';
-    document.getElementById('manage-section').style.display = 'block';
-    populateActivitySamoFilters(); // a new วาระสโม/season may have been added
-    renderActivityList();
-};
-
-function renderSamoControl() {
-    const y = currentYearRow();
-    const s = currentSeasonRow();
-    const st = seasonStatus;
-    const next = st?.auto && st?.next_change_at
-        ? `<small>เปลี่ยนเป็น ${escapeHtml(st.next_label || '')} อัตโนมัติ ${escapeHtml(thaiDate(st.next_change_at, { withTime: true }))}</small>`
-        : '<small>ปิดการเปลี่ยนอัตโนมัติอยู่ — เปลี่ยน Quarter ด้วยปุ่มด้านล่างเท่านั้น</small>';
-    // Every quarter of the open วาระ is a button: ahead = start it early, behind
-    // = CHANGE IT BACK (the season reopens with its scans intact).
-    const qButtons = y ? [1, 2, 3, 4].map((q) => {
-        const isNow = s && s.quarter === q;
-        return `<button type="button" class="btn-action q-switch${isNow ? ' is-now' : ''}" ${isNow ? 'disabled' : ''}
-            onclick="switchQuarter(${q})">${isNow ? `Q${q} (ตอนนี้)` : `เปลี่ยนเป็น Q${q}`}</button>`;
-    }).join('') : '';
-    document.getElementById('samo-current').innerHTML = `
-      <div class="samo-card">
-        <div class="samo-row">
-          <div class="samo-row-info">
-            <span class="samo-label">Current วาระสโม</span>
-            <strong class="samo-value">${y ? escapeHtml(y.name) : '— none yet —'}</strong>
-            ${y ? `<small>since ${fmtDate(y.started_at)}</small>` : ''}
-          </div>
-          <button class="btn-action" onclick="startNewYear()">＋ New วาระสโม</button>
-        </div>
-        <div class="samo-row">
-          <div class="samo-row-info">
-            <span class="samo-label">Current Season</span>
-            <strong class="samo-value">${s ? escapeHtml(s.name) : '— none yet —'}</strong>
-            ${s ? `<small>since ${escapeHtml(thaiDate(s.started_at, { withTime: true }))}</small>` : ''}
-            ${next}
-          </div>
-        </div>
-        ${y ? `<div class="q-switch-row" role="group" aria-label="เปลี่ยน Quarter ด้วยตัวเอง">${qButtons}</div>
-        <small class="q-switch-note">ย้อนกลับไป Quarter ก่อนหน้าได้ — Season นั้นเปิดอีกครั้งพร้อมคะแนนเดิม
-          การเปลี่ยนด้วยตัวเองจะไม่ถูกเปลี่ยนกลับอัตโนมัติ จนกว่าจะถึงวันเริ่ม Quarter ถัดไป</small>` : ''}
-      </div>`;
-    renderSchedule();
-    renderSamoHistory();
-}
-
-// ── the automatic schedule (0245) ──────────────────────────────────────────
-function renderSchedule() {
-    const box = document.getElementById('samo-schedule');
-    if (!box) return;
-    const st = seasonStatus;
-    if (!st) {
-        box.innerHTML = '<p style="font-size:0.9rem;">อ่านตารางเปลี่ยน Quarter ไม่ได้ — ลองโหลดหน้าใหม่</p>';
-        return;
-    }
-    const monthOpts = (m) => TH_MONTH_NAMES.map((n, i) =>
-        `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${n}</option>`).join('');
-    const rows = (st.quarters || []).map((q) => `
-        <div class="sched-row" data-q="${q.quarter}">
-          <span class="sched-q">Q${q.quarter}${q.quarter === 1 ? ' <small>(ปี SAMO + วาระสโมใหม่)</small>' : ''}</span>
-          <label>วันที่ <input type="number" class="sched-day" min="1" max="31" value="${q.day}" /></label>
-          <label>เดือน <select class="sched-month">${monthOpts(q.month)}</select></label>
-          <label>เวลา <input type="time" class="sched-time" value="${escapeHtml(q.time)}" /></label>
-        </div>`).join('');
-    box.innerHTML = `
-      <div class="samo-card sched-card">
-        <label class="sched-auto"><input type="checkbox" id="sched-auto" ${st.auto ? 'checked' : ''} />
-          เปลี่ยน Quarter และวาระสโมให้อัตโนมัติตามวันด้านล่าง (เวลาประเทศไทย)</label>
-        ${rows}
-        <small class="sched-note">แต่ละ Quarter เริ่มวันที่ตั้งไว้และจบเมื่อ Quarter ถัดไปเริ่ม · Q1 คือวันเริ่มปี SAMO ของทุกระบบ
-          (PR, VitalSound, หนังสือโครงการ, SAMO Shop) และเปิดวาระสโมใหม่ — แก้ Q1 หรือปิดการเปลี่ยนอัตโนมัติต้องมีสิทธิ์แก้ไขทีม SAMO ด้วย
-          · บันทึกแล้วจะไม่เปลี่ยน Quarter ตอนนี้ทันที — มีผลครั้งถัดไปที่ถึงวันเริ่ม</small>
-        <button type="button" class="btn-action" onclick="saveSchedule()">บันทึกวันเปลี่ยน Quarter</button>
-      </div>`;
-}
-
-window.saveSchedule = async () => {
-    if (!assertOrgWide('การตั้งวันเปลี่ยน Quarter')) return;
-    const quarters = [...document.querySelectorAll('#samo-schedule .sched-row')].map((row) => ({
-        month: parseInt(row.querySelector('.sched-month').value, 10),
-        day: parseInt(row.querySelector('.sched-day').value, 10),
-        time: row.querySelector('.sched-time').value || '00:00',
-    }));
-    const auto = document.getElementById('sched-auto').checked;
-    const { error } = await adminDb.rpc('set_season_schedule', { p_auto: auto, p_quarters: quarters });
-    if (error) { alert(`บันทึกไม่สำเร็จ: ${error.message}`); return; }
-    await loadSamoData();
-    renderSamoControl();
-    alert('บันทึกวันเปลี่ยน Quarter แล้ว');
-};
-
-// Forward early, or BACK — passport.start_season reopens a quarter that
-// already ran (its season row and scans intact) and closes the open one.
-window.switchQuarter = async (q) => {
-    if (!assertOrgWide('การเปลี่ยน Quarter')) return;
-    const s = currentSeasonRow();
-    const back = s && s.quarter && q < s.quarter;
-    if (!confirm(back
-        ? `ย้อนกลับไป Q${q}?\n\nQ${q} จะเปิดอีกครั้ง (คะแนนเดิมยังอยู่) และ ${s.name} จะปิด QR ของกิจกรรมใน ${s.name} จะสแกนไม่ได้จนกว่าจะเปิด ${s.name} อีกครั้ง`
-        : `เริ่ม Q${q} ตอนนี้?\n\n${s ? `${s.name} จะปิด และ QR ของกิจกรรมใน ${s.name} จะสแกนไม่ได้` : ''} ตารางคะแนนสดเริ่มนับ Q${q}`)) return;
-    const { error } = await adminDb.rpc('start_season', { p_quarter: q });
-    if (error) { alert(`เปลี่ยนไม่สำเร็จ: ${error.message}\nไม่มีอะไรเปลี่ยน`); return; }
-    await loadSamoData();
-    renderSamoControl();
-};
-
-function renderSamoHistory() {
-    const box = document.getElementById('samo-history');
-    if (!samoYears.length) {
-        box.innerHTML = '<p style="font-size:0.9rem;">No วาระสโม yet — start one above.</p>';
-        return;
-    }
-    box.innerHTML = samoYears.map(y => {
-        const seasons = seasonsOfYear(y.id);
-        const cur = !y.ended_at;
-        const seasonHtml = seasons.length
-            ? seasons.map(s => `<div class="samo-hist-season">${escapeHtml(s.name)} ${!s.ended_at
-                ? '<span class="samo-badge">current</span>'
-                : `<small>${fmtDate(s.started_at)} → ${fmtDate(s.ended_at)}</small>`}</div>`).join('')
-            : '<div class="samo-hist-season" style="opacity:.55;">(no seasons)</div>';
-        return `<div class="samo-hist-year">
-            <div class="samo-hist-head"><strong>${escapeHtml(y.name)}</strong> ${cur
-                ? '<span class="samo-badge">current</span>'
-                : `<small>ended ${fmtDate(y.ended_at)}</small>`}
-                ${y.team_term_year ? `<small style="opacity:.65;">· ทีม SAMO ${escapeHtml(String(y.team_term_year))}</small>` : ''}</div>
-            ${seasonHtml}
-          </div>`;
-    }).join('');
-}
-
-window.startNewYear = async () => {
-    if (!assertOrgWide('การเริ่มวาระสโมใหม่')) return;
-    const name = (prompt("Name the new วาระสโม (e.g. MDKKU SAMO'70):") || '').trim();
-    if (!name) return;
-    // A วาระสโม opens WITH a quarter, in one transaction (passport.start_vara,
-    // 0245) — so no scan can ever find a วาระ with no season. The quarter
-    // defaults to the one the schedule says it is now.
-    const defQ = seasonStatus?.schedule_now?.quarter || 1;
-    const qRaw = (prompt(`Quarter แรกของ "${name}" (1–4):`, String(defQ)) || '').trim();
-    const quarter = parseInt(qRaw, 10);
-    if (!(quarter >= 1 && quarter <= 4)) { alert('Cancelled — a วาระสโม must start with a quarter 1–4.'); return; }
-    // team_term_year bridge (0232, docs/YEAR-ROLLOVER.md § Passport) — a loose,
-    // hand-set reference to public.team_terms.year so a FUTURE report can join
-    // "how much km did ทีม SAMO term X award" without merging the two year
-    // systems. Optional on purpose: Passport's own year boundary (QR posters,
-    // badges) is decided by ฝ่าย กิจกรรม on their own calendar, not by a ทีม
-    // SAMO handover, so the two will not always line up 1:1.
-    const teamTermRaw = (prompt('ปีทีม SAMO ที่ตรงกัน (พ.ศ., ถ้ามี — เว้นว่างได้):') || '').trim();
-    const teamTermYear = teamTermRaw ? Number(teamTermRaw) : null;
-    if (teamTermRaw && (!Number.isInteger(teamTermYear) || teamTermYear < 2500 || teamTermYear > 2700)) {
-        alert('ปีทีม SAMO ต้องเป็นเลขปี พ.ศ. (เช่น 2569) — เว้นว่างได้ถ้าไม่ทราบ'); return;
-    }
-    if (!confirm(`Start "${name}" with Q${quarter}?\n\nThis ENDS the current วาระสโม + season and resets the live leaderboard and current-year totals. All past logs and standings are kept.`)) return;
-    // ⛔ ONE call, not four. This used to insert the year, insert the season,
-    // then end the old ones from the browser — four round-trips with a window
-    // where nothing (or two things) was open, and a failure path that could
-    // leave the new วาระ with no season. The RPC does it in one transaction.
-    // docs/INVARIANTS.md, "Never leave a GAP between two วาระ or two seasons".
-    const { error } = await adminDb.rpc('start_vara', {
-        p_name: name, p_quarter: quarter, p_team_term_year: teamTermYear,
-    });
-    if (error) { alert(`Failed: ${error.message}\nNothing was changed — the current วาระสโม is still running.`); return; }
-    await loadSamoData();
-    renderSamoControl();
-    alert(`Started "${name}" · Q${quarter}.`);
-};
-
-// "＋ New Season" is now the Q-buttons (switchQuarter): a season IS a quarter.
-window.startNewSeason = async () => {
-    const s = currentSeasonRow();
-    const next = s && s.quarter ? (s.quarter % 4) + 1 : (seasonStatus?.schedule_now?.quarter || 1);
-    if (s && s.quarter === 4) { alert('Q4 เป็น Quarter สุดท้าย — เริ่มวาระสโมใหม่แทน'); return; }
-    return window.switchQuarter(next);
-};
 
 // ── รายชื่อฝ่าย (0247) — Passport's own list, picked from ทีม SAMO ─────────────
 // One home for the names every Passport page shows (js/depts.js reads the same
@@ -1889,7 +1697,7 @@ async function reloadDeptCatalog(data = null) {
 
 window.openDepts = async () => {
     if (!assertOrgWide('การจัดการรายชื่อฝ่าย')) return;
-    ['event-creation', 'manage-section', 'seasons-section'].forEach((x) => { document.getElementById(x).style.display = 'none'; });
+    ['event-creation', 'manage-section'].forEach((x) => { document.getElementById(x).style.display = 'none'; });
     document.getElementById('depts-section').style.display = 'block';
     deptStatus('กำลังโหลด…');
     await reloadDeptCatalog();

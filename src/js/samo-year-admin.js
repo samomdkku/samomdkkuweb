@@ -17,8 +17,10 @@
 //                default 1 ก.ค. 00:00); a value set by hand stands until the
 //                next cutoff. NOT the team's handover day, so its own card.
 //   Passport     quarters also change themselves (0245): Q1 1 มี.ค. (new
-//   quarters     วาระสโม) · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค. Edited in
-//                Passport's own admin, where the season control lives.
+//   quarters     วาระสโม) · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค. Switched,
+//                scheduled and listed HERE since 2026-10-31 (owner: "it should
+//                merge in the admin tab of samoweb") — Passport admin keeps
+//                only a link. Controls are live for an org-wide Passport admin.
 //   ปีงบ         the calendar (1 ต.ค., projects/fiscal-year.js). Shown, never set.
 //
 // Before this page the ปี SAMO switch was an outline button inside ทีม SAMO →
@@ -30,7 +32,9 @@
 // Gates mirror the RPCs, not guesses: ปี SAMO = start_team_term's own test
 // (vp_admin/dev or team_edit); ปีการศึกษา = set_academic_year's (vp_admin/dev
 // or house); Passport = passport_admin_context().all_departments, ASKED of the
-// database. The page opens for either of the first two (SIDE_FEATURE.years).
+// database. The page opens for any of team_edit, house or passport
+// (SIDE_FEATURE.years) — passport so an org-wide Passport admin who holds
+// neither of the others still reaches the quarter controls.
 // ==============================================
 
 import { escHtml } from './utils.js';
@@ -38,6 +42,7 @@ import { userCanAccess } from './auth.js';
 import {
   fetchTerms, fetchTermStatus, publishTerm, startSamoYear,
   fetchPassportTerm, fetchPassportOrgWide,
+  fetchPassportHistory, passportStartSeason, passportSaveSchedule, passportStartVara,
 } from './team/api.js';
 import { askPublishTerm, askStartTerm } from './team/term-dialogs.js';
 import { fetchAcademicYearStatus, saveAcademicYear, saveAcademicSchedule, primeAcademicYear } from './house/api.js';
@@ -57,7 +62,9 @@ let academic = null;        // academic_year_status(): { academic_year, clock_ye
 let atSix = null;           // people at ชั้นปี 6 now (they read "จบแล้ว" after a move); null = unknown
 let passport = null;        // { term, season } — the open วาระ, or null when unreadable
 let ppOrgWide = false;
-let can = { samo: false, house: false };
+let can = { samo: false, house: false, passport: false };
+let ppHistory = null;       // { years, seasons } — every วาระ + season, or null when unreadable
+let ppSchedOpen = false;    // the quarter-schedule editor is expanded
 let loadError = '';
 let busy = false;
 let target = null;          // step 3's year as typed
@@ -83,6 +90,20 @@ const thDateTime = (iso) => {
   return `${b.getUTCDate()} ${TH_MONTHS[b.getUTCMonth()]} ${b.getUTCFullYear() + 543} ${hh}:${mm} น.`;
 };
 
+/** A 24-hour HH:MM box. A native <input type="time"> draws in the BROWSER's
+ *  locale — an en-US one shows "12:00 AM", clipped in a short field — so a
+ *  text box with a pattern instead, like the Passport date fields. */
+const timeInput = (attrs, value, ro) => `<input type="text" inputmode="numeric" class="form-control form-control-sm sy-time" ${attrs}
+  value="${escHtml(value || '00:00')}" maxlength="5" placeholder="00:00" pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+  title="เวลาแบบ 24 ชั่วโมง เช่น 00:00 หรือ 13:30" ${ro ? 'disabled' : ''} />`;
+
+/** '9:5' / '0930' / '09.30' → '09:30'; null when it is not a time of day. */
+const normTime = (v) => {
+  const m = String(v || '').trim().match(/^(\d{1,2})[:.]?(\d{2})$/);
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
+  return `${m[1].padStart(2, '0')}:${m[2]}`;
+};
+
 const thDate = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -101,7 +122,7 @@ const thDate = (iso) => {
  *  trigger + shop_order_totals() scoped to the current year (0230); ทีม SAMO →
  *  get_public_team_chart labels the live tree with the current year (0153);
  *  Passport → start_samo_year opens a new วาระ + season (0242), which is what
- *  resets the live leaderboard (passport admin-page.js startNewYear). */
+ *  resets the live leaderboard. */
 const EFFECTS = [
   { icon: 'bi-megaphone', name: 'PR Management',
     line: 'คำขอใหม่นับเป็นปีใหม่ ไฟล์แนบเก็บในโฟลเดอร์ของปีใหม่ — งานที่เสร็จแล้วของปีก่อนต้องกดยืนยันก่อนแก้' },
@@ -335,7 +356,7 @@ function academicScheduleHtml(ro) {
           <label class="sy-field"><span>เดือน</span>
             <select class="form-select form-select-sm" id="syAcadMonth" ${ro ? 'disabled' : ''}>${months}</select></label>
           <label class="sy-field sy-field--short"><span>เวลา</span>
-            <input type="time" class="form-control form-control-sm" id="syAcadTime" value="${escHtml(a.cutoff_time || '00:00')}" ${ro ? 'disabled' : ''} /></label>
+            ${timeInput('id="syAcadTime"', a.cutoff_time, ro)}</label>
         </div>
         <p class="sy-step-text">เวลาประเทศไทย · มหาวิทยาลัยเปิดภาคเรียนราว 17–27 มิ.ย. ค่าเริ่มต้นจึงเป็นทันทีที่หมดเดือนมิถุนายน
           · บันทึกแล้วปีการศึกษาตอนนี้ไม่เปลี่ยนทันที — มีผลครั้งถัดไปที่ถึงวันนี้</p>
@@ -387,6 +408,108 @@ function academicHtml() {
     </section>`;
 }
 
+// ── SAMO Passport · Quarter ─────────────────────────────────────────────────
+// What used to be Passport admin's "วาระสโม & Season Control". The date rules
+// (0267) mean a quarter change no longer stops anyone's QR: each activity
+// scans until its own end date and counts in its own quarter — the confirms
+// below say so, because the old ones ("QR … จะสแกนไม่ได้") stopped being true.
+
+function ppScheduleHtml(ro) {
+  const st = passport?.status;
+  const months = (m) => TH_MONTHS.map((n, i) => `<option value="${i + 1}" ${i + 1 === Number(m) ? 'selected' : ''}>${n}</option>`).join('');
+  const rows = (st.quarters || []).map((q) => `
+    <div class="sy-q-sched" data-q="${q.quarter}">
+      <span class="sy-q-sched-name">Q${q.quarter}${q.quarter === 1 ? ' <span class="sy-pp-sub">ปี SAMO + วาระสโมใหม่</span>' : ''}</span>
+      <label class="sy-field sy-field--short"><span>วันที่</span>
+        <input type="number" class="form-control form-control-sm" data-sy-qday min="1" max="31" value="${escHtml(String(q.day))}" ${ro ? 'disabled' : ''} /></label>
+      <label class="sy-field"><span>เดือน</span>
+        <select class="form-select form-select-sm" data-sy-qmonth ${ro ? 'disabled' : ''}>${months(q.month)}</select></label>
+      <label class="sy-field sy-field--short"><span>เวลา</span>
+        ${timeInput('data-sy-qtime', q.time, ro)}</label>
+    </div>`).join('');
+  const sum = (st.quarters || []).map((q) => `Q${q.quarter} ${q.day} ${TH_MONTHS[(q.month || 1) - 1]}`).join(' · ');
+  return `
+    <details class="sy-acad-sched" id="syQSched" ${ppSchedOpen ? 'open' : ''}>
+      <summary class="sy-more-sum">วันเปลี่ยน Quarter อัตโนมัติ
+        <span class="sy-more-hint">${st.auto ? escHtml(sum) : 'ปิดอยู่'}</span></summary>
+      <div class="sy-acad-form">
+        <label class="sy-pp-toggle"><input type="checkbox" class="form-check-input" id="syQAuto" ${st.auto ? 'checked' : ''} ${ro ? 'disabled' : ''} />
+          <span>เปลี่ยน Quarter และวาระสโมให้อัตโนมัติตามวันด้านล่าง <span class="sy-pp-sub">เวลาประเทศไทย · ถ้าปิด จะเปลี่ยนเมื่อกดเองเท่านั้น</span></span></label>
+        ${rows}
+        <p class="sy-step-text">แต่ละ Quarter จบเมื่อ Quarter ถัดไปเริ่ม · Q1 คือวันเริ่มปี SAMO ของทุกระบบ — แก้ Q1 หรือปิดการเปลี่ยนอัตโนมัติต้องมีสิทธิ์แก้ไขทีม SAMO ด้วย
+          · บันทึกแล้ว Quarter ตอนนี้ไม่เปลี่ยนทันที — มีผลครั้งถัดไปที่ถึงวันเริ่ม</p>
+        <button type="button" class="btn sy-btn sy-btn-soft" data-sy-qsave ${ro || busy ? 'disabled' : ''}>
+          <i class="bi bi-calendar-check"></i> บันทึกวันเปลี่ยน Quarter</button>
+      </div>
+    </details>`;
+}
+
+function ppHistoryHtml() {
+  if (!ppHistory?.years?.length) return '';
+  const tm = (iso) => thDate(iso) || '—';
+  return `
+    <details class="sy-more">
+      <summary class="sy-more-sum">ประวัติวาระสโม <span class="sy-more-hint">${ppHistory.years.length} วาระ</span></summary>
+      <ul class="sy-pp-hist">
+        ${ppHistory.years.map((y) => {
+          const ss = ppHistory.seasons.filter((s) => s.samo_year_id === y.id).slice().reverse();
+          return `
+            <li class="sy-pp-hist-year">
+              <div class="sy-pp-hist-head"><strong>${escHtml(y.name)}</strong>
+                <span class="sy-pp-sub">${y.ended_at ? `${escHtml(tm(y.started_at))} – ${escHtml(tm(y.ended_at))}` : `ตั้งแต่ ${escHtml(tm(y.started_at))} · <span class="sy-badge is-ok">ตอนนี้</span>`}${y.team_term_year ? ` · ปี SAMO ${escHtml(yr(y.team_term_year))}` : ''}</span></div>
+              <ul class="sy-pp-hist-seasons">${ss.length ? ss.map((s) => `
+                <li><span class="sy-pp-hist-q">${escHtml(s.name)}</span>
+                  <span class="sy-pp-sub">${escHtml(tm(s.started_at))}${s.ended_at ? ` – ${escHtml(tm(s.ended_at))}` : ' · เปิดอยู่'}</span></li>`).join('')
+                : '<li class="sy-pp-sub">ยังไม่มี Quarter</li>'}</ul>
+            </li>`;
+        }).join('')}
+      </ul>
+    </details>`;
+}
+
+function passportHtml() {
+  const pp = passport?.term;
+  const season = passport?.season;
+  const st = passport?.status;
+  const ro = !ppOrgWide;
+  const cur = handoverState(terms, staleByYear).current;
+  const lagging = !!cur && ppOrgWide && !!passport && !passportAlreadyOn(pp, Number(cur.year));
+  const next = st?.auto && st?.next_change_at
+    ? `เปลี่ยนเป็น <strong>${escHtml(st.next_label || '')}</strong> อัตโนมัติ ${escHtml(thDateTime(st.next_change_at))}`
+    : 'ปิดการเปลี่ยนอัตโนมัติอยู่ — เปลี่ยน Quarter ด้วยปุ่มด้านล่างเท่านั้น';
+  const qBtns = pp ? [1, 2, 3, 4].map((q) => {
+    const now = season?.quarter === q;
+    return `<button type="button" class="btn sy-btn ${now ? 'sy-btn-go' : 'btn-outline-secondary'} sy-q-btn" data-sy-quarter="${q}"
+      ${now || ro || busy ? 'disabled' : ''} ${now ? 'aria-current="true"' : ''}>${now ? `Q${q} (ตอนนี้)` : `เปลี่ยนเป็น Q${q}`}</button>`;
+  }).join('') : '';
+  return `
+    <section class="sy-card" id="syPassport" aria-labelledby="syPpH">
+      <header class="sy-card-head">
+        <h2 class="sy-h" id="syPpH">SAMO Passport <span class="sy-h-sub">วาระสโม และ Quarter</span></h2>
+        <p class="sy-sub">ตารางคะแนนของ Passport นับเป็นวาระ (หนึ่งปี SAMO) และแบ่งเป็น 4 Quarter — กิจกรรมนับคะแนนเข้า Quarter ของวันที่จัด และ QR สแกนได้ถึงวันหมดอายุของกิจกรรมนั้น แม้เปลี่ยน Quarter แล้ว</p>
+        ${ro ? '<p class="sy-ro"><i class="bi bi-eye"></i> ดูได้อย่างเดียว — การเปลี่ยน Quarter ต้องมีสิทธิ์ SAMO Passport ทุกฝ่าย</p>' : ''}
+      </header>
+      ${!passport ? '<p class="sy-step-text"><i class="bi bi-exclamation-circle"></i> อ่านวาระสโมของ Passport ไม่ได้ — ลองโหลดหน้าใหม่</p>' : `
+      <div class="sy-acad">
+        <div class="sy-acad-now">
+          <span class="sy-acad-v">${season ? escHtml(season.name) : '—'}</span>
+          <span class="sy-badge"><i class="bi bi-patch-check"></i> ${pp ? escHtml(pp.name) : 'ไม่มีวาระที่เปิดอยู่'}</span>
+          ${season?.started_at ? `<span class="sy-pp-sub">ตั้งแต่ ${escHtml(thDateTime(season.started_at))}</span>` : ''}
+        </div>
+        ${st ? `<p class="sy-acad-next"><i class="bi bi-calendar-event"></i> ${next}</p>` : ''}
+        ${lagging ? `<div class="sy-pp is-off sy-pp-lag"><i class="bi bi-exclamation-triangle"></i>
+          <span>Passport ยังไม่ได้เปิดวาระของปี SAMO ${escHtml(yr(cur.year))}${pp ? ` (ตอนนี้คือ ${escHtml(pp.name)})` : ''}
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-sy-vara ${busy ? 'disabled' : ''}>
+            เริ่ม ${escHtml(nextPassportName(pp?.name, Number(cur.year)))}</button></span></div>` : ''}
+        ${pp ? `<div class="sy-q-row" role="group" aria-label="เปลี่ยน Quarter ด้วยตัวเอง">${qBtns}</div>
+        <p class="sy-step-text">เริ่ม Quarter ถัดไปก่อนกำหนด หรือย้อนกลับ Quarter ก่อนหน้าได้ (เปิดอีกครั้งพร้อมคะแนนเดิม)
+          · ค่าที่เปลี่ยนเองอยู่จนถึงวันเริ่ม Quarter ถัดไป · QR ของกิจกรรมไม่ได้รับผล — สแกนได้ตามวันหมดอายุของแต่ละกิจกรรม</p>` : ''}
+        ${st ? ppScheduleHtml(ro) : ''}
+        ${ppHistoryHtml()}
+      </div>`}
+    </section>`;
+}
+
 function render() {
   if (!host) return;
   if (loadError) {
@@ -400,6 +523,7 @@ function render() {
       ${overviewHtml(st)}
       <div class="sy-status" id="syStatus" role="status" aria-live="polite"></div>
       ${samoHtml(st)}
+      ${passportHtml()}
       ${academicHtml()}
     </div>`;
 }
@@ -440,12 +564,13 @@ async function load() {
     return;
   }
   // Everything below is best-effort: each costs one hint, never the page.
-  const [st, ac, pp, org, six] = await Promise.allSettled([
+  const [st, ac, pp, org, six, hist] = await Promise.allSettled([
     fetchTermStatus(),
     fetchAcademicYearStatus(),
     fetchPassportTerm(),
-    can.samo ? fetchPassportOrgWide() : Promise.resolve(false),
+    can.samo || can.passport ? fetchPassportOrgWide() : Promise.resolve(false),
     can.house ? countAtSix() : Promise.resolve(null),
+    fetchPassportHistory(),
   ]);
   staleByYear = st.status === 'fulfilled'
     ? new Map((st.value.terms || []).map((t) => [Number(t.year), !!t.stale])) : new Map();
@@ -453,6 +578,7 @@ async function load() {
   passport = pp.status === 'fulfilled' ? pp.value : null;
   ppOrgWide = org.status === 'fulfilled' && !!org.value;
   atSix = six.status === 'fulfilled' ? six.value : null;
+  ppHistory = hist.status === 'fulfilled' ? hist.value : null;
   render();
 }
 
@@ -532,7 +658,8 @@ async function doAcademicSchedule() {
   const auto = !!$('syAcadAuto')?.checked;
   const day = Number($('syAcadDay')?.value);
   const month = Number($('syAcadMonth')?.value);
-  const time = $('syAcadTime')?.value || '00:00';
+  const time = normTime($('syAcadTime')?.value || '00:00');
+  if (!time) return void status('ใส่เวลาแบบ 24 ชั่วโมง เช่น 00:00 หรือ 13:30', 'error');
   acadOpen = true;
   await run(async () => {
     await saveAcademicSchedule({ auto, month, day, time });
@@ -540,6 +667,61 @@ async function doAcademicSchedule() {
     return [auto
       ? `บันทึกแล้ว — ปีการศึกษาจะเปลี่ยนเองทุกปีวันที่ ${day} ${TH_MONTHS[month - 1]} ${time} น.`
       : 'บันทึกแล้ว — ปิดการเปลี่ยนอัตโนมัติ ปีการศึกษาจะเปลี่ยนเมื่อกดเองเท่านั้น', 'ok'];
+  });
+}
+
+async function doQuarter(q) {
+  const s = passport?.season;
+  const back = s?.quarter && q < s.quarter;
+  if (!await askConfirm({
+    title: back ? `ย้อนกลับไป Q${q}?` : `เริ่ม Q${q} ตอนนี้?`,
+    body: (back
+      ? `Q${q} จะเปิดอีกครั้งพร้อมคะแนนเดิม และ ${s.name} จะปิด ตารางคะแนนสดกลับไปนับ Q${q} `
+      : `${s ? `${s.name} จะปิด และ` : ''}ตารางคะแนนสดเริ่มนับ Q${q} `)
+      + '— QR ของกิจกรรมยังสแกนได้ตามวันหมดอายุของแต่ละกิจกรรม และคะแนนยังนับเข้า Quarter ของกิจกรรมนั้น '
+      + 'ค่าที่เปลี่ยนเองอยู่จนถึงวันเริ่ม Quarter ถัดไป',
+    yes: back ? `ย้อนกลับไป Q${q}` : `เริ่ม Q${q}`,
+    danger: false,
+  })) return;
+  await run(async () => {
+    await passportStartSeason(q);
+    return [`ตอนนี้ Passport อยู่ที่ Q${q} แล้ว`, 'ok'];
+  });
+}
+
+async function doQuarterSchedule() {
+  const quarters = [...host.querySelectorAll('.sy-q-sched')].map((row) => ({
+    month: Number(row.querySelector('[data-sy-qmonth]').value),
+    day: Number(row.querySelector('[data-sy-qday]').value),
+    time: normTime(row.querySelector('[data-sy-qtime]').value || '00:00'),
+  }));
+  if (quarters.some((q) => !q.time)) return void status('ใส่เวลาแบบ 24 ชั่วโมง เช่น 00:00 หรือ 13:30', 'error');
+  const auto = !!$('syQAuto')?.checked;
+  ppSchedOpen = true;
+  await run(async () => {
+    await passportSaveSchedule(auto, quarters);
+    return [auto ? 'บันทึกวันเปลี่ยน Quarter แล้ว — มีผลครั้งถัดไปที่ถึงวันเริ่ม'
+      : 'บันทึกแล้ว — ปิดการเปลี่ยนอัตโนมัติ Quarter จะเปลี่ยนเมื่อกดเองเท่านั้น', 'ok'];
+  });
+}
+
+/** Passport left behind by a ปี SAMO started without it: open the วาระ of the
+ *  CURRENT ปี SAMO, at the quarter the schedule says it is now. */
+async function doVara() {
+  const cur = handoverState(terms, staleByYear).current;
+  if (!cur) return;
+  const year = Number(cur.year);
+  const name = nextPassportName(passport?.term?.name, year);
+  const q = Number(passport?.status?.schedule_now?.quarter) || 1;
+  if (!await askConfirm({
+    title: `เริ่ม ${name}?`,
+    body: `${passport?.term ? `ปิด ${passport.term.name} แล้ว` : ''}เปิดวาระสโมของปี SAMO ${year} เริ่มที่ Q${q} — ตารางคะแนนสดเริ่มนับใหม่ ระยะทางและอันดับของวาระก่อนยังเก็บไว้`,
+    yes: `เริ่ม ${name}`,
+    danger: false,
+  })) return;
+  await run(async () => {
+    await passportStartVara(name, q, year);
+    return [`Passport เริ่ม ${name} · Q${q} แล้ว`, 'ok'];
   });
 }
 
@@ -576,6 +758,10 @@ function wire() {
     const sw = t.closest?.('[data-sy-switch]');
     if (sw) return void doStart(Number(sw.dataset.sySwitch));
     if (t.closest?.('[data-sy-acad-save]')) return void doAcademicSchedule();
+    const qb = t.closest?.('[data-sy-quarter]');
+    if (qb) return void doQuarter(Number(qb.dataset.syQuarter));
+    if (t.closest?.('[data-sy-qsave]')) return void doQuarterSchedule();
+    if (t.closest?.('[data-sy-vara]')) return void doVara();
     const ac = t.closest?.('[data-sy-acad]');
     if (ac) return void doAcademic(Number(ac.dataset.syAcad));
     if (t.closest?.('#syStart')) {
@@ -598,7 +784,8 @@ function wire() {
     else if (id === 'syPpSeason') ppSeason = e.target.value;
   });
   host.addEventListener('toggle', (e) => {
-    if (e.target.classList?.contains('sy-acad-sched')) acadOpen = e.target.open;
+    if (e.target.id === 'syQSched') ppSchedOpen = e.target.open;
+    else if (e.target.classList?.contains('sy-acad-sched')) acadOpen = e.target.open;
   }, true);
   host.addEventListener('change', (e) => {
     if (e.target.id !== 'syPpOn') return;
@@ -613,14 +800,17 @@ function wire() {
 }
 
 /** The gates, from the same tests the RPCs make (header). The SIDEBAR's
- *  gate is SIDE_FEATURE.years = ['team_edit', 'house'] in admin-main.js — the
- *  same union for every account, since userCanAccess already grants vp_admin
- *  team_edit and dev everything. */
+ *  gate is SIDE_FEATURE.years = ['team_edit', 'house', 'passport'] in
+ *  admin-main.js — the same union for every account, since userCanAccess
+ *  already grants vp_admin team_edit and dev everything. `passport` only opens
+ *  the page; whether its controls are live is the database's answer
+ *  (ppOrgWide), because a ฝ่าย-scoped Passport admin holds the same key. */
 export function yearPageAccess(user) {
   const byRole = ['vp_admin', 'dev'].includes(user?.role);
   return {
     samo: byRole || userCanAccess('team_edit', user),
     house: byRole || userCanAccess('house', user),
+    passport: userCanAccess('passport', user),
   };
 }
 

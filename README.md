@@ -101,7 +101,7 @@ triggered over ssh (needs the KKU VPN).
   itself at an admin-set cutoff (default 1 ก.ค.) and has its own move/undo
   button; ปีงบ shown. The current ปี SAMO sits in the top bar of every admin page.
 - **SAMO Passport quarters change themselves** (Q1 1 มี.ค. = new วาระสโม · Q2
-  1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., editable in Passport admin; switch forward or
+  1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., editable on the admin ปี SAMO page; switch forward or
   back by hand). An admin enters each activity's event date, never a quarter:
   its km are credited to that date's quarter, and its QR scans from that date
   for two months (or to a hand-set end, at most a year) — a quarter boundary no

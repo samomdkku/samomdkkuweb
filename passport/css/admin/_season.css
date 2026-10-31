@@ -1,68 +1,15 @@
-/* SamoYear / Season control */
-.samo-card { display: flex; flex-direction: column; gap: 10px; }
-.samo-row {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap;
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid var(--glass-border, rgba(0, 0, 0, 0.08));
-    border-radius: 12px; padding: 12px 14px;
-}
-.samo-row-info { display: flex; flex-direction: column; gap: 2px; }
-.samo-label { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
-.samo-value { font-size: 1.05rem; color: var(--accent-primary); }
-.samo-row-info small { color: var(--text-muted); font-size: 0.72rem; }
-.samo-row .btn-action { width: auto; flex-grow: 0; }
+/* The season screen moved to the main admin's ปี SAMO page (2026-10-31); what
+   is left here is the org-wide data wipe, folded at the end of the activities. */
 .btn-action:disabled { opacity: 0.45; cursor: default; }
 
 .danger-zone {
     margin-top: 26px;
-    padding: 14px 16px;
+    padding: 10px 16px;
     border: 1px solid rgba(239, 68, 68, 0.35);
     border-radius: 12px;
     background: rgba(239, 68, 68, 0.05);
 }
-.danger-zone h4 { color: var(--accent-danger); margin-bottom: 6px; }
+.danger-zone > summary { color: var(--accent-danger); font-weight: 700; cursor: pointer; padding: 4px 0; }
+.danger-zone[open] > summary { margin-bottom: 6px; }
 .danger-note { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px; }
 .danger-zone .btn-action { width: auto; flex-grow: 0; }
-
-.samo-hist-year {
-    border: 1px solid var(--glass-border, rgba(0, 0, 0, 0.08));
-    border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
-    background: rgba(255, 255, 255, 0.5);
-}
-.samo-hist-head { font-weight: 700; margin-bottom: 4px; }
-.samo-hist-head small, .samo-hist-season small { color: var(--text-muted); font-weight: 400; }
-.samo-hist-season {
-    font-size: 0.85rem; padding: 3px 0 3px 12px; margin-left: 4px;
-    border-left: 2px solid var(--glass-border, rgba(0, 0, 0, 0.1));
-}
-.samo-badge {
-    display: inline-block; font-size: 0.6rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.5px; color: #fff;
-    background: var(--accent-success, #16a34a); border-radius: 999px;
-    padding: 2px 8px; margin-left: 6px;
-}
-
-/* 0245 — switch quarter by hand (forward or back) */
-.q-switch-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.q-switch-row .btn-action { flex: 1 1 120px; }
-.q-switch.is-now { background: var(--accent-primary); color: #fff; opacity: 1; }
-.q-switch-note { color: var(--text-muted); font-size: 0.74rem; }
-
-/* 0245 — the automatic schedule */
-.sched-card { gap: 8px; }
-.sched-auto { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 600; }
-.sched-auto input { width: auto; margin: 0; }
-.sched-row {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid var(--glass-border, rgba(0, 0, 0, 0.08));
-    border-radius: 10px; padding: 8px 12px;
-}
-.sched-q { min-width: 8.5rem; font-weight: 700; color: var(--accent-primary); }
-.sched-q small { font-weight: 400; color: var(--text-muted); }
-.sched-row label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); margin: 0; }
-.sched-row input, .sched-row select { width: auto; margin: 0; padding: 6px 8px; }
-.sched-row .sched-day { width: 4.2rem; }
-.sched-note { color: var(--text-muted); font-size: 0.74rem; }
-.sched-card .btn-action { align-self: flex-start; flex-grow: 0; }

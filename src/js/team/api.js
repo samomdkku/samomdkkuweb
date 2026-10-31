@@ -335,6 +335,48 @@ export async function fetchPassportOrgWide() {
   return !!data?.all_departments;
 }
 
+// ── Passport quarters, from the ปี SAMO page (moved out of Passport admin,
+// owner 2026-10-31: "it should merge in the admin tab of samoweb"). Each is ONE
+// passport RPC — the browser never writes samo_years / samo_seasons itself
+// (season-rollover.test.js); each RPC asks passport._org_wide() on its own.
+const PP_RPC = { 'Content-Profile': 'passport' };
+
+/** Every วาระสโม and season, newest first — the history list. */
+export async function fetchPassportHistory() {
+  const h = { 'Accept-Profile': 'passport' };
+  const [y, s] = await Promise.all([
+    dbRest('/samo_years?select=id,name,started_at,ended_at,team_term_year&order=started_at.desc', { headers: h }),
+    dbRest('/samo_seasons?select=id,name,quarter,samo_year_id,started_at,ended_at&order=started_at.desc', { headers: h }),
+  ]);
+  if (y.error || s.error) throw new Error((y.error || s.error).message || 'อ่านประวัติวาระสโมไม่สำเร็จ');
+  return { years: y.data || [], seasons: s.data || [] };
+}
+
+/** Start quarter `q` of the open วาระ now — forward early, or BACK (the
+ *  season reopens with its scans). */
+export async function passportStartSeason(q) {
+  const { error } = await dbRest('/rpc/start_season', { method: 'POST', body: { p_quarter: q }, headers: PP_RPC });
+  if (error) throw new Error(error.message || 'เปลี่ยน Quarter ไม่สำเร็จ');
+}
+
+/** When each quarter starts (Thai time) and whether the change is automatic. */
+export async function passportSaveSchedule(auto, quarters) {
+  const { error } = await dbRest('/rpc/set_season_schedule', {
+    method: 'POST', body: { p_auto: auto, p_quarters: quarters }, headers: PP_RPC,
+  });
+  if (error) throw new Error(error.message || 'บันทึกวันเปลี่ยน Quarter ไม่สำเร็จ');
+}
+
+/** Open a วาระสโม for the CURRENT ปี SAMO when Passport was left behind (a
+ *  year started with "move Passport too" unticked). One transaction with its
+ *  first quarter. */
+export async function passportStartVara(name, quarter, teamTermYear) {
+  const { error } = await dbRest('/rpc/start_vara', {
+    method: 'POST', body: { p_name: name, p_quarter: quarter, p_team_term_year: teamTermYear }, headers: PP_RPC,
+  });
+  if (error) throw new Error(error.message || 'เริ่มวาระสโมไม่สำเร็จ');
+}
+
 /** Freeze the live tree into `year`'s archive. Re-runnable; replaces wholesale. */
 export async function publishTerm(year) {
   const { data, error } = await dbRest('/rpc/publish_team_term', {

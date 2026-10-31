@@ -877,7 +877,9 @@ const SIDE_FEATURE = {
   // ปี SAMO — either half opens the page: team_edit is start_team_term's own
   // gate (0224), house is set_academic_year's (0141). Each half renders
   // read-only for an account holding only the other (samo-year-admin.js).
-  years:    ['team_edit', 'house'],
+  // `passport` too (2026-10-31): Passport's quarter controls live on this page
+  // now, and an org-wide Passport admin may hold neither of the others.
+  years:    ['team_edit', 'house', 'passport'],
   team:     'team',
   house:    'house',
   claude:   'claude',    // จองโควตา Claude (0154)
