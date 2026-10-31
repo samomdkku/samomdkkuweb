@@ -42,7 +42,7 @@
 import { escHtml } from './utils.js';
 import { userCanAccess } from './auth.js';
 import {
-  fetchTerms, fetchTermStatus, startSamoYear,
+  fetchTerms, fetchTermStatus, startSamoYear, fetchDraftSummary,
   fetchPassportTerm, fetchPassportOrgWide,
   fetchPassportHistory, passportStartSeason, passportSaveSchedule, passportStartVara,
 } from './team/api.js';
@@ -260,17 +260,21 @@ function samoHtml(st) {
            <i class="bi bi-camera"></i> บันทึกทีมปี SAMO ${escHtml(yr(cy))}
          </button>`;
 
+  // 0271: the next team is PREPARED as its own year and applied by step 3 —
+  // nobody gains or loses access before then. Editing the live tree directly
+  // still works and still takes effect at once; it is no longer the way.
   const s2Body = `
-    <p class="sy-step-text">เพิ่มคนของทีมใหม่ในผังก่อน แล้วค่อยเอาคนของทีมเดิมออกในวันส่งต่อ
-      — <strong>สิทธิ์ของแต่ละคนเปลี่ยนตามผังทันที</strong> คนที่ถูกเอาออกจะใช้ระบบที่เคยใช้ไม่ได้อีก</p>
-    <button type="button" class="btn btn-outline-secondary sy-btn" data-sy-go="team-tree">
-      <i class="bi bi-people"></i> ไปที่ ทีม SAMO → จัดการทีม
+    <p class="sy-step-text">จัดฝ่าย ตำแหน่ง คน และสิทธิ์ของทีมปี SAMO ${escHtml(yr(t))} ไว้ล่วงหน้า
+      — <strong>ยังไม่มีผลกับใครจนถึงขั้นที่ 3</strong> ทีมเดิมใช้ระบบได้ตามเดิมจนถึงวันนั้น
+      แล้วผังที่เตรียมไว้จะใช้แทนในครั้งเดียว</p>
+    <button type="button" class="btn btn-outline-secondary sy-btn" data-sy-go="team-next">
+      <i class="bi bi-people"></i> ไปที่ ทีม SAMO → ปี ${escHtml(yr(t))}
     </button>
-    ${st.editing ? '<div class="sy-step-note"><i class="bi bi-pencil"></i> เริ่มแก้ผังแล้ว</div>' : ''}`;
+    ${st.editing ? '<div class="sy-step-note"><i class="bi bi-pencil"></i> ผังตอนนี้ถูกแก้หลังบันทึก — ถ้านั่นคือทีมใหม่ เตรียมที่ปีหน้าแทนจะปลอดภัยกว่า</div>' : ''}`;
 
   const s3Body = `
     <p class="sy-step-text">ทำในวันที่ทีมใหม่รับตำแหน่ง${passport?.status?.next_samo_year
-      ? ` — ถ้าไม่ได้กด ระบบเริ่มปี SAMO ${escHtml(yr(passport.status.next_samo_year.year))} ให้เอง ${escHtml(thDate(passport.status.next_samo_year.at))} (วันเริ่ม Q1) และบันทึกผังตอนนั้นเป็นทีมปีเดิมให้`
+      ? ` — ถ้าไม่ได้กด ระบบเริ่มปี SAMO ${escHtml(yr(passport.status.next_samo_year.year))} ให้เอง ${escHtml(thDate(passport.status.next_samo_year.at))} (วันเริ่ม Q1) บันทึกผังตอนนั้นเป็นทีมปีเดิม และใช้ทีมที่เตรียมไว้ (ถ้ามี) ให้`
       : ''}${!st.published && c
       ? `<span class="sy-warn"><i class="bi bi-exclamation-triangle"></i> ยังไม่ได้ทำขั้นที่ 1 — ถ้าเริ่มตอนนี้ ผังตอนนี้จะถูกบันทึกเป็นทีมปี SAMO ${escHtml(yr(cy))}</span>` : ''}</p>
     <div class="sy-start">
@@ -302,7 +306,7 @@ function samoHtml(st) {
         }).join('')}
       </ul>
       <p class="sy-more-foot">ย้อนกลับไม่เปลี่ยนวาระของ Passport · แก้ชื่อ รูป หรือลบปี ที่
-        <button type="button" class="sy-link" data-sy-go="team-years">ทีม SAMO → ทีมแต่ละปี</button></p>
+        <button type="button" class="sy-link" data-sy-go="team-years">ทีม SAMO → เลือกปีด้านบน</button></p>
     </details>` : '';
 
   return `
@@ -621,13 +625,17 @@ async function doStart(year, { withPassport = false } = {}) {
     if (!name || !season) return void status('ใส่ชื่อวาระและ season แรกของ Passport ให้ครบ หรือเอาเครื่องหมายออก', 'error');
     pp = { name, season };
   }
-  if (!await askStartTerm(year, st.current, pp)) return;
+  // What the switch will do to the tree, said in the question (0271). A failed
+  // read must not block the switch — it only costs the sentence.
+  const prepared = await fetchDraftSummary(year).catch(() => null);
+  if (!await askStartTerm(year, st.current, pp, prepared)) return;
   await run(async () => {
     const res = await startSamoYear(year, pp);
     target = null; ppName = null;
     window.dispatchEvent(new CustomEvent(SAMO_YEAR_CHANGED, { detail: { year } }));
     const bits = [`ตอนนี้เป็นปี SAMO ${year} แล้ว`];
     if (res?.archived_outgoing) bits.push(`บันทึกทีมปี SAMO ${res.previous_year} เป็นประวัติให้แล้ว`);
+    if (res?.applied_draft) bits.push(`ใช้ทีมปี ${year} ที่เตรียมไว้แล้ว — สิทธิ์เป็นไปตามผังใหม่`);
     if (res?.passport?.moved) bits.push(`Passport เริ่ม ${res.passport.name} · season ${res.passport.season}`);
     return [bits.join(' — '), 'ok'];
   });
@@ -744,6 +752,7 @@ function onTargetInput(el) {
 function go(where) {
   if (where === 'team-tree') return window.openTeamMode?.('team');
   if (where === 'team-years') return window.openTeamMode?.('years');
+  if (where === 'team-next') return window.openTeamYear?.(target ?? handoverState(terms, staleByYear).next);
   return undefined;
 }
 

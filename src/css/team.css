@@ -1246,3 +1246,59 @@
 .team-tier-value {
   min-width: 5.5rem; text-align: center; font-weight: 600; color: var(--ink-700);
 }
+
+/* ── YEAR BAR (0271) ─────────────────────────────────────────────────────────
+   Which ปี SAMO the pane shows, picked once above every mode — the same chip
+   look as ระบบบ้าน's MD49 … MD54 (btn-success when picked, outline otherwise),
+   because it is the same act: choosing whose rows you are looking at. */
+.team-yearbar { margin-bottom: .5rem; }
+.team-year-chips {
+  display: flex; flex-wrap: wrap; gap: .375rem; align-items: center;
+}
+.team-year-chip {
+  display: inline-flex; flex-direction: column; align-items: center;
+  line-height: 1.15; min-width: 4.25rem; padding-block: .3rem;
+}
+.team-year-num { font-weight: 600; font-variant-numeric: tabular-nums; }
+.team-year-sub { font-size: .7rem; opacity: .8; }
+.team-year-chip.is-unprepared:not(.btn-success) { border-style: dashed; }
+.team-year-add { min-width: 2.5rem; align-self: stretch; }
+.team-year-addform { display: inline-flex; gap: .375rem; align-items: center; }
+.team-year-addform input { width: 6.5rem; }
+
+.team-yearhead {
+  display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center;
+  justify-content: space-between;
+  padding: .625rem .875rem; margin-bottom: .75rem;
+  background: var(--surface);
+  border: 1px solid var(--ink-200); border-radius: .5rem;
+}
+.team-yearhead:empty { display: none; }
+.team-year-info { display: flex; flex-wrap: wrap; gap: .25rem .625rem; align-items: baseline; min-width: 0; }
+.team-year-what { color: var(--ink-500); font-size: .875rem; }
+.team-year-summary { flex-basis: 100%; font-size: .8125rem; color: var(--ink-700); }
+.team-year-pill {
+  font-size: .75rem; padding: .1rem .5rem; border-radius: 999px;
+  background: var(--ink-100);
+}
+.team-year-pill.is-on { background: color-mix(in srgb, var(--brand-primary) 10%, var(--surface)); color: var(--brand-primary); }
+.team-year-pill.is-stale { background: color-mix(in srgb, var(--brand-orange) 12%, var(--surface)); color: var(--ink-800); }
+.team-year-actions { display: flex; flex-wrap: wrap; gap: .375rem; align-items: center; }
+.team-year-status { flex-basis: 100%; font-size: .8125rem; min-height: 0; }
+.team-year-status:empty { display: none; }
+.team-year-status.is-ok { color: var(--brand-primary); }
+.team-year-status.is-error { color: var(--bs-danger); }
+
+.team-year-empty {
+  max-width: 36rem; margin: 1.5rem auto; text-align: center;
+  padding: 1.5rem 1rem; border: 1px dashed var(--ink-300); border-radius: .75rem;
+}
+.team-year-empty h6 { font-weight: 600; margin-bottom: .5rem; }
+.team-year-empty p { color: var(--ink-500); margin-bottom: 1rem; }
+.team-year-start { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+.team-year-hint { font-size: .8125rem; margin-top: .75rem; margin-bottom: 0 !important; }
+
+.team-arc-empty { text-align: center; padding: 1rem; color: var(--ink-500); }
+.team-arc-copy { display: inline-flex; gap: .375rem; flex-wrap: wrap; justify-content: center; }
+.team-arc-copy select { width: auto; }
+.team-year-pane { margin-bottom: .75rem; }

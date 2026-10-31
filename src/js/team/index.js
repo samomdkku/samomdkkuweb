@@ -30,6 +30,7 @@ import {
   patchNodePositions, patchMemberPositions, deleteTeamPhotoIfUnused, photoToRetire,
   fetchMajors, createMajor, updateMajor, deleteMajor,
   countMembersWithMajor, renameMajorOnMembers, searchPeople,
+  setTreeDraftYear, treeDraftYear,
 } from './api.js';
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
@@ -56,7 +57,8 @@ import { duplicateMessage } from '../duplicate-message.js';
 import { studyYearLabel, yearBasis } from '../study-year.js';
 import { userCanAccess } from '../auth.js';
 import { subscribeTeam } from './realtime.js';
-import { initTerms, enterTerms, primeTerms } from './terms.js';
+import { initArchiveEditor, openArchiveYear } from './terms.js';
+import { initYearBar, enterYearBar, refreshYearSummary } from './year-bar.js';
 import { SAMO_YEAR_CHANGED } from '../samo-year.js';
 import { initHealth, enterHealth, issuesByMember } from './health.js';
 import {
@@ -81,10 +83,16 @@ const TIER_MAX = 9;
 let initialized = false;
 let loaded = false;
 let loading = null;            // in-flight load promise (single-flight)
-let mode = 'team';             // 'team' | 'perms' | 'years'
+let mode = 'team';             // 'team' | 'perms' | 'health'
 // The live term's year — used to file photo uploads into Team/<ปี>/… and
-// shown nowhere else. Populated by terms.js, which owns the registry.
+// shown nowhere else. Populated by year-bar.js, which owns the year list.
 let currentTermYear = null;
+// WHICH YEAR is on screen (0271), set by the year bar: 'current' (the live tree),
+// 'draft' (a year ahead, its prepared tree — the same editor, api.js pointed at
+// team_draft_*), 'unprepared' (a year ahead with nothing yet — the bar's panel),
+// 'archive' (a past year — terms.js). The modes above apply to the first two.
+let view = { kind: 'current', termYear: null };
+let summaryTimer = null;
 const nodesById = new Map();   // id -> node
 let childrenByParent = new Map(); // parentId|'' -> [nodes]
 const membersByNode = new Map(); // nodeId -> [members]
@@ -382,7 +390,7 @@ export function initTeam() {
   initialized = true;
   // The ปี SAMO page (samo-year-admin.js) moves the current year; the cached
   // one here names the Drive folder a portrait uploads into, so follow it.
-  window.addEventListener(SAMO_YEAR_CHANGED, () => { primeTerms(); });
+  window.addEventListener(SAMO_YEAR_CHANGED, () => { enterYearBar(); });
   // EACH WIRE-UP IS INDEPENDENT. They used to be ten bare calls in a row, so a
   // throw in any one of them silently skipped every later one — and
   // wireTreeDelegation() is in that list, which means one bad line in an
@@ -401,8 +409,14 @@ export function initTeam() {
   ]) {
     try { fn(); } catch (err) { console.error(`[team] wire ${name} failed:`, err); }
   }
-  initTerms(document.getElementById('teamTermsPane'), {
-    onChange: (year) => { currentTermYear = year; },
+  initArchiveEditor(document.getElementById('teamTermsPane'));
+  initYearBar({
+    barEl: $('teamYearBar'),
+    headEl: $('teamYearHead'),
+    paneEl: $('teamYearPane'),
+    canEdit,
+    onView: setView,
+    onCurrentYear: (year) => { currentTermYear = year; },
   });
   // health.js reads through getData rather than being handed a snapshot, so it
   // always sees the live in-memory tree — including rows another pane just
@@ -420,7 +434,9 @@ export function initTeam() {
 /** Surface the outstanding count on the mode button. Cheap — it runs over the
  *  members already in memory, no query. */
 function refreshHealthFlags() {
-  if (!loaded) { healthFlags = new Map(); healthNodeCounts = new Map(); return 0; }
+  // ตรวจสอบข้อมูล is about the people who hold access NOW; a prepared year's
+  // copy would double every finding and the badge would count the wrong tree.
+  if (!loaded || treeDraftYear()) { healthFlags = new Map(); healthNodeCounts = new Map(); return 0; }
   const { map, total } = issuesByMember(allMembersFlat(), (id) => nodesById.get(id)?.name || '');
   healthFlags = map;
 
@@ -449,22 +465,45 @@ function refreshHealthFlags() {
 
 export function enterTeamWorkspace() {
   if (loaded || loading) return loading || undefined;
+  enterYearBar();
   return reload();
 }
 
+/** The year bar picked a year. A change of TREE (live ↔ a year's draft, or one
+ *  draft to another) reloads; a past year or an unprepared one hides the tree. */
+function setView(v) {
+  const before = treeDraftYear();
+  view = v;
+  const draft = v.kind === 'draft' ? v.termYear : null;
+  if (selectionMode) { selectionMode = false; clearSelection(); }
+  if (v.kind === 'draft' && mode === 'health') mode = 'team';
+  if ((draft ?? null) !== (before ?? null)) {
+    setTreeDraftYear(draft);
+    loaded = false;
+    nodesById.clear(); childrenByParent = new Map(); membersByNode.clear();
+    render();
+    reload();
+  } else {
+    render();
+  }
+  if (v.kind === 'archive') openArchiveYear(v.termYear, { years: v.years || [] });
+}
+
 async function reload() {
+  // The tree this load is FOR. A year picked while it is in flight starts its
+  // own load; this one must then drop its answer rather than paint last year's
+  // tree under this year's chip.
+  const target = treeDraftYear();
   loading = (async () => {
     try {
       setStatus('กำลังโหลด…');
       const { nodes, members } = await fetchTree();
+      if (treeDraftYear() !== target) return;
       rebuildIndexes(nodes, members);
       if (!loaded) childrenOf(null).forEach((n) => expanded.add(n.id));
       loaded = true;
       render();
       ensureRealtime();
-      // Fire-and-forget: only needed to name the Drive upload folder, so it must
-      // never delay or fail the tree load.
-      primeTerms();
     } catch (e) {
       console.warn('[team] load failed:', e?.message || e);
       const tree = $('teamTree');
@@ -522,6 +561,10 @@ function normalizeMemberRow(m) {
 }
 
 function applyRemoteChange(table, payload) {
+  // Realtime carries the LIVE tables. While a year's draft is on screen the
+  // in-memory tree IS that draft, and merging a live row into it would show (and
+  // let someone save) a live change as if it were next year's.
+  if (treeDraftYear()) return;
   const type = payload.eventType || payload.type;
   if (table === 'team_nodes') {
     if (type === 'DELETE') {
@@ -580,18 +623,30 @@ function render() {
   // The ปีการศึกษา pane is a different surface, not a different rendering of the
   // tree — hide the tree and its toolbar rather than trying to express years
   // inside the node list.
-  const isYears = mode === 'years';
-  const isHealth = mode === 'health';
-  const isPane = isYears || isHealth;
+  const isDraft = view.kind === 'draft';
+  const isArchive = view.kind === 'archive';
+  const isUnprepared = view.kind === 'unprepared';
+  const isHealth = mode === 'health' && !isDraft && !isArchive && !isUnprepared;
+  const isPane = isArchive || isUnprepared || isHealth;
   tree.classList.toggle('d-none', isPane);
-  $('teamTermsPane')?.classList.toggle('d-none', !isYears);
+  $('teamTermsPane')?.classList.toggle('d-none', !isArchive);
   $('teamHealthPane')?.classList.toggle('d-none', !isHealth);
   document.querySelector('.team-toolbar')?.classList.toggle('d-none', isPane);
+  // The modes belong to a TREE (live or prepared); a past year and an empty
+  // year ahead have none. ตรวจสอบข้อมูล checks the people who hold access now,
+  // and a CSV import writes identity — both are the live tree's.
+  document.querySelector('.team-modeswitch-row')?.classList.toggle('d-none', isArchive || isUnprepared);
+  document.querySelector('[data-team-mode="health"]')?.classList.toggle('d-none', isDraft);
+  if (isDraft) $('teamImportOpen')?.classList.add('d-none');
+  if (isDraft) {
+    clearTimeout(summaryTimer);
+    summaryTimer = setTimeout(refreshYearSummary, 600);
+  }
   // BEFORE the tree paints — renderMember reads healthFlags.
   refreshHealthFlags();
   if (isPane) {
     document.querySelectorAll('.team-mode-btn').forEach((b) => {
-      b.classList.toggle('is-active', b.dataset.teamMode === mode);
+      b.classList.toggle('is-active', b.dataset.teamMode === mode && isHealth);
     });
     const h = $('teamModeHint');
     if (h) h.textContent = '';
@@ -629,6 +684,11 @@ function render() {
       : touchHint;
   }
 
+  if (!loaded) {
+    tree.innerHTML = '<div class="team-empty">กำลังโหลด…</div>';
+    setStatus('');
+    return;
+  }
   const roots = childrenOf(null);
   const filter = searchQ ? computeFilter(searchQ) : null;
   setStatus(`${nodesById.size} ตำแหน่ง · ${[...membersByNode.values()].reduce((a, b) => a + b.length, 0)} สมาชิก`);
@@ -1220,15 +1280,24 @@ function switchMode(m) {
   mode = m;
   if (selectionMode) { selectionMode = false; clearSelection(); }  // perms mode has no member rows
   render();
-  if (mode === 'years') enterTerms();
   if (mode === 'health') enterHealth();
 }
 
-/** Open a mode from OUTSIDE this tab — the ปี SAMO page links to จัดการทีม
- *  and ทีมแต่ละปี. The same single path the mode buttons take. */
+/** Open a YEAR from outside this tab — the ปี SAMO page's "เตรียมทีมปีหน้า"
+ *  step lands on the year being prepared, adding it when it does not exist. */
+export function showTeamYear(year) {
+  if (mode === 'health') switchMode('team');
+  return enterYearBar(year);
+}
+
+/** Open a mode from OUTSIDE this tab — the ปี SAMO page links to จัดการทีม.
+ *  'years' was the ทีมแต่ละปี tab; the year is now the bar above every mode
+ *  (0271), so a link that still asks for it lands on จัดการทีม with the bar. */
 export function showTeamMode(m) {
-  if (m === mode) { if (mode === 'years') enterTerms(); return; }
-  switchMode(m);
+  const target = m === 'years' ? 'team' : m;
+  if (m === 'years') enterYearBar();
+  if (target === mode) return;
+  switchMode(target);
 }
 
 // ข้อมูลของฉัน is no longer a mode here. The shared ตำแหน่งของฉัน card moved to
@@ -3631,11 +3700,34 @@ function fillMemberModal(member, nodeId, tab) {
   // Set BEFORE setMemberPhoto — the preview reads it.
   memberPhotoFocus = member?.photo_focus || 'center';
   setMemberPhoto(member?.photo_url || '');
+  lockMemberIdentity(!!(treeDraftYear() && member && (member.person_id || String(member.kkumail || '').trim())));
   $('teamMemberModalTitle').textContent = member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก';
   $('teamMemberDelete')?.classList.toggle('d-none', !member);
   // One modal, two tabs (0110). A member who has not been saved yet has no row
   // for a grant to hang on, so the สิทธิ์ tab is disabled until they exist.
   if (member) fillMemberPermPane(member.id);
+}
+
+/**
+ * A YEAR AHEAD does not own a person's identity (0271). Name, ชื่อเล่น, รหัส,
+ * สาขา, photo and kkumail belong to the PERSON — one `people` row read by every
+ * year and system — so a prepared year edits only WHERE someone sits and WHAT
+ * they may do. The switch applies exactly that (placement columns) to a member
+ * who continues; an identity typed here would be dropped on switch day without
+ * a word. So the fields are shown, not offered, and the note says where they
+ * are edited. A person new to the team is still typed or searched in full.
+ */
+const MEMBER_IDENTITY_FIELDS = [
+  'teamMemberPhotoFile', 'teamMemberPhotoClear', 'teamMemberSearch',
+  'teamMemberFirstName', 'teamMemberLastName', 'teamMemberNickname',
+  'teamMemberStudentId', 'teamMemberMajor', 'teamMemberEmail', 'teamMemberConfirmed',
+];
+function lockMemberIdentity(locked) {
+  for (const id of MEMBER_IDENTITY_FIELDS) {
+    const el = $(id);
+    if (el) el.disabled = locked;
+  }
+  $('teamMemberDraftNote')?.classList.toggle('d-none', !locked);
 }
 
 /**
@@ -3753,7 +3845,7 @@ async function uploadPendingPhoto(nodeId) {
   const editingId = $('teamMemberId').value;
   const editing = editingId ? findMember(editingId) : null;
   const res = await uploadTeamPhoto(memberPhotoPending.file, {
-    year: currentTermYear || 'unsorted',
+    year: treeDraftYear() || currentTermYear || 'unsorted',
     dept: rootDeptName(nodeId),
     order: editing ? (editing.position ?? 0) : membersOf(nodeId).length,
     // The Drive filename, so a human browsing the folder finds the person.
@@ -3857,7 +3949,9 @@ async function runMemberSubmit() {
   // askConfirm, never window.confirm — Chrome's "prevent additional dialogs"
   // checkbox makes every later native confirm return false instantly, which has
   // already shipped as "the button does nothing" twice here.
-  if (nameWasSuggested && !nm.keep
+  // Not in a year ahead with the identity locked (lockMemberIdentity): nothing
+  // here writes the name, so there is no guess to confirm.
+  if (nameWasSuggested && !nm.keep && !$('teamMemberFirstName')?.disabled
       && stored0 && !stored0.first_name_th && !stored0.last_name_th) {
     const suggestion = suggestNameSplit(String(stored0.full_name || ''));
     if (suggestion && suggestion.first === nm.first && suggestion.last === nm.last) {

@@ -48,7 +48,7 @@ describe('publish only through publishTermAsking', () => {
   });
 
   it('both publish buttons use it (the control: the sweep above would pass if neither published at all)', () => {
-    for (const f of ['team/terms.js', 'samo-year-admin.js']) {
+    for (const f of ['team/year-bar.js', 'samo-year-admin.js']) {
       expect(stripComments(readFileSync(join(SRC, f), 'utf8')), f).toMatch(/publishTermAsking\(/);
     }
   });

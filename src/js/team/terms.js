@@ -1,25 +1,13 @@
 // ==============================================
-// TEAM TERMS — the ทีมแต่ละปี pane of the ทีม SAMO admin (mode 'years').
+// TEAM ARCHIVE EDITOR — one PAST ปี SAMO's list, opened from the year bar
+// (year-bar.js) when a year before the current one is picked.
 //
-// 0270 (owner, 2026-10-31): any year's list can be BUILT here — the year ahead
-// or one gone by — and shown on เกี่ยวกับเรา without moving the portal's year.
-// Start it empty, from the live tree, or from another year (copy_team_year);
-// add, rename, move and remove ฝ่าย / ตำแหน่ง / people; show or hide the year
-// as a whole (set_team_term_shown). A published year wins over the live tree on
-// the public page, so a shown 2570 keeps showing after the 1 มี.ค. switch.
-// ⛔ publish_team_term REBUILDS a year from the live tree; on a hand-built year
-// it now refuses until the person confirms (publishTermAsking).
-//
-// Two jobs:
-//   1. The year ARCHIVE: which years have been published to the public page,
-//      re-publishing the current one, adding or deleting a year. WHICH year is
-//      current is NOT set here any more — that is the ปี SAMO admin page
-//      (samo-year-admin.js, /admin/#years), because every system files new work
-//      under it and it deserved more than one outline button in this list.
-//   2. Edit a published year. The snapshot is frozen in the sense that editing
-//      the live tree does not change it — but it is NOT read-only: a misspelled
-//      name or a missing photo in ปี 2567 is fixed here, without disturbing the
-//      current committee.
+// 0270 made a year's list buildable by hand; 0271 (owner, 2026-10-31) moved the
+// YEAR choice to a bar above the whole ทีม SAMO pane, so this module no longer
+// lists years, adds them, shows/hides or publishes them — the bar does. A year
+// AHEAD is not edited here either: it opens the real tree editor (index.js) on
+// its prepared draft, permissions included. What is left is history: rename,
+// re-photo, move, add or remove ฝ่าย / ตำแหน่ง / people of a year gone by.
 //
 // WHY THE ARCHIVE IS SEPARATE FROM THE LIVE TREE (the thing not to undo):
 // team_nodes / team_members feed the permission engine — managed_permissions,
@@ -39,26 +27,23 @@ import { escHtml } from '../utils.js';
 import { askConfirm } from '../confirm-modal.js';
 import { uploadTeamPhoto, portraitSrc } from '../uploads.js';
 import { cropImage } from '../image-crop.js';
-import { publishTermAsking } from './term-dialogs.js';
 import { walkNodes, subtreeIds } from './archive-tree.js';
 import {
-  fetchTerms, createTerm, deleteTerm,
-  fetchTermStatus, fetchTree,
+  fetchTree,
   fetchArchive, updateArchiveMember, deleteArchiveMember, updateArchiveNode,
   createArchiveNode, deleteArchiveNode, createArchiveMember,
-  copyTeamYear, setTermShown,
+  copyTeamYear,
   deleteTeamPhotoIfUnused,
 } from './api.js';
 
 const $ = (id) => document.getElementById(id);
 
-let terms = [];
-let staleByYear = new Map();   // year -> true when the live tree moved after publish
-let openYear = null;      // the archived year currently expanded for editing
+let openYear = null;      // the past year on screen
+let copyFrom = [];        // other years with a list, offered when this one is empty
 let archive = null;       // { nodes, members } for openYear
 let host = null;
-let onTermsChanged = null; // lets index.js keep its currentTermYear in step
-// 0270 editor state. `adding` = an open inline form ({ kind: 'member'|'node',
+let onEdited = null;      // tells the year bar a year's list changed (จัดรายชื่อเอง)
+// Editor state. `adding` = an open inline form ({ kind: 'member'|'node',
 // parent: nodeId|'' }); `moving` = a row whose ย้าย select is open.
 let adding = null;
 let moving = null;
@@ -66,12 +51,6 @@ let moving = null;
 // "เพิ่มคน" brings their ชื่อเล่น and photo along. Loaded when an editor opens;
 // a failure only costs the suggestion.
 let liveByName = new Map();
-
-// Internal only. NOT exported: index.js learns the current year through the
-// onChange callback passed to initTerms(), so it never needs to reach in here.
-function currentTerm() {
-  return terms.find((t) => t.is_current) || null;
-}
 
 // ── rendering ───────────────────────────────────────────────────────────────
 
@@ -81,70 +60,6 @@ function statusLine(msg, kind = '') {
     el.textContent = msg || '';
     el.className = `team-terms-status${kind ? ` is-${kind}` : ''}`;
   }
-}
-
-/** A year can be edited when it HAS a list to edit: any non-current year
- *  (built here, or a past snapshot), or the current one once published. */
-function canEditYear(t) {
-  return !t.is_current || !!t.published_at;
-}
-
-function termRow(t) {
-  const published = !!t.published_at;
-  const when = published
-    ? new Date(t.published_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
-    : '';
-  const current = currentTerm();
-  // Only the year right after the current one is "next year"; a further one is just a year.
-  const ahead = !t.is_current && current && t.year === current.year + 1;
-  let badge;
-  if (t.is_current) {
-    badge = published
-      ? `<span class="team-term-badge is-pub">เผยแพร่แล้ว · ${escHtml(when)}</span>`
-      : '<span class="team-term-badge is-draft">ยังไม่เผยแพร่ — หน้าเกี่ยวกับเราแสดงผังสด</span>';
-  } else {
-    badge = published
-      ? '<span class="team-term-badge is-pub"><i class="bi bi-eye"></i> แสดงบนหน้าเกี่ยวกับเรา</span>'
-      : '<span class="team-term-badge is-draft"><i class="bi bi-eye-slash"></i> ยังไม่แสดง</span>';
-  }
-  return `
-    <li class="team-term${t.is_current ? ' is-current' : ''}${openYear === t.year ? ' is-open' : ''}">
-      <div class="team-term-head">
-        <div class="team-term-id">
-          <span class="team-term-year">${escHtml(String(t.year))}</span>
-          ${t.label ? `<span class="team-term-label">${escHtml(t.label)}</span>` : ''}
-        </div>
-        <div class="team-term-badges">
-          ${t.is_current ? '<span class="team-term-badge is-live">ปีปัจจุบัน (ผังสด)</span>' : ''}
-          ${ahead ? '<span class="team-term-badge">ปีหน้า</span>' : ''}
-          ${badge}
-          ${t.hand_edited_at ? '<span class="team-term-badge" title="รายชื่อปีนี้เพิ่มหรือแก้ไว้เอง — การเผยแพร่จากผังสดจะถามก่อนแทนที่">จัดรายชื่อเอง</span>' : ''}
-          ${staleByYear.get(t.year)
-            ? '<span class="team-term-badge is-stale" title="ผังสดถูกแก้ไขหลังเผยแพร่ครั้งล่าสุด — หน้าสาธารณะยังแสดงภาพนิ่งเดิม ถ้ากำลังเตรียมทีมปีหน้า ให้จัดที่ปีหน้าแทนการเผยแพร่ซ้ำ">ผังสดเปลี่ยนแล้ว · เผยแพร่ซ้ำถ้ายังเป็นทีมปีนี้</span>'
-            : ''}
-        </div>
-        <div class="team-term-actions">
-          ${t.is_current
-            ? `<button type="button" class="btn btn-sm btn-primary" data-term-publish="${t.year}">
-                 <i class="bi bi-camera"></i> ${published ? 'เผยแพร่ซ้ำ' : 'เผยแพร่ปีนี้'}
-               </button>`
-            : `<button type="button" class="btn btn-sm ${published ? 'btn-outline-secondary' : 'btn-primary'}" data-term-shown="${t.year}" data-shown="${published ? '0' : '1'}">
-                 <i class="bi ${published ? 'bi-eye-slash' : 'bi-eye'}"></i> ${published ? 'ซ่อนจากหน้าเกี่ยวกับเรา' : 'แสดงบนหน้าเกี่ยวกับเรา'}
-               </button>`}
-          ${canEditYear(t)
-            ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-term-edit="${t.year}">
-                 <i class="bi bi-pencil"></i> ${openYear === t.year ? 'ปิด' : 'จัดรายชื่อ'}
-               </button>`
-            : ''}
-          <button type="button" class="btn btn-sm btn-outline-danger" data-term-delete="${t.year}"
-            aria-label="ลบปี ${t.year}"
-            ${t.is_current ? 'disabled title="ลบปีปัจจุบันไม่ได้ — เริ่มปีอื่นที่หน้า ปี SAMO ก่อน"' : ''}>
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>
-      </div>
-      ${openYear === t.year ? `<div class="team-term-body" id="teamTermBody">${archiveHtml()}</div>` : ''}
-    </li>`;
 }
 
 function archiveHtml() {
@@ -169,7 +84,17 @@ function archiveHtml() {
     </div>`];
   if (adding?.kind === 'node' && adding.parent === '') out.push(addNodeForm(''));
   if (!walked.length) {
-    out.push('<div class="team-terms-loading">ปีนี้ยังไม่มีรายชื่อ — เริ่มจาก “เพิ่มฝ่าย”</div>');
+    out.push(`
+      <div class="team-arc-empty">
+        <p>ปีนี้ยังไม่มีรายชื่อ — เริ่มจาก “เพิ่มฝ่าย” หรือคัดลอกมาแล้วแก้</p>
+        <form class="team-arc-copy" data-copy-form>
+          <select class="form-select form-select-sm" name="from" aria-label="คัดลอกรายชื่อจาก">
+            <option value="live">คัดลอกจากทีมปัจจุบัน</option>
+            ${copyFrom.filter((y) => y !== openYear).map((y) => `<option value="${y}">คัดลอกจากปี ${y}</option>`).join('')}
+          </select>
+          <button type="submit" class="btn btn-sm btn-outline-primary">คัดลอก</button>
+        </form>
+      </div>`);
   }
   for (const w of walked) {
     const people = byNode.get(w.node.id) || [];
@@ -297,56 +222,14 @@ function archiveMemberRow(m) {
     </li>`;
 }
 
-// Internal only. render() in index.js deliberately does NOT call this — it is
-// also the realtime re-render target and would destroy in-progress archive
-// edits (see the isYears branch there). terms.js owns its own repaints.
-function renderTerms() {
+function renderArchive() {
   if (!host) return;
-  const nextYear = (currentTerm()?.year || new Date().getFullYear() + 543) + 1;
-  // Prefer the open editor's scroll position over a jump to the top: every
-  // structural edit repaints the pane.
   const body = $('teamTermBody');
   const scroll = body ? body.scrollTop : 0;
   host.innerHTML = `
     <div class="team-terms">
-      <p class="team-terms-lead">
-        จัดรายชื่อทีมของปีไหนก็ได้ที่นี่ — <strong>ทีมปีหน้า</strong> หรือปีที่ผ่านมา —
-        แล้วกด “แสดงบนหน้าเกี่ยวกับเรา” โดยไม่ต้องเปลี่ยนปี SAMO ของทั้งระบบ
-        รายชื่อที่จัดที่นี่ใช้แสดงผลอย่างเดียว ไม่ให้สิทธิ์ใคร
-        สิทธิ์ของแต่ละคนยังมาจากผังในแท็บ “จัดการทีม” เหมือนเดิม
-      </p>
-      <p class="team-terms-note team-terms-note--go">
-        <i class="bi bi-calendar2-range"></i>
-        <span>
-          <strong>ส่งต่อให้ทีมใหม่ และเปลี่ยนปีปัจจุบัน</strong> ทำที่หน้า
-          <button type="button" class="team-terms-golink" data-term-goto-year>ปี SAMO</button>
-          ถ้าแสดงทีมปีหน้าไว้แล้ว เมื่อถึงวันเปลี่ยนปี หน้าเกี่ยวกับเราจะแสดงรายชื่อที่จัดไว้นี้ต่อ
-        </span>
-      </p>
-      <p class="team-terms-note">
-        <i class="bi bi-info-circle"></i>
-        <span>
-          <strong>ปีปัจจุบัน</strong> หน้าเกี่ยวกับเราแสดงผังสดจากแท็บ “จัดการทีม”
-          จนกว่าจะกด “เผยแพร่ปีนี้” ซึ่งบันทึกภาพนิ่งของผังไว้ — หลังจากนั้นแก้ผังสดแล้วต้องกดเผยแพร่ซ้ำจึงจะเห็น
-        </span>
-      </p>
-      <form class="team-terms-add" id="teamTermAddForm">
-        <label class="visually-hidden" for="teamTermNewYear">ปี SAMO ที่จะเพิ่ม</label>
-        <input type="number" class="form-control form-control-sm" id="teamTermNewYear"
-          value="${nextYear}" min="2500" max="2700" />
-        <label class="visually-hidden" for="teamTermStart">เริ่มรายชื่อจาก</label>
-        <select class="form-select form-select-sm" id="teamTermStart">
-          <option value="live">คัดลอกผังตอนนี้</option>
-          <option value="empty">เริ่มจากว่าง</option>
-          ${terms.filter((x) => canEditYear(x)).map((x) =>
-            `<option value="${x.year}">คัดลอกจากปี ${x.year}</option>`).join('')}
-        </select>
-        <button type="submit" class="btn btn-sm btn-outline-primary" id="teamTermAdd">
-          <i class="bi bi-plus-lg"></i> เพิ่มปี
-        </button>
-      </form>
       <div class="team-terms-status" id="teamTermsStatus" role="status"></div>
-      <ul class="team-terms-list">${terms.map(termRow).join('')}</ul>
+      <div class="team-term-body" id="teamTermBody">${archiveHtml()}</div>
     </div>`;
   const nb = $('teamTermBody');
   if (nb && scroll) nb.scrollTop = scroll;
@@ -375,82 +258,16 @@ function guard(fn, okMsg) {
   return chain;
 }
 
-async function reloadTerms() {
-  terms = await fetchTerms();
-  // Best-effort: a failed status read must not blank the whole pane, it only
-  // costs the "snapshot is behind" hint.
-  try {
-    const st = await fetchTermStatus();
-    staleByYear = new Map((st.terms || []).map((t) => [t.year, !!t.stale]));
-  } catch { staleByYear = new Map(); }
-  onTermsChanged?.(currentTerm()?.year || null);
-  renderTerms();
-}
-
-async function doPublish(year) {
-  const t = terms.find((x) => x.year === year);
-  const again = !!t?.published_at;
-  // The wording is shared with the ปี SAMO page (term-dialogs.js) — it is
-  // what stops a re-publish mid-handover filing the next team as this year,
-  // and (0270) what stops it erasing a list built by hand.
+/** Copy a list into this EMPTY year (0270's copy_team_year, from the live tree
+ *  or another year), then reopen it. */
+async function doCopyInto(from) {
   await guard(async () => {
-    statusLine('กำลังบันทึกภาพนิ่งของผัง…');
-    const res = await publishTermAsking(year, again);
-    if (!res) { statusLine(''); return; }
-    if (openYear === year) archive = await fetchArchive(year);
-    await reloadTerms();
-    const kept = Number(res?.photos_kept || 0);
-    statusLine(`เผยแพร่ปี ${year} แล้ว — ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน`
-      + (kept ? ` · คงรูปที่แก้ไว้ในประวัติ ${kept} รูป` : ''), 'ok');
+    statusLine('กำลังคัดลอกรายชื่อ…');
+    const res = await copyTeamYear(openYear, from === 'live' ? null : Number(from));
+    await openEditor(openYear);
+    onEdited?.(openYear);
+    statusLine(`คัดลอก ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน แล้ว`, 'ok');
   });
-}
-
-/** Add a year and start its list (0270). The year row is created first, so a
- *  failed copy leaves an empty year to retry on, not nothing. */
-async function doAddYear(year, start) {
-  if (terms.some((x) => x.year === year)) {
-    statusLine(`มีปี ${year} อยู่แล้ว — กด “จัดรายชื่อ” ที่ปีนั้น`, 'error');
-    return;
-  }
-  await guard(async () => {
-    await createTerm(year);
-    let res = null;
-    if (start !== 'empty') {
-      statusLine('กำลังคัดลอกรายชื่อ…');
-      res = await copyTeamYear(year, start === 'live' ? null : Number(start));
-    }
-    await reloadTerms();
-    await openEditor(year);
-    statusLine(res
-      ? `เพิ่มปี ${year} แล้ว — คัดลอก ${res.nodes ?? 0} ตำแหน่ง · ${res.members ?? 0} คน ยังไม่แสดงบนหน้าเกี่ยวกับเราจนกว่าจะกดแสดง`
-      : `เพิ่มปี ${year} แล้ว — เริ่มจาก “เพิ่มฝ่าย” ด้านล่าง`, 'ok');
-  });
-}
-
-async function doSetShown(year, shown) {
-  if (!shown && !await askConfirm({
-    title: `ซ่อนทีมปี ${year} จากหน้าเกี่ยวกับเรา?`,
-    body: 'รายชื่อยังเก็บไว้ครบ กดแสดงอีกครั้งเมื่อไหร่ก็ได้',
-    yes: 'ซ่อน',
-    danger: false,
-  })) return;
-  await guard(async () => {
-    await setTermShown(year, shown);
-    await reloadTerms();
-  }, shown ? `ทีมปี ${year} แสดงบนหน้าเกี่ยวกับเราแล้ว` : `ซ่อนทีมปี ${year} แล้ว`);
-}
-
-async function doDeleteTerm(year) {
-  if (!await askConfirm({
-    title: `ลบปี ${year} และรายชื่อ/รูปที่เก็บไว้ทั้งหมด?`,
-    body: 'ลบแล้วกู้คืนไม่ได้ (ผังสดไม่ได้รับผลกระทบ)',
-    yes: 'ลบ',
-  })) return;
-  await guard(async () => {
-    await deleteTerm(year);
-    if (openYear === year) { openYear = null; archive = null; }
-    await reloadTerms();
-  }, `ลบปี ${year} แล้ว`);
 }
 
 async function loadLiveNames() {
@@ -469,15 +286,11 @@ async function openEditor(year) {
   archive = null;
   adding = null;
   moving = null;
-  renderTerms();
+  renderArchive();
   const [a] = await Promise.all([fetchArchive(year), liveByName.size ? null : loadLiveNames()]);
+  if (openYear !== year) return;   // another year was picked while this one loaded
   archive = a;
-  renderTerms();
-}
-
-async function toggleEdit(year) {
-  if (openYear === year) { openYear = null; archive = null; adding = null; moving = null; renderTerms(); return; }
-  await guard(() => openEditor(year));
+  renderArchive();
 }
 
 const nextPosition = (rows) => rows.reduce((mx, r) => Math.max(mx, Number(r.position) || 0), -1) + 1;
@@ -494,8 +307,8 @@ async function doAddNode(parent, name, kind) {
     });
     archive.nodes.push(row);
     adding = null;
-    await reloadTermsQuiet();
-    renderTerms();
+    onEdited?.(openYear);
+    renderArchive();
   }, `เพิ่ม “${name}” แล้ว`);
 }
 
@@ -517,8 +330,8 @@ async function doAddMember(nodeId, name, nickname) {
     });
     archive.members.push(row);
     adding = { kind: 'member', parent: nodeId };   // keep the form open for the next name
-    await reloadTermsQuiet();
-    renderTerms();
+    onEdited?.(openYear);
+    renderArchive();
     host.querySelector(`[data-add-member-form="${CSS.escape(nodeId)}"] input[name="name"]`)?.focus();
   }, `เพิ่ม ${name} แล้ว`);
 }
@@ -537,8 +350,8 @@ async function doMove(kind, id, target) {
       if (i >= 0) archive.members[i] = { ...archive.members[i], ...row };
     }
     moving = null;
-    await reloadTermsQuiet();
-    renderTerms();
+    onEdited?.(openYear);
+    renderArchive();
   }, 'ย้ายแล้ว');
 }
 
@@ -558,17 +371,10 @@ async function doDeleteNode(id) {
     await deleteArchiveNode(id);
     archive.nodes = archive.nodes.filter((n) => !ids.has(n.id));
     archive.members = archive.members.filter((m) => !ids.has(m.node_id));
-    await reloadTermsQuiet();
-    renderTerms();
+    onEdited?.(openYear);
+    renderArchive();
     for (const p of people) if (p.photo_url) deleteTeamPhotoIfUnused(p.photo_url);
   }, 'ลบแล้ว');
-}
-
-/** Re-read the year list (for the จัดรายชื่อเอง badge) WITHOUT painting —
- *  each action calls it before its own single repaint, so focus placed after
- *  that repaint (the next-name field) is not stolen by a second one. */
-async function reloadTermsQuiet() {
-  try { terms = await fetchTerms(); } catch { /* a hint; the edit already succeeded */ }
 }
 
 /** Patch one archived member and repaint just that row's model, not the pane —
@@ -615,7 +421,7 @@ async function onArchivePhoto(id, file) {
     // delete if the LIVE member still carries the same file — a published year
     // shares the Drive id with the live tree.
     if (prevPhoto && prevPhoto !== res.url) deleteTeamPhotoIfUnused(prevPhoto);
-    renderTerms();
+    renderArchive();
     statusLine(res.organised ? 'อัปเดตรูปแล้ว' : 'อัปเดตรูปแล้ว (ยังไม่ได้จัดโฟลเดอร์ — ต้อง redeploy Apps Script)', 'ok');
   });
 }
@@ -636,44 +442,33 @@ async function doDeleteArchiveMember(id) {
   await guard(async () => {
     await deleteArchiveMember(id);
     archive.members = archive.members.filter((x) => x.id !== id);
-    renderTerms();
+    renderArchive();
     // Declines if the live tree (or another year) still shows this portrait.
     if (photo) deleteTeamPhotoIfUnused(photo);
   }, 'ลบแล้ว');
 }
 
-export function initTerms(hostEl, { onChange } = {}) {
+export function initArchiveEditor(hostEl, { onEdited: edited } = {}) {
   host = hostEl;
-  onTermsChanged = onChange;
+  onEdited = edited;
   if (!host) return;
 
   host.addEventListener('click', (e) => {
     const t = e.target;
-    const pub = t.closest?.('[data-term-publish]');
-    if (pub) return void doPublish(Number(pub.dataset.termPublish));
-    if (t.closest?.('[data-term-goto-year]')) return void window.openAdminSection?.('years');
-    const shown = t.closest?.('[data-term-shown]');
-    if (shown) return void doSetShown(Number(shown.dataset.termShown), shown.dataset.shown === '1');
-    const del = t.closest?.('[data-term-delete]');
-    if (del) return void doDeleteTerm(Number(del.dataset.termDelete));
-    const edit = t.closest?.('[data-term-edit]');
-    if (edit) return void toggleEdit(Number(edit.dataset.termEdit));
-
-    // ── the list editor (0270) ──
     const addNode = t.closest?.('[data-an-add-node]');
-    if (addNode) { adding = { kind: 'node', parent: addNode.dataset.anAddNode }; moving = null; renderTerms();
+    if (addNode) { adding = { kind: 'node', parent: addNode.dataset.anAddNode }; moving = null; renderArchive();
       host.querySelector('[data-add-node-form] input[name="name"]')?.focus(); return; }
     const addMember = t.closest?.('[data-am-add]');
-    if (addMember) { adding = { kind: 'member', parent: addMember.dataset.amAdd }; moving = null; renderTerms();
+    if (addMember) { adding = { kind: 'member', parent: addMember.dataset.amAdd }; moving = null; renderArchive();
       host.querySelector('[data-add-member-form] input[name="name"]')?.focus(); return; }
-    if (t.closest?.('[data-add-cancel]')) { adding = null; renderTerms(); return; }
+    if (t.closest?.('[data-add-cancel]')) { adding = null; renderArchive(); return; }
     const mvNode = t.closest?.('[data-an-move]');
-    if (mvNode) { moving = { kind: 'node', id: mvNode.dataset.anMove }; adding = null; renderTerms();
+    if (mvNode) { moving = { kind: 'node', id: mvNode.dataset.anMove }; adding = null; renderArchive();
       host.querySelector('[data-move-target]')?.focus(); return; }
     const mvMember = t.closest?.('[data-am-move]');
-    if (mvMember) { moving = { kind: 'member', id: mvMember.dataset.amMove }; adding = null; renderTerms();
+    if (mvMember) { moving = { kind: 'member', id: mvMember.dataset.amMove }; adding = null; renderArchive();
       host.querySelector('[data-move-target]')?.focus(); return; }
-    if (t.closest?.('[data-move-cancel]')) { moving = null; renderTerms(); return; }
+    if (t.closest?.('[data-move-cancel]')) { moving = null; renderArchive(); return; }
     const anDel = t.closest?.('[data-an-delete]');
     if (anDel) return void doDeleteNode(anDel.dataset.anDelete);
     const amDel = t.closest?.('[data-am-delete]');
@@ -683,11 +478,7 @@ export function initTerms(hostEl, { onChange } = {}) {
   host.addEventListener('submit', (e) => {
     const f = e.target;
     e.preventDefault();
-    if (f.id === 'teamTermAddForm') {
-      const y = Number($('teamTermNewYear')?.value);
-      if (!Number.isInteger(y) || y < 2500 || y > 2700) return statusLine('ปี SAMO ไม่ถูกต้อง', 'error');
-      return void doAddYear(y, $('teamTermStart')?.value || 'live');
-    }
+    if (f.dataset.copyForm !== undefined) return void doCopyInto(f.elements.from?.value || 'live');
     const name = String(f.elements?.name?.value || '').trim();
     if (f.dataset.addNodeForm !== undefined) {
       if (!name) return statusLine('ใส่ชื่อก่อน', 'error');
@@ -700,7 +491,7 @@ export function initTerms(hostEl, { onChange } = {}) {
   });
 
   host.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && (adding || moving)) { adding = null; moving = null; renderTerms(); }
+    if (e.key === 'Escape' && (adding || moving)) { adding = null; moving = null; renderArchive(); }
   });
 
   // `change` rather than `input`: one write per finished edit, not per keystroke.
@@ -746,21 +537,10 @@ export function initTerms(hostEl, { onChange } = {}) {
   });
 }
 
-/** Called when the pane becomes visible. render() deliberately does not paint
- *  this pane (see index.js), so on a cold first entry it is empty until the
- *  fetch lands — say so rather than showing a blank panel. */
-export async function enterTerms() {
-  if (host && !host.querySelector('.team-terms')) {
-    host.innerHTML = '<div class="team-terms"><div class="team-terms-loading">กำลังโหลดทีมแต่ละปี…</div></div>';
-  }
+/** Show `year`'s archive editor. `years` = every other year that holds a list,
+ *  offered as a source when this one is empty. */
+export async function openArchiveYear(year, { years = [] } = {}) {
+  copyFrom = years;
   statusLine('');
-  await guard(reloadTerms);
-}
-
-/** The live term's year, for filing uploads into the right Drive folder. */
-export async function primeTerms() {
-  try {
-    terms = await fetchTerms();
-    onTermsChanged?.(currentTerm()?.year || null);
-  } catch { /* the pane will report it when opened */ }
+  await guard(() => openEditor(year));
 }

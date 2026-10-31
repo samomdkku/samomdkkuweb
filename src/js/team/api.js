@@ -107,14 +107,35 @@ export async function deleteTeamPhotoIfUnused(photoUrl) {
   }
 }
 
+// ---- Which tree the editor is pointed at (0271) ----
+//
+// null = the LIVE tree (team_nodes / team_members — the one that grants).
+// A year = that year's PREPARED tree (team_draft_*), which grants nothing until
+// the switch applies it. Every read and write below goes through `tree()`, so
+// the editor in index.js is the same code for both and cannot write the live
+// tree while a future year is on screen — the year is in every filter, and RLS
+// refuses a draft write for a year that has started.
+let draftYear = null;
+
+export function setTreeDraftYear(year) { draftYear = year == null ? null : Number(year); }
+export function treeDraftYear() { return draftYear; }
+
+function tree() {
+  return draftYear
+    ? { nodes: '/team_draft_nodes', members: '/team_draft_members', and: `&term_year=eq.${draftYear}`, draftYear }
+    : { nodes: '/team_nodes', members: '/team_members', and: '', draftYear: null };
+}
+const withYear = (row, t) => (t.draftYear ? { ...row, term_year: t.draftYear } : row);
+
 // ---- Reads ----
 
 /** Load the whole tree + members in two flat queries. The caller builds
  *  the parent→child structure in memory. */
 export async function fetchTree() {
+  const t = tree();
   const [nodesRes, membersRes] = await Promise.all([
-    dbRest('/team_nodes?select=*&order=position.asc,name.asc'),
-    dbRest('/team_members?select=*&order=position.asc,full_name.asc'),
+    dbRest(`${t.nodes}?select=*${t.and}&order=position.asc,name.asc`),
+    dbRest(`${t.members}?select=*${t.and}&order=position.asc,full_name.asc`),
   ]);
   if (nodesRes.error) throw new Error(nodesRes.error.message || 'โหลดโครงสร้างทีมไม่สำเร็จ');
   if (membersRes.error) throw new Error(membersRes.error.message || 'โหลดสมาชิกทีมไม่สำเร็จ');
@@ -125,9 +146,10 @@ export async function fetchTree() {
 
 export async function createNode(row) {
   if (!row?.name?.trim()) throw new Error('ต้องระบุชื่อตำแหน่ง/ฝ่าย');
-  const { data, error } = await dbRest('/team_nodes', {
+  const t = tree();
+  const { data, error } = await dbRest(t.nodes, {
     method: 'POST',
-    body: row,
+    body: withYear(row, t),
     prefer: 'return=representation',
   });
   if (error) throw new Error(error.message || 'เพิ่มไม่สำเร็จ');
@@ -138,7 +160,8 @@ export async function createNode(row) {
 }
 
 export async function updateNode(id, patch) {
-  const { data, error } = await dbRest(`/team_nodes?id=eq.${id}`, {
+  const t = tree();
+  const { data, error } = await dbRest(`${t.nodes}?id=eq.${id}${t.and}`, {
     method: 'PATCH',
     body: patch,
     prefer: 'return=representation',
@@ -158,7 +181,8 @@ export async function updateNode(id, patch) {
 // shape createMember/updateMember above already use, and the one
 // projects/api.js, vs-staff.js and announcements.js already use for DELETE.
 export async function deleteNode(id) {
-  const { data, error } = await dbRest(`/team_nodes?id=eq.${id}`, {
+  const t = tree();
+  const { data, error } = await dbRest(`${t.nodes}?id=eq.${id}${t.and}`, {
     method: 'DELETE',
     prefer: 'return=representation',
   });
@@ -179,9 +203,10 @@ export async function createMember(row) {
   if (!row?.full_name?.trim() && !row?.first_name_th?.trim()) {
     throw new Error('ต้องระบุชื่อ-สกุล');
   }
-  const { data, error } = await dbRest('/team_members', {
+  const t = tree();
+  const { data, error } = await dbRest(t.members, {
     method: 'POST',
-    body: row,
+    body: withYear(row, t),
     prefer: 'return=representation',
   });
   if (error) throw new Error(error.message || 'เพิ่มสมาชิกไม่สำเร็จ');
@@ -192,7 +217,8 @@ export async function createMember(row) {
 }
 
 export async function updateMember(id, patch) {
-  const { data, error } = await dbRest(`/team_members?id=eq.${id}`, {
+  const t = tree();
+  const { data, error } = await dbRest(`${t.members}?id=eq.${id}${t.and}`, {
     method: 'PATCH',
     body: patch,
     prefer: 'return=representation',
@@ -205,7 +231,8 @@ export async function updateMember(id, patch) {
 }
 
 export async function deleteMember(id) {
-  const { data, error } = await dbRest(`/team_members?id=eq.${id}`, {
+  const t = tree();
+  const { data, error } = await dbRest(`${t.members}?id=eq.${id}${t.and}`, {
     method: 'DELETE',
     prefer: 'return=representation',
   });
@@ -420,6 +447,25 @@ export async function setTermShown(year, shown) {
 }
 
 /** The editable view of one archived year. */
+/** Start preparing a year that has not begun (0271): `from` = 'live' copies the
+ *  live tree with its ids, 'empty' starts with nothing. */
+export async function startTeamDraft(year, from = 'live') {
+  const { data, error } = await dbRest('/rpc/start_team_draft', {
+    method: 'POST', body: { p_year: year, p_from: from },
+  });
+  if (error) throw new Error(error.message || 'เริ่มเตรียมทีมไม่สำเร็จ');
+  return data;
+}
+
+/** What the switch to `year` would change in the live tree, or {prepared:false}. */
+export async function fetchDraftSummary(year) {
+  const { data, error } = await dbRest('/rpc/team_draft_summary', {
+    method: 'POST', body: { p_year: year },
+  });
+  if (error) throw new Error(error.message || 'โหลดสรุปทีมที่เตรียมไว้ไม่สำเร็จ');
+  return data || { prepared: false };
+}
+
 export async function fetchArchive(year) {
   const [nodesRes, membersRes] = await Promise.all([
     dbRest(`/team_archive_nodes?year=eq.${year}&select=*&order=position.asc,name.asc`),

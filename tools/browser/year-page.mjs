@@ -21,7 +21,7 @@
 //      with the open one disabled, the schedule matching the database, the
 //      history; a switch asks first, says QR codes are NOT affected, and sends
 //      ONE passport start_season call (intercepted, nothing written);
-//   5. ทีม SAMO → ทีมแต่ละปี has no ตั้งเป็นปีปัจจุบัน and links here; ระบบบ้าน
+//   5. ทีม SAMO's year bar has no ตั้งเป็นปีปัจจุบัน and links here; ระบบบ้าน
 //      links here; 390px phone, no sideways scroll; ALWAYS deletes the account.
 //
 // RUN (needs `npm run dev` on :5174 — it uses samo-dev — and Chrome):
@@ -243,16 +243,16 @@ try {
   const [pq2] = await sql(`select (select name from passport.samo_seasons where ended_at is null order by started_at desc limit 1) season`);
   say('…and nothing was written (intercepted)', pq2.season, pq2.season === pq.season);
 
-  // 5. ทีม SAMO → ทีมแต่ละปี links here; ระบบบ้าน links here
+  // 5. ทีม SAMO's year bar links here (0271 — it replaced ทีมแต่ละปี); ระบบบ้าน links here
   const team = JSON.parse(await ev(`window.openTeamMode('years'); await new Promise(r => setTimeout(r, 3000));
-    const pane = document.getElementById('teamTermsPane');
-    return JSON.stringify({ label: document.querySelector('.team-mode-btn[data-team-mode="years"]').textContent.trim(),
-      active: document.querySelector('.team-mode-btn[data-team-mode="years"]').classList.contains('is-active'),
-      setCurrent: pane.querySelectorAll('[data-term-current]').length, link: !!pane.querySelector('[data-term-goto-year]') });`));
-  say('ทีม SAMO opens at ทีมแต่ละปี from the ปี page', `${team.label} · active ${team.active}`, team.label === 'ทีมแต่ละปี' && team.active);
+    const bar = document.getElementById('teamYearBar'), head = document.getElementById('teamYearHead');
+    return JSON.stringify({ chips: bar.querySelectorAll('[data-team-year]').length,
+      current: bar.querySelector('.btn-success .team-year-sub')?.textContent.trim(),
+      setCurrent: document.querySelectorAll('[data-term-current]').length, link: !!head.querySelector('[data-team-year-goto]') });`));
+  say('ทีม SAMO opens on the current year from the ปี page', `${team.chips} chips · ${team.current}`, team.chips > 0 && team.current === 'ปัจจุบัน');
   say('…which offers no ตั้งเป็นปีปัจจุบัน and links to ปี SAMO', `${team.setCurrent} · ${team.link}`, team.setCurrent === 0 && team.link);
   await shot('team-years.png', false);
-  const back = await ev(`document.querySelector('[data-term-goto-year]').click(); await new Promise(r => setTimeout(r, 1500));
+  const back = await ev(`document.querySelector('[data-team-year-goto]').click(); await new Promise(r => setTimeout(r, 1500));
     return location.hash + ' ' + document.getElementById('adminTopTitle').textContent;`);
   say('…and the link comes back here', back, back === '#years ปี SAMO');
 

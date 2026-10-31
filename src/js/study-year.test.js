@@ -208,6 +208,7 @@ describe('RATCHET — ชั้นปี stays derived', () => {
     "year: '_House'",              // Drive folder for house crests
     'year: seat.term_year',        // Drive folder — ปีการศึกษา of the posting
     'year: currentTermYear',       // ditto, admin side
+    'year: treeDraftYear()',       // ditto — the ปี SAMO being PREPARED (0271)
     'year: openYear',              // the ARCHIVE term being edited
     "year: '2-digit'",             // Intl.DateTimeFormat
     "year: 'numeric'",             // Intl.DateTimeFormat
@@ -270,6 +271,12 @@ describe('RATCHET — ชั้นปี stays derived', () => {
     // purpose: rewriting it as concatenation would pass this ratchet by
     // hiding the shape, which is worse than naming the exemption.
     ['org-chart.js', 'the เกี่ยวกับเรา "ทีมปี" button — a SAMO year, not anyone\'s ชั้นปี'],
+    // 0271: the year bar, its dialogs and the ปี SAMO page name team_terms
+    // years ("ทีมปี 2570", "ลบปี 2570") — the ปี SAMO a team serves, never a
+    // person's ชั้นปี, which none of these three files reads at all.
+    [join('team', 'year-bar.js'), 'the ทีม SAMO year bar — a SAMO year, not anyone\'s ชั้นปี'],
+    [join('team', 'term-dialogs.js'), 'the publish / start-year questions — a SAMO year, not anyone\'s ชั้นปี'],
+    ['samo-year-admin.js', 'the ปี SAMO page — every year on it is a SAMO year, not anyone\'s ชั้นปี'],
   ]);
 
   it('every ชั้นปี on screen comes from studyYearLabel()', () => {

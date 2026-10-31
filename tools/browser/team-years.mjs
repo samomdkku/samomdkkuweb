@@ -1,24 +1,28 @@
 #!/usr/bin/env node
 // ============================================================
-// team-years.mjs — build a ทีม SAMO year by hand and see it on เกี่ยวกับเรา
-// (0270), SIGNED IN as a master, in headless Chrome, against the local dev
-// server on samo-dev. Shape copied from year-page.mjs.
+// team-years.mjs — prepare NEXT year's ทีม SAMO in advance (0271), SIGNED IN
+// as a master, in headless Chrome, against the local dev server on samo-dev.
+// Replaces the 0270 run of the same name: ทีมแต่ละปี is gone, and the year
+// is picked once, from the chips above the pane (like ระบบบ้าน's MD49 … MD54).
 //
 // WHAT IT DOES, all on samo-dev (it REFUSES any other project), on the
 // throwaway year 2686 (below every proof's sentinel range):
 //   1. registers a throwaway username account and gives it `master`;
-//   2. ทีม SAMO → ทีมแต่ละปี: adds 2686 "คัดลอกผังตอนนี้" and reads the editor
-//      against the database (every ตำแหน่ง listed, the count line, hidden);
-//   3. adds a ฝ่าย, a typed person (the form stays open and focused for the
-//      next name), and a CURRENT member by name — who must bring their photo;
-//   4. moves the typed person; the ตำแหน่ง move list leaves out the
-//      ตำแหน่ง's own descendants;
-//   5. shows the year — then the PUBLIC page lists a "ทีมปี 2686" button
-//      that shows the hand-added ฝ่าย and person, and still opens on the
-//      current year;
-//   6. deletes the ฝ่าย (the confirm names what goes with it), hides the year;
-//   7. 390px phone with the editor open: no sideways scroll; no console errors.
-//   ALWAYS deletes year 2686 and the account.
+//   2. ทีม SAMO opens on the CURRENT year chip; + adds 2686, which is
+//      "ยังไม่เตรียม" and offers คัดลอกจากทีมตอนนี้ / เริ่มจากว่าง;
+//   3. คัดลอกจากทีมตอนนี้ — the draft holds every live ตำแหน่ง and person, the
+//      editor paints it, and the head says "เหมือนทีมตอนนี้ทุกอย่าง";
+//   4. เพิ่มฝ่าย in 2686 writes team_draft_nodes and NOT team_nodes, and a
+//      permission given in 2686 changes the draft row, not the live one —
+//      the summary line then counts both;
+//   5. the current chip shows the live tree again, without the new ฝ่าย;
+//   6. แสดงบนหน้าเกี่ยวกับเรา → the PUBLIC page lists "ทีมปี 2686" with the
+//      new ฝ่าย, and still opens on the current year;
+//   7. a past year (if samo-dev has one) opens its archive list, no tree;
+//   8. 390px phone on 2686: no sideways scroll; no console errors.
+//   It does NOT press the switch — that rewrites samo-dev's live tree; the
+//   apply is proved in SQL by tools/team0271-prepared-year.sql.
+//   ALWAYS deletes year 2686 (its draft cascades) and the account.
 //
 // RUN (needs `npm run dev` on :5174 — it uses samo-dev — and Chrome):
 //   node tools/browser/team-years.mjs
@@ -36,8 +40,7 @@ const PORT = 9348;
 const USER = `claudetest${Date.now().toString(36)}`;
 const PASS = `t-${Math.random().toString(36).slice(2)}-Aa1`;
 const Y = 2686;
-const DIV = 'ฝ่ายทดสอบเบราว์เซอร์';
-const TYPED = 'คนทดสอบ เบราว์เซอร์';
+const DIV = 'ฝ่ายทดสอบปีหน้า';
 
 const loaded = loadEnv();
 const devTarget = resolveTarget({
@@ -85,12 +88,9 @@ try {
     for (let i = 0; i < secs; i += 1) { if (await ev(`return !!(${expr});`) === true) return true; await sleep(1000); }
     return false;
   };
-  // Answer the app-drawn confirm (confirm-modal.js); returns its title + body.
-  const answer = (yes) => `await new Promise(r => setTimeout(r, 600));
-    const m = document.getElementById('appConfirmModal');
-    const title = m.querySelector('[data-confirm-title]').textContent, body = m.querySelector('[data-confirm-body]').textContent;
-    m.querySelector('[data-confirm-${yes ? 'yes' : 'no'}]').click();
-    await new Promise(r => setTimeout(r, 1500));`;
+  const chipOf = (y) => `document.querySelector('#teamYearBar [data-team-year="${y}"]')`;
+  const headText = `document.getElementById('teamYearHead').innerText.replace(/\\s+/g, ' ')`;
+  const treeShown = `(document.getElementById('teamTree').offsetParent !== null)`;
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
 
@@ -106,89 +106,70 @@ try {
   await send('Page.navigate', { url: `${DEV_URL}/` }); await sleep(4000);
   await ev(`const a = await import('/src/js/auth.js'); await a.signOut().catch(()=>{}); await a.signInWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)}); await new Promise(r=>setTimeout(r,2000)); return 1;`);
 
-  // 2. add 2686 from the live tree
-  const [live] = await sql(`with recursive l as (
-      select id from public.team_nodes where parent_id is null and is_public
-      union all select c.id from public.team_nodes c join l on c.parent_id = l.id where c.is_public)
-    select (select count(*) from l) nodes, (select count(*) from public.team_members m join l on l.id = m.node_id) members,
-           public.current_samo_year() cy`);
-  const [withPhoto] = await sql(`with recursive l as (
-      select id from public.team_nodes where parent_id is null and is_public
-      union all select c.id from public.team_nodes c join l on c.parent_id = l.id where c.is_public)
-    select m.id, m.full_name, m.photo_url from public.team_members m join l on l.id = m.node_id
-     where m.photo_url is not null and btrim(m.full_name) <> ''
-       and (select count(*) from public.team_members x where btrim(x.full_name) = btrim(m.full_name)) = 1
-     order by m.id limit 1`);
+  const [live] = await sql(`select (select count(*) from public.team_nodes) nodes, (select count(*) from public.team_members) members,
+    public.current_samo_year() cy, (select max(year) from public.team_terms where year < public.current_samo_year()) past`);
+
+  // 2. the year bar, then + 2686
   await send('Page.navigate', { url: `${DEV_URL}/admin/` });
   await waitFor(`typeof window.openTeamMode === 'function'`, 60);
-  await ev(`window.openAdminSection?.('team'); await new Promise(r => setTimeout(r, 1500)); window.openTeamMode('years'); return 1;`);
-  const pane = await waitFor(`document.querySelector('#teamTermsPane .team-terms-list')`, 40);
-  say('ทีมแต่ละปี painted', pane, pane);
-  await ev(`document.getElementById('teamTermNewYear').value = '${Y}'; document.getElementById('teamTermStart').value = 'live';
-    document.getElementById('teamTermAddForm').requestSubmit(); return 1;`);
-  const opened = await waitFor(`document.querySelectorAll('#teamTermBody .team-arc-group').length > 0`, 60);
-  const ed = JSON.parse(await ev(`return JSON.stringify({ groups: document.querySelectorAll('#teamTermBody .team-arc-group').length,
-      rows: document.querySelectorAll('#teamTermBody .team-arc-row').length,
-      count: document.querySelector('.team-arc-count')?.textContent, status: document.getElementById('teamTermsStatus').textContent,
-      badge: document.querySelector('.team-term.is-open .team-term-badges')?.textContent.replace(/\\s+/g, ' ').trim() });`));
-  const [d1] = await sql(`select (select published_at is null from public.team_terms where year = ${Y}) hidden,
-      (select count(*) from public.team_archive_nodes where year = ${Y}) nodes,
-      (select count(*) from public.team_archive_members where year = ${Y}) members`);
-  say('2686 added from the live tree and its editor opened', `${opened} · ${ed.status}`, opened && /เพิ่มปี 2686 แล้ว/.test(ed.status));
-  say('…the database copied every public ตำแหน่ง and person', `${d1.nodes}/${live.nodes} · ${d1.members}/${live.members}`,
-    Number(d1.nodes) === Number(live.nodes) && Number(d1.members) === Number(live.members));
-  say('…the editor lists EVERY ตำแหน่ง (empty ones too) and every person', `${ed.groups} groups · ${ed.rows} rows · "${ed.count}"`,
-    ed.groups === Number(d1.nodes) && ed.rows === Number(d1.members));
-  say('…and it is not shown yet', `${d1.hidden} · ${ed.badge}`, d1.hidden === true && /ยังไม่แสดง/.test(ed.badge));
+  await ev(`window.openAdminSection?.('team'); return 1;`);
+  const bar = await waitFor(`document.querySelector('#teamYearBar .btn-success[data-team-year]')`, 40);
+  const b0 = JSON.parse(await ev(`const on = document.querySelector('#teamYearBar .btn-success[data-team-year]');
+    return JSON.stringify({ year: on?.dataset.teamYear, sub: on?.querySelector('.team-year-sub')?.textContent,
+      years: !!document.querySelector('.team-mode-btn[data-team-mode="years"]') });`));
+  say('ทีม SAMO opens on the CURRENT year chip', `${b0.year} · ${b0.sub}`, bar && String(b0.year) === String(live.cy) && b0.sub === 'ปัจจุบัน');
+  say('…and there is no ทีมแต่ละปี tab any more', b0.years, b0.years === false);
+  await ev(`document.querySelector('[data-team-year-add]').click(); await new Promise(r => setTimeout(r, 300));
+    const f = document.querySelector('[data-team-year-addform]'); f.elements.year.value = '${Y}'; f.requestSubmit(); return 1;`);
+  const added = await waitFor(`${chipOf(Y)}?.classList.contains('btn-success') && document.querySelector('[data-team-year-start="live"]')`, 40);
+  const b1 = JSON.parse(await ev(`return JSON.stringify({ sub: ${chipOf(Y)}?.querySelector('.team-year-sub')?.textContent, tree: ${treeShown} });`));
+  say('+ adds 2686, selected, "ยังไม่เตรียม" with the two ways to start', `${added} · ${b1.sub}`, added && b1.sub === 'ยังไม่เตรียม');
+  say('…and no tree is drawn for a year nobody prepared', b1.tree, b1.tree === false);
+  await shot('unprepared.png', false);
 
-  // 3. a ฝ่าย, a typed person, a current member by name
-  await ev(`document.querySelector('[data-an-add-node=""]').click(); await new Promise(r => setTimeout(r, 400));
-    const f = document.querySelector('[data-add-node-form=""]'); f.elements.name.value = ${JSON.stringify(DIV)}; f.elements.kind.value = 'division';
-    f.requestSubmit(); return 1;`);
-  await waitFor(`[...document.querySelectorAll('[data-an-name]')].some(i => i.value === ${JSON.stringify(DIV)})`, 20);
-  const [div] = await sql(`select id, kind, parent_id from public.team_archive_nodes where year = ${Y} and name = ${lit(DIV)}`);
-  say('เพิ่มฝ่าย writes a top-level ฝ่าย', JSON.stringify(div || null), div && div.kind === 'division' && div.parent_id === null);
-  const typed = JSON.parse(await ev(`document.querySelector('[data-am-add="${div?.id}"]').click(); await new Promise(r => setTimeout(r, 400));
-    const f = document.querySelector('[data-add-member-form="${div?.id}"]'); f.elements.name.value = ${JSON.stringify(TYPED)}; f.elements.nickname.value = 'ทด';
-    f.requestSubmit(); await new Promise(r => setTimeout(r, 2500));
-    const a = document.activeElement;
-    return JSON.stringify({ focus: a?.name === 'name' && !!a.closest('[data-add-member-form="${div?.id}"]'), status: document.getElementById('teamTermsStatus').textContent });`));
-  const [tp] = await sql(`select id, nickname, photo_url, src_member_id from public.team_archive_members where year = ${Y} and full_name = ${lit(TYPED)}`);
-  say('a typed person is added with their ชื่อเล่น and no identity', JSON.stringify(tp || null), tp && tp.nickname === 'ทด' && !tp.src_member_id && !tp.photo_url);
-  say('…and the form stays open with the cursor on the next name', `${typed.focus} · ${typed.status}`, typed.focus);
-  if (withPhoto) {
-    await ev(`const f = document.querySelector('[data-add-member-form="${div?.id}"]'); f.elements.name.value = ${JSON.stringify(withPhoto.full_name)};
-      f.requestSubmit(); await new Promise(r => setTimeout(r, 2500)); return 1;`);
-    const [cm] = await sql(`select photo_url, src_member_id from public.team_archive_members
-      where year = ${Y} and node_id = ${lit(div.id)} and full_name = ${lit(withPhoto.full_name)}`);
-    say('a CURRENT member typed by name brings their photo and the src link', JSON.stringify(cm ? { photo: !!cm.photo_url, src: cm.src_member_id === withPhoto.id } : null),
-      cm && cm.photo_url === withPhoto.photo_url && cm.src_member_id === withPhoto.id);
-  } else {
-    say('a CURRENT member with a unique name and a photo exists on samo-dev', 'none — skipped', false);
-  }
+  // 3. copy from the live tree
+  await ev(`document.querySelector('[data-team-year-start="live"]').click(); return 1;`);
+  const copied = await waitFor(`${chipOf(Y)}?.querySelector('.team-year-sub')?.textContent === 'เตรียมไว้' && document.querySelector('.team-year-summary')`, 60);
+  const [d1] = await sql(`select (select count(*) from public.team_draft_nodes where term_year = ${Y}) nodes,
+      (select count(*) from public.team_draft_members where term_year = ${Y}) members`);
+  say('คัดลอกจากทีมตอนนี้ copies every ตำแหน่ง and person into the draft', `${d1.nodes}/${live.nodes} · ${d1.members}/${live.members}`,
+    copied && Number(d1.nodes) === Number(live.nodes) && Number(d1.members) === Number(live.members));
+  await waitFor(`${treeShown} && document.querySelectorAll('#teamTree [data-node-id]').length > 0`, 30);
+  const t1 = JSON.parse(await ev(`return JSON.stringify({ nodes: document.querySelectorAll('#teamTree [data-node-id]').length,
+    summary: document.querySelector('.team-year-summary')?.textContent, head: ${headText} });`));
+  say('…the editor paints the draft', `${t1.nodes} nodes on screen`, t1.nodes > 0);
+  say('…and the head says nothing changes yet', t1.summary, t1.summary === 'เหมือนทีมตอนนี้ทุกอย่าง' && /ใช้จริงเมื่อเริ่มปี SAMO 2686/.test(t1.head));
 
-  // 4. moves
-  const [target] = await sql(`select id from public.team_archive_nodes where year = ${Y} and kind = 'role' order by position, name limit 1`);
-  await ev(`document.querySelector('[data-am-move="${tp?.id}"]').click(); await new Promise(r => setTimeout(r, 300));
-    const s = document.querySelector('[data-move-target="${tp?.id}"]'); s.value = '${target.id}'; s.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 2000)); return 1;`);
-  const [moved] = await sql(`select node_id from public.team_archive_members where id = ${lit(tp?.id)}`);
-  say('ย้าย moves a person to another ตำแหน่ง', moved?.node_id === target.id, moved?.node_id === target.id);
-  const [parent] = await sql(`select p.id, (select array_agg(c.id) from public.team_archive_nodes c where c.parent_id = p.id) kids
-      from public.team_archive_nodes p where p.year = ${Y} and p.parent_id is null
-       and exists (select 1 from public.team_archive_nodes c where c.parent_id = p.id) order by p.position limit 1`);
-  const opts = JSON.parse(await ev(`document.querySelector('[data-an-move="${parent.id}"]').click(); await new Promise(r => setTimeout(r, 300));
-    const s = document.querySelector('[data-move-target="${parent.id}"]'); const v = [...s.options].map(o => o.value);
-    document.querySelector('[data-move-cancel]').click(); return JSON.stringify(v);`));
-  const kids = parent.kids || [];
-  say('a ตำแหน่ง\'s move list leaves out itself and its descendants', `${opts.length} options, ${kids.length} children excluded`,
-    !opts.includes(parent.id) && kids.every((k) => !opts.includes(k)) && opts.includes(''));
-  await shot('editor.png', false);
+  // 4. a ฝ่าย and a permission, in 2686 only
+  await ev(`document.getElementById('teamAddRoot').click(); await new Promise(r => setTimeout(r, 800));
+    document.getElementById('teamNodeName').value = ${JSON.stringify(DIV)};
+    document.querySelector('[data-team-modal-save="teamNodeModal"]').click(); await new Promise(r => setTimeout(r, 2500)); return 1;`);
+  const [d2] = await sql(`select (select count(*) from public.team_draft_nodes where term_year = ${Y} and name = ${lit(DIV)}) draft,
+      (select count(*) from public.team_nodes where name = ${lit(DIV)}) live`);
+  say('เพิ่มฝ่าย in 2686 writes the draft, not the live tree', `draft ${d2.draft} · live ${d2.live}`, Number(d2.draft) === 1 && Number(d2.live) === 0);
+  const [m] = await sql(`select id, permissions from public.team_draft_members where term_year = ${Y}
+      and not ('shop' = any(permissions)) and coalesce(full_name,'') <> '' order by id limit 1`);
+  const perm = m ? await ev(`const api = await import('/src/js/team/api.js');
+    if (api.treeDraftYear() !== ${Y}) return 'tree is on ' + api.treeDraftYear();
+    await api.updateMember(${JSON.stringify(m.id)}, { permissions: [...${JSON.stringify(m.permissions || [])}, 'shop'] });
+    (await import('/src/js/team/year-bar.js')).refreshYearSummary(); await new Promise(r => setTimeout(r, 2000)); return 'ok';`) : 'no member';
+  const [d3] = await sql(`select (select 'shop' = any(permissions) from public.team_draft_members where term_year = ${Y} and id = ${lit(m?.id)}) draft,
+      (select 'shop' = any(permissions) from public.team_members where id = ${lit(m?.id)}) live`);
+  say('a permission given in 2686 changes the draft row only', `${perm} · draft ${d3.draft} · live ${d3.live}`, perm === 'ok' && d3.draft === true && d3.live !== true);
+  const s2 = await ev(`return document.querySelector('.team-year-summary')?.textContent || '';`);
+  say('…and the summary line counts both', s2, /ตำแหน่งใหม่ 1/.test(s2) && /1 คนเปลี่ยนตำแหน่งหรือสิทธิ์/.test(s2));
+  await shot('draft.png', false);
 
-  // 5. show → the public page
-  await ev(`document.querySelector('[data-term-shown="${Y}"]').click(); await new Promise(r => setTimeout(r, 2500)); return 1;`);
-  const [d2] = await sql(`select published_at is not null shown from public.team_terms where year = ${Y}`);
-  say('แสดงบนหน้าเกี่ยวกับเรา publishes the year as it stands', d2.shown, d2.shown === true);
+  // 5. back to the current year
+  await ev(`${chipOf(live.cy)}.click(); return 1;`);
+  const back = await waitFor(`${treeShown} && document.querySelectorAll('#teamTree [data-node-id]').length > 0 && !document.getElementById('teamTree').innerText.includes(${JSON.stringify(DIV)})`, 30);
+  say('the current chip shows the live tree again, without the new ฝ่าย', back, back);
+
+  // 6. show 2686 → the public page
+  await ev(`${chipOf(Y)}.click(); await new Promise(r => setTimeout(r, 2000)); document.querySelector('[data-team-year-shown="${Y}"]').click();
+    await new Promise(r => setTimeout(r, 2500)); return 1;`);
+  const [d4] = await sql(`select published_at is not null shown from public.team_terms where year = ${Y}`);
+  say('แสดงบนหน้าเกี่ยวกับเรา shows the prepared year', d4.shown, d4.shown === true);
   await send('Page.navigate', { url: `${DEV_URL}/about` });
   const chips = await waitFor(`[...document.querySelectorAll('#orgYears [data-year]')].length > 1`, 40);
   const pub = JSON.parse(await ev(`const b = [...document.querySelectorAll('#orgYears [data-year]')];
@@ -196,39 +177,31 @@ try {
   say('เกี่ยวกับเรา lists a "ทีมปี 2686" button', pub.labels.join(' · '), chips && pub.labels.includes(`ทีมปี ${Y}`));
   say('…and still opens on the current year', `${pub.active} vs ${live.cy}`, String(pub.active) === String(live.cy));
   const shown = JSON.parse(await ev(`document.querySelector('#orgYears [data-year="${Y}"]').click(); await new Promise(r => setTimeout(r, 3000));
-    const t = document.getElementById('orgBody').innerText;
-    return JSON.stringify({ div: t.includes(${JSON.stringify(DIV)}), active: document.querySelector('#orgYears .is-active')?.dataset.year });`));
-  say('…which shows the hand-added ฝ่าย', `${shown.div} · active ${shown.active}`, shown.div && shown.active === String(Y));
-  const person = await ev(`const card = [...document.querySelectorAll('[data-org-open]')].find(c => c.textContent.includes(${JSON.stringify(DIV)}));
-    if (!card) return 'no card'; card.click(); await new Promise(r => setTimeout(r, 1500));
-    return document.body.innerText.includes(${JSON.stringify(withPhoto?.full_name || TYPED)}) ? 'yes' : 'no';`);
-  say('…and the people in it', person, person === 'yes');
+    return JSON.stringify({ div: document.getElementById('orgBody').innerText.includes(${JSON.stringify(DIV)}) });`));
+  say('…which shows the ฝ่าย added to the prepared year', shown.div, shown.div);
   await shot('public.png', false);
 
-  // 6. delete the ฝ่าย, hide the year
+  // 7. a past year
   await send('Page.navigate', { url: `${DEV_URL}/admin/` });
   await waitFor(`typeof window.openTeamMode === 'function'`, 60);
-  await ev(`window.openAdminSection?.('team'); await new Promise(r => setTimeout(r, 1500)); window.openTeamMode('years'); return 1;`);
-  await waitFor(`document.querySelector('[data-term-edit="${Y}"]')`, 40);
-  await ev(`document.querySelector('[data-term-edit="${Y}"]').click(); return 1;`);
-  await waitFor(`document.querySelector('[data-an-delete="${div?.id}"]')`, 40);
-  const del = JSON.parse(await ev(`document.querySelector('[data-an-delete="${div?.id}"]').click(); ${answer(true)} return JSON.stringify({ title, body });`));
-  const [d3] = await sql(`select count(*) n from public.team_archive_nodes where id = ${lit(div?.id)}`);
-  say('ลบ ฝ่าย asks, naming who goes with it', del.body.slice(0, 90), /รายชื่อ \d+ คน/.test(del.body) || /ผังสด/.test(del.body));
-  say('…and removes it', d3.n, Number(d3.n) === 0);
-  const hide = JSON.parse(await ev(`document.querySelector('[data-term-shown="${Y}"]').click(); ${answer(true)} return JSON.stringify({ title });`));
-  const [d4] = await sql(`select published_at is null hidden from public.team_terms where year = ${Y}`);
-  say('ซ่อน asks, then hides the year', `${hide.title} · ${d4.hidden}`, d4.hidden === true);
+  await ev(`window.openAdminSection?.('team'); return 1;`);
+  await waitFor(`${chipOf(live.cy)}`, 40);
+  if (live.past) {
+    await ev(`${chipOf(live.past)}.click(); return 1;`);
+    const arc = await waitFor(`!document.getElementById('teamTermsPane').classList.contains('d-none') && !${treeShown}`, 30);
+    const h = await ev(`return ${headText};`);
+    say(`a past year (${live.past}) opens its list, not the tree, and grants nothing`, h.slice(0, 90), arc && /ไม่ให้สิทธิ์ใคร/.test(h));
+  } else {
+    say('a past year exists on samo-dev', 'none — skipped', true);
+  }
 
-  // 7. phone
-  await ev(`document.querySelector('[data-term-edit="${Y}"]')?.click(); return 1;`);
-  await sleep(500);
-  if (!(await ev(`return !!document.getElementById('teamTermBody');`))) await ev(`document.querySelector('[data-term-edit="${Y}"]')?.click(); return 1;`);
-  await waitFor(`document.querySelectorAll('#teamTermBody .team-arc-group').length > 0`, 30);
+  // 8. phone
+  await ev(`${chipOf(Y)}.click(); return 1;`);
+  await waitFor(`${treeShown} && document.querySelectorAll('#teamTree [data-node-id]').length > 0`, 30);
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await sleep(1500);
   const sw = JSON.parse(await ev(`window.scrollTo(0,0); return JSON.stringify({ sw: document.documentElement.scrollWidth, w: window.innerWidth });`));
-  say('phone, editor open: no sideways scroll', `${sw.sw} ≤ ${sw.w}`, sw.sw <= sw.w);
+  say('phone, 2686 open: no sideways scroll', `${sw.sw} ≤ ${sw.w}`, sw.sw <= sw.w);
   await shot('phone.png', false);
 
   say('console errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
@@ -240,7 +213,9 @@ try {
       delete from public.users where username = ${lit(USER)};
       delete from auth.users where email = ${lit(`${USER}@samomdkku.app`)};
       select (select count(*) from auth.users where email = ${lit(`${USER}@samomdkku.app`)}) accounts,
-             (select count(*) from public.team_terms where year = ${Y}) years;`);
+             (select count(*) from public.team_terms where year = ${Y}) years,
+             (select count(*) from public.team_draft_nodes where term_year = ${Y}) drafts,
+             (select count(*) from public.team_nodes where name = ${lit(DIV)}) live_div;`);
     console.log(`cleanup: ${JSON.stringify(left)}`);
   } catch (e) { console.log(`cleanup FAILED: ${e.message}`); }
   try { ws?.close(); } catch {}

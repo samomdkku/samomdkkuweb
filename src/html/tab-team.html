@@ -3,6 +3,13 @@
      and "perms" (per-role app-permission assignment), toggled in the toolbar
      so the role/people page stays uncluttered. -->
 <div class="team-wrap">
+  <!-- WHICH YEAR (0271). Picked once, above everything: the current year is the
+       live tree, a year ahead is its prepared tree (same editor, permissions
+       included, applied on switch day), a past year is its archive list.
+       Rendered by src/js/team/year-bar.js. -->
+  <div class="team-yearbar" id="teamYearBar"></div>
+  <div class="team-yearhead" id="teamYearHead"></div>
+  <div class="team-year-pane d-none" id="teamYearPane"></div>
   <div class="team-modeswitch-row">
     <div class="team-modeswitch" role="tablist" aria-label="โหมด">
       <button type="button" class="team-mode-btn is-active" data-team-mode="team">
@@ -10,9 +17,6 @@
       </button>
       <button type="button" class="team-mode-btn" data-team-mode="perms">
         <i class="bi bi-shield-lock"></i> จัดการสิทธิ์
-      </button>
-      <button type="button" class="team-mode-btn" data-team-mode="years">
-        <i class="bi bi-calendar3"></i> ทีมแต่ละปี
       </button>
       <!-- The badge is the point: an admin should learn there is something to
            resolve without opening the pane to look. Filled by team/index.js. -->
@@ -83,10 +87,9 @@
     <div class="team-empty" id="teamEmpty">กำลังโหลด…</div>
   </div>
 
-  <!-- ปีการศึกษา (0104). A separate surface, not another rendering of the tree:
-       the live tree is always the CURRENT term, and past terms are a frozen —
-       but still editable — snapshot in team_archive_*. Rendered by
-       src/js/team/terms.js. -->
+  <!-- A PAST year's list (0104/0270): a frozen — but still editable — snapshot
+       in team_archive_*, opened when the year bar picks a year before the
+       current one. Rendered by src/js/team/terms.js. -->
   <div class="team-terms-pane d-none" id="teamTermsPane"></div>
 
   <!-- ตรวจสอบข้อมูล. Computed live from the members already in memory, so a
@@ -553,6 +556,11 @@
             <div class="modal-body">
           <input type="hidden" id="teamMemberId" />
           <input type="hidden" id="teamMemberNodeId" />
+          <div class="alert alert-light border small d-none" id="teamMemberDraftNote" role="note">
+            <i class="bi bi-person-lock"></i>
+            ชื่อ รูป และข้อมูลส่วนตัวเป็นของคนนี้ ไม่ได้เป็นของปีใดปีหนึ่ง —
+            แก้ได้ที่ปีปัจจุบันหรือที่ “ข้อมูลของฉัน” ของเจ้าตัว ที่นี่เปลี่ยนตำแหน่งและสิทธิ์สำหรับปีหน้า
+          </div>
           <input type="hidden" id="teamMemberPhotoUrl" />
           <!-- Portrait. This is the one field on this form that becomes PUBLIC:
                get_public_org_chart() publishes it on the โครงสร้างองค์กร page for

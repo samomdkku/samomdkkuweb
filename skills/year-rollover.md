@@ -46,15 +46,18 @@ not touch.
    edit. Forgetting step 1 is covered — the switch auto-archives an
    unpublished outgoing year — but then the archive is whatever the tree
    holds at that moment, which is the new team if step 2 already happened.
-   **Showing the new team BEFORE the switch (0270)** — no live-tree edit
-   needed: ทีม SAMO → ทีมแต่ละปี → เพิ่มปี (e.g. 2570, "คัดลอกผังตอนนี้" or
-   "เริ่มจากว่าง") → จัดรายชื่อ → แสดงบนหน้าเกี่ยวกับเรา. The public page gets a
-   "ทีมปี 2570" button; the portal stays in 2569. On the switch the shown 2570
-   list keeps being what เกี่ยวกับเรา shows (a published archive wins), so the
-   new team appears on the day without editing the live tree first — the tree
-   is then only about WHO HOLDS WHICH PERMISSION. ⛔ Do not press เผยแพร่ซ้ำ on
-   2570 once it is current unless the live tree really is the new team: it
-   rebuilds the list from the tree. It asks first (hand-edited year, 0270).
+   **Since 0271 step 2 is PREPARED, not edited live (owner 2026-10-31).**
+   ทีม SAMO → the year chip (e.g. 2570, "+" adds it) → คัดลอกจากทีมตอนนี้ (or
+   เริ่มจากว่าง) → the SAME จัดการทีม / จัดการสิทธิ์ editor, writing
+   `team_draft_*`. Nothing it holds grants anything until step 3, which
+   REPLACES the live tree with the draft in the same transaction (ids kept:
+   account links, Discord roles and photos carry over; anyone left out loses
+   their seat that day) and saves the outgoing tree as a draft of the outgoing
+   year, so ย้อนกลับ restores it. "แสดงบนหน้าเกี่ยวกับเรา" on the chip shows the
+   prepared team publicly before the switch. Editing the live tree still works
+   and still takes effect AT ONCE — that is the old step 2, no longer the way.
+   ⛔ A linked person's ชื่อ/ชื่อเล่น/รูป are locked in the draft: they follow
+   the person on the day.
 3. **Know who is about to lose the admin seat.** Whoever calls
    `start_team_term` keeps whatever `team_edit`/`master` grant they hold — the
    RPC does not touch permissions. If the outgoing VP is the only `team_edit`

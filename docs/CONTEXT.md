@@ -913,8 +913,8 @@ stay EDITABLE via the ทีม SAMO admin's third mode (`src/js/team/terms.js`)
 the point of a snapshot rather than a view. `get_public_team_years()` lists only
 terms that are current or published. Proof: `tools/team0104-terms.mjs` (27 checks).
 
-**A year built by hand (0270).** Any NON-current year's list can be built in
-ทีมแต่ละปี — the year ahead or a past one — and shown on เกี่ยวกับเรา without
+**A year built by hand (0270).** Any PAST year's list can be built from
+ทีม SAMO's year bar (0271 moved years AHEAD to the prepared draft below) — and shown on เกี่ยวกับเรา without
 moving the portal's year: `copy_team_year(to, from)` starts it (from = NULL → the
 live tree's public subtree, or another year's list; refuses the current year and a
 non-empty one), the editor adds/renames/moves/removes ตำแหน่ง and people with plain
@@ -931,6 +931,25 @@ the app asks before calling again with true (`publishTermAsking`). The automatic
 switch passes true for an unpublished outgoing year (it ran on the live tree).
 The archive still grants NOTHING: the set of functions reading `team_archive_*`
 is asserted by `tools/team0270-hand-built-years.sql` §0.
+
+**Next year PREPARED, applied on switch (0271).** A year AHEAD of the current one
+is edited as a full tree — people AND permissions — in `team_draft_nodes` /
+`team_draft_members` (the live tables' columns + `term_year`, ids kept so a
+continuing member is the same row; composite FKs keep parent and node in the same
+year; cycle trigger). It grants NOTHING: no resolver reads it. Writes need
+team_edit AND `term_year > current_samo_year()`. `start_team_draft(year, 'live' |
+'empty')` starts one; `team_draft_summary(year)` is what the switch will do.
+`_start_team_term` calls `_apply_team_draft(year, outgoing)` after the outgoing
+publish and before the flip: the outgoing live tree becomes a draft of the
+outgoing year (undo), new rows are inserted, continuing members get their
+PLACEMENT updated (identity comes from `people`, by `person_id` or kkumail) under
+`app.team_sync` so the self-update guard lets an anonymous automatic switch write
+it, rows not in the draft are deleted, the consumed draft is dropped.
+`get_public_team_chart(year)` shows a published future year from its draft when
+one exists. The admin UI is ONE year bar (`src/js/team/year-bar.js`, chips like
+ระบบบ้าน's): current year = live tree, a year ahead = the same editor on the draft
+(`api.js` `setTreeDraftYear` routes every tree read/write), a past year = the
+archive list (`terms.js`). Proof `tools/team0271-prepared-year.sql`.
 
 **Portrait delivery.** `team_members.photo_focus` is an ENUM (`top|center|bottom`,
 CHECK-constrained because the value is published and would otherwise reach CSS).

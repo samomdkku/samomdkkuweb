@@ -2,8 +2,8 @@
 // TERM DIALOGS — the two confirmations a SAMO-year action asks, in ONE home.
 //
 // Two screens ask them: the ปี SAMO admin page (samo-year-admin.js, where the
-// handover lives) and ทีม SAMO → ทีมแต่ละปี (team/terms.js, where a year's
-// archive is re-published). The wording is the guard — it is what stops a
+// handover lives) and ทีม SAMO's year bar (team/year-bar.js, where the current
+// year's snapshot is re-published). The wording is the guard — it is what stops a
 // re-publish from filing the next team as this year's history — so a second
 // copy that drifts is the class-6 "two implementations of one rule" bug.
 // Each function only ASKS; the caller does the write and reports the outcome.
@@ -25,7 +25,7 @@ export function askPublishTerm(year, alreadyPublished) {
       ? `รายชื่อและรูปที่แก้ไขไว้ในประวัติปี SAMO ${year} จะถูกแทนที่ด้วยผังตอนนี้ทั้งหมด — `
         + `ถ้ากำลังแก้ผังเป็นทีมของปีถัดไป อย่ากด: ประวัติปี SAMO ${year} จะกลายเป็นทีมใหม่`
       : 'หลังจากนี้หน้าทีม SAMO สาธารณะจะแสดงทีมชุดนี้ไว้ แม้จะแก้ผังเป็นทีมใหม่แล้วก็ตาม '
-        + 'แก้ชื่อ/รูปของปีนี้ภายหลังได้ที่ ทีม SAMO → ทีมแต่ละปี',
+        + `แก้ชื่อ/รูปของปีนี้ภายหลังได้ที่ ทีม SAMO → ปี ${year}`,
     yes: alreadyPublished ? 'เผยแพร่ซ้ำ' : 'บันทึกทีมปีนี้',
     danger: !!alreadyPublished,
   });
@@ -45,7 +45,7 @@ export async function publishTermAsking(year, alreadyPublished) {
     if (!err?.handEdited) throw err;
     const ok = await askConfirm({
       title: `แทนที่รายชื่อทีมปี SAMO ${year} ที่จัดไว้เอง?`,
-      body: `รายชื่อทีมปี SAMO ${year} (${err.handEdited} คน) ถูกเพิ่มหรือแก้ไว้เองที่ ทีมแต่ละปี — `
+      body: `รายชื่อทีมปี SAMO ${year} (${err.handEdited} คน) ถูกเพิ่มหรือแก้ไว้เองที่ ทีม SAMO → ปี ${year} — `
         + 'ถ้าบันทึกจากผังตอนนี้ รายชื่อนั้นจะถูกแทนที่ทั้งหมด (รูปคงอยู่เฉพาะคนที่ยังอยู่ในผัง) '
         + 'ถ้าต้องการเก็บรายชื่อที่จัดไว้ ให้กดยกเลิก',
       yes: 'แทนที่ด้วยผังตอนนี้',
@@ -59,12 +59,14 @@ export async function publishTermAsking(year, alreadyPublished) {
 /**
  * Make `year` the current SAMO year (start_samo_year → start_team_term).
  * `outgoing` is the term being replaced, or null; `passport` ({ name, season })
- * when the next Passport วาระสโม opens in the same act (0242).
+ * when the next Passport วาระสโม opens in the same act (0242); `prepared` is
+ * team_draft_summary(year) — when that year's team was prepared ahead (0271),
+ * the switch REPLACES the live tree with it, and permissions change with it.
  *
  * Mirrors start_team_term (0224): it snapshots the outgoing year ONLY when
  * that year was never published — an existing archive is kept as is.
  */
-export function askStartTerm(year, outgoing, passport = null) {
+export function askStartTerm(year, outgoing, passport = null, prepared = null) {
   const out = outgoing?.year ?? null;
   const willSnapshot = out != null && !outgoing?.published_at;
   const back = out != null && year < out;
@@ -79,7 +81,14 @@ export function askStartTerm(year, outgoing, passport = null) {
       + (passport
         ? `และ SAMO Passport เริ่มวาระ ${passport.name} (season ${passport.season}) — ตารางคะแนนสดเริ่มนับใหม่ `
         : 'SAMO Passport ไม่เปลี่ยน ')
-      + 'งานที่ส่งเข้ามาแล้วยังอยู่ในปีเดิม และสิทธิ์ของแต่ละคนไม่เปลี่ยน',
+      + 'งานที่ส่งเข้ามาแล้วยังอยู่ในปีเดิม '
+      + (prepared?.prepared
+        ? `และทีมปี ${year} ที่เตรียมไว้จะใช้แทนผังตอนนี้ — สิทธิ์ของแต่ละคนเปลี่ยนตามผังใหม่ทันที `
+          + `(${prepared.members ?? 0} คน${prepared.members_added ? ` · เพิ่ม ${prepared.members_added}` : ''}`
+          + `${prepared.members_removed ? ` · ออก ${prepared.members_removed}` : ''}`
+          + `${prepared.members_changed ? ` · เปลี่ยน ${prepared.members_changed}` : ''}) `
+          + `ถ้ากดผิด ย้อนกลับไปปี ${outgoing?.year ?? 'เดิม'} ได้และผังเดิมจะกลับมา`
+        : 'และสิทธิ์ของแต่ละคนไม่เปลี่ยน'),
     yes: back ? `ย้อนกลับไปปี SAMO ${year}` : `เริ่มปี SAMO ${year}`,
     danger: false,
   });

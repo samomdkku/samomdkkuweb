@@ -47,7 +47,7 @@ import { initShop, openShopAdmin, openShopAdminOrder } from './shop/index.js';
 import { initProjects, enterProjectsWorkspace } from './projects/index.js';
 
 // SAMO Team (org tree)
-import { initTeam, enterTeamWorkspace, showTeamMode } from './team/index.js';
+import { initTeam, enterTeamWorkspace, showTeamMode, showTeamYear } from './team/index.js';
 import { fetchCurrentSamoYear, SAMO_YEAR_CHANGED } from './samo-year.js';
 // The ONE ตำแหน่งของฉัน card — same component the public /me page renders.
 import { loadMySeat, renderMySeat } from './my-seat.js';
@@ -832,11 +832,16 @@ async function tryCreatorDeepLink(hash) {
 
 // Public function — sidebar buttons and legacy onclicks call these.
 window.openAdminSection = (which) => showAdminSide(which);
-// ทีม SAMO at a given mode ('team' | 'years' …) — the ปี SAMO page links into
-// จัดการทีม and ทีมแต่ละปี. Through showAdminSide, so the route gate applies.
+// ทีม SAMO at a given mode ('team' | 'perms' …) or YEAR — the ปี SAMO page links
+// into จัดการทีม and into the year being prepared (0271). Through showAdminSide,
+// so the route gate applies.
 window.openTeamMode = (m) => {
   showAdminSide('team');
   if (document.querySelector('#adminSideNav [data-admin-side="team"].is-active')) showTeamMode(m);
+};
+window.openTeamYear = (year) => {
+  showAdminSide('team');
+  if (document.querySelector('#adminSideNav [data-admin-side="team"].is-active')) showTeamYear(year);
 };
 window.showAdminLanding = () => showAdminSide('landing');
 

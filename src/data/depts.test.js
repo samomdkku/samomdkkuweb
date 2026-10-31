@@ -113,8 +113,24 @@ describe('หน้าฝ่าย grants come from ทีม SAMO, never from a
     expect(GRANTS.test(draft)).toBe(true);
   });
 
+  // ONE shape is not a grant made in SQL: applying a year's PREPARED tree on
+  // switch day (0271) copies dept_page from team_draft_* — a value an admin
+  // picked in ทีม SAMO → ปี <next> → สิทธิ์ → หน้าฝ่าย, the same screen the rule
+  // points at. Exempt per STATEMENT, and only when the value is that same column
+  // of a team_draft_* row; anything else in such a statement still offends.
+  const copiesFromDraft = (stmt) => /\bfrom\s+public\.team_draft_(nodes|members)\s+(\w+)/i.test(stmt)
+    && !/dept_page\s*=(?!\s*null\b)(?!\s*\w+\.dept_page\b)/i.test(stmt.replace(/^[\s\S]*?\bset\b/i, ''));
+  const grantsIn = (sql) => sql.split(';').some((s) => GRANTS.test(s) && !copiesFromDraft(s));
+
+  it('control: a literal grant is still caught inside a statement that copies from a draft', () => {
+    const sneaky = "update public.team_nodes n set dept_page = 'internal' from public.team_draft_nodes d where d.id = n.id";
+    expect(grantsIn(sneaky)).toBe(true);
+    const copy = 'update public.team_nodes n set name = d.name, dept_page = d.dept_page from public.team_draft_nodes d where d.id = n.id';
+    expect(grantsIn(copy)).toBe(false);
+  });
+
   it('no migration sets team_nodes.dept_page or team_members.dept_page to a value', () => {
-    const offenders = files.filter((f) => GRANTS.test(code(f)));
+    const offenders = files.filter((f) => grantsIn(code(f)));
     expect(offenders, [
       'A migration writes a หน้าฝ่าย grant. Who edits a ฝ่าย\'s public page is chosen',
       'by an admin in ทีม SAMO → สิทธิ์ → หน้าฝ่าย (owner, 2026-10-13); a grant made',

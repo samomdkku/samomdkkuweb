@@ -127,11 +127,14 @@ describe('the ปี SAMO switch has ONE home', () => {
     expect(callers).toEqual(['team/api.js']);
   });
 
-  it('ทีม SAMO → ทีมแต่ละปี no longer offers ตั้งเป็นปีปัจจุบัน', () => {
-    const terms = stripComments(readFileSync(join(SRC, 'team', 'terms.js'), 'utf8'));
-    expect(terms).not.toMatch(/data-term-current/);
-    expect(terms).not.toMatch(/startSamoYear|setCurrentTerm/);
-    expect(terms).toMatch(/data-term-goto-year/);
+  it('ทีม SAMO\'s year bar never makes a year current — it links to the ปี page', () => {
+    for (const f of [['team', 'terms.js'], ['team', 'year-bar.js']]) {
+      const src = stripComments(readFileSync(join(SRC, ...f), 'utf8'));
+      expect(src, f.join('/')).not.toMatch(/data-term-current/);
+      expect(src, f.join('/')).not.toMatch(/startSamoYear|setCurrentTerm|start_team_term/);
+    }
+    expect(stripComments(readFileSync(join(SRC, 'team', 'year-bar.js'), 'utf8')))
+      .toMatch(/openAdminSection\?\.\('years'\)/);
   });
 
   it('ระบบบ้าน no longer moves ปีการศึกษา itself — it links to the ปี page', () => {
