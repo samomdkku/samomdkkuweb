@@ -141,9 +141,9 @@ removing roles, not after.
 
 ---
 
-## 2. Passport: an activity has an EVENT DATE and a scan WINDOW (0267) — production OWED; then tell the ฝ่าย
+## 2. Passport: an activity has an EVENT DATE and a scan WINDOW (0267) — SHIPPED; telling the ฝ่าย is OWED
 
-**Status: VERIFIED 2026-10-31 on samo-dev — how: `passport0267-event-date` 36/36 (red on 42–44 with 0180's closed-quarter refusal restored, on 33 with the expiry gate removed, on 43/44/55 crediting the open season); 0180 6/6, 0245 47/47, 0246 16/16, pass-hardening 54/54, year0248 23/23 on dev; `tools/browser/passport-quarters.mjs` 20/20 (signed in, 1280 + 390 px, no console error). OWED: apply to PRODUCTION, then deploy — IN THAT ORDER (the page inserts `event_date`, a column that does not exist before 0267) — waiting for the owner's go (memory: ask before prod while users are active).**
+**Status: VERIFIED 2026-10-31 on PRODUCTION — how: 0267 applied first (its backfill assertion passed), then `7766194` deployed; `passport0267-event-date` 36/36, 0180 6/6, 0245 47/47, 0246 16/16 on production; post-backfill read: 46 activities, 15 scanning, 0 closed-quarter QR revived, 0 scans outside their activity's quarter; the served admin and scan bundles grep the new RPC and messages. The owner said "push to prod". OWED: the ฝ่าย conversation below (owner).**
 
 The agreement (Discord 2026-10-23, pasted by the owner 2026-10-31): the admin
 enters the event's first DAY, never a Q; the points go to that day's quarter; the
@@ -151,8 +151,8 @@ QR scans from that day for two months, no quarter cutting it; a tick box sets a
 custom end; moving the date moves the points; a late scan of a 69 camp still
 counts in 69. Rule + history: `docs/INVARIANTS.md`.
 
-**What the backfill will do on production** (read-only preview, 2026-10-31, 46
-activities): 31 in a closed quarter stay dead (0 revived); 15 in the open Q3 keep
+**What the backfill did on production** (previewed read-only, then read back
+after applying — identical; 46 activities): 31 in a closed quarter stay dead (0 revived); 15 in the open Q3 keep
 scanning — 12 to 30 พ.ย. as today, 3 a little longer (latest 18 ธ.ค.) because
 their date + 2 months is later; 0 waiting. 43 rows get `scan_until_set = true`
 because their kept end is not exactly date + 2 months — the edit form shows the
@@ -161,7 +161,7 @@ row is the day it was CREATED, clamped into its quarter — not the real event
 day, which was never recorded; an admin can correct it (points follow, 0246).
 The migration asserts "no live QR stops, no dead QR revives" before commit.
 
-**After production — tell the ฝ่าย (Status: OWED, owner):**
+**Tell the ฝ่าย (OWED, owner):**
 - Creating an activity asks for the event date (first day if several); the line
   under it says which quarter the km go to. No more choosing a Q.
 - The QR scans for two months from that date, across a quarter change; tick
