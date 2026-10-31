@@ -2,8 +2,9 @@
 -- passport0246-move-points.sql — moving an activity to another quarter moves
 -- the points already earned (0246), by the owner's rules:
 --   * to the quarter OPEN now — any admin; the points follow;
---   * back to a CLOSED quarter — org-wide admins only; the points follow and
---     the QR stops scanning;
+--   * back to a CLOSED quarter — org-wide admins only; the points follow
+--     (since 0267 its QR scans until its window ends, not until the quarter
+--     closes — passport0267-event-date.sql);
 --   * to a quarter NOT STARTED — refused once anyone has scanned; allowed while
 --     nobody has;
 --   * a client that sets only `quarter` (not season_id) still moves the points
@@ -109,13 +110,16 @@ insert into probe select '20. subject p3 IS org-wide', 'true', (select v from r 
 insert into probe select '21. an org-wide admin moves it BACK to the closed Q2', 'ok', (select v from r where k = 'now_back');
 insert into probe select '22. …its points went with it', 'Q2', pg_temp.qof('now');
 
--- the QR now refuses: its quarter is closed
+-- its QR now obeys its WINDOW (0267), not the closed quarter: end the window
+-- on its own day (31 ส.ค. 2026, today clamped into Q2) so the case cannot
+-- depend on the calendar.
+update passport.activities set scan_until_set = true, scan_until = event_date where id = (select id from aa where k = 'now');
 create temporary table kk on commit drop as
   select id from auth.users where lower(email) like '%@kkumail.com'
      and id not in (select id from who) order by created_at limit 1;
 select set_config('request.jwt.claims', json_build_object('sub', (select id from kk), 'role', 'authenticated')::text, true);
 insert into r select 'scan_closed', pg_temp.try($q$select passport.stamp_scan((select id from aa where k = 'now'), 'proof-0246-now')$q$);
-insert into probe select '23. …and its QR no longer scans (SEASON_CLOSED)', 'raised: SEASON_CLOSED', (select v from r where k = 'scan_closed');
+insert into probe select '23. …and past its window its QR refuses (SCAN_EXPIRED)', 'true', (select (v like 'raised: SCAN_EXPIRED:%')::text from r where k = 'scan_closed');
 
 -- a client that names ONLY `quarter` — the BEFORE trigger sets season_id, and
 -- an `after update OF season_id` trigger would never see it

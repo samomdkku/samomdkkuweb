@@ -11,8 +11,10 @@
 --       before a boundary; exactly one roll after it, stamped with the
 --       boundary; idempotent; an activity made ahead is linked when its
 --       quarter opens; Q1 opens a new วาระสโม bridged to its ปี SAMO.
---   §D  stamp_scan: a closed quarter refuses, a quarter not open yet refuses
---       with its date, an open one credits the ACTIVITY's quarter.
+--   §D  stamp_scan: past its window a QR refuses, before its event date it
+--       refuses with the date, inside it the ACTIVITY's quarter is credited
+--       (0267 replaced "a closed quarter refuses" with the window; the
+--       window's own cases are passport0267-event-date.sql).
 --   §E  manual: a plain account and a ฝ่าย-scoped admin cannot move a quarter
 --       (RPC or table); an org-wide admin can, forward and BACK; a bad schedule
 --       is refused; saving one never rolls anything.
@@ -140,18 +142,29 @@ insert into probe select '40. a kkumail identity to scan as', '1', (select count
 select set_config('request.jwt.claims', json_build_object('sub', (select id from kk), 'role', 'authenticated')::text, true);
 insert into passport.activities (name, base_points_km, static_token, quarter, samo_year_id)
   select 'proof-0245 b'||q, 1, 'proof-0245-b'||q, q, (select id from passport.samo_years where ended_at is null)
-    from unnest(array[1,2]) q;
+    from unnest(array[2]) q;
+-- The CONTROL is dated TODAY, in the วาระ fixture: whichever quarter today is,
+-- the fixture has its season (Q3/Q4 of proof-0245 until 1 มี.ค. 2027, Q1 of
+-- 'MDKKU SAMO''70' until 1 มิ.ย. 2027). HORIZON: after 2027-05-31 today falls
+-- in a quarter §C never created and the control reads SEASON_NOT_OPEN — move
+-- §C's fixed instants forward then.
+insert into passport.activities (name, base_points_km, static_token, event_date, samo_year_id)
+  values ('proof-0245 b0', 1, 'proof-0245-b0', (now() at time zone 'Asia/Bangkok')::date,
+          (select id from passport.samo_years where name = 'proof-0245'));
+-- Q2's activity was dated 31 ส.ค. 2026 (today, clamped into Q2); end its
+-- window on its own day so "expired" does not depend on the calendar.
+update passport.activities set scan_until_set = true, scan_until = event_date where static_token = 'proof-0245-2';
 insert into r select 'closed',  pg_temp.try($q$select passport.stamp_scan((select id from passport.activities where static_token='proof-0245-2'), 'proof-0245-2')$q$);
 insert into r select 'ahead',   pg_temp.try($q$select passport.stamp_scan((select id from passport.activities where static_token='proof-0245-b2'), 'proof-0245-b2')$q$);
-insert into r select 'open',    pg_temp.try($q$select passport.stamp_scan((select id from passport.activities where static_token='proof-0245-b1'), 'proof-0245-b1')$q$);
-insert into probe select '41. a QR of a CLOSED quarter is refused', 'raised: SEASON_CLOSED', (select v from r where k = 'closed');
-insert into probe select '42. a QR of a quarter NOT OPEN YET is refused, with its quarter', 'true',
-  (select (v like 'raised: SEASON_NOT_OPEN:Q2:2027-06-01T00:00')::text from r where k = 'ahead');
-insert into probe select '43. CONTROL: an open quarter''s QR scans', 'ok', (select v from r where k = 'open');
-insert into probe select '44. …and the scan is credited to the ACTIVITY''s quarter + วาระ', 'Q1,MDKKU SAMO''70',
-  (select s.name || ',' || y.name from passport.scans sc
-     join passport.samo_seasons s on s.id = sc.season_id join passport.samo_years y on y.id = sc.samo_year_id
-    where sc.activity_id = (select id from passport.activities where static_token = 'proof-0245-b1'));
+insert into r select 'open',    pg_temp.try($q$select passport.stamp_scan((select id from passport.activities where static_token='proof-0245-b0'), 'proof-0245-b0')$q$);
+insert into probe select '41. a QR past its scan window is refused, with the day it ended', 'raised: SCAN_EXPIRED:2026-08-31', (select v from r where k = 'closed');
+insert into probe select '42. a QR dated in a quarter NOT OPEN YET is refused, with its date', 'true',
+  (select (v like 'raised: SCAN_NOT_YET:2027-06-01' or v like 'raised: SEASON_NOT_OPEN:Q2:%')::text from r where k = 'ahead');
+insert into probe select '43. CONTROL: a QR dated today scans', 'ok', (select v from r where k = 'open');
+insert into probe select '44. …and the scan is credited to the ACTIVITY''s own season + วาระ', 'true',
+  (select (sc.season_id = a.season_id and sc.samo_year_id = a.samo_year_id and sc.season_id is not null)::text
+     from passport.scans sc join passport.activities a on a.id = sc.activity_id
+    where a.static_token = 'proof-0245-b0');
 insert into probe select '45. refusals wrote no scan', '0',
   (select count(*)::text from passport.scans where activity_id in
      (select id from passport.activities where static_token in ('proof-0245-2', 'proof-0245-b2')));

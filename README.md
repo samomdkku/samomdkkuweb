@@ -102,8 +102,10 @@ triggered over ssh (needs the KKU VPN).
   button; ปีงบ shown. The current ปี SAMO sits in the top bar of every admin page.
 - **SAMO Passport quarters change themselves** (Q1 1 มี.ค. = new วาระสโม · Q2
   1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., editable in Passport admin; switch forward or
-  back by hand). Each activity names the quarter its km are credited to, chosen
-  when it is created; its QR scans only while that quarter is open.
+  back by hand). An admin enters each activity's event date, never a quarter:
+  its km are credited to that date's quarter, and its QR scans from that date
+  for two months (or to a hand-set end, at most a year) — a quarter boundary no
+  longer cuts it, and a late scan still counts in the event's quarter.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
   sits in. FOUR views over the one dataset: **ภาพรวม**, the whole organisation

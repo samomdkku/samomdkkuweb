@@ -141,24 +141,37 @@ removing roles, not after.
 
 ---
 
-## 2. Tell the ฝ่าย what changed about quarters (Q3 was started late, backwards)
+## 2. Passport: an activity has an EVENT DATE and a scan WINDOW (0267) — production OWED; then tell the ฝ่าย
 
-**Status: DECIDED 2026-10-23 (owner) — the conversation with the ฝ่าย is OWED.**
-Nobody started Q3 on 1 ก.ย.; it was opened on 2026-10-23 **backdated to 1 ก.ย.
-00:00** by 0245, with every September–October activity and the 7 older ones
-still being scanned (owner: "all 7 to q3") moved to Q3 with all their scans —
-350 scans, 31,450 km, 218 students; per-person km unchanged (fingerprint
-identical before/after). Detail §29.
+**Status: VERIFIED 2026-10-31 on samo-dev — how: `passport0267-event-date` 36/36 (red on 42–44 with 0180's closed-quarter refusal restored, on 33 with the expiry gate removed, on 43/44/55 crediting the open season); 0180 6/6, 0245 47/47, 0246 16/16, pass-hardening 54/54, year0248 23/23 on dev; `tools/browser/passport-quarters.mjs` 20/20 (signed in, 1280 + 390 px, no console error). OWED: apply to PRODUCTION, then deploy — IN THAT ORDER (the page inserts `event_date`, a column that does not exist before 0267) — waiting for the owner's go (memory: ask before prod while users are active).**
 
-What the ฝ่าย will notice, all by the owner's decision:
-- **Creating an activity now asks which Quarter its km count toward** — required,
-  one only; a later quarter can be picked ahead and its QR starts working on that
-  quarter's first day.
-- **Quarters change by themselves** (Q4 on 1 ธ.ค. 2569 00:00, Q1 = new วาระสโม on
-  1 มี.ค.). Every Q3 QR stops scanning at the rollover — the 0180 rule, unchanged.
-  An event spanning the rollover needs its activity filed in the NEXT quarter.
+The agreement (Discord 2026-10-23, pasted by the owner 2026-10-31): the admin
+enters the event's first DAY, never a Q; the points go to that day's quarter; the
+QR scans from that day for two months, no quarter cutting it; a tick box sets a
+custom end; moving the date moves the points; a late scan of a 69 camp still
+counts in 69. Rule + history: `docs/INVARIANTS.md`.
 
-⛔ Do not "fix" a dead QR by falling back to the current season — `docs/INVARIANTS.md`.
+**What the backfill will do on production** (read-only preview, 2026-10-31, 46
+activities): 31 in a closed quarter stay dead (0 revived); 15 in the open Q3 keep
+scanning — 12 to 30 พ.ย. as today, 3 a little longer (latest 18 ธ.ค.) because
+their date + 2 months is later; 0 waiting. 43 rows get `scan_until_set = true`
+because their kept end is not exactly date + 2 months — the edit form shows the
+box TICKED with that date, which is the truth about them. `event_date` for an old
+row is the day it was CREATED, clamped into its quarter — not the real event
+day, which was never recorded; an admin can correct it (points follow, 0246).
+The migration asserts "no live QR stops, no dead QR revives" before commit.
+
+**After production — tell the ฝ่าย (Status: OWED, owner):**
+- Creating an activity asks for the event date (first day if several); the line
+  under it says which quarter the km go to. No more choosing a Q.
+- The QR scans for two months from that date, across a quarter change; tick
+  "ตั้งวันหมดอายุ QR เอง" for longer (≤ 1 year). Scanning before the date says
+  when it opens; after the end says when it ended.
+- Q3 → Q4 on 1 ธ.ค. 2569 no longer kills a Q3 QR. Still true from 0245: quarters
+  change by themselves; Q3 was started late (2026-10-23, backdated to 1 ก.ย. —
+  350 scans moved, per-person km unchanged; §29).
+
+⛔ Do not "fix" an expired QR by falling back to the current season — `docs/INVARIANTS.md`.
 
 ---
 

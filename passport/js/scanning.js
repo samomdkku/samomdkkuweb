@@ -5,7 +5,7 @@ import { supabase } from './app.js';
 import { checkSession, getPassportAccess, renderAccessBlock } from './auth.js';
 import { fixGoogleDriveUrl, savePendingScanUrl, clearPendingScanUrl } from './utils.js';
 import { ROUTES } from './routes.js';
-import { thaiDate } from './samo.js';
+import { thaiDate, thaiDay } from './samo.js';
 
 export async function processScan() {
     const titleEl = document.getElementById('scan-title');
@@ -131,11 +131,30 @@ if (!user) {
                 showStatus('Already Stamped!', 'You have already claimed points for this activity.', 'error');
             } else if (msg.includes('INVALID_TOKEN')) {
                 showStatus('QR Code Invalid', 'This QR code is invalid. Please scan the current authorized code.', 'error');
+            } else if (msg.includes('SCAN_NOT_YET')) {
+                // 0267: the QR opens on the event's date. Right QR, just early.
+                const day = thaiDay((msg.match(/SCAN_NOT_YET:(\d{4}-\d{2}-\d{2})/) || [])[1]);
+                showStatus(
+                    'กิจกรรมนี้ยังไม่เปิดรับ',
+                    `QR นี้เริ่มสแกนได้${day ? ` วันที่ ${day}` : 'ในวันที่จัดกิจกรรม'} `
+                    + 'สแกน QR เดิมอีกครั้งเมื่อถึงวันนั้นได้เลย',
+                    'error');
+            } else if (msg.includes('SCAN_EXPIRED')) {
+                // 0267: the window ended. Not the student's fault and not fixable
+                // by them — say what happened and that nothing they had is lost.
+                const day = thaiDay((msg.match(/SCAN_EXPIRED:(\d{4}-\d{2}-\d{2})/) || [])[1]);
+                showStatus(
+                    'QR นี้หมดอายุแล้ว',
+                    `QR ของกิจกรรมนี้สแกนได้ถึง${day ? `วันที่ ${day}` : 'วันที่ผู้จัดกำหนด'} จึงสะสม km ไม่ได้แล้ว `
+                    + 'แต้มที่เคยได้รับไปแล้วยังอยู่ครบ ไม่ได้หายไปไหน '
+                    + 'ถ้าคิดว่าควรสแกนได้ ให้แจ้งผู้จัดกิจกรรม',
+                    'error');
             } else if (msg.includes('SEASON_CLOSED')) {
-                // 0180: the activity's quarter has ended. This is the ONE error
-                // here that is not the student's fault and not fixable by them,
-                // so it says what happened and what still counts — a bare
-                // "invalid" would read as a broken QR and send them to ask IT.
+                // Since 0267 only an activity whose quarter cannot be resolved
+                // answers this (the window above is the normal "too late").
+                // Not the student's fault and not fixable by them, so it says
+                // what happened and what still counts — a bare "invalid" would
+                // read as a broken QR and send them to ask IT.
                 showStatus(
                     'กิจกรรมนี้ปิดรับแล้ว',
                     'QR นี้เป็นของ Season ที่จบไปแล้ว จึงสะสม km ไม่ได้ '

@@ -17,7 +17,9 @@
 > ⛔ **Never delete the `samomdkkupassport` Cloudflare project** — 82% of printed
 > QR posters name it. Full reasoning: `docs/PASSPORT-MONOREPO.md` §3.
 >
-> ⚠️ **A QR only scans while its quarter is open** (migration 0180). Read
+> ⚠️ **A QR scans from its activity's event date to `scan_until`, and its points
+> go to that DATE's quarter — open or closed, never "whatever is open"**
+> (migration 0267, replacing 0180's quarter cutoff). Read
 > `docs/INVARIANTS.md` before touching `stamp_scan`, seasons, or activities.
 >
 > Everything still owed anywhere: `docs/state/HANDOFF.md`.
@@ -91,7 +93,9 @@ npm run preview  # serve the production build locally
 ## Database (Supabase, queried with the anon key)
 
 - `activities` — name, `base_points_km`, `badge_url`/`badge_name`, `department_id`,
-  `sub_department_id`, `static_token`, `created_at`. (`continent_id`,
+  `sub_department_id`, `static_token`, `created_at`, `event_date` + `scan_until` +
+  `scan_until_set` (0267: the date decides `quarter`/`samo_year_id`/`season_id`
+  by trigger; the window decides whether `stamp_scan` accepts). (`continent_id`,
   `is_marketing_bonus`, `active_token`, `token_expires_at` exist but are **unused**.)
 - `scans` — `user_id`, `activity_id`, `scanned_at`, `points_awarded`. **Immutable
   snapshot (db/0006):** also stores `activity_name`, `department_id`, `sub_department_id`,

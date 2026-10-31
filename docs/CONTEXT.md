@@ -879,7 +879,11 @@ holds the ปี SAMO handover (`team_terms` below), ปีการศึกษ
 and ปีงบ (read-only, the calendar). Passport QUARTERS change themselves (0245,
 `passport.season_schedule`, edited in Passport admin by an org-wide admin);
 `passport.apply_season_schedule()` runs first in `stamp_scan` and every activity
-insert, and each activity names the quarter its scans are credited to. Starting a ปี SAMO
+insert. An activity carries an `event_date` (0267): its quarter is DERIVED from
+that date by `passport._resolve_event_date` (the trigger and the admin preview
+`activity_date_info` both ask it), and `stamp_scan` accepts a scan while
+`event_date ≤ today ≤ scan_until` — two months by default — crediting the
+activity's quarter even after it closed. Starting a ปี SAMO
 goes through `start_samo_year()` — `start_team_term()` plus, for an org-wide
 Passport admin, the next `passport.samo_years` row + its first season in one
 transaction. Despite this section's old name, `team_terms` is the ปี SAMO (a term

@@ -1,9 +1,18 @@
--- passport0180-season-gate.sql — a QR scans while its quarter is open, and not after.
+-- passport0180-season-gate.sql — a scan's points go to its ACTIVITY's quarter,
+-- never to "whatever is open"; an activity whose quarter cannot be resolved
+-- fails CLOSED.
+--
+-- 0180 first stopped a QR at its quarter's end. 0267 (the ฝ่าย, 2026-10-23)
+-- replaced THAT half with a scan window — event_date to scan_until — so a
+-- closed quarter no longer refuses inside its window; the window's own cases
+-- live in passport0267-event-date.sql. What survives here is the half 0180
+-- existed for: the points never fall through to the open quarter.
 --
 -- BOTH DIRECTIONS, because a probe that can only print "denied" cannot tell a
 -- working guard from a broken connection (.claude/rules/mistakes.md class 7).
 --   ALLOW  — season open  → the scan is created
---   DENY   — season ended → SEASON_CLOSED, and NO scan is created
+--   ALLOW  — season CLOSED, window open → created AND credited to the CLOSED
+--            season, not the open one (0267)
 --   DENY   — a quarter not open yet (0245) → SEASON_NOT_OPEN, fails CLOSED
 --   CONTROL— the ALLOW case is genuinely reachable, so a green DENY means something
 --
@@ -71,29 +80,21 @@ begin
   -- undo the scan so the DENY half is not blocked by ALREADY_STAMPED
   delete from passport.scans where user_id = v_uid and activity_id = v_act;
 
-  ---------------------------------------------------------------- DENY (closed)
+  ---------------------------------------------------------------- ALLOW (closed, in window)
+  -- 0267: inside its window a closed quarter's QR still scans, and the points
+  -- go to THAT quarter. The open quarter must not receive them.
   update passport.samo_seasons set ended_at = now() where id = v_season;
-  select count(*) into v_scans_before from passport.scans
-   where user_id = v_uid and activity_id = v_act;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
-    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season CLOSED -> the scan was ACCEPTED'));
-  exception when others then
-    v_err := sqlerrm;
-    if v_err = 'SEASON_CLOSED' then
-      insert into proof_0180(verdict,detail) values ('PASS', format('DENY   season CLOSED -> SEASON_CLOSED'));
+    if v_scan.season_id = v_season then
+      insert into proof_0180(verdict,detail) values ('PASS', format('ALLOW  season CLOSED, in window -> credited to the CLOSED season'));
     else
-      insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season CLOSED -> wrong error: %s', v_err));
+      insert into proof_0180(verdict,detail) values ('FAIL', format('ALLOW season CLOSED -> credited to %s, not the activity''s season', v_scan.season_id));
     end if;
+  exception when others then
+    insert into proof_0180(verdict,detail) values ('FAIL', format('ALLOW season CLOSED, in window -> refused with %s', sqlerrm));
   end;
-
-  -- a refusal must also not have written anything
-  if (select count(*) from passport.scans
-       where user_id = v_uid and activity_id = v_act) = v_scans_before then
-    insert into proof_0180(verdict,detail) values ('PASS', format('DENY   refused AND wrote no scan row'));
-  else
-    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY refused but a scan row appeared'));
-  end if;
+  delete from passport.scans where user_id = v_uid and activity_id = v_act;
 
   ---------------------------------------------------------------- DENY (not open yet)
   -- 0245 changed what a NULL season_id MEANS: "a quarter whose season does not
@@ -103,6 +104,7 @@ begin
   -- วาระ with no seasons at all guarantees nothing can resolve.
   insert into passport.samo_years (name) values ('PROOF-0180-empty-year') returning id into v_empty;
   update passport.activities set samo_year_id = v_empty, season_id = null where id = v_act;
+  select count(*) into v_scans_before from passport.scans where user_id = v_uid and activity_id = v_act;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
     insert into proof_0180(verdict,detail) values ('FAIL', format('DENY quarter NOT OPEN -> the scan was ACCEPTED (fails OPEN)'));
@@ -113,12 +115,20 @@ begin
       insert into proof_0180(verdict,detail) values ('FAIL', format('DENY quarter NOT OPEN -> wrong error: %s', sqlerrm));
     end if;
   end;
+  if (select count(*) from passport.scans where user_id = v_uid and activity_id = v_act) = v_scans_before then
+    insert into proof_0180(verdict,detail) values ('PASS', format('DENY   refused AND wrote no scan row'));
+  else
+    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY refused but a scan row appeared'));
+  end if;
+  -- The empty วาระ is the newest OPEN one; left open it would be where the
+  -- TRIGGER case below files a dated activity.
+  update passport.samo_years set ended_at = now() where id = v_empty;
 
   ---------------------------------------------------------------- CONTROL
   -- Re-open the season and scan again. If this cannot pass, every DENY above
   -- proves nothing: they would be green because the call never worked at all.
-  update passport.activities set season_id = v_season where id = v_act;
   update passport.samo_seasons set ended_at = null where id = v_season;
+  update passport.activities set season_id = v_season where id = v_act;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
     insert into proof_0180(verdict,detail) values ('PASS', format('CONTROL re-opened     -> scan created again'));

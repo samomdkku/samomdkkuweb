@@ -74,9 +74,17 @@ export function thaiDayBefore(iso) {
     return thaiDate(new Date(new Date(iso).getTime() - 1).toISOString());
 }
 
-/** One label per quarter choice, used by both activity forms. */
-export function quarterChoiceLabel(c, currentQuarter) {
-    const span = `${thaiDate(c.starts_at)} – ${thaiDayBefore(c.ends_at)}`;
-    const now = c.open && c.quarter === currentQuarter ? ' (ตอนนี้)' : (!c.open ? ' (ยังไม่เปิด)' : '');
-    return `${c.label} · ${span}${now}`;
+/** Today as 'YYYY-MM-DD' in Thai time — the day the scan window is judged by
+ *  (passport._bkk_today()), whatever the browser's own zone. */
+export function bkkToday(now = new Date()) {
+    return new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** A calendar DAY ('YYYY-MM-DD', no instant) as "31 ต.ค. 2569". Never routed
+ *  through Date: a bare date parses as UTC midnight and reads a day early west
+ *  of Greenwich. */
+export function thaiDay(ymd) {
+    const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    return `${Number(m[3])} ${TH_MONTHS[Number(m[2]) - 1]} ${Number(m[1]) + 543}`;
 }

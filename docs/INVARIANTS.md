@@ -716,55 +716,54 @@ silent, permanent mislabelling rather than an error. Ask what a
 
 ---
 
-## A QR code lives and dies with its quarter — and its points go to THAT quarter
+## An activity's DATE decides its quarter; its QR scans for a WINDOW — and its points go to THAT quarter
 
-Since migration 0180, an activity belongs to one quarter, and
-`passport.stamp_scan` refuses (`SEASON_CLOSED`) once that season's `ended_at` is
-set.
+**Since 0267 (the ฝ่าย, Discord 2026-10-23, relayed by the owner — "ใส่วันที่จัด
+โครงการ -> คะแนนเข้า Q วันนั้น สแกนมีอายุ 2 เดือน นับจากวันนั้น ไม่ยุ่งเกี่ยวกับ Q"):**
+- **The admin enters the event's (first) day, never a quarter** ("ไม่ใช้คำว่า q
+  นะ ขอเป็นวันที่"). `activities.event_date`; `quarter` / `samo_year_id` /
+  `season_id` are DERIVED from it by the schedule (0245's calendar) in
+  `passport._resolve_event_date` — the ONE resolver, which the admin page's
+  preview (`activity_date_info`) also asks, so the line read before saving is
+  the save's answer. An older client that still sends `quarter` gets a day
+  inside that quarter.
+- **The QR scans while `event_date ≤ today ≤ scan_until`** (Thai days, in
+  `stamp_scan`). `scan_until` = `event_date + 2 months` unless an admin ticked
+  "ตั้งวันหมดอายุ QR เอง" (`scan_until_set`), bounded to one year by a CHECK.
+  `SCAN_NOT_YET:<date>` / `SCAN_EXPIRED:<date>` name the day.
+- **A closed quarter no longer refuses a scan inside its window**, and the
+  points go to the ACTIVITY's quarter even so — the 30–31 ส.ค. seminar case.
+  The same holds across a วาระ: a community camp filed in Q4 of 69 and scanned
+  in March counts in 69 ("สแกนได้ถึงที่ตั้งไว้ แต่คะแนนจะนับใน 69").
+- **Moving the date into another quarter moves its points** (0246's rules,
+  unchanged): into the open quarter — any admin; into a CLOSED one with scans —
+  org-wide only; into a quarter not started — refused once scanned. A person
+  cannot CREATE an activity whose window has already passed.
+- **Quarters still change themselves** (`passport.season_schedule`: Q1 1 มี.ค.
+  opens a new วาระสโม · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., Asia/Bangkok,
+  editable). The rollover runs FIRST in every scan and activity insert, so it
+  needs no timer; an activity dated in a quarter AHEAD waits with
+  `season_id` NULL and is linked when its quarter opens. Only an org-wide
+  Passport admin moves a quarter — RPC AND table.
 
-**Since 0245 (owner, 2026-10-23)**:
-- **The admin CHOOSES the quarter when creating an activity** — required, one
-  only (*"admin must specify which quarter the points will be credited to upon
-  scanning"*). `activities.samo_year_id` + `quarter`; `season_id` is the link,
-  NULL for a quarter AHEAD of the open one until it opens. An insert that names
-  none (a script, an old client) still gets the open quarter, by trigger.
-- **Every scan is credited to the ACTIVITY's quarter**, never "whatever is open".
-  A QR made ahead refuses with `SEASON_NOT_OPEN:Q<n>:<start>` until its quarter
-  starts. Invariant: no scan of a live activity is filed outside its quarter
-  (0245 asserts it; `passport0245-quarters.sql`).
-- **Quarters change themselves** (`passport.season_schedule`: Q1 1 มี.ค. opens a
-  new วาระสโม · Q2 1 มิ.ย. · Q3 1 ก.ย. · Q4 1 ธ.ค., Asia/Bangkok, editable). The
-  rollover runs FIRST in every scan and activity insert, so it needs no timer and
-  no visitor; rows it creates carry the BOUNDARY's instant. A manual switch
-  (forward or back) or a schedule edit acknowledges the current boundary — the
-  automatic step never undoes an admin, it next acts at the next boundary.
-- Only an org-wide Passport admin moves a quarter — RPC AND table (the season
-  policies were `is_admin()`, which a ฝ่าย-scoped admin also holds).
-- **Moving an ACTIVITY to another quarter moves its points** (0246, owner
-  2026-10-23): to the open quarter — any admin; back to a CLOSED quarter —
-  org-wide only, and its QR stops; to a quarter NOT STARTED — refused once
-  anyone has scanned. In the trigger, so a console write meets it too. An
-  activity filed for a later quarter does not scan early (owner agreed: the QR
-  tells the student the date).
+**History, so nobody "restores" it.** 0180 (the ฝ่าย, 2026-09-04: *"ถ้าเกิน
+quater ก็คือสแกนไม่ได้ๆๆ"*) killed a QR at its quarter's end, because before it a
+finished event's poster kept working for ever and its scans landed in WHATEVER
+quarter was open — someone who never attended a Q2 event could collect km
+toward Q3. The cost was an event spanning a rollover, which got one day. 0267
+removed that cost with an explicit window and KEPT what 0180 was for: a scan is
+never filed in a quarter other than its activity's.
 
-**Decided by the ฝ่าย, 2026-09-04** — *"ถ้าเกิน quater ก็คือสแกนไม่ได้ๆๆ"*. Before
-this, a poster from a finished event kept working for ever and its scans landed
-in whatever quarter was open, so someone who never attended a Q2 event could
-collect km toward the Q3 leaderboard. `UNIQUE (user_id, activity_id)` capped it
-at once per person, so it was a fairness problem, never farmable.
+⛔ **Do not "fix" anything by falling back to the current season** — not for an
+expired QR, not for an activity whose quarter has no season. That restores the
+original bug wearing a helpful face. A season that cannot be resolved fails
+CLOSED (`SEASON_NOT_OPEN` / `SEASON_CLOSED`) — class 2, an unresolvable
+reference otherwise answers "allowed".
 
-**The accepted cost, so nobody reports it as a bug:** an event spanning a
-rollover loses its QR when its quarter ends. The owner raised exactly this and
-the ฝ่าย chose it. (Since 0245 an activity may be created AHEAD for a later
-quarter, so "create it in the quarter" is no longer the cost.)
-
-⛔ **Do not "fix" it by falling back to the current season when an activity's
-season has closed.** That restores the original bug wearing a helpful face. The
-check fails CLOSED on a NULL season for the same reason — class 2, an
-unresolvable reference otherwise answers "allowed".
-
-**Where the proof is**: `tools/passport0180-season-gate.sql`, both directions
-plus a control, green on samo-dev and production.
+**Where the proofs are**: `tools/passport0267-event-date.sql` (the window, the
+closed-quarter and past-วาระ credit, the moves, relative to TODAY so it cannot
+run out of calendar), `tools/passport0180-season-gate.sql` (never the open
+quarter; fails closed), `passport0245-quarters.sql`, `passport0246-move-points.sql`.
 
 ## `npm run <script> --flag` silently drops the flag
 

@@ -7,7 +7,7 @@
 > passport at `/passport/`. Hosting is the **KKU VM** — ⛔ **pushing `main`
 > deploys NOTHING**; `server/deploy.sh` runs on the VM (`skills/deploy-vm.md`).
 > ⛔ Never delete the `samomdkkupassport` Cloudflare project — 82% of printed QR
-> posters name it. A QR only scans while its quarter is open (0180).
+> posters name it. A QR scans from its event date to `scan_until`; its points go to that date's quarter (0267).
 > Outstanding work: `docs/state/HANDOFF.md`.
 
 Guide for working in this repo (for Codex and humans). Keep it accurate: update it

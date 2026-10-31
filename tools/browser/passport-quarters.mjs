@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // ============================================================
 // passport-quarters.mjs — drive the Passport admin's quarter controls (0245)
+// and the event-date field that replaced the quarter picker (0267)
 // for real, SIGNED IN as a master, in headless Chrome, against the local dev
 // server on samo-dev. Shape copied from year-page.mjs.
 //
 //   1. registers a throwaway username account and gives it `master`;
-//   2. /passport/html/admin.html: the create form REQUIRES a quarter (nothing
-//      pre-chosen; an empty submit is refused by the form), the choices are the
-//      open quarter + those ahead, from passport.season_status();
-//   3. creating an activity sends quarter + samo_year_id — the insert is
-//      INTERCEPTED, nothing is written;
+//   2. /passport/html/admin.html: the create form REQUIRES an event date
+//      (defaulted to today, Thai time); the hint under it is
+//      activity_date_info()'s answer — today's quarter, a closed quarter said
+//      to be closed, the two-month window; the tick box reveals the end date
+//      with the default filled and bounded;
+//   3. creating an activity sends event_date + scan_until_set and NO quarter
+//      (the database decides) — the insert is INTERCEPTED, nothing is written;
 //   4. วาระสโม & Season Control: the current season, the next automatic
 //      change, a switch button per quarter, the four-row schedule matching the
 //      database; pressing "เปลี่ยนเป็น Qn" sends ONE start_season call
@@ -96,12 +99,14 @@ try {
 
   // 2. the admin page, against the database
   const [db] = await sql(`select passport.schedule_at() ->> 'quarter' q,
+      (now() at time zone 'Asia/Bangkok')::date::text today,
+      (lower(passport._quarter_days((passport.schedule_at() ->> 'vara_year')::int, (passport.schedule_at() ->> 'quarter')::int)) - 1)::text prev_last,
       (select id from passport.samo_years where ended_at is null order by started_at desc limit 1) yid,
       (select json_agg(json_build_object('m', q1_month, 'd', q1_day)) from passport.season_schedule) s1,
       (select q1_month || '/' || q1_day || ',' || q2_month || '/' || q2_day || ',' || q3_month || '/' || q3_day || ',' || q4_month || '/' || q4_day from passport.season_schedule) sched`);
   await send('Page.navigate', { url: `${DEV_URL}/passport/html/admin.html` });
-  const painted = await waitFor(`getComputedStyle(document.getElementById('admin-content')).display !== 'none' && document.querySelectorAll('#act-quarter option').length > 1`, 60);
-  say('the admin page opened signed in, quarter picker filled', painted, painted);
+  const painted = await waitFor(`getComputedStyle(document.getElementById('admin-content')).display !== 'none' && document.getElementById('act-event-date-hint').textContent.includes('คะแนนนับเข้า')`, 60);
+  say('the admin page opened signed in, the date hint answered', painted, painted);
   if (!painted) {
     // Say WHY, from the page's own state, rather than leaving a blank screenshot.
     // A module that never LOADED throws no Runtime exception — import the client
@@ -120,17 +125,33 @@ try {
   await ev(`window.__dialogs = []; window.alert = (m) => { window.__dialogs.push(String(m)); };
     window.confirm = (m) => { window.__dialogs.push(String(m)); return true; }; return 1;`);
 
-  const pick = JSON.parse(await ev(`const s = document.getElementById('act-quarter');
-    return JSON.stringify({ required: s.required, value: s.value,
-      opts: [...s.options].map(o => ({ v: o.value, t: o.textContent })) });`));
-  say('the quarter is REQUIRED and nothing is pre-chosen', `required ${pick.required} · value "${pick.value}"`, pick.required && pick.value === '');
-  const real = pick.opts.filter((o) => o.v);
-  say('the choices start at the open quarter (from the schedule)', real.map((o) => o.t).join(' | '), real.length > 0 && real[0].v === String(db.q) && /ตอนนี้/.test(real[0].t));
-  say('no quarter behind the open one is offered', real.map((o) => o.v).join(','), real.every((o) => Number(o.v) >= Number(db.q)));
+  const f0 = JSON.parse(await ev(`const d = document.getElementById('act-event-date');
+    return JSON.stringify({ required: d.required, value: d.value, hint: document.getElementById('act-event-date-hint').textContent,
+      wrap: getComputedStyle(document.getElementById('act-scan-until-wrap')).display,
+      picker: !!document.getElementById('act-quarter') });`));
+  say('the date is REQUIRED and defaults to today (Thai time)', `required ${f0.required} · ${f0.value} vs ${db.today}`, f0.required && f0.value === db.today);
+  say('the hint names today\'s quarter and the two-month window', f0.hint, f0.hint.includes(`คะแนนนับเข้า Q${db.q}`) && f0.hint.includes('QR สแกนได้'));
+  say('there is no quarter picker any more; the end date is hidden', `picker ${f0.picker} · wrap ${f0.wrap}`, !f0.picker && f0.wrap === 'none');
+
+  const f1 = JSON.parse(await ev(`const d = document.getElementById('act-event-date'); d.value = ${JSON.stringify(db.prev_last)};
+    d.dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 2500));
+    return JSON.stringify({ hint: document.getElementById('act-event-date-hint').textContent });`));
+  say('a day of the previous (closed) quarter is filed there, and said to be closed', f1.hint, f1.hint.includes('ปิดไปแล้ว'));
+
+  const f2 = JSON.parse(await ev(`const d = document.getElementById('act-event-date'); d.value = ${JSON.stringify(db.today)};
+    d.dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 2500));
+    const c = document.getElementById('act-scan-until-set'); c.checked = true; c.dispatchEvent(new Event('change'));
+    const u = document.getElementById('act-scan-until');
+    return JSON.stringify({ wrap: getComputedStyle(document.getElementById('act-scan-until-wrap')).display, v: u.value, min: u.min, max: u.max, req: u.required });`));
+  const [win] = await sql(`select ((date ${lit(db.today)} + interval '2 months')::date)::text def, (date ${lit(db.today)} + 366)::text mx`);
+  say('the tick box reveals the end date, defaulted to +2 months and bounded', JSON.stringify(f2),
+    f2.wrap !== 'none' && f2.v === win.def && f2.min === db.today && f2.max === win.mx && f2.req);
+  await ev(`const c = document.getElementById('act-scan-until-set'); c.checked = false; c.dispatchEvent(new Event('change')); return 1;`);
 
   const blocked = await ev(`document.getElementById('act-name').value = 'harness'; document.getElementById('act-km').value = '5';
-    return document.getElementById('activity-form').checkValidity();`);
-  say('an empty quarter cannot be submitted', `form valid: ${blocked}`, blocked === false);
+    const d = document.getElementById('act-event-date'); const keep = d.value; d.value = '';
+    const ok = document.getElementById('activity-form').checkValidity(); d.value = keep; return ok;`);
+  say('an empty date cannot be submitted', `form valid: ${blocked}`, blocked === false);
   await shot('admin-create.png', false);
 
   // 3. create, intercepted — the refusal makes the page console.error() the
@@ -141,18 +162,21 @@ try {
       if (url.split('?')[0].endsWith('/rest/v1/activities') && (o.method || 'GET') === 'POST') {
         calls.push(JSON.parse(o.body)); return new Response('{"message":"intercepted"}', { status: 400, headers: { 'Content-Type': 'application/json' } }); }
       return orig(u, o); };
-    const s = document.getElementById('act-quarter'); s.value = s.options[1].value;
     document.getElementById('activity-form').requestSubmit(); await new Promise(r => setTimeout(r, 1500));
     window.fetch = orig; return JSON.stringify({ calls, dialogs: window.__dialogs.splice(0) });`));
   errs.length = errsBefore;
   const row = Array.isArray(made.calls[0]) ? made.calls[0][0] : made.calls[0];
-  say('create sends the chosen quarter + the open วาระ', JSON.stringify(row && { quarter: row.quarter, samo_year_id: row.samo_year_id }),
-    made.calls.length === 1 && row && row.quarter === Number(db.q) && row.samo_year_id === db.yid);
+  say('create sends the date and the default window — and NO quarter (the database decides)',
+    JSON.stringify(row && { event_date: row.event_date, scan_until_set: row.scan_until_set, quarter: row.quarter, samo_year_id: row.samo_year_id }),
+    made.calls.length === 1 && row && row.event_date === db.today && row.scan_until_set === false
+      && !('quarter' in row) && !('samo_year_id' in row) && !('scan_until' in row));
   const [noAct] = await sql(`select count(*)::int n from passport.activities where name = 'harness'`);
   say('…and nothing was written (intercepted)', noAct.n, noAct.n === 0);
 
   const badges = await ev(`return document.querySelectorAll('#activities-list .q-badge').length + '/' + document.querySelectorAll('#activities-list .activity-card').length;`);
   say('every activity card names its quarter', badges, /^(\d+)\/\1$/.test(badges) && !badges.startsWith('0/'));
+  const windows = await ev(`return document.querySelectorAll('#activities-list .activity-card-window').length + '/' + document.querySelectorAll('#activities-list .activity-card').length;`);
+  say('…and when its QR scans', windows, /^(\d+)\/\1$/.test(windows) && !windows.startsWith('0/'));
 
   // 4. season control
   const ctl = JSON.parse(await ev(`await window.openSeasons(); await new Promise(r => setTimeout(r, 2500));

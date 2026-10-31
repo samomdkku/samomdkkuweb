@@ -18,6 +18,9 @@
     })();
   </script>
   <title>Admin Passport Terminal</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -107,13 +110,18 @@
             <option value="">เลือกประเภทฝ่ายย่อย</option>
           </select><br />
 
-          <!-- 0245: the quarter this activity's km count toward. REQUIRED, one
-               only — filled by renderQuarterPickers() from passport.season_status(). -->
-          <label for="act-quarter" class="quarter-label">นับคะแนนเข้า Quarter <span aria-hidden="true">*</span></label>
-          <select id="act-quarter" required>
-            <option value="">เลือก Quarter ที่คะแนนจะถูกนับ</option>
-          </select>
-          <small id="act-quarter-hint" class="quarter-hint"></small><br />
+          <!-- 0267: the event's (first) DAY decides which quarter its km count
+               toward, and its QR scans from that day for two months — never a
+               Q to pick (the ฝ่าย: "ไม่ใช้คำว่า q นะ ขอเป็นวันที่"). The hint is
+               passport.activity_date_info(): the same resolver the save uses. -->
+          <label for="act-event-date" class="quarter-label">วันที่จัดกิจกรรม (ถ้าจัดหลายวัน ใส่วันแรก) <span aria-hidden="true">*</span></label>
+          <input type="date" id="act-event-date" required />
+          <small id="act-event-date-hint" class="quarter-hint" aria-live="polite"></small>
+          <label class="scan-until-toggle"><input type="checkbox" id="act-scan-until-set" /> ตั้งวันหมดอายุ QR เอง</label>
+          <div id="act-scan-until-wrap" class="scan-until-wrap" style="display: none;">
+            <label for="act-scan-until" class="quarter-label">QR สแกนได้ถึงวันที่</label>
+            <input type="date" id="act-scan-until" />
+          </div><br />
 
           <button type="submit">Create Activity</button>
         </form>
@@ -137,9 +145,14 @@
             <option value="">เลือกประเภทฝ่ายย่อย</option>
           </select><br />
 
-          <label for="edit-quarter" class="quarter-label">นับคะแนนเข้า Quarter</label>
-          <select id="edit-quarter"></select>
-          <small id="edit-quarter-hint" class="quarter-hint"></small><br />
+          <label for="edit-event-date" class="quarter-label">วันที่จัดกิจกรรม (ถ้าจัดหลายวัน ใส่วันแรก) <span aria-hidden="true">*</span></label>
+          <input type="date" id="edit-event-date" required />
+          <small id="edit-event-date-hint" class="quarter-hint" aria-live="polite"></small>
+          <label class="scan-until-toggle"><input type="checkbox" id="edit-scan-until-set" /> ตั้งวันหมดอายุ QR เอง</label>
+          <div id="edit-scan-until-wrap" class="scan-until-wrap" style="display: none;">
+            <label for="edit-scan-until" class="quarter-label">QR สแกนได้ถึงวันที่</label>
+            <input type="date" id="edit-scan-until" />
+          </div><br />
 
           <!-- Delete bonus container -->
 

@@ -8,7 +8,7 @@ import { generateUUID, fixGoogleDriveUrl } from './utils.js';
 import { ROUTES } from './routes.js';
 import { renderCertificate, loadCertImage, CERT_FONTS } from './certificate.js';
 import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigured } from './upload.js';
-import { getCurrentContext, getSeasonStatus, thaiDate, thaiDayBefore, quarterChoiceLabel, TH_MONTH_NAMES } from './samo.js';
+import { getCurrentContext, getSeasonStatus, thaiDate, thaiDayBefore, thaiDay, bkkToday, TH_MONTH_NAMES } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
 import { loadDepartments, applyCatalog, deptChoices, subChoices } from './depts.js';
@@ -101,6 +101,8 @@ async function init() {
     document
         .getElementById('edit-activity-form')
         .addEventListener('submit', submitEditActivity);
+    wireEventDate('act');
+    wireEventDate('edit');
     document
         .getElementById('admin-logout')
         .addEventListener('click', signOutAdmin);
@@ -800,6 +802,7 @@ function renderActivityList(){
               ${quarterBadge(act)}
               <span class="activity-card-km">${act.base_points_km} km</span>
             </div>
+            ${windowLine(act)}
             <div class="activity-card-actions">
               <button onclick="startScannerFor('${act.id}')" class="btn-action">Generate QR</button>
               <button onclick="manageCerts('${act.id}')" class="btn-action">Certificates</button>
@@ -823,79 +826,141 @@ function activityInSeason(act, seasonId) {
     return !!s && s.samo_year_id === act.samo_year_id && s.quarter === act.quarter;
 }
 
-// "Q3" on every card; a quarter that has not opened says so, because its QR
-// will refuse a scan until then.
+// "Q3" on every card — where its km are counted. When the QR scans is a line
+// of its own (windowLine): since 0267 a closed quarter's QR may still scan.
 function quarterBadge(act) {
     if (!act.quarter) return '';
     const waiting = !act.season_id;
     const closed = !waiting && samoSeasons.find((x) => x.id === act.season_id)?.ended_at;
     const cls = waiting ? ' is-waiting' : (closed ? ' is-closed' : '');
-    const note = waiting ? ' · ยังไม่เปิด' : (closed ? ' · ปิดแล้ว' : '');
-    return `<span class="q-badge${cls}" title="คะแนนนับเข้า Q${act.quarter}">Q${act.quarter}${note}</span>`;
+    const note = waiting ? ' · ยังไม่เริ่ม' : (closed ? ' · ปิดแล้ว' : '');
+    return `<span class="q-badge${cls}" title="คะแนนจากกิจกรรมนี้นับเข้า Q${act.quarter}">Q${act.quarter}${note}</span>`;
 }
 
-// ── 0245: the quarter an activity's km count toward ─────────────────────────
-// Filled from passport.season_status().choices — the open quarter plus the
-// ones still ahead in this วาระ. The create form starts with NOTHING chosen:
-// the owner asked that the admin must pick it ("admin must specify which
-// quarter the points will be credited to … only one quarter can be selected").
-function fillQuarterSelect(sel, { placeholder, keep = '' } = {}) {
-    if (!sel) return;
-    const st = seasonStatus;
-    const curQ = st?.season?.quarter ?? null;
-    const choices = st?.choices || [];
-    sel.innerHTML = (placeholder ? `<option value="">${placeholder}</option>` : '')
-        + choices.map((c) => `<option value="${c.quarter}">${escapeHtml(quarterChoiceLabel(c, curQ))}</option>`).join('');
-    sel.value = choices.some((c) => String(c.quarter) === String(keep)) ? String(keep) : '';
+// 0267: when the QR scans, judged in Thai days as stamp_scan judges it.
+function windowLine(act) {
+    if (!act.event_date || !act.scan_until) return '';
+    const today = bkkToday();
+    const expired = today > act.scan_until;
+    const state = today < act.event_date ? ` · <b>เริ่มสแกนได้ ${thaiDay(act.event_date)}</b>`
+        : (expired ? ' · <b>QR หมดอายุแล้ว</b>' : '');
+    return `<div class="activity-card-window${expired ? ' is-expired' : ''}">`
+        + `จัด ${thaiDay(act.event_date)} · สแกนได้ถึง ${thaiDay(act.scan_until)}${state}</div>`;
 }
 
-function renderQuarterPickers() {
-    const sel = document.getElementById('act-quarter');
-    const hint = document.getElementById('act-quarter-hint');
-    if (!sel) return;
-    const keep = sel.value;
-    if (!seasonStatus?.year) {
-        sel.innerHTML = '<option value="">ยังไม่มีวาระสโมที่เปิดอยู่</option>';
-        sel.disabled = true;
-        if (hint) hint.textContent = 'สร้างกิจกรรมได้เมื่อมีวาระสโมที่เปิดอยู่';
+// ── 0267: the event DATE decides the quarter; the QR scans for a window ─────
+// The ฝ่าย, 2026-10-23: "ใส่วันที่จัดโครงการ -> คะแนนเข้า Q วันนั้น สแกนมีอายุ
+// 2 เดือน นับจากวันนั้น ไม่ยุ่งเกี่ยวกับ Q" — and the admin never picks a Q.
+// Both forms ('act' = create, 'edit') share one controller. The hint comes
+// from passport.activity_date_info(), the resolver the save itself uses, so
+// what the admin reads before saving is what the save does. Every outcome
+// rewrites the WHOLE hint: a line one branch turns on, every other branch must
+// turn off (mistakes.md class 4).
+const dateInfo = { act: null, edit: null };
+const dateSeq = { act: 0, edit: 0 };
+const $f = (pfx, id) => document.getElementById(`${pfx}-${id}`);
+
+function syncScanUntil(pfx) {
+    const set = $f(pfx, 'scan-until-set').checked;
+    const until = $f(pfx, 'scan-until');
+    const info = dateInfo[pfx];
+    $f(pfx, 'scan-until-wrap').style.display = set ? 'block' : 'none';
+    until.required = set;
+    if (info?.event_date) {
+        until.min = info.event_date;
+        until.max = info.max_scan_until;
+        if (!set || !until.value) until.value = info.default_scan_until;
+    }
+}
+
+function dateHintText(pfx, info) {
+    if (!info?.ok) {
+        if (info?.error === 'VARA_NOT_STARTED') {
+            return `วันนั้นอยู่ในวาระสโมถัดไป ซึ่งยังไม่เริ่ม${info.starts ? ` (เริ่ม ${thaiDay(info.starts)})` : ''} — สร้างกิจกรรมนี้ได้เมื่อวาระใหม่เริ่มแล้ว`;
+        }
+        if (info?.error === 'QUARTER_CLOSED') return 'วันนั้นไม่อยู่ในช่วงคะแนนใดที่ระบบมี — ตรวจวันที่อีกครั้ง';
+        return 'อ่านช่วงคะแนนของวันนั้นไม่ได้ — ลองใหม่อีกครั้ง';
+    }
+    const set = $f(pfx, 'scan-until-set').checked;
+    const untilVal = $f(pfx, 'scan-until').value;
+    const until = set && untilVal ? untilVal : info.default_scan_until;
+    const parts = [`คะแนนนับเข้า ${info.label} · ${info.vara_name} (${thaiDay(info.starts)} – ${thaiDay(info.ends)})`
+        + (info.state === 'closed' ? ' ซึ่งปิดไปแล้ว — คะแนนยังนับเข้าช่วงนั้นตามวันจัด'
+            : (info.state === 'waiting' ? ' ซึ่งยังไม่เริ่ม' : ''))];
+    parts.push(`QR สแกนได้ ${thaiDay(info.event_date)} – ${thaiDay(until)}`);
+    if (until < info.today) {
+        parts.push(set ? 'วันหมดอายุนี้ผ่านไปแล้ว'
+            : 'QR ของวันนั้นหมดอายุแล้ว — ติ๊ก "ตั้งวันหมดอายุ QR เอง" ถ้ายังต้องให้สแกน');
+    }
+    if (pfx === 'edit' && editingScanCount && editingAct
+        && (info.quarter !== editingAct.quarter || info.samo_year_id !== editingAct.samo_year_id)) {
+        parts.push(`มีคนสแกนแล้ว ${editingScanCount} ครั้ง — บันทึกแล้วคะแนนเหล่านั้นจะย้ายจาก Q${editingAct.quarter} `
+            + `ไปนับใน ${info.label} (ระยะทางรวมของแต่ละคนเท่าเดิม)`
+            + (info.state === 'closed' && !isAllDepts() ? ' · ย้ายเข้าช่วงที่ปิดแล้วได้เฉพาะผู้ดูแลทุกฝ่าย' : ''));
+    }
+    return parts.join(' · ');
+}
+
+async function refreshDateHint(pfx) {
+    const date = $f(pfx, 'event-date').value;
+    const hint = $f(pfx, 'event-date-hint');
+    const seq = ++dateSeq[pfx];
+    if (!date) {
+        dateInfo[pfx] = null;
+        syncScanUntil(pfx);
+        hint.textContent = 'ใส่วันที่จัด — คะแนนจะนับเข้าช่วงของวันนั้น และ QR สแกนได้ 2 เดือนนับจากวันนั้น';
         return;
     }
-    sel.disabled = false;
-    fillQuarterSelect(sel, { placeholder: 'เลือก Quarter ที่คะแนนจะถูกนับ', keep });
-    if (hint) {
-        hint.textContent = `${seasonStatus.year.name} · คะแนนจากการสแกนนับเข้า Quarter ที่เลือกเท่านั้น `
-            + 'และ QR สแกนได้เฉพาะช่วงของ Quarter นั้น — Quarter ที่ยังไม่เปิดจะเริ่มสแกนได้ในวันที่ Quarter เริ่ม';
-    }
+    const { data, error } = await adminDb.rpc('activity_date_info', {
+        p_event_date: date,
+        p_activity_id: pfx === 'edit' ? editingActivityId : null,
+    });
+    if (seq !== dateSeq[pfx]) return;            // a newer date was picked meanwhile
+    dateInfo[pfx] = error ? null : data;
+    syncScanUntil(pfx);
+    hint.textContent = dateHintText(pfx, error ? { ok: false } : data);
 }
 
-/** The quarters an EDIT may move this activity to, within its own วาระ. */
-function editQuarterOptions(act, scanCount) {
-    const out = [];
-    const curQ = seasonStatus?.season?.samo_year_id === act.samo_year_id ? seasonStatus.season.quarter : null;
-    for (let q = 1; q <= 4; q += 1) {
-        const s = samoSeasons.find((x) => x.samo_year_id === act.samo_year_id && x.quarter === q);
-        if (q === act.quarter) {
-            out.push({ q, label: `Q${q} — ตอนนี้กิจกรรมนี้นับเข้า Quarter นี้${s?.ended_at ? ' (ปิดแล้ว)' : (!s ? ' (ยังไม่เปิด)' : '')}` });
-        } else if (s && !s.ended_at) {
-            out.push({ q, label: `Q${q} · เปิดอยู่` });
-        } else if (s && s.ended_at) {
-            if (isAllDepts()) out.push({ q, closed: true, label: `Q${q} · ปิดแล้ว — QR จะสแกนไม่ได้` });
-        } else if (!scanCount && curQ != null && q > curQ) {
-            out.push({ q, label: `Q${q} · ยังไม่เปิด — สแกนได้เมื่อ Q${q} เริ่ม` });
-        }
-    }
-    return out;
+function wireEventDate(pfx) {
+    $f(pfx, 'event-date').addEventListener('change', () => refreshDateHint(pfx));
+    const rewrite = () => {
+        syncScanUntil(pfx);
+        if (dateInfo[pfx]) $f(pfx, 'event-date-hint').textContent = dateHintText(pfx, dateInfo[pfx]);
+    };
+    $f(pfx, 'scan-until-set').addEventListener('change', rewrite);
+    $f(pfx, 'scan-until').addEventListener('change', rewrite);
 }
 
-// What a refused write says to a person, for the 0245/0246 refusals.
+/** The columns a save sends. Unticked = no scan_until: the trigger keeps it at
+ *  event_date + 2 months, so a date change carries the default with it. */
+function windowPayload(pfx) {
+    const set = $f(pfx, 'scan-until-set').checked;
+    return {
+        event_date: $f(pfx, 'event-date').value,
+        scan_until_set: set,
+        ...(set ? { scan_until: $f(pfx, 'scan-until').value } : {}),
+    };
+}
+
+function renderEventDateDefaults() {
+    const d = $f('act', 'event-date');
+    if (!d) return;
+    if (!d.value) d.value = bkkToday();
+    refreshDateHint('act');
+}
+
+// What a refused write says to a person, for the 0246/0267 refusals.
 function quarterError(msg) {
     const m = String(msg || '');
     const notOpen = m.match(/QUARTER_NOT_OPEN_HAS_SCANS:Q(\d)/);
-    if (notOpen) return `ย้ายไป Q${notOpen[1]} ไม่ได้ เพราะมีคนสแกนแล้ว และ Q${notOpen[1]} ยังไม่เริ่ม — คะแนนจะหายจากตารางคะแนนทุกช่วงจนกว่า Q${notOpen[1]} จะเปิด`;
+    if (notOpen) return `เลื่อนไปวันที่อยู่ใน Q${notOpen[1]} ไม่ได้ เพราะมีคนสแกนแล้ว และ Q${notOpen[1]} ยังไม่เริ่ม — คะแนนจะหายจากตารางคะแนนทุกช่วงจนกว่า Q${notOpen[1]} จะเปิด`;
     const orgOnly = m.match(/QUARTER_CLOSED_ORG_WIDE_ONLY:Q(\d)/);
-    if (orgOnly) return `ย้ายกลับไป Q${orgOnly[1]} ที่ปิดแล้วได้เฉพาะผู้ดูแล SAMO Passport ทุกฝ่าย`;
-    const closed = m.match(/QUARTER_CLOSED:Q(\d)/);
-    if (closed) return `Q${closed[1]} ปิดไปแล้ว — เลือก Quarter ปัจจุบันหรือที่ยังไม่ถึง`;
+    if (orgOnly) return `ย้ายคะแนนที่สแกนแล้วเข้า Q${orgOnly[1]} ซึ่งปิดไปแล้ว ได้เฉพาะผู้ดูแล SAMO Passport ทุกฝ่าย`;
+    const expired = m.match(/ACTIVITY_EXPIRED:(\d{4}-\d{2}-\d{2})/);
+    if (expired) return `QR ของกิจกรรมนี้หมดอายุไปแล้ว (${thaiDay(expired[1])}) — ตรวจวันจัด หรือติ๊ก "ตั้งวันหมดอายุ QR เอง"`;
+    if (m.includes('VARA_NOT_STARTED')) return 'วันนั้นอยู่ในวาระสโมที่ยังไม่เริ่ม — สร้างได้เมื่อวาระใหม่เริ่มแล้ว';
+    if (m.includes('SCAN_UNTIL_INVALID')) return 'วันหมดอายุ QR ต้องไม่ก่อนวันจัด และไม่เกิน 1 ปีหลังวันจัด';
+    if (/QUARTER_CLOSED:Q\d/.test(m)) return 'วันนั้นไม่อยู่ในช่วงคะแนนใดที่ระบบมี — ตรวจวันที่อีกครั้ง';
     if (m.includes('NO_OPEN_SEASON')) return 'ยังไม่มีวาระสโม/Season ที่เปิดอยู่ — เปิดใน วาระสโม & Season Control ก่อน';
     return m;
 }
@@ -938,27 +1003,19 @@ window.editActivity = async (id) => {
 
     document.getElementById('edit-sub-department').value = data.sub_department_id || '';
 
-    // 0246 (owner, 2026-10-23): points live in the activity's quarter, so
-    // MOVING it moves the points already earned. Where it may go — the same
-    // rule the database enforces (activity_season_default):
-    //   * the quarter OPEN now — always;
-    //   * a CLOSED quarter of this วาระ — org-wide admins only (it rewrites a
-    //     finished leaderboard, and the QR stops scanning);
-    //   * a quarter NOT STARTED — only while nobody has scanned.
-    editingQuarter = data.quarter ?? null;
-    const qSel = document.getElementById('edit-quarter');
-    const qHint = document.getElementById('edit-quarter-hint');
+    // 0267 + 0246: the DATE decides the quarter, and a date in another quarter
+    // moves the points already earned — the hint says so before the save, and
+    // the database enforces who may (activity_season_default).
+    editingAct = data;
     const { count: scanCount } = await adminDb.from('scans')
         .select('id', { count: 'exact', head: true }).eq('activity_id', id);
     editingScanCount = scanCount || 0;
-    const opts = editQuarterOptions(data, editingScanCount);
-    qSel.innerHTML = opts.map((o) => `<option value="${o.q}" data-closed="${o.closed ? 1 : 0}">${escapeHtml(o.label)}</option>`).join('');
-    qSel.value = String(data.quarter ?? '');
-    qSel.disabled = opts.length <= 1;
-    qHint.textContent = editingScanCount
-        ? `มีคนสแกนแล้ว ${editingScanCount} ครั้ง — ถ้าย้าย Quarter คะแนนที่ได้ไปแล้วจะย้ายไปนับใน Quarter ใหม่ด้วย (ระยะทางรวมของแต่ละคนเท่าเดิม)`
-            + (isAllDepts() ? '' : ' · ย้ายกลับไป Quarter ที่ปิดแล้วได้เฉพาะผู้ดูแลทุกฝ่าย')
-        : 'ยังไม่มีใครสแกน เปลี่ยน Quarter ได้';
+    $f('edit', 'event-date').value = data.event_date || '';
+    $f('edit', 'scan-until-set').checked = !!data.scan_until_set;
+    $f('edit', 'scan-until').value = data.scan_until || '';
+    dateInfo.edit = null;
+    syncScanUntil('edit');
+    refreshDateHint('edit');
 
     document.getElementById('event-creation').style.display = 'none';
     document.getElementById('manage-section').style.display = 'none';
@@ -967,6 +1024,7 @@ window.editActivity = async (id) => {
 
 window.cancelEdit = () => {
     editingActivityId = null;
+    editingAct = null;
     discardPendingUpload('edit-badge-url'); // drop an uploaded-but-unsaved badge
     document.getElementById('edit-section').style.display = 'none';
     document.getElementById('event-creation').style.display = 'block';
@@ -1023,20 +1081,18 @@ async function submitEditActivity(e) {
     // move an activity they own out into a department they don't.
     if (!assertInScope({ department_id: dept, sub_department_id: subDept }, 'ย้ายกิจกรรมไปยัง')) return;
 
-    // 1. Update the activity details. The quarter is sent only when it was
-    //    changeable AND changed — the trigger re-files it (0245).
-    const patch = { name, base_points_km: km, department_id: dept, sub_department_id: subDept, badge_name, badge_url };
-    const qSel = document.getElementById('edit-quarter');
-    const newQ = qSel && !qSel.disabled && qSel.value ? parseInt(qSel.value, 10) : null;
-    if (newQ && newQ !== editingQuarter) {
-        const closed = qSel.selectedOptions[0]?.dataset.closed === '1';
-        if (editingScanCount && !confirm(`ย้ายกิจกรรมนี้ไป Q${newQ}?\n\n`
-            + `คะแนนจากการสแกน ${editingScanCount} ครั้ง จะย้ายจาก Q${editingQuarter} ไปนับใน Q${newQ} `
-            + '(ระยะทางรวมของแต่ละคนเท่าเดิม)'
-            + (closed ? `\n\nQ${newQ} ปิดไปแล้ว: QR ของกิจกรรมนี้จะสแกนไม่ได้อีก และตารางคะแนนของ Q${newQ} จะเปลี่ยน` : ''))) return;
-        patch.quarter = newQ;
-        patch.season_id = null;            // let the trigger resolve the new quarter's season
-    }
+    // 1. Update the activity details and its dates. The trigger re-files it
+    //    when the date lands in another quarter, and moves its points (0246).
+    const win = windowPayload('edit');
+    if (!win.event_date) { alert('ใส่วันที่จัดกิจกรรมก่อน'); return; }
+    const info = dateInfo.edit;
+    const moves = info?.ok && editingAct
+        && (info.quarter !== editingAct.quarter || info.samo_year_id !== editingAct.samo_year_id);
+    if (moves && editingScanCount && !confirm(`ย้ายคะแนนของกิจกรรมนี้ไป ${info.label}?\n\n`
+        + `คะแนนจากการสแกน ${editingScanCount} ครั้ง จะย้ายจาก Q${editingAct.quarter} ไปนับใน ${info.label} ตามวันจัดใหม่ `
+        + '(ระยะทางรวมของแต่ละคนเท่าเดิม)'
+        + (info.state === 'closed' ? `\n\n${info.label} ปิดไปแล้ว: ตารางคะแนนของ ${info.label} จะเปลี่ยน` : ''))) return;
+    const patch = { name, base_points_km: km, department_id: dept, sub_department_id: subDept, badge_name, badge_url, ...win };
     const { error } = await adminDb
         .from('activities')
         .update(patch)
@@ -1078,17 +1134,16 @@ async function createActivity(e) {
     const subDept = subDeptRaw ? parseInt(subDeptRaw, 10) : null;
     const badge_name = document.getElementById('act-badge-name').value || name;
     const badge_url = document.getElementById('act-badge-url').value || null;
-    const quarterRaw = document.getElementById('act-quarter').value;
-    const quarter = quarterRaw ? parseInt(quarterRaw, 10) : null;
+    const win = windowPayload('act');
 
     // A scoped admin must file the activity under a department they own —
     // including the "no department" case, which only a full admin may create.
     if (!assertInScope({ department_id: dept, sub_department_id: subDept }, 'สร้าง')) return;
 
-    // 0245: required, one quarter. The <select required> already blocks an
-    // empty submit; this is for the console and for a status that failed to load.
-    if (!quarter || !seasonStatus?.year) {
-        alert('เลือก Quarter ที่คะแนนของกิจกรรมนี้จะถูกนับก่อน');
+    // 0267: the date is required (the input is too; this is for the console).
+    // Its quarter is the DATABASE's answer — the hint showed the same one.
+    if (!win.event_date) {
+        alert('ใส่วันที่จัดกิจกรรมก่อน');
         return;
     }
 
@@ -1102,8 +1157,7 @@ async function createActivity(e) {
                 sub_department_id: subDept,
                 badge_name,
                 badge_url,
-                quarter,
-                samo_year_id: seasonStatus.year.id,
+                ...win,
             },
         ])
         .select();
@@ -1574,7 +1628,7 @@ function escapeHtml(s) {
 }
 
 let seasonStatus = null;       // passport.season_status() — see samo.js
-let editingQuarter = null;
+let editingAct = null;         // the row being edited, as loaded (its quarter + วาระ)
 let editingScanCount = 0;
 
 async function loadSamoData() {
@@ -1587,7 +1641,7 @@ async function loadSamoData() {
     ]);
     samoYears = ys || [];
     samoSeasons = ss || [];
-    renderQuarterPickers();
+    renderEventDateDefaults();
 }
 
 const currentYearRow = () => samoYears.find(y => !y.ended_at) || null;
