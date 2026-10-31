@@ -2570,3 +2570,15 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 
 **d. Real phones and real students — Status: VERIFIED by the owner 2026-10-30.** Students have used it since 2026-10-24; the owner checks it on an iPad and a phone ("i see on ipad and mobile normally"). The automated run is still headless Chrome at three widths (`tools/browser/rotation-page.mjs`, samo-dev).
 
+
+## 33. ระบบบ้าน "fill in everything" (0268), /me account settings, เกี่ยวกับเรา = ภาพรวม only (2026-10-31)
+
+**Status: VERIFIED 2026-10-31 on PRODUCTION — how: 0268 applied first, `house0268-details` 30/30 + `house0191` 28/28 on production (red under two mutations on dev); `eefcd80` then `6b936f0` deployed, served files grepped (STATE.md DEPLOYED line); `tools/browser/house-details.mjs` 14/14, `me-settings.mjs` 17/17, `me-page.mjs` green on samo-dev; an org-page check at 1440 and 390.** Rules: `docs/HOUSE-DATA-REPAIR.md` ("They hand over EVERYTHING"), `src/js/me-settings.js` header, memory `org-overview-four-views`.
+
+**a. The admin's "ตรวจแล้ว เพิ่มเข้าระบบบ้าน" button was never driven in a browser — Status: HYPOTHESIS that it works.** It opens the ordinary add-student modal prefilled from the request (`openStudentModalFromRequest` in `src/js/house/index.js`); saving goes through the existing `createStudent`, and the trigger closing the request is proved (house0268 §G). What is untested is the prefill itself — check once on production with the first real submission: every field filled, the สาย → บ้าน hint shown, the request gone from the list after บันทึก.
+
+**b. Telling the หัวหน้าชั้นปี — Status: OWED (owner's call).** Stuck MD49–54 students are now told to ask their class head to fill them into "the sheet the admin sent each ชั้นปี"; other รุ่น are told to have the class head CONTACT the admin via VitalSound or the usual channel. The class heads may want a heads-up that these requests will come.
+
+**c. /me's rows never seen in Safari or on a real iPhone — Status: HYPOTHESIS.** The open/close animates `grid-template-rows` (Safari 16+ interpolates it; older ones snap open, still usable) and closed panels are `inert` (Safari 15.5+). Check: a row opens and closes, the keyboard does not pop up on tap, Google link returns to /me.
+
+**d. `chartParentage()` + its tests in `org-rung.js` have no caller since ผังรวม went — Status: DECIDED (left on purpose).** Deleting it means rewriting part of `org-rung.test.js`; it costs nothing at runtime. Remove only if the file is being touched anyway.

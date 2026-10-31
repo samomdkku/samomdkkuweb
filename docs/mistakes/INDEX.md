@@ -153,7 +153,7 @@ Open when: writing a migration.
 - แลก Rotation: 0262 broke `rotation_board()` on production, was fixed by EDITING the applied file, and its proof was gre…
 - เริ่มปี SAMO on 1 มี.ค. fails "ปี … เป็นปีปัจจุบันอยู่แล้ว" on every press and undoes the automatic switch
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(121)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(124)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -278,6 +278,9 @@ Open when: markup, modals, layout, touch, icons.
 - ภาพรวม ran off the side at 1024 and 820 wide, and every row was as tall as the tallest
 - On iPad the left column of /rotation cut off "คำขอของคุณ"
 - แลก Rotation: "KKU Mail: -" on every off-criteria ask
+- ระบบบ้าน: a student who retyped their รหัส after a miss would have sent the FIRST, wrong one
+- /me: "บันทึกชื่อแล้ว" vanished the instant it appeared
+- /me: no divider between ชื่อที่แสดง and อีเมล
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(39)*
 
@@ -536,4 +539,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_474 entries across 10 files._
+_477 entries across 10 files._

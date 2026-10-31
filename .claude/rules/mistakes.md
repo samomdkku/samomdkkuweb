@@ -399,7 +399,7 @@ class; tighten this paragraph first.
 - `authz-rls.md` *(36)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(24)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(40)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(121)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(124)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(39)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(37)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

@@ -4748,3 +4748,67 @@ board).
 **The general rule**: *a `|| '-'` fallback makes a field the server never
 sends look like an empty value. Before rendering `x.field`, grep the RPC that
 built `x` for that key.*
+
+## ระบบบ้าน: a student who retyped their รหัส after a miss would have sent the FIRST, wrong one
+
+**Symptom (pre-deploy scan of 0268, 2026-10-31).** Mistype the รหัส, press
+ยืนยันตัวตน (miss → the details form opens with that รหัส), retype it
+correctly, press again (miss again) — the details form still held the first
+รหัส, and "ส่งข้อมูลให้ผู้ดูแลตรวจ" would have filed the typo the student had
+just corrected.
+
+**Cause.** `openDetails()` prefilled a field only `if (!el.value)` — written
+so a reopen would not clobber what the person typed, it also refused the NEWER
+value the second claim handed in.
+
+**Fix (25c7a3f).** A value handed in wins; fields not handed in keep what was
+typed. `tools/browser/house-details.mjs` retries with a corrected รหัส (red
+with the old line restored).
+
+**Where it lives now.** `src/js/house/my-house.js` `openDetails`.
+
+**The general rule**: *"don't overwrite what the user typed" and "show the
+latest thing the user typed" are the same wish only once. A prefill guard
+keyed on emptiness keeps the FIRST attempt; key it on who wrote the value.*
+
+## /me: "บันทึกชื่อแล้ว" vanished the instant it appeared — and the profile modal always did this
+
+**Symptom (browser check of the /me account rows, 2026-10-31).** Save the
+display name: the row's value updated, the success line stayed blank.
+
+**Cause.** `profile.js` cleared every alert at the end of `repaint()`, and a
+save refreshes the account MORE than once: the first `onAuthChange` ran before
+the handler showed "บันทึกแล้ว", a later one erased it. The modal shared the
+code, so the admin modal had the same race whenever it was open.
+
+**Fix (3c7f914).** Alerts clear when the form is opened fresh or the account
+changes, never on a plain repaint; on /me, closing a row clears its alert.
+
+**Where it lives now.** `src/js/profile.js` `repaint({ fresh })`,
+`src/js/me-settings.js` `setOpen`; `tools/browser/me-settings.mjs` asserts the
+text after a real save.
+
+**The general rule**: *a repaint driven by a state event must not own transient
+feedback — the event fires more often than the action that produced the
+feedback. Clear a message on the user's next ACT, not on the next PAINT.*
+
+## /me: no divider between ชื่อที่แสดง and อีเมล — for every account without a username
+
+**Symptom (pre-deploy scan, 2026-10-31).** On a Google-only account (most
+students) the grouped list ran ชื่อที่แสดง straight into อีเมล with no hairline.
+The screenshots looked right: the test account HAD a username.
+
+**Cause.** `.me-set.d-none + .me-set::before { display: none }` — meant to
+avoid a double line around the hidden Username row. But the divider on a row is
+the line ABOVE it; the hidden row takes no space, so the line it removed was
+the one between the two visible neighbours.
+
+**Fix (6b936f0).** Rule deleted. `me-settings.mjs` hides the Username row and
+reads the email row's computed `::before` (red with the rule restored).
+
+**Where it lives now.** `src/css/me.css` (the `.me-set + .me-set::before` rule).
+
+**The general rule**: *a sibling combinator across a `display:none` element
+still matches — the hidden node is in the DOM, not in the layout. And verify
+optional rows in BOTH states: a test fixture that has every field shows only
+the full layout.*
