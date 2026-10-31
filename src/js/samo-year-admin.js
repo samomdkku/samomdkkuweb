@@ -4,10 +4,12 @@
 // There are four, and they are different facts (owner, 2026-10-20: "ปีการศึกษา
 // isn't the same as ปีsamo you should make a unified ui ux to handle it"):
 //
-//   ปี SAMO      team_terms (0104/0219). The team in office. PR, VitalSound,
-//                หนังสือโครงการ and SAMO Shop stamp new rows with it
-//                (0220/0221/0223/0230); PR and หนังสือโครงการ pick their Drive
-//                folder by it; the public ทีม SAMO page names its team by it.
+//   ปี SAMO      team_terms (0104/0219). The team in office. PR, VitalSound
+//                and SAMO Shop count new rows in it (0220/0221/0230); PR picks
+//                its Drive folder by it; the public ทีม SAMO page names its team
+//                by it. หนังสือโครงการ does NOT follow it (owner 2026-10-31): it
+//                counts and files by ปีงบประมาณ (0269). projects.samo_year_be
+//                is still stamped, for the year export only.
 //                Moved by an admin on handover day.
 //   Passport     passport.samo_years/samo_seasons — the leaderboard window.
 //   วาระสโม      Opened IN THE SAME ACT as a new ปี SAMO (owner: "Move it in the
@@ -117,8 +119,7 @@ const thDate = (iso) => {
  *  see, and each is true of the code today — verify before adding one:
  *  PR → pr_tickets trigger (0220) + PR/<year> upload folder (pr-form.js) +
  *  isPastYearTicket's lock on FINISHED work only (pr-year.js); VitalSound →
- *  vs_tickets trigger (0221), no lock (vs-year.js); หนังสือโครงการ → projects
- *  trigger + drive_layout 'year' (0223, projects/api.js); Shop → shop_orders
+ *  vs_tickets trigger (0221), no lock (vs-year.js); Shop → shop_orders
  *  trigger + shop_order_totals() scoped to the current year (0230); ทีม SAMO →
  *  get_public_team_chart labels the live tree with the current year (0153);
  *  Passport → start_samo_year opens a new วาระ + season (0242), which is what
@@ -128,8 +129,6 @@ const EFFECTS = [
     line: 'คำขอใหม่นับเป็นปีใหม่ ไฟล์แนบเก็บในโฟลเดอร์ของปีใหม่ — งานที่เสร็จแล้วของปีก่อนต้องกดยืนยันก่อนแก้' },
   { icon: 'bi-clipboard2-pulse', name: 'VitalSound',
     line: 'เรื่องที่แจ้งใหม่นับเป็นปีใหม่ หน้าเจ้าหน้าที่เปิดที่ปีใหม่ เรื่องเดิมยังแก้ได้ตามปกติ' },
-  { icon: 'bi-folder2', name: 'หนังสือโครงการ',
-    line: 'โครงการใหม่นับเป็นปีใหม่ และเก็บไฟล์ในโฟลเดอร์ Drive ของปีใหม่' },
   { icon: 'bi-shop', name: 'SAMO Shop',
     line: 'คำสั่งซื้อใหม่นับเป็นปีใหม่ ยอดสรุปในข้อความ Discord ของร้านเริ่มนับใหม่' },
   { icon: 'bi-diagram-3', name: 'หน้าทีม SAMO',
@@ -149,7 +148,7 @@ function overviewHtml(st) {
         <div class="sy-hero-kicker">ปี SAMO ปัจจุบัน</div>
         <div class="sy-hero-year" id="syHeroYear">${c ? escHtml(yr(c.year)) : 'ยังไม่ได้ตั้ง'}</div>
         <p class="sy-hero-lead">${c
-          ? 'ทีมที่ดำรงตำแหน่งอยู่ — งานใหม่ทุกชิ้นใน PR, VitalSound, หนังสือโครงการ และ SAMO Shop นับเป็นปีนี้'
+          ? 'ทีมที่ดำรงตำแหน่งอยู่ — งานใหม่ใน PR, VitalSound และ SAMO Shop นับเป็นปีนี้ (หนังสือโครงการนับตามปีงบประมาณ)'
           : 'ยังไม่มีปีที่เป็นปีปัจจุบัน งานใหม่จะยังไม่ถูกนับเข้าปีใด — เริ่มปีที่ขั้นที่ 3 ด้านล่าง'}</p>
         ${c ? `<div class="sy-hero-meta">
           ${thDate(c.started_at) ? `<span><i class="bi bi-flag"></i> เริ่ม ${escHtml(thDate(c.started_at))}</span>` : ''}
@@ -182,7 +181,7 @@ function overviewHtml(st) {
         <li class="sy-tile">
           <span class="sy-tile-k"><i class="bi bi-calendar3"></i> ปีงบประมาณ</span>
           <span class="sy-tile-v">${escHtml(yr(currentFiscalYearBE()))}</span>
-          <span class="sy-tile-s">เปลี่ยนเองทุก 1 ต.ค. · ใช้ในหนังสือโครงการ</span>
+          <span class="sy-tile-s">เปลี่ยนเองทุก 1 ต.ค. · หนังสือโครงการนับปีและเก็บไฟล์ใน Drive ตามปีงบ ย้ายปีงบได้ทีละโครงการ</span>
         </li>
       </ul>
     </section>`;

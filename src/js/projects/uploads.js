@@ -163,3 +163,26 @@ export async function deleteProjectFolder(folderPath) {
   if (!result.success) throw new Error(result.message || 'ลบโฟลเดอร์ใน Drive ไม่สำเร็จ');
   return result;
 }
+
+/**
+ * Move one โครงการ's Drive folder to another year folder (0269). Answers what
+ * Apps Script found: `moved`, `alreadyThere`, or `notFound` (no folder yet —
+ * nothing was uploaded, so the new year simply applies to the first upload).
+ * Throws when Drive refused or could not be reached; the caller must then
+ * leave `drive_year_be` where the files still are.
+ *
+ * @param {string} projectId  PRJ-XXXX
+ * @param {number|null} fromYear  where the folder is now (null = flat)
+ * @param {number} toYear
+ */
+export async function moveProjectFolderToYear(projectId, fromYear, toYear) {
+  const result = await postGAS(GAS_API_URL, {
+    action: 'moveProjectFolderToYear',
+    projectId,
+    fromYear: fromYear == null ? '' : String(fromYear),
+    toYear: String(toYear),
+    accessToken: currentAccessToken(),
+  }).catch((e) => ({ success: false, message: e.message }));
+  if (!result?.success) throw new Error(result?.message || 'ย้ายโฟลเดอร์ใน Drive ไม่สำเร็จ');
+  return result;
+}

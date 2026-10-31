@@ -2584,3 +2584,17 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 **d. `chartParentage()` + its tests in `org-rung.js` have no caller since ผังรวม went — Status: DECIDED (left on purpose).** Deleting it means rewriting part of `org-rung.test.js`; it costs nothing at runtime. Remove only if the file is being touched anyway.
 
 **e. `deploy:owed` warns that 0257 no longer matches production — Status: VERIFIED cause, not a fault.** The file was edited after it ran, to redact student names (`git log -- supabase/migrations/0257_rotation_cleanup_misuse_admin_moves.sql`; the repo and docs are public). Same kind of noise as 0224 (§ above). Do not "fix" it by re-applying; the database is right.
+
+## 34. Night agent tasks 14–19 merged + หนังสือโครงการ Drive by ปีงบ (2026-10-31)
+
+**Status: VERIFIED locally and on samo-dev — how: `npm run build && npm test` green, lint clean, every new guard red under its mutation) and on samo-dev (`proj0269` 11/11 after 0269 applied there, red before); NOTHING of this is on production — no push, no migration, no deploy, no Apps Script deploy.** The owner asks before anything goes to production while people are using the site.
+
+**a. Night agent 0234 + 0235 — Status: OWED (ask the owner first).** Read-only checks on production: 0234's bodies, settings and the five `auth.users` triggers are already identical there (no-op); every caller of the four helpers 0235 revokes is SECURITY DEFINER owned by postgres, no policy/view/client RPC uses them. `security0235` on production is 11/12 BEFORE applying, the one red being exactly the functions 0235 revokes. Apply 0234 then 0235, then `node tools/db-query.mjs tools/security0235-*.sql` must read 12/12. 0236 was WITHDRAWN at review (see `docs/state/night-agent.md` Task 15); do not resurrect it.
+
+**b. Apps Script v17 — Status: OWED (ask first).** Carries the night agent's upload size caps (size only — the file-type lists were dropped at review) AND `moveProjectFolderToYear`. `npm run deploy:gas`. The bundle's move button calls this action; until it is deployed a move changes the ปีงบ and shows the "files stayed in the old folder" note with a retry button — nothing breaks.
+
+**c. 0269 order — Status: DECIDED.** (1) apply 0269 (ADD only; the old bundle never reads the column), (2) deploy the bundle, (3) deploy Apps Script, (4) `node tools/projects-file-by-fiscal-year.mjs` (dry run, read the plan), then `CONFIRM=1 …` — files the 46 flat folders and the five created after 1 ต.ค. 2569 (in `Projects/2569/`, ปีงบ 2570) into `Projects/<ปีงบ>/`. Paced 2.5 s per call. Running step 4 before step 2 lets the old bundle recreate the old folder on the next upload. `--dev` is plan-only by design (one Drive).
+
+**d. `tools/browser/shop-admin-tour.mjs` never run against the split shop admin — Status: HYPOTHESIS that it works.** The split was verified structurally (every declaration kept, live bindings, no TDZ). Run the tour on samo-dev before the deploy that carries it.
+
+**e. Night agent tasks 20–23 — Status: OWED (owner's call).** Not run: the agent is paused (STOPPED file on the VM; its Until window expired).

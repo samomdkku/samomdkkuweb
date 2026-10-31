@@ -176,19 +176,21 @@ export function buildProjectFolderPath(projectId, projectName, samoYearBe) {
   return `${prefix}/${slugify(projectName)}_${projectId}`;
 }
 
-/** The year to pass as buildProjectFolderPath/buildDocFolderPath's
- *  `samoYearBe` argument for THIS project, or null for "no year segment".
+/** The year folder THIS project's Drive files are in, to pass as
+ *  buildProjectFolderPath/buildDocFolderPath's year argument, or null for
+ *  "flat" (`Projects/<slug>_<id>`, every project before 0223).
  *
- *  `project.drive_layout` (0223) is the one thing that may say 'year' —
- *  every project that existed before migration 0223 is 'flat' forever,
- *  because its real Drive folder already lives at `Projects/<slug>_<id>`
- *  and recomputing the path WITH a year prefix would point every future
- *  rename/delete/QR-folder-info call at a folder that was never created,
- *  not the one that actually holds the project's files. Only a project
- *  created by this bundle ever gets the year segment: createProject
- *  sends drive_layout = 'year', while the column's default stays 'flat'
- *  for the previous bundle, which builds every folder flat (0223). Its
- *  samo_year_be is stamped by 0223's INSERT trigger in the same insert. */
+ *  `drive_year_be` (0269) is the authority: it records where the folder IS,
+ *  written only after Apps Script created or moved it. It is NOT the ปีงบ —
+ *  that is a label a person can change (fiscal_year_be, or a corrected
+ *  created_at), and building the path from a label would point every later
+ *  upload/rename/QR at a folder that does not exist, which Apps Script then
+ *  CREATES, splitting the files in two.
+ *
+ *  Fallback for a row written by the bundle before 0269 (drive_layout 'year',
+ *  no drive_year_be): 0223 put that folder under its samo_year_be. */
 export function projectDriveYear(project) {
+  const y = Number(project?.drive_year_be);
+  if (Number.isFinite(y) && y > 0) return y;
   return project?.drive_layout === 'year' ? (project?.samo_year_be ?? null) : null;
 }

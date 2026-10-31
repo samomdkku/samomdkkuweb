@@ -327,3 +327,62 @@ describe('the Projects year segment', () => {
     expect(d.ctx.isSamoYearSegment_('9999')).toBe(false);
   });
 });
+
+// ============================================================
+// moveProjectFolderToYear (0269) — a โครงการ's folder follows its ปีงบ.
+// ============================================================
+describe('moveProjectFolderToYear — one โครงการ folder between year folders', () => {
+  let d, projects;
+  beforeEach(() => { d = load(); projects = new FakeFolder('Projects', d.app); });
+
+  it('moves a flat folder into its year, keeping the files (ids) inside', () => {
+    const f = new FakeFolder('ค่าย_PRJ-AB12', projects);
+    const file = new FakeFile('a.pdf', f);
+    const r = d.call('handleMoveProjectFolderToYear', { projectId: 'PRJ-AB12', fromYear: '', toYear: '2570' });
+    expect(r).toMatchObject({ success: true, moved: true });
+    expect(projects.child('2570/ค่าย_PRJ-AB12')).toBe(f);
+    expect(f.files).toContain(file);
+    expect(projects.child('ค่าย_PRJ-AB12')).toBeUndefined();
+  });
+
+  it('moves between two year folders', () => {
+    const f = new FakeFolder('ค่าย_PRJ-CD34', new FakeFolder('2569', projects));
+    const r = d.call('handleMoveProjectFolderToYear', { projectId: 'PRJ-CD34', fromYear: '2569', toYear: '2570' });
+    expect(r.moved).toBe(true);
+    expect(projects.child('2570/ค่าย_PRJ-CD34')).toBe(f);
+  });
+
+  it('no folder yet → notFound, and creates nothing', () => {
+    const r = d.call('handleMoveProjectFolderToYear', { projectId: 'PRJ-EF56', fromYear: '2569', toYear: '2570' });
+    expect(r).toMatchObject({ success: true, notFound: true });
+    expect(projects.child('2570')).toBeUndefined();
+  });
+
+  it('already in the destination → alreadyThere (a retry is harmless)', () => {
+    new FakeFolder('ค่าย_PRJ-GH78', new FakeFolder('2570', projects));
+    const r = d.call('handleMoveProjectFolderToYear', { projectId: 'PRJ-GH78', fromYear: '2569', toYear: '2570' });
+    expect(r).toMatchObject({ success: true, alreadyThere: true });
+  });
+
+  it('refuses when BOTH places hold a folder for the code — nothing moves', () => {
+    const a = new FakeFolder('ค่าย_PRJ-JK90', new FakeFolder('2569', projects));
+    new FakeFolder('ค่าย_PRJ-JK90', new FakeFolder('2570', projects));
+    const r = d.call('handleMoveProjectFolderToYear', { projectId: 'PRJ-JK90', fromYear: '2569', toYear: '2570' });
+    expect(r.success).toBe(false);
+    expect(projects.child('2569/ค่าย_PRJ-JK90')).toBe(a);
+  });
+
+  it('refuses a non-PRJ id, a bad year, and never moves a year folder itself', () => {
+    const y = new FakeFolder('2569', projects);
+    for (const bad of [
+      { projectId: '2569', fromYear: '', toYear: '2570' },
+      { projectId: 'DOC-ABCDE', fromYear: '', toYear: '2570' },
+      { projectId: 'PRJ-AB12', fromYear: '', toYear: '1999' },
+      { projectId: 'PRJ-AB12', fromYear: '../x', toYear: '2570' },
+      { projectId: 'PRJ-AB12/..', fromYear: '', toYear: '2570' },
+    ]) {
+      expect(d.call('handleMoveProjectFolderToYear', bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect(projects.child('2569')).toBe(y);
+  });
+});

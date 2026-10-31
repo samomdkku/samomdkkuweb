@@ -218,7 +218,7 @@ const rows = SELFTEST ? [
 ] : await sql(`
   select f.id, f.drive_file_id, f.file_name, f.size_bytes, f.is_signed,
          f.document_id, d.title as doc_title, d.project_id,
-         p.name as project_name, p.drive_layout, p.samo_year_be
+         p.name as project_name, p.drive_layout, p.samo_year_be, p.drive_year_be
     from public.project_files f
     join public.project_documents d on d.id = f.document_id
     join public.projects p on p.id = d.project_id
@@ -270,7 +270,7 @@ const unreachable = [];
 let listed = 0;
 for (const [docId, d] of (ROWS_ONLY ? [] : docs)) {
   const path = buildDocFolderPath(d.project_id, d.project_name, docId, d.doc_title,
-    projectDriveYear({ drive_layout: d.drive_layout, samo_year_be: d.samo_year_be }));
+    projectDriveYear({ drive_year_be: d.drive_year_be, drive_layout: d.drive_layout, samo_year_be: d.samo_year_be }));
   // The folder listing needs a file we already hold, as proof of prior access.
   // Prefer one the stat pass CONFIRMED resolves — but fall back to the first row
   // we have, because --folders-only skips that pass entirely and the preference

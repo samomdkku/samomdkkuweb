@@ -7,6 +7,7 @@
 
 import { dbRest } from '../db.js';
 import { genProjectId, genDocumentId, genSignRequestId } from './data.js';
+import { currentFiscalYearBE } from './fiscal-year.js';
 
 // ---- Doc types ----
 
@@ -69,10 +70,13 @@ export async function createProject({ name, description, createdBy }) {
       description: description || null,
       status: 'open',
       created_by: createdBy || null,
-      // This bundle files a new โครงการ's Drive folder under its SAMO year
-      // (projectDriveYear, data.js). Said HERE, not by a column default: the
-      // previous bundle builds every folder flat and gets 'flat' (0223).
+      // A new โครงการ's Drive folder goes under the ปีงบประมาณ it counts in
+      // (0269; owner 2026-10-31 — หนังสือโครงการ use ปีงบ, not ปี SAMO). The
+      // folder itself is created on first upload, at the path projectDriveYear
+      // builds from THIS value. drive_layout 'year' stays for the bundle
+      // before 0269, which reads only that pair.
       drive_layout: 'year',
+      drive_year_be: currentFiscalYearBE(),
     };
     const { data, error } = await dbRest(
       '/projects',

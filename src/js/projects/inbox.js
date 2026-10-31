@@ -45,7 +45,7 @@ import {
   buildProjectFolderPath,
   projectDriveYear,
 } from './data.js';
-import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo } from './uploads.js';
+import { uploadProjectFile, deleteProjectFolder, deleteProjectFile, getProjectFolderInfo, moveProjectFolderToYear } from './uploads.js';
 import { notifyUniStaff, notifyVpAdmin, notifyProf } from './notify.js';
 // esign.js (with pdf.js + pdf-lib, ~1.4 MB) is lazy-loaded on demand so
 // the heavy PDF libs never ship in the main bundle / public mirror.
@@ -1092,6 +1092,7 @@ function renderDetail() {
           ขณะนี้ทั้งโครงการและหนังสือทุกฉบับในนี้ไม่ปรากฏบนเว็บสาธารณะ —
           เจ้าหน้าที่ที่ล็อกอินยังเห็นตามปกติ
         </div>` : ''}
+      ${canMoveFY ? driveYearNoteHtml(project) : ''}
       ${canManage ? deptEditorHtml(project) : ''}
       <div class="projects-detail-actions${detailMoreOpen ? ' is-expanded' : ''}">
         ${canManage ? `<button type="button" class="btn btn-sm btn-primary-soft" data-projects-add-doc="${escHtml(project.id)}">
@@ -2040,6 +2041,11 @@ function onInboxClick(e) {
     onToggleProjectPublic(pubProj);
     return;
   }
+  const syncDrive = e.target.closest('[data-projects-sync-drive]');
+  if (syncDrive) {
+    onSyncDriveYear(syncDrive.dataset.projectsSyncDrive, syncDrive);
+    return;
+  }
   const moveFyProj = e.target.closest('[data-projects-move-fy]');
   if (moveFyProj) {
     onMoveProjectFiscalYear(moveFyProj.dataset.projectsMoveFy);
@@ -2142,7 +2148,7 @@ async function onMoveProjectFiscalYear(projectId) {
     selectLabel: `ย้าย "${p.name || projectId}" ไปที่`,
     selectOptions: options,
     selectInitial: isFiscalYearMoved(p) ? String(current) : 'auto',
-    hint: 'ใช้เมื่อหนังสือถูกส่งในปีงบหนึ่ง แต่คณะลงเป็นอีกปีงบหนึ่ง — มีผลกับตัวกรองปีงบและการค้นหา',
+    hint: 'ใช้เมื่อหนังสือถูกส่งในปีงบหนึ่ง แต่คณะลงเป็นอีกปีงบหนึ่ง — มีผลกับตัวกรองปีงบ การค้นหา และย้ายไฟล์ใน Drive ไปโฟลเดอร์ของปีงบนั้นด้วย',
     okLabel: 'ย้าย',
   });
   const picked = res && typeof res === 'object' ? res.select : null;
@@ -2155,6 +2161,16 @@ async function onMoveProjectFiscalYear(projectId) {
   if (next === stored) return;
   try {
     await updateProject(projectId, { fiscal_year_be: next });
+    // The Drive folder follows the ปีงบ (owner 2026-10-31). The ปีงบ change
+    // above stands either way; a failed move leaves drive_year_be where the
+    // files still are, and the header then offers the move again.
+    let driveMsg = '';
+    try {
+      await syncDriveYear({ ...p, fiscal_year_be: next });
+    } catch (err) {
+      driveMsg = `ย้ายปีงบแล้ว แต่ย้ายไฟล์ใน Drive ไม่สำเร็จ (${err?.message || 'ลองใหม่'}) `
+        + '— ไฟล์ยังอยู่ในโฟลเดอร์เดิมและเปิดได้ตามปกติ กดปุ่ม "ย้ายไฟล์" ในหน้าโครงการเพื่อลองอีกครั้ง';
+    }
     // If the viewer is filtered to a year the project just left, it would
     // vanish from under them with no explanation when they go back. Follow it.
     //
@@ -2174,8 +2190,60 @@ async function onMoveProjectFiscalYear(projectId) {
       filterFY = String(resulting);
     }
     onChanged();
+    if (driveMsg) window.alert(driveMsg);
   } catch (e) {
     window.alert(e?.message || 'ย้ายปีงบประมาณไม่สำเร็จ');
+  }
+}
+
+/** Where this โครงการ's files are vs the ปีงบ it counts in (0269). Both come
+ *  from their one home — projectDriveYear (the recorded folder) and
+ *  projectFiscalYear (the label) — so this cannot disagree with the path
+ *  builder or the ปีงบ filter. */
+function driveYearMismatch(p) {
+  const to = projectFiscalYear(p);
+  const from = projectDriveYear(p);
+  if (to == null || Number(from) === Number(to)) return null;
+  return { from: from == null ? null : Number(from), to: Number(to) };
+}
+
+/** Move the folder to the ปีงบ's year folder, then record it. Throws if Drive
+ *  refused — and then records NOTHING, because drive_year_be must only ever
+ *  say where the files really are. */
+async function syncDriveYear(p) {
+  const m = driveYearMismatch(p);
+  if (!m) return;
+  await moveProjectFolderToYear(p.id, m.from, m.to);
+  await updateProject(p.id, { drive_year_be: m.to });
+}
+
+/** The header line shown when the files are not in the ปีงบ's folder — after
+ *  a failed move, or a โครงการ created in the seconds around 1 ต.ค. when the
+ *  browser's clock and the database's disagreed on the year. */
+function driveYearNoteHtml(p) {
+  const m = driveYearMismatch(p);
+  if (!m) return '';
+  const where = m.from == null ? 'โฟลเดอร์รวม (ยังไม่แยกปี)' : `โฟลเดอร์ ${m.from}`;
+  return `
+    <div class="projects-hidden-note">
+      <i class="bi bi-folder2 me-1"></i>
+      ไฟล์ใน Drive ของโครงการนี้อยู่ใน${where} แต่โครงการนับอยู่ในปีงบ ${m.to}
+      <button type="button" class="btn btn-sm btn-ghost is-secondary ms-1" data-projects-sync-drive="${escHtml(p.id)}">
+        <i class="bi bi-arrow-right me-1"></i>ย้ายไฟล์ไปโฟลเดอร์ปีงบ ${m.to}
+      </button>
+    </div>`;
+}
+
+async function onSyncDriveYear(projectId, btn) {
+  const p = cache.projects.find((x) => x.id === projectId);
+  if (!p) return;
+  if (btn) btn.disabled = true;
+  try {
+    await syncDriveYear(p);
+    onChanged();
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    window.alert(`ย้ายไฟล์ใน Drive ไม่สำเร็จ: ${e?.message || 'ลองใหม่อีกครั้ง'} — ไฟล์ยังอยู่ที่เดิมและเปิดได้ตามปกติ`);
   }
 }
 

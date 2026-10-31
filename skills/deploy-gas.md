@@ -211,7 +211,8 @@ created straight in My Drive root and made the SAMO Drive unbrowsable:
 My Drive/
   IT Database/
     PR/
-    Projects/<slug>_PRJ-XXXX/<slug>_DOC-XXXXX/
+    Projects/<ปีงบ>/<slug>_PRJ-XXXX/<slug>_DOC-XXXXX/   (year = projects.drive_year_be, 0269;
+    Projects/<slug>_PRJ-XXXX/…                          flat = NULL, older โครงการ until filed)
     Shop/{Slips,Products,Banners,QR}/
     Team/<ปีการศึกษา>/<ฝ่าย>/
 ```

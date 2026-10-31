@@ -49,7 +49,7 @@ export function askStartTerm(year, outgoing, passport = null) {
           + `— ถ้าแก้ผังเป็นทีมใหม่ไปแล้ว ประวัติของปี SAMO ${out} จะเป็นทีมใหม่ ให้ยกเลิกแล้วทำขั้นที่ 1 ก่อน `
         : (out != null ? `ประวัติทีมปี SAMO ${out} ที่บันทึกไว้แล้วจะคงเดิม `
           : ''))
-      + `จากนั้น PR, VitalSound, หนังสือโครงการ และคำสั่งซื้อ SAMO Shop ที่เข้ามาใหม่จะนับเป็นปี SAMO ${year} `
+      + `จากนั้น PR, VitalSound และคำสั่งซื้อ SAMO Shop ที่เข้ามาใหม่จะนับเป็นปี SAMO ${year} `
       + (passport
         ? `และ SAMO Passport เริ่มวาระ ${passport.name} (season ${passport.season}) — ตารางคะแนนสดเริ่มนับใหม่ `
         : 'SAMO Passport ไม่เปลี่ยน ')

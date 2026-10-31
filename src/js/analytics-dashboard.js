@@ -281,6 +281,7 @@ const GAS_ACTIONS = [
   { name: 'movePRFileToYear',      label: 'ย้ายไฟล์ PR ไปโฟลเดอร์ปี',     counted: false },
   { name: 'deleteProjectFile',     label: 'ลบไฟล์หนังสือโครงการ',        counted: false },
   { name: 'deleteProjectFolder',   label: 'ลบโฟลเดอร์โครงการ',           counted: false },
+  { name: 'moveProjectFolderToYear', label: 'ย้ายโฟลเดอร์โครงการไปปีงบ',   counted: false },
   { name: 'deleteShopFile',        label: 'ลบไฟล์ร้านค้า',               counted: false },
   { name: 'deleteTeamFile',        label: 'ลบรูปทีม',                   counted: false },
   { name: 'getProjectFolderInfo',  label: 'อ่านข้อมูลโฟลเดอร์',          counted: false },

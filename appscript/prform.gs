@@ -479,6 +479,7 @@ function doPost(e) {
     if (data.action === 'uploadProjectFile')   return handleUploadProjectFile(data);
     if (data.action === 'deleteProjectFile')   return handleDeleteProjectFile(data);
     if (data.action === 'deleteProjectFolder') return handleDeleteProjectFolder(data);
+    if (data.action === 'moveProjectFolderToYear') return handleMoveProjectFolderToYear(data);
     if (data.action === 'getProjectFolderInfo') return handleGetProjectFolderInfo(data);
     if (data.action === 'getProjectFileData')   return handleGetProjectFileData(data);
     if (data.action === 'statProjectFiles')     return handleStatProjectFiles(data);
@@ -1359,6 +1360,80 @@ function findProjectSubfolderByCode_(parent, desiredName, code) {
     }
   }
   return null;
+}
+
+// ============================================================
+// moveProjectFolderToYear — move ONE โครงการ's folder between year folders.
+//
+// หนังสือโครงการ are filed by ปีงบประมาณ (owner, 2026-10-31): a new โครงการ's
+// folder is `Projects/<ปีงบ>/<slug>_<PRJ-code>`, and when an admin moves a
+// โครงการ to another ปีงบ its folder follows. `projects.drive_year_be` (0269)
+// records where the folder IS; the app writes it only after this answers.
+//
+// Folder.moveTo() keeps every id, so every stored file URL keeps working.
+//
+// WHAT A CALLER CAN DO WITH IT (the endpoint is public and unauthenticated —
+// docs/mistakes/integrations.md): move a folder whose name carries the given
+// PRJ- code from the Projects root or one year folder to another year folder.
+// Nothing is created except the destination year folder, nothing is shared,
+// trashed or renamed, and a year folder itself can never be the thing moved.
+// That is less than deleteProjectFolder already allows by path.
+//
+// Answers:
+//   { success, moved: true }        moved
+//   { success, alreadyThere: true } it is already in the destination
+//   { success, notFound: true }     no folder yet (nothing was ever uploaded);
+//                                   the app records the new year and the
+//                                   folder is created there on first upload
+//   { success: false, ... }         refused; nothing changed
+// ============================================================
+function handleMoveProjectFolderToYear(data) {
+  try {
+    var code = String(data.projectId || '').trim();
+    if (!/^PRJ-[A-Z0-9]+$/.test(code)) {
+      return createResponse({ success: false, message: 'projectId must be a PRJ- code' });
+    }
+    var toYear = String(data.toYear || '').trim();
+    if (!isSamoYearSegment_(toYear)) {
+      return createResponse({ success: false, message: 'toYear must be a year 2500–2700' });
+    }
+    var fromYear = String(data.fromYear == null ? '' : data.fromYear).trim();
+    if (fromYear && !isSamoYearSegment_(fromYear)) {
+      return createResponse({ success: false, message: 'fromYear must be empty or a year 2500–2700' });
+    }
+    if (fromYear === toYear) return createResponse({ success: true, alreadyThere: true });
+
+    var root = findTopFolder_('Projects');
+    if (!root) return createResponse({ success: true, notFound: true });
+
+    var findIn = function (parent) {
+      return parent ? findProjectSubfolderByCode_(parent, code, code) : null;
+    };
+    var yearChild = function (name) {
+      var it = root.getFoldersByName(name);
+      return it.hasNext() ? it.next() : null;
+    };
+
+    var source = findIn(fromYear ? yearChild(fromYear) : root);
+    var destYear = yearChild(toYear);
+    var already = findIn(destYear);
+
+    if (!source) {
+      return createResponse(already
+        ? { success: true, alreadyThere: true }
+        : { success: true, notFound: true });
+    }
+    if (already) {
+      // Two folders with one code would split a โครงการ's files; a person
+      // has to look. Nothing moved.
+      return createResponse({ success: false, message: 'a folder for ' + code + ' already exists in ' + toYear });
+    }
+    if (!destYear) destYear = root.createFolder(toYear);
+    source.moveTo(destYear);
+    return createResponse({ success: true, moved: true });
+  } catch (e) {
+    return createResponse({ success: false, message: e.toString() });
+  }
 }
 
 // ============================================================
