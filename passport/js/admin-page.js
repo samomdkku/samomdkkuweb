@@ -8,6 +8,7 @@ import { generateUUID, fixGoogleDriveUrl } from './utils.js';
 import { ROUTES } from './routes.js';
 import { renderCertificate, loadCertImage, CERT_FONTS } from './certificate.js';
 import { uploadToDrive, deleteFromDrive, deleteFromDriveBeacon, isUploadConfigured } from './upload.js';
+import { attachDmy } from './dmy-date.js';
 import { getSeasonStatus, thaiDate, thaiDayBefore, thaiDay, bkkToday, TH_MONTH_NAMES } from './samo.js';
 import { DEPARTMENTS, SUBDEPARTMENTS } from './constants.js';
 import { fetchAllPages } from '../../src/js/rest-pages.js';
@@ -101,6 +102,8 @@ async function init() {
     document
         .getElementById('edit-activity-form')
         .addEventListener('submit', submitEditActivity);
+    ['act-event-date', 'act-scan-until', 'edit-event-date', 'edit-scan-until']
+        .forEach((id) => attachDmy(document.getElementById(id)));
     wireEventDate('act');
     wireEventDate('edit');
     document

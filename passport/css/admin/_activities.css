@@ -81,4 +81,21 @@
     overflow-wrap: anywhere;
 }
 .activity-card-window.is-expired { color: #b45309; }
-#act-event-date, #edit-event-date, #act-scan-until, #edit-scan-until { margin-bottom: 4px; }
+/* dd/mm/yyyy date field (js/dmy-date.js): a text box, and the native date
+   input lying invisible over the calendar icon so a tap opens the picker. */
+.date-dmy { position: relative; margin-bottom: 4px; }
+.date-dmy > input[type="text"] { margin-bottom: 0; padding-right: 52px; font-variant-numeric: tabular-nums; }
+.date-dmy-pick {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 48px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); pointer-events: none;
+}
+.date-dmy > input[type="text"]:disabled + .date-dmy-pick { opacity: .4; }
+.date-dmy-pick > input.date-dmy-native {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer;
+    pointer-events: auto;
+}
+.date-dmy-pick > input.date-dmy-native::-webkit-calendar-picker-indicator {
+    position: absolute; inset: 0; width: auto; height: auto; cursor: pointer;
+}

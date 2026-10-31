@@ -148,6 +148,36 @@ try {
     f2.wrap !== 'none' && f2.v === win.def && f2.min === db.today && f2.max === win.mx && f2.req);
   await ev(`const c = document.getElementById('act-scan-until-set'); c.checked = false; c.dispatchEvent(new Event('change')); return 1;`);
 
+  // dd/mm/yyyy whatever the browser locale (this Chrome is en-US, which draws a
+  // native date input month-first): the visible box, typing, the US order refused.
+  const dm = JSON.parse(await ev(`const t = document.getElementById('act-event-date-text');
+    const d = document.getElementById('act-event-date');
+    const shown = t.value;
+    const ex = d.value.split('-'); const want = ex[2] + '/' + ex[1] + '/' + ex[0];
+    t.value = '01/03/2027'; t.dispatchEvent(new Event('input'));
+    const typed = d.value;
+    t.value = '10/31/2026'; t.dispatchEvent(new Event('input'));
+    const usValid = t.checkValidity(); const usMsg = t.validationMessage;
+    t.value = want; t.dispatchEvent(new Event('input')); t.dispatchEvent(new Event('blur'));
+    const c = document.getElementById('act-scan-until-set'); c.checked = true; c.dispatchEvent(new Event('change'));
+    await new Promise(r => setTimeout(r, 50));
+    const ut = document.getElementById('act-scan-until-text'); const uv = document.getElementById('act-scan-until').value;
+    const until = { shown: ut.value, iso: uv, req: ut.required, dis: ut.disabled };
+    c.checked = false; c.dispatchEvent(new Event('change'));
+    await new Promise(r => setTimeout(r, 50));
+    until.disAfter = ut.disabled;
+    const pr = document.querySelector('#act-event-date').getBoundingClientRect();
+    const tr = t.getBoundingClientRect();
+    return JSON.stringify({ shown, want, typed, usValid, usMsg, back: d.value, until,
+      overlay: pr.width > 30 && pr.right <= tr.right + 1 && pr.left >= tr.left,
+      label: document.querySelector('label[for="act-event-date-text"]') !== null });`));
+  say('the event date READS dd/mm/yyyy in an en-US browser', `${dm.shown} (want ${dm.want})`, dm.shown === dm.want);
+  say('typing 01/03/2027 means 1 มี.ค., not 3 ม.ค.', dm.typed, dm.typed === '2027-03-01');
+  say('month-first 10/31/2026 is refused, not guessed', `${dm.usValid} · ${dm.usMsg}`, dm.usValid === false);
+  say('the QR end date reads dd/mm/yyyy too, required only while ticked', JSON.stringify(dm.until),
+    dm.until.shown === dm.until.iso.split('-').reverse().join('/') && dm.until.req && !dm.until.dis && dm.until.disAfter);
+  say('the calendar picker sits over the icon, inside the box; the label names the box', `overlay ${dm.overlay} · label ${dm.label}`, dm.overlay && dm.label);
+
   const blocked = await ev(`document.getElementById('act-name').value = 'harness'; document.getElementById('act-km').value = '5';
     const d = document.getElementById('act-event-date'); const keep = d.value; d.value = '';
     const ok = document.getElementById('activity-form').checkValidity(); d.value = keep; return ok;`);
