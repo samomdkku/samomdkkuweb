@@ -71,7 +71,9 @@ triggered over ssh (needs the KKU VPN).
   ทีม SAMO admin pane, the ระบบบ้าน admin pane — updates everywhere. Signed-in
   users have their own page, **ข้อมูลของฉัน** (`/me` — from the avatar, the
   home page's account row or the menu): their identity once, then a ทีม SAMO
-  section and a ระบบบ้าน section, and the account controls. The three copies of a person (main
+  section and a ระบบบ้าน section, and the account settings inline (name, email,
+  phone, password, Google — each row shows its value and opens in place; admin
+  keeps a modal). The three copies of a person (main
   card, ทีม SAMO, ระบบบ้าน) sync by themselves — including when someone is
   newly added to one of them — and any disagreement is listed in ระบบบ้าน →
   ข้อมูลไม่ครบ with a one-tap ซิงก์ให้ตรงกัน.

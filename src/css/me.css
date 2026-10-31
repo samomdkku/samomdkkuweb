@@ -229,7 +229,6 @@
   background: var(--ink-200);
   z-index: 1;
 }
-.me-set.d-none + .me-set::before { display: none; }
 .me-row--static { cursor: default; }
 .me-row--static:hover, .me-row--static:active { background: none; }
 .me-row-value {

@@ -49,7 +49,9 @@ export function initProfileModal() {
     modalEl.addEventListener('show.bs.modal', () => repaint({ fresh: true }));
     onAuthChange(() => { if (modalEl.classList.contains('show')) repaint(); });
   } else {
-    onAuthChange((u) => { if (u) repaint(); });
+    // Signed out: forget whose values are on the page, so signing back in —
+    // even as the same account — repaints every field from scratch.
+    onAuthChange((u) => { if (u) repaint(); else paintedUid = null; });
   }
 
   // -------- Display name --------

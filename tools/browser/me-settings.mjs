@@ -89,6 +89,11 @@ try {
     rows.length >= 6 && rows.every((r) => !r.open) && rows.filter((r) => r.inert !== null).every((r) => r.inert && r.h === 0)
     && (await ev(`return document.getElementById('profileUsername').textContent`)) === USER && rows.find((r) => r.k === 'password')?.value === 'ตั้งแล้ว');
 
+  // No username (every Google-only account): the email row still has its divider.
+  const hair = await ev(`const u = document.getElementById('profileUsernameSection'); u.classList.add('d-none');
+    const d = getComputedStyle(document.querySelector('#meSettings .me-set[data-set="email"]'), '::before').display;
+    u.classList.remove('d-none'); return d`);
+  say('without a username row, อีเมล keeps its divider', hair, hair === 'block');
   await tap('name');
   rows = await rowState();
   const nm = rows.find((r) => r.k === 'name');
@@ -122,6 +127,13 @@ try {
   rows = await rowState();
   say('a repaint mid-typing keeps the half-typed name (save still enabled)', kept, kept === 'กำลังพิมพ์อยู่ | false');
   say('…while the phone row picks up its new value', rows.find((r) => r.k === 'phone').value, rows.find((r) => r.k === 'phone').value === '0812345678');
+
+  // signing out closes the open row
+  await tap('password');
+  await ev(`const a = await import('/src/js/auth.js'); await a.signOut(); await new Promise(r=>setTimeout(r,1200));
+    await a.signInWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)}); await new Promise(r=>setTimeout(r,2500)); return 1`);
+  rows = await rowState();
+  say('signing out and in closes every row', `${rows.filter((r) => r.open).length} open`, rows.every((r) => !r.open));
 
   // phone
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });

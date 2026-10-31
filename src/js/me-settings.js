@@ -10,6 +10,7 @@
 // The open/close is a CSS grid-rows transition (me.css): it starts from where
 // the panel IS, so a second tap mid-animation reverses it rather than waiting.
 // ============================================================
+import { onAuthChange } from './auth.js';
 
 function setOpen(set, open) {
   const row = set.querySelector('.me-set-row');
@@ -35,6 +36,16 @@ export function openSetting(key) {
 export function initMeSettings() {
   const root = document.getElementById('meSettings');
   if (!root) return;
+  // A different account (or none) closes every row: an editor left open —
+  // a half-typed password above all — belongs to the person who opened it.
+  let uid;
+  onAuthChange((u) => {
+    const next = u?.id || null;
+    if (uid !== undefined && next !== uid) {
+      root.querySelectorAll('.me-set.is-open').forEach((s) => setOpen(s, false));
+    }
+    uid = next;
+  });
   root.addEventListener('click', (e) => {
     const row = e.target.closest('.me-set-row');
     if (!row || !root.contains(row)) return;
