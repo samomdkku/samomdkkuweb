@@ -2582,3 +2582,5 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 **c. /me's rows never seen in Safari or on a real iPhone — Status: HYPOTHESIS.** The open/close animates `grid-template-rows` (Safari 16+ interpolates it; older ones snap open, still usable) and closed panels are `inert` (Safari 15.5+). Check: a row opens and closes, the keyboard does not pop up on tap, Google link returns to /me.
 
 **d. `chartParentage()` + its tests in `org-rung.js` have no caller since ผังรวม went — Status: DECIDED (left on purpose).** Deleting it means rewriting part of `org-rung.test.js`; it costs nothing at runtime. Remove only if the file is being touched anyway.
+
+**e. `deploy:owed` warns that 0257 no longer matches production — Status: VERIFIED cause, not a fault.** The file was edited after it ran by `f181446` ("redact student names" — the repo and docs are public). Same kind of noise as 0224 (§ above). Do not "fix" it by re-applying; the database is right.
