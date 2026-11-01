@@ -193,6 +193,7 @@ from outside before:
 | `==> done. Smoke test:` then `<== exit 0` | a real, complete run |
 | `<== exit <n> after deploy.sh:<line>` | the script FAILED and said so — the trace names the line |
 | **no `<==` line at all** | the process was **killed outright** — SIGKILL, the OOM killer, or the ssh channel dying. No trap ran, so nothing could be written |
+| `!! the build names no single database — portal: [...] passport: [...]` | (since 2026-11-01) the build lost its `VITE_SUPABASE_*`, or the two halves point at different projects. NOTHING was published; the live site is unchanged. Fix `.env.local` in the VM's checkout and re-run. A healthy run prints `both halves build against https://fheueuowbchsnsvbcgil.supabase.co` right after the build |
 
 ⚠️ **`DEPLOY_EXIT` missing from the stream is not "exit 0".** The local exit code
 belongs to `tail`, and the remote `; echo` only runs if the remote shell lived

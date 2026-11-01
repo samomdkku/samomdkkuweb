@@ -913,3 +913,34 @@ the ปี SAMO for EVERY system — PR, VitalSound, หนังสือโค
 - ปีการศึกษา is still a SEPARATE value with its own cutoff (0244) — the faculty's
   year is not the team's.
 
+
+## ถาวร groups: one tree, outside the year (0272, 0273)
+
+Owner, 2026-11-01: a place for people who stay every year — อาจารย์,
+เจ้าหน้าที่คณะ, the owner after retiring — with ฝ่าย and permissions like
+ทีม SAMO, any email, no expiry, master allowed.
+- A ถาวร group is a TOP-LEVEL `team_nodes` row listed in `team_standing_groups`;
+  its subtree comes with it. ⛔ Never a second tree, a second table of grants or
+  a second resolver: every gate already reads `team_nodes`/`team_members`, and a
+  new access channel would have to be threaded through every one of them
+  (mistakes class 5).
+- Always hidden from เกี่ยวกับเรา (a trigger forces `is_public = false`). Never
+  copied into a prepared year, never deleted by the switch or restored by its
+  undo. When you add a step to the switch, exclude ถาวร rows there too —
+  `tools/team0272-standing.sql` asserts it.
+- Anything that decides how the tree is DRAWN is part of the tree: the ถาวร
+  list is in live sync (0273). A new table that changes which side a row
+  appears on needs load, live sync, undo AND export.
+
+## No fallback database address, in either app
+
+Since 2026-11-01 neither `src/js/db.js` nor `passport/js/app.js` holds a
+project URL or key: a build without `VITE_SUPABASE_*` logs an error and reaches
+no database. ⛔ Never add one back "so production keeps working": Passport's
+was PRODUCTION, so any build that lost its env read and wrote real student data
+while looking like a test site. A wrong database is worse than none.
+`no-hardcoded-project.test.js` fails on a project URL or publishable key
+anywhere under `src/` or `passport/`, and `server/deploy.sh` refuses to PUBLISH
+unless both built halves name the same one database. This is the deliberate
+exception to `env-contract.test.js`'s "every Passport VITE_* has a fallback"
+(recorded in `PASSPORT_NO_FALLBACK`, with the reason).

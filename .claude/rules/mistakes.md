@@ -27,6 +27,7 @@ code not yet written.
 2. **An unresolvable reference fails OPEN.** `coalesce(flag, false)`, a `left
    join`, `if not found then` and `null in (...)` all answer "allowed" for an id
    that no longer resolves. A DELETE on reference data creates that input.
+   So did an unset VITE_* (Passport fell back to PRODUCTION, `passport.md`).
    **"ABSENT" IS NOT A STATE**: an absent `discord_links` row meant BOTH "never
    linked" (leave alone) and "unlinked holding ฝ่าย roles" (take them back), so
    unlinking granted for ever. Enumerate what REMOVES a row — door 3 was an
@@ -51,7 +52,8 @@ code not yet written.
    sections an account could not use, but the HASH was unchecked, so `/admin/#vs`
    opened VitalSound with no VS grant. Enumerate every way in — click, hash, query
    string, deep link, GESTURE (`pointerdown` starts every gesture a scroll
-   surface supports; release on `pointercancel`).
+   surface supports; release on `pointercancel`). Load vs LIVE SYNC too (0273,
+   `app-state.md`).
    **DISCLOSURE has input paths too**: text truncated with `text-overflow` and
    "recovered" via a `title` tooltip DOES NOT EXIST on a phone — `แยกตามระบบ`
    cut the one thing its panel exists to say (`frontend-ui.md`). **A message a
@@ -303,7 +305,7 @@ code not yet written.
    declared the same four, the guard compared them and was green — while
    NOTHING mapped them to the two names `db.js` actually reads, so a correct
    setup produced a dead portal and a passport pointed at PRODUCTION (its
-   fallback WAS hardcoded live, to 2026-11-01). Both lists were right; the thing BETWEEN them
+   fallback WAS production). Both lists were right; the thing BETWEEN them
    did not exist. Feed in the artefact a real person creates and assert what
    must come out. Same entry, the other half: **ask what each credential in a
    named "block" OPENS** — two of those four were an address and a public key,
@@ -384,10 +386,8 @@ REPORTED — what the next reader greps for. Run `npm run mistakes:index` (never
 hand-edit generated parts; fix the heading if a line reads badly). A new
 instance of a class gets its site added above.
 
-**Charged to every session.** The per-entry index (18.5k of 30k) moved to
-`docs/mistakes/INDEX.md` when it blocked a write-up. `check:context` failing:
-COMPRESS or move detail to `docs/mistakes/` — never raise the budget or cut a
-class; tighten this paragraph first.
+**Charged to every session.** `check:context` failing: COMPRESS or move detail
+to `docs/mistakes/` — never raise the budget or cut a class.
 
 ---
 
