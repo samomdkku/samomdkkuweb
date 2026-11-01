@@ -139,7 +139,9 @@ try {
   say('ปีการศึกษา = house_settings, never "2,569"', `${page.acad} vs ${db.ay}`, page.acad === String(db.ay));
   say('no year anywhere on the page with a thousands comma', 'checked', !/\b2,5\d\d\b/.test(page.text));
   say('tiles: Passport วาระ · ปีการศึกษา · ปีงบ', page.tiles.join(' · '), page.tiles[0] === db.pp && page.tiles[1] === String(db.ay) && /^25\d\d$/.test(page.tiles[2]));
-  say('three steps, six effects', `${page.steps} · ${page.effects}`, page.steps === 3 && page.effects === 6);
+  // Five since 0269: หนังสือโครงการ counts by ปีงบ, so starting a ปี SAMO does
+  // not move it and it left this list (it is named on the ปีงบ tile instead).
+  say('three steps, five effects', `${page.steps} · ${page.effects}`, page.steps === 3 && page.effects === 5);
   say('top-bar chip shows the year and is a link for a master', `${page.chip} · link ${page.chipLink}`, page.chipShown && page.chip === String(db.cy) && page.chipLink);
   say('step 3 offers the next year, Passport on, a suggested name', `${page.target} · ${page.ppName}`, Number(page.target) > db.cy && page.ppToggle && !!page.ppName);
   say('the stylesheet reached /admin/ (computed)', page.css, page.css === '700');

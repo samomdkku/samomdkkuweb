@@ -735,3 +735,40 @@ forward-only — samo-dev's ปี SAMO 2571 would otherwise have been told "bec
 
 **The general rule**: when one fact has two clocks, automating ONE of them makes
 them disagree on a schedule — unify the clock, then automate it.
+
+## Preview and localhost show Passport "Q3" and "วาระสโม 69" — is the test site reading production? (no; but one build could have)
+
+**Symptom** (owner, 2026-11-01): "why does /admin/#years on the preview and on
+localhost show passport q3 and วาระสโม 69 — haven't you separated the system
+for testing?"
+
+**Cause**: not a leak. Every served test build calls samo-dev only (checked:
+the preview's `core-*.js` and Passport `routes-*.js` name samo-dev's ref and
+not production's; production's name only production's), and samo-dev holds a
+COPY of production's data (TEAM-WORKFLOW D1), Passport tables included, so the
+names match. Proof it is a copy: 974 scans on dev, newest 27 ส.ค.; 1,364 on
+production, newest 29 ต.ค. Two real defects did turn up. (1) samo-dev's ปี SAMO
+read 2571 against วาระ SAMO'69, because the 2026-10-18 test runs switched the
+year twice without opening a วาระ, so dev showed a mismatch production does not
+have. (2) `passport/js/app.js` fell back to PRODUCTION's address and key
+whenever its build had no env, so the one build that could look like a test
+site while writing real data was a build that had lost its settings.
+
+**Fix**: (1) samo-dev reset to 2569 (terms as on production, the two test
+archives removed, the วาระ bridged to 2569; snapshot kept). (2) the fallback is
+gone: unset logs an error and reaches no database, like `db.js`;
+`no-hardcoded-project.test.js` keeps any project URL or publishable key out of
+`src/` and `passport/` (red on the old file, naming both values); the
+`env-contract` passport rule now records why these two have NO fallback; and
+`server/deploy.sh` refuses to publish when the built Passport does not name the
+same database as the built portal, so production cannot lose it silently.
+
+**Where it lives now**: `passport/js/app.js`, `server/deploy.sh` (after `npm run
+build`), `src/js/no-hardcoded-project.test.js`, `src/js/env-contract.test.js`
+(`PASSPORT_NO_FALLBACK`).
+
+**The general rule**: a fallback must point at the SAFE side. "Keep working
+when the setting is lost" is right for a feature flag and wrong for WHICH
+DATABASE: there the fallback should fail, and the place a build becomes
+production should check it. And when a test site shows production's names,
+count something that only grows in production before calling it a leak.

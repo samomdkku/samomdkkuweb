@@ -76,6 +76,19 @@ const PASSPORT_NO_FALLBACK = {
     'The other half of the same credential — same reasoning, same story. Kept as '
     + 'a separate entry on purpose: an exemption that covered "the admin vars" as '
     + 'a group would silently cover the third one somebody adds later.',
+  'passport/js/app.js::VITE_SUPABASE_URL':
+    'WHICH DATABASE. Its fallback was PRODUCTION, hardcoded, so a build made '
+    + 'without env (a contributor checkout, an unmapped preview, the 2026-09 '
+    + 'envDir mistake) read and wrote real student data while looking like a '
+    + 'test site; removed 2026-11-01 on the owner\'s word. A wrong database is '
+    + 'worse than none. Absence is announced (console.error in app.js), and '
+    + 'server/deploy.sh refuses to PUBLISH a build whose passport bundle does '
+    + 'not name the same database as the portal, so production cannot lose it.',
+  'passport/js/app.js::VITE_SUPABASE_ANON_KEY':
+    'The visitor key that goes with VITE_SUPABASE_URL — its fallback was '
+    + 'production\'s, removed with it, for the same reason. Separate entry on '
+    + 'purpose, as above: one key per exemption, so a third value added later is '
+    + 'not covered by a reason written for these two.',
 };
 
 /** Vite builtins — not app config, always defined by the bundler. */

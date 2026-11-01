@@ -71,12 +71,12 @@ const config = {
   }
 };
 
-// ⛔ `serve` ONLY — see tools/dev-env.mjs. Passport needs this MORE than the
-// portal does: passport/js/app.js falls back to a HARDCODED production URL and
-// anon key when VITE_SUPABASE_URL is unset, so before this existed a
-// contributor running `npm run dev` reached the real student database at
-// /passport/ while the portal half showed nothing at all. Unset must not mean
-// production.
+// ⛔ `serve` ONLY — see tools/dev-env.mjs. Passport's app.js USED TO fall back
+// to a HARDCODED production URL and anon key when VITE_SUPABASE_URL was unset,
+// so before this existed a contributor running `npm run dev` reached the real
+// student database at /passport/ while the portal half showed nothing at all.
+// That fallback is gone (2026-11-01: unset now fails visibly, and deploy.sh
+// refuses to publish such a build); this still points `npm run dev` at samo-dev.
 export default defineConfig(({ command }) => {
   if (command === 'serve') applyDevDatabaseEnv();
   return config;

@@ -303,7 +303,7 @@ code not yet written.
    declared the same four, the guard compared them and was green — while
    NOTHING mapped them to the two names `db.js` actually reads, so a correct
    setup produced a dead portal and a passport pointed at PRODUCTION (its
-   fallback is hardcoded live). Both lists were right; the thing BETWEEN them
+   fallback WAS hardcoded live, to 2026-11-01). Both lists were right; the thing BETWEEN them
    did not exist. Feed in the artefact a real person creates and assert what
    must come out. Same entry, the other half: **ask what each credential in a
    named "block" OPENS** — two of those four were an address and a public key,
@@ -404,6 +404,6 @@ class; tighten this paragraph first.
 - `integrations.md` *(39)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(84)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
-- `passport.md` *(45)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
+- `passport.md` *(46)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->

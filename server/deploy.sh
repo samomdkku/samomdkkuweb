@@ -159,6 +159,24 @@ npm ci
 # clone, no second npm ci, no PASSPORT_BASE to remember.
 npm run build
 
+# ⛔ BOTH HALVES MUST TALK TO THE SAME DATABASE, AND NAME ONE — checked BEFORE
+# anything is published, so a bad build leaves the live site as it was.
+# Since 2026-11-01 passport/js/app.js has NO fallback address (it used to be
+# production, hardcoded, so any build without env read and wrote real data).
+# The price of that is this check: a VM build that lost its VITE_* would
+# otherwise publish a Passport that cannot reach any database. CI builds with
+# no env on purpose, so the stop lives here, where a build becomes production.
+# `|| true`: grep finding nothing is the case this exists to REPORT, and under
+# `set -euo pipefail` it would otherwise end the script without a word.
+web_db=$(grep -ohE 'https://[a-z0-9]{20}\.supabase\.co' dist/assets/*.js | sort -u || true)
+pp_db=$(grep -ohE 'https://[a-z0-9]{20}\.supabase\.co' dist/passport/assets/*.js | sort -u || true)
+if [ -z "$web_db" ] || [ "$web_db" != "$pp_db" ]; then
+  echo "!! the build names no single database — portal: [${web_db:-none}] passport: [${pp_db:-none}]" >&2
+  echo "!! VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY missing from $WEB_DIR/.env.local? Nothing was published." >&2
+  exit 1
+fi
+echo "    both halves build against $web_db"
+
 # Publish to the two nginx roots, unchanged — nginx still serves / from
 # samo-web and /passport/ from passport, so the live layout is identical.
 # ⚠️ --exclude=passport/ is LOAD-BEARING, not tidiness. dist/ CONTAINS

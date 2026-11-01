@@ -499,7 +499,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `test:clean` (and CI) red on a September session note nobody touched
 - dept0177 / team0135: two proofs red on production, both a SHAPE not a PROPERTY
 
-## `passport.md` — The Passport app's own write-ups *(45)*
+## `passport.md` — The Passport app's own write-ups *(46)*
 
 Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
@@ -548,5 +548,6 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Passport's ฝ่าย list existed FOUR times
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
+- Preview and localhost show Passport "Q3" and "วาระสโม 69"
 
-_487 entries across 10 files._
+_488 entries across 10 files._

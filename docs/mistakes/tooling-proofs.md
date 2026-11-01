@@ -1921,6 +1921,10 @@ So the traced sequence was: paste the values → `npm run env:check` prints
 to §4e's *failure* state. Worse on the passport half: `passport/js/app.js` falls
 back to a **hardcoded production URL and anon key** when the variable is unset,
 so a volunteer following the guide was reading the real student database.
+*(That fallback was REMOVED on 2026-11-01: unset now logs an error and reaches
+no database, `no-hardcoded-project.test.js` keeps any project address out of
+`src/` and `passport/`, and `server/deploy.sh` refuses to publish a build whose
+Passport does not name the portal's database.)*
 
 **Why nobody saw it for weeks.** A maintainer's own `.env.local` carries
 `VITE_*` pointing at **production**, so `npm run dev` worked on the only machine

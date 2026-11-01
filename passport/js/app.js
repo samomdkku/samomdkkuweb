@@ -7,21 +7,30 @@ import { pagedFetch } from "../../src/js/rest-pages.js";
 
 const restFetch = pagedFetch((...args) => fetch(...args));
 
-// GET THESE FROM VITE ENVIRONMENT VARIABLES
-// Merged into samoweb's Supabase project A (fheueuowbchsnsvbcgil) for single
-// sign-on. Passport data lives in the isolated `passport` schema of that
-// project (NOT `public`). The fallbacks below are project A on purpose — if the
-// build env is missing they must NOT fall back to the retired project B, or the
-// app would split-brain (write to B while the DB of record is A).
-const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || "https://fheueuowbchsnsvbcgil.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || "sb_publishable_-pPHqzUCF-0jOGgPMKnDTg_Rt46laZ9";
+// FROM THE BUILD ENVIRONMENT ONLY — the same two values as the portal (db.js).
+// Passport data lives in the isolated `passport` schema of samoweb's project,
+// so the portal and Passport share one sign-in.
+//
+// ⛔ NO FALLBACK ADDRESS. There used to be one: PRODUCTION, hardcoded. A build
+// made without these values (a contributor's checkout, a preview whose env was
+// not mapped, a vite `envDir` mistake like the one that blanked every VITE_* in
+// 2026-09) then read and wrote REAL student data while looking like a test
+// site. Removed 2026-11-01; such a build now fails visibly, like db.js does.
+const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error(
+        '[passport] No Supabase credentials in this build. Locally, run '
+        + '`npm run env:check`. (In production these are baked in on the VM.)'
+    );
+}
 
 export let supabase;
 try {
     // `db.schema: 'passport'` routes every supabase.from(...) to the passport
     // schema (all query surfaces: activities/scans/profiles/samo_seasons/
     // samo_years/certificates/user_tiers). Auth stays on the shared project.
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: "passport" }, global: { fetch: restFetch } });
+    supabase = createClient(SUPABASE_URL || 'http://invalid', SUPABASE_ANON_KEY || 'invalid', { db: { schema: "passport" }, global: { fetch: restFetch } });
 } catch (err) {
     console.error("Failed to initialize Supabase:", err);
 }
@@ -40,7 +49,7 @@ try {
 let legacyClient = null;
 export function getLegacyAdminClient() {
     if (!legacyClient) {
-        legacyClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        legacyClient = createClient(SUPABASE_URL || 'http://invalid', SUPABASE_ANON_KEY || 'invalid', {
             db: { schema: "passport" },
             global: { fetch: restFetch },
             auth: { storageKey: "sb-passport-legacy-admin", detectSessionInUrl: false },
