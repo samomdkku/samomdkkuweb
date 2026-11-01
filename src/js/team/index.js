@@ -661,7 +661,9 @@ function setSection(next) {
   if (section === 'standing' && mode === 'health') mode = 'team';
   if (section === 'standing' && view.kind !== 'current') {
     render();
-    enterYearBar(currentTermYear);
+    // No current year known yet: ask the bar for its default, which is the
+    // current year.
+    enterYearBar(currentTermYear ?? null);
     return;
   }
   render();
@@ -745,6 +747,18 @@ function render() {
   // tree — hide the tree and its toolbar rather than trying to express years
   // inside the node list.
   paintSection();
+  // ถาวร edits the LIVE tree only. setSection moves the year bar to the current
+  // year, but until that lands (or if it never does) the tree in memory may be
+  // a prepared year's copy — drawing it here would let an edit land in a draft
+  // the switch then ignores.
+  if (section === 'standing' && view.kind !== 'current') {
+    tree.classList.remove('d-none');
+    $('teamTermsPane')?.classList.add('d-none');
+    $('teamHealthPane')?.classList.add('d-none');
+    tree.innerHTML = '<div class="team-empty">กำลังเปิดทีมปัจจุบัน…</div>';
+    setStatus('');
+    return;
+  }
   const isDraft = view.kind === 'draft';
   const isArchive = view.kind === 'archive';
   const isUnprepared = view.kind === 'unprepared';

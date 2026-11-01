@@ -108,6 +108,13 @@ triggered over ssh (needs the KKU VPN).
   its km are credited to that date's quarter, and its QR scans from that date
   for two months (or to a hand-set end, at most a year) — a quarter boundary no
   longer cuts it, and a late scan still counts in the event's quarter.
+- **ทีมและสิทธิ์ (admin, formerly ทีม SAMO).** Every grant in the system is given
+  here, in one tree with two sides: **ประจำปี** (a year's ทีม SAMO, replaced at the
+  ปี SAMO switch) and **ถาวร** (top-level groups that stay every year — อาจารย์,
+  เจ้าหน้าที่คณะ, a retired admin, a guest from another university; any email
+  domain signs in; never shown on เกี่ยวกับเรา; untouched by the switch, 0272).
+  Editors see who has never signed in with their address. An **อาจารย์** whose
+  email is set in ระบบบ้าน sees the students of their สาย and บ้าน on `/me`.
 - **ทีม SAMO org chart.** Public page (`/team`) showing the whole structure —
   ฝ่าย, ตำแหน่ง, and who holds each — with a search that keeps the branch a match
   sits in. ONE view since 2026-10-31, **ภาพรวม**: the whole organisation at a
