@@ -21,10 +21,13 @@ vi.mock('../confirm-modal.js', () => ({ askConfirm: (...a) => askConfirm(...a), 
 
 describe('the year button on เกี่ยวกับเรา', () => {
   it('reads "ทีมปี <year>" for every year, the one ahead included; a typed label wins', async () => {
-    const { yearChipLabel } = await import('../org-chart.js');
-    expect(yearChipLabel({ year: 2570, label: null })).toBe('ทีมปี 2570');
-    expect(yearChipLabel({ year: 2569, label: '  ' })).toBe('ทีมปี 2569');
+    const { yearChipLabel, yearChipAriaLabel } = await import('../org-chart.js');
+    // Bare years on screen (owner, 2026-11-01); the whole phrase for a screen reader.
+    expect(yearChipLabel({ year: 2570, label: null })).toBe('2570');
+    expect(yearChipLabel({ year: 2569, label: '  ' })).toBe('2569');
     expect(yearChipLabel({ year: 2567, label: 'SAMO 67' })).toBe('SAMO 67');
+    expect(yearChipAriaLabel({ year: 2570, label: null })).toBe('ทีมปี 2570');
+    expect(yearChipAriaLabel({ year: 2567, label: 'SAMO 67' })).toBe('SAMO 67');
   });
 });
 

@@ -16,7 +16,7 @@
 //      permission given in 2686 changes the draft row, not the live one —
 //      the summary line then counts both;
 //   5. the current chip shows the live tree again, without the new ฝ่าย;
-//   6. แสดงบนหน้าเกี่ยวกับเรา → the PUBLIC page lists "ทีมปี 2686" with the
+//   6. แสดงบนหน้าเกี่ยวกับเรา → the PUBLIC page lists "2686" with the
 //      new ฝ่าย, and still opens on the current year;
 //   7. a past year (if samo-dev has one) opens its archive list, no tree;
 //   8. 390px phone on 2686: no sideways scroll; no console errors.
@@ -178,7 +178,7 @@ try {
   const chips = await waitFor(`[...document.querySelectorAll('#orgYears [data-year]')].length > 1`, 40);
   const pub = JSON.parse(await ev(`const b = [...document.querySelectorAll('#orgYears [data-year]')];
     return JSON.stringify({ labels: b.map(x => x.textContent.trim()), active: document.querySelector('#orgYears .is-active')?.dataset.year });`));
-  say('เกี่ยวกับเรา lists a "ทีมปี 2686" button', pub.labels.join(' · '), chips && pub.labels.includes(`ทีมปี ${Y}`));
+  say('เกี่ยวกับเรา lists a "2686" button', pub.labels.join(' · '), chips && pub.labels.includes(String(Y)));
   say('…and still opens on the current year', `${pub.active} vs ${live.cy}`, String(pub.active) === String(live.cy));
   const shown = JSON.parse(await ev(`document.querySelector('#orgYears [data-year="${Y}"]').click(); await new Promise(r => setTimeout(r, 3000));
     return JSON.stringify({ div: document.getElementById('orgBody').innerText.includes(${JSON.stringify(DIV)}) });`));

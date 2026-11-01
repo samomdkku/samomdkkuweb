@@ -184,10 +184,19 @@ function indexStats(parents) {
 
 // ── the year picker ─────────────────────────────────────────────────────────
 
-/** The year button's text. Every year reads the same way, the one ahead
- *  included (owner, 2026-10-31: "ทีมปี 2570", no "ว่าที่"); a label an admin
- *  typed on team_terms wins. */
+/** The year button's text: the bare year, "2570" (owner, 2026-11-01 — "make
+ *  it be like 2569 2570 ... would be better for ui"; it read "ทีมปี 2570" from
+ *  2026-10-31). Every year reads the same way, the one ahead included, no
+ *  "ว่าที่". A label an admin typed on team_terms wins. */
 export function yearChipLabel(y) {
+  const label = String(y?.label || '').trim();
+  return label || String(y?.year ?? '').trim();
+}
+
+/** What a screen reader announces for the same button. A bare number heard
+ *  alone says nothing; the nav around it is "เลือกทีมปี", and this keeps each
+ *  button whole too. */
+export function yearChipAriaLabel(y) {
   const label = String(y?.label || '').trim();
   return label || `ทีมปี ${y?.year ?? ''}`.trim();
 }
@@ -199,7 +208,7 @@ function renderYears() {
   host.hidden = false;
   host.innerHTML = years.map((y) => `
     <button type="button" class="org-year${y.year === activeYear ? ' is-active' : ''}"
-      data-year="${y.year}"${y.year === activeYear ? ' aria-current="true"' : ''}>${
+      data-year="${y.year}" aria-label="${escHtml(yearChipAriaLabel(y))}"${y.year === activeYear ? ' aria-current="true"' : ''}>${
         escHtml(yearChipLabel(y))
       }</button>`).join('');
 }

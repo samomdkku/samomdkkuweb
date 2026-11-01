@@ -266,7 +266,7 @@ describe('RATCHET — ชั้นปี stays derived', () => {
     // 'กิจกรรม (ปี 2569)' — a SAMO/พ.ศ. team-term year filter label (0232),
     // never a person's ชั้นปี.
     [join('accounts', 'admin.js'), 'the บัญชีผู้ใช้ "กิจกรรม" year filter — a SAMO year, not anyone\'s ชั้นปี'],
-    // "ทีมปี 2570" — the เกี่ยวกับเรา year button (yearChipLabel, 0270), a
+    // "ทีมปี 2570" — the เกี่ยวกับเรา year button's spoken label (yearChipAriaLabel), a
     // team_terms year, never a person's ชั้นปี. Written as a template on
     // purpose: rewriting it as concatenation would pass this ratchet by
     // hiding the shape, which is worse than naming the exemption.

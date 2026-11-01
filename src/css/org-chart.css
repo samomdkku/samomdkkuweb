@@ -139,6 +139,8 @@
   font-family: 'Prompt', system-ui, sans-serif;
   font-size: 0.86rem; font-weight: 500;
   color: var(--ink-500);
+  /* Bare years since 2026-11-01: equal-width digits keep the row even. */
+  font-variant-numeric: tabular-nums;
   padding: 0.3rem 0.55rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
