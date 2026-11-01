@@ -581,6 +581,19 @@ function normalizeMemberRow(m) {
 }
 
 function applyRemoteChange(table, payload) {
+  // The ถาวร list is about the LIVE tree but filters the draft view too (draft
+  // rows keep live ids), so it is applied whichever tree is on screen.
+  if (table === 'team_standing_groups') {
+    const type0 = payload.eventType || payload.type;
+    if (type0 === 'DELETE') { if (payload.old?.node_id) standingIds.delete(payload.old.node_id); }
+    else if (payload.new?.node_id) {
+      standingIds.add(payload.new.node_id);
+      const n = nodesById.get(payload.new.node_id);
+      if (n) n.is_public = false;   // what team_standing_groups_guard just did
+    }
+    scheduleRemoteRender();
+    return;
+  }
   // Realtime carries the LIVE tables. While a year's draft is on screen the
   // in-memory tree IS that draft, and merging a live row into it would show (and
   // let someone save) a live change as if it were next year's.
@@ -592,6 +605,10 @@ function applyRemoteChange(table, payload) {
       if (id) { nodesById.delete(id); membersByNode.delete(id); expanded.delete(id); }
     } else if (payload.new) {
       nodesById.set(payload.new.id, normalizeNodeRow(payload.new));
+      // A new TOP-LEVEL group is marked ถาวร a moment AFTER it is inserted, in a
+      // second request. Ask the list again shortly after, so a mark whose own
+      // event was missed (a reconnect, or a database without 0273) still lands.
+      if (type === 'INSERT' && !payload.new.parent_id) refreshStandingSoon();
     }
     rebuildChildrenIndexFromNodes();
   } else if (table === 'team_members') {
@@ -618,6 +635,17 @@ function destroySortables() {
 }
 
 function setStatus(msg) { const el = $('teamStatus'); if (el) el.textContent = msg || ''; }
+
+let standingRefreshTimer = null;
+function refreshStandingSoon() {
+  clearTimeout(standingRefreshTimer);
+  standingRefreshTimer = setTimeout(async () => {
+    try {
+      standingIds = new Set(await fetchStandingGroups());
+      scheduleRemoteRender();
+    } catch (err) { console.warn('[team] standing refresh:', err?.message || err); }
+  }, 2500);
+}
 
 /** The roots of the side on screen. */
 function sectionRoots() {

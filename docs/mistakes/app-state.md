@@ -1696,3 +1696,42 @@ write behind it. And when a UI state is DERIVED from the data ("has rows"),
 ask which action creates that state with NO data: an empty start, a cleared
 list, a first-time setup. The two buttons of one choice need one browser step
 each; the run that pressed only the common one proved the other by analogy.
+
+## "Why is there SAMOWEB FOUNDER MD50 in เกี่ยวกับเรา" — a ถาวร group drawn under ประจำปี in a tab opened earlier (0273)
+
+**Symptom** (owner, 2026-11-01, on production): a group that belonged with the
+ถาวร people showed on the public เกี่ยวกับเรา as a yearly ฝ่าย with nobody in
+it.
+
+**Cause**: the ทีมและสิทธิ์ tab learns the ถาวร list (0272) once, when it
+LOADS. Live sync carried `team_nodes` and `team_members` only (0048), so a tab
+that was already open when someone else made a group ถาวร received the new
+group but not its mark, and drew it among the yearly ฝ่าย. The API log fits
+that and nothing else: "Past developer" was created and marked ถาวร at 11:28
+Thai; at 11:29:40 a top-level group was created WITHOUT a mark (the add form
+marks it whenever the ถาวร side is open, so it came from the ประจำปี side), and
+at 11:29:53 one drag re-saved the positions of BOTH groups, which only happens
+when they are drawn in the same list, in a tab that did not know "Past
+developer" was ถาวร. A new yearly group is public by default, so it reached
+เกี่ยวกับเรา. Status: HYPOTHESIS for which tab did it (the log does not tell
+tabs apart). The missing sync is VERIFIED: a browser step that adds a ถาวร
+group from outside the open tab was red 2 of 2 on the old code.
+
+**Fix**: 0273 adds `team_standing_groups` to the live-sync publication. The tab
+listens on a SEPARATE channel, because Realtime refuses a whole channel when one
+of its tables is not published (measured on samo-dev before 0273: the shared
+channel delivered no tree change at all). After any new top-level group it also
+re-reads the ถาวร list 2.5 s later, which covers a missed event and a database
+without 0273. Either half alone turns the step green (checked by switching each
+off).
+
+**Where it lives now**: `supabase/migrations/0273_standing_groups_live_sync.sql`,
+`src/js/team/realtime.js` (`standingChannel`), `src/js/team/index.js`
+(`applyRemoteChange`, `refreshStandingSoon`), `tools/browser/team-standing.mjs`
+§5b.
+
+**The general rule**: a list that changes how the tree is DRAWN is part of the
+tree. When a new table decides which side a row appears on, it needs every path
+the rows have: load, live sync, undo, export. Ask "what does a tab opened an hour
+ago believe?" A tab holds a copy of the database, and live sync decides which
+parts of that copy stay current.

@@ -400,7 +400,7 @@ class; tighten this paragraph first.
 - `authz-grants.md` *(24)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(42)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(126)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
-- `app-state.md` *(41)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
+- `app-state.md` *(42)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(39)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(84)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.

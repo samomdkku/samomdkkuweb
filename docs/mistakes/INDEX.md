@@ -286,7 +286,7 @@ Open when: markup, modals, layout, touch, icons.
 - The shared chunk every page downloads before paint carried a camera scanner nobody but admin uses, and `<head>` blocked…
 - A failure note written INTO the editor became part of the complaint
 
-## `app-state.md` — Routing, read-state, caches & serialization *(41)*
+## `app-state.md` — Routing, read-state, caches & serialization *(42)*
 
 Open when: URL state, per-user "seen", import/export.
 
@@ -331,6 +331,7 @@ Open when: URL state, per-user "seen", import/export.
 - แลก Rotation: "โหลดข้อมูลไม่สำเร็จ · signal is aborted without reason" for everyone
 - A remote change that lands mid-drag never painted if the drop itself was a no-op
 - "เริ่มทีมปี 2570 จากว่างแล้ว กดเพิ่มฝ่าย"
+- "Why is there SAMOWEB FOUNDER MD50 in เกี่ยวกับเรา"
 
 ## `integrations.md` — Notifications, Apps Script & Google Drive *(39)*
 
@@ -548,4 +549,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_486 entries across 10 files._
+_487 entries across 10 files._

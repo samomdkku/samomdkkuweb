@@ -30,6 +30,11 @@ const USER = `claudetest${Date.now().toString(36)}`;
 const PASS = `t-${Math.random().toString(36).slice(2)}-Aa1`;
 const GROUP = `กลุ่มถาวรทดสอบ ${Date.now().toString(36)}`;
 const MAIL = `proof0272.${Date.now().toString(36)}@gmail.com`;
+// Made by "another editor" (straight into the database) while this tab is open.
+// REPORTED 2026-11-01: "SAMOWEB FOUNDER MD50" landed public on เกี่ยวกับเรา —
+// a tab that had loaded BEFORE a group was marked ถาวร kept drawing it under
+// ประจำปี, because live sync carried the node but not the ถาวร list.
+const REMOTE = `กลุ่มถาวรจากอีกแท็บ ${Date.now().toString(36)}`;
 
 const loaded = loadEnv();
 const devTarget = resolveTarget({
@@ -177,6 +182,20 @@ try {
   const [g3] = await sql(`select count(*) n from public.team_standing_groups where node_id = ${lit(g1.id)}`);
   say('…and the other pin moves it to ถาวร again', g3.n, Number(g3.n) === 1);
 
+  // 5b. a ถาวร group made ELSEWHERE while this tab sits on ประจำปี
+  await ev(`document.querySelector('[data-team-section="year"]').click(); return 1;`);
+  await sleep(4000); // let the live-sync channel finish joining
+  await sql(`with n as (insert into public.team_nodes (name, kind, parent_id, position, is_public)
+               values (${lit(REMOTE)}, 'division', null, 999, true) returning id)
+             insert into public.team_standing_groups (node_id) select id from n;`);
+  const remoteIn = `document.getElementById('teamTree').innerText.includes(${JSON.stringify(REMOTE)})`;
+  await sleep(6000);
+  const r1 = await ev(`return ${remoteIn};`);
+  say('a ถาวร group made in another tab is NOT drawn under ประจำปี', `drawn ${r1}`, r1 === false);
+  await ev(`document.querySelector('[data-team-section="standing"]').click(); await new Promise(r => setTimeout(r, 800)); return 1;`);
+  const r2 = await ev(`return ${remoteIn};`);
+  say('…and appears under ถาวร without a reload', `drawn ${r2}`, r2 === true);
+
   // 6. phone
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await sleep(1500);
@@ -189,7 +208,7 @@ try {
   say('run', e.message, false);
 } finally {
   try {
-    const left = await sql(`delete from public.team_nodes where name = ${lit(GROUP)};
+    const left = await sql(`delete from public.team_nodes where name in (${lit(GROUP)}, ${lit(REMOTE)});
       delete from public.users where username = ${lit(USER)};
       delete from auth.users where email = ${lit(`${USER}@samomdkku.app`)};
       select (select count(*) from auth.users where email = ${lit(`${USER}@samomdkku.app`)}) accounts,
