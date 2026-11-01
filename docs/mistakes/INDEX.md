@@ -108,7 +108,7 @@ Open when: adding an access channel, a scope, or a seat.
 - A handover RPC gated on the VIEW key, because the illustrative snippet predated the split that made VIEW mean nothing
 - "ผู้ดูแลย้าย" on students nobody moved
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(41)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(42)*
 
 Open when: writing a migration.
 
@@ -153,6 +153,7 @@ Open when: writing a migration.
 - แลก Rotation: 0262 broke `rotation_board()` on production, was fixed by EDITING the applied file, and its proof was gre…
 - เริ่มปี SAMO on 1 มี.ค. fails "ปี … เป็นปีปัจจุบันอยู่แล้ว" on every press and undoes the automatic switch
 - 118 functions were anon-executable, and nobody had ever swept for it
+- ย้อนกลับปี SAMO restored a ตำแหน่ง without its Discord role
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(126)*
 
@@ -546,4 +547,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - An activity's quarter could be changed by a console write, leaving its points behind
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 
-_484 entries across 10 files._
+_485 entries across 10 files._

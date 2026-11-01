@@ -370,7 +370,10 @@ const SECTION_META = {
   creator:  { pane: 'creator',  title: 'เขียนประกาศ',       sub: 'สร้างและเผยแพร่ประกาศลงบอร์ดสาธารณะ' },
   order:    { pane: 'order',    title: 'ลำดับการแสดงประกาศ', sub: 'จัดเรียงลำดับ ปักหมุดโพสต์เด่น และแก้ไขประกาศ' },
   years:    { pane: 'years',     title: 'ปี SAMO',           sub: 'ปีที่ทุกระบบนับงานใหม่ การส่งต่อให้ทีมใหม่ และปีการศึกษา' },
-  team:     { pane: 'team',     title: 'ทีม SAMO',          sub: 'จัดการโครงสร้างตำแหน่งและสมาชิกในองค์กร' },
+  // Renamed from ทีม SAMO (0272): the pane now also holds the ถาวร people —
+  // อาจารย์, เจ้าหน้าที่คณะ — who are not ทีม SAMO, and it is where EVERY grant
+  // in the system is given.
+  team:     { pane: 'team',     title: 'ทีมและสิทธิ์',       sub: 'ทีม SAMO แต่ละปี กลุ่มถาวร (อาจารย์ เจ้าหน้าที่) และสิทธิ์ใช้งานระบบ' },
   house:    { pane: 'house',    title: 'ระบบบ้าน',           sub: 'บ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษา' },
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
   claude:   { pane: 'claude',   title: 'จองโควตา Claude',   sub: 'จองช่วงเวลาใช้งาน Claude ของสโม' },

@@ -1,0 +1,83 @@
+/* my-advisor-house.css — อาจารย์ประจำบ้าน on /me (my-advisor-house.js, 0272).
+ *
+ * Shares the my-seat card shell (.myseat-card) so /me reads as one family; the
+ * house colour arrives as --house-accent and is used for the left rule only.
+ * Tokens only — the app's theme is the <html> attribute (theme.css), never a
+ * prefers-color-scheme block here.
+ */
+.madv-card { border-inline-start-color: var(--house-accent, var(--brand-primary)); }
+
+.madv-eyebrow {
+  margin: 0 0 .15rem; font-size: .78rem; font-weight: 600;
+  color: var(--ink-500); display: flex; gap: .35rem; align-items: center;
+}
+.madv-title { margin: 0; font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+.madv-stats { margin: .3rem 0 0; font-size: .85rem; color: var(--ink-600); }
+
+.madv-controls {
+  display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center;
+  margin: .9rem 0 .4rem;
+}
+.madv-seg {
+  display: inline-flex; gap: .2rem; padding: .2rem;
+  background: var(--ink-100); border-radius: var(--radius-pill, 999px);
+}
+.madv-seg button {
+  border: 0; background: transparent; color: var(--ink-600);
+  font-size: .85rem; font-weight: 600; padding: .35rem .9rem;
+  border-radius: var(--radius-pill, 999px);
+}
+.madv-seg button[aria-checked="true"] {
+  background: var(--surface); color: var(--brand-primary); box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.madv-search { flex: 1 1 12rem; min-width: 0; max-width: 22rem; }
+.madv-grad { font-size: .82rem; color: var(--ink-600); display: inline-flex; gap: .35rem; align-items: center; }
+
+.madv-group { margin-top: .9rem; }
+.madv-group-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .6rem;
+  padding-bottom: .3rem; border-bottom: 1px solid var(--ink-200);
+}
+.madv-group.is-mine .madv-group-title { color: var(--brand-primary); }
+.madv-group-title { font-weight: 700; font-size: .92rem; }
+.madv-owners { font-size: .78rem; color: var(--ink-500); }
+.madv-group-count { margin-left: auto; font-size: .78rem; color: var(--ink-500); font-variant-numeric: tabular-nums; }
+
+.madv-list { list-style: none; margin: 0; padding: 0; }
+.madv-item { border-bottom: 1px solid var(--ink-100); }
+.madv-row {
+  width: 100%; border: 0; background: transparent; text-align: left; color: inherit;
+  display: flex; align-items: center; gap: .65rem; padding: .55rem .25rem; border-radius: .4rem;
+}
+.madv-row:hover { background: var(--ink-100); }
+.madv-row:active { transform: scale(.995); }
+.madv-year {
+  flex: 0 0 auto; min-width: 3.4rem; font-size: .72rem; font-weight: 600; text-align: center;
+  padding: .12rem .35rem; border-radius: .35rem; background: var(--ink-100); color: var(--ink-600);
+}
+.madv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+/* The name never ellipsises — people are listed in full (owner rule). */
+.madv-name { font-weight: 600; font-size: .92rem; overflow-wrap: anywhere; }
+.madv-nick { font-weight: 400; color: var(--ink-500); }
+.madv-sub { font-size: .78rem; color: var(--ink-500); overflow-wrap: anywhere; }
+.madv-chev { flex: 0 0 auto; color: var(--ink-400); }
+.madv-muted { color: var(--ink-500); font-style: italic; }
+
+.madv-detail { padding: .2rem .25rem .8rem 4.05rem; }
+.madv-dl {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: .45rem 1rem; margin: 0;
+}
+.madv-dl > div.is-wide { grid-column: 1 / -1; }
+.madv-dl dt { font-size: .72rem; font-weight: 600; color: var(--ink-500); }
+.madv-dl dd { margin: 0; font-size: .88rem; overflow-wrap: anywhere; white-space: pre-line; }
+.madv-note { margin: .45rem 0 0; font-size: .78rem; color: var(--ink-500); }
+.madv-empty, .madv-row-empty { margin: .6rem 0 0; font-size: .85rem; color: var(--ink-500); }
+
+@media (max-width: 575.98px) {
+  .madv-detail { padding-left: .25rem; }
+  .madv-search { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .madv-row:active { transform: none; }
+}

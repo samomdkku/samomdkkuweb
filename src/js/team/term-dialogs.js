@@ -88,6 +88,11 @@ export function askStartTerm(year, outgoing, passport = null, prepared = null) {
           + `${prepared.members_removed ? ` · ออก ${prepared.members_removed}` : ''}`
           + `${prepared.members_changed ? ` · เปลี่ยน ${prepared.members_changed}` : ''}) `
           + `ถ้ากดผิด ย้อนกลับไปปี ${outgoing?.year ?? 'เดิม'} ได้และผังเดิมจะกลับมา`
+          // The one group the switch does NOT touch, said with its count so
+          // nobody has to wonder whether the อาจารย์ just lost their access.
+          + (Number(prepared.standing_members) > 0
+            ? ` · กลุ่มถาวร ${prepared.standing_members} คนอยู่ต่อพร้อมสิทธิ์เดิม`
+            : '')
         : 'และสิทธิ์ของแต่ละคนไม่เปลี่ยน'),
     yes: back ? `ย้อนกลับไปปี SAMO ${year}` : `เริ่มปี SAMO ${year}`,
     danger: false,

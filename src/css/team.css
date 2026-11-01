@@ -1247,6 +1247,47 @@
   min-width: 5.5rem; text-align: center; font-weight: 600; color: var(--ink-700);
 }
 
+/* ── ประจำปี | ถาวร (0272) ───────────────────────────────────────────────────
+   The pane's first choice, so it reads as the biggest control: a full segmented
+   pill, the same family as the mode switch below it but a size up. The caption
+   says what the chosen side MEANS — ถาวร's whole point is a rule (survives the
+   switch, never public), and a rule nobody is told is a surprise later. */
+.team-section-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem;
+}
+.team-section-seg {
+  display: inline-flex; gap: .2rem; padding: .22rem;
+  background: var(--ink-100); border-radius: var(--radius-pill);
+}
+.team-section-btn {
+  border: 0; background: transparent; color: var(--ink-600);
+  font-size: .92rem; font-weight: 600; padding: .42rem 1.15rem;
+  border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: .4rem;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.team-section-btn:active { transform: scale(.97); }
+.team-section-btn.is-active {
+  background: var(--surface); color: var(--brand-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.team-section-caption { margin: 0; font-size: .8rem; color: var(--ink-500); flex: 1 1 16rem; min-width: 0; }
+/* A CLASS of its own, not d-none: year-bar.js toggles d-none on these for its
+   own reasons, and two passes over one property is how one undoes the other. */
+.team-section-off { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .team-section-btn { transition: none; }
+  .team-section-btn:active { transform: none; }
+}
+/* Not public — said on the row, where the decision is visible, instead of only
+   inside the editor's checkbox. */
+.team-hidden-pill {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .68rem; color: var(--ink-500); white-space: nowrap;
+}
+/* Has this address ever signed in? Quiet when yes, amber when never — an
+   address nobody can sign in with is the one that needs a second look. */
+.team-tag-signin { font-variant-numeric: tabular-nums; }
+
 /* ── YEAR BAR (0271) ─────────────────────────────────────────────────────────
    Which ปี SAMO the pane shows, picked once above every mode — the same chip
    look as ระบบบ้าน's MD49 … MD54 (btn-success when picked, outline otherwise),

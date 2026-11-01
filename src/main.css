@@ -30,6 +30,7 @@
 /* บ้านของฉัน — the home card only, and it REUSES my-seat.css above (same shell,
    same label→value list), so it must be imported after it. */
 @import './css/my-house.css';
+@import './css/my-advisor-house.css';
 /* ตรวจสอบข้อมูลของฉัน — the import's disagreements with this person (0138).
    Public entry only: the admin side reads the same rows through its own pane. */
 @import './css/person-match.css';

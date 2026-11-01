@@ -51,11 +51,20 @@ const clean = (v) => {
   const s = String(v ?? '').trim();
   return s === '' ? null : s;
 };
-/** An address with no `@` is not an address. One live row literally holds `-`,
- *  which is what split ชญาภา into two people. */
+/** Something sign-in could ever match: one `@`, a dot in the domain, and no
+ *  space or comma anywhere. ANY domain — gmail, hotmail, kku.ac.th — signs in
+ *  (0272), so the rule is about SHAPE, never about kkumail.
+ *
+ *  It used to be "has an `@`". One live row literally held `-` (which split
+ *  ชญาภา into two people), and another held `…@kku,ail.com` — a comma for the
+ *  m — which passed that test, so ตรวจสอบข้อมูล called it fine while the person
+ *  could never be matched at sign-in (fixed by hand 2026-11-01). */
+export function isEmailAddress(v) {
+  return /^[^\s@,]+@[^\s@,]+\.[^\s@,.][^\s@,]*$/.test(String(v ?? '').trim());
+}
 const email = (v) => {
   const s = clean(v);
-  return s && s.includes('@') ? s.toLowerCase() : null;
+  return s && isEmailAddress(s) ? s.toLowerCase() : null;
 };
 
 /** Fields a person can only have one of. `photo_url` is included: two rows for

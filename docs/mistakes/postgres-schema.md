@@ -1780,3 +1780,37 @@ ACL system, not of the object someone happened to be looking at. Write the
 sweep as a PROPERTY over every object of a type ("every function anon can
 execute is on this list"), not a fix for the one object that got reported,
 or the 117th function nobody checked is the next incident.
+
+## ย้อนกลับปี SAMO restored a ตำแหน่ง without its Discord role — green on dev, red on production (0271 → 0272)
+
+**Symptom (as it showed up)**: `team0271-prepared-year` was 36/36 on samo-dev
+and 35/36 on PRODUCTION, the red row being case 70, "switching back restores
+the exact tree it replaced". The rolled-back proof had deleted หัวหน้าฝ่าย
+จัดหาทุน and restored it through the undo copy, and the restored row came
+back with `discord_role_id` null — on the real switch day that ตำแหน่ง's
+Discord role would have been orphaned and a new one created.
+
+**Cause**: `_apply_team_draft` inserts a node that the live tree lacks by
+LISTING columns from the draft row. `discord_role_id` is deliberately not
+copied into drafts (two rows may not claim one role), and the insert list
+had no branch to carry it back for a row whose live original had been
+deleted. The proof passed on dev only because dev's probe leaf HAD no
+Discord role: the property was absent from the subject, so its loss was
+invisible.
+
+**Fix**: 0272's node insert carries `discord_role_id` from the undo source
+when no live row or earlier draft row holds that role. team0271 case 70's
+fingerprint already includes the column; ⚠️ its subject picker still takes
+"a node WITH a role if one exists", and samo-dev has none, so dev still
+cannot see this — production is where case 70 proves it (planting a role on
+the dev subject is OWED).
+
+**Where it lives now**: `supabase/migrations/0272_standing_groups_outlive_the_year.sql`
+(`_apply_team_draft`), `tools/team0271-prepared-year.sql` case 70.
+
+**The general rule**: a round-trip proof (delete → restore, export → import,
+switch → undo) proves only the columns its SUBJECT has set. Pick or PLANT a
+subject with every optional column filled — a Discord role, a photo, a
+person link — or the column that a copy drops is exactly the one the proof
+cannot see. A difference between dev and production in one proof row is the
+data telling you which column that is.

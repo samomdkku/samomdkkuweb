@@ -466,6 +466,48 @@ export async function fetchDraftSummary(year) {
   return data || { prepared: false };
 }
 
+// ---- ถาวร (0272) ----
+//
+// The ถาวร list lives beside the LIVE tree, never a draft: a group that
+// outlives the year has no year to be prepared in. So these ignore `tree()`.
+
+/** Ids of the top-level groups marked ถาวร. */
+export async function fetchStandingGroups() {
+  const { data, error } = await dbRest('/team_standing_groups?select=node_id');
+  if (error) throw new Error(error.message || 'โหลดกลุ่มถาวรไม่สำเร็จ');
+  return (data || []).map((r) => r.node_id);
+}
+
+/** Mark a top-level group ถาวร. The database refuses a non-root and hides it
+ *  from เกี่ยวกับเรา (team_standing_groups_guard). */
+export async function markStanding(nodeId) {
+  const { data, error } = await dbRest('/team_standing_groups', {
+    method: 'POST', body: { node_id: nodeId }, prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'ย้ายไปถาวรไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('ย้ายไปถาวรไม่สำเร็จ (สิทธิ์ไม่พอ)');
+}
+
+/** Back to ประจำปี: from the next switch on, the year decides again. */
+export async function unmarkStanding(nodeId) {
+  const { data, error } = await dbRest(`/team_standing_groups?node_id=eq.${nodeId}`, {
+    method: 'DELETE', prefer: 'return=representation',
+  });
+  if (error) throw new Error(error.message || 'ย้ายกลับไม่สำเร็จ');
+  if (!Array.isArray(data) || !data.length) throw new Error('ย้ายกลับไม่สำเร็จ — ไม่พบกลุ่มนี้ หรือคุณไม่มีสิทธิ์');
+}
+
+/** member id → { hasAccount, lastSignInAt } for the live tree. Editors only;
+ *  anyone else gets an empty map rather than an error, because the tree still
+ *  renders without it. */
+export async function fetchSignInStatus() {
+  const { data, error } = await dbRest('/rpc/team_sign_in_status', { method: 'POST', body: {} });
+  if (error) return new Map();
+  return new Map((data || []).map((r) => [r.member_id, {
+    hasAccount: !!r.has_account, lastSignInAt: r.last_sign_in_at || null,
+  }]));
+}
+
 export async function fetchArchive(year) {
   const [nodesRes, membersRes] = await Promise.all([
     dbRest(`/team_archive_nodes?year=eq.${year}&select=*&order=position.asc,name.asc`),

@@ -41,6 +41,7 @@ import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { renderDiscordCard, readDiscordOutcome } from './discord-link.js';
 import { showMyHouse, renderMyHouse, clearMyHouseCache, loadMyHouse } from './house/my-house.js';
+import { loadMyAdvisorHouse, renderMyAdvisorHouse, clearMyAdvisorHouseCache } from './house/my-advisor-house.js';
 // ปีการศึกษา is an admin-set value (0141); every ชั้นปี on the page derives from
 // it, so it is fetched once before anything that renders one.
 import { primeAcademicYear } from './house/api.js';
@@ -873,6 +874,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seatHost = document.getElementById('meMySeat');
     const houseHost = document.getElementById('meMyHouse');
     const identityHost = document.getElementById('meIdentityCheck');
+    const advisorHost = document.getElementById('meAdvisorHouse');
     if (user) {
       // ONE decision, taken once: does this person hold a ทีม SAMO posting?
       // REPORTED: the two cards "show similar information two times". They both
@@ -940,9 +942,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadMySeat(user.id).catch(() => null),
         loadMyHouse(user.id),
         loadIdentityStatus(),
-      ]).then(([seat, house, identity]) => {
+        loadMyAdvisorHouse(user.id),
+      ]).then(([seat, house, identity, advisor]) => {
         if (prevAuthKey !== authKey) return;
-        paintHomeMe(user, summarizeMe({ seat, house, identity, fallback: user.department || roleLabel(role) || '' }));
+        paintHomeMe(user, summarizeMe({ seat, house, identity, advisor, fallback: user.department || roleLabel(role) || '' }));
       });
       primeAcademicYear();
       clearIdentityCheckCache();
@@ -959,22 +962,32 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshHomeMe();
       // showMySeat renders NOTHING when there is no posting, so afterRender
       // never fires for a house-only person — paint them here.
-      loadMySeat(user.id)
-        .then((seat) => {
+      // อาจารย์ประจำบ้าน (0272). An อาจารย์ is not a student, so the student
+      // claim card ("ระบบหาข้อมูลของคุณไม่เจอ") must not be offered to them —
+      // the advisor answer is awaited before the house card decides.
+      const advisorP = loadMyAdvisorHouse(user.id).then((adv) => {
+        if (prevAuthKey === authKey) renderMyAdvisorHouse(advisorHost, adv);
+        return adv;
+      });
+      Promise.all([loadMySeat(user.id).catch(() => undefined), advisorP])
+        .then(([seat, adv]) => {
+          if (prevAuthKey !== authKey) return;
           // `account` lets renderMyHouse tell "signed out" from "signed in but
           // ระบบบ้าน has nothing for you" — the second used to render NOTHING,
           // which is how a gmail sign-in silently lost the whole feature.
-          if (!(seat?.postings || []).length) {
-            showMyHouse(houseHost, user.id, { signedIn: true, account: user.email });
-          }
-        })
-        // A failed seat lookup must not cost the student their house card.
-        .catch(() => showMyHouse(houseHost, user.id, { signedIn: true, account: user.email }));
+          // `undefined` = the seat lookup FAILED, which must not cost the
+          // student their house card.
+          if (seat !== undefined && (seat?.postings || []).length) return;
+          if (adv) { renderMyHouse(houseHost, null); return; }
+          showMyHouse(houseHost, user.id, { signedIn: true, account: user.email });
+        });
     } else {
       clearMySeatCache();
       renderMySeat(seatHost, null);
       clearMyHouseCache();
       renderMyHouse(houseHost, null);
+      clearMyAdvisorHouseCache();
+      renderMyAdvisorHouse(advisorHost, null);
       // Signed out. The block asks a question about a specific person, so
       // leaving it painted would show the previous account's name to the next
       // one — the module-scope-cache-across-an-account-switch shape.

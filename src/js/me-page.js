@@ -39,8 +39,14 @@ export function initialOf(name) {
  *   house    loadMyHouse() → student record | null
  *   identity loadIdentityStatus() → status | null
  */
-export function summarizeMe({ seat, house, identity, fallback = '' } = {}) {
+export function summarizeMe({ seat, house, identity, advisor = null, fallback = '' } = {}) {
   const parts = [];
+  // อาจารย์ประจำบ้าน first (0272): for an อาจารย์ it is the answer to "what am
+  // I here", and they have no student บ้าน line to show instead.
+  if (advisor?.advisor) {
+    const names = (advisor.houses || []).map((h) => houseLabel(h.id, h.name)).join(', ');
+    parts.push(names ? `อาจารย์ประจำบ้าน · ${names}` : 'อาจารย์ประจำบ้าน');
+  }
   const posting = (seat?.postings || [])[0];
   if (posting?.node) {
     const path = Array.isArray(posting.path) ? posting.path : [];

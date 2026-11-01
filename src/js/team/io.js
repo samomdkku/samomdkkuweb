@@ -18,6 +18,7 @@ import {
 // ชั้นปี is COMPUTED for the export column and IGNORED on import (0145) — see
 // src/js/study-year.js for why storing it is what made three screens disagree.
 import { studyYearLabel } from '../study-year.js';
+import { isEmailAddress } from './identity.js';
 import { csvGuard, csvUnguard } from '../utils.js';
 
 /**
@@ -60,8 +61,11 @@ export function parseConfirmed(v) {
   return { value: false, recognized: false };
 }
 
+/** ONE rule for "could this address sign in" — identity.js owns it, so the
+ *  importer, ตรวจสอบข้อมูล and the member form cannot disagree (a comma passed
+ *  this copy and failed nothing else). */
 export function isLikelyEmail(s) {
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s ?? '').trim());
+  return isEmailAddress(s);
 }
 
 /** Collapse runs of whitespace and trim. "  A   B " → "A B". */

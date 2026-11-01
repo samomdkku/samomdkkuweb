@@ -31,12 +31,14 @@ import {
   fetchMajors, createMajor, updateMajor, deleteMajor,
   countMembersWithMajor, renameMajorOnMembers, searchPeople,
   setTreeDraftYear, treeDraftYear,
+  fetchStandingGroups, markStanding, unmarkStanding, fetchSignInStatus,
 } from './api.js';
 // The one definition of what a รหัสนักศึกษา / ชั้นปี / สาขา may look like,
 // shared with the CSV importer and the public ตำแหน่งของฉัน card.
 import {
   normalizeIdentityFields, majorKey, SID_HINT, suggestNameSplit,
 } from './fields.js';
+import { isEmailAddress } from './identity.js';
 // An app-owned "are you sure?". `window.confirm` is not reliable control flow
 // here: once Chrome's "Prevent this page from creating additional dialogs" box
 // is ticked — and an admin session that deletes things is the session that
@@ -92,6 +94,16 @@ let currentTermYear = null;
 // team_draft_*), 'unprepared' (a year ahead with nothing yet — the bar's panel),
 // 'archive' (a past year — terms.js). The modes above apply to the first two.
 let view = { kind: 'current', termYear: null };
+// ประจำปี | ถาวร (0272). ถาวร is a slice of the LIVE tree — the top-level groups
+// listed in team_standing_groups and everything under them — so it has no year
+// bar and always shows the live tree. ประจำปี is every other root. Draft rows
+// keep their live ids, so the same set filters a prepared year too (a draft
+// started before 0272 may still hold a copy of a ถาวร group; it is hidden here
+// and the switch never applies it).
+let section = 'year';
+let standingIds = new Set();
+// member id -> { hasAccount, lastSignInAt }, editors only, live tree only.
+let signIns = new Map();
 let summaryTimer = null;
 const nodesById = new Map();   // id -> node
 let childrenByParent = new Map(); // parentId|'' -> [nodes]
@@ -497,8 +509,16 @@ async function reload() {
   loading = (async () => {
     try {
       setStatus('กำลังโหลด…');
-      const { nodes, members } = await fetchTree();
+      const [{ nodes, members }, standing, seen] = await Promise.all([
+        fetchTree(),
+        // A failed ถาวร lookup must not cost the tree: every root then reads as
+        // ประจำปี, which is what the tab showed before 0272.
+        fetchStandingGroups().catch((err) => { console.warn('[team] standing:', err?.message || err); return null; }),
+        !target && canEdit() ? fetchSignInStatus() : Promise.resolve(new Map()),
+      ]);
       if (treeDraftYear() !== target) return;
+      if (standing) standingIds = new Set(standing);
+      signIns = seen;
       rebuildIndexes(nodes, members);
       if (!loaded) childrenOf(null).forEach((n) => expanded.add(n.id));
       loaded = true;
@@ -599,6 +619,107 @@ function destroySortables() {
 
 function setStatus(msg) { const el = $('teamStatus'); if (el) el.textContent = msg || ''; }
 
+/** The roots of the side on screen. */
+function sectionRoots() {
+  const all = childrenOf(null);
+  return section === 'standing'
+    ? all.filter((n) => standingIds.has(n.id))
+    : all.filter((n) => !standingIds.has(n.id));
+}
+
+/** Chrome that belongs to a side, not to a mode: the year bar exists only for
+ *  ประจำปี, the caption says what the side MEANS, and the add button names what
+ *  it adds. */
+function paintSection() {
+  const standing = section === 'standing';
+  document.querySelectorAll('[data-team-section]').forEach((b) => {
+    const on = b.dataset.teamSection === section;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  for (const id of ['teamYearBar', 'teamYearHead', 'teamYearPane']) {
+    const el = $(id);
+    if (el) el.classList.toggle('team-section-off', standing);
+  }
+  const cap = $('teamSectionCaption');
+  if (cap) {
+    cap.textContent = standing
+      ? 'คนที่อยู่ทุกปี เช่น อาจารย์ เจ้าหน้าที่คณะ หรือผู้ดูแลระบบ — เปลี่ยนปี SAMO แล้วยังอยู่และยังได้สิทธิ์เดิม ไม่แสดงบนหน้าเกี่ยวกับเรา เข้าระบบด้วยอีเมลใดก็ได้'
+      : 'ทีม SAMO และกลุ่มของแต่ละปี — เปลี่ยนเมื่อเริ่มปี SAMO ใหม่';
+  }
+  const lbl = $('teamAddRootLabel');
+  if (lbl) lbl.textContent = standing ? 'เพิ่มกลุ่ม' : 'เพิ่มฝ่าย';
+}
+
+/** Switch side. ถาวร always shows the LIVE tree, so leaving a prepared or past
+ *  year for it puts the year bar back on the current year first. */
+function setSection(next) {
+  if (next !== 'year' && next !== 'standing') return;
+  if (next === section) return;
+  section = next;
+  if (selectionMode) { selectionMode = false; clearSelection(); }
+  if (section === 'standing' && mode === 'health') mode = 'team';
+  if (section === 'standing' && view.kind !== 'current') {
+    render();
+    enterYearBar(currentTermYear);
+    return;
+  }
+  render();
+}
+
+/** Move a top-level group between ประจำปี and ถาวร. Asked first, because the
+ *  consequence lands later and silently: on the next ปี SAMO switch a group on
+ *  the wrong side either survives when it should not, or disappears with every
+ *  permission its people hold. */
+async function onToggleStanding(nodeId, toStanding) {
+  const node = nodesById.get(nodeId);
+  if (!node || node.parent_id) return;
+  const people = subtreeMemberCount(nodeId);
+  const ok = await askConfirm({
+    title: toStanding ? `ย้าย “${node.name}” ไปถาวร?` : `ย้าย “${node.name}” กลับไปประจำปี?`,
+    body: toStanding
+      ? `${people} คนในกลุ่มนี้จะอยู่ต่อทุกปีพร้อมสิทธิ์เดิม เมื่อเปลี่ยนปี SAMO ระบบจะไม่ลบหรือแก้กลุ่มนี้ และกลุ่มนี้จะไม่แสดงบนหน้าเกี่ยวกับเรา`
+      : `เมื่อเปลี่ยนปี SAMO ครั้งถัดไป กลุ่มนี้จะเป็นไปตามทีมปีใหม่ที่เตรียมไว้ — ถ้าทีมปีใหม่ไม่มีกลุ่มนี้ ${people} คนในกลุ่มจะถูกนำออกพร้อมสิทธิ์`,
+    yes: toStanding ? 'ย้ายไปถาวร' : 'ย้ายกลับไปประจำปี',
+    // Back to ประจำปี is the move that can later remove people; ถาวร removes
+    // nothing.
+    danger: !toStanding,
+  });
+  if (!ok) return;
+  try {
+    if (toStanding) {
+      await markStanding(nodeId);
+      standingIds.add(nodeId);
+      node.is_public = false;
+    } else {
+      await unmarkStanding(nodeId);
+      standingIds.delete(nodeId);
+    }
+    render();
+  } catch (err) {
+    alert(err?.message || 'ย้ายไม่สำเร็จ');
+    reload();
+  }
+}
+
+/** "Has this address ever signed in?" on a member row. Said only when it is
+ *  news: never signed in (the address may be wrong, or the person has not
+ *  arrived), and on the ถาวร side the date — those are the people nobody sees
+ *  every day. */
+function signInTag(m) {
+  if (!m.kkumail || !signIns.size) return '';
+  const s = signIns.get(m.id);
+  if (!s) return '';
+  if (!s.hasAccount) {
+    return '<span class="team-tag team-tag-pending team-tag-signin" title="ยังไม่มีบัญชีที่ใช้อีเมลนี้ — ตรวจตัวสะกด หรือรอให้เจ้าของเข้าสู่ระบบครั้งแรก">ยังไม่เคยเข้าระบบ</span>';
+  }
+  if (section !== 'standing' || !s.lastSignInAt) return '';
+  const d = new Date(s.lastSignInAt);
+  if (Number.isNaN(d.getTime())) return '';
+  const when = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Asia/Bangkok' });
+  return `<span class="team-tag team-tag-signin" title="เข้าสู่ระบบล่าสุด">เข้าระบบล่าสุด ${escHtml(when)}</span>`;
+}
+
 function render() {
   // Read-only chrome (0110). Toggled on every render rather than once at boot,
   // because onAuthChange can hand us a different account mid-session (the
@@ -623,6 +744,7 @@ function render() {
   // The ปีการศึกษา pane is a different surface, not a different rendering of the
   // tree — hide the tree and its toolbar rather than trying to express years
   // inside the node list.
+  paintSection();
   const isDraft = view.kind === 'draft';
   const isArchive = view.kind === 'archive';
   const isUnprepared = view.kind === 'unprepared';
@@ -689,12 +811,26 @@ function render() {
     setStatus('');
     return;
   }
-  const roots = childrenOf(null);
+  const roots = sectionRoots();
   const filter = searchQ ? computeFilter(searchQ) : null;
-  setStatus(`${nodesById.size} ตำแหน่ง · ${[...membersByNode.values()].reduce((a, b) => a + b.length, 0)} สมาชิก`);
+  {
+    let nodeCount = 0;
+    let memberCount = 0;
+    const walk = (n) => {
+      nodeCount += 1;
+      memberCount += membersOf(n.id).length;
+      childrenOf(n.id).forEach(walk);
+    };
+    roots.forEach(walk);
+    setStatus(`${nodeCount} ตำแหน่ง · ${memberCount} สมาชิก`);
+  }
 
   if (!roots.length) {
-    tree.innerHTML = '<div class="team-empty">ยังไม่มีฝ่าย — กด “เพิ่มฝ่าย” เพื่อเริ่ม</div>';
+    tree.innerHTML = section === 'standing'
+      ? `<div class="team-empty">ยังไม่มีกลุ่มถาวร — ${canEdit()
+        ? 'กด “เพิ่มกลุ่ม” แล้วตั้งชื่อ เช่น อาจารย์ เจ้าหน้าที่คณะ หรือ ทีมพัฒนาเว็บ หรือย้ายกลุ่มที่มีอยู่มาจากแท็บประจำปี'
+        : 'ผู้ที่มีสิทธิ์แก้ไขทีมเป็นผู้สร้าง'}</div>`
+      : '<div class="team-empty">ยังไม่มีฝ่าย — กด “เพิ่มฝ่าย” เพื่อเริ่ม</div>';
     return;
   }
 
@@ -802,6 +938,9 @@ function renderNode(node, filter, depth = 0) {
         <button type="button" class="team-act" data-act="add-child" title="เพิ่มตำแหน่งย่อย"><i class="bi bi-plus-square"></i></button>
         <button type="button" class="team-act" data-act="move" title="ย้าย"><i class="bi bi-arrows-move"></i></button>
         <button type="button" class="team-act" data-act="edit" title="แก้ไข"><i class="bi bi-pencil"></i></button>
+        ${depth === 0 && view.kind === 'current' ? (standingIds.has(node.id)
+          ? '<button type="button" class="team-act" data-act="unmark-standing" title="ย้ายกลับไปประจำปี"><i class="bi bi-calendar3"></i></button>'
+          : '<button type="button" class="team-act" data-act="mark-standing" title="ย้ายไปถาวร"><i class="bi bi-pin-angle"></i></button>') : ''}
         <button type="button" class="team-act team-act-danger" data-act="delete" title="ลบ"><i class="bi bi-trash"></i></button>`
     : `
         <button type="button" class="team-act team-act-perm" data-act="edit-perms" title="กำหนดสิทธิ์"><i class="bi bi-shield-lock"></i></button>`;
@@ -814,6 +953,9 @@ function renderNode(node, filter, depth = 0) {
         aria-label="ขยาย/ย่อ">${expandable ? `<i class="bi bi-chevron-${isOpen ? 'down' : 'right'}"></i>` : ''}</button>
       ${tierIndent}<i class="bi ${KIND_ICON[normalizeKind(node.kind)]} team-node-icon"></i>
       <span class="team-node-name" data-act="primary">${nameHtml}</span>
+      ${node.is_public === false && depth === 0
+        ? '<span class="team-hidden-pill" title="ไม่แสดงบนหน้าเกี่ยวกับเรา"><i class="bi bi-eye-slash" aria-hidden="true"></i> ไม่แสดงสาธารณะ</span>'
+        : ''}
       ${tierControl}
       ${count ? `<span class="team-count" title="สมาชิกในสายนี้">${count}</span>` : ''}
       ${healthNodeCounts.get(node.id)
@@ -924,6 +1066,7 @@ function renderMember(m, filter) {
         ${m.confirmed
           ? '<span class="team-tag team-tag-ok"><i class="bi bi-check-circle-fill"></i> ยืนยัน</span>'
           : '<span class="team-tag team-tag-pending">รอยืนยัน</span>'}
+        ${signInTag(m)}
         ${(() => {
           const eff = [...memberEffectivePerms(m)];
           const labels = eff.map((p) => PERM_LABEL[p] || p);
@@ -1212,6 +1355,8 @@ function wireTreeDelegation() {
       case 'add-member':  openMemberModal({ nodeId }); break;
       case 'move':        openMoveNode(nodeId); break;
       case 'delete':      onDeleteNode(nodeId); break;
+      case 'mark-standing':   onToggleStanding(nodeId, true); break;
+      case 'unmark-standing': onToggleStanding(nodeId, false); break;
       case 'edit-perms':  openPermModal(nodeId); break;
       case 'edit-member': openMemberModal({ member: findMember(memberId), tab: modeTab() }); break;
       case 'edit-member-perms': openMemberPermModal(memberId); break;
@@ -1333,6 +1478,9 @@ function openHealthFor({ memberId, nodeId }) {
 
 function wireToolbar() {
   $('teamAddRoot')?.addEventListener('click', () => openNodeModal({ parentId: null, kind: 'division' }));
+  document.querySelectorAll('[data-team-section]').forEach((b) => {
+    b.addEventListener('click', () => setSection(b.dataset.teamSection));
+  });
   $('teamExpandAll')?.addEventListener('click', () => { for (const id of nodesById.keys()) expanded.add(id); render(); });
   $('teamCollapseAll')?.addEventListener('click', () => { expanded.clear(); render(); });
 
@@ -1701,6 +1849,18 @@ async function onNodeSubmit(e) {
       nodesById.set(row.id, row);
       rebuildChildrenIndexFromNodes();
       if (parentId) expanded.add(parentId);
+      // A group added on the ถาวร side IS ถาวร — otherwise it would vanish into
+      // ประจำปี the moment it was saved. The guard hides it from เกี่ยวกับเรา.
+      if (!parentId && section === 'standing' && !treeDraftYear()) {
+        try {
+          await markStanding(row.id);
+          standingIds.add(row.id);
+          row.is_public = false;
+          expanded.add(row.id);
+        } catch (err) {
+          alert(`สร้างกลุ่มแล้ว แต่ย้ายไปถาวรไม่สำเร็จ — ${err?.message || ''}\nกลุ่มนี้อยู่ในแท็บประจำปี กดปุ่มหมุดที่แถวของกลุ่มเพื่อลองอีกครั้ง`);
+        }
+      }
       render();
     }
   } catch (err) { alert(err?.message || 'บันทึกไม่สำเร็จ'); reload(); }
@@ -3985,6 +4145,18 @@ async function runMemberSubmit() {
   if (sidProblem && String(stored?.student_id ?? '') !== String(typedSid ?? '').trim()) {
     alert(sidProblem.message);
     $('teamMemberStudentId').focus();
+    return;
+  }
+
+  // An address sign-in could never match is refused when this save CHANGED it
+  // (an unchanged legacy value must not hold a nickname edit hostage — the same
+  // rule as the รหัส above). `…@kku,ail.com` sat in the tree for months looking
+  // fine while its owner could never be matched.
+  const typedMail = String($('teamMemberEmail').value || '').trim();
+  if (typedMail && !isEmailAddress(typedMail)
+      && typedMail.toLowerCase() !== String(stored?.kkumail ?? '').trim().toLowerCase()) {
+    alert('อีเมลนี้ใช้เข้าสู่ระบบไม่ได้ — ตรวจตัวสะกดอีกครั้ง เช่น name@kkumail.com หรือ name@gmail.com');
+    $('teamMemberEmail').focus();
     return;
   }
 

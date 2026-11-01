@@ -339,13 +339,16 @@ export function ownIssues(seat) {
   // instruction nobody can follow, because the only way to fill it is the
   // รหัสนักศึกษา that is already on this list one line above. Ask for the
   // INGREDIENT, never for the calculation.
-  const missing = displayFields(first)
-    .filter((f) => !f.value && !fieldValue(f, first))
+  // A staff card (ถาวร, no รหัส) asks for a NAME only: an อาจารย์ with no
+  // ชื่อเล่น is not missing anything, and their photo is never shown publicly.
+  const staff = isStaffSeat(seat);
+  const missing = displayFields(first, staff)
+    .filter((f) => !f.value && !fieldValue(f, first) && !(staff && f.key === 'nickname'))
     .map((f) => f.label);
   if (missing.length) {
     out.push({ kind: 'missing', label: 'ข้อมูลยังไม่ครบ', detail: missing.join(' · ') });
   }
-  if (!String(first.photo_url ?? '').trim()) {
+  if (!staff && !String(first.photo_url ?? '').trim()) {
     out.push({ kind: 'missing_photo', label: 'ยังไม่มีรูป', detail: '' });
   }
   return out;
@@ -404,14 +407,35 @@ function postingHtml(p) {
  * where that is all there is. The EDIT form always offers the two boxes —
  * that is how a row acquires the split, and the only way it ever should.
  */
-export function displayFields(p) {
+export function displayFields(p, staff = false) {
+  const base = staff ? STAFF_FIELDS : DETAIL_FIELDS;
   const hasSplit = !!(String(p?.first_name_th ?? '').trim() || String(p?.last_name_th ?? '').trim());
-  if (hasSplit || !String(p?.full_name ?? '').trim()) return DETAIL_FIELDS;
+  if (hasSplit || !String(p?.full_name ?? '').trim()) return base;
   return [
     { key: 'full_name', label: 'ชื่อ-สกุล', wide: true },
-    ...DETAIL_FIELDS.filter((f) => f.key !== 'first_name_th' && f.key !== 'last_name_th'),
+    ...base.filter((f) => f.key !== 'first_name_th' && f.key !== 'last_name_th'),
   ];
 }
+
+/**
+ * A ถาวร-only person with no รหัสนักศึกษา — an อาจารย์, a เจ้าหน้าที่คณะ, someone
+ * from another university (0272). They are not students: asking them for a
+ * รหัส / ชั้นปี / สาขา, and flagging those as "ยังไม่ได้กรอก", is a form that
+ * cannot be completed. Someone who HAS a รหัส (a graduate who stays on as a
+ * ถาวร dev) keeps the full card, because those fields are real for them.
+ */
+export function isStaffSeat(seat) {
+  const postings = seat?.postings || [];
+  if (!postings.length || !postings.every((p) => p?.standing === true)) return false;
+  return !String(postings[0]?.student_id ?? '').trim();
+}
+
+/** The fields a staff card shows: the name, the nickname, and the address they
+ *  sign in with — which need not be a kkumail, so it is not called one. */
+const STAFF_KEYS = new Set(['first_name_th', 'last_name_th', 'nickname', 'kkumail']);
+export const STAFF_FIELDS = DETAIL_FIELDS
+  .filter((f) => STAFF_KEYS.has(f.key))
+  .map((f) => (f.key === 'kkumail' ? { ...f, label: 'อีเมลที่ใช้เข้าระบบ' } : f));
 
 /** What this field READS as, for one posting. A field with a `value` function is
  *  a calculation (ชั้นปี), not a column — the read view, the "ยังไม่ได้กรอก"
@@ -421,8 +445,8 @@ export function fieldValue(f, p) {
   return String((f.value ? f.value(p) : p?.[f.key]) ?? '').trim();
 }
 
-function detailsHtml(p) {
-  const rows = displayFields(p).map((f) => {
+function detailsHtml(p, staff = false) {
+  const rows = displayFields(p, staff).map((f) => {
     const v = fieldValue(f, p);
     return `<div class="myseat-detail${v ? '' : ' is-empty'}${f.wide ? ' is-wide' : ''}">
       <dt>${escHtml(f.label)}</dt>
@@ -547,21 +571,27 @@ function studyYearFieldHtml(p) {
  * form: NOTHING is uploaded until บันทึก. Uploading on pick is what left orphan
  * files in Drive.
  */
-function editFormHtml(p) {
+function editFormHtml(p, staff = false) {
   const majors = (majorOptions || []).map((m) => m.code);
   const majorLabel = (code) => {
     const hit = (majorOptions || []).find((m) => m.code === code);
     return hit?.label ? `${code} — ${hit.label}` : code;
   };
   const field = (f) => {
-    if (f.control === 'study_year') return studyYearFieldHtml(p);
+    // No รหัส on a staff card, so the chooser would be the locked "—" box with no
+    // name — nothing to send, nothing to keep. Leaving it out is safe.
+    if (f.control === 'study_year') return staff ? '' : studyYearFieldHtml(p);
     const val = String(p[f.key] ?? '');
     const inner = f.control === 'major'
       ? `<select name="major">${optionsHtml(majors, val, majorLabel)}</select>`
       : `<input type="text" name="${escHtml(f.key)}" value="${escHtml(val)}"${
         f.key === 'student_id' ? ` inputmode="numeric" placeholder="${SID_PLACEHOLDER}"` : ''} />`;
+    // A staff card HIDES the student-only boxes rather than leaving them out:
+    // the submit reads every editable box and writes it back, so a box that is
+    // missing would be sent as empty and clear the stored value.
+    const hide = staff && !STAFF_KEYS.has(f.key) ? ' hidden' : '';
     return `
-    <label class="myseat-field${f.wide ? ' is-wide' : ''}">
+    <label class="myseat-field${f.wide ? ' is-wide' : ''}"${hide}>
       <span>${escHtml(f.label)}</span>
       ${inner}
       ${f.hint ? `<em class="myseat-field-hint">${escHtml(f.hint)}</em>` : ''}
@@ -581,7 +611,9 @@ function editFormHtml(p) {
           </label>
           <button type="button" class="myseat-photo-remove${p.photo_url ? '' : ' is-hidden'}"
             data-myseat-photo-remove>นำรูปออก</button>
-          <em class="myseat-photo-note" data-myseat-photo-note>รูปนี้แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้</em>
+          <em class="myseat-photo-note" data-myseat-photo-note>${staff
+    ? 'รูปนี้ใช้ในระบบเท่านั้น ไม่แสดงบนหน้าเกี่ยวกับเรา'
+    : 'รูปนี้แสดงบนหน้าโครงสร้างองค์กรที่เปิดให้บุคคลทั่วไปดูได้'}</em>
         </div>
       </div>
 
@@ -597,7 +629,7 @@ function editFormHtml(p) {
              กรอกแยกช่องด้านบนได้เลย หรือปล่อยว่างไว้เพื่อใช้ชื่อเดิม</p>`
         : ''}
       <label class="myseat-field myseat-field--locked is-wide">
-        <span>KKU Mail</span>
+        <span>${staff ? 'อีเมลที่ใช้เข้าระบบ' : 'KKU Mail'}</span>
         <input type="text" value="${escHtml(String(p.kkumail ?? ''))}" readonly />
         <em class="myseat-field-hint">เปลี่ยนไม่ได้ — เป็นอีเมลที่ใช้จับคู่ตำแหน่งของคุณ</em>
       </label>
@@ -634,6 +666,7 @@ export function renderMySeat(host, seat, opts = {}) {
   const who = [seat.name, seat.nickname ? `(${seat.nickname})` : '']
     .filter(Boolean).join(' ');
   const issues = ownIssues(seat);
+  const staff = isStaffSeat(seat);
 
   host.hidden = false;
   host.innerHTML = `
@@ -651,12 +684,12 @@ export function renderMySeat(host, seat, opts = {}) {
         </div>
       </div>
 
-      ${detailsHtml(me)}
+      ${detailsHtml(me, staff)}
       ${me.member_id ? `
         <button type="button" class="myseat-fix myseat-fix--quiet" data-myseat-edit>
           <i class="bi bi-pencil" aria-hidden="true"></i> แก้ไขข้อมูลของฉัน
         </button>` : ''}
-      ${editFormHtml(me)}
+      ${editFormHtml(me, staff)}
       ${issuesHtml(issues, !!me.member_id)}
 
       <!-- ONE CARD, SECTIONS INSIDE IT. Reported: two sibling cards "look
@@ -667,7 +700,7 @@ export function renderMySeat(host, seat, opts = {}) {
            rather than cards competing with it. -->
       <section class="myprofile-section">
         <h3 class="myprofile-section-title">
-          <i class="bi bi-diagram-3-fill" aria-hidden="true"></i> ทีม SAMO
+          <i class="bi bi-diagram-3-fill" aria-hidden="true"></i> ${staff ? 'ตำแหน่งของฉัน' : 'ทีม SAMO'}
         </h3>
 
         ${perms.length ? `
@@ -688,7 +721,7 @@ export function renderMySeat(host, seat, opts = {}) {
           ถ้าสิทธิ์ที่ได้รับ หรือตำแหน่งที่ได้รับไม่ถูกต้อง
           กรุณาติดต่ออุปนายกฝ่ายของท่าน หรือผู้ที่มีสิทธิ์แก้ไขทีม SAMO
           — ดูได้ว่าใครมีสิทธิ์อะไรในองค์กรที่หน้า
-          <a href="/admin/#team">ทีม SAMO (Admin)</a>
+          <a href="/admin/#team">ทีมและสิทธิ์ (Admin)</a>
         </p>
 
         ${rows.length ? `

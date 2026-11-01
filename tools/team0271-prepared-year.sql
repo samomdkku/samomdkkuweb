@@ -176,8 +176,11 @@ $$;
 delete from public.team_terms where year in (2683, 2684, 2685);
 create temporary table orig on commit drop as
 select public.current_samo_year() as y, pg_temp.fp() as fp, pg_temp.fp(false) as pg_temp_fp_nolink,
-       (select count(*) from public.team_nodes) as nodes,
-       (select count(*) from public.team_members) as members,
+       -- YEARLY rows only (0272): a ถาวร group is never copied, applied or undone.
+       (select count(*) from public.team_nodes n
+         where n.id not in (select s.id from public.team_standing_node_ids() s)) as nodes,
+       (select count(*) from public.team_members m
+         where m.node_id not in (select s.id from public.team_standing_node_ids() s)) as members,
        (select count(*) from passport.departments where team_node_id is not null)
      + (select count(*) from passport.sub_departments where team_node_id is not null) as pp_links,
        (select discord_role_id from public.team_nodes where id = (select dn from subj)) as dn_role;
@@ -190,15 +193,17 @@ select pg_temp.as_('actor');
 set local role authenticated;
 insert into r select 'startA', pg_temp.val($q$select public.start_team_draft(2685, 'live')::text$q$);
 reset role;
-insert into probe select '10. start_team_draft(2685, live) copies every node and member', 'true',
+insert into probe select '10. start_team_draft(2685, live) copies every YEARLY node and member', 'true',
   (select (pg_temp.j((select v from r where k = 'startA')) ->> 'nodes' = nodes::text
        and pg_temp.j((select v from r where k = 'startA')) ->> 'members' = members::text
        and members > 0)::text from orig);
 insert into probe select '11. …with the SAME ids (none missing either way)', '0|0',
   (select (select count(*) from public.team_nodes n where not exists
-            (select 1 from public.team_draft_nodes d where d.term_year = 2685 and d.id = n.id))
+            (select 1 from public.team_draft_nodes d where d.term_year = 2685 and d.id = n.id)
+            and n.id not in (select s.id from public.team_standing_node_ids() s))
      || '|' || (select count(*) from public.team_members m where not exists
-            (select 1 from public.team_draft_members d where d.term_year = 2685 and d.id = m.id)));
+            (select 1 from public.team_draft_members d where d.term_year = 2685 and d.id = m.id)
+            and m.node_id not in (select s.id from public.team_standing_node_ids() s)));
 insert into probe select '12. preparing a draft grants nothing: the live tree is untouched', 'true',
   (select (pg_temp.fp() = fp)::text from orig);
 

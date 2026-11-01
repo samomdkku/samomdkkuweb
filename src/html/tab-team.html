@@ -3,6 +3,24 @@
      and "perms" (per-role app-permission assignment), toggled in the toolbar
      so the role/people page stays uncluttered. -->
 <div class="team-wrap">
+  <!-- ประจำปี | ถาวร (0272). The first question the pane answers: are these
+       people part of a YEAR's team (changes at the ปี SAMO switch), or do they
+       stay every year — อาจารย์, เจ้าหน้าที่คณะ, a retired dev, a guest from
+       another university? ถาวร has no year bar, because no year applies to it.
+       Rendered state lives in src/js/team/index.js (setSection). -->
+  <div class="team-section-row">
+    <div class="team-section-seg" role="tablist" aria-label="กลุ่มคน">
+      <button type="button" class="team-section-btn is-active" data-team-section="year"
+              role="tab" aria-selected="true">
+        <i class="bi bi-calendar3" aria-hidden="true"></i> ประจำปี
+      </button>
+      <button type="button" class="team-section-btn" data-team-section="standing"
+              role="tab" aria-selected="false">
+        <i class="bi bi-pin-angle" aria-hidden="true"></i> ถาวร
+      </button>
+    </div>
+    <p class="team-section-caption" id="teamSectionCaption">ทีม SAMO และกลุ่มของแต่ละปี — เปลี่ยนเมื่อเริ่มปี SAMO ใหม่</p>
+  </div>
   <!-- WHICH YEAR (0271). Picked once, above everything: the current year is the
        live tree, a year ahead is its prepared tree (same editor, permissions
        included, applied on switch day), a past year is its archive list.
@@ -75,7 +93,7 @@
         <i class="bi bi-check2-square"></i><span class="d-none d-md-inline ms-1">เลือกหลายรายการ</span>
       </button>
       <button type="button" class="btn btn-sm btn-primary d-none" id="teamAddRoot" data-team-write>
-        <i class="bi bi-plus-lg"></i><span class="ms-1">เพิ่มฝ่าย</span>
+        <i class="bi bi-plus-lg"></i><span class="ms-1" id="teamAddRootLabel">เพิ่มฝ่าย</span>
       </button>
     </div>
   </div>
@@ -675,10 +693,15 @@
                  the person by ANY field and fills everything, which is what that
                  button was reaching for. -->
             <div class="col-12">
-              <label class="form-label" for="teamMemberEmail">KKU Mail</label>
+              <!-- ANY address signs in (0272): kkumail for students, kku.ac.th for
+                   อาจารย์ and เจ้าหน้าที่, gmail for someone whose kkumail has
+                   ended or a guest from another university. The column is still
+                   called kkumail; the person typing into this box should not have
+                   to know that. -->
+              <label class="form-label" for="teamMemberEmail">อีเมลที่ใช้เข้าระบบ</label>
               <input type="email" class="form-control" id="teamMemberEmail"
-                     placeholder="name@kkumail.com" />
-              <div class="form-text">ใช้จับคู่ตอนเข้าสู่ระบบด้วย Google — กำหนดสิทธิ์ได้ในแท็บ “จัดการสิทธิ์”</div>
+                     placeholder="name@kkumail.com" autocomplete="off" />
+              <div class="form-text">อีเมลที่คนนี้ใช้เข้าสู่ระบบด้วย Google — นักศึกษาใช้ kkumail ส่วนอาจารย์ เจ้าหน้าที่ หรือคนนอกใช้อีเมลอื่นได้ (เช่น @kku.ac.th, @gmail.com) · กำหนดสิทธิ์ได้ในแท็บ “จัดการสิทธิ์”</div>
             </div>
             <!-- "พบคนนี้ในระบบแล้ว". Sits directly under the two fields that
                  trigger it (KKU Mail and รหัสนักศึกษา) rather than at the top of
