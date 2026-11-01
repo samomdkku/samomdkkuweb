@@ -40,6 +40,10 @@ const PORT = 9348;
 const USER = `claudetest${Date.now().toString(36)}`;
 const PASS = `t-${Math.random().toString(36).slice(2)}-Aa1`;
 const Y = 2686;
+// A second year, started from EMPTY — reported 2026-11-01: เริ่มจากว่าง said
+// "กด เพิ่มฝ่าย" and showed no เพิ่มฝ่าย, because an empty draft read as
+// unprepared and the editor never opened.
+const Y2 = 2687;
 const DIV = 'ฝ่ายทดสอบปีหน้า';
 
 const loaded = loadEnv();
@@ -64,7 +68,7 @@ let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
 const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
 
 try {
-  await sql(`delete from public.team_terms where year = ${Y};`);
+  await sql(`delete from public.team_terms where year in (${Y}, ${Y2});`);
   for (let i = 0; i < 30 && !ws; i += 1) {
     try {
       const t = await (await fetch(`http://127.0.0.1:${PORT}/json/new?about:blank`, { method: 'PUT' })).json();
@@ -195,6 +199,29 @@ try {
     say('a past year exists on samo-dev', 'none — skipped', true);
   }
 
+  // 7b. เริ่มจากว่าง opens the editor on an EMPTY year
+  await ev(`document.querySelector('[data-team-year-add]').click(); await new Promise(r => setTimeout(r, 300));
+    const f = document.querySelector('[data-team-year-addform]'); f.elements.year.value = '${Y2}'; f.requestSubmit(); return 1;`);
+  await waitFor(`${chipOf(Y2)}?.classList.contains('btn-success') && document.querySelector('[data-team-year-start="empty"]')`, 40);
+  await ev(`document.querySelector('[data-team-year-start="empty"]').click(); return 1;`);
+  const emptyOpen = await waitFor(`${treeShown} && document.getElementById('teamAddRoot')?.offsetParent !== null
+    && document.getElementById('teamYearPane').classList.contains('d-none')`, 30);
+  const e1 = JSON.parse(await ev(`return JSON.stringify({ tree: document.getElementById('teamTree').innerText.trim().slice(0, 60),
+    summary: document.querySelector('.team-year-summary')?.textContent || '',
+    shownBtn: !!document.querySelector('[data-team-year-shown="${Y2}"]') });`));
+  say('เริ่มจากว่าง opens the editor with เพิ่มฝ่าย on screen', `${emptyOpen} · ${e1.tree}`, emptyOpen && /เพิ่มฝ่าย/.test(e1.tree));
+  say('…says an empty year changes nothing, and offers no แสดงบนหน้าเกี่ยวกับเรา yet', `${e1.summary} · shown button ${e1.shownBtn}`,
+    /ยังว่าง/.test(e1.summary) && e1.shownBtn === false);
+  await shot('empty-year.png', false);
+  await ev(`document.getElementById('teamAddRoot').click(); await new Promise(r => setTimeout(r, 800));
+    document.getElementById('teamNodeName').value = ${JSON.stringify(DIV)};
+    document.querySelector('[data-team-modal-save="teamNodeModal"]').click(); await new Promise(r => setTimeout(r, 3500)); return 1;`);
+  const [e2] = await sql(`select (select count(*) from public.team_draft_nodes where term_year = ${Y2}) draft,
+      (select count(*) from public.team_nodes where name = ${lit(DIV)}) live`);
+  const s3 = await ev(`return document.querySelector('.team-year-summary')?.textContent || '';`);
+  say('…and เพิ่มฝ่าย writes that year\'s draft, not the live tree', `draft ${e2.draft} · live ${e2.live} · ${s3}`,
+    Number(e2.draft) === 1 && Number(e2.live) === 0 && /ออก \d+ คน/.test(s3));
+
   // 8. phone
   await ev(`${chipOf(Y)}.click(); return 1;`);
   await waitFor(`${treeShown} && document.querySelectorAll('#teamTree [data-node-id]').length > 0`, 30);
@@ -209,12 +236,15 @@ try {
   say('run', e.message, false);
 } finally {
   try {
-    const left = await sql(`delete from public.team_terms where year = ${Y};
+    // The live ฝ่าย too: a run against a broken build can write the test ฝ่าย
+    // into the LIVE tree, and a leftover then fails the next run's steps 4–5.
+    const left = await sql(`delete from public.team_terms where year in (${Y}, ${Y2});
+      delete from public.team_nodes where name = ${lit(DIV)};
       delete from public.users where username = ${lit(USER)};
       delete from auth.users where email = ${lit(`${USER}@samomdkku.app`)};
       select (select count(*) from auth.users where email = ${lit(`${USER}@samomdkku.app`)}) accounts,
-             (select count(*) from public.team_terms where year = ${Y}) years,
-             (select count(*) from public.team_draft_nodes where term_year = ${Y}) drafts,
+             (select count(*) from public.team_terms where year in (${Y}, ${Y2})) years,
+             (select count(*) from public.team_draft_nodes where term_year in (${Y}, ${Y2})) drafts,
              (select count(*) from public.team_nodes where name = ${lit(DIV)}) live_div;`);
     console.log(`cleanup: ${JSON.stringify(left)}`);
   } catch (e) { console.log(`cleanup FAILED: ${e.message}`); }

@@ -1662,3 +1662,37 @@ every path that would otherwise skip it, not just reset.* A `let` that is
 only ever written, never read, is not a style nit — `no-unused-vars` caught
 a real dropped-update bug here specifically because nothing in the file
 checked the flag it exists for.
+
+## "เริ่มทีมปี 2570 จากว่างแล้ว กดเพิ่มฝ่าย" — but no เพิ่มฝ่าย anywhere (0271)
+
+**Symptom (as reported, 2026-11-01)**: "when i click เริ่มจากว่าง in teamsamo
+2570 it show เริ่มทีมปี 2570 จากว่างแล้ว กดเพิ่มฝ่าย but i don't see any ui to
+เพิ่มฝ่าย unlike the normal teamsamo and in ถาวร". The status line told the
+person to press a button the screen did not have.
+
+**Cause**: the year bar decides "prepared" from `team_draft_summary().prepared`,
+which is "the draft holds at least one row" — deliberately, because the switch
+skips an empty draft, so pressing เริ่มจากว่าง and walking away cannot empty the
+team on 1 มี.ค. But `start_team_draft(year, 'empty')` writes no row. So after
+the press the year was still "ยังไม่เตรียม", the editor never opened, and the
+toolbar holding เพิ่มฝ่าย stayed hidden. Two readers of one state, a SERVER
+answer ("nothing to apply") and a UI question ("may I edit this year?"), were
+treated as one. The 0271 browser run pressed only คัดลอกจากทีมตอนนี้, which
+writes rows, so it never reached the empty case.
+
+**Fix**: `year-bar.js` remembers the years started from empty this session
+and treats them as an editable draft; the head says "ยังว่าง — ถ้ายังว่างอยู่
+ถึงวันเริ่มปี ระบบจะใช้ทีมตอนนี้ต่อ", the chip says ว่าง, and แสดงบนหน้าเกี่ยวกับเรา
+appears only once something is in it. The server rule is unchanged.
+`tools/browser/team-years.mjs` step 7b presses เริ่มจากว่าง, requires เพิ่มฝ่าย on
+screen and a draft row after using it — red on the old code (3 of 3 steps).
+
+**Where it lives now**: `src/js/team/year-bar.js` (`openedEmpty`, `viewOf`),
+`tools/browser/team-years.mjs` §7b.
+
+**The general rule**: a status message that names a control is a claim that
+the control is on screen — test the message's own instruction, not just the
+write behind it. And when a UI state is DERIVED from the data ("has rows"),
+ask which action creates that state with NO data: an empty start, a cleared
+list, a first-time setup. The two buttons of one choice need one browser step
+each; the run that pressed only the common one proved the other by analogy.

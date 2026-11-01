@@ -41,6 +41,15 @@ let staleCurrent = false;     // the current year's published snapshot is behind
 let selected = null;          // the year on screen
 let adding = false;           // the + chip's inline form is open
 let busy = Promise.resolve();
+// Years someone pressed เริ่มจากว่าง on, this session. REPORTED (2026-11-01):
+// "it show เริ่มทีมปี 2570 จากว่างแล้ว กดเพิ่มฝ่าย but i don't see any ui to
+// เพิ่มฝ่าย". The database counts a year as prepared only once its draft holds a
+// row — on purpose: the switch skips an empty draft, so pressing the button
+// and walking away cannot empty the team on 1 มี.ค. — and an empty start writes
+// no row. So the year stayed "ยังไม่เตรียม" and the editor (with its เพิ่มฝ่าย)
+// never opened. The empty draft IS a draft to edit; it only stops being
+// harmless once something is in it, and the summary then says so.
+const openedEmpty = new Set();
 
 const current = () => terms.find((t) => t.is_current) || null;
 
@@ -50,7 +59,8 @@ export function viewOf(t) {
   if (!t) return { kind: 'none', termYear: null };
   if (t.is_current || !cur) return { kind: 'current', termYear: t.year };
   if (t.year > cur.year) {
-    return { kind: summaries.get(t.year)?.prepared ? 'draft' : 'unprepared', termYear: t.year };
+    const prepared = summaries.get(t.year)?.prepared || openedEmpty.has(t.year);
+    return { kind: prepared ? 'draft' : 'unprepared', termYear: t.year };
   }
   return { kind: 'archive', termYear: t.year };
 }
@@ -96,7 +106,7 @@ function chip(t) {
   const on = t.year === selected;
   const v = viewOf(t);
   const sub = v.kind === 'current' ? 'ปัจจุบัน'
-    : v.kind === 'draft' ? 'เตรียมไว้'
+    : v.kind === 'draft' ? (summaries.get(t.year)?.prepared ? 'เตรียมไว้' : 'ว่าง')
       : v.kind === 'unprepared' ? 'ยังไม่เตรียม' : '';
   return `<button type="button" class="btn btn-sm team-year-chip ${on ? 'btn-success' : 'btn-outline-secondary'}${v.kind === 'unprepared' ? ' is-unprepared' : ''}"
       data-team-year="${t.year}" aria-pressed="${on}">
@@ -135,7 +145,8 @@ function deleteBtn(t) {
 /** "+3 คน · −2 คน · 5 คนเปลี่ยนตำแหน่งหรือสิทธิ์" — what pressing the switch
  *  will do, against the tree as it is NOW. */
 export function summaryLine(s) {
-  if (!s?.prepared) return '';
+  // Started from empty, nothing added yet: the switch would skip it.
+  if (!s?.prepared) return 'ยังว่าง — ถ้ายังว่างอยู่ถึงวันเริ่มปี ระบบจะใช้ทีมตอนนี้ต่อ';
   const parts = [];
   if (s.members_added) parts.push(`เพิ่ม ${s.members_added} คน`);
   if (s.members_removed) parts.push(`ออก ${s.members_removed} คน`);
@@ -175,7 +186,7 @@ function headHtml(t) {
         ${t.published_at ? '<span class="team-year-pill is-on"><i class="bi bi-eye"></i> แสดงบนหน้าเกี่ยวกับเราแล้ว</span>' : ''}
       </div>
       ${write ? `<div class="team-year-actions">
-        ${v.kind === 'draft' ? shownToggle(t) : ''}${deleteBtn(t)}
+        ${v.kind === 'draft' && summaries.get(t.year)?.prepared ? shownToggle(t) : ''}${deleteBtn(t)}
       </div>` : ''}`;
   }
   return `
@@ -259,6 +270,7 @@ async function startDraft(from) {
   await guard(async () => {
     status(from === 'live' ? 'กำลังคัดลอกทีมตอนนี้…' : 'กำลังเริ่ม…');
     const res = await startTeamDraft(year, from);
+    if (from === 'empty') openedEmpty.add(year);
     await refresh({ keepStatus: true });
     status(from === 'live'
       ? `คัดลอก ${res?.nodes ?? 0} ตำแหน่ง · ${res?.members ?? 0} คน มาที่ปี ${year} แล้ว — แก้ได้เลย`
@@ -374,11 +386,14 @@ export function refreshYearSummary() {
   const t = terms.find((x) => x.year === year);
   if (viewOf(t).kind !== 'draft') return;
   fetchDraftSummary(year).then((s) => {
+    const was = !!summaries.get(year)?.prepared;
     summaries.set(year, s);
-    if (selected === year) {
-      const el = head?.querySelector('.team-year-summary');
-      if (el) el.textContent = summaryLine(s);
-    }
+    if (selected !== year) return;
+    // Empty → holding a row (or back): the head's actions change with it —
+    // แสดงบนหน้าเกี่ยวกับเรา exists only for a year with something to show.
+    if (was !== !!s?.prepared) { paint(); return; }
+    const el = head?.querySelector('.team-year-summary');
+    if (el) el.textContent = summaryLine(s);
   }).catch(() => {});
 }
 
