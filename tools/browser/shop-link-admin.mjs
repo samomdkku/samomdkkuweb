@@ -30,6 +30,7 @@ const USER = `claudelink${Date.now().toString(36)}`;
 const PASS = `t-${Math.random().toString(36).slice(2)}-Aa1`;
 const PID = `probe-linkadm-${Date.now().toString(36)}`;
 const URL_ = 'https://forms.gle/probeAdminLink';
+const NAME = `ทดสอบลิงก์ ${PID}`;
 
 const loaded = loadEnv();
 const devTarget = resolveTarget({
@@ -49,6 +50,7 @@ const PROFILE = mkdtempSync(join(tmpdir(), 'shop-link-admin-chrome-'));
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${PROFILE}`], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let savedId = null;
 let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
 const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
 
@@ -97,32 +99,41 @@ try {
   say('the source picker offers Students initiative, not สมาคมสิทธิ์เก่า', f0.options.join(','), f0.options.includes('student') && !f0.options.includes('sittikao'));
   await setSource('student');
   const f1 = await formState();
+  const idBoxes = await ev(`return [document.getElementById('shopProdId'), document.getElementById('shopProdCode')].map(e => e.offsetParent !== null).join(',');`);
+  say('Students initiative hides the id and order-prefix boxes', idBoxes, idBoxes === 'false,false');
   say('Students initiative: link fields shown, shop-only sections hidden', `link ${f1.link}, shop-only visible ${f1.shop}/${f1.shopTotal}`, f1.link && f1.shop === 0 && f1.shopTotal >= 8);
   const { result: shotA } = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(join(OUT, 'admin-form-student.png'), Buffer.from(shotA.data, 'base64'));
   await setSource('md');
   const f2 = await formState();
+  const idBack = await ev(`return [document.getElementById('shopProdId'), document.getElementById('shopProdCode')].map(e => e.offsetParent !== null).join(',');`);
+  say('…MD shows them again', idBack, idBack === 'true,true');
   say('…and MD brings them back', `link ${f2.link}, shop-only visible ${f2.shop}/${f2.shopTotal}`, !f2.link && f2.shop === f2.shopTotal);
   await setSource('student');
 
   const fill = (url) => ev(`const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
-    set('shopProdId', '${PID}'); set('shopProdName', 'ทดสอบลิงก์จากหน้าแอดมิน'); set('shopProdDesc', 'รายละเอียด');
+    set('shopProdId', '${PID}'); set('shopProdName', '${NAME}'); set('shopProdDesc', 'รายละเอียด');
     set('shopProdExternalUrl', '${url}'); set('shopProdExternalLabel', 'ไปที่ฟอร์ม');
     document.getElementById('shopProdIsActive').checked = true; return 1;`);
   await fill('http://example.org/form');
   await ev(`document.getElementById('shopProdSave').click(); await new Promise(r=>setTimeout(r,2500)); return 1;`);
-  const [n0] = await sql(`select count(*)::int n from public.shop_products where id = ${lit(PID)}`);
+  const [n0] = await sql(`select count(*)::int n from public.shop_products where name = ${lit(NAME)}`);
   say('an http:// link is refused before any write', `${n0.n} rows`, n0.n === 0);
 
   await fill(URL_);
   await ev(`document.getElementById('shopProdSave').click(); await new Promise(r=>setTimeout(r,4000)); return 1;`);
-  const [row] = await sql(`select source, external_url, external_label, is_presale, is_active from public.shop_products where id = ${lit(PID)}`);
+  const [row] = await sql(`select id, code, source, external_url, external_label, is_presale, is_active from public.shop_products where name = ${lit(NAME)}`);
+  savedId = row?.id || null;
+  // The id box was typed BEFORE switching to Students initiative, then hidden:
+  // a hidden box must not decide anything (owner, 2026-11-02).
+  say('the hidden id and order-prefix boxes decided nothing', `id ${row?.id} · code ${row?.code}`,
+    !!row && row.id !== PID && row.code === 'SH');
   say('saved: source student, the link and the button text, not a preorder', JSON.stringify(row || null),
     row?.source === 'student' && row.external_url === URL_ && row.external_label === 'ไปที่ฟอร์ม' && row.is_presale === false);
 
   const inStock = await ev(`document.querySelector('[data-shop-admin-tab="stock"]').click(); await new Promise(r=>setTimeout(r,2500));
     const h = document.getElementById('shopAdminStockHost')?.innerHTML || '';
-    return JSON.stringify({ link: h.includes('${PID}'), control: h.includes('data-stock-save="p-dev-302"') });`).then(JSON.parse);
+    return JSON.stringify({ link: h.includes('${savedId}'), control: h.includes('data-stock-save="p-dev-302"') });`).then(JSON.parse);
   // CONTROL: an ordinary samo-dev product IS there — an empty tab cannot pass.
   say('it is not in the สต็อก tab (control: an ordinary product is)', JSON.stringify(inStock), inStock.link === false && inStock.control === true);
   say('console errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
@@ -131,11 +142,11 @@ try {
   console.log(`✗ the run stopped: ${e.message}`);
 } finally {
   try {
-    const [left] = await sql(`delete from public.shop_products where id = ${lit(PID)};
+    const [left] = await sql(`delete from public.shop_products where name = ${lit(NAME)};
       delete from public.users where username = ${lit(USER)};
       delete from auth.users where email = ${lit(`${USER}@samomdkku.app`)};
       select (select count(*) from auth.users where email = ${lit(`${USER}@samomdkku.app`)}) accounts,
-             (select count(*) from public.shop_products where id = ${lit(PID)}) products;`);
+             (select count(*) from public.shop_products where name = ${lit(NAME)}) products;`);
     const ok = Number(left.accounts) === 0 && Number(left.products) === 0;
     if (!ok) failed += 1;
     console.log(`${ok ? '✓' : '✗'} cleanup: ${JSON.stringify(left)}`);

@@ -164,12 +164,15 @@ export function renderProductEditor() {
     <div class="admin-detail-card mb-3" style="border:1.5px solid var(--shop-300);">
       <h5 class="text-accent"><i class="bi bi-pencil-square me-1"></i> ${p.id ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}</h5>
       <div class="row g-3">
-        <div class="col-md-3">
+        <!-- data-shop-only: a Students-initiative product needs neither — its id is
+             generated, and it never gets an order to number (owner, 2026-11-02:
+             "if it isn't needed, you shouldn't show it"). -->
+        <div class="col-md-3" data-shop-only>
           <label class="small text-muted mb-1">รหัสสินค้า (id ภายใน)</label>
           <input id="shopProdId" class="form-control font-mono" value="${escHtml(p.id || p._typedId || '')}" ${p.id ? 'disabled' : ''} placeholder="auto-generate ถ้าว่าง" />
           ${p.id ? '<div class="form-text">id ภายในแก้ไขไม่ได้ (เป็นกุญแจที่คำสั่งซื้อเก่าอ้างถึง)</div>' : ''}
         </div>
-        <div class="col-md-2">
+        <div class="col-md-2" data-shop-only>
           <label class="small text-muted mb-1">รหัสนำหน้า Order</label>
           <input id="shopProdCode" class="form-control font-mono text-uppercase" maxlength="5"
             value="${escHtml(p.code || '')}" placeholder="SH" />
@@ -186,7 +189,8 @@ export function renderProductEditor() {
         <div class="col-md-3">
           <label class="small text-muted mb-1">ราคา (บาท)</label>
           <input id="shopProdPrice" type="number" min="0" class="form-control" value="${Number(p.price) || 0}" />
-          <div class="form-text">ราคาเมื่อสินค้าพร้อมส่ง</div>
+          <div class="form-text" data-shop-only>ราคาเมื่อสินค้าพร้อมส่ง</div>
+          <div class="form-text" data-link-only>ใส่ 0 = ลูกค้าเห็น "ดูราคาที่ลิงก์"</div>
         </div>
         <div class="col-md-3" data-shop-only>
           <label class="small text-muted mb-1">ราคา Preorder (บาท)</label>
@@ -288,7 +292,7 @@ export function renderProductEditor() {
         </div>
         <div class="col-12">
           <label class="small text-muted mb-1 d-flex justify-content-between gap-2">
-            <span>รูปสินค้า · ลากหรือกด ◀ ▶ เพื่อเรียง · รูปแรก = รูปปก · เลือกสีให้รูปได้</span>
+            <span>รูปสินค้า · ลากหรือกด ◀ ▶ เพื่อเรียง · รูปแรก = รูปปก<span data-shop-only> · เลือกสีให้รูปได้</span></span>
             <span id="shopProdImgCount"></span>
           </label>
           <div class="shop-img-strip" id="shopProdImages"></div>
@@ -722,7 +726,7 @@ function readProductForm() {
       const url = document.getElementById('shopProdExternalUrl')?.value.trim() || '';
       const label = document.getElementById('shopProdExternalLabel')?.value.trim() || '';
       return link
-        ? { external_url: url || null, external_label: label || null, is_presale: false }
+        ? { external_url: url || null, external_label: label || null, is_presale: false, code: sanitizeOrderCode('') }
         : { external_url: null, external_label: null };
     })(),
   };
@@ -769,7 +773,11 @@ async function saveProductForm() {
   // existing product's, because the save is an upsert and would overwrite it.
   let newProductIdTaken = false;
   const newProductId = (nm) => {
-    const raw = (document.getElementById('shopProdId')?.value || '').trim();
+    // A Students-initiative product hides this box, so what it holds — typed
+    // before the source was switched — must not decide the id, or raise a
+    // "taken" error about a field the admin cannot see.
+    const hidden = document.getElementById('shopProdSource')?.value === 'student';
+    const raw = hidden ? '' : (document.getElementById('shopProdId')?.value || '').trim();
     const typed = raw ? slugify(raw) : '';   // slugify('') is 'item', not ''
     const taken = new Set((state.products || []).map((x) => x.id));
     if (typed) { newProductIdTaken = taken.has(typed); return typed; }
