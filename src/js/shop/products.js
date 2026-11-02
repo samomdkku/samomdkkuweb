@@ -644,8 +644,8 @@ function productCardHtml(p) {
         <div class="product-name">${escHtml(p.name)}</div>
         <div class="product-meta">
           <span>${escHtml(p.sub || '')}</span>
-          ${sizes.length > 1 ? `<span class="dot"></span><span>${sizes.length} ไซส์</span>` : ''}
-          ${colors.length > 1 ? `<span class="dot"></span><span>${colors.length} สี</span>` : ''}
+          ${!isLinkProduct(p) && sizes.length > 1 ? `<span class="dot"></span><span>${sizes.length} ไซส์</span>` : ''}
+          ${!isLinkProduct(p) && colors.length > 1 ? `<span class="dot"></span><span>${colors.length} สี</span>` : ''}
         </div>
         <div class="product-foot">
           <span class="product-price">${priceLabelHtml(p)}</span>

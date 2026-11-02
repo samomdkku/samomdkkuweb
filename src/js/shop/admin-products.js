@@ -416,6 +416,10 @@ function renderImageStrip(p) {
   const host = document.getElementById('shopProdImages');
   if (!host || state.productEditor !== p) return;
   const imgs = ensureImages(p);
+  // A Students-initiative product has no colours, so its pictures get no
+  // colour box (owner, 2026-11-02). Read the FORM's source, not p.source: the
+  // admin may have just switched it (syncLinkFields re-renders the strip).
+  const link = (document.getElementById('shopProdSource')?.value ?? p.source) === 'student';
   const colors = Array.isArray(p.colors) ? p.colors.filter((c) => c && c.id) : [];
   p._stripColorsKey = JSON.stringify((p.colors || []).map((c) => [c.id, c.label]));
   const known = new Set(colors.map((c) => c.id));
@@ -427,10 +431,10 @@ function renderImageStrip(p) {
       ${i === 0 ? '<span class="shop-img-cover">ปก</span>' : ''}
       ${im.file ? '<span class="shop-img-new">ใหม่</span>' : ''}
       <img src="${src(im)}" alt="" draggable="false" />
-      <select class="form-select form-select-sm" data-img-color="${i}" aria-label="สีของรูปที่ ${i + 1}">
+      ${link ? '' : `<select class="form-select form-select-sm" data-img-color="${i}" aria-label="สีของรูปที่ ${i + 1}">
         <option value="">ทุกสี</option>
         ${colors.map((c) => `<option value="${escHtml(c.id)}" ${im.color === c.id ? 'selected' : ''}>${escHtml(c.label || c.id)}</option>`).join('')}
-      </select>
+      </select>`}
       <div class="shop-img-actions">
         <button type="button" class="btn btn-ghost btn-sm" data-img-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="เลื่อนไปทางซ้าย">◀</button>
         <button type="button" class="btn btn-ghost btn-sm" data-img-move="${i}" data-dir="1" ${i === imgs.length - 1 ? 'disabled' : ''} aria-label="เลื่อนไปทางขวา">▶</button>
@@ -445,7 +449,7 @@ function renderImageStrip(p) {
   if (count) count.textContent = `${imgs.length} รูป`;
   const note = document.getElementById('shopProdImgNote');
   if (note) {
-    const orphan = imgs.some((im) => im.color && !known.has(im.color));
+    const orphan = !link && imgs.some((im) => im.color && !known.has(im.color));
     const pending = imgs.filter((im) => im.file).length;
     note.textContent = [
       pending ? `รูปใหม่ ${pending} รูปจะอัปโหลดตอนกดบันทึก` : '',
@@ -673,6 +677,7 @@ function syncLinkFields() {
   const link = document.getElementById('shopProdSource')?.value === 'student';
   document.querySelectorAll('#shopAdminProductEditor [data-link-only]').forEach((el) => el.classList.toggle('d-none', !link));
   document.querySelectorAll('#shopAdminProductEditor [data-shop-only]').forEach((el) => el.classList.toggle('d-none', link));
+  if (state.productEditor) renderImageStrip(state.productEditor);
 }
 
 function readProductForm() {
@@ -726,7 +731,11 @@ function readProductForm() {
       const url = document.getElementById('shopProdExternalUrl')?.value.trim() || '';
       const label = document.getElementById('shopProdExternalLabel')?.value.trim() || '';
       return link
-        ? { external_url: url || null, external_label: label || null, is_presale: false, code: sanitizeOrderCode('') }
+        // Sizes and colours are hidden for it, so whatever those boxes still
+        // hold (the new-product template's S–XL and ดำ) is not saved: the
+        // table's defaults instead, and no colours means no picture colours.
+        ? { external_url: url || null, external_label: label || null, is_presale: false, code: sanitizeOrderCode(''),
+            sizes: ['F'], colors: [] }
         : { external_url: null, external_label: null };
     })(),
   };

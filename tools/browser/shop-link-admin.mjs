@@ -130,6 +130,29 @@ try {
     !!row && row.id !== PID && row.code === 'SH');
   say('saved: source student, the link and the button text, not a preorder', JSON.stringify(row || null),
     row?.source === 'student' && row.external_url === URL_ && row.external_label === 'ไปที่ฟอร์ม' && row.is_presale === false);
+  const [vc] = await sql(`select sizes, colors from public.shop_products where name = ${lit(NAME)}`);
+  say('…and NOT the hidden template sizes (S–XL) and colour (ดำ)', JSON.stringify(vc || null),
+    JSON.stringify(vc?.sizes) === '["F"]' && JSON.stringify(vc?.colors) === '[]');
+
+  // A picture on it (planted — an upload needs Drive), then open it to edit.
+  await sql(`update public.shop_products set images = '[{"url":"https://lh3.googleusercontent.com/d/probe0274admin","w":null,"h":null,"color":null}]'::jsonb
+              where name = ${lit(NAME)}`);
+  await send('Page.navigate', { url: `${DEV_URL}/admin/#shop` }); await sleep(9000);
+  const pics = await ev(`document.querySelector('[data-shop-admin-tab="products"]').click(); await new Promise(r=>setTimeout(r,2000));
+    const b = document.querySelector('[data-product-edit="${savedId}"]'); if (!b) return 'no edit button';
+    b.click(); await new Promise(r=>setTimeout(r,800));
+    const tiles = document.querySelectorAll('#shopProdImages .shop-img-tile').length;
+    const before = document.querySelectorAll('#shopProdImages [data-img-color]').length;
+    const s = document.getElementById('shopProdSource'); s.value = 'md'; s.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r=>setTimeout(r,300));
+    const after = document.querySelectorAll('#shopProdImages [data-img-color]').length;
+    s.value = 'student'; s.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r=>setTimeout(r,300));
+    const back = document.querySelectorAll('#shopProdImages [data-img-color]').length;
+    document.getElementById('shopProdCancel')?.click();
+    return JSON.stringify({ tiles, before, after, back });`);
+  const pc = (() => { try { return JSON.parse(pics); } catch { return { raw: pics }; } })();
+  say('a picture of it has NO colour box; MD shows one, back to Students initiative hides it', JSON.stringify(pc),
+    pc.tiles === 1 && pc.before === 0 && pc.after === 1 && pc.back === 0);
 
   const inStock = await ev(`document.querySelector('[data-shop-admin-tab="stock"]').click(); await new Promise(r=>setTimeout(r,2500));
     const h = document.getElementById('shopAdminStockHost')?.innerHTML || '';

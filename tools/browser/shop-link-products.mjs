@@ -51,8 +51,8 @@ let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
 const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
 
 try {
-  await sql(`insert into public.shop_products (id, name, sub, description, type, source, price, sizes, is_active, stock_status, is_new, external_url, external_label)
-             values ('${PID}', 'ทดสอบ Students initiative', 'โครงการนักศึกษา', 'รายละเอียดจากผู้ขาย', 'apparel-shirt', 'student', 0, array['F'], true, 'available', true,
+  await sql(`insert into public.shop_products (id, name, sub, description, type, source, price, sizes, colors, is_active, stock_status, is_new, external_url, external_label)
+             values ('${PID}', 'ทดสอบ Students initiative', 'โครงการนักศึกษา', 'รายละเอียดจากผู้ขาย', 'apparel-shirt', 'student', 0, array['S','M','L','XL'], '[{"id":"black","label":"ดำ","hex":"#111"},{"id":"white","label":"ขาว","hex":"#fff"}]'::jsonb, true, 'available', true,
                      '${URL_}', 'สั่งผ่านฟอร์ม')`);
 
   for (let i = 0; i < 30 && !ws; i += 1) {
@@ -139,7 +139,10 @@ try {
   say('…the closed tray takes no room, no tab stops, and says collapsed', JSON.stringify(closed), closed.inert && closed.h === 0 && closed.exp === 'false');
   const card = JSON.parse(await ev(`const c = document.querySelector('#shopProductGrid [data-product-id="${PID}"]');
     return JSON.stringify({ hint: c.querySelector('.product-stock-hint')?.textContent.trim(), price: c.querySelector('.product-price')?.textContent.trim(),
-      label: c.querySelector('.product-source')?.textContent.trim() });`));
+      label: c.querySelector('.product-source')?.textContent.trim(), meta: c.querySelector('.product-meta')?.textContent.replace(/\s+/g,' ').trim() });`));
+  // Planted WITH four sizes and two colours (a product saved before the form
+  // stopped sending them): the card must not count them.
+  say('the card counts no sizes or colours for it', card.meta, !/ไซส์|สี/.test(card.meta || ''));
   say('the card says Students initiative, สั่งผ่านลิงก์ and ดูราคาที่ลิงก์', `${card.label} | ${card.hint} | ${card.price}`,
     card.label === 'Students initiative' && card.hint === 'สั่งผ่านลิงก์' && card.price === 'ดูราคาที่ลิงก์');
   await shot('students.png', '.sf-source-row');
