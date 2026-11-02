@@ -95,6 +95,8 @@ generated from it. ⚠️ Houses 1–9 have no `name` — the UI shows `บ้�
 
 0. **▶ THE NEXT PIECE OF WORK (owner, 2026-11-01): Discord at the year switch — HANDOFF §37.** Decisions are DECIDED there (leavers get `อดีตSAMO`; the switch moves roles automatically; roles must not pile up toward the 250 cap). Ask ONE thing first: the mid-year-removal rule (§37d). Build on samo-dev, prove against a stub guild, ASK before production. A staff research proposal was also analysed: private memory `research-proposal-portal-needs` (never in this repo).
 
+0b. **Two owner decisions are waiting (2026-11-02)** — HANDOFF §35e (a year switch drops Passport's ฝ่าย → ทีม SAMO links; pick a fix before 1 มี.ค. 2570) and §38 (username accounts have no password recovery: admin button and/or ask them to link Google). Ask; do not pick.
+
 ✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site (02) ·
 the ORG MOVE (2026-08-31, traps in `skills/move-the-repo-to-an-organisation.md`,
 `HANDOFF` §3). ⛔ **No polling timer for the docs** — built and REMOVED same day.
