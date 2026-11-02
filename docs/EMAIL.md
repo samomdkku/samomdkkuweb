@@ -53,7 +53,9 @@ using it.**
 **There is no password reset.** `resetPasswordForEmail` appears nowhere in
 `src/js`. That is not a product decision — it is what falls out of a mail
 service that will not deliver to a student address. Anyone who forgets their
-password needs a human.
+password needs a human — the steps that human follows, for a username account,
+are `skills/reset-a-username-password.md` (identity confirmed by the owner
+first); the decision on a self-service fix is HANDOFF §38.
 
 **That is the strongest argument for doing this work**, and it is a bigger prize
 than raising the Apps Script quota.
