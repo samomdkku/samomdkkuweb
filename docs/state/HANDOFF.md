@@ -2685,8 +2685,8 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 - **The form** hides everything it does not use, and does not save it (owner rule — memory `dont-show-what-isnt-needed`; write-ups in `docs/mistakes/frontend-ui.md`).
 - Design notes: `docs/CONTEXT.md` under `shop_products`.
 
-**Open — Status: OWED (owner), harmless:** the owner's test product `p-test-สินค้าข้างนอก-274` was saved before the form stopped sending hidden values, so it stores sizes S–XL and colour ดำ. Nothing displays them now (card and modal ignore them for a link product). Re-saving it clears them; or delete it if it was only a test.
+**The owner's test product — Status: DONE 2026-11-02 (owner: "clear this"):** `p-test-สินค้าข้างนอก-274` had been saved before the form stopped sending hidden values (sizes S–XL, colour ดำ). Cleared on production by id + `source='student'`: sizes `{F}`, colours `[]`, picture colour tags null; 1 row returned, picture and link kept.
 
-**Noted, no decision asked — Status: DECIDED (left as is):** Latest Drops shows NEW-ticked active products by `added_at` (max 10), else the 5 newest; active `launch` banners replace it. NEW never expires, and the order is when the product was ADDED, not when NEW was ticked. Explained to the owner 2026-11-02; nothing requested.
+**Noted, no decision asked — Status: DECIDED (left as is):** Latest Drops shows NEW-ticked active products by `added_at` (max 10), else the 5 newest; active `launch` banners replace it. NEW never expires (an old product with NEW ticked stays in Latest Drops until someone unticks it), and the order is when the product was ADDED, not when NEW was ticked (ticking NEW on an old product does not put it first). Explained to the owner 2026-11-02; if they want an expiry or a ticked-date order, that is a new request.
 
 **Not automated — Status: OWED (whoever next touches the shop storefront or product form):** the two browser checks run by hand (`npm run dev`, then `node tools/browser/shop-link-*.mjs`); CI does not run them. Run both after any change to `renderSourceChips` / `productCardHtml` / the product form.
