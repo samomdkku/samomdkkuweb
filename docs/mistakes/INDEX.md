@@ -155,7 +155,7 @@ Open when: writing a migration.
 - 118 functions were anon-executable, and nobody had ever swept for it
 - ย้อนกลับปี SAMO restored a ตำแหน่ง without its Discord role
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(126)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(128)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -285,6 +285,8 @@ Open when: markup, modals, layout, touch, icons.
 - /me: no divider between ชื่อที่แสดง and อีเมล
 - The shared chunk every page downloads before paint carried a camera scanner nobody but admin uses, and `<head>` blocked…
 - A failure note written INTO the editor became part of the complaint
+- SAMO Shop filter: the MD · MDI · RT sub-filter "jumps to after Students initiative" and looks weird
+- SAMO Shop admin: "it still filter for สี of picture" on a Students initiative product
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(42)*
 
@@ -410,7 +412,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "it doesn't load the ประกาศและข่าวสาร picture" on a preview
 - The /img/ picture cache could buy its own cold lh3 fetch for a picture it already had
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(87)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(88)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -501,6 +503,7 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - samo-dev's ทีมและสิทธิ์ never updated live
 - A browser check of #years STARTED A YEAR on samo-dev
 - team0271 went red on production 10 times in a day it had passed
+- shop-admin-tour.mjs: "users_self_update_guard: permissions can only be changed by staff"
 
 ## `passport.md` — The Passport app's own write-ups *(46)*
 
@@ -553,4 +556,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Two year clocks: Passport's Q1 opened "SAMO'70" on 1 มี.ค. while every other system stayed on ปี SAMO 2569
 - Preview and localhost show Passport "Q3" and "วาระสโม 69"
 
-_491 entries across 10 files._
+_494 entries across 10 files._

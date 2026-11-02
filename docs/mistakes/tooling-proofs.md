@@ -4060,3 +4060,15 @@ year0242 23, passport0247 25 also green on both.
 yearly root, a node holding a role), never by "the first one", and create it
 when the environment may lack it. A null-safe comparison against a missing
 subject is a pass by construction.
+
+## shop-admin-tour.mjs: "users_self_update_guard: permissions can only be changed by staff" — the tour never reached the shop
+
+**Symptom.** 2026-11-02: a new browser check copied `shop-admin-tour.mjs`'s setup (register a throwaway account, grant it `samoshop`) and died at the grant with `P0001: users_self_update_guard: permissions can only be changed by staff`. The tour itself has the identical line, so it could not sign in as a shop admin either.
+
+**Cause.** The grant was a plain `update public.users set permissions = …` through the Management API, where `auth.uid()` is null. The guard refuses that, correctly. `tools/dev-grants.mjs` had already documented this, and why impersonation does not survive across the endpoint's statements. The tour was written against the same guard and either predates a stricter version or was never rerun.
+
+**Fix.** Both tools now run `set session_replication_role = 'replica'` in the same request as the update — the escape hatch `dev-grants.mjs` and `dev-refresh.mjs` use. It is acceptable only because both tools refuse any project but samo-dev, by ref, before reaching it.
+
+**Where it lives now.** `tools/browser/shop-admin-tour.mjs`, `tools/browser/shop-link-admin.mjs`, `tools/dev-grants.mjs` (the reasoning).
+
+**Rule.** When copying setup from an existing tool, run the ORIGINAL first. A tool nobody has run lately is a hypothesis, and its setup is the part most likely to have rotted (see also `house0116`'s 0 assertions for 23 migrations).

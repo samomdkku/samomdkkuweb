@@ -2672,3 +2672,21 @@ What shipped: 0246 (moving an activity's quarter moves its points: open quarter 
 **Today's case — Status: DONE 2026-11-02** (owner confirmed identity with the person; one-time password set on production by `id` + `email`, 1 row, hash re-checked; GoTrue sign-in 200, test session signed out 204; the owner hands it over). The procedure is now `skills/reset-a-username-password.md`. What was decided at the time: the order is not at risk (it belongs to the account id; the shop hands over by order number). Verify identity from the order before touching the account: a "forgot my password" message is the classic takeover request. Then either (a) they open the site on a device still signed in → /me → new password + link Google, or (b) the owner sets a one-time password on production (`update auth.users set encrypted_password = extensions.crypt(<pw>, extensions.gen_salt('bf')) where id = …` — pgcrypto is in `extensions`; the `has_password` mirror fires on that column) and sends it privately; they change it at /me and link Google. Never make a second account: the order stays on the first.
 
 **Options for the gap:** (1) an admin "ตั้งรหัสผ่านชั่วคราว" action for master holders, through a definer RPC that logs who did it; (2) after a username sign-up or order, ask the person to link Google/kkumail as their way back; (3) both. Ask the owner which before building.
+
+## 39. SAMO Shop: SAMO official · Students initiative, and link-out products (0274, 2026-11-02)
+
+**Status: VERIFIED — how: `shop0274-students-initiative` 13/13 on samo-dev AND production (red with the order-item trigger dropped), plus:**
+- On samo-dev: `tools/browser/shop-link-products.mjs` 21/21 (storefront, desktop + 390px, tray GEOMETRY measured) and `tools/browser/shop-link-admin.mjs` 13/13 (signed-in shop admin through the real form, saved row read back). Each was red under its mutation.
+- The served `core-*`/`admin-*` bundles grep the new strings; deploys are recorded in STATE.md.
+
+**What it is.** The owner asked for products sold elsewhere: shown like any product (pictures, text), filterable under "Students initiative", and the button goes to the admin's link instead of the cart.
+- **Filter:** ทั้งหมด · SAMO official (opens MD · MDI · RT from itself) · Students initiative. สมาคมสิทธิ์เก่า is out of the filter and the admin picker, but still allowed in the DB (0 products). The ประเภท chips stay admin-managed.
+- **Data:** `source='student'` ⇔ `external_url` (CHECK); never an order item, on any path (trigger); a product with orders cannot become one.
+- **The form** hides everything it does not use, and does not save it (owner rule — memory `dont-show-what-isnt-needed`; write-ups in `docs/mistakes/frontend-ui.md`).
+- Design notes: `docs/CONTEXT.md` under `shop_products`.
+
+**Open — Status: OWED (owner), harmless:** the owner's test product `p-test-สินค้าข้างนอก-274` was saved before the form stopped sending hidden values, so it stores sizes S–XL and colour ดำ. Nothing displays them now (card and modal ignore them for a link product). Re-saving it clears them; or delete it if it was only a test.
+
+**Noted, no decision asked — Status: DECIDED (left as is):** Latest Drops shows NEW-ticked active products by `added_at` (max 10), else the 5 newest; active `launch` banners replace it. NEW never expires, and the order is when the product was ADDED, not when NEW was ticked. Explained to the owner 2026-11-02; nothing requested.
+
+**Not automated — Status: OWED (whoever next touches the shop storefront or product form):** the two browser checks run by hand (`npm run dev`, then `node tools/browser/shop-link-*.mjs`); CI does not run them. Run both after any change to `renderSourceChips` / `productCardHtml` / the product form.

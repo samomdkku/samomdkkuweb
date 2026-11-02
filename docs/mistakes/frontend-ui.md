@@ -4887,3 +4887,32 @@ it dynamically imports.
 **Where it lives now.** `src/js/main.js` (`vsEditorNote`, the image handler, the capture-phase submit guard), `src/js/load-quill.js`, `src/html/tab-vitalsound.html`. Tests: `main-quill-image.test.js`, `load-quill.test.js` — red with the insert restored and with the guard's message removed.
 
 **Rule.** A status message never goes into the thing the user is composing. Ask of any feedback: if they ignore it, where does it end up?
+
+## SAMO Shop filter: the MD · MDI · RT sub-filter "jumps to after Students initiative" and looks weird
+
+**Symptom.** Reported by the owner on localhost the day the แหล่งที่มา groups were built (2026-11-02): tapping **SAMO official** showed its ทั้งหมด · MD · MDI · RT pills AFTER the **Students initiative** pill, so they read as belonging to it. They also appeared with a jump, not an opening.
+
+**Cause.** The sub-pills were appended to the END of the same flex row as the top-level pills (`.sf-source-sub{display:contents}`), so DOM order put them after the last group. It was invisible while there was one group and became wrong the moment a second group followed. And the whole row was rebuilt with `innerHTML` on every tap, so nothing could transition and keyboard focus was dropped.
+
+**Fix.** The groups are their own strip (`.sf-source-top`). Each group with several sources owns a tray (`.sf-source-sub`, `data-tray`) placed by CSS `order` straight after ITS trigger. On desktop it nests under its group with a guide line; on a phone it is a tinted row directly below the strip. The chips are built ONCE; a tap only re-classes them (`syncSourceChips`), and the tray opens with a `grid-template-rows 0fr→1fr` transition, `inert` and `aria-expanded` while closed. To fit three groups whole at 390px, the group pills drop their dots on a phone.
+
+**Where it lives now.** `src/js/shop/products.js` (`renderSourceChips`, `syncSourceChips`), `src/css/shop-storefront.css` (the แหล่งที่มา block). `tools/browser/shop-link-products.mjs` asserts the GEOMETRY: the tray's top is below SAMO official's bottom and above Students initiative's top on desktop; the tray is below the strip on a phone; the strip does not overflow at 390px.
+
+**Rule.** A disclosure opens FROM the thing that opened it. Place it by its TRIGGER, not at the end of the container — "end of the row" is right only while the trigger is last. Prove placement by measuring boxes, never by reading the markup: the DOM order looked fine and was the bug.
+
+## SAMO Shop admin: "it still filter for สี of picture" on a Students initiative product — hidden fields were still drawn, saved and shown
+
+**Symptom.** Owner, 2026-11-02, after the Students initiative form had hidden stock, sizes, colours, PromptPay, pickup and preorder: each picture still had its colour box ("ทุกสี"). Looking further found three more cases. The hidden sizes and colour boxes still SAVED the new-product template's S–XL and ดำ. The storefront card then read "4 ไซส์" for a product with no sizes. And an id typed before switching the source still decided the id, once the box was hidden — a "taken" error would have named a field the admin could not see.
+
+**Cause.** Hiding was implemented as one attribute (`data-shop-only`) on sections of ONE template, toggled by `syncLinkFields`. Three other parts never asked the mode:
+- the picture strip is drawn by a different renderer (`renderImageStrip`), re-run on every picture change, so its per-picture `<select>` never carried the attribute;
+- `readProductForm` read every box whether visible or not;
+- the storefront card read the stored values.
+
+Hidden is a CSS state; the save and the other readers do not know about it.
+
+**Fix.** `renderImageStrip` omits the colour box when the form's source is `student`, and `syncLinkFields` re-renders the strip both ways. The link payload sends `sizes: ['F']` (the table default), `colors: []` (so no picture is tagged) and the default order prefix. `newProductId` ignores the hidden id box. `productCardHtml` counts no sizes or colours for an `isLinkProduct`. The id, the order prefix and two hints are hidden for the mode too (owner: "if it isn't needed, you shouldn't show it").
+
+**Where it lives now.** `src/js/shop/admin-products.js` (`renderImageStrip`, `syncLinkFields`, `readProductForm`'s link spread, `newProductId`), `src/js/shop/products.js` (`productCardHtml`). `tools/browser/shop-link-admin.mjs` asserts the saved row has `sizes ["F"]` / `colors []`, the typed id was ignored, and a saved product's picture has no colour box in that mode but gets one under MD. It goes red with the colour box restored, and with the hidden-id guard removed.
+
+**Rule.** HIDING A FIELD IS NOT REMOVING IT. For a mode that hides a concept, enumerate every place that concept lives: each RENDERER that draws a control for it (not just the template you tagged), the SAVE that reads its boxes, and every READER of the stored value. Assert on the saved ROW and the rendered READER, not on `display:none`.

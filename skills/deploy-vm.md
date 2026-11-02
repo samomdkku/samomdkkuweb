@@ -369,6 +369,15 @@ curl -s "https://samo.md.kku.ac.th$B" | grep -c '<a string already in that file>
 ⚠️ **Grep a STRING LITERAL or a CSS class, never a module-scope name** —
 minification renames those. A Thai UI label is ideal.
 
+⚠️ **A tab opened BEFORE the deploy still runs the OLD bundle.** Both entries
+are single-page apps: navigating inside them never refetches the HTML, so a
+person who had `/admin/` open keeps the code it loaded. When you tell someone a
+change is live, tell them to RELOAD first. "I don't see it" right after a deploy
+is a stale tab until proven otherwise. 2026-11-02: the owner could not find the
+new Students initiative source option minutes after the deploy, while the served
+bundle had it. (That the tab was the cause is the likely reading, not
+confirmed.)
+
 ### When the deploy stream is EMPTY but the VM log says exit 0
 
 On 2026-09-10 a third deploy of the day returned **zero bytes** locally while the

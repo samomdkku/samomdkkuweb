@@ -135,14 +135,14 @@ code not yet written.
    `if <copy> is null`, so a corrected รหัสนักศึกษา never re-derived the รุ่น
    (0128) — fill-once means never-correct; same in FORMS: `{...row, student_id:
    typed}` keeps the stale copy (`yearBasis`, 0145). Also a rule applied to the writers you
-   HAPPENED to be looking at (the portrait cleanup missed `my-seat.js`). **A TRIGGER belongs to the TABLE, not to the statement
+   HAPPENED to be looking at (`my-seat.js`; **HIDING IS NOT REMOVING** — a
+   hidden shop field was drawn by another renderer, saved, shown, `frontend-ui.md`). **A TRIGGER belongs to the TABLE, not to the statement
    it was written for**: 0174's "moving a scan moves the points" also fired on
    the SIGNUP RE-KEY, where the profile has not moved yet — debiting the real
    row and crediting an id nothing lived at, so a carried student would sign in
    to 0 km (0175). A multi-statement operation is ONE act to its
    author and N events to Postgres, so a trigger sees the row HALF-MOVED:
    restate the invariant at the end, do not try to out-order the trigger.
-   Where a second copy is unavoidable, the guard is a DIFFERENTIAL test.
    **PROSE IS AN IMPLEMENTATION TOO.** `STATE.md` held six stale claims at once,
    five a fact with TWO homes where only one was corrected — a proof called red
    that was green (3 homes), three different test counts, a budget warning
@@ -399,11 +399,11 @@ to `docs/mistakes/` — never raise the budget or cut a class.
 - `authz-rls.md` *(36)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(24)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(42)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(126)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(128)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(42)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(39)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(28)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(87)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(88)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 - `passport.md` *(46)* — The Passport app's own write-ups. Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
 
 <!-- END GENERATED INDEX -->
