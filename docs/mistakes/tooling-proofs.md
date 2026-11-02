@@ -4069,6 +4069,6 @@ subject is a pass by construction.
 
 **Fix.** A sweep of `tools/browser/` for `set permissions` found a third with the identical line, `a11y-sweep.mjs`, whose `master` grant gated every admin page it audits. All three now run `set session_replication_role = 'replica'` in the same request as the update — the escape hatch `dev-grants.mjs` and `dev-refresh.mjs` use. It is acceptable only because both tools refuse any project but samo-dev, by ref, before reaching it.
 
-**Where it lives now.** `tools/browser/shop-admin-tour.mjs`, `tools/browser/shop-link-admin.mjs`, `tools/browser/a11y-sweep.mjs`, `tools/dev-grants.mjs` (the reasoning). The others (`shop-admin-strip`, `accounts-dashboard`, `house-*`, `passport-*`) already step around the guard.
+**Where it lives now.** `tools/browser/shop-admin-tour.mjs`, `tools/browser/shop-link-admin.mjs`, `tools/browser/a11y-sweep.mjs`, `tools/dev-grants.mjs` (the reasoning). The others (`shop-admin-strip`, `accounts-dashboard`, `house-*`, `passport-*`) already step around the guard. ⚠️ `shop-admin-tour` and `shop-link-admin` were RUN after the fix and got past sign-in; `a11y-sweep` was NOT re-run (same two-line change, unproven there) — run it before trusting its admin-page results.
 
 **Rule.** When copying setup from an existing tool, run the ORIGINAL first. A tool nobody has run lately is a hypothesis, and its setup is the part most likely to have rotted (see also `house0116`'s 0 assertions for 23 migrations).
