@@ -367,7 +367,11 @@ try {
   if (!/^[0-9a-f-]{36}$/.test(uid || '')) throw new Error(`register failed: ${uid}`);
   // master folds every admin desk — see master-grants-all-project-seats; it
   // is the ONLY grant that reaches every ADMIN_PANES entry with one account.
-  await sql(`update public.users set permissions = array['master'] where id = ${lit(uid)};`);
+  // users_self_update_guard refuses a plain permissions write from the
+  // Management API (auth.uid() is null) — same escape hatch as dev-grants.mjs,
+  // acceptable only because this tool refuses any project but samo-dev.
+  await sql(`set session_replication_role = 'replica';
+    update public.users set permissions = array['master'] where id = ${lit(uid)};`);
   await send('Page.navigate', { url: `${DEV_URL}/` }); await sleep(4000);
   await ev(`const a = await import('/src/js/auth.js'); await a.signOut().catch(()=>{}); await a.signInWithPassword(${JSON.stringify(USER)}, ${JSON.stringify(PASS)}); await new Promise(r=>setTimeout(r,2000)); return 1;`);
 

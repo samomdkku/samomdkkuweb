@@ -537,8 +537,12 @@ no-account alternative, for when nothing real should be written at all.
 
 - **A throwaway account on samo-dev.** It is registered through the app's own
   `registerWithPassword` (username accounts need no email confirmation). The
-  permission is written to `public.users.permissions` with the dev PAT. The
-  tool REFUSES unless the target resolves to samo-dev.
+  permission is written to `public.users.permissions` with the dev PAT, and
+  ⚠️ **in the same request as `set session_replication_role = 'replica'`** (or
+  with `users_self_update_guard` disabled around it). A plain UPDATE is refused
+  ("permissions can only be changed by staff"); three tools carried that line
+  until 2026-11-02 (`docs/mistakes/tooling-proofs.md`). The tool REFUSES unless
+  the target resolves to samo-dev.
 - **Apps Script intercepted.** `GAS_API_URL` is the LIVE endpoint even in dev,
   so an unintercepted upload would write to the real Drive. CDP
   `Fetch.enable {urlPattern:'*script.google.com*'}` plus `Fetch.fulfillRequest`
@@ -552,6 +556,10 @@ no-account alternative, for when nothing real should be written at all.
   test products. It must be 0.
 
 `npm run dev` (port 5174, samo-dev) must be running.
+
+**Two more worked examples (2026-11-02), each with a DB read-back:**
+- `tools/browser/shop-link-admin.mjs` creates a Students-initiative product through the real form and reads the saved ROW back. It asserts what hidden fields did NOT save, not just that they are `display:none`.
+- `tools/browser/shop-link-products.mjs` plants a product and asserts layout by measuring boxes (`getBoundingClientRect`: the tray is under ITS trigger and above the next group; the strip does not overflow at 390px). It screenshots one ELEMENT with `Page.captureScreenshot {clip, captureBeyondViewport:true}` — a scroll-then-shoot came out at the top of the page.
 
 ⚠️ **From inside the KKU network the PUBLIC address can stop answering** (seen
 2026-09-22 — KKU's reverse proxy, not the VM). To drive PRODUCTION from inside

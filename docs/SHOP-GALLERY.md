@@ -36,6 +36,9 @@
 - Drive-style URLs are converted like the cards convert them;
 - an order line that stored a colour label still finds its picture;
 - duplicate colour ids are refused at save.
+- a Students initiative product (0274) has NO colours. Its pictures get no
+  colour box in the admin strip, and its save sends `colors: []`, so no
+  picture is tagged (2026-11-02).
 
 **Verified 2026-09-22:**
 - the admin strip, driven signed in on samo-dev with every Apps Script call

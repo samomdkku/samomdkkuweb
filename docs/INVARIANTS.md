@@ -282,6 +282,13 @@ Each was settled with the owner; the reasoning is in the archive file named.
 - **SAMO Shop stays open to BOTH login routes** — the checkout email is
   editable even when Google prefills it, so restricting the login method buys
   the LOOK of a verified contact and none of it.
+- **A Students initiative product is never an order item, on ANY path**
+  (0274). `source='student'` ⇔ `external_url` is a CHECK, and the refusal is a
+  trigger on `shop_order_items`, not a check in the checkout. A product that has
+  orders cannot become one. The storefront filter is ทั้งหมด · SAMO official
+  (MD · MDI · RT, opened FROM it) · Students initiative. สมาคมสิทธิ์เก่า is
+  retired in the UI, NOT dropped from the DB check. A field a mode does not use
+  is hidden AND not saved AND not shown (owner, 2026-11-02).
 - **The sign-in modal's copy is settled after SIX reports.** Read the entry in
   `docs/mistakes/frontend-ui.md` BEFORE touching it; guarded by
   `signin-screen.test.js`. No email domain anywhere in the modal, ever.
