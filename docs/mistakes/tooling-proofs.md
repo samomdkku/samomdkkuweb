@@ -3963,3 +3963,100 @@ until that happens, per the proof-fidelity rule above.
 
 **Where it lives now**: `tools/dept0177-page-scope.sql` §G,
 `tools/team0135-name-split.mjs` A5–A7.
+
+## samo-dev's ทีมและสิทธิ์ never updated live — the dev rebuild dropped which tables are live-synced
+
+**Symptom** (found 2026-11-01 while reproducing the ถาวร live-sync bug on
+samo-dev): a browser step that changes the team from outside an open tab never
+saw the change arrive, on ANY table — while production's tabs did.
+
+**Cause**: live sync (Supabase Realtime) is the membership of Supabase's own
+`supabase_realtime` publication. `pg_dump` of our schemas does not carry it, so
+the 2026-08-27 rebuild of samo-dev (`tools/dev-refresh.mjs`) left it as the
+fresh project had it. Every migration applied to dev AFTER the rebuild added
+its own table (rotation 0250, ถาวร 0273), so the publication looked
+maintained, while 0048's two team tables, older than the rebuild, were simply
+absent. The rebuild's verify step compared row counts and grants, never this.
+Same shape as class 6: a move carries what is attached to every object and
+drops what is written per object (0182's RLS).
+
+**Fix**: re-added on samo-dev by hand (2026-11-01); `dev-refresh.mjs` step 6
+now copies the membership from production and refuses the copy when the two
+lists differ. Writing that check found a second bug before it ran:
+`string_agg(… order by 1)` sorts by the CONSTANT 1, so the same four tables came
+back in different orders on the two projects and a correct copy would have
+been refused. It orders by schema and table now; both projects print the same
+list.
+
+**Where it lives now**: `tools/dev-refresh.mjs` step 6,
+`skills/build-the-dev-database.md` §2.
+
+**The general rule**: when a copy is "verified", list what the verify step
+compares and ask what ELSE decides behaviour: publications, cron jobs, event
+triggers, storage buckets, auth settings. ⚠️ The dev-refresh change itself has
+NOT been run end to end — it is destructive to samo-dev; its two SQL
+statements were run on both projects by hand.
+
+## A browser check of #years STARTED A YEAR on samo-dev — its stub was a fetch swap with a clock
+
+**Symptom** (2026-11-01, 12:24 Thai): a run of `tools/browser/year-page.mjs`
+failed "ONE request, the exact payload: []" and samo-dev was then ปี SAMO 2572:
+the live team replaced by a 1-group prepared year (449 people out), a Passport
+วาระ MDKKU SAMO'72 opened, and 2569 saved as history. The check's own line
+"…and nothing was written (intercepted)" exists to catch exactly that.
+
+**Cause**: the press was answered by a `window.fetch` stub installed inside one
+evaluate, which clicked, slept a FIXED 1.5 s, then put the real fetch back.
+The page counts the prepared team before it sends `start_samo_year`; on a slow
+load the request left after the 1.5 s — through the real fetch. The stub was the
+ONLY thing between a test click and the database, and it had an expiry time.
+The Passport quarter press and `passport-quarters.mjs`'s activity create had
+the same shape.
+
+**Fix**: (1) every year/quarter/term writer the page can reach is BLOCKED at the
+network layer (`Network.setBlockedURLs`) before the first navigation, and the
+run refuses to start if the block is refused; (2) the stubs wait for the CALL,
+not a clock, and are never restored; (3) a blocked request is itself a failure
+("no year writer reached the network"). Mutation: with the stub disabled the
+run goes red on three assertions, the request shows as `(inspector)`-blocked,
+and samo-dev stays on 2569. 3 consecutive runs green on the final version
+(one earlier version failed once reading the status line 0.4 s early — it now
+waits for the text).
+samo-dev was repaired by hand (switched back, test วาระ + history removed).
+⚠️ The switch-back did NOT restore Passport's ฝ่าย → ทีม SAMO links (10 →
+0): `passport.departments.team_node_id` is `on delete set null` and nothing
+carries it across a switch — re-linked with 0247's statement; the production
+side is HANDOFF §35e.
+
+**Where it lives now**: `tools/browser/year-page.mjs` (BLOCKED list),
+`tools/browser/passport-quarters.mjs`.
+
+**The general rule**: a test that presses a real button against a real
+database needs a guard that cannot EXPIRE. Block at the transport for the whole
+run; a stub inside the page is for asserting the payload, never for safety.
+And a fixed sleep before restoring something is a race you lose on the slow
+day.
+
+## team0271 went red on production 10 times in a day it had passed — its "root" became the owner's ถาวร group
+
+**Symptom**: `tools/team0271-prepared-year.sql` was 36/36 on production in the
+morning and 26/36 by afternoon: case 40 "violates foreign key constraint
+team_draft_nodes_parent_same_year", then 41–65 falling after it.
+
+**Cause**: the subject `root` was "the first top-level node by position". The
+owner pinned "Past developer" as a ถาวร root at position 0 that day. A ถาวร
+group is never part of a prepared year, so the ฝ่าย the proof adds under it has
+no parent in the draft. Nothing in the feature was wrong. Separately, its `dn`
+subject ("a node with a Discord role") does not exist on samo-dev, so case 67's
+Discord half compared null with null and passed having checked nothing.
+
+**Fix**: every root subject excludes `team_standing_node_ids()`; `dn` is
+PLANTED inside the rolled-back transaction when nothing is mapped; case 07
+requires `dn`. Mutation: without the plant, 07 goes red on samo-dev. 36/36 on
+both projects afterwards; team0272 26, team0270 36, year0248 23, team0224 19,
+year0242 23, passport0247 25 also green on both.
+
+**The general rule**: choose a subject by the PROPERTY the proof needs (a
+yearly root, a node holding a role), never by "the first one", and create it
+when the environment may lack it. A null-safe comparison against a missing
+subject is a pass by construction.

@@ -104,6 +104,19 @@ insert into public.people (id, kkumail, full_name, nickname)
 values ('00000000-0000-4000-8000-000000002710', 'proof0271.person@kkumail.com', 'คนใหม่ ทดสอบ', 'ORIG'),
        ('00000000-0000-4000-8000-000000002720', 'proof0271.mailonly@kkumail.com', 'คนที่สอง ทดสอบ', 'ORIG2');
 
+-- Every root subject is a YEARLY root. A ถาวร root is never in a prepared year,
+-- so a ฝ่าย added under it broke team_draft_nodes_parent_same_year: 10 cases went
+-- red on production on 2026-11-01, once the owner's ถาวร "Past developer" sat at
+-- position 0. The proof had passed there earlier that day — a subject that can
+-- become something else is chosen by the property it needs.
+-- DN is PLANTED when no node carries a Discord role (samo-dev has none): with
+-- no subject, case 67's Discord half compared null with null and passed having
+-- checked nothing. A root, so it can never be L. Rolled back with the rest.
+update public.team_nodes set discord_role_id = '0271000000000000001'
+ where id = (select n.id from public.team_nodes n where n.parent_id is null
+         and n.id not in (select s.id from public.team_standing_node_ids() s) order by n.position, n.id limit 1)
+   and not exists (select 1 from public.team_nodes where discord_role_id is not null);
+
 -- L: a leaf ตำแหน่ง holding people. E1, E2: two members outside L, E1 with a
 -- kkumail (so its effective permissions can be asked). P: a person with no
 -- ทีม placement, to be the NEW member. DN: a continuing node with a Discord role.
@@ -127,11 +140,12 @@ select (select id from leaf) as l,
        '00000000-0000-4000-8000-000000002710'::uuid as p,
        (select n.id from public.team_nodes n where n.discord_role_id is not null
          and n.id <> (select id from leaf) order by n.id limit 1) as dn,
-       (select n.id from public.team_nodes n where n.parent_id is null order by n.position, n.id limit 1) as root;
+       (select n.id from public.team_nodes n where n.parent_id is null
+         and n.id not in (select s.id from public.team_standing_node_ids() s) order by n.position, n.id limit 1) as root;
 
-insert into probe select '07. subjects exist: actor, plain, L, E1, E2≠E1, P, root', '1|1|true',
+insert into probe select '07. subjects exist: actor, plain, L, E1, E2≠E1, P, root, DN', '1|1|true',
   (select (select count(*) from actor) || '|' || (select count(*) from plain) || '|'
-     || (l is not null and e1 is not null and e2 is not null and e1 <> e2 and p is not null and root is not null)::text
+     || (l is not null and e1 is not null and e2 is not null and e1 <> e2 and p is not null and root is not null and dn is not null)::text
      from subj);
 
 create or replace function pg_temp.as_(p_tbl text) returns void language plpgsql as $$

@@ -193,8 +193,13 @@ try {
       if (url.split('?')[0].endsWith('/rest/v1/activities') && (o.method || 'GET') === 'POST') {
         calls.push(JSON.parse(o.body)); return new Response('{"message":"intercepted"}', { status: 400, headers: { 'Content-Type': 'application/json' } }); }
       return orig(u, o); };
-    document.getElementById('activity-form').requestSubmit(); await new Promise(r => setTimeout(r, 1500));
-    window.fetch = orig; return JSON.stringify({ calls, dialogs: window.__dialogs.splice(0) });`));
+    document.getElementById('activity-form').requestSubmit();
+    // Wait for the CALL, not a clock, and never put the real fetch back: a fixed
+    // 1.5 s then restore let a slow press reach samo-dev for real in
+    // year-page.mjs (2026-11-01, docs/mistakes/tooling-proofs.md).
+    for (let i = 0; i < 150 && !calls.length; i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 300));
+    return JSON.stringify({ calls, dialogs: window.__dialogs.splice(0) });`));
   errs.length = errsBefore;
   const row = Array.isArray(made.calls[0]) ? made.calls[0][0] : made.calls[0];
   say('create sends the date and the default window — and NO quarter (the database decides)',

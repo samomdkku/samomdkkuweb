@@ -60,6 +60,7 @@ const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debug
   `--user-data-dir=${PROFILE}`], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let ws; let id = 0; const pend = {}; const errs = []; let failed = 0;
+const reqUrl = new Map(); const blockedHits = [];
 const say = (label, v, ok = true) => { if (!ok) failed += 1; console.log(`${ok ? '✓' : '✗'} ${label}: ${v}`); };
 
 try {
@@ -73,6 +74,10 @@ try {
   ws.onmessage = (m) => {
     const d = JSON.parse(m.data);
     if (pend[d.id]) { pend[d.id](d); delete pend[d.id]; }
+    // A request the network block STOPPED means a press missed its stub: the
+    // block is the backstop, and reaching it is a failure of the test itself.
+    if (d.method === 'Network.requestWillBeSent') reqUrl.set(d.params.requestId, `${d.params.request.method} ${d.params.request.url}`);
+    if (d.method === 'Network.loadingFailed' && d.params.blockedReason) blockedHits.push(`${reqUrl.get(d.params.requestId) || d.params.requestId} (${d.params.blockedReason})`);
     if (d.method === 'Runtime.exceptionThrown') errs.push(d.params.exceptionDetails?.exception?.description?.split('\n')[0]);
     if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') errs.push(d.params.args.map((a) => a.value || a.description).join(' ').slice(0, 200));
   };
@@ -87,6 +92,23 @@ try {
     return false;
   };
   await send('Runtime.enable'); await send('Page.enable');
+  // ⛔ THE BROWSER CANNOT CHANGE THE YEAR, FOR THE WHOLE RUN. The presses below
+  // are answered by a window.fetch stub swapped in INSIDE one evaluate. On
+  // 2026-11-01 a run whose page was disturbed (it failed "ONE request: []" and
+  // "ERR Cannot …") let a real start_samo_year through: samo-dev became ปี SAMO
+  // 2572 with a Passport วาระ MDKKU SAMO'72, and the live team was replaced by a
+  // 1-group prepared year (repaired by hand, docs/mistakes/tooling-proofs.md).
+  // A stub that can be missing is not a guard. These URLs are BLOCKED at the
+  // network layer before the first navigation, so a press that misses its stub
+  // fails in the browser instead of writing. The stubs still answer first, so
+  // the payload assertions are unchanged. Every year/quarter/term writer the
+  // ปี page can reach is listed — add any new one here.
+  const BLOCKED = ['start_samo_year', 'start_team_term', 'start_season', 'start_vara', 'set_season_schedule',
+    'set_academic_year', 'set_academic_year_schedule', 'publish_team_term', 'copy_team_year', 'start_team_draft',
+    'set_team_term_shown'].map((f) => `*/rpc/${f}*`);
+  await send('Network.enable');
+  const blocked = await send('Network.setBlockedURLs', { urls: BLOCKED });
+  if (blocked.error) throw new Error(`could not block the year writers — refusing to run: ${blocked.error.message}`);
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
 
   // 1. account + grant
@@ -173,8 +195,13 @@ try {
     const m = document.getElementById('appConfirmModal');
     const title = m.querySelector('[data-confirm-title]').textContent, body = m.querySelector('[data-confirm-body]').textContent;
     m.querySelector('[data-confirm-yes]').click();
-    await new Promise(r => setTimeout(r, 1500));
-    window.fetch = real;
+    // Wait for the CALL, not for a clock. The page first counts the prepared
+    // team, so on a slow load the request left AFTER a fixed 1.5 s — once the
+    // real fetch was back — and switched samo-dev for real (2026-11-01). The
+    // stub also stays installed for the rest of the run; never restore it.
+    for (let i = 0; i < 150 && !window.__syCalls.length; i++) await new Promise(r => setTimeout(r, 100));
+    // …and for the page to SAY the outcome, which it writes after the reply.
+    for (let i = 0; i < 50 && !/Passport เริ่ม/.test(document.getElementById('syStatus')?.textContent || ''); i++) await new Promise(r => setTimeout(r, 100));
     return JSON.stringify({ title, body, calls: window.__syCalls, status: document.getElementById('syStatus')?.textContent || '' });`));
   say('the confirm names the year', press.title, press.title.includes(String(db.cy + 3)));
   say('the confirm says Passport starts a new วาระ', press.body.slice(0, 160), /Passport เริ่มวาระ/.test(press.body));
@@ -235,8 +262,9 @@ try {
     const m = document.getElementById('appConfirmModal');
     const title = m.querySelector('[data-confirm-title]').textContent, body = m.querySelector('[data-confirm-body]').textContent;
     m.querySelector('[data-confirm-yes]').click();
-    await new Promise(r => setTimeout(r, 1500));
-    window.fetch = real;
+    // Same as the เริ่มปี press: wait for the call, keep the stub (see above).
+    for (let i = 0; i < 150 && !window.__qCalls.length; i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 400));
     return JSON.stringify({ want, title, body, calls: window.__qCalls });`));
   say('a switch asks first, and says QR codes keep their own end date', `${qsw.title} — ${qsw.body.slice(0, 90)}…`,
     /Q\d/.test(qsw.title) && qsw.body.includes('QR ของกิจกรรมยังสแกนได้ตามวันหมดอายุ'));
@@ -265,6 +293,7 @@ try {
   say('phone: no sideways scroll', `${sw.sw} ≤ ${sw.w}`, sw.sw <= sw.w);
   await shot('phone.png');
 
+  say('no year writer reached the network (every press met its stub)', blockedHits.length ? blockedHits.join(' | ') : 'none', blockedHits.length === 0);
   say('console errors', errs.length ? errs.join(' | ') : 'none', errs.length === 0);
 } catch (e) {
   say('run', e.message, false);

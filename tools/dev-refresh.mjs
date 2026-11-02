@@ -132,13 +132,34 @@ const pg2 = setOf(PROD), dg2 = setOf(DEV);
 const stillExtra = [...dg2].filter((x) => !pg2.has(x)).length;
 const missing = [...pg2].filter((x) => !dg2.has(x)).length;
 
+// LIVE SYNC is a property of Supabase's `supabase_realtime` PUBLICATION, which
+// the dump does not carry: the publication is Supabase's own object, so a
+// restore leaves it with whatever the fresh project had. Found 2026-11-01:
+// samo-dev lacked 0048's team_nodes + team_members, so ทีมและสิทธิ์'s live
+// multi-editor sync was dead on every preview — while rotation_events (0250)
+// and team_standing_groups (0273), applied to dev AFTER its rebuild, were
+// present. Copy the membership, then compare it like the row counts.
+// (`order by 1` inside string_agg sorts by the CONSTANT 1 — it listed the same
+// four tables in different orders on the two projects and failed a good copy.)
+const PUBS = "select coalesce(string_agg(format('%I.%I', schemaname, tablename), ',' order by schemaname, tablename), '') from pg_publication_tables where pubname = 'supabase_realtime'";
+const pubProd = q(PROD, PUBS);
+for (const t of pubProd.split(',').filter(Boolean)) {
+  psql(DEV, ['-c', `do $$ begin
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime'
+                     and format('%I.%I', schemaname, tablename) = '${t.replace(/'/g, "''")}') then
+      alter publication supabase_realtime add table ${t};
+    end if; end $$;`]);
+}
+const pubDev = q(DEV, PUBS);
+
 console.log(`      tables compared : ${rp.size}`);
 console.log(`      row-count diffs : ${diffs.length}`);
 console.log(`      grants extra    : ${stillExtra}`);
 console.log(`      grants missing  : ${missing}`);
+console.log(`      live-sync tables: ${pubProd.split(',').filter(Boolean).length}${pubDev === pubProd ? '' : ` — MISMATCH (prod ${pubProd} · dev ${pubDev})`}`);
 for (const [t, n] of diffs.slice(0, 10)) console.log(`        ${t}: prod=${n} dev=${rd.get(t) ?? 'ABSENT'}`);
 
-if (diffs.length || stillExtra || missing) die('dev does not match production — do NOT use this copy');
+if (diffs.length || stillExtra || missing || pubDev !== pubProd) die('dev does not match production — do NOT use this copy');
 
 // ---- 7. repoint anything that reaches a REAL PERSON ---------------------
 //

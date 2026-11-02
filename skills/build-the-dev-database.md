@@ -71,6 +71,14 @@ The dump names things the platform must already provide:
 - **No `uuid-ossp`, no `pgcrypto` calls** in the schema. Do not enable them
   because production has them; enable what is USED.
 - `auth`, `storage`, `realtime`, `vault` are created by Supabase on any project.
+- ⛔ **But WHICH TABLES are live-synced is NOT in the dump.** It is the
+  membership of Supabase's own `supabase_realtime` publication, which a restore
+  leaves as the fresh project had it. samo-dev ran without 0048's `team_nodes`
+  + `team_members` (live multi-editor sync dead on every preview) until
+  2026-11-01. `dev-refresh.mjs` step 6 now copies the membership from
+  production and fails the rebuild if the lists differ. Doing it by hand: list
+  `pg_publication_tables where pubname = 'supabase_realtime'` on both and
+  `alter publication supabase_realtime add table …` for each missing one.
 
 ## 3. `auth.users` comes FIRST — seven tables depend on it
 
