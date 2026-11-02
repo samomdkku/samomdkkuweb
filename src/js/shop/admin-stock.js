@@ -5,7 +5,7 @@
 
 import { escHtml } from '../utils.js';
 import { dbRest } from '../db.js';
-import { STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock, takesPreorderSlot } from './data.js';
+import { STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock, takesPreorderSlot, isLinkProduct } from './data.js';
 import { listProducts, listAllOrders, applyProductProductionStatus } from './api.js';
 import { showShopToast } from './products.js';
 import { state, setOrders } from './admin.js';
@@ -179,7 +179,8 @@ export function renderStock() {
   const host = document.getElementById('shopAdminStockHost');
   if (!host) return;
   const q = state.stockSearch;
-  let list = state.products.slice();
+  // A Students-initiative product (0274) is sold elsewhere: no stock to set.
+  let list = state.products.filter((p) => !isLinkProduct(p));
   if (q) list = list.filter((p) => `${p.name} ${p.sub || ''} ${p.id}`.toLowerCase().includes(q));
 
   if (list.length === 0) {

@@ -8,8 +8,8 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import {
-  SHOP_SOURCES, SHOP_SORT,
-  findSource, thb, fmtDate, batchDateEntries,
+  SHOP_SOURCE_GROUPS, SHOP_SORT,
+  findSource, matchesSourceFilter, isLinkProduct, thb, fmtDate, batchDateEntries,
   STOCK_STATUS_META,
   unitPriceFor, priceRange, isUnlimitedBuying, hasStockNumbers,
   availableForVariant, availableTotal,
@@ -60,22 +60,13 @@ export function mountShopBrowse() {
   const search     = document.getElementById('shopSearchInput');
 
   if (sourceHost) {
-    sourceHost.innerHTML = SHOP_SOURCES.map((s) => {
-      const on = s.id === filters.source;
-      return `<button type="button" class="sf-source-pill ${on ? 'is-active' : ''}" aria-pressed="${on}"
-                data-src="${s.id}" data-source-id="${s.id}">
-        <span class="sf-dot"></span>${escHtml(s.label)}
-      </button>`;
-    }).join('');
+    renderSourceChips();
+    // Delegated: survives every re-render of the chips.
     sourceHost.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-source-id]');
       if (!btn) return;
       filters.source = btn.dataset.sourceId;
-      sourceHost.querySelectorAll('[data-source-id]').forEach((el) => {
-        const on = el.dataset.sourceId === filters.source;
-        el.classList.toggle('is-active', on);
-        el.setAttribute('aria-pressed', String(on));
-      });
+      syncSourceChips();
       renderGrid();
     });
   }
@@ -141,6 +132,68 @@ export function mountShopBrowse() {
   wireCarouselArrows(LAUNCH_CAROUSEL);
   wireCarouselArrows(ANNOUNCE_CAROUSEL);
   window.addEventListener('resize', syncDropArrowsVisible, { passive: true });
+}
+
+/** The แหล่งที่มา chips (owner, 2026-11-02): ทั้งหมด · SAMO official ·
+ *  Students initiative. A group with several sources (SAMO official) owns a
+ *  tray of its own — ทั้งหมด · MD · MDI · RT — that opens FROM it: under it in
+ *  the desktop column, as a row just below the strip on a phone (CSS
+ *  `order`). `filters.source` holds 'all', a group id or a source id;
+ *  `matchesSourceFilter` decides.
+ *
+ *  Built ONCE, then only re-classed (`syncSourceChips`): rebuilding on every
+ *  tap made the tray pop instead of open, and dropped keyboard focus. */
+function renderSourceChips() {
+  const host = document.getElementById('shopSourceChips');
+  if (!host) return;
+  const pill = (id, label, extra = '', order = 0, tail = '') => `<button type="button" class="sf-source-pill${extra}"
+      ${order ? `style="order:${order}"` : ''} aria-pressed="false" data-src="${escHtml(id)}" data-source-id="${escHtml(id)}">
+      <span class="sf-dot"></span>${escHtml(label)}${tail}</button>`;
+  let order = 1;
+  const top = [pill('all', 'ทั้งหมด', '', order)];
+  const trays = [];
+  for (const g of SHOP_SOURCE_GROUPS) {
+    order += 1;
+    if (g.sources.length > 1) {
+      top.push(pill(g.id, g.label, ' has-tray', order,
+        '<i class="bi bi-chevron-down sf-chev" aria-hidden="true"></i>').replace('<button ', `<button aria-expanded="false" aria-controls="shopSourceTray-${escHtml(g.id)}" `));
+      order += 1;
+      trays.push(`<div class="sf-source-sub" id="shopSourceTray-${escHtml(g.id)}" data-tray="${escHtml(g.id)}" style="order:${order}" inert>
+        <div class="sf-source-sub-inner" role="group" aria-label="${escHtml(g.label)}">
+          ${[pill(g.id, 'ทั้งหมด', ' is-sub')].concat(g.sources.map((id) => pill(id, findSource(id)?.label || id, ' is-sub'))).join('')}
+        </div></div>`);
+    } else {
+      top.push(pill(g.id, g.label, '', order));
+    }
+  }
+  host.innerHTML = `<div class="sf-source-top">${top.join('')}</div>${trays.join('')}`;
+  syncSourceChips();
+}
+
+/** Mark the active chip(s) and open the tray of the active group. */
+function syncSourceChips() {
+  const host = document.getElementById('shopSourceChips');
+  if (!host) return;
+  const f = filters.source;
+  const activeGroup = f === 'all' ? null
+    : SHOP_SOURCE_GROUPS.find((g) => g.id === f || (g.sources.length > 1 && g.sources.includes(f)));
+  host.querySelectorAll('.sf-source-top [data-source-id]').forEach((b) => {
+    const on = b.dataset.sourceId === 'all' ? f === 'all' : activeGroup?.id === b.dataset.sourceId;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+    if (b.hasAttribute('aria-expanded')) b.setAttribute('aria-expanded', String(on));
+  });
+  host.querySelectorAll('[data-tray]').forEach((t) => {
+    const open = activeGroup?.id === t.dataset.tray;
+    t.classList.toggle('is-open', open);
+    // Closed = out of the tab order and the accessibility tree, not just 0px.
+    t.toggleAttribute('inert', !open);
+    t.querySelectorAll('[data-source-id]').forEach((b) => {
+      const on = open && b.dataset.sourceId === f;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  });
 }
 
 /** (Re)render the ประเภท filter chips from the current type list. If the
@@ -439,7 +492,8 @@ function dropCardHtml(p) {
       <div class="sf-drop-name">${escHtml(p.name)}</div>
       ${p.sub ? `<div class="sf-drop-sub">${escHtml(p.sub)}</div>` : ''}
       <div class="sf-drop-foot">
-        <span class="sf-drop-price">${fromPrice(p).from ? 'เริ่ม ' : ''}฿ ${thb(fromPrice(p).min)}</span>
+        <span class="sf-drop-price">${isLinkProduct(p) && !(fromPrice(p).min > 0)
+          ? 'ดูราคาที่ลิงก์' : `${fromPrice(p).from ? 'เริ่ม ' : ''}฿ ${thb(fromPrice(p).min)}`}</span>
         <span class="sf-drop-date">${fmtDate(p.added_at)}</span>
       </div>
     </div>`;
@@ -520,7 +574,7 @@ function renderGrid() {
   if (!grid) return;
 
   let list = cache.products.slice();
-  if (filters.source !== 'all') list = list.filter((p) => p.source === filters.source);
+  if (filters.source !== 'all') list = list.filter((p) => matchesSourceFilter(p, filters.source));
   if (filters.type   !== 'all') list = list.filter((p) => p.type === filters.type);
   if (filters.search.trim()) {
     const q = filters.search.trim().toLowerCase();
@@ -546,6 +600,14 @@ function fromPrice(p) {
   return { min, from: min !== max };
 }
 
+/** The price a card shows. A Students-initiative product may leave its price
+ *  at 0 — its seller sets the price — so it says where to look instead of ฿0. */
+function priceLabelHtml(p) {
+  const { min, from } = fromPrice(p);
+  if (isLinkProduct(p) && !(min > 0)) return '<span class="price-link">ดูราคาที่ลิงก์</span>';
+  return `${from ? '<span class="price-from">เริ่ม</span> ' : ''}<span class="baht">฿</span>${thb(min)}`;
+}
+
 function productCardHtml(p) {
   const src = findSource(p.source);
   const sizes = Array.isArray(p.sizes) ? p.sizes : [];
@@ -556,10 +618,13 @@ function productCardHtml(p) {
   // We keep only a non-numeric "หมดแล้ว" badge when nothing is buyable so
   // shoppers aren't sent into a dead-end product. The numeric per-variant
   // count still renders inside the product modal (renderVariantStockBadge).
-  const total = (oos || isUnlimitedBuying(p)) ? null : availableTotal(p);
-  const stockHint = total === 0
-    ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
-    : '';
+  const link = isLinkProduct(p);
+  const total = (link || oos || isUnlimitedBuying(p)) ? null : availableTotal(p);
+  const stockHint = link
+    ? '<span class="product-stock-hint is-link"><i class="bi bi-box-arrow-up-right"></i> สั่งผ่านลิงก์</span>'
+    : total === 0
+      ? '<span class="product-stock-hint is-out">หมดแล้ว</span>'
+      : '';
   return `
     <div class="product-card ${oos ? 'is-oos' : ''}" data-product-id="${escHtml(p.id)}">
       <div class="product-thumb">
@@ -583,9 +648,7 @@ function productCardHtml(p) {
           ${colors.length > 1 ? `<span class="dot"></span><span>${colors.length} สี</span>` : ''}
         </div>
         <div class="product-foot">
-          <span class="product-price">
-            ${fromPrice(p).from ? '<span class="price-from">เริ่ม</span> ' : ''}<span class="baht">฿</span>${thb(fromPrice(p).min)}
-          </span>
+          <span class="product-price">${priceLabelHtml(p)}</span>
           ${stockHint}
         </div>
       </div>
@@ -693,10 +756,12 @@ function openProductModal(product) {
     }
   }
 
-  renderSizeOptions(sizes);
-  renderColorOptions(colors);
+  const link = isLinkProduct(product);
+  renderSizeOptions(link ? [] : sizes);
+  renderColorOptions(link ? [] : colors);
   renderQty();
   renderOOS();
+  applyLinkMode(product, link);
 
   const inst = window.bootstrap?.Modal.getOrCreateInstance(
     document.getElementById('shopProductModal'),
@@ -718,6 +783,7 @@ function openProductModal(product) {
       // The modal loses `show` the moment it starts to hide; a second tap
       // during the fade used to add the item twice.
       if (!document.getElementById('shopProductModal')?.classList.contains('show')) return;
+      if (isLinkProduct(product)) return;   // never in the cart (the database refuses it too, 0274)
       if (isBlockedForPurchase()) return;
       if (colorMissing()) return;   // the button says เลือกสีก่อน and is disabled; belt and braces
       addItem({
@@ -732,6 +798,30 @@ function openProductModal(product) {
       showShopToast(`เพิ่ม "${product.name}" ลงตะกร้าแล้ว`, 'success');
     };
   }
+}
+
+/** Students initiative (0274): the same window, but the buyer's way forward is
+ *  the seller's link. EVERY element this touches is set on BOTH branches, on
+ *  every open — a link product followed by an ordinary one must get its cart
+ *  back (a message a renderer turns ON must be turned OFF by every other
+ *  outcome, .claude/rules/mistakes.md class 4). */
+function applyLinkMode(product, link) {
+  const show = (id, on) => document.getElementById(id)?.classList.toggle('d-none', !on);
+  show('shopProductModalQtyGroup', !link);
+  show('shopProductModalAdd', !link);
+  show('shopProductModalExternal', link);
+  show('shopProductModalLinkNote', link);
+  // A link product's own price, when the admin gave one; 0 = "see the link".
+  show('shopProductModalPriceRow', !link || unitPriceFor(product, modalState.size) > 0);
+  if (link) {
+    // Cart-only facts that do not apply to something bought elsewhere.
+    ['shopProductModalPreorder', 'shopProductModalPickup', 'shopProductModalStockStatus',
+      'shopProductModalOOS', 'shopProductModalStockLeft'].forEach((id) => show(id, false));
+  }
+  const a = document.getElementById('shopProductModalExternal');
+  if (a) a.setAttribute('href', link ? safeUrl(product.external_url) : '#');
+  const label = document.getElementById('shopProductModalExternalLabel');
+  if (label) label.textContent = (link && String(product.external_label || '').trim()) || 'ดูรายละเอียด / สั่งซื้อ';
 }
 
 /** Is this size entirely out across every color? Used to grey out the

@@ -222,10 +222,17 @@ shop_products (text id PK, name, sub, description, type, source,
                promptpay_qr_id FK shop_promptpay_qrs(id) [null=default], -- mig 0057
                pickup_location_id FK shop_pickup_locations(id) [null], -- mig 0057
                added_at, created_by FK users(id), updated_at)
-  ↳ source IN ('md','rt','mdi','sittikao')  -- mig 0007; = OWNERSHIP KEY:
+  ↳ source IN ('md','rt','mdi','sittikao','student')  -- mig 0007, 'student' 0274; = OWNERSHIP KEY:
     the department that owns/fulfils the product (MD, MDI, …). Multi-department
     shop is Model A (shared, trust-based): access control is GLOBAL today (any
     shop_admin sees all). Future Model B scopes writes/reads per source — see STATE.md.
+  ↳ external_url, external_label (mig 0274) — a Students-initiative product
+    LINKS OUT: CHECK source='student' ⇔ external_url is not null (https only);
+    trigger shop_order_items_no_link_products refuses an order item for one on
+    EVERY path (PRODUCT_UNAVAILABLE); shop_products_keep_ordered_in_shop refuses
+    turning a product that has orders into one (HAS_ORDERS). 'sittikao' is
+    retired in the UI (no filter chip, not offered in the admin picker) but still
+    allowed. Storefront groups: SHOP_SOURCE_GROUPS in src/js/shop/data.js.
   ↳ type = loose text; picker source is shop_product_types (NOT an FK, so
     deleting a type never breaks a product)
   ↳ images jsonb [{url,w,h,color}…] (mig 0203; any length since 0205; [0] = cover) — a product's

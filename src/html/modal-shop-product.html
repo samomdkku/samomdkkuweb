@@ -15,10 +15,13 @@
             <div class="detail-hero" id="shopProductModalHero"></div>
             <div class="detail-info">
               <div class="text-muted small" id="shopProductModalSub"></div>
-              <div class="detail-price">
+              <div class="detail-price" id="shopProductModalPriceRow">
                 <span class="baht">฿</span><span id="shopProductModalPrice"></span>
               </div>
               <p class="detail-desc" id="shopProductModalDesc"></p>
+              <div class="detail-link-note small d-none" id="shopProductModalLinkNote">
+                <i class="bi bi-people me-1"></i>สินค้าจากโครงการของนักศึกษา สั่งซื้อและชำระเงินที่ลิงก์ของผู้ขาย ไม่ผ่านตะกร้าของ SAMO Shop
+              </div>
               <!-- The box used to hold only a calendar icon + the admin's note, so
                    a preorder product's popup never actually SAID preorder — the
                    grid card's PREORDER tag was the only place it appeared. -->
@@ -43,7 +46,7 @@
                 <div class="variant-options" id="shopProductModalColorOptions"></div>
               </div>
 
-              <div class="variant-group">
+              <div class="variant-group" id="shopProductModalQtyGroup">
                 <div class="variant-label">จำนวน</div>
                 <div class="qty-stepper">
                   <button type="button" id="shopProductModalQtyMinus">−</button>
@@ -65,6 +68,13 @@
                   <i class="bi bi-bag-plus me-1"></i>
                   <span id="shopProductModalAddLabel">เพิ่มลงตะกร้า</span>
                 </button>
+                <!-- Students initiative (0274): the buyer goes to the seller's
+                     page instead of the cart. Shown INSTEAD of the add button. -->
+                <a class="btn btn-shop flex-grow-1 d-none" id="shopProductModalExternal"
+                   target="_blank" rel="noopener noreferrer" href="#">
+                  <i class="bi bi-box-arrow-up-right me-1"></i>
+                  <span id="shopProductModalExternalLabel">ดูรายละเอียด / สั่งซื้อ</span>
+                </a>
                 <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">ปิด</button>
               </div>
             </div>

@@ -96,6 +96,7 @@ const PROOFS = [
   ['shop0199-pricing.mjs', 'the database charges the per-size price, and only a signed-in buyer orders, as themselves'],
   ['shop0202-stock-rule.mjs', 'shop stock shown = stock sold; colour, slip, qty and a buyer\'s own edits are checked'],
   ['shop0203-gallery.mjs', 'a product\'s pictures: the cover follows them, a stale tab keeps them, the shape is refused'],
+  ['shop0274-students-initiative.sql', 'a Students-initiative product links out and can never become an order item, on any path'],
   ['shop0206-totals.mjs', 'the shop Discord message\'s totals: service_role only, cancelled orders out'],
   ['discord0207-nicknames.mjs', 'Discord nicknames follow ทีม SAMO — inputs are service-only, a people change queues the linked person'],
   ['discord0208-panel.mjs', 'the Discord bot\'s switch and panel: definer RPCs only, the database stamps who'],

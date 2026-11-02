@@ -14,8 +14,43 @@ export const SHOP_SOURCES = [
   { id: 'md',       label: 'MD',                en: 'MD',            color: 'var(--src-md)' },
   { id: 'rt',       label: 'RT',                en: 'RT',            color: 'var(--src-rt)' },
   { id: 'mdi',      label: 'MDI',               en: 'MDI',           color: 'var(--src-mdi)' },
-  { id: 'sittikao', label: 'สมาคมสิทธิ์เก่า',     en: 'Sittikao',      color: 'var(--src-sittikao)' },
+  // Retired from the filter and the admin picker (owner, 2026-11-02); kept so
+  // a row that still says it reads with its name.
+  { id: 'sittikao', label: 'สมาคมสิทธิ์เก่า',     en: 'Sittikao',      color: 'var(--src-sittikao)', retired: true },
+  // 0274: sold somewhere else — the buyer's button opens `external_url`, never
+  // the cart. The database makes `student` ⇔ "has a link", so `isLinkProduct`
+  // and this source are one fact.
+  { id: 'student',  label: 'Students initiative', en: 'Students initiative', color: 'var(--src-student)' },
 ];
+
+/** The storefront filter (owner, 2026-11-02): SAMO official = MD · MDI · RT;
+ *  Students initiative = the link-out products. A group's `sources` is what
+ *  it matches; a single source is picked inside its group. */
+export const SHOP_SOURCE_GROUPS = [
+  { id: 'official', label: 'SAMO official',       sources: ['md', 'mdi', 'rt'] },
+  { id: 'student',  label: 'Students initiative', sources: ['student'] },
+];
+
+/** Does product `p` pass the source filter `f` ('all', a group id, or a
+ *  source id)? One answer for the grid and for anything else that filters. */
+export function matchesSourceFilter(p, f) {
+  if (!f || f === 'all') return true;
+  const group = SHOP_SOURCE_GROUPS.find((g) => g.id === f);
+  if (group) return group.sources.includes(p?.source);
+  return p?.source === f;
+}
+
+/** A Students-initiative product: shown like any product, bought elsewhere. */
+export function isLinkProduct(p) {
+  return p?.source === 'student' && !!p?.external_url;
+}
+
+/** Sources an admin can give a product: everything but the synthetic 'all'
+ *  and the retired ones — unless the product already holds a retired one, so
+ *  opening it never silently changes it. */
+export function pickableSources(current) {
+  return SHOP_SOURCES.filter((s) => s.id !== 'all' && (!s.retired || s.id === current));
+}
 
 // Built-in fallback. Since migration 0057 the real list lives in
 // shop_product_types and is loaded into `typesCache` at shop init; this

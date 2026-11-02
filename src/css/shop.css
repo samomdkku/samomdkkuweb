@@ -41,6 +41,7 @@
   --src-rt:       #b54a6c;
   --src-mdi:      #2e8467;
   --src-sittikao: #8a5cb5;
+  --src-student:  #b5761c;
 
   /* Order-status palette */
   --status-pending:   #b78103;
@@ -495,6 +496,7 @@
 .shop-tab .product-source[data-src="rt"]       .src-dot { background: var(--src-rt); }
 .shop-tab .product-source[data-src="mdi"]      .src-dot { background: var(--src-mdi); }
 .shop-tab .product-source[data-src="sittikao"] .src-dot { background: var(--src-sittikao); }
+.shop-tab .product-source[data-src="student"]  .src-dot { background: var(--src-student); }
 .shop-tab .product-name {
   font-family: "Prompt", sans-serif;
   font-weight: 600;
@@ -546,6 +548,16 @@
   background: color-mix(in srgb, #fde8e8 var(--tint-mix), var(--surface));
   border-color: #f3b6b6;
   border-color: color-mix(in srgb, #f3b6b6 var(--line-mix), var(--surface));
+}
+.shop-tab .product-stock-hint.is-link { color: var(--src-student); }
+.shop-tab .product-price .price-link { font-size: .85rem; font-weight: 600; color: var(--shop-ink-500); }
+.shop-tab .detail-link-note {
+  border-left: 3px solid var(--src-student);
+  border-radius: 6px;
+  padding: .5rem .8rem;
+  margin-bottom: 1rem;
+  color: var(--shop-ink-500);
+  background: var(--shop-50);
 }
 .shop-tab .product-card .add-btn {
   background: var(--shop-cream-100);

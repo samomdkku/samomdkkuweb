@@ -59,6 +59,7 @@ const NOT_A_PORTRAIT = new Map([
   ['projects.drive_folder_url', 'a Drive folder, not a file'],
   // An arbitrary destination somebody typed — not an upload this app owns.
   ['shop_banners.link_url', 'an external link, not an uploaded file'],
+  ['shop_products.external_url', 'a Students-initiative seller\'s link (0274), not an uploaded file'],
   // ── Drive files, but a DIFFERENT cleanup and a different URL vocabulary ────
   // These are real Drive files, and they are deliberately NOT counted here.
   // `photo_reference_count` compares URL STRINGS, and one Drive file has many

@@ -5,7 +5,7 @@
 
 import { escHtml, safeUrl } from '../utils.js';
 import {
-  thb, findSource, SHOP_SOURCES, slugify, sanitizeOrderCode,
+  thb, findSource, pickableSources, slugify, sanitizeOrderCode,
   STOCK_STATUSES, STOCK_STATUS_META, stockKey, totalStock, priceRange,
   getShopTypes, getPromptpayQrs, getPickupLocations,
   productImages, pictureAt, imageBase, CONFIRM_PICK_OVER, activeStock,
@@ -188,7 +188,7 @@ export function renderProductEditor() {
           <input id="shopProdPrice" type="number" min="0" class="form-control" value="${Number(p.price) || 0}" />
           <div class="form-text">ราคาเมื่อสินค้าพร้อมส่ง</div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3" data-shop-only>
           <label class="small text-muted mb-1">ราคา Preorder (บาท)</label>
           <input id="shopProdPreorderPrice" type="number" min="0" class="form-control"
                  value="${p.preorder_price == null ? '' : Number(p.preorder_price)}"
@@ -208,9 +208,10 @@ export function renderProductEditor() {
         <div class="col-md-4">
           <label class="small text-muted mb-1">แหล่งที่มา</label>
           <select id="shopProdSource" class="form-select">
-            ${SHOP_SOURCES.filter((s) => s.id !== 'all').map((s) =>
+            ${pickableSources(p.source).map((s) =>
               `<option value="${s.id}" ${p.source === s.id ? 'selected' : ''}>${escHtml(s.label)}</option>`).join('')}
           </select>
+          <div class="form-text" data-link-only>ขายที่อื่น — ลูกค้ากดแล้วไปที่ลิงก์ ไม่เข้าตะกร้า</div>
         </div>
         <div class="col-md-4">
           <label class="small text-muted mb-1">ประเภท</label>
@@ -219,14 +220,27 @@ export function renderProductEditor() {
               `<option value="${t.id}" ${p.type === t.id ? 'selected' : ''}>${escHtml(t.label)}</option>`).join('')}
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-4" data-shop-only>
           <label class="small text-muted mb-1">สถานะสต็อก</label>
           <select id="shopProdStockStatus" class="form-select">
             ${STOCK_STATUSES.map((s) =>
               `<option value="${s}" ${p.stock_status === s ? 'selected' : ''}>${escHtml(STOCK_STATUS_META[s]?.label || s)}</option>`).join('')}
           </select>
         </div>
-        <div class="col-md-6">
+        <div class="col-12" data-link-only>
+          <div class="p-3 rounded" style="background: var(--shop-50, #f0f7f1); border: 1px solid var(--shop-100, #d6e9da);">
+            <label class="small fw-bold mb-1" for="shopProdExternalUrl">ลิงก์ที่ลูกค้าจะไปดู / สั่งซื้อ</label>
+            <input id="shopProdExternalUrl" class="form-control font-mono" inputmode="url" maxlength="2000"
+              value="${escHtml(p.external_url || '')}" placeholder="https://…" />
+            <label class="small text-muted mb-1 mt-2" for="shopProdExternalLabel">ข้อความบนปุ่ม (ไม่บังคับ)</label>
+            <input id="shopProdExternalLabel" class="form-control" maxlength="40"
+              value="${escHtml(p.external_label || '')}" placeholder="ดูรายละเอียด / สั่งซื้อ" />
+            <div class="form-text mb-0">
+              สินค้านี้ไม่มีสต็อก ไม่มีตะกร้า และไม่มีคำสั่งซื้อใน SAMO Shop — ราคาใส่ 0 ได้ ถ้าให้ลูกค้าดูราคาที่ลิงก์
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6" data-shop-only>
           <label class="small text-muted mb-1">บัญชี PromptPay รับเงิน</label>
           <select id="shopProdQr" class="form-select">
             <option value="" ${p.promptpay_qr_id == null ? 'selected' : ''}>ค่าเริ่มต้น (บัญชีหลัก)</option>
@@ -235,7 +249,7 @@ export function renderProductEditor() {
           </select>
           <div class="form-text">ตะกร้าที่มีสินค้าหลายบัญชีจะถูกแยกเป็นหลายคำสั่งซื้อตอน checkout</div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-6" data-shop-only>
           <label class="small text-muted mb-1">สถานที่รับสินค้า (แสดงให้ลูกค้าตอนซื้อ)</label>
           <select id="shopProdPickup" class="form-select">
             <option value="" ${p.pickup_location_id == null ? 'selected' : ''}>ไม่ระบุ</option>
@@ -243,7 +257,7 @@ export function renderProductEditor() {
               `<option value="${l.id}" ${String(p.pickup_location_id) === String(l.id) ? 'selected' : ''}>${escHtml(l.label || ('สถานที่ #' + l.id))}${l.is_active ? '' : ' (ปิด)'}</option>`).join('')}
           </select>
         </div>
-        <div class="col-12">
+        <div class="col-12" data-shop-only>
           <div class="p-3 rounded" style="background: var(--shop-50, #f0f7f1); border: 1px solid var(--shop-100, #d6e9da);">
             <label class="small fw-bold mb-1">สถานะผลิตสินค้านี้ (กระทบกับคำสั่งซื้อ)</label>
             <select id="shopProdProductionStatus" class="form-select mb-2" style="max-width:280px;">
@@ -257,11 +271,11 @@ export function renderProductEditor() {
             </div>
           </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-6" data-shop-only>
           <label class="small text-muted mb-1">ไซส์ (คั่นด้วยจุลภาค — เช่น S,M,L,XL หรือ F สำหรับ free-size)</label>
           <input id="shopProdSizes" class="form-control" value="${escHtml((p.sizes || []).join(','))}" />
         </div>
-        <div class="col-md-6">
+        <div class="col-md-6" data-shop-only>
           <label class="small text-muted mb-1">สี (เพิ่มได้ตามต้องการ — ปล่อยว่างถ้าสินค้านี้ไม่มีตัวเลือกสี)</label>
           <div id="shopProdColorsList" class="d-flex flex-column gap-2">${colorPickerRowsHtml(p.colors)}</div>
           <button type="button" class="btn btn-ghost btn-sm mt-1" id="shopProdColorsAdd">
@@ -285,7 +299,7 @@ export function renderProductEditor() {
             <input id="shopProdIsNew" class="form-check-input" type="checkbox" ${p.is_new ? 'checked' : ''} />
             <label for="shopProdIsNew" class="form-check-label">NEW</label>
           </div>
-          <div class="form-check">
+          <div class="form-check" data-shop-only>
             <input id="shopProdIsPresale" class="form-check-input" type="checkbox" ${p.is_presale ? 'checked' : ''} />
             <label for="shopProdIsPresale" class="form-check-label">Preorder</label>
           </div>
@@ -294,11 +308,11 @@ export function renderProductEditor() {
             <label for="shopProdIsActive" class="form-check-label">เปิดขาย</label>
           </div>
         </div>
-        <div class="col-12">
+        <div class="col-12" data-shop-only>
           <label class="small text-muted mb-1">หมายเหตุ Preorder</label>
           <input id="shopProdPresaleNote" class="form-control" value="${escHtml(p.presale_note || '')}" placeholder="เช่น ผลิตเสร็จ 20 มิ.ย. 2026" />
         </div>
-        <div class="col-12">
+        <div class="col-12" data-shop-only>
           <label class="small text-muted mb-1">ราคาต่อไซส์ (ไม่บังคับ)</label>
           <div id="shopProdSizePrices">${sizePricesHtml(p)}</div>
           <div class="small text-muted mt-1">
@@ -306,14 +320,14 @@ export function renderProductEditor() {
             (ถ้าไม่ได้ตั้งไว้ จะใช้ราคาปกติของไซส์นั้น)
           </div>
         </div>
-        <div class="col-12">
+        <div class="col-12" data-shop-only>
           <label class="small text-muted mb-1">สต็อกพร้อมส่ง (ต่อไซส์ × สี) — ใช้เมื่อไม่ได้ติ๊ก Preorder</label>
           <div id="shopProdStockMatrix">${stockMatrixHtml(p, 'stock_matrix')}</div>
           <div class="small text-muted mt-1">
             ตั้งค่า "0" สำหรับตัวเลือกที่หมด — เว้นว่างไว้แปลว่ายังไม่ระบุ
           </div>
         </div>
-        <div class="col-12">
+        <div class="col-12" data-shop-only>
           <label class="small text-muted mb-1">จำนวนรับ Preorder (ต่อไซส์ × สี) — ใช้เมื่อติ๊ก Preorder</label>
           <div id="shopProdPreorderStockMatrix">${stockMatrixHtml(p, 'preorder_stock_matrix')}</div>
           <div class="small text-muted mt-1">
@@ -331,6 +345,9 @@ export function renderProductEditor() {
     </div>`;
 
   wireImageStrip(p);
+  // Students initiative (0274): the source decides which half of the form applies.
+  document.getElementById('shopProdSource')?.addEventListener('change', syncLinkFields);
+  syncLinkFields();
 
   // Re-render the matrix when sizes change so admin can dial in stock
   // immediately after editing variants. Color rows handle their own
@@ -645,6 +662,15 @@ function readStockMatrix(field) {
  *  state.productEditor (picking an image, changing sizes/colours, reloading
  *  products), and without collecting first everything typed since it opened —
  *  name, prices, stock numbers — was reset to the saved values. */
+/** Show the link fields for a Students-initiative product and hide what only
+ *  a product sold HERE has (stock, sizes, preorder, payment, pickup). Hidden,
+ *  not removed: switching back keeps what was typed. */
+function syncLinkFields() {
+  const link = document.getElementById('shopProdSource')?.value === 'student';
+  document.querySelectorAll('#shopAdminProductEditor [data-link-only]').forEach((el) => el.classList.toggle('d-none', !link));
+  document.querySelectorAll('#shopAdminProductEditor [data-shop-only]').forEach((el) => el.classList.toggle('d-none', link));
+}
+
 function readProductForm() {
   // Read color rows out of the picker UI. Each row contributes
   // { id, label, hex } — id falls back to a slug of the label so admin
@@ -689,6 +715,16 @@ function readProductForm() {
     // account / no pickup line).
     promptpay_qr_id: (() => { const v = document.getElementById('shopProdQr')?.value; return v ? Number(v) : null; })(),
     pickup_location_id: (() => { const v = document.getElementById('shopProdPickup')?.value; return v ? Number(v) : null; })(),
+    // 0274: the database requires a link exactly when the source is student,
+    // so another source always sends null — switching back clears the link.
+    ...(() => {
+      const link = (document.getElementById('shopProdSource')?.value || '') === 'student';
+      const url = document.getElementById('shopProdExternalUrl')?.value.trim() || '';
+      const label = document.getElementById('shopProdExternalLabel')?.value.trim() || '';
+      return link
+        ? { external_url: url || null, external_label: label || null, is_presale: false }
+        : { external_url: null, external_label: null };
+    })(),
   };
 }
 
@@ -710,6 +746,14 @@ async function saveProductForm() {
   if (!e) return;
   const name = document.getElementById('shopProdName')?.value.trim() || '';
   if (!name) { showShopToast('กรุณากรอกชื่อสินค้า', 'warn'); return; }
+  if (document.getElementById('shopProdSource')?.value === 'student') {
+    const url = document.getElementById('shopProdExternalUrl')?.value.trim() || '';
+    if (!/^https:\/\/\S+$/.test(url)) {
+      showShopToast('ใส่ลิงก์ที่ขึ้นต้นด้วย https:// — ลูกค้าจะกดไปที่ลิงก์นี้', 'warn');
+      document.getElementById('shopProdExternalUrl')?.focus();
+      return;
+    }
+  }
   if (e._preparing > 0) { showShopToast('กำลังเตรียมรูป — รอสักครู่แล้วกดบันทึกอีกครั้ง', 'warn'); return; }
   // Two colour rows with one id (the new-product template starts with 'black';
   // add another 'ดำ' and both slug to it) merge into ONE stock cell and one
@@ -814,7 +858,10 @@ async function saveProductForm() {
     refreshProducts();
   } catch (err) {
     for (const u of uploadedNow) deleteShopFile(u).catch(() => {});
-    showShopToast(`บันทึกล้มเหลว: ${err.message || err}`, 'error');
+    const msg = /HAS_ORDERS/.test(err?.message || '')
+      ? 'สินค้านี้มีคำสั่งซื้อแล้ว เปลี่ยนเป็น Students initiative ไม่ได้ — สร้างเป็นสินค้าใหม่แทน'
+      : `บันทึกล้มเหลว: ${err.message || err}`;
+    showShopToast(msg, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = original || 'บันทึก'; }
   }
 }

@@ -161,8 +161,11 @@ triggered over ssh (needs the KKU VPN).
 - **Kanban dashboard.** Status-column board for PR staff with department filter
   and quick-edit modal.
 - **SAMO Shop.** Its own storefront look ("samo shop" wordmark, espresso /
-  milk / sky palette) inside the portal. Product catalogue (filter by source /
-  admin-managed type, sort, search), **any number of pictures per product** (swipe
+  milk / sky palette) inside the portal. Product catalogue (filter by source —
+  SAMO official, which opens MD · MDI · RT, or Students initiative — and by
+  admin-managed type, sort, search), **Students initiative products that link
+  out** (pictures and text like any product; the button opens the seller's link,
+  never the cart — the database refuses an order item for one), **any number of pictures per product** (swipe
   gallery, tap to zoom full-screen, picking a colour jumps to its picture;
   admins pick several, reorder, tag a colour), **prices per size (normal and preorder),
   always charged by the database — never the price the browser sends**, cart

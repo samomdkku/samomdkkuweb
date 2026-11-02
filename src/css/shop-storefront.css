@@ -60,6 +60,7 @@
   --src-rt:       #C46B5B;
   --src-mdi:      #6B9C7A;
   --src-sittikao: #8A6BB0;
+  --src-student:  #C98A2E;
 }
 
 /* ---------- Pane ---------- */
@@ -411,6 +412,50 @@ body.shop-mode .samo-footer {
 #pills-shop .sf-source-pill[data-src="rt"]       .sf-dot { background: var(--src-rt); }
 #pills-shop .sf-source-pill[data-src="mdi"]      .sf-dot { background: var(--src-mdi); }
 #pills-shop .sf-source-pill[data-src="sittikao"] .sf-dot { background: var(--src-sittikao); }
+#pills-shop .sf-source-pill[data-src="student"]  .sf-dot { background: var(--src-student); }
+#pills-shop .sf-source-pill[data-src="official"] .sf-dot { background: var(--sf-espresso-soft); }
+#pills-shop .sf-source-pill[data-src="official"].is-active .sf-dot { background: var(--sf-milk); }
+/* ── แหล่งที่มา: groups + the tray a group opens (owner, 2026-11-02) ──────
+   SAMO official's MD · MDI · RT open FROM it, never after the next group.
+   Phone: the three groups are a scroll strip and the tray is its own tinted
+   row just below. Desktop (media query further down): one column, the tray
+   nested under its group with a guide line. Placement is CSS `order`, set on
+   each element by products.js, so one DOM serves both.
+   The reveal is a 0fr→1fr grid row + opacity: a CSS transition re-targets from
+   where it is, so tapping away mid-open reverses smoothly. */
+#pills-shop .sf-source-row { flex-direction: column; overflow: visible; gap: 0; }
+#pills-shop .sf-source-top {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+}
+#pills-shop .sf-source-top::-webkit-scrollbar { display: none; }
+/* Three groups must fit a 390px phone whole — a half-cut "Students initiative"
+   reads as a second-class choice, not as "scroll for more". */
+#pills-shop .sf-source-top { gap: 5px; }
+#pills-shop .sf-source-top > .sf-source-pill { padding: 8px 9px; gap: 4px; }
+#pills-shop .sf-source-top > .sf-source-pill .sf-dot { display: none; }
+#pills-shop .sf-source-pill { transition: background .15s ease, color .15s ease, border-color .15s ease, transform .1s ease-out; }
+#pills-shop .sf-source-pill:active { transform: scale(.97); }
+#pills-shop .sf-chev { font-size: 10px; margin-left: 1px; transition: transform .32s cubic-bezier(.2, .8, .2, 1); }
+#pills-shop .sf-source-pill.has-tray.is-active .sf-chev { transform: rotate(180deg); }
+#pills-shop .sf-source-sub {
+  display: grid; grid-template-rows: 0fr; opacity: 0;
+  transition: grid-template-rows .34s cubic-bezier(.2, .8, .2, 1), opacity .22s ease, margin-top .34s cubic-bezier(.2, .8, .2, 1);
+}
+#pills-shop .sf-source-sub.is-open { grid-template-rows: 1fr; opacity: 1; margin-top: 8px; }
+#pills-shop .sf-source-sub-inner {
+  min-height: 0; overflow: hidden;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 0 8px; border-radius: 18px;
+  background: color-mix(in srgb, var(--sf-taupe) 14%, transparent);
+  transform: translateY(-6px);
+  transition: transform .34s cubic-bezier(.2, .8, .2, 1), padding .34s cubic-bezier(.2, .8, .2, 1);
+}
+#pills-shop .sf-source-sub.is-open .sf-source-sub-inner { transform: none; padding: 8px; }
+#pills-shop .sf-source-pill.is-sub { font-size: 12px; padding: 6px 12px; }
+@media (prefers-reduced-motion: reduce) {
+  #pills-shop .sf-source-sub, #pills-shop .sf-source-sub-inner, #pills-shop .sf-chev { transition: opacity .15s ease; }
+  #pills-shop .sf-source-sub-inner { transform: none; }
+}
 
 #pills-shop .sf-icon-tabs { gap: 12px; }
 #pills-shop .sf-icon-tab {
@@ -618,6 +663,20 @@ body.shop-mode .samo-footer {
     flex-direction: column; overflow: visible; gap: 6px; margin-bottom: 24px;
   }
   #pills-shop .sf-source-pill { width: 100%; padding: 10px 14px; }
+  /* One column: the strip dissolves into it, the tray sits under its group. */
+  #pills-shop .sf-source-row { gap: 0; }
+  #pills-shop .sf-source-top { display: contents; }
+  #pills-shop .sf-source-top > .sf-source-pill { margin-bottom: 6px; padding: 10px 14px; gap: 7px; }
+  #pills-shop .sf-source-top > .sf-source-pill .sf-dot { display: inline-block; }
+  #pills-shop .sf-source-sub.is-open { margin-top: 0; margin-bottom: 6px; }
+  #pills-shop .sf-source-sub-inner {
+    flex-direction: column; flex-wrap: nowrap; gap: 4px;
+    background: none; border-radius: 0;
+    margin-left: 14px; padding: 0 0 0 10px;
+    border-left: 1.5px solid var(--sf-line);
+  }
+  #pills-shop .sf-source-sub.is-open .sf-source-sub-inner { padding: 2px 0 2px 10px; }
+  #pills-shop .sf-source-pill.is-sub { width: 100%; padding: 7px 14px; }
   #pills-shop .sf-icon-tabs { flex-direction: column; overflow: visible; gap: 4px; }
   #pills-shop .sf-icon-tab {
     flex-direction: row; width: 100%; gap: 12px;

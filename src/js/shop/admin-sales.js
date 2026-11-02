@@ -9,7 +9,7 @@
 // ==============================================
 
 import { escHtml } from '../utils.js';
-import { thb, findSource, SHOP_SOURCES, thumbStyle } from './data.js';
+import { thb, findSource, SHOP_SOURCES, thumbStyle, isLinkProduct } from './data.js';
 import {
   salesReport, sortSalesRows, salesCsv, salesCsvName, niceTicks, compactNumber,
   HANDOVER_STAGES, SALES_PERIODS, thDay, wholePercents,
@@ -112,7 +112,8 @@ function renderFilters() {
   if (!host) return;
   // Only sources that own a product or appear on a line — a chip that can
   // only ever say "nothing" is noise.
-  const present = new Set(view.products.map((p) => p.source).filter(Boolean));
+  // A Students-initiative product (0274) is never sold here — no chip for it.
+  const present = new Set(view.products.filter((p) => !isLinkProduct(p)).map((p) => p.source).filter(Boolean));
   for (const o of view.orders) for (const it of o.items || []) if (it?.product_source) present.add(it.product_source);
   const list = SHOP_SOURCES.filter((s) => s.id !== 'all' && (present.has(s.id) || view.sources.has(s.id)));
   if (list.length < 2 && view.sources.size === 0) { host.innerHTML = ''; return; }
