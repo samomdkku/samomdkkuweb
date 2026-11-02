@@ -10,6 +10,9 @@
 //      ยังไม่เคยเข้าระบบ (nobody has signed in with it);
 //   4. an address with a comma is refused on save (the …@kku,ail.com typo);
 //   5. the pin moves the group back to ประจำปี (row gone from the ถาวร list);
+//   5b. a ถาวร group made ELSEWHERE (another tab / the database) while this
+//      tab sits on ประจำปี arrives by live sync on the ถาวร side, never as a
+//      yearly ฝ่าย (0273 — the "SAMOWEB FOUNDER MD50" report);
 //   6. 390px phone on ถาวร: no sideways scroll; no console errors.
 //   ALWAYS deletes the group (its member cascades) and the account.
 //
